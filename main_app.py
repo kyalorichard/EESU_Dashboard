@@ -152,12 +152,12 @@ st.markdown("""
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    width: 100%;
+    width: 300px;
     margin-bottom: 20px;
 }
 .metric-card {
     flex: 1;
-    height: 180px;
+    height: 120px;
     border-radius: 20px;
     background: linear-gradient(145deg, #ffffff, #e0e5ec);
     box-shadow: 6px 6px 12px #c8d0e7, -6px -6px 12px #ffffff;
