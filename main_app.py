@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import altair as alt
 import plotly.express as px
-
+import time as t
 # --------------------------
 # Remove Streamlit padding/margin for full width
 # --------------------------
@@ -177,7 +177,7 @@ for i, (label, val, icon) in enumerate(summary_values):
             """,
             unsafe_allow_html=True
         )
-        st.sleep(0.05)
+        t.sleep(0.05)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
