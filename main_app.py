@@ -72,6 +72,8 @@ def show_summary(df_list):
     avg_val = np.mean([df['Value1'].mean() for df in df_list])
     st.markdown(f"""
     <div style='
+        display: flex;
+        justify-content: center;
         background-color: #4CAF50;
         padding: 20px;
         border-radius: 10px;
@@ -80,18 +82,24 @@ def show_summary(df_list):
         font-family: Arial;
         box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
         margin-bottom: 20px;
+        width: 100%;
     '>
-        <h2>Global Summary</h2>
-        <h3>Total Value1: {total_val}</h3>
-        <h3>Average Value1: {avg_val:.2f}</h3>
+        <div>
+            <h2>Global Summary</h2>
+            <h3>Total Value1: {total_val}</h3>
+            <h3>Average Value1: {avg_val:.2f}</h3>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
 show_summary([df1_f, df2_f, df3_f])
 
 # --------------------------
-# Center: Three Bar Plots
+# Center: Horizontal Flex Container for 3 Bar Plots
 # --------------------------
+st.subheader("Bar Plots")
+col1, col2, col3 = st.columns(3, gap="large")  # horizontal flex container
+
 def create_bar_plot(df, title):
     if df.empty:
         st.warning(f"No data for {title}")
@@ -104,13 +112,17 @@ def create_bar_plot(df, title):
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
-st.subheader("Bar Plots")
-cols = st.columns(3, gap="large")
-plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
-for idx, (title, df_tab) in enumerate(plots):
-    with cols[idx]:
-        st.subheader(title)
-        create_bar_plot(df_tab, title)
+with col1:
+    st.subheader("Plot 1")
+    create_bar_plot(df1_f, "Plot 1")
+
+with col2:
+    st.subheader("Plot 2")
+    create_bar_plot(df2_f, "Plot 2")
+
+with col3:
+    st.subheader("Plot 3")
+    create_bar_plot(df3_f, "Plot 3")
 
 # --------------------------
 # Bottom: Interactive Map
@@ -131,7 +143,7 @@ fig = px.choropleth(
 )
 map_click = st.plotly_chart(fig, use_container_width=True)
 
-# Capture click and update session state
+# Capture click to update session state
 clicked = st.session_state.get("clicked_country", None)
 if map_click:
     try:
