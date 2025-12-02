@@ -58,24 +58,58 @@ if "selected_country" not in st.session_state:
 st.sidebar.header("Global Filters")
 selected_category = st.sidebar.selectbox("Category", ["All"] + categories)
 selected_tags = st.sidebar.multiselect("Tags", tags, default=tags)
-start_date, end_date = st.sidebar.date_input("Date Range", [df_map['Date'].min(), df_map['Date'].max()])
-min_value, max_value = st.sidebar.slider("Value1 Range", 0, 100, (0,100))
+selected_country = st.sidebar.selectbox("Country", ["All"] + countries)
+
+start_date, end_date = st.sidebar.date_input(
+    "Date Range",
+    [df[date_col].min(), df[date_col].max()]
+)
+
+min_value, max_value = st.sidebar.slider(
+    "Value1 Range",
+    int(df[value1_col].min()),
+    int(df[value1_col].max()),
+    (int(df[value1_col].min()), int(df[value1_col].max()))
+)
+
 if st.sidebar.button("Reset Filters"):
-    st.session_state.selected_country = "All"
+    selected_category = "All"
+    selected_tags = tags
+    selected_country = "All"
+    min_value, max_value = int(df[value1_col].min()), int(df[value1_col].max())
 
 # --------------------------
 # Filter Function
 # --------------------------
-def filter_data(df, country_filter):
-    df_filtered = df.copy()
+def filter_data(source_df):
+    df_filtered = source_df.copy()
+
     if selected_category != "All":
-        df_filtered = df_filtered[df_filtered["Category"]==selected_category]
-    df_filtered = df_filtered[df_filtered["Tag"].isin(selected_tags)]
-    df_filtered = df_filtered[(df_filtered["Date"] >= pd.to_datetime(start_date)) & (df_filtered["Date"] <= pd.to_datetime(end_date))]
-    df_filtered = df_filtered[(df_filtered["Value1"] >= min_value) & (df_filtered["Value1"] <= max_value)]
-    if country_filter != "All":
-        df_filtered = df_filtered[df_filtered["Country"]==country_filter]
+        df_filtered = df_filtered[df_filtered[category_col]==selected_category]
+
+    if selected_country != "All":
+        df_filtered = df_filtered[df_filtered[country_col]==selected_country]
+
+    df_filtered = df_filtered[df_filtered[tag_col].isin(selected_tags)]
+
+    df_filtered = df_filtered[
+        (df_filtered[date_col] >= pd.to_datetime(start_date)) &
+        (df_filtered[date_col] <= pd.to_datetime(end_date))
+    ]
+
+    df_filtered = df_filtered[
+        (df_filtered[value1_col] >= min_value) &
+        (df_filtered[value1_col] <= max_value)
+    ]
+
     return df_filtered
+
+
+df_filtered = filter_data(df)
+
+# Ensure it's never undefined / empty-safe
+df_filtered = df_filtered if df_filtered is not None else pd.DataFrame(columns=df.columns)
+
 
 df1_f = filter_data(df1, st.session_state.selected_country)
 df2_f = filter_data(df2, st.session_state.selected_country)
