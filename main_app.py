@@ -84,58 +84,61 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: Single card with all metrics horizontally
+# Top Summary: Equal size, spacing, one row at the top
 # --------------------------
+
 summary_values = [
-    ("Total Value1", df1_f['Value1'].sum()),
-    ("Avg Value1", df1_f['Value1'].mean()),
-    ("Total Value2", df2_f['Value2'].sum()),
-    ("Avg Value2", df2_f['Value2'].mean()),
-    ("Count Records", len(df_map_f))
+    ("Total Value1", df_filtered[value1_col].sum()),
+    ("Avg Value1", df_filtered[value1_col].mean()),
+    ("Total Value2", df_filtered[value2_col].sum()),
+    ("Avg Value2", df_filtered[value2_col].mean()),
+    ("Count Records", len(df_filtered))
 ]
 
 st.markdown("""
 <style>
-.summary-card-horizontal {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-around;
-    align-items: center;
-    width: 100%;
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 10px;
-    padding: 20px;
-    font-family: Arial;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-    transition: transform 0.2s, box-shadow 0.2s;
-    margin-bottom: 20px;
-}
-.summary-card-horizontal:hover {
-    transform: scale(1.02);
-    box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
-}
-.summary-item-horizontal {
-    text-align: center;
-    flex: 1;
-}
-@media (max-width: 768px) {
-    .summary-card-horizontal {
-        flex-direction: column;
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        width: 100%;
+        margin-top: -10px;
     }
-    .summary-item-horizontal {
-        margin: 5px 0;
+    .summary-card {
+        flex: 1;
+        background: linear-gradient(145deg, #e0e0e0, #ffffff);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        font-family: 'Arial', sans-serif;
+        box-shadow: 3px 3px 8px rgba(0,0,0,0.15), -3px -3px 8px rgba(255,255,255,0.7);
+        transition: all 0.2s ease-in-out;
+        height: 110px;
+        min-width: 120px;
     }
-}
+    .summary-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 5px 5px 15px rgba(0,0,0,0.25), -5px -5px 15px rgba(255,255,255,0.9);
+    }
+    .summary-title {
+        font-size: 14px;
+        margin-bottom: 5px;
+        color: #444;
+    }
+    .summary-value {
+        font-size: 22px;
+        font-weight: bold;
+        color: #2F4F4F;
+    }
 </style>
-<div class="summary-card-horizontal">
+<div class="summary-row">
 """, unsafe_allow_html=True)
 
 for title, value in summary_values:
     st.markdown(f"""
-    <div class="summary-item-horizontal">
-        <h4>{title}</h4>
-        <h3>{value:.2f}</h3>
+    <div class="summary-card">
+        <div class="summary-title">{title}</div>
+        <div class="summary-value">{value:.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
