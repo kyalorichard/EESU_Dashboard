@@ -84,7 +84,7 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: Horizontal row with equal spacing
+# Top Summary: Horizontal row, side by side, equal spacing
 # --------------------------
 summary_values = [
     ("Total Value1", df1_f['Value1'].sum()),
@@ -99,12 +99,13 @@ st.markdown("""
 .summary-container {
     display: flex;
     flex-direction: row;  /* horizontal layout */
-    gap: 20px;            /* equal spacing between cards */
+    justify-content: space-between; /* equal spacing between cards */
     width: 100%;
     margin-bottom: 20px;
 }
 .summary-card {
-    flex: 1;               /* equal width */
+    flex: 1;               /* equal width for all cards */
+    margin: 0 10px;        /* small horizontal margin */
     box-sizing: border-box;
     background-color: #4CAF50;
     color: white;
@@ -123,6 +124,9 @@ st.markdown("""
 @media (max-width: 768px) {
     .summary-container {
         flex-direction: column;
+    }
+    .summary-card {
+        margin: 5px 0;
     }
 }
 </style>
