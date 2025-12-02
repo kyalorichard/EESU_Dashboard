@@ -81,35 +81,16 @@ if st.sidebar.button("Reset Filters"):
 # --------------------------
 # Filter Function
 # --------------------------
-def filter_data(source_df):
-    df_filtered = source_df.copy()
-
+def filter_data(df, country_filter):
+    df_filtered = df.copy()
     if selected_category != "All":
-        df_filtered = df_filtered[df_filtered[category_col]==selected_category]
-
-    if selected_country != "All":
-        df_filtered = df_filtered[df_filtered[country_col]==selected_country]
-
-    df_filtered = df_filtered[df_filtered[tag_col].isin(selected_tags)]
-
-    df_filtered = df_filtered[
-        (df_filtered[date_col] >= pd.to_datetime(start_date)) &
-        (df_filtered[date_col] <= pd.to_datetime(end_date))
-    ]
-
-    df_filtered = df_filtered[
-        (df_filtered[value1_col] >= min_value) &
-        (df_filtered[value1_col] <= max_value)
-    ]
-
+        df_filtered = df_filtered[df_filtered["Category"]==selected_category]
+    df_filtered = df_filtered[df_filtered["Tag"].isin(selected_tags)]
+    df_filtered = df_filtered[(df_filtered["Date"] >= pd.to_datetime(start_date)) & (df_filtered["Date"] <= pd.to_datetime(end_date))]
+    df_filtered = df_filtered[(df_filtered["Value1"] >= min_value) & (df_filtered["Value1"] <= max_value)]
+    if country_filter != "All":
+        df_filtered = df_filtered[df_filtered["Country"]==country_filter]
     return df_filtered
-
-
-df_filtered = filter_data(df)
-
-# Ensure it's never undefined / empty-safe
-df_filtered = df_filtered if df_filtered is not None else pd.DataFrame(columns=df.columns)
-
 
 df1_f = filter_data(df1, st.session_state.selected_country)
 df2_f = filter_data(df2, st.session_state.selected_country)
@@ -118,17 +99,16 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# TOP METRICS SUMMARY (equal size, sticky, icons, animated)
+# Top Summary: Single card with all metrics horizontally
 # --------------------------
 
 summary_values = [
-    ("Total Value1", df_filtered[value1_col].sum(), "📊"),
-    ("Avg Value1", df_filtered[value1_col].mean(), "📈"),
-    ("Total Value2", df_filtered[value2_col].sum(), "💰"),
-    ("Avg Value2", df_filtered[value2_col].mean(), "📉"),
-    ("Count Records", len(df_filtered), "🧾")
+    ("Total Value1", df1_f[value1].sum(), "📊"),
+    ("Avg Value1", df1_f[value1].mean(), "📈"),
+    ("Total Value2", df1_f[value2].sum(), "💰"),
+    ("Avg Value2", df1_f[value2].mean(), "📉"),
+    ("Count Records", len(df1_f), "🧾")
 ]
-
 # sticky summary row CSS
 st.markdown("""
 <style>
