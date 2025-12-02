@@ -196,15 +196,19 @@ with st.container():
             create_bar_plot(df_tab, title)
 
 # --------------------------
-# Map + Line Chart on the same row
+# Map + Line Chart on the same row (only countries with data)
 # --------------------------
 st.subheader("Map & Line Chart")
 with st.container():
     col_map, col_line = st.columns([1,1], gap="medium")  # equal width
+
     # Map
     with col_map:
         agg_df = df_map_f.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
+        # Only keep countries with data
+        agg_df = agg_df[(agg_df["Value1"] > 0) | (agg_df["Value2"] > 0)]
         agg_df["iso_alpha"] = agg_df["Country"].map({"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"})
+
         fig_map = px.choropleth(
             agg_df,
             locations="iso_alpha",
@@ -215,8 +219,8 @@ with st.container():
             scope="africa"
         )
         fig_map.update_layout(
-            paper_bgcolor='#f0f0f3',  # card background
-            plot_bgcolor='#f0f0f3'    # plot area background
+            paper_bgcolor='#f0f0f3',
+            plot_bgcolor='#f0f0f3'
         )
         st.plotly_chart(fig_map, use_container_width=True)
 
