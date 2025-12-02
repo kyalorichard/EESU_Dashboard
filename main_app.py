@@ -5,6 +5,23 @@ import altair as alt
 import plotly.express as px
 
 # --------------------------
+# Remove Streamlit Padding/Margin for Full Width
+# --------------------------
+st.markdown("""
+<style>
+    .block-container {
+        padding-left: 0rem;
+        padding-right: 0rem;
+        max-width: 100%;
+    }
+    .stColumn > div {
+        padding-left: 0rem;
+        padding-right: 0rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --------------------------
 # Sample Data
 # --------------------------
 np.random.seed(42)
@@ -65,7 +82,7 @@ df2_f = filter_data(df2, st.session_state.selected_country)
 df3_f = filter_data(df3, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary Card (Full Width)
+# Top Summary Card
 # --------------------------
 def show_summary(df_list):
     total_val = sum(df['Value1'].sum() for df in df_list)
@@ -91,14 +108,10 @@ def show_summary(df_list):
 show_summary([df1_f, df2_f, df3_f])
 
 # --------------------------
-# Center: Three Full-Width Bar Plots in Horizontal Flex
+# Responsive Full-Width Bar Plots
 # --------------------------
 st.subheader("Bar Plots")
 plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
-
-# Use st.columns with equal width to fill space
-num_cols = len(plots)
-cols = st.columns(num_cols, gap="small")  # "small" gap to maximize width
 
 def create_bar_plot(df, title):
     if df.empty:
@@ -112,13 +125,16 @@ def create_bar_plot(df, title):
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
-for idx, (title, df_tab) in enumerate(plots):
-    with cols[idx]:
-        st.subheader(title)
-        create_bar_plot(df_tab, title)
+# Use a container to make full width
+with st.container():
+    cols = st.columns(len(plots), gap="small")
+    for idx, (title, df_tab) in enumerate(plots):
+        with cols[idx]:
+            st.subheader(title)
+            create_bar_plot(df_tab, title)
 
 # --------------------------
-# Bottom: Interactive Map (Full Width)
+# Bottom: Full-Width Interactive Map
 # --------------------------
 st.subheader("Interactive Country Map")
 map_df = filter_data(all_data, st.session_state.selected_country)
