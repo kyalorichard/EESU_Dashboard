@@ -172,7 +172,7 @@ st.markdown("""
     display: flex;
     justify-content: space-between;
     gap: 14px;
-    width: 100%;
+    width: 120px;
     padding: 12px 0 18px 0;
     background: #f5f7fa;
 }
