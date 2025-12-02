@@ -157,9 +157,9 @@ st.markdown("""
 }
 .metric-card {
     flex: 1;
-    height: 120px;
+    height: 150px;
     border-radius: 20px;
-    background: linear-gradient(145deg, #ffffff, #e0e5ec);
+    background: linear-gradient(145deg, #d0e7ff, #a0d4ff);
     box-shadow: 6px 6px 12px #c8d0e7, -6px -6px 12px #ffffff;
     display: flex;
     flex-direction: column;
