@@ -9,17 +9,43 @@ import plotly.express as px
 # --------------------------
 st.markdown("""
 <style>
-    .block-container {
-        padding-left: 0rem;
-        padding-right: 0rem;
-        max-width: 100%;
-    }
-    .stColumn > div {
-        padding-left: 0rem;
-        padding-right: 0rem;
-    }
+.summary-container {
+    display: flex;
+    flex-direction: column; /* stack vertically */
+    gap: 15px;              /* space between cards */
+    width: 100%;
+    margin-bottom: 20px;
+}
+.summary-card {
+    flex: 1;
+    box-sizing: border-box;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    font-family: Arial;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.summary-card:hover {
+    transform: scale(1.02); /* slightly smaller scale for vertical layout */
+    box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
+}
 </style>
+<div class="summary-container">
 """, unsafe_allow_html=True)
+
+for title, value in summary_values:
+    st.markdown(f"""
+    <div class='summary-card'>
+        <h4>{title}</h4>
+        <h3>{value:.2f}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
 
 # --------------------------
 # Sample Data
