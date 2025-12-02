@@ -87,12 +87,14 @@ df_map_f = filter_data(df_map, st.session_state.selected_country)
 # --------------------------
 
 summary_values = [
-    ("Total Value1", df1_f['value1'].sum(), "📊"),
-    ("Avg Value1", df1_f['value1'].mean(), "📈"),
-    ("Total Value2", df1_f['value2'].sum(), "💰"),
-    ("Avg Value2", df1_f['value2'].mean(), "📉"),
-    ("Count Records", len(df1_f), "🧾")
+    ("Total Value1", df1_f['Value1'].sum(), "📊"),
+    ("Avg Value1", df1_f['Value1'].mean(), "📈"),
+    ("Total Value2", df2_f['Value2'].sum(), "💰"),
+    ("Avg Value2", df2_f['Value2'].mean(), "📉"),
+    ("Count Records", len(df_map_f), "🧾")
 ]
+
+
 # sticky summary row CSS
 st.markdown("""
 <style>
