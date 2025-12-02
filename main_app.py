@@ -84,62 +84,100 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: Equal size, spacing, one row at the top
+# TOP METRICS SUMMARY (equal size, sticky, icons, animated)
 # --------------------------
+
 summary_values = [
-    ("Total Value1", df_filtered[value1_col].sum()),
-    ("Avg Value1", df_filtered[value1_col].mean()),
-    ("Total Value2", df_filtered[value2_col].sum()),
-    ("Avg Value2", df_filtered[value2_col].mean()),
-    ("Count Records", len(df_filtered))
+    ("Total Value1", df_filtered[value1_col].sum(), "📊"),
+    ("Avg Value1", df_filtered[value1_col].mean(), "📈"),
+    ("Total Value2", df_filtered[value2_col].sum(), "💰"),
+    ("Avg Value2", df_filtered[value2_col].mean(), "📉"),
+    ("Count Records", len(df_filtered), "🧾")
 ]
 
+# sticky summary row CSS
 st.markdown("""
 <style>
-    .summary-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 15px;
-        width: 100%;
-        margin-top: -10px;
-    }
-    .summary-card {
-        flex: 1;
-        background: linear-gradient(145deg, #e0e0e0, #ffffff);
-        border-radius: 12px;
-        padding: 15px;
-        text-align: center;
-        font-family: 'Arial', sans-serif;
-        box-shadow: 3px 3px 8px rgba(0,0,0,0.15), -3px -3px 8px rgba(255,255,255,0.7);
-        transition: all 0.2s ease-in-out;
-        height: 110px;
-        min-width: 120px;
-    }
-    .summary-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 5px 5px 15px rgba(0,0,0,0.25), -5px -5px 15px rgba(255,255,255,0.9);
-    }
-    .summary-title {
-        font-size: 14px;
-        margin-bottom: 5px;
-        color: #444;
-    }
-    .summary-value {
-        font-size: 22px;
-        font-weight: bold;
-        color: #2F4F4F;
-    }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.metric-number {
+  font-size: 26px;
+  font-weight: bold;
+}
+.metric-label {
+  font-size: 14px;
+  color: #333;
+  margin-top: 4px;
+}
+.metric-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+.summary-row {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    padding: 12px 0 18px 0;
+    background: #f5f7fa;
+}
+.metric-card {
+    flex: 1;
+    border-radius: 16px;
+    padding: 12px;
+    text-align: center;
+    background: linear-gradient(145deg, #ffffff, #e6ebf1);
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.08), -4px -4px 10px rgba(255,255,255,0.8);
+    animation: fadeInUp 0.4s ease-out forwards;
+    height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+.metric-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 6px 6px 18px rgba(0,0,0,0.14), -6px -6px 18px rgba(255,255,255,0.9);
+}
 </style>
+
 <div class="summary-row">
 """, unsafe_allow_html=True)
 
-for title, value in summary_values:
-    st.markdown(f"""
-    <div class="summary-card">
-        <div class="summary-title">{title}</div>
-        <div class="summary-value">{value:.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+# number animation using placeholder increments
+for i, (label, val, icon) in enumerate(summary_values):
+    num_placeholder = st.empty()
+    with num_placeholder:
+        st.markdown(
+            f"""
+            <div class="metric-card">
+                <div class="metric-icon">{icon}</div>
+                <div class="metric-label">{label}</div>
+                <div class="metric-number metric-number-{i} metric-number">0.00</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    # Animate number count-up
+    for v in np.linspace(0, val, 12):
+        num_placeholder.markdown(
+            f"""
+            <script>
+                document.querySelector('.metric-number-{i}').innerText = '{v:.2f}';
+            </script>
+            <div class="metric-icon">{icon}</div>
+            <div class="metric-label">{label}</div>
+            <div class="metric-number-{i} metric-number">{v:.2f}</div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.sleep(0.05)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
