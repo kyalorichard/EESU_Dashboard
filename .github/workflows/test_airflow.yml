@@ -1,0 +1,101 @@
+name: Run EU SEE Airflow Scraper
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run_airflow:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      AIRFLOW_USER: admin
+      AIRFLOW_PASSWORD: admin
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Start Airflow
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          sleep 60
+
+      - name: Trigger DAG
+        run: |
+          CONTAINER_ID=$(docker ps -qf "ancestor=apache/airflow:2.7.1")
+          docker exec -i $CONTAINER_ID airflow dags trigger eusee_scraper_optimized
+
+      - name: Wait for DAG completion
+        run: |
+          DAG_ID=eusee_scraper_optimized
+          BASE_URL="http://localhost:8080/api/v1"
+          MAX_RETRIES=3
+          ATTEMPT=1
+          STATUS=""
+          while [ $ATTEMPT -le $MAX_RETRIES ]; do
+            echo "Attempt $ATTEMPT..."
+            for i in {1..30}; do
+              STATUS=$(curl -s -u $AIRFLOW_USER:$AIRFLOW_PASSWORD "$BASE_URL/dags/$DAG_ID/dagRuns?order_by=-execution_date&limit=1" \
+                       | jq -r '.dag_runs[0].state')
+              echo "Current DAG run status: $STATUS"
+              if [ "$STATUS" == "success" ]; then
+                exit 0
+              elif [ "$STATUS" == "failed" ]; then
+                break
+              fi
+              sleep 30
+            done
+            ((ATTEMPT++))
+            docker exec -i $CONTAINER_ID airflow dags trigger $DAG_ID
+          done
+          if [ "$STATUS" != "success" ]; then
+            exit 1
+          fi
+
+      - name: Send failure email if DAG fails
+        if: failure()
+        run: |
+          python3 - <<EOF
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+EMAIL_FROM = "your_email@gmail.com"
+EMAIL_TO = "${{ secrets.EMAIL_TO }}"
+EMAIL_PASSWORD = "${{ secrets.EMAIL_PASSWORD }}"
+
+subject = "ALERT: EU SEE DAG failed after retries"
+body = "The EU SEE Airflow DAG has failed after all retry attempts in GitHub Actions."
+
+msg = MIMEMultipart()
+msg['From'] = EMAIL_FROM
+msg['To'] = EMAIL_TO
+msg['Subject'] = subject
+msg.attach(MIMEText(body, 'plain'))
+
+try:
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(EMAIL_FROM, EMAIL_PASSWORD)
+    server.send_message(msg)
+    server.quit()
+    print("Failure email sent.")
+except Exception as e:
+    print(f"Error sending email: {e}")
+EOF
+
+      - name: Copy CSV and push to repo
+        if: success()
+        run: |
+          mkdir -p data
+          CONTAINER_ID=$(docker ps -qf "ancestor=apache/airflow:2.7.1")
+          docker cp $CONTAINER_ID:/opt/airflow/data/eusee_alerts_final_resumable.csv ./data/eusee_alerts_final_resumable.csv
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add data/eusee_alerts_final_resumable.csv
+          git commit -m "Update EU SEE alerts CSV" || echo "No changes to commit"
+          git push
