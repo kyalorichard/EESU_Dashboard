@@ -14,7 +14,7 @@ st.markdown("""
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3,
 [data-testid="stSidebar"] {
-    font-size: 20px !important;  /* adjust sidebar menu size */
+    font-size: 30px !important;  /* adjust sidebar menu size */
 }
 
 /* Selectbox & multiselect font size */
@@ -30,13 +30,13 @@ st.markdown("""
 
 /* Sidebar section header */
 .sidebar-header {
-    font-size: 22px !important;
+    font-size: 30px !important;
     font-weight: bold;
 }
 
 /* Top toolbar menu */
 header div[data-testid="stToolbar"] {
-    font-size: 22px !important;
+    font-size: 30px !important;
 }
 </style>
 """, unsafe_allow_html=True)
