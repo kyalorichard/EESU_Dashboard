@@ -9,43 +9,17 @@ import plotly.express as px
 # --------------------------
 st.markdown("""
 <style>
-.summary-container {
-    display: flex;
-    flex-direction: column; /* stack vertically */
-    gap: 15px;              /* space between cards */
-    width: 100%;
-    margin-bottom: 20px;
-}
-.summary-card {
-    flex: 1;
-    box-sizing: border-box;
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 10px;
-    padding: 20px;
-    text-align: center;
-    font-family: Arial;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.summary-card:hover {
-    transform: scale(1.02); /* slightly smaller scale for vertical layout */
-    box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
-}
+    .block-container {
+        padding-left: 0rem;
+        padding-right: 0rem;
+        max-width: 100%;
+    }
+    .stColumn > div {
+        padding-left: 0rem;
+        padding-right: 0rem;
+    }
 </style>
-<div class="summary-container">
 """, unsafe_allow_html=True)
-
-for title, value in summary_values:
-    st.markdown(f"""
-    <div class='summary-card'>
-        <h4>{title}</h4>
-        <h3>{value:.2f}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
 
 # --------------------------
 # Sample Data
@@ -55,7 +29,6 @@ dates = pd.date_range("2025-01-01", periods=10)
 categories = ["A", "B", "C"]
 tags = ["X", "Y", "Z"]
 countries = ["Kenya", "Ethiopia", "Uganda", "Tanzania"]
-country_iso = {"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"}
 
 def create_df():
     return pd.DataFrame({
@@ -111,7 +84,7 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: 5 equal divs with hover effect
+# Top Summary: Responsive layout with hover
 # --------------------------
 summary_values = [
     ("Total Value1", df1_f['Value1'].sum()),
@@ -125,12 +98,14 @@ st.markdown("""
 <style>
 .summary-container {
     display: flex;
-    gap: 10px;
+    flex-direction: row; /* default horizontal */
+    flex-wrap: wrap; /* allow wrapping on small screens */
+    gap: 15px;
     width: 100%;
     margin-bottom: 20px;
 }
 .summary-card {
-    flex: 1;
+    flex: 1 1 180px; /* grow/shrink, min width 180px */
     box-sizing: border-box;
     background-color: #4CAF50;
     color: white;
@@ -144,6 +119,12 @@ st.markdown("""
 .summary-card:hover {
     transform: scale(1.05);
     box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
+}
+/* For narrow screens, stack vertically */
+@media (max-width: 768px) {
+    .summary-container {
+        flex-direction: column;
+    }
 }
 </style>
 <div class="summary-container">
