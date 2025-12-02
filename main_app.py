@@ -101,7 +101,7 @@ st.markdown("""
     flex-direction: row;  /* horizontal layout */
     justify-content: space-around; /* space evenly between metrics */
     align-items: center;
-    width: 100%;
+    width: 20%;
     background-color: #4CAF50;
     color: white;
     border-radius: 10px;
