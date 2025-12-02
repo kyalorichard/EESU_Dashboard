@@ -2,90 +2,96 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- Load CSV ---
-@st.cache_data
-def load_csv(path="data.csv"):
-    return pd.read_csv(path)
+# --------------------------
+# Sample Data
+# --------------------------
+np.random.seed(42)
+dates = pd.date_range("2025-01-01", periods=10)
+categories = ["A", "B", "C"]
+tags = ["X", "Y", "Z"]
 
-df = load_csv()
+def create_df():
+    return pd.DataFrame({
+        "Date": np.random.choice(dates, 10),
+        "Category": np.random.choice(categories, 10),
+        "Tag": np.random.choice(tags, 10),
+        "Value1": np.random.randint(0, 100, 10),
+        "Value2": np.random.randint(0, 100, 10)
+    })
 
-# --- Auto-Detect & Normalize Column Names ---
-def detect_columns(df):
-    col_map = {}
-    for col in df.columns:
-        key = col.strip().lower()
-        if key == "country":
-            col_map["country"] = col
-        elif key == "region":
-            col_map["region"] = col
-        elif key == "category":
-            col_map["category"] = col
-        elif key == "value":
-            col_map["value"] = col
-    return col_map
+df1 = create_df()
+df2 = create_df()
+df3 = create_df()
+df4 = create_df()
 
-cols = detect_columns(df)
+# --------------------------
+# Sidebar: Global Filters
+# --------------------------
+st.sidebar.header("Global Filters")
 
-# Ensure all expected columns exist
-if len(cols) < 4:
-    missing = {"country","region","category","value"} - set(cols.keys())
-    st.error(f"Missing required columns in CSV: {missing}")
-    st.stop()
+# Dropdown
+selected_category = st.sidebar.selectbox("Select Category", options=["All"] + categories)
 
-# Rename dataframe columns to normalized names for internal use
-df = df.rename(columns={
-    cols["country"]: "Country",
-    cols["region"]: "Region",
-    cols["category"]: "Category",
-    cols["value"]: "Value"
-})
+# Multi-select
+selected_tags = st.sidebar.multiselect("Select Tags", options=tags, default=tags)
 
-# --- Sidebar Filter Persistence ---
-for key in ["country","region","category"]:
-    if key not in st.session_state:
-        st.session_state[key] = []
+# Date range
+start_date, end_date = st.sidebar.date_input("Select Date Range", [df1["Date"].min(), df1["Date"].max()])
 
-# --- Sidebar UI ---
-st.sidebar.header("🌍 Filters (Auto-detected CSV)")
+# Numeric slider
+min_value, max_value = st.sidebar.slider("Select Value1 Range", 0, 100, (0, 100))
 
-country_filter = st.sidebar.multiselect(
-    "Country", df["Country"].dropna().unique(), default=st.session_state.country
-)
+# --------------------------
+# Filter Function
+# --------------------------
+def filter_df(df):
+    filtered = df.copy()
+    if selected_category != "All":
+        filtered = filtered[filtered["Category"] == selected_category]
+    filtered = filtered[filtered["Tag"].isin(selected_tags)]
+    filtered = filtered[(filtered["Date"] >= pd.to_datetime(start_date)) & (filtered["Date"] <= pd.to_datetime(end_date))]
+    filtered = filtered[(filtered["Value1"] >= min_value) & (filtered["Value1"] <= max_value)]
+    return filtered
 
-region_filter = st.sidebar.multiselect(
-    "Region", df["Region"].dropna().unique(), default=st.session_state.region
-)
+df1_filtered = filter_df(df1)
+df2_filtered = filter_df(df2)
+df3_filtered = filter_df(df3)
+df4_filtered = filter_df(df4)
 
-category_filter = st.sidebar.multiselect(
-    "Category", df["Category"].dropna().unique(), default=st.session_state.category
-)
+# --------------------------
+# Main Page: Tabs and Tab-Specific Filters
+# --------------------------
+st.title("Dashboard with Global and Tab-Specific Filters")
 
-# Save / Reset buttons
-b1, b2 = st.sidebar.columns(2)
-with b1:
-    if st.button("💾 Save"):
-        st.session_state.country = country_filter
-        st.session_state.region = region_filter
-        st.session_state.category = category_filter
-        st.success("Saved!")
+tab1, tab2, tab3, tab4 = st.tabs(["Table 1", "Table 2", "Table 3", "Table 4"])
 
-with b2:
-    if st.button("🔁 Reset"):
-        st.session_state.country = []
-        st.session_state.region = []
-        st.session_state.category = []
-        st.rerun()
+# --- Tab 1 ---
+with tab1:
+    st.subheader("Table 1")
+    # Tab-specific filter example
+    val1_filter = st.number_input("Filter Value2 > ", min_value=0, max_value=100, value=0)
+    df_tab1 = df1_filtered[df1_filtered["Value2"] > val1_filter]
+    st.dataframe(df_tab1)
 
-# --- Apply Filters ---
-filtered_df = df.copy()
+# --- Tab 2 ---
+with tab2:
+    st.subheader("Table 2")
+    val2_filter = st.number_input("Filter Value2 < ", min_value=0, max_value=100, value=100)
+    df_tab2 = df2_filtered[df2_filtered["Value2"] < val2_filter]
+    st.dataframe(df_tab2)
 
-if country_filter:
-    filtered_df = filtered_df[filtered_df["Country"].isin(country_filter)]
-if region_filter:
-    filtered_df = filtered_df[filtered_df["Region"].isin(region_filter)]
-if category_filter:
-    filtered_df = filtered_df[filtered_df["Category"].isin(category_filter)]
+# --- Tab 3 ---
+with tab3:
+    st.subheader("Table 3")
+    # Example multi-select filter specific to Tab 3
+    tag_tab3 = st.multiselect("Filter by Tag (Tab 3)", options=tags, default=tags)
+    df_tab3 = df3_filtered[df3_filtered["Tag"].isin(tag_tab3)]
+    st.dataframe(df_tab3)
 
-# --- Use filtered_df safely in your tabs ---
-st.write("Filtered rows:", len(filtered_df))
-st.dataframe(filtered_df.head(20), use_container_width=True)
+# --- Tab 4 ---
+with tab4:
+    st.subheader("Table 4")
+    # Example date filter specific to Tab 4
+    start_tab4, end_tab4 = st.date_input("Tab 4 Date Range", [df4_filtered["Date"].min(), df4_filtered["Date"].max()])
+    df_tab4 = df4_filtered[(df4_filtered["Date"] >= pd.to_datetime(start_tab4)) & (df4_filtered["Date"] <= pd.to_datetime(end_tab4))]
+    st.dataframe(df_tab4)
