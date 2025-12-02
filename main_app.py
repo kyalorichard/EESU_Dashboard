@@ -86,7 +86,6 @@ df_map_f = filter_data(df_map, st.session_state.selected_country)
 # --------------------------
 # Top Summary: Equal size, spacing, one row at the top
 # --------------------------
-
 summary_values = [
     ("Total Value1", df_filtered[value1_col].sum()),
     ("Avg Value1", df_filtered[value1_col].mean()),
