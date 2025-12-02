@@ -84,7 +84,7 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: Horizontal row, side by side, equal spacing
+# Top Summary: Single card with all metrics horizontally
 # --------------------------
 summary_values = [
     ("Total Value1", df1_f['Value1'].sum()),
@@ -96,108 +96,19 @@ summary_values = [
 
 st.markdown("""
 <style>
-.summary-container {
+.summary-card-horizontal {
     display: flex;
     flex-direction: row;  /* horizontal layout */
-    justify-content: space-between; /* equal spacing between cards */
+    justify-content: space-around; /* space evenly between metrics */
+    align-items: center;
     width: 100%;
-    margin-bottom: 20px;
-}
-.summary-card {
-    flex: 1;               /* equal width for all cards */
-    margin: 0 10px;        /* small horizontal margin */
-    box-sizing: border-box;
     background-color: #4CAF50;
     color: white;
     border-radius: 10px;
     padding: 20px;
-    text-align: center;
     font-family: Arial;
     box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
     transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 20px;
 }
-.summary-card:hover {
-    transform: scale(1.05);
-    box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
-}
-/* Responsive: stack vertically on small screens */
-@media (max-width: 768px) {
-    .summary-container {
-        flex-direction: column;
-    }
-    .summary-card {
-        margin: 5px 0;
-    }
-}
-</style>
-<div class="summary-container">
-""", unsafe_allow_html=True)
-
-for title, value in summary_values:
-    st.markdown(f"""
-    <div class='summary-card'>
-        <h4>{title}</h4>
-        <h3>{value:.2f}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# --------------------------
-# Center: Three Full-Width Bar Plots
-# --------------------------
-st.subheader("Bar Plots")
-plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
-
-def create_bar_plot(df, title):
-    if df.empty:
-        st.warning(f"No data for {title}")
-        return
-    chart = alt.Chart(df).mark_bar().encode(
-        x='Date:T',
-        y='Value1:Q',
-        color='Category:N',
-        tooltip=['Date','Category','Tag','Country','Value1','Value2']
-    ).interactive()
-    st.altair_chart(chart, use_container_width=True)
-
-with st.container():
-    cols = st.columns(len(plots), gap="small")
-    for idx, (title, df_tab) in enumerate(plots):
-        with cols[idx]:
-            st.subheader(title)
-            create_bar_plot(df_tab, title)
-
-# --------------------------
-# Map + Line Chart on the same row
-# --------------------------
-st.subheader("Map & Line Chart")
-with st.container():
-    col_map, col_line = st.columns([1,1], gap="medium")  # equal width
-    # Map
-    with col_map:
-        agg_df = df_map_f.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
-        agg_df["iso_alpha"] = agg_df["Country"].map({"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"})
-        fig_map = px.choropleth(
-            agg_df,
-            locations="iso_alpha",
-            color="Value1",
-            hover_name="Country",
-            hover_data={"Value1":True,"Value2":True,"iso_alpha":False},
-            color_continuous_scale="Viridis",
-            scope="africa"
-        )
-        st.plotly_chart(fig_map, use_container_width=True)
-
-    # Line Chart
-    with col_line:
-        if df_line_f.empty:
-            st.warning("No data")
-        else:
-            line_chart = alt.Chart(df_line_f).mark_line(point=True).encode(
-                x="Date:T",
-                y="Value1:Q",
-                color="Category:N",
-                tooltip=['Date','Category','Value1']
-            ).interactive()
-            st.altair_chart(line_chart, use_container_width=True)
+.summary-card-horizonta
