@@ -1,0 +1,30 @@
+name: Prod Deployment
+
+on:
+  push:
+    branches: [ "prod" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Deploy to Streamlit Cloud
+        env:
+          STREAMLIT_USERNAME: ${{ secrets.STREAMLIT_USERNAME }}
+          STREAMLIT_PASSWORD: ${{ secrets.STREAMLIT_PASSWORD }}
+        run: |
+          echo "Deploying app to Streamlit Cloud..."
+          # Optional: you can automate deployment using Streamlit CLI
+          # streamlit run app/main.py
