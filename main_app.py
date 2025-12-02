@@ -65,15 +65,14 @@ df2_f = filter_data(df2, st.session_state.selected_country)
 df3_f = filter_data(df3, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary Card
+# Top Summary Card (Full Width)
 # --------------------------
 def show_summary(df_list):
     total_val = sum(df['Value1'].sum() for df in df_list)
     avg_val = np.mean([df['Value1'].mean() for df in df_list])
     st.markdown(f"""
     <div style='
-        display: flex;
-        justify-content: center;
+        width: 100%;
         background-color: #4CAF50;
         padding: 20px;
         border-radius: 10px;
@@ -82,23 +81,24 @@ def show_summary(df_list):
         font-family: Arial;
         box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
         margin-bottom: 20px;
-        width: 100%;
     '>
-        <div>
-            <h2>Global Summary</h2>
-            <h3>Total Value1: {total_val}</h3>
-            <h3>Average Value1: {avg_val:.2f}</h3>
-        </div>
+        <h2>Global Summary</h2>
+        <h3>Total Value1: {total_val}</h3>
+        <h3>Average Value1: {avg_val:.2f}</h3>
     </div>
     """, unsafe_allow_html=True)
 
 show_summary([df1_f, df2_f, df3_f])
 
 # --------------------------
-# Center: Horizontal Flex Container for 3 Bar Plots
+# Center: Three Full-Width Bar Plots in Horizontal Flex
 # --------------------------
 st.subheader("Bar Plots")
-col1, col2, col3 = st.columns(3, gap="large")  # horizontal flex container
+plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
+
+# Use st.columns with equal width to fill space
+num_cols = len(plots)
+cols = st.columns(num_cols, gap="small")  # "small" gap to maximize width
 
 def create_bar_plot(df, title):
     if df.empty:
@@ -112,20 +112,13 @@ def create_bar_plot(df, title):
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
-with col1:
-    st.subheader("Plot 1")
-    create_bar_plot(df1_f, "Plot 1")
-
-with col2:
-    st.subheader("Plot 2")
-    create_bar_plot(df2_f, "Plot 2")
-
-with col3:
-    st.subheader("Plot 3")
-    create_bar_plot(df3_f, "Plot 3")
+for idx, (title, df_tab) in enumerate(plots):
+    with cols[idx]:
+        st.subheader(title)
+        create_bar_plot(df_tab, title)
 
 # --------------------------
-# Bottom: Interactive Map
+# Bottom: Interactive Map (Full Width)
 # --------------------------
 st.subheader("Interactive Country Map")
 map_df = filter_data(all_data, st.session_state.selected_country)
@@ -141,17 +134,4 @@ fig = px.choropleth(
     color_continuous_scale="Viridis",
     scope="africa"
 )
-map_click = st.plotly_chart(fig, use_container_width=True)
-
-# Capture click to update session state
-clicked = st.session_state.get("clicked_country", None)
-if map_click:
-    try:
-        click_data = map_click.json["props"]["figure"]["layout"]["clickData"]
-        if click_data:
-            iso = click_data["points"][0]["location"]
-            for name, code in country_iso.items():
-                if code == iso:
-                    st.session_state.selected_country = name
-    except:
-        pass
+st.plotly_chart(fig, use_container_width=True)
