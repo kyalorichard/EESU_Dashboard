@@ -186,7 +186,7 @@ st.markdown("""
     animation: fadeInUp 0.4s ease-out forwards;
     height: 120px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     justify-content: center;
     align-items: center;
 }
