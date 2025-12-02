@@ -58,26 +58,10 @@ if "selected_country" not in st.session_state:
 st.sidebar.header("Global Filters")
 selected_category = st.sidebar.selectbox("Category", ["All"] + categories)
 selected_tags = st.sidebar.multiselect("Tags", tags, default=tags)
-selected_country = st.sidebar.selectbox("Country", ["All"] + countries)
-
-start_date, end_date = st.sidebar.date_input(
-    "Date Range",
-    [df[date_col].min(), df[date_col].max()]
-)
-
-min_value, max_value = st.sidebar.slider(
-    "Value1 Range",
-    int(df[value1_col].min()),
-    int(df[value1_col].max()),
-    (int(df[value1_col].min()), int(df[value1_col].max()))
-)
-
+start_date, end_date = st.sidebar.date_input("Date Range", [df_map['Date'].min(), df_map['Date'].max()])
+min_value, max_value = st.sidebar.slider("Value1 Range", 0, 100, (0,100))
 if st.sidebar.button("Reset Filters"):
-    selected_category = "All"
-    selected_tags = tags
-    selected_country = "All"
-    min_value, max_value = int(df[value1_col].min()), int(df[value1_col].max())
-
+    st.session_state.selected_country = "All"
 # --------------------------
 # Filter Function
 # --------------------------
