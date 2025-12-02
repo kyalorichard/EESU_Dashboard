@@ -172,7 +172,7 @@ st.markdown("""
     display: flex;
     justify-content: space-between;
     gap: 14px;
-    width: 120px;
+    width: 300px;
     padding: 12px 0 18px 0;
     background: #f5f7fa;
 }
@@ -184,9 +184,9 @@ st.markdown("""
     background: linear-gradient(145deg, #ffffff, #e6ebf1);
     box-shadow: 4px 4px 10px rgba(0,0,0,0.08), -4px -4px 10px rgba(255,255,255,0.8);
     animation: fadeInUp 0.4s ease-out forwards;
-    height: 120px;
+    height: 200px;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
 }
