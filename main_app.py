@@ -148,6 +148,8 @@ def create_bar_plot(df, title):
     if df.empty:
         st.warning(f"No data for {title}")
         return
+    # Wrap chart in a div with rounded corners
+    st.markdown("<div style='border-radius:15px; overflow:hidden; padding:10px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
     chart = alt.Chart(df).mark_bar().encode(
         x='Date:T',
         y='Value1:Q',
@@ -161,14 +163,16 @@ def create_bar_plot(df, title):
         gridColor='#dcdcdc'
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
-
+    st.markdown("</div>", unsafe_allow_html=True)
 # --------------------------
+
 # Line Chart Function with 3D/light background
 # --------------------------
 def create_line_chart(df, title):
     if df.empty:
-        st.warning(f"No data for {title}")
+        st.warning("No data")
         return
+    st.markdown("<div style='border-radius:15px; overflow:hidden; padding:10px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
     chart = alt.Chart(df).mark_line(point=True).encode(
         x="Date:T",
         y="Value1:Q",
@@ -182,6 +186,7 @@ def create_line_chart(df, title):
         gridColor='#dcdcdc'
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------
 # Three Bar Plots
