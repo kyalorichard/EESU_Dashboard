@@ -30,7 +30,7 @@ df4 = create_df()
 # --------------------------
 st.sidebar.header("Global Filters")
 
-# Reset filters button
+# Reset button
 if st.sidebar.button("Reset Filters"):
     st.session_state['selected_category'] = "All"
     st.session_state['selected_tags'] = tags
@@ -39,7 +39,7 @@ if st.sidebar.button("Reset Filters"):
     st.session_state['min_value'] = 0
     st.session_state['max_value'] = 100
 
-# Initialize session state if not set
+# Initialize session state
 if 'selected_category' not in st.session_state:
     st.session_state['selected_category'] = "All"
 if 'selected_tags' not in st.session_state:
@@ -54,7 +54,7 @@ if 'max_value' not in st.session_state:
     st.session_state['max_value'] = 100
 
 # Global filters
-selected_category = st.sidebar.selectbox("Select Category", options=["All"] + categories, index=["All"] + categories.index(st.session_state['selected_category']) if st.session_state['selected_category'] != "All" else 0)
+selected_category = st.sidebar.selectbox("Select Category", options=["All"] + categories, index=0 if st.session_state['selected_category'] == "All" else ["All"] + categories.index(st.session_state['selected_category']))
 selected_tags = st.sidebar.multiselect("Select Tags", options=tags, default=st.session_state['selected_tags'])
 start_date, end_date = st.sidebar.date_input("Select Date Range", [st.session_state['start_date'], st.session_state['end_date']])
 min_value, max_value = st.sidebar.slider("Select Value1 Range", 0, 100, (st.session_state['min_value'], st.session_state['max_value']))
@@ -85,10 +85,31 @@ df3_filtered = filter_df(df3)
 df4_filtered = filter_df(df4)
 
 # --------------------------
-# Main Page: Tabs with Bar Plots
+# Top Summary Card
 # --------------------------
-st.title("Dashboard with Global Filters and Bar Plots")
+st.title("Dashboard with Summary and Bar Plots")
 
+total_value1 = sum(df['Value1'].sum() for df in [df1_filtered, df2_filtered, df3_filtered, df4_filtered])
+avg_value1 = np.mean([df['Value1'].mean() for df in [df1_filtered, df2_filtered, df3_filtered, df4_filtered]])
+
+st.markdown(f"### Top Summary: Total Value1 = {total_value1}, Average Value1 = {avg_value1:.2f}")
+
+# --------------------------
+# Four Placeholders (KPI Cards)
+# --------------------------
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric(label="Table1 Value1 Sum", value=df1_filtered['Value1'].sum())
+with col2:
+    st.metric(label="Table2 Value1 Sum", value=df2_filtered['Value1'].sum())
+with col3:
+    st.metric(label="Table3 Value1 Sum", value=df3_filtered['Value1'].sum())
+with col4:
+    st.metric(label="Table4 Value1 Sum", value=df4_filtered['Value1'].sum())
+
+# --------------------------
+# Tabs with Bar Plots
+# --------------------------
 tab1, tab2, tab3, tab4 = st.tabs(["Plot 1", "Plot 2", "Plot 3", "Plot 4"])
 
 def create_bar_plot(df, y_value="Value1", color_value="Category"):
