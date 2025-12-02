@@ -98,10 +98,10 @@ st.markdown("""
 <style>
 .summary-card-horizontal {
     display: flex;
-    flex-direction: col;  /* horizontal layout */
-    justify-content: space-around; /* space evenly between metrics */
+    flex-direction: row;
+    justify-content: space-around;
     align-items: center;
-    width: 20%;
+    width: 100%;
     background-color: #4CAF50;
     color: white;
     border-radius: 10px;
@@ -117,11 +117,11 @@ st.markdown("""
 }
 .summary-item-horizontal {
     text-align: center;
-    flex: 1; /* equal space for each metric */
+    flex: 1;
 }
 @media (max-width: 768px) {
     .summary-card-horizontal {
-        flex-direction: column; /* stack metrics vertically on small screens */
+        flex-direction: column;
     }
     .summary-item-horizontal {
         margin: 5px 0;
@@ -142,11 +142,8 @@ for title, value in summary_values:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------
-# Three Bar Plots
+# Bar Plot Function with 3D/light background
 # --------------------------
-st.subheader("Bar Plots")
-plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
-
 def create_bar_plot(df, title):
     if df.empty:
         st.warning(f"No data for {title}")
@@ -157,10 +154,40 @@ def create_bar_plot(df, title):
         color='Category:N',
         tooltip=['Date','Category','Tag','Country','Value1','Value2']
     ).properties(
-        height=600  # increase the height here
+        height=600,
+        background='#f0f0f3'
+    ).configure_axis(
+        grid=True,
+        gridColor='#dcdcdc'
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
+# --------------------------
+# Line Chart Function with 3D/light background
+# --------------------------
+def create_line_chart(df, title):
+    if df.empty:
+        st.warning(f"No data for {title}")
+        return
+    chart = alt.Chart(df).mark_line(point=True).encode(
+        x="Date:T",
+        y="Value1:Q",
+        color="Category:N",
+        tooltip=['Date','Category','Value1']
+    ).properties(
+        height=400,
+        background='#f0f0f3'
+    ).configure_axis(
+        grid=True,
+        gridColor='#dcdcdc'
+    ).interactive()
+    st.altair_chart(chart, use_container_width=True)
+
+# --------------------------
+# Three Bar Plots
+# --------------------------
+st.subheader("Bar Plots")
+plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
 with st.container():
     cols = st.columns(len(plots), gap="small")
     for idx, (title, df_tab) in enumerate(plots):
@@ -187,17 +214,12 @@ with st.container():
             color_continuous_scale="Viridis",
             scope="africa"
         )
+        fig_map.update_layout(
+            paper_bgcolor='#f0f0f3',  # card background
+            plot_bgcolor='#f0f0f3'    # plot area background
+        )
         st.plotly_chart(fig_map, use_container_width=True)
 
     # Line Chart
     with col_line:
-        if df_line_f.empty:
-            st.warning("No data")
-        else:
-            line_chart = alt.Chart(df_line_f).mark_line(point=True).encode(
-                x="Date:T",
-                y="Value1:Q",
-                color="Category:N",
-                tooltip=['Date','Category','Value1']
-            ).interactive()
-            st.altair_chart(line_chart, use_container_width=True)
+        create_line_chart(df_line_f, "Line Chart")
