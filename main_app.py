@@ -157,7 +157,7 @@ def create_bar_plot(df, title):
         color='Category:N',
         tooltip=['Date','Category','Tag','Country','Value1','Value2']
     ).properties(
-        height=400  # increase the height here
+        height=600  # increase the height here
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
