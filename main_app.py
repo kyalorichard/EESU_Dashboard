@@ -84,7 +84,7 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: Responsive layout with hover
+# Top Summary: Vertical layout with equal height and spacing
 # --------------------------
 summary_values = [
     ("Total Value1", df1_f['Value1'].sum()),
@@ -98,14 +98,13 @@ st.markdown("""
 <style>
 .summary-container {
     display: flex;
-    flex-direction: row; /* default horizontal */
-    flex-wrap: wrap; /* allow wrapping on small screens */
-    gap: 15px;
+    flex-direction: column; /* vertical layout */
+    gap: 20px;              /* equal vertical spacing */
     width: 100%;
-    margin-bottom: 20px;
+    height: 600px;          /* total height of container */
 }
 .summary-card {
-    flex: 1 1 180px; /* grow/shrink, min width 180px */
+    flex: 1;                 /* equal height for all cards */
     box-sizing: border-box;
     background-color: #4CAF50;
     color: white;
@@ -117,14 +116,8 @@ st.markdown("""
     transition: transform 0.2s, box-shadow 0.2s;
 }
 .summary-card:hover {
-    transform: scale(1.05);
+    transform: scale(1.02);
     box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
-}
-/* For narrow screens, stack vertically */
-@media (max-width: 768px) {
-    .summary-container {
-        flex-direction: column;
-    }
 }
 </style>
 <div class="summary-container">
