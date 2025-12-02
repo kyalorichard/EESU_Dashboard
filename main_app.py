@@ -84,7 +84,7 @@ df_line_f = filter_data(df_line, st.session_state.selected_country)
 df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary: Vertical layout with equal height and spacing
+# Top Summary: Horizontal row with equal spacing
 # --------------------------
 summary_values = [
     ("Total Value1", df1_f['Value1'].sum()),
@@ -98,13 +98,13 @@ st.markdown("""
 <style>
 .summary-container {
     display: flex;
-    flex-direction: column; /* vertical layout */
-    gap: 20px;              /* equal vertical spacing */
+    flex-direction: row;  /* horizontal layout */
+    gap: 20px;            /* equal spacing between cards */
     width: 100%;
-    height: 600px;          /* total height of container */
+    margin-bottom: 20px;
 }
 .summary-card {
-    flex: 1;                 /* equal height for all cards */
+    flex: 1;               /* equal width */
     box-sizing: border-box;
     background-color: #4CAF50;
     color: white;
@@ -116,8 +116,14 @@ st.markdown("""
     transition: transform 0.2s, box-shadow 0.2s;
 }
 .summary-card:hover {
-    transform: scale(1.02);
+    transform: scale(1.05);
     box-shadow: 4px 4px 20px rgba(0,0,0,0.3);
+}
+/* Responsive: stack vertically on small screens */
+@media (max-width: 768px) {
+    .summary-container {
+        flex-direction: column;
+    }
 }
 </style>
 <div class="summary-container">
@@ -159,38 +165,32 @@ with st.container():
             create_bar_plot(df_tab, title)
 
 # --------------------------
-# Bottom: Interactive Map
+# Map + Line Chart on the same row
 # --------------------------
-st.subheader("Interactive Country Map")
-agg_df = df_map_f.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
-agg_df["iso_alpha"] = agg_df["Country"].map({"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"})
-
-fig_map = px.choropleth(
-    agg_df,
-    locations="iso_alpha",
-    color="Value1",
-    hover_name="Country",
-    hover_data={"Value1":True,"Value2":True,"iso_alpha":False},
-    color_continuous_scale="Viridis",
-    scope="africa"
-)
-st.plotly_chart(fig_map, use_container_width=True)
-
-# --------------------------
-# Two Line Charts after Map
-# --------------------------
-st.subheader("Line Charts")
-line_charts = [("Line 1", df_line_f), ("Line 2", df_line_f)]
-
+st.subheader("Map & Line Chart")
 with st.container():
-    cols = st.columns(len(line_charts), gap="small")
-    for idx, (title, df_tab) in enumerate(line_charts):
-        with cols[idx]:
-            st.subheader(title)
-            if df_tab.empty:
-                st.warning("No data")
-                continue
-            line_chart = alt.Chart(df_tab).mark_line(point=True).encode(
+    col_map, col_line = st.columns([1,1], gap="medium")  # equal width
+    # Map
+    with col_map:
+        agg_df = df_map_f.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
+        agg_df["iso_alpha"] = agg_df["Country"].map({"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"})
+        fig_map = px.choropleth(
+            agg_df,
+            locations="iso_alpha",
+            color="Value1",
+            hover_name="Country",
+            hover_data={"Value1":True,"Value2":True,"iso_alpha":False},
+            color_continuous_scale="Viridis",
+            scope="africa"
+        )
+        st.plotly_chart(fig_map, use_container_width=True)
+
+    # Line Chart
+    with col_line:
+        if df_line_f.empty:
+            st.warning("No data")
+        else:
+            line_chart = alt.Chart(df_line_f).mark_line(point=True).encode(
                 x="Date:T",
                 y="Value1:Q",
                 color="Category:N",
