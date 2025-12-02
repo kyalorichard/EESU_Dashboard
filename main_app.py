@@ -98,7 +98,7 @@ st.markdown("""
 <style>
 .summary-card-horizontal {
     display: flex;
-    flex-direction: row;  /* horizontal layout */
+    flex-direction: col;  /* horizontal layout */
     justify-content: space-around; /* space evenly between metrics */
     align-items: center;
     width: 20%;
