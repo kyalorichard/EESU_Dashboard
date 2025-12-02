@@ -145,91 +145,59 @@ summary_values = [
 ]
 
 
-# sticky summary row CSS
+# CSS for top summary row
 st.markdown("""
 <style>
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.metric-number {
-  font-size: 26px;
-  font-weight: bold;
-}
-.metric-label {
-  font-size: 14px;
-  color: #333;
-  margin-top: 4px;
-}
-.metric-icon {
-  font-size: 20px;
-  margin-bottom: 4px;
-}
 .summary-row {
-    position: sticky;
-    top: 0;
-    z-index: 999;
     display: flex;
     justify-content: space-between;
-    gap: 14px;
-    width: 300px;
-    padding: 12px 0 18px 0;
-    background: #f5f7fa;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 20px;
 }
 .metric-card {
     flex: 1;
-    border-radius: 16px;
-    padding: 12px;
-    text-align: center;
-    background: linear-gradient(145deg, #ffffff, #e6ebf1);
-    box-shadow: 4px 4px 10px rgba(0,0,0,0.08), -4px -4px 10px rgba(255,255,255,0.8);
-    animation: fadeInUp 0.4s ease-out forwards;
-    height: 200px;
+    height: 180px;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #ffffff, #e0e5ec);
+    box-shadow: 6px 6px 12px #c8d0e7, -6px -6px 12px #ffffff;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    transition: transform 0.2s;
+    text-align: center;
 }
 .metric-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 6px 6px 18px rgba(0,0,0,0.14), -6px -6px 18px rgba(255,255,255,0.9);
+    transform: translateY(-4px);
+    box-shadow: 8px 8px 16px #b0b8d0, -8px -8px 16px #ffffff;
 }
+.metric-icon { font-size: 26px; margin-bottom: 6px; }
+.metric-label { font-size: 16px; color: #333; margin-bottom: 4px; }
+.metric-number { font-size: 28px; font-weight: bold; }
 </style>
-
-<div class="summary-row">
 """, unsafe_allow_html=True)
 
-# number animation using placeholder increments
-for i, (label, val, icon) in enumerate(summary_values):
-    num_placeholder = st.empty()
-    with num_placeholder:
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-icon">{icon}</div>
-                <div class="metric-label">{label}</div>
-                <div class="metric-number metric-number-{i} metric-number">0.00</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+# Render cards
+st.markdown('<div class="summary-row">', unsafe_allow_html=True)
 
-    # Animate number count-up
-    for v in np.linspace(0, val, 12):
-        num_placeholder.markdown(
-            f"""
-            <script>
-                document.querySelector('.metric-number-{i}').innerText = '{v:.2f}';
-            </script>
+# Use placeholders to animate numbers without blocking the UI
+placeholders = [st.empty() for _ in summary_values]
+
+# Animate numbers (non-blocking)
+for step in np.linspace(0, 1, 20):
+    for idx, (label, val, icon) in enumerate(summary_values):
+        current_val = val * step
+        placeholders[idx].markdown(f"""
+        <div class="metric-card">
             <div class="metric-icon">{icon}</div>
             <div class="metric-label">{label}</div>
-            <div class="metric-number-{i} metric-number">{v:.2f}</div>
-            """,
-            unsafe_allow_html=True
-        )
-        t.sleep(0.05)
+            <div class="metric-number">{current_val:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    t.sleep(0.03)
 
-st.markdown("</div>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------------
 # Bar Plot Function with 3D/light background
