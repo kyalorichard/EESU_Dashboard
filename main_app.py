@@ -5,6 +5,56 @@ import altair as alt
 import plotly.express as px
 import time as t
 # --------------------------
+# CUSTOM CSS: Sidebar / Menu Font Sizes
+# --------------------------
+st.markdown("""
+<style>
+/* Sidebar title */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] {
+    font-size: 20px !important;  /* adjust sidebar menu size */
+}
+
+/* Selectbox & multiselect font size */
+.stSelectbox div[data-baseweb="select"],
+.stMultiSelect div[data-baseweb="select"] {
+    font-size: 18px !important;
+}
+
+/* Slider label font */
+.stSlider label {
+    font-size: 16px !important;
+}
+
+/* Sidebar section header */
+.sidebar-header {
+    font-size: 22px !important;
+    font-weight: bold;
+}
+
+/* Top toolbar menu */
+header div[data-testid="stToolbar"] {
+    font-size: 22px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# --------------------------
+# Remove Streamlit padding/margin for full width
+# --------------------------
+st.markdown("""
+<style>
+.block-container {
+    padding-left: 20px;
+    padding-right: 20px;
+    max-width: 100%;
+}
+</style>
+""", unsafe_allow_html=True)
+
+#------------------------------
 # Remove Streamlit padding/margin for full width
 # --------------------------
 st.markdown("""
