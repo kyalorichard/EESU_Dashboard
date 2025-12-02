@@ -5,7 +5,7 @@ import altair as alt
 import plotly.express as px
 
 # --------------------------
-# Remove Streamlit Padding/Margin for Full Width
+# Remove Streamlit padding/margin for full width
 # --------------------------
 st.markdown("""
 <style>
@@ -44,7 +44,8 @@ def create_df():
 df1 = create_df()
 df2 = create_df()
 df3 = create_df()
-all_data = pd.concat([df1, df2, df3])
+df_map = pd.concat([df1, df2, df3])
+df_line = create_df()  # for line charts
 
 # --------------------------
 # Session State
@@ -58,7 +59,7 @@ if "selected_country" not in st.session_state:
 st.sidebar.header("Global Filters")
 selected_category = st.sidebar.selectbox("Category", ["All"] + categories)
 selected_tags = st.sidebar.multiselect("Tags", tags, default=tags)
-start_date, end_date = st.sidebar.date_input("Date Range", [all_data['Date'].min(), all_data['Date'].max()])
+start_date, end_date = st.sidebar.date_input("Date Range", [df_map['Date'].min(), df_map['Date'].max()])
 min_value, max_value = st.sidebar.slider("Value1 Range", 0, 100, (0,100))
 if st.sidebar.button("Reset Filters"):
     st.session_state.selected_country = "All"
@@ -80,35 +81,42 @@ def filter_data(df, country_filter):
 df1_f = filter_data(df1, st.session_state.selected_country)
 df2_f = filter_data(df2, st.session_state.selected_country)
 df3_f = filter_data(df3, st.session_state.selected_country)
+df_line_f = filter_data(df_line, st.session_state.selected_country)
+df_map_f = filter_data(df_map, st.session_state.selected_country)
 
 # --------------------------
-# Top Summary Card
+# Top Summary: 5 equal divs
 # --------------------------
-def show_summary(df_list):
-    total_val = sum(df['Value1'].sum() for df in df_list)
-    avg_val = np.mean([df['Value1'].mean() for df in df_list])
+summary_values = [
+    ("Total Value1", df1_f['Value1'].sum()),
+    ("Avg Value1", df1_f['Value1'].mean()),
+    ("Total Value2", df2_f['Value2'].sum()),
+    ("Avg Value2", df2_f['Value2'].mean()),
+    ("Count Records", len(df_map_f))
+]
+
+st.markdown("<div style='display:flex; justify-content:space-between; width:100%; margin-bottom:20px;'>", unsafe_allow_html=True)
+for title, value in summary_values:
     st.markdown(f"""
     <div style='
-        width: 100%;
-        background-color: #4CAF50;
-        padding: 20px;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        font-family: Arial;
+        flex:1;
+        margin:5px;
+        background-color:#4CAF50;
+        color:white;
+        border-radius:10px;
+        padding:15px;
+        text-align:center;
+        font-family:Arial;
         box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-        margin-bottom: 20px;
     '>
-        <h2>Global Summary</h2>
-        <h3>Total Value1: {total_val}</h3>
-        <h3>Average Value1: {avg_val:.2f}</h3>
+        <h4>{title}</h4>
+        <h3>{value:.2f}</h3>
     </div>
     """, unsafe_allow_html=True)
-
-show_summary([df1_f, df2_f, df3_f])
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------
-# Responsive Full-Width Bar Plots
+# Center: Three Full-Width Bar Plots
 # --------------------------
 st.subheader("Bar Plots")
 plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
@@ -125,7 +133,6 @@ def create_bar_plot(df, title):
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
-# Use a container to make full width
 with st.container():
     cols = st.columns(len(plots), gap="small")
     for idx, (title, df_tab) in enumerate(plots):
@@ -134,14 +141,13 @@ with st.container():
             create_bar_plot(df_tab, title)
 
 # --------------------------
-# Bottom: Full-Width Interactive Map
+# Bottom: Interactive Map
 # --------------------------
 st.subheader("Interactive Country Map")
-map_df = filter_data(all_data, st.session_state.selected_country)
-agg_df = map_df.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
-agg_df["iso_alpha"] = agg_df["Country"].map(country_iso)
+agg_df = df_map_f.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
+agg_df["iso_alpha"] = agg_df["Country"].map({"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"})
 
-fig = px.choropleth(
+fig_map = px.choropleth(
     agg_df,
     locations="iso_alpha",
     color="Value1",
@@ -150,4 +156,26 @@ fig = px.choropleth(
     color_continuous_scale="Viridis",
     scope="africa"
 )
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig_map, use_container_width=True)
+
+# --------------------------
+# Two Line Charts after Map
+# --------------------------
+st.subheader("Line Charts")
+line_charts = [("Line 1", df_line_f), ("Line 2", df_line_f)]
+
+with st.container():
+    cols = st.columns(len(line_charts), gap="small")
+    for idx, (title, df_tab) in enumerate(line_charts):
+        with cols[idx]:
+            st.subheader(title)
+            if df_tab.empty:
+                st.warning("No data")
+                continue
+            line_chart = alt.Chart(df_tab).mark_line(point=True).encode(
+                x="Date:T",
+                y="Value1:Q",
+                color="Category:N",
+                tooltip=['Date','Category','Value1']
+            ).interactive()
+            st.altair_chart(line_chart, use_container_width=True)
