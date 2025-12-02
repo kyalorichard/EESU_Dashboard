@@ -10,8 +10,8 @@ import plotly.express as px
 st.markdown("""
 <style>
     .block-container {
-        padding-left: 0rem;
-        padding-right: 0rem;
+        padding-left: 20px;
+        padding-right: 20px;
         max-width: 100%;
     }
     .stColumn > div {
@@ -149,7 +149,7 @@ def create_bar_plot(df, title):
         st.warning(f"No data for {title}")
         return
     # Wrap chart in a div with rounded corners
-    st.markdown("<div style='border-radius:15px; overflow:hidden; padding:10px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
+    st.markdown("<div style='border-radius:30px; overflow:hidden; padding:20px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
     chart = alt.Chart(df).mark_bar().encode(
         x='Date:T',
         y='Value1:Q',
@@ -172,7 +172,7 @@ def create_line_chart(df, title):
     if df.empty:
         st.warning("No data")
         return
-    st.markdown("<div style='border-radius:15px; overflow:hidden; padding:10px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
+    st.markdown("<div style='border-radius:30px; overflow:hidden; padding:20px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
     chart = alt.Chart(df).mark_line(point=True).encode(
         x="Date:T",
         y="Value1:Q",
