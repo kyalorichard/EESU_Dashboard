@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+from streamlit_dash import st_dcc, st_graph
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output
 
 # --------------------------
 # Sample Data
@@ -10,12 +14,15 @@ np.random.seed(42)
 dates = pd.date_range("2025-01-01", periods=10)
 categories = ["A", "B", "C"]
 tags = ["X", "Y", "Z"]
+countries = ["Kenya", "Ethiopia", "Uganda", "Tanzania"]
+country_iso = {"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"}
 
 def create_df():
     return pd.DataFrame({
         "Date": np.random.choice(dates, 10),
         "Category": np.random.choice(categories, 10),
         "Tag": np.random.choice(tags, 10),
+        "Country": np.random.choice(countries, 10),
         "Value1": np.random.randint(0, 100, 10),
         "Value2": np.random.randint(0, 100, 10)
     })
@@ -25,117 +32,124 @@ df2 = create_df()
 df3 = create_df()
 df4 = create_df()
 
+all_data = pd.concat([df1, df2, df3, df4])
+
 # --------------------------
-# Sidebar: Global Filters
+# Streamlit Sidebar Filters
 # --------------------------
 st.sidebar.header("Global Filters")
-
-# Reset button
-if st.sidebar.button("Reset Filters"):
-    st.session_state['selected_category'] = "All"
-    st.session_state['selected_tags'] = tags
-    st.session_state['start_date'] = df1["Date"].min()
-    st.session_state['end_date'] = df1["Date"].max()
-    st.session_state['min_value'] = 0
-    st.session_state['max_value'] = 100
-
-# Initialize session state
-if 'selected_category' not in st.session_state:
-    st.session_state['selected_category'] = "All"
-if 'selected_tags' not in st.session_state:
-    st.session_state['selected_tags'] = tags
-if 'start_date' not in st.session_state:
-    st.session_state['start_date'] = df1["Date"].min()
-if 'end_date' not in st.session_state:
-    st.session_state['end_date'] = df1["Date"].max()
-if 'min_value' not in st.session_state:
-    st.session_state['min_value'] = 0
-if 'max_value' not in st.session_state:
-    st.session_state['max_value'] = 100
-
-# Global filters
-selected_category = st.sidebar.selectbox("Select Category", options=["All"] + categories, index=0 if st.session_state['selected_category'] == "All" else ["All"] + categories.index(st.session_state['selected_category']))
-selected_tags = st.sidebar.multiselect("Select Tags", options=tags, default=st.session_state['selected_tags'])
-start_date, end_date = st.sidebar.date_input("Select Date Range", [st.session_state['start_date'], st.session_state['end_date']])
-min_value, max_value = st.sidebar.slider("Select Value1 Range", 0, 100, (st.session_state['min_value'], st.session_state['max_value']))
-
-# Update session state
-st.session_state['selected_category'] = selected_category
-st.session_state['selected_tags'] = selected_tags
-st.session_state['start_date'] = start_date
-st.session_state['end_date'] = end_date
-st.session_state['min_value'] = min_value
-st.session_state['max_value'] = max_value
+selected_category = st.sidebar.selectbox("Category", ["All"] + categories)
+selected_tags = st.sidebar.multiselect("Tags", tags, default=tags)
+start_date, end_date = st.sidebar.date_input("Date Range", [all_data['Date'].min(), all_data['Date'].max()])
+min_value, max_value = st.sidebar.slider("Value1 Range", 0, 100, (0,100))
 
 # --------------------------
-# Filter Function
+# Dash App Setup
 # --------------------------
-def filter_df(df):
-    filtered = df.copy()
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    dcc.Graph(id="country-map"),
+    dcc.Store(id='selected-country', data='All')
+])
+
+# --------------------------
+# Dash Callback: Update Map
+# --------------------------
+@app.callback(
+    Output('country-map', 'figure'),
+    Input('selected-country', 'data')
+)
+def update_map(selected_country):
+    # Apply global filters from Streamlit
+    df = all_data.copy()
     if selected_category != "All":
-        filtered = filtered[filtered["Category"] == selected_category]
-    filtered = filtered[filtered["Tag"].isin(selected_tags)]
-    filtered = filtered[(filtered["Date"] >= pd.to_datetime(start_date)) & (filtered["Date"] <= pd.to_datetime(end_date))]
-    filtered = filtered[(filtered["Value1"] >= min_value) & (filtered["Value1"] <= max_value)]
-    return filtered
+        df = df[df['Category']==selected_category]
+    df = df[df['Tag'].isin(selected_tags)]
+    df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+    df = df[(df['Value1'] >= min_value) & (df['Value1'] <= max_value)]
+    
+    agg_df = df.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
+    agg_df["iso_alpha"] = agg_df["Country"].map(country_iso)
 
-df1_filtered = filter_df(df1)
-df2_filtered = filter_df(df2)
-df3_filtered = filter_df(df3)
-df4_filtered = filter_df(df4)
-
-# --------------------------
-# Top Summary Card
-# --------------------------
-st.title("Dashboard with Summary and Bar Plots")
-
-total_value1 = sum(df['Value1'].sum() for df in [df1_filtered, df2_filtered, df3_filtered, df4_filtered])
-avg_value1 = np.mean([df['Value1'].mean() for df in [df1_filtered, df2_filtered, df3_filtered, df4_filtered]])
-
-st.markdown(f"### Top Summary: Total Value1 = {total_value1}, Average Value1 = {avg_value1:.2f}")
-
-# --------------------------
-# Four Placeholders (KPI Cards)
-# --------------------------
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric(label="Table1 Value1 Sum", value=df1_filtered['Value1'].sum())
-with col2:
-    st.metric(label="Table2 Value1 Sum", value=df2_filtered['Value1'].sum())
-with col3:
-    st.metric(label="Table3 Value1 Sum", value=df3_filtered['Value1'].sum())
-with col4:
-    st.metric(label="Table4 Value1 Sum", value=df4_filtered['Value1'].sum())
+    import plotly.express as px
+    fig = px.choropleth(
+        agg_df,
+        locations="iso_alpha",
+        color="Value1",
+        hover_name="Country",
+        hover_data={"Value1":True, "Value2":True, "iso_alpha":False},
+        color_continuous_scale="Viridis",
+        scope="africa"
+    )
+    return fig
 
 # --------------------------
-# Tabs with Bar Plots
+# Streamlit - Embed Dash App
 # --------------------------
-tab1, tab2, tab3, tab4 = st.tabs(["Plot 1", "Plot 2", "Plot 3", "Plot 4"])
+st.subheader("Interactive Country Map")
+st_dcc(app, height=600)
 
-def create_bar_plot(df, y_value="Value1", color_value="Category"):
+# --------------------------
+# Filter Data Function
+# --------------------------
+def filter_data(df, country_filter):
+    df_filtered = df.copy()
+    if selected_category != "All":
+        df_filtered = df_filtered[df_filtered["Category"]==selected_category]
+    df_filtered = df_filtered[df_filtered["Tag"].isin(selected_tags)]
+    df_filtered = df_filtered[(df_filtered["Date"] >= pd.to_datetime(start_date)) & (df_filtered["Date"] <= pd.to_datetime(end_date))]
+    df_filtered = df_filtered[(df_filtered["Value1"] >= min_value) & (df_filtered["Value1"] <= max_value)]
+    if country_filter != "All":
+        df_filtered = df_filtered[df_filtered["Country"]==country_filter]
+    return df_filtered
+
+# --------------------------
+# Streamlit Top Summary & Plots
+# --------------------------
+# Initially show all data
+country_filter = st.session_state.get("selected_country", "All")
+df1_f = filter_data(df1, country_filter)
+df2_f = filter_data(df2, country_filter)
+df3_f = filter_data(df3, country_filter)
+df4_f = filter_data(df4, country_filter)
+
+total_val = sum(df['Value1'].sum() for df in [df1_f, df2_f, df3_f, df4_f])
+avg_val = np.mean([df['Value1'].mean() for df in [df1_f, df2_f, df3_f, df4_f]])
+
+st.markdown(f"""
+<div style='
+background-color: #4CAF50;
+padding: 20px;
+border-radius: 10px;
+color: white;
+text-align: center;
+font-family: Arial;
+box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+'>
+<h2>Global Summary</h2>
+<h3>Total Value1: {total_val}</h3>
+<h3>Average Value1: {avg_val:.2f}</h3>
+</div>
+""", unsafe_allow_html=True)
+
+# Bar plots
+def create_bar_plot(df, title):
+    import altair as alt
     if df.empty:
-        st.warning("No data for the selected filters.")
+        st.warning(f"No data for {title}")
         return
     chart = alt.Chart(df).mark_bar().encode(
         x='Date:T',
-        y=alt.Y(f'{y_value}:Q', title=y_value),
-        color=color_value,
-        tooltip=['Date', 'Category', 'Tag', 'Value1', 'Value2']
+        y='Value1:Q',
+        color='Category:N',
+        tooltip=['Date','Category','Tag','Country','Value1','Value2']
     ).interactive()
     st.altair_chart(chart, use_container_width=True)
 
-with tab1:
-    st.subheader("Plot 1")
-    create_bar_plot(df1_filtered)
-
-with tab2:
-    st.subheader("Plot 2")
-    create_bar_plot(df2_filtered)
-
-with tab3:
-    st.subheader("Plot 3")
-    create_bar_plot(df3_filtered)
-
-with tab4:
-    st.subheader("Plot 4")
-    create_bar_plot(df4_filtered)
+plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f), ("Plot 4", df4_f)]
+cols = st.columns(4, gap="large")
+for idx, (title, df_tab) in enumerate(plots):
+    with cols[idx]:
+        st.subheader(title)
+        create_bar_plot(df_tab, title)
