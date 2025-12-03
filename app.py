@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import os
-st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+from pathlib import Path  
 
+st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data
