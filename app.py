@@ -9,20 +9,24 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data
 def load_data():
-    base_dir = os.path.dirname(__file__)  # directory of app.py
-    file_path = os.path.join(base_dir, "data", "raw_data.csv")
-    df = pd.read_csv(file_path)
-    # Normalize column names ✅
-    df.columns = (
-        df.columns
-          .str.strip()
-          .str.lower()
-          .str.replace("-", "_")   # converts alert-country → alert_country
-          .str.replace(" ", "_")   # converts spaces → _
-    )
-    return df
+    file_path = "data/raw_data.csv"
+    try:
+        df = pd.read_csv(file_path)
 
-df = load_data()
+        # ✅ FIX: Normalize column names
+        df.columns = (
+            df.columns
+              .str.strip()
+              .str.lower()
+              .str.replace("-", "_")
+              .str.replace(" ", "_")
+        )
+
+        return df
+
+    except Exception as e:
+        st.error(f"Error loading CSV: {e}")
+        return pd.DataFrame()
 
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
@@ -60,17 +64,20 @@ st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separa
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
-country_filter = st.sidebar.multiselect(
-    "Country",
-    options=df["alert_country"].unique(),
-    default=df["alert_country"].unique()
-)
 
-alert_type_filter = st.sidebar.multiselect(
-    "Alert Type",
-    options=df["alert_type"].unique(),
-    default=df["alert_type"].unique()
-)
+# ✅ FIX: Auto-detect the correct country column (even if user CSV used different naming)
+country_col = next((c for c in df.columns if "country" in c), None)
+
+if country_col:
+    options = df[country_col].unique().tolist()
+else:
+    st.error("No country-related column found in your CSV!")
+    options = []
+
+selected_country = st.sidebar.selectbox("Country", ["all"] + options)
+
+
+
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
