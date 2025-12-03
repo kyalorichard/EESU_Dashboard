@@ -20,7 +20,7 @@ df = load_data()
 # ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
 col1, col2 = st.columns([1,6])
 with col1:
-    st.image("assets/eu-see-logo-rgb-wide.svg", width=200)  # load SVG from assets folder
+    st.image("assets/eu-see-logo-rgb-wide.svg", width=350)  # load SVG from assets folder
 with col2:
     st.markdown("<h1 style='margin-bottom:0;'>EU SEE Dashboard</h1>", unsafe_allow_html=True)
 
@@ -116,7 +116,7 @@ def get_summary_data(active_tab, tab2_category=[], tab2_region=[], tab2_country=
     return data
 
 # ---------------- TABS ----------------
-tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
+tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
