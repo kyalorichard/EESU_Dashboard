@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="Advanced Dashboard", layout="wide")
+st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
@@ -17,9 +17,14 @@ def load_data():
 
 df = load_data()
 
-# ---------------- SIDEBAR TITLE & LOGO ----------------
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Logo_example.png/320px-Logo_example.png", width=120)
-st.sidebar.title("🌟 My Dashboard")
+# ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
+col1, col2 = st.columns([1,6])
+with col1:
+    st.image("assets/eu-see-logo-rgb-wide.svg", width=80)  # load SVG from assets folder
+with col2:
+    st.markdown("<h1 style='margin-bottom:0;'>🌟 Advanced Dashboard</h1>", unsafe_allow_html=True)
+
+st.markdown("---")  # separator
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.header("🌍 Global Filters")
