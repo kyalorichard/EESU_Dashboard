@@ -19,15 +19,11 @@ def load_data():
 df = load_data()
 
 # ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
-col1, col2 = st.columns([1,6])
-with col1:
-    st.image("assets/eu-see-logo-rgb-wide.svg", width=350)
-with col2:
     st.markdown("<h1 style='margin-bottom:0;'>EU SEE Dashboard</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
-st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=250)  # top of sidebar
+st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
