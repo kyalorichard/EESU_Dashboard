@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="Dashboard with Top Cards", layout="wide")
+st.set_page_config(page_title="Advanced Dashboard", layout="wide")
 
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
@@ -93,18 +93,17 @@ def render_summary_cards(data):
         ''', unsafe_allow_html=True)
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
-def get_summary_data(active_tab, tab2_categories=[]):
-    if active_tab == "Tab 2" and tab2_categories:
-        return filtered_global[filtered_global["Category"].isin(tab2_categories)]
-    else:
-        return filtered_global
+def get_summary_data(active_tab, tab2_category=[], tab2_region=[], tab2_country=[]):
+    data = filtered_global.copy()
+    if active_tab == "Tab 2":
+        data = data[
+            (data["Category"].isin(tab2_category)) &
+            (data["Region"].isin(tab2_region)) &
+            (data["Country"].isin(tab2_country))
+        ]
+    return data
 
-# ---------------- TAB 2 CATEGORY FILTER ----------------
-tab2_category_filter = []
-
-# ---------------- RENDER TABS ----------------
-# First render summary cards (they will always appear above tabs)
-# The summary cards will update depending on the selected tab (Tab 2 reacts to category filter)
+# ---------------- TABS ----------------
 tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
 
 # ---------------- TAB 1 ----------------
@@ -129,11 +128,29 @@ with tab1:
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
-    tab2_category_filter = st.multiselect("Select Category (Tab 2)", df["Category"].unique(),
-                                          default=df["Category"].unique())
-    summary_data = get_summary_data(active_tab, tab2_category_filter)
+
+    # ---------------- TAB 2 FILTERS IN A SINGLE ROW ----------------
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        tab2_category_filter = st.multiselect("Category", df["Category"].unique(),
+                                              default=df["Category"].unique())
+    with col2:
+        tab2_region_filter = st.multiselect("Region (Tab 2)", df["Region"].unique(),
+                                            default=df["Region"].unique())
+    with col3:
+        tab2_country_filter = st.multiselect("Country (Tab 2)", df["Country"].unique(),
+                                             default=df["Country"].unique())
+
+    # ---------------- FILTERED DATA ----------------
+    summary_data = get_summary_data(active_tab,
+                                    tab2_category_filter,
+                                    tab2_region_filter,
+                                    tab2_country_filter)
+
+    # ---------------- RENDER UNIVERSAL SUMMARY CARDS ----------------
     render_summary_cards(summary_data)
 
+    # ---------------- TAB 2 CHARTS ----------------
     st.header("📊 Tab 2 Analysis")
     v1 = summary_data.groupby("Country")["Value"].sum().reset_index()
     v2 = summary_data.groupby("Region")["Value"].sum().reset_index()
