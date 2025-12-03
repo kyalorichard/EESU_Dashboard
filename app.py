@@ -18,12 +18,12 @@ def load_data():
 
 df = load_data()
 
-# ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
-    st.markdown("""
-    <h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:42px;'>
-        EU SEE Dashboard
-    </h1>
-    <p style='margin-top:0; color:gray; font-size:16px;'>Interactive Analytics Dashboard</p>
+# ---------------- DASHBOARD TITLE ----------------
+st.markdown("""
+<h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:52px;'>
+    EU SEE Dashboard
+</h1>
+<p style='margin-top:0; color:gray; font-size:16px;'></p>
 """, unsafe_allow_html=True)
 
 st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separator
