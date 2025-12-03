@@ -19,8 +19,12 @@ def load_data():
 df = load_data()
 
 # ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
-    st.markdown("<h1 style='margin-bottom:0;'>EU SEE Dashboard</h1>", unsafe_allow_html=True)
-st.markdown("---")
+st.markdown("""
+    <h1 style='text-align:center; color:#660094; margin-bottom:5px;'>EU SEE Dashboard</h1>
+    <p style='text-align:center; color:gray; margin-top:0;'>EU SEE Dashboard</p>
+""", unsafe_allow_html=True)
+st.markdown("<hr>", unsafe_allow_html=True)
+    
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
