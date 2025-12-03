@@ -22,7 +22,7 @@ def load_data():
               .str.replace(" ", "_")
         )
 
-        return df
+        return df1
 
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
@@ -66,10 +66,10 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 
 # ✅ FIX: Auto-detect the correct country column (even if user CSV used different naming)
-country_col = next((c for c in df.columns if "country" in c), None)
+country_col = next((c for c in df1.columns if "country" in c), None)
 
 if country_col:
-    options = df[country_col].unique().tolist()
+    options = df1[country_col].unique().tolist()
 else:
     st.error("No country-related column found in your CSV!")
     options = []
