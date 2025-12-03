@@ -5,6 +5,15 @@ import plotly.express as px
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
+
+# ---------------- LOAD DATA FROM CSV ----------------
+@st.cache_data
+def load_data():
+    df = pd.read_csv("data/raw_data.csv")  # replace with your actual CSV file name
+    return df
+
+df = load_data()
+
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
 def load_data():
@@ -41,6 +50,17 @@ st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separa
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
+country_filter = st.sidebar.multiselect(
+    "Country",
+    options=df["alert-country"].unique(),
+    default=df["alert-country"].unique()
+)
+
+alert_type_filter = st.sidebar.multiselect(
+    "Alert Type",
+    options=df["alert type"].unique(),
+    default=df["alert type"].unique()
+)
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
