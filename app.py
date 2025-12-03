@@ -30,7 +30,7 @@ def load_data():
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
         return pd.DataFrame()
-        
+data = load_data()
 
 # ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
 st.markdown("""
@@ -56,17 +56,36 @@ st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separa
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 
 st.sidebar.header("🌍 Global Filters")
-#######    Single select country filter with Select All
+# ---------------- SIDEBAR FILTERS ----------------
+# Helper function to add "Select All" to single-select dropdown
+def selectbox_with_all(label, options):
+    all_option = ["Select All"]
+    selected = st.sidebar.selectbox(label, options=all_option + list(options))
+    if selected == "Select All":
+        return options  # return all options if "Select All" chosen
+    else:
+        return [selected]
 
-country_col = next((c for c in df.columns if "country" in c), None)
-if country_col:
-    country_list = df[country_col].dropna().unique().tolist()
-    country_options = ["all"] + country_list
-else:
-    country_options = ["all"]
-selected_country = st.sidebar.selectbox("select country", country_options, index=0)
+# Single-select dropdowns with "Select All"
+country_options = data['alert-country'].dropna().unique()
+selected_countries = selectbox_with_all("Select Country", country_options)
 
+alert_type_options = data['alert-type'].dropna().unique()
+selected_alert_type_single = selectbox_with_all("Select Alert Type (Single)", alert_type_options)
 
+# Extra multi-select filter for alert-type
+selected_alert_types_multi = st.sidebar.multiselect(
+    "Select Alert Types (Multi)",
+    options=alert_type_options,
+    default=alert_type_options  # all selected by default
+)
+
+# ---------------- FILTER DATA BASED ON SELECTION ----------------
+filtered_data = data[
+    (data['alert-country'].isin(selected_countries)) &
+    (data['alert type'].isin(selected_alert_type_single)) &
+    (data['alert type'].isin(selected_alert_types_multi))
+]
 
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
