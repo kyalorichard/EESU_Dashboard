@@ -51,7 +51,7 @@ st.markdown("""
 .summary-card {
     background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
     color: white;
-    padding: 20px;
+    padding: 15px;
     border-radius: 15px;
     text-align: center;
     margin: 5px;
