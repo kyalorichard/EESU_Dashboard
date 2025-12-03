@@ -26,6 +26,10 @@ with col2:
 
 st.markdown("---")  # separator
 
+# ---------------- SIDEBAR LOGO AT THE TOP ----------------
+st.sidebar.image("assets/logo.svg", width=400)
+
+
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
@@ -56,6 +60,11 @@ st.markdown("""
 .summary-icon {
     font-size: 30px;
     margin-bottom: 5px;
+}
+/* Increase tabs name font size */
+.stTabs [role="tab"] button {
+    font-size: 22px;
+    font-weight: bold;
 }
 footer {
     visibility: hidden;
