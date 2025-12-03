@@ -20,9 +20,13 @@ df = load_data()
 
 # ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
     st.markdown("""
-    <h1 style='text-align:center; color:#660094; margin-bottom:5px;'>EU SEE Dashboard</h1>
-    """, unsafe_allow_html=True)
-st.markdown("<hr>", unsafe_allow_html=True)
+    <h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:42px;'>
+        EU SEE Dashboard
+    </h1>
+    <p style='margin-top:0; color:gray; font-size:16px;'>Interactive Analytics Dashboard</p>
+""", unsafe_allow_html=True)
+
+st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separator
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
