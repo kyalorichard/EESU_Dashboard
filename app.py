@@ -17,13 +17,17 @@ def load_data():
 
 df = load_data()
 
+# ---------------- SIDEBAR TITLE & LOGO ----------------
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Logo_example.png/320px-Logo_example.png", width=120)
+st.sidebar.title("🌟 My Dashboard")
+
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
 
-# ---------------- CSS FOR SUMMARY CARDS ----------------
+# ---------------- CSS FOR SUMMARY CARDS & FOOTER ----------------
 st.markdown("""
 <style>
 .summary-card {
@@ -47,6 +51,9 @@ st.markdown("""
 .summary-icon {
     font-size: 30px;
     margin-bottom: 5px;
+}
+footer {
+    visibility: hidden;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -129,7 +136,7 @@ with tab1:
 with tab2:
     active_tab = "Tab 2"
 
-    # ---------------- TAB 2 FILTERS IN A SINGLE ROW ----------------
+    # ---------------- TAB 2 FILTERS IN SINGLE ROW ----------------
     col1, col2, col3 = st.columns(3)
     with col1:
         tab2_category_filter = st.multiselect("Category", df["Category"].unique(),
@@ -201,3 +208,11 @@ with tab4:
     with r1c2: st.bar_chart(d2.set_index("Region"), horizontal=True)
     with r2c1: st.bar_chart(d3.set_index("Category"))
     with r2c2: st.bar_chart(d4.set_index("Category"))
+
+# ---------------- FOOTER ----------------
+st.markdown("""
+<hr>
+<div style='text-align: center; color: gray;'>
+    © 2025 My Dashboard. All rights reserved.
+</div>
+""", unsafe_allow_html=True)
