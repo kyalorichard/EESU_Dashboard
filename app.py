@@ -179,13 +179,13 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
-def get_summary_data(active_tab, tab2_category=[], tab2_region=[], tab2_country=[]):
+def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[],tab2_alert_type=[]):
     data = filtered_global.copy()
     if active_tab == "Tab 2":
         data = data[
-            (data["Category"].isin(tab2_category)) &
-            (data["Region"].isin(tab2_region)) &
-            (data["Country"].isin(tab2_country))
+            (data["alert-country"].isin(tab2_country)) &
+            (data["alert-type"].isin(tab2_alert_type)) &
+            (data["alert-type"].isin(tab2_alert_type))
         ]
     return data
 
@@ -199,10 +199,10 @@ with tab1:
     render_summary_cards(summary_data)
 
     st.header("📌 Overview")
-    a1 = summary_data.groupby("Country")["Value"].sum().reset_index()
-    a2 = summary_data.groupby("Region")["Value"].sum().reset_index()
-    a3 = summary_data.groupby("Country")["Value"].mean().reset_index()
-    a4 = summary_data.groupby("Region")["Value"].mean().reset_index()
+    a1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    a2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
+    a3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    a4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
@@ -216,23 +216,23 @@ with tab2:
     active_tab = "Tab 2"
     col1, col2, col3 = st.columns(3)
     with col1:
-        tab2_category_filter = st.multiselect("Category", df["Category"].unique(),
-                                              default=df["Category"].unique())
+        tab2_category_filter = st.multiselect("alert-country", df["alert-country"].unique(),
+                                              default=df["alert-country"].unique())
     with col2:
-        tab2_region_filter = st.multiselect("Region (Tab 2)", df["Region"].unique(),
-                                            default=df["Region"].unique())
+        tab2_region_filter = st.multiselect("alert-type (Tab 2)", df["alert-type"].unique(),
+                                            default=df["alert-type"].unique())
     with col3:
-        tab2_country_filter = st.multiselect("Country (Tab 2)", df["Country"].unique(),
-                                             default=df["Country"].unique())
+        tab2_country_filter = st.multiselect("alert-type (Tab 2)", df["alert-type"].unique(),
+                                             default=df["alert-type"].unique())
 
     summary_data = get_summary_data(active_tab, tab2_category_filter, tab2_region_filter, tab2_country_filter)
     render_summary_cards(summary_data)
 
     st.header("📊 Negative Events Analysis")
-    v1 = summary_data.groupby("Country")["Value"].sum().reset_index()
-    v2 = summary_data.groupby("Region")["Value"].sum().reset_index()
-    v3 = summary_data.groupby("Category")["Value"].mean().reset_index()
-    v4 = summary_data.groupby("Country")["Value"].mean().reset_index()
+    v1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    v2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
+    v3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    v4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
@@ -248,10 +248,10 @@ with tab3:
     render_summary_cards(summary_data)
 
     st.header("📈 Positive Events Analysis")
-    b1 = summary_data.groupby("Country")["Value"].mean().reset_index()
-    b2 = summary_data.groupby("Region")["Value"].mean().reset_index()
-    b3 = summary_data.groupby("Region")["Value"].sum().reset_index()
-    b4 = summary_data.groupby("Country")["Value"].sum().reset_index()
+    b1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    b2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
+    b3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    b4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
@@ -267,10 +267,10 @@ with tab4:
     render_summary_cards(summary_data)
 
     st.header("📌 Others Analysis")
-    d1 = summary_data.groupby("Country")["Value"].sum().reset_index()
-    d2 = summary_data.groupby("Region")["Value"].sum().reset_index()
-    d3 = summary_data.groupby("Category")["Value"].mean().reset_index()
-    d4 = summary_data.groupby("Category")["Value"].sum().reset_index()
+    d1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    d2 = summary_data.groupby("alert-type")["Value"]..size().reset_index(name="count")
+    d3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    d4 = summary_data.groupby("alert-country")["Value"]..size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
