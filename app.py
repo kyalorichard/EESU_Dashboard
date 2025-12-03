@@ -26,8 +26,6 @@ with col2:
 
 st.markdown("---")  # separator
 
-# ---------------- SIDEBAR LOGO AT THE TOP ----------------
-st.sidebar.image("assets/logo.svg", width=400)
 
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
