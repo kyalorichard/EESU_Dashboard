@@ -131,7 +131,6 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
         uniformtext_minsize=12,
         uniformtext_mode='hide',
         bargap=0.3,
-        # rounded corners for bars is a limitation, but we can make the background rounded
     )
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
@@ -165,10 +164,10 @@ with tab1:
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(a1, x="Country", y="Value", horizontal=True), use_container_width=True)
-    with r1c2: st.plotly_chart(create_bar_chart(a2, x="Region", y="Value", horizontal=True), use_container_width=True)
-    with r2c1: st.plotly_chart(create_bar_chart(a3, x="Country", y="Value"), use_container_width=True)
-    with r2c2: st.plotly_chart(create_bar_chart(a4, x="Region", y="Value"), use_container_width=True)
+    with r1c1: st.plotly_chart(create_bar_chart(a1, x="Country", y="Value", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(a2, x="Region", y="Value", horizontal=True), use_container_width=True, key="tab1_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(a3, x="Country", y="Value"), use_container_width=True, key="tab1_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(a4, x="Region", y="Value"), use_container_width=True, key="tab1_chart4")
 
 # ---------------- TAB 2 ----------------
 with tab2:
@@ -195,10 +194,10 @@ with tab2:
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(v1, x="Country", y="Value", horizontal=True), use_container_width=True)
-    with r1c2: st.plotly_chart(create_bar_chart(v2, x="Region", y="Value", horizontal=True), use_container_width=True)
-    with r2c1: st.plotly_chart(create_bar_chart(v3, x="Category", y="Value"), use_container_width=True)
-    with r2c2: st.plotly_chart(create_bar_chart(v4, x="Country", y="Value"), use_container_width=True)
+    with r1c1: st.plotly_chart(create_bar_chart(v1, x="Country", y="Value", horizontal=True), use_container_width=True, key="tab2_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(v2, x="Region", y="Value", horizontal=True), use_container_width=True, key="tab2_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(v3, x="Category", y="Value"), use_container_width=True, key="tab2_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(v4, x="Country", y="Value"), use_container_width=True, key="tab2_chart4")
 
 # ---------------- TAB 3 ----------------
 with tab3:
@@ -214,10 +213,10 @@ with tab3:
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(b3, x="Region", y="Value", horizontal=True), use_container_width=True)
-    with r1c2: st.plotly_chart(create_bar_chart(b4, x="Country", y="Value", horizontal=True), use_container_width=True)
-    with r2c1: st.plotly_chart(create_bar_chart(b1, x="Country", y="Value"), use_container_width=True)
-    with r2c2: st.plotly_chart(create_bar_chart(b2, x="Region", y="Value"), use_container_width=True)
+    with r1c1: st.plotly_chart(create_bar_chart(b3, x="Region", y="Value", horizontal=True), use_container_width=True, key="tab3_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(b4, x="Country", y="Value", horizontal=True), use_container_width=True, key="tab3_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(b1, x="Country", y="Value"), use_container_width=True, key="tab3_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(b2, x="Region", y="Value"), use_container_width=True, key="tab3_chart4")
 
 # ---------------- TAB 4 ----------------
 with tab4:
@@ -233,10 +232,10 @@ with tab4:
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(d1, x="Country", y="Value", horizontal=True), use_container_width=True)
-    with r1c2: st.plotly_chart(create_bar_chart(d2, x="Region", y="Value", horizontal=True), use_container_width=True)
-    with r2c1: st.plotly_chart(create_bar_chart(d3, x="Category", y="Value"), use_container_width=True)
-    with r2c2: st.plotly_chart(create_bar_chart(d4, x="Category", y="Value"), use_container_width=True)
+    with r1c1: st.plotly_chart(create_bar_chart(d1, x="Country", y="Value", horizontal=True), use_container_width=True, key="tab4_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(d2, x="Region", y="Value", horizontal=True), use_container_width=True, key="tab4_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(d3, x="Category", y="Value"), use_container_width=True, key="tab4_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(d4, x="Category", y="Value"), use_container_width=True, key="tab4_chart4")
 
 # ---------------- FOOTER ----------------
 st.markdown("""
