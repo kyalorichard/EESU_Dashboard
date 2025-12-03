@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="Advanced Dashboard", layout="wide")
+st.set_page_config(page_title="Dashboard with Top Cards", layout="wide")
 
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
@@ -21,7 +21,6 @@ df = load_data()
 st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
-
 filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
 
 # ---------------- CSS FOR SUMMARY CARDS ----------------
@@ -52,7 +51,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- FUNCTION TO RENDER UNIVERSAL SUMMARY CARDS ----------------
+# ---------------- FUNCTION TO RENDER SUMMARY CARDS ----------------
 def render_summary_cards(data):
     total_value = data["Value"].sum()
     avg_value = data["Value"].mean()
@@ -60,7 +59,6 @@ def render_summary_cards(data):
     min_value = data["Value"].min()
 
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
         st.markdown(f'''
         <div class="summary-card">
@@ -69,7 +67,6 @@ def render_summary_cards(data):
             <p>Total Value</p>
         </div>
         ''', unsafe_allow_html=True)
-
     with col2:
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)">
@@ -78,7 +75,6 @@ def render_summary_cards(data):
             <p>Average Value</p>
         </div>
         ''', unsafe_allow_html=True)
-
     with col3:
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
@@ -87,7 +83,6 @@ def render_summary_cards(data):
             <p>Max Value</p>
         </div>
         ''', unsafe_allow_html=True)
-
     with col4:
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%)">
@@ -107,7 +102,9 @@ def get_summary_data(active_tab, tab2_categories=[]):
 # ---------------- TAB 2 CATEGORY FILTER ----------------
 tab2_category_filter = []
 
-# ---------------- TABS ----------------
+# ---------------- RENDER TABS ----------------
+# First render summary cards (they will always appear above tabs)
+# The summary cards will update depending on the selected tab (Tab 2 reacts to category filter)
 tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
 
 # ---------------- TAB 1 ----------------
