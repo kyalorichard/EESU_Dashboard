@@ -18,6 +18,16 @@ def load_data():
 
 df = load_data()
 
+# ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
+st.markdown("""
+<style>
+    /* Remove Streamlit's default top padding */
+    .css-18e3th9 {padding-top: 0rem;}
+    /* Optional: reduce spacing around main container */
+    .css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------- DASHBOARD TITLE ----------------
 st.markdown("""
 <h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:52px;'>
