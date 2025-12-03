@@ -12,6 +12,14 @@ def load_data():
     base_dir = os.path.dirname(__file__)  # directory of app.py
     file_path = os.path.join(base_dir, "data", "raw_data.csv")
     df = pd.read_csv(file_path)
+    # Normalize column names ✅
+    df.columns = (
+        df.columns
+          .str.strip()
+          .str.lower()
+          .str.replace("-", "_")   # converts alert-country → alert_country
+          .str.replace(" ", "_")   # converts spaces → _
+    )
     return df
 
 df = load_data()
