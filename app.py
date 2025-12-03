@@ -22,12 +22,25 @@ st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 
+# Apply global filters
 filtered_global = df[
     (df["Country"].isin(country_filter)) &
     (df["Region"].isin(region_filter))
 ]
 
-# -------- SUMMARY METRIC CARDS --------
+# -------- TABS LAYOUT --------
+tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
+active_tab = st.session_state.get("active_tab", "Overview")
+
+# Detect which tab is active
+def set_active_tab(tab_name):
+    st.session_state.active_tab = tab_name
+    return tab_name
+
+# Tab-specific category filter (inside Tab 2)
+tab2_category_filter = []
+
+# -------- SUMMARY METRIC FUNCTION --------
 def render_summary(data):
     total_value = data["Value"].sum()
     avg_value = data["Value"].mean()
@@ -40,18 +53,23 @@ def render_summary(data):
     col3.metric("Max Value", f"{max_value}")
     col4.metric("Min Value", f"{min_value}")
 
-# Initialize with global filter summary
-render_summary(filtered_global)
-
-# -------- TABS LAYOUT --------
-tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
+# -------- DETERMINE DATA FOR SUMMARY CARDS --------
+# For Tab 2, summary reacts to global + tab2 filter
+# For other tabs, summary reacts only to global filters
+with st.container():
+    # Placeholder to detect tab and apply Tab2 filter if needed
+    if "tab2_active" not in st.session_state:
+        st.session_state.tab2_active = False
 
 # -------- TAB 1 --------
 with tab1:
+    set_active_tab("Overview")
     filtered1 = filtered_global
-    st.header("📌 Overview")
 
-    # 4 Charts 2x2
+    # Render summary cards based on filtered data
+    render_summary(filtered1)
+
+    st.header("📌 Overview")
     a1 = filtered1.groupby("Country")["Value"].sum().reset_index()
     a2 = filtered1.groupby("Region")["Value"].sum().reset_index()
     a3 = filtered1.groupby("Country")["Value"].mean().reset_index()
@@ -68,21 +86,23 @@ with tab1:
     with r2c2:
         st.bar_chart(a4.set_index("Region"))
 
-# -------- TAB 2 (Category filter inside tab) --------
+# -------- TAB 2 --------
 with tab2:
+    set_active_tab("Tab 2")
     st.header("📊 Tab 2 Analysis")
 
-    # Tab 2 specific filter inside the tab
+    # Tab2-specific filter inside the tab
     tab2_category_filter = st.multiselect(
         "Select Category (Tab 2)", df["Category"].unique(), default=df["Category"].unique()
     )
 
+    # Apply both global + Tab2 filter for summary
     filtered2 = filtered_global[filtered_global["Category"].isin(tab2_category_filter)]
 
-    # Summary cards reactive to both global + tab2 filter
+    # Render summary cards based on global + tab2 filter
     render_summary(filtered2)
 
-    # 4 Charts 2x2
+    # Prepare 4 charts 2x2
     v1 = filtered2.groupby("Country")["Value"].sum().reset_index()
     v2 = filtered2.groupby("Region")["Value"].sum().reset_index()
     v3 = filtered2.groupby("Category")["Value"].mean().reset_index()
@@ -101,12 +121,11 @@ with tab2:
 
 # -------- TAB 3 --------
 with tab3:
+    set_active_tab("Tab 3")
     filtered3 = filtered_global
-    st.header("📈 Tab 3 Insights")
-
-    # Summary cards react to global filters
     render_summary(filtered3)
 
+    st.header("📈 Tab 3 Insights")
     b1 = filtered3.groupby("Country")["Value"].mean().reset_index()
     b2 = filtered3.groupby("Region")["Value"].mean().reset_index()
     b3 = filtered3.groupby("Region")["Value"].sum().reset_index()
@@ -125,23 +144,4 @@ with tab3:
 
 # -------- TAB 4 --------
 with tab4:
-    filtered4 = filtered_global
-    st.header("📌 Tab 4 Summary")
-
-    render_summary(filtered4)
-
-    d1 = filtered4.groupby("Country")["Value"].sum().reset_index()
-    d2 = filtered4.groupby("Region")["Value"].sum().reset_index()
-    d3 = filtered4.groupby("Category")["Value"].mean().reset_index()
-    d4 = filtered4.groupby("Category")["Value"].sum().reset_index()
-
-    r1c1, r1c2 = st.columns(2)
-    r2c1, r2c2 = st.columns(2)
-    with r1c1:
-        st.bar_chart(d1.set_index("Country"), horizontal=True)
-    with r1c2:
-        st.bar_chart(d2.set_index("Region"), horizontal=True)
-    with r2c1:
-        st.bar_chart(d3.set_index("Category"))
-    with r2c2:
-        st.bar_chart(d4.set_index("Category"))
+    set_active_tab("Tab 4")
