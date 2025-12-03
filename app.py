@@ -71,8 +71,8 @@ selected_alert_types_multi = st.sidebar.multiselect(
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_data = data[
     (data['alert-country'].isin(selected_countries)) &
-    (data['alert type'].isin(selected_alert_type_single)) &
-    (data['alert type'].isin(selected_alert_types_multi))
+    (data['alert-type'].isin(selected_alert_type_single)) &
+    (data['alert-type'].isin(selected_alert_types_multi))
 ]
 
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
