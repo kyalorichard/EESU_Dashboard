@@ -60,8 +60,8 @@ country_filter = st.sidebar.multiselect(
 
 alert_type_filter = st.sidebar.multiselect(
     "Alert Type",
-    options=df["alert type"].unique(),
-    default=df["alert type"].unique()
+    options=df["alert-country"].unique(),
+    default=df["alert-country"].unique()
 )
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
