@@ -62,14 +62,14 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect(
     "Country",
-    options=df["alert-country"].unique(),
-    default=df["alert-country"].unique()
+    options=df["alert_country"].unique(),
+    default=df["alert_country"].unique()
 )
 
 alert_type_filter = st.sidebar.multiselect(
     "Alert Type",
-    options=df["alert-country"].unique(),
-    default=df["alert-country"].unique()
+    options=df["alert_type"].unique(),
+    default=df["alert_type"].unique()
 )
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
