@@ -66,17 +66,33 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 
 # ✅ FIX: Auto-detect the correct country column (even if user CSV used different naming)
-country_col = next((c for c in df1.columns if "country" in c), None)
+st.sidebar.header("Country Filter")
+
+# ✅ 1. Auto-detect country column
+country_col = next((c for c in df1.columns if "country" in c.lower()), None)
 
 if country_col:
-    options = df1[country_col].unique().tolist()
+    country_list = df1[country_col].dropna().unique().tolist()
+    country_options = ["All"] + country_list  # prepend Select All option
 else:
-    st.error("No country-related column found in your CSV!")
-    options = []
+    st.error("No country column found in CSV!")
+    country_options = ["All"]
 
-selected_country = st.sidebar.selectbox("Country", ["all"] + options)
+# ✅ 2. Single selectbox with "Select All"
+selected_country = st.sidebar.selectbox(
+    "Select Country",
+    options=country_options,
+    index=0  # default = All
+)
 
+# ✅ 3. Convert "All" to full list logic
+def apply_country_filter(df1):
+    if selected_country == "All":
+        return df  # return full dataset
+    return df1[df1[country_col] == selected_country]
 
+# Apply it
+df1 = apply_country_filter(df1)
 
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
