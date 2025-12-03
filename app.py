@@ -2,102 +2,119 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# ---------- Page Config ----------
-st.set_page_config(
-    page_title="Dashboard",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Advanced Dashboard", layout="wide")
 
-# ---------- Custom CSS ----------
-st.markdown("""
-<style>
-/* Background for dashboard */
-body, .css-18e3th9 {
-    background: linear-gradient(145deg, #e0f0ff, #ffffff);
-}
-
-/* Summary cards */
-.summary-card {
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    text-align: center;
-    margin-bottom: 10px;
-}
-
-.summary-number {
-    font-size: 28px;
-    font-weight: bold;
-    color: #1f77b4;
-}
-
-.summary-label {
-    font-size: 16px;
-    color: #555;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------- Load Data ----------
-# Replace this with your actual data
+# -------- SAMPLE DATA --------
 @st.cache_data
 def load_data():
-    np.random.seed(0)
-    data = pd.DataFrame({
-        'Country': np.random.choice(['USA', 'UK', 'Germany', 'Kenya'], 100),
-        'Category': np.random.choice(['A', 'B', 'C'], 100),
-        'Value': np.random.randint(10, 100, 100)
+    np.random.seed(42)
+    return pd.DataFrame({
+        "Country": np.random.choice(["Kenya", "Ethiopia", "Germany", "USA", "Brazil"], 200),
+        "Region": np.random.choice(["East", "West", "North", "South"], 200),
+        "Category": np.random.choice(["Agriculture", "Tech", "Health", "Finance"], 200),
+        "Value": np.random.randint(20, 200, 200)
     })
-    return data
 
 df = load_data()
 
-# ---------- Sidebar Filters ----------
-st.sidebar.header("Filters")
-country_filter = st.sidebar.multiselect("Country", options=df['Country'].unique(), default=df['Country'].unique())
-category_filter = st.sidebar.multiselect("Category", options=df['Category'].unique(), default=df['Category'].unique())
+# -------- GLOBAL SIDEBAR FILTERS --------
+st.sidebar.header("🌍 Global Filters")
+country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
+region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 
-# Apply filters
-filtered_data = df[(df['Country'].isin(country_filter)) & (df['Category'].isin(category_filter))]
+filtered = df[
+    (df["Country"].isin(country_filter)) &
+    (df["Region"].isin(region_filter))
+]
 
-# ---------- Summary Cards ----------
-total_value = filtered_data['Value'].sum()
-avg_value = filtered_data['Value'].mean()
-max_value = filtered_data['Value'].max()
-min_value = filtered_data['Value'].min()
+# -------- TAB-SPECIFIC SIDEBAR FOR TAB 2 --------
+tab2_category_filter = None
+if "tab_selection" not in st.session_state:
+    st.session_state.tab_selection = "Overview"
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown(f'<div class="summary-card"><div class="summary-number">{total_value}</div><div class="summary-label">Total Value</div></div>', unsafe_allow_html=True)
-with col2:
-    st.markdown(f'<div class="summary-card"><div class="summary-number">{avg_value:.2f}</div><div class="summary-label">Average Value</div></div>', unsafe_allow_html=True)
-with col3:
-    st.markdown(f'<div class="summary-card"><div class="summary-number">{max_value}</div><div class="summary-label">Max Value</div></div>', unsafe_allow_html=True)
-with col4:
-    st.markdown(f'<div class="summary-card"><div class="summary-number">{min_value}</div><div class="summary-label">Min Value</div></div>', unsafe_allow_html=True)
+def tab2_sidebar():
+    st.sidebar.header("📌 Tab 2 Filters")
+    return st.sidebar.multiselect("Category", df["Category"].unique(), default=df["Category"].unique())
 
-# ---------- Tabs ----------
+# -------- TABS LAYOUT --------
 tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
 
-with tab1:
-    st.header("Overview")
-    st.write("This tab can show main charts and metrics.")
-    # Example placeholder chart
-    st.bar_chart(filtered_data.groupby('Country')['Value'].sum())
-
+# Enable Tab-2 sidebar filters only when Tab 2 is active
 with tab2:
-    st.header("Tab 2")
-    st.write("Content for Tab 2")
-    st.bar_chart(filtered_data.groupby('Category')['Value'].sum())
+    tab2_category_filter = tab2_sidebar()
+    filtered_tab2 = filtered[filtered["Category"].isin(tab2_category_filter)]
+    
+    st.header("📊 Tab 2 Analysis")
+    
+    # ---- 4 Charts: 2 horizontal + 2 vertical ----
+    v1 = filtered_tab2.groupby("Country")["Value"].sum().reset_index()
+    v2 = filtered_tab2.groupby("Region")["Value"].sum().reset_index()
+    v3 = filtered_tab2.groupby("Category")["Value"].mean().reset_index()
+    v4 = filtered_tab2.groupby("Category")["Value"].sum().reset_index()
 
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.bar_chart(v1.set_index("Country"), horizontal=True)
+    with col2:
+        st.bar_chart(v2.set_index("Region"), horizontal=True)
+    with col3:
+        st.bar_chart(v3.set_index("Category"))
+    with col4:
+        st.bar_chart(v4.set_index("Category"))
+
+# -------- TAB 1 --------
+with tab1:
+    st.header("📌 Overview")
+    
+    a1 = filtered.groupby("Country")["Value"].mean().reset_index()
+    a2 = filtered.groupby("Region")["Value"].mean().reset_index()
+    a3 = filtered.groupby("Region")["Value"].sum().reset_index()
+    a4 = filtered.groupby("Country")["Value"].sum().reset_index()
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.bar_chart(a4.set_index("Country"), horizontal=True)
+    with c2:
+        st.bar_chart(a3.set_index("Region"), horizontal=True)
+    with c3:
+        st.bar_chart(a1.set_index("Country"))
+    with c4:
+        st.bar_chart(a2.set_index("Region"))
+
+# -------- TAB 3 --------
 with tab3:
-    st.header("Tab 3")
-    st.write("Content for Tab 3")
-    st.line_chart(filtered_data.groupby('Country')['Value'].mean())
+    st.header("📈 Tab 3 Insights")
 
+    b1 = filtered.groupby("Region")["Value"].sum().reset_index()
+    b2 = filtered.groupby("Country")["Value"].mean().reset_index()
+    b3 = filtered.groupby("Region")["Value"].mean().reset_index()
+    b4 = filtered.groupby("Country")["Value"].sum().reset_index()
+
+    p1, p2, p3, p4 = st.columns(4)
+    with p1:
+        st.bar_chart(b1.set_index("Region"), horizontal=True)
+    with p2:
+        st.bar_chart(b4.set_index("Country"), horizontal=True)
+    with p3:
+        st.bar_chart(b2.set_index("Country"))
+    with p4:
+        st.bar_chart(b3.set_index("Region"))
+
+# -------- TAB 4 --------
 with tab4:
-    st.header("Tab 4")
-    st.write("Content for Tab 4")
-    st.area_chart(filtered_data.groupby('Category')['Value'].sum())
+    st.header("📌 Tab 4 Summary")
+
+    d1 = filtered.groupby("Category")["Value"].sum().reset_index()
+    d2 = filtered.groupby("Category")["Value"].mean().reset_index()
+    d3 = filtered.groupby("Country")["Value"].sum().reset_index()
+    d4 = filtered.groupby("Region")["Value"].sum().reset_index()
+
+    x1, x2, x3, x4 = st.columns(4)
+    with x1:
+        st.bar_chart(d3.set_index("Country"), horizontal=True)
+    with x2:
+        st.bar_chart(d4.set_index("Region"), horizontal=True)
+    with x3:
+        st.bar_chart(d1.set_index("Category"))
+    with x4:
+        st.bar_chart(d2.set_index("Category"))
