@@ -17,32 +17,20 @@ def load_data():
 
     file_path = files[0]
     try:
-        dfs = pd.read_csv(file_path)
-        dfs.columns = (
-            dfs.columns
+        df = pd.read_csv(file_path)
+        df.columns = (
+            df.columns
               .str.strip()
               .str.lower()
               .str.replace("-", "_")
               .str.replace(" ", "_")
         )
-        return dfs
+        return df
 
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
         return pd.DataFrame()
         
-# ---------------- SAMPLE DATA ----------------
-@st.cache_data
-def load_data():
-    np.random.seed(42)
-    return pd.DataFrame({
-        "Country": np.random.choice(["Kenya", "Ethiopia", "Germany", "USA", "Brazil"], 200),
-        "Region": np.random.choice(["East", "West", "North", "South"], 200),
-        "Category": np.random.choice(["Agriculture", "Tech", "Health", "Finance"], 200),
-        "Value": np.random.randint(20, 200, 200)
-    })
-
-df = load_data()
 
 # ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
 st.markdown("""
@@ -70,17 +58,13 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 #######    Single select country filter with Select All
 
-country_col = next((c for c in dfs.columns if "country" in c), None)
+country_col = next((c for c in df.columns if "country" in c), None)
 if country_col:
     country_list = df[country_col].dropna().unique().tolist()
     country_options = ["all"] + country_list
 else:
     country_options = ["all"]
 selected_country = st.sidebar.selectbox("select country", country_options, index=0)
-
-country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
-region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
-filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
 
 
 
