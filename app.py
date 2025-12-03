@@ -9,27 +9,16 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data
 def load_data():
-    data_dir = Path(__file__).parent / "data"  # ✅ fixed location
-    files = list(data_dir.glob("*.csv"))
-    if not files:
-        st.error("No CSV file found in data/ folder")
-        return pd.DataFrame()
+    # Use current working directory instead of __file__
+    data_dir = Path.cwd() / "data"  
+    csv_file = data_dir / "your_file.csv"  # replace with your file name
 
-    file_path = files[0]
-    try:
-        df = pd.read_csv(file_path)
-        df.columns = (
-            df.columns
-              .str.strip()
-              .str.lower()
-              .str.replace("-", "_")
-              .str.replace(" ", "_")
-        )
-        return df
+    if not csv_file.exists():
+        st.error(f"CSV file not found: {csv_file}")
+        return pd.DataFrame()  # return empty dataframe if file missing
 
-    except Exception as e:
-        st.error(f"Error loading CSV: {e}")
-        return pd.DataFrame()
+    return pd.read_csv(csv_file)
+
 data = load_data()
 
 # ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
