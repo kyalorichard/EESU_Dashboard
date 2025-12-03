@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -20,21 +21,19 @@ df = load_data()
 # ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
 col1, col2 = st.columns([1,6])
 with col1:
-    st.image("assets/eu-see-logo-rgb-wide.svg", width=350)  # load SVG from assets folder
+    st.image("assets/eu-see-logo-rgb-wide.svg", width=350)
 with col2:
     st.markdown("<h1 style='margin-bottom:0;'>EU SEE Dashboard</h1>", unsafe_allow_html=True)
-
-st.markdown("---")  # separator
-
-
+st.markdown("---")
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
+st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=250)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
 
-# ---------------- CSS FOR SUMMARY CARDS & FOOTER ----------------
+# ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
 <style>
 .summary-card {
@@ -111,6 +110,33 @@ def render_summary_cards(data):
         </div>
         ''', unsafe_allow_html=True)
 
+# ---------------- FUNCTION TO CREATE PLOTLY BAR CHART ----------------
+def create_bar_chart(data, x, y, horizontal=False, height=400):
+    fig = px.bar(
+        data,
+        x=x if not horizontal else y,
+        y=y if not horizontal else x,
+        orientation='h' if horizontal else 'v',
+        color_discrete_sequence=['#660094'],
+        text=y
+    )
+    fig.update_traces(textposition='outside')
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        height=height,
+        margin=dict(l=20, r=20, t=20, b=20),
+        xaxis_title=None,
+        yaxis_title=None,
+        uniformtext_minsize=12,
+        uniformtext_mode='hide',
+        bargap=0.3,
+        # rounded corners for bars is a limitation, but we can make the background rounded
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    return fig
+
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
 def get_summary_data(active_tab, tab2_category=[], tab2_region=[], tab2_country=[]):
     data = filtered_global.copy()
@@ -137,18 +163,16 @@ with tab1:
     a3 = summary_data.groupby("Country")["Value"].mean().reset_index()
     a4 = summary_data.groupby("Region")["Value"].mean().reset_index()
 
-    r1c1, r1c2 = st.columns(2)
-    r2c1, r2c2 = st.columns(2)
-    with r1c1: st.bar_chart(a1.set_index("Country"), horizontal=True)
-    with r1c2: st.bar_chart(a2.set_index("Region"), horizontal=True)
-    with r2c1: st.bar_chart(a3.set_index("Country"))
-    with r2c2: st.bar_chart(a4.set_index("Region"))
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(a1, x="Country", y="Value", horizontal=True), use_container_width=True)
+    with r1c2: st.plotly_chart(create_bar_chart(a2, x="Region", y="Value", horizontal=True), use_container_width=True)
+    with r2c1: st.plotly_chart(create_bar_chart(a3, x="Country", y="Value"), use_container_width=True)
+    with r2c2: st.plotly_chart(create_bar_chart(a4, x="Region", y="Value"), use_container_width=True)
 
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
-
-    # ---------------- TAB 2 FILTERS IN SINGLE ROW ----------------
     col1, col2, col3 = st.columns(3)
     with col1:
         tab2_category_filter = st.multiselect("Category", df["Category"].unique(),
@@ -160,28 +184,21 @@ with tab2:
         tab2_country_filter = st.multiselect("Country (Tab 2)", df["Country"].unique(),
                                              default=df["Country"].unique())
 
-    # ---------------- FILTERED DATA ----------------
-    summary_data = get_summary_data(active_tab,
-                                    tab2_category_filter,
-                                    tab2_region_filter,
-                                    tab2_country_filter)
-
-    # ---------------- RENDER UNIVERSAL SUMMARY CARDS ----------------
+    summary_data = get_summary_data(active_tab, tab2_category_filter, tab2_region_filter, tab2_country_filter)
     render_summary_cards(summary_data)
 
-    # ---------------- TAB 2 CHARTS ----------------
-    st.header("📊 Tab 2 Analysis")
+    st.header("📊 Negative Events Analysis")
     v1 = summary_data.groupby("Country")["Value"].sum().reset_index()
     v2 = summary_data.groupby("Region")["Value"].sum().reset_index()
     v3 = summary_data.groupby("Category")["Value"].mean().reset_index()
     v4 = summary_data.groupby("Country")["Value"].mean().reset_index()
 
-    r1c1, r1c2 = st.columns(2)
-    r2c1, r2c2 = st.columns(2)
-    with r1c1: st.bar_chart(v1.set_index("Country"), horizontal=True)
-    with r1c2: st.bar_chart(v2.set_index("Region"), horizontal=True)
-    with r2c1: st.bar_chart(v3.set_index("Category"))
-    with r2c2: st.bar_chart(v4.set_index("Country"))
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(v1, x="Country", y="Value", horizontal=True), use_container_width=True)
+    with r1c2: st.plotly_chart(create_bar_chart(v2, x="Region", y="Value", horizontal=True), use_container_width=True)
+    with r2c1: st.plotly_chart(create_bar_chart(v3, x="Category", y="Value"), use_container_width=True)
+    with r2c2: st.plotly_chart(create_bar_chart(v4, x="Country", y="Value"), use_container_width=True)
 
 # ---------------- TAB 3 ----------------
 with tab3:
@@ -189,18 +206,18 @@ with tab3:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    st.header("📈 Tab 3 Insights")
+    st.header("📈 Positive Events Analysis")
     b1 = summary_data.groupby("Country")["Value"].mean().reset_index()
     b2 = summary_data.groupby("Region")["Value"].mean().reset_index()
     b3 = summary_data.groupby("Region")["Value"].sum().reset_index()
     b4 = summary_data.groupby("Country")["Value"].sum().reset_index()
 
-    r1c1, r1c2 = st.columns(2)
-    r2c1, r2c2 = st.columns(2)
-    with r1c1: st.bar_chart(b3.set_index("Region"), horizontal=True)
-    with r1c2: st.bar_chart(b4.set_index("Country"), horizontal=True)
-    with r2c1: st.bar_chart(b1.set_index("Country"))
-    with r2c2: st.bar_chart(b2.set_index("Region"))
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(b3, x="Region", y="Value", horizontal=True), use_container_width=True)
+    with r1c2: st.plotly_chart(create_bar_chart(b4, x="Country", y="Value", horizontal=True), use_container_width=True)
+    with r2c1: st.plotly_chart(create_bar_chart(b1, x="Country", y="Value"), use_container_width=True)
+    with r2c2: st.plotly_chart(create_bar_chart(b2, x="Region", y="Value"), use_container_width=True)
 
 # ---------------- TAB 4 ----------------
 with tab4:
@@ -208,23 +225,23 @@ with tab4:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    st.header("📌 Tab 4 Summary")
+    st.header("📌 Others Analysis")
     d1 = summary_data.groupby("Country")["Value"].sum().reset_index()
     d2 = summary_data.groupby("Region")["Value"].sum().reset_index()
     d3 = summary_data.groupby("Category")["Value"].mean().reset_index()
     d4 = summary_data.groupby("Category")["Value"].sum().reset_index()
 
-    r1c1, r1c2 = st.columns(2)
-    r2c1, r2c2 = st.columns(2)
-    with r1c1: st.bar_chart(d1.set_index("Country"), horizontal=True)
-    with r1c2: st.bar_chart(d2.set_index("Region"), horizontal=True)
-    with r2c1: st.bar_chart(d3.set_index("Category"))
-    with r2c2: st.bar_chart(d4.set_index("Category"))
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(d1, x="Country", y="Value", horizontal=True), use_container_width=True)
+    with r1c2: st.plotly_chart(create_bar_chart(d2, x="Region", y="Value", horizontal=True), use_container_width=True)
+    with r2c1: st.plotly_chart(create_bar_chart(d3, x="Category", y="Value"), use_container_width=True)
+    with r2c2: st.plotly_chart(create_bar_chart(d4, x="Category", y="Value"), use_container_width=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("""
 <hr>
 <div style='text-align: center; color: gray;'>
-    © 2025 My Dashboard. All rights reserved.
+    © 2025 EU SEE Dashboard. All rights reserved.
 </div>
 """, unsafe_allow_html=True)
