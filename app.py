@@ -2,14 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-
+import os
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/raw_data.csv")  # replace with your actual CSV file name
+    base_dir = os.path.dirname(__file__)  # directory of app.py
+    file_path = os.path.join(base_dir, "data", "raw_data.csv")
+    df = pd.read_csv(file_path)
     return df
 
 df = load_data()
