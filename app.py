@@ -11,11 +11,11 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 def load_data():
     file_path = "data/raw_data.csv"
     try:
-        df = pd.read_csv(file_path)
+        df1 = pd.read_csv(file_path)
 
         # ✅ FIX: Normalize column names
-        df.columns = (
-            df.columns
+        df1.columns = (
+            df1.columns
               .str.strip()
               .str.lower()
               .str.replace("-", "_")
