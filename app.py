@@ -11,8 +11,7 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 def load_data():
     # Use current working directory instead of __file__
     data_dir = Path.cwd() / "data"  
-    csv_file = data_dir / "your_file.csv"  # replace with your file name
-
+    csv_file = data_dir / "raw_data.csv"  
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
         return pd.DataFrame()  # return empty dataframe if file missing
