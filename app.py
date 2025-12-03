@@ -97,17 +97,18 @@ def render_summary_cards(data):
         </div>
         ''', unsafe_allow_html=True)
 
-# ---------------- TABS ----------------
-tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
-
-# ---------------- UNIVERSAL SUMMARY CARDS LOGIC ----------------
-# Determine which data to use for summary:
-# If inside Tab 2 and a category filter is selected, apply it
+# ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
 def get_summary_data(active_tab, tab2_categories=[]):
     if active_tab == "Tab 2" and tab2_categories:
         return filtered_global[filtered_global["Category"].isin(tab2_categories)]
     else:
         return filtered_global
+
+# ---------------- TAB 2 CATEGORY FILTER ----------------
+tab2_category_filter = []
+
+# ---------------- TABS ----------------
+tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Tab 2", "Tab 3", "Tab 4"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
@@ -123,19 +124,14 @@ with tab1:
 
     r1c1, r1c2 = st.columns(2)
     r2c1, r2c2 = st.columns(2)
-    with r1c1:
-        st.bar_chart(a1.set_index("Country"), horizontal=True)
-    with r1c2:
-        st.bar_chart(a2.set_index("Region"), horizontal=True)
-    with r2c1:
-        st.bar_chart(a3.set_index("Country"))
-    with r2c2:
-        st.bar_chart(a4.set_index("Region"))
+    with r1c1: st.bar_chart(a1.set_index("Country"), horizontal=True)
+    with r1c2: st.bar_chart(a2.set_index("Region"), horizontal=True)
+    with r2c1: st.bar_chart(a3.set_index("Country"))
+    with r2c2: st.bar_chart(a4.set_index("Region"))
 
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
-    # Category filter inside the tab
     tab2_category_filter = st.multiselect("Select Category (Tab 2)", df["Category"].unique(),
                                           default=df["Category"].unique())
     summary_data = get_summary_data(active_tab, tab2_category_filter)
@@ -149,14 +145,10 @@ with tab2:
 
     r1c1, r1c2 = st.columns(2)
     r2c1, r2c2 = st.columns(2)
-    with r1c1:
-        st.bar_chart(v1.set_index("Country"), horizontal=True)
-    with r1c2:
-        st.bar_chart(v2.set_index("Region"), horizontal=True)
-    with r2c1:
-        st.bar_chart(v3.set_index("Category"))
-    with r2c2:
-        st.bar_chart(v4.set_index("Country"))
+    with r1c1: st.bar_chart(v1.set_index("Country"), horizontal=True)
+    with r1c2: st.bar_chart(v2.set_index("Region"), horizontal=True)
+    with r2c1: st.bar_chart(v3.set_index("Category"))
+    with r2c2: st.bar_chart(v4.set_index("Country"))
 
 # ---------------- TAB 3 ----------------
 with tab3:
@@ -172,14 +164,10 @@ with tab3:
 
     r1c1, r1c2 = st.columns(2)
     r2c1, r2c2 = st.columns(2)
-    with r1c1:
-        st.bar_chart(b3.set_index("Region"), horizontal=True)
-    with r1c2:
-        st.bar_chart(b4.set_index("Country"), horizontal=True)
-    with r2c1:
-        st.bar_chart(b1.set_index("Country"))
-    with r2c2:
-        st.bar_chart(b2.set_index("Region"))
+    with r1c1: st.bar_chart(b3.set_index("Region"), horizontal=True)
+    with r1c2: st.bar_chart(b4.set_index("Country"), horizontal=True)
+    with r2c1: st.bar_chart(b1.set_index("Country"))
+    with r2c2: st.bar_chart(b2.set_index("Region"))
 
 # ---------------- TAB 4 ----------------
 with tab4:
@@ -195,11 +183,7 @@ with tab4:
 
     r1c1, r1c2 = st.columns(2)
     r2c1, r2c2 = st.columns(2)
-    with r1c1:
-        st.bar_chart(d1.set_index("Country"), horizontal=True)
-    with r1c2:
-        st.bar_chart(d2.set_index("Region"), horizontal=True)
-    with r2c1:
-        st.bar_chart(d3.set_index("Category"))
-    with r2c2:
-        st.bar_chart(d4.set_index("Category"))
+    with r1c1: st.bar_chart(d1.set_index("Country"), horizontal=True)
+    with r1c2: st.bar_chart(d2.set_index("Region"), horizontal=True)
+    with r2c1: st.bar_chart(d3.set_index("Category"))
+    with r2c2: st.bar_chart(d4.set_index("Category"))
