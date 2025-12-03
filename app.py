@@ -9,24 +9,41 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data
 def load_data():
-    file_path = "data/raw_data.csv"
-    try:
-        df1 = pd.read_csv(file_path)
+    data_dir = Path("data")
+    files = list(data_dir.glob("*.csv"))
+    if not files:
+        st.error("No CSV file found in data/ folder")
+        return pd.DataFrame()
 
-        # ✅ FIX: Normalize column names
-        df1.columns = (
-            df1.columns
+    file_path = files[0]  # Load the first CSV found
+    try:
+        df = pd.read_csv(file_path)
+
+        # ✅ Normalize column names
+        df.columns = (
+            df.columns
               .str.strip()
               .str.lower()
               .str.replace("-", "_")
               .str.replace(" ", "_")
         )
 
-        return df1
+        # ✅ Convert Date column to datetime if possible
+        date_col = next((c for c in df.columns if "date" in c), None)
+        if date_col:
+            df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+
+        return df
 
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
         return pd.DataFrame()
+
+df = load_data()
+
+# safety fallback
+if df is None or df.empty:
+    df = pd.DataFrame()
 
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
@@ -63,40 +80,23 @@ st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separa
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
+
 st.sidebar.header("🌍 Global Filters")
+#######    Single select country filter with Select All
 
-# ✅ FIX: Auto-detect the correct country column (even if user CSV used different naming)
-st.sidebar.header("Country Filter")
-
-# ✅ 1. Auto-detect country column
-country_col = next((c for c in df1.columns if "country" in c.lower()), None)
-
+country_col = next((c for c in df.columns if "country" in c), None)
 if country_col:
-    country_list = df1[country_col].dropna().unique().tolist()
-    country_options = ["All"] + country_list  # prepend Select All option
+    country_list = df[country_col].dropna().unique().tolist()
+    country_options = ["all"] + country_list
 else:
-    st.error("No country column found in CSV!")
-    country_options = ["All"]
-
-# ✅ 2. Single selectbox with "Select All"
-selected_country = st.sidebar.selectbox(
-    "Select Country",
-    options=country_options,
-    index=0  # default = All
-)
-
-# ✅ 3. Convert "All" to full list logic
-def apply_country_filter(df1):
-    if selected_country == "All":
-        return df  # return full dataset
-    return df1[df1[country_col] == selected_country]
-
-# Apply it
-df1 = apply_country_filter(df1)
+    country_options = ["all"]
+selected_country = st.sidebar.selectbox("select country", country_options, index=0)
 
 country_filter = st.sidebar.multiselect("Country", df["Country"].unique(), default=df["Country"].unique())
 region_filter = st.sidebar.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
 filtered_global = df[(df["Country"].isin(country_filter)) & (df["Region"].isin(region_filter))]
+
+
 
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
