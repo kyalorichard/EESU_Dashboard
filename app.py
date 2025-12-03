@@ -9,42 +9,28 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data
 def load_data():
-    data_dir = Path("data")
+    data_dir = Path(__file__).parent / "data"  # ✅ fixed location
     files = list(data_dir.glob("*.csv"))
     if not files:
         st.error("No CSV file found in data/ folder")
         return pd.DataFrame()
 
-    file_path = files[0]  # Load the first CSV found
+    file_path = files[0]
     try:
-        df = pd.read_csv(file_path)
-
-        # ✅ Normalize column names
-        df.columns = (
-            df.columns
+        dfs = pd.read_csv(file_path)
+        dfs.columns = (
+            dfs.columns
               .str.strip()
               .str.lower()
               .str.replace("-", "_")
               .str.replace(" ", "_")
         )
-
-        # ✅ Convert Date column to datetime if possible
-        date_col = next((c for c in df.columns if "date" in c), None)
-        if date_col:
-            df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-
-        return df
+        return dfs
 
     except Exception as e:
         st.error(f"Error loading CSV: {e}")
         return pd.DataFrame()
-
-df = load_data()
-
-# safety fallback
-if df is None or df.empty:
-    df = pd.DataFrame()
-
+        
 # ---------------- SAMPLE DATA ----------------
 @st.cache_data
 def load_data():
@@ -84,7 +70,7 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 #######    Single select country filter with Select All
 
-country_col = next((c for c in df.columns if "country" in c), None)
+country_col = next((c for c in dfs.columns if "country" in c), None)
 if country_col:
     country_list = df[country_col].dropna().unique().tolist()
     country_options = ["all"] + country_list
