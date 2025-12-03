@@ -20,9 +20,9 @@ df = load_data()
 # ---------------- DASHBOARD TITLE & LOGO AT TOP ----------------
 col1, col2 = st.columns([1,6])
 with col1:
-    st.image("assets/eu-see-logo-rgb-wide.svg", width=80)  # load SVG from assets folder
+    st.image("assets/eu-see-logo-rgb-wide.svg", width=200)  # load SVG from assets folder
 with col2:
-    st.markdown("<h1 style='margin-bottom:0;'>🌟 Advanced Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-bottom:0;'>EU SEE Dashboard</h1>", unsafe_allow_html=True)
 
 st.markdown("---")  # separator
 
