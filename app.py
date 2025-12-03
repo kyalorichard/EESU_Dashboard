@@ -179,7 +179,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
-def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[],tab2_alert_type=[]):
+def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_type=[]):
     data = filtered_global.copy()
     if active_tab == "Tab 2":
         data = data[
@@ -268,9 +268,9 @@ with tab4:
 
     st.header("📌 Others Analysis")
     d1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    d2 = summary_data.groupby("alert-type")["Value"]..size().reset_index(name="count")
+    d2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
     d3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    d4 = summary_data.groupby("alert-country")["Value"]..size().reset_index(name="count")
+    d4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
