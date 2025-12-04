@@ -370,11 +370,17 @@ with tab1:
     a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby("alert-type").size().reset_index(name="count")
     a3 = summary_data.groupby("continent").size().reset_index(name="count")
-    a4 = summary_data.groupby(['alert-country', 'alert-impact']).size().reset_index(name='count')
+    a4 = summary_data.groupby(['alert-country','alert-impact']).size().reset_index(name='count')
 
     # Horizontal stacked bar chart with counts inside and totals
     if not tab4_data.empty:
-        fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(data=a4, y='alert-country', x='count', color_col='alert-impact')
+        fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(
+            data=tab4_data,
+            y='alert-country',
+            x='count',
+            color_col='alert-impact',
+            colors={'Negative': '#660094', 'Positive': '#FFDB58'}  # adjust as needed
+        )
         st.plotly_chart(fig_tab4, use_container_width=True)
     else:
         st.info("No data to display for Tab 4 with current filters.")
