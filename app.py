@@ -451,7 +451,7 @@ with tab5:
         color="count",
         hover_name="alert-country",
         hover_data={"count": True},
-        color_continuous_scale="Picnic",
+        #color_continuous_scale="Picnic",
         mapbox_style="carto-positron",
         zoom=1,
         center={"lat": 10, "lon": 0},
@@ -459,8 +459,8 @@ with tab5:
     )
     fig.update_layout(
     margin={"r":0,"t":1,"l":0,"b":0},
-    #paper_bgcolor="lightblue",
-    plot_bgcolor="lightblue",
+    mapbox_style="open-street-map",  # simple map background
+    mapbox_bgcolor="lightblue",      # non-land area color
     height=600,
     width=9000  # explicit pixel width
     )
