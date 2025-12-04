@@ -161,12 +161,14 @@ if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_trigge
     st.session_state["selected_countries"] = ["Select All"]
     st.session_state["selected_alert_types"] = ["Select All"]
     st.session_state["selected_alert_impacts"] = ["Select All"]
-
-    # Set flag so we don't rerun multiple times
+    
+    # Mark that reset was triggered to avoid multiple reruns
     st.session_state.reset_triggered = True
-
-    # Rerun app once
     st.experimental_rerun()
+
+# Clear the flag after rerun so the button works again
+st.session_state.reset_triggered = False
+
 
 # After rerun, clear the flag so next user click works
 st.session_state.reset_triggered = False
