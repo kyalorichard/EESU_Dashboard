@@ -222,7 +222,7 @@ with tab2:
         tab2_region_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
                                             default=data["alert-type"].unique())
     with col3:
-        tab2_country_filter = st.multiselect("alert-type (Tab 2)", df["alert-type"].unique(),
+        tab2_country_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
                                              default=data["alert-type"].unique())
 
     summary_data = get_summary_data(active_tab, tab2_category_filter, tab2_region_filter, tab2_country_filter)
