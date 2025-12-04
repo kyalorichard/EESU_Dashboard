@@ -461,8 +461,8 @@ with tab5:
     margin={"r":0,"t":1,"l":0,"b":0},
     mapbox_style="carto-positron",  # simple map background
     mapbox_bgcolor="lightblue",      # non-land area color
-    height=600,
-    width=9000  # explicit pixel width
+    height=500,
+    width=900  # explicit pixel width
     )
     st.plotly_chart(fig, use_container_width=True)
     
