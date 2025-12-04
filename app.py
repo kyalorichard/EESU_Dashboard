@@ -16,6 +16,7 @@ with open(geojson_file) as f:
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=3600)  # refresh cache every hour
+@st.cache_data(ttl=3600)  # refresh cache every hour
 def load_data():
     csv_file = Path.cwd() / "data" / "raw_data.csv"
     if not csv_file.exists():
@@ -44,6 +45,18 @@ def load_data():
             return None
 
     df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
+
+    # ---------------- CREATE CONTINENT COLUMN ----------------
+    import pycountry_convert as pc
+    def country_to_continent(country_name):
+        try:
+            alpha2 = pycountry.countries.lookup(country_name).alpha_2
+            code = pc.country_alpha2_to_continent_code(alpha2)
+            return pc.convert_continent_code_to_continent_name(code)
+        except:
+            return "Unknown"
+
+    df["continent"] = df["alert-country"].apply(country_to_continent)
 
     # List missing countries once
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
@@ -98,6 +111,9 @@ def multiselect_with_all(label, options, key):
     else:
         st.session_state[key] = selected
         return selected
+        
+continent_options = data['continent'].dropna().unique()
+selected_continent = multiselect_with_all("Select Continent", continent_options, "selected_continent")
 
 country_options = data['alert-country'].dropna().unique()
 selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
@@ -111,6 +127,7 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
+    (data['alert-country'].isin(selected_continent)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
     (data['alert-impact'].isin(selected_alert_impacts))
