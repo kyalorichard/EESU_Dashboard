@@ -451,7 +451,7 @@ with tab5:
         color="count",
         hover_name="alert-country",
         hover_data={"count": True},
-        color_continuous_scale="Inferno",
+        color_continuous_scale="Picnic",
         mapbox_style="carto-positron",
         zoom=1,
         center={"lat": 10, "lon": 0},
