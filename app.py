@@ -438,36 +438,29 @@ with tab5:
 # Count alerts per country
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
-# ---- USE MAPBOX SATELLITE STYLE ----
-px.set_mapbox_access_token("YOUR_MAPBOX_TOKEN")  # optional if using Mapbox tiles
-
 fig = px.choropleth_mapbox(
     df_map,
-    geojson=None,  # can use locationmode="country names" instead
+    geojson=countries_gj,
     locations="alert-country",
-    color="Count",
+    featureidkey="properties.name",
+    color="count",
     hover_name="alert-country",
-    mapbox_style="satellite-streets",  # ✅ satellite look
-    center={"lat": 10, "lon": 0},       # center map globally
+    mapbox_style="satellite-streets",
     zoom=1,
-    opacity=0.6,
+    center={"lat": 10, "lon": 0},
 )
 
-# ---- Add country counts as labels ----
-import plotly.graph_objects as go
+# Add country boundary lines
+fig.update_traces(marker_line_width=0.6)
 
-labels = go.Scattermapbox(
-    lat=[0]*len(df_map),  # placeholder lat/lon; or you can add proper coords
-    lon=[0]*len(df_map),
-    mode="text",
-    text=df_map["Count"],
-    hoverinfo="skip",
-    textfont=dict(size=14)
+# Force boundaries to show
+fig.update_layout(
+    margin={"r": 0, "t": 30, "l": 0, "b": 0},
+    height=700,
 )
-fig.add_trace(labels)
 
-# ---- Display Map ----
-st.plotly_chart(fig, use_container_width=True, key="satellite_map")
+st.plotly_chart(fig, use_container_width=True, key="global_filtered_sat_map")
+
 
 # ---------------- FOOTER ----------------
 st.markdown("""
