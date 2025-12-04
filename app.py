@@ -17,18 +17,36 @@ def load_data():
         return pd.DataFrame()  # return empty dataframe if file missing
     df = pd.read_csv(csv_file)
 
-    # Add ISO Alpha-3 country codes
+        # ---------------- MANUAL COUNTRY MAPPING ----------------
+    manual_map = {
+        "Czechia": "CZE",
+        "South Korea": "KOR",
+        "Russia": "RUS",
+        "USA": "USA",
+        "United States": "USA",
+        "United Kingdom": "GBR",
+        # add more as needed
+    }
+
+    # ---------------- ISO ALPHA-3 FUNCTION ----------------
     def get_iso3(country_name):
+        if pd.isna(country_name):
+            return None
+        country_name = str(country_name).strip()
+        if country_name in manual_map:
+            return manual_map[country_name]
         try:
             return pycountry.countries.lookup(country_name).alpha_3
         except LookupError:
+            st.warning(f"Could not find ISO code for: {country_name}")
             return None
 
+    # ---------------- APPLY ISO CODES ----------------
     if 'alert-country' in df.columns:
         df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
     else:
-        st.warning("No 'country' column found in CSV to map ISO codes.")
-    
+        st.warning("No 'alert-country' column found in CSV to map ISO codes.")
+
     return df
     #return pd.read_csv(csv_file)
 
