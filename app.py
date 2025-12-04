@@ -117,7 +117,7 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
-    (data['alert-country'].isin(selected_continent)) &
+    (data['continent'].isin(selected_continent)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
     (data['alert-impact'].isin(selected_alert_impacts))
@@ -248,14 +248,14 @@ with tab1:
     st.header("📌 Overview")
     a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby("alert-type").size().reset_index(name="count")
-    a3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    a3 = summary_data.groupby("continent").size().reset_index(name="count")
     a4 = summary_data.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
     with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(a2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab1_chart2")
-    with r2c1: st.plotly_chart(create_bar_chart(a3, x="alert-country", y="count"), use_container_width=True, key="tab1_chart3")
+    with r2c1: st.plotly_chart(create_bar_chart(a3, x="continent", y="count"), use_container_width=True, key="tab1_chart3")
     with r2c2: st.plotly_chart(create_bar_chart(a4, x="alert-country", y="count"), use_container_width=True, key="tab1_chart4")
 
 # ---------------- TAB 2 ----------------
