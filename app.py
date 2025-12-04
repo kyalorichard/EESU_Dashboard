@@ -439,7 +439,7 @@ with tab5:
 # Count alerts per country
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
-if df_map is not None and "alert-country" in df_map.columns and "count" in df_map.columns:
+#if df_map is not None and "alert-country" in df_map.columns and "count" in df_map.columns:
 
     fig = px.choropleth_mapbox(
         df_map,
@@ -460,8 +460,8 @@ if df_map is not None and "alert-country" in df_map.columns and "count" in df_ma
 
     st.plotly_chart(fig, use_container_width=True, key="satellite_map")
 
-else:
-    st.warning("⚠️ Map not loaded → Required columns missing from data")
+#else:
+    #st.warning("⚠️ Map not loaded → Required columns missing from data")
 
 # ---------------- FOOTER ----------------
 st.markdown("""
