@@ -179,13 +179,13 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
-def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_type2=[]):
+def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_impact=[]):
     data = filtered_global.copy()
     if active_tab == "Tab 2":
         data = data[
             (data["alert-country"].isin(tab2_country)) &
             (data["alert-type"].isin(tab2_alert_type)) &
-            (data["alert-type"].isin(tab2_alert_type2))
+            (data["alert-impact"].isin(tab2_alert_impact))
         ]
     return data
 
@@ -216,16 +216,16 @@ with tab2:
     active_tab = "Tab 2"
     col1, col2, col3 = st.columns(3)
     with col1:
-        tab2_category_filter = st.multiselect("alert-country", data["alert-country"].unique(),
+        tab2_country_filter = st.multiselect("alert-country", data["alert-country"].unique(),
                                               default=data["alert-country"].unique())
     with col2:
-        tab2_region_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
+        tab2_type_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
                                             default=data["alert-type"].unique())
     with col3:
-        tab2_country_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
-                                             default=data["alert-type"].unique())
+        tab2_impact_filter = st.multiselect("alert-type (Tab 2)", data["alert-impact"].unique(),
+                                             default=data["alert-impact"].unique())
 
-    summary_data = get_summary_data(active_tab, tab2_category_filter, tab2_region_filter, tab2_country_filter)
+    summary_data = get_summary_data(active_tab, tab2_country_filter, tab2_type_filter, tab2_impact_filter)
     render_summary_cards(summary_data)
     
     # Example: filter by 'alert_country' before counting
