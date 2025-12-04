@@ -12,7 +12,7 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ---------------- DASHBOARD TITLE ----------------
 st.markdown("""
-<h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:52px;'>
+<h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px;'>
     EU SEE Dashboard
 </h1>
 <p style='margin-top:0; color:gray; font-size:16px;'></p>
@@ -215,7 +215,7 @@ filtered_global = data[
 st.markdown("""
 <style>
 .summary-card {
-   background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
+   background: linear-gradient(135deg, #660094 100%, #8a2be2 50%, #b266ff 0%);
     color: white;
     padding: 5px;
     border-radius: 12px;
