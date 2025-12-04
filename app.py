@@ -257,12 +257,14 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
     for i, cat in enumerate(categories):
         df_cat = data[data[color_col] == cat]
         fig.add_trace(go.Bar(
-            y=df_cat[y],
-            x=df_cat[x],
+            x=df_cat[y] if not horizontal else df_cat[x],
+            y=df_cat[x] if not horizontal else df_cat[y],
+            #y=df_cat[y],
+            #x=df_cat[x],
             name=cat,
             orientation='h' if horizontal else 'v',
             marker_color=color_sequence[i % len(color_sequence)],
-            text=df_cat[x],
+            text=df_cat[y] if not horizontal else df_cat[x],
             textposition='inside',
             textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
