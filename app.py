@@ -113,10 +113,10 @@ footer {
 
 # ---------------- FUNCTION TO RENDER SUMMARY CARDS ----------------
 def render_summary_cards(data):
-    total_value = data["Value"].sum()
-    avg_value = data["Value"].mean()
-    max_value = data["Value"].max()
-    min_value = data["Value"].min()
+    total_value = data["alert-country"].count()
+    avg_value = data["alert-type"].count()
+    max_value = data["alert-country"].count()
+    min_value = data["alert-country"].count()
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
