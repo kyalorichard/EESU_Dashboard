@@ -457,7 +457,10 @@ with tab5:
         zoom=1,
         center={"lat": 10, "lon": 0},
         opacity=0.6
-    )
+    ),
+    labels={
+        "count": "Number of Alerts",
+    },
     fig.update_layout(
     margin={"r":0,"t":1,"l":0,"b":0},
     height=500,
