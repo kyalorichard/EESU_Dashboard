@@ -180,7 +180,7 @@ filtered_global = data[
 st.markdown("""
 <style>
 .summary-card {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    background: linear-gradient(135deg, #660094 0%, #9b00d1 100%);  /* purple gradient */;
     color: white;
     padding: 5px;
     border-radius: 12px;
@@ -231,7 +231,7 @@ def render_summary_cards(data):
         ''', unsafe_allow_html=True)
     with col2:
         st.markdown(f'''
-        <div class="summary-card" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)">
+        <div class="summary-card")">
              <p>Negative Alerts</p>
              <h1>{neg_alerts}</h1>
             
@@ -239,7 +239,7 @@ def render_summary_cards(data):
         ''', unsafe_allow_html=True)
     with col3:
         st.markdown(f'''
-        <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
+        <div class="summary-card")">
             <p>Positive Alerts</p>
             <h1>{pos_alerts}</h1>
             
@@ -248,7 +248,7 @@ def render_summary_cards(data):
 
     with col4:
        st.markdown(f'''
-        <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
+        <div class="summary-card")">
             <p>Max Value</p>
             <h1>{max_value}</h1>
             
