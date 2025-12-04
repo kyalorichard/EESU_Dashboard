@@ -450,6 +450,7 @@ with tab5:
         color="count",
         hover_name="alert-country",
         hover_data={"count": True},
+        color_continuous_scale="Viridis",
         mapbox_style="carto-positron",
         zoom=1,
         center={"lat": 10, "lon": 0},
@@ -461,39 +462,26 @@ with tab5:
     plot_bgcolor="lightblue",
     height=600,
     width=9000  # explicit pixel width
-)
-    
+    )
     st.plotly_chart(fig, use_container_width=True)
-    # ---------------- Capture clicks ----------------
-click_data = st.session_state.get("click_data", None)
-
-if click_data is None:
-    click_data = {}
+    
+# ---------------- Capture click events ----------------
+clicked = plotly_events(fig, click_event=True, hover_event=False)
 
 clicked_country = None
 clicked_continent = None
 
-if selected is not None:
-    click_data = st.session_state.get("click_data")
-    if click_data is None:
-        click_data = {}
-
-# Use Streamlit Plotly event handler
-clicked = st.plotly_chart(fig, use_container_width=True)
-
-if clicked is not None and "points" in clicked:
-    clicked_country = clicked["points"][0]["location"]
+if clicked:
+    clicked_country = clicked[0]['location']
     clicked_continent = data.loc[data["alert-country"]==clicked_country, "continent"].values[0]
 
 st.write("Selected Country:", clicked_country)
 st.write("Selected Continent:", clicked_continent)
 
-# ---------------- Filter dashboard by click ----------------
+# ---------------- Filter dashboard ----------------
 filtered_global = data.copy()
-
 if clicked_country:
     filtered_global = filtered_global[filtered_global["alert-country"] == clicked_country]
-
 if clicked_continent:
     filtered_global = filtered_global[filtered_global["continent"] == clicked_continent]
 
