@@ -8,13 +8,15 @@ from pathlib import Path
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ----------- LOAD MASTER COUNTRY ISO MAP -----------
-map_file = Path.cwd() / "data" / "manual_map.json"
-with open(map_file, "r", encoding="utf-8") as f:
-    manual_map = json.load(f)
+with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as f:
+    country_meta = json.load(f)
     
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)  # refresh cache every hour
 def load_data():
+    import json
+    import pycountry  # keep for fallback if needed
+
     csv_file = Path.cwd() / "data" / "raw_data.csv"
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
@@ -29,31 +31,25 @@ def load_data():
     # Clean country names
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
 
-    # Function to get ISO3 codes
+    # ---- LOAD COUNTRIES METADATA JSON ----
+    json_file = Path.cwd() / "data" / "countries_metadata.json"
+    if not json_file.exists():
+        st.error(f"Countries metadata JSON not found: {json_file}")
+        return df
+
+    with open(json_file, encoding="utf-8") as f:
+        country_meta = json.load(f)
+
+    # Map ISO3
     def get_iso3(country_name):
-        if pd.isna(country_name) or country_name == "":
-            return None
-        country_name_clean = str(country_name).strip()
-        if country_name_clean in manual_map:
-            return manual_map[country_name_clean]
-        try:
-            return pycountry.countries.lookup(country_name_clean).alpha_3
-        except:
-            return None
+        return country_meta.get(country_name, {}).get("iso_alpha3", None)
+
+    # Map continent
+    def get_continent(country_name):
+        return country_meta.get(country_name, {}).get("continent", "Unknown")
 
     df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
-
-    # ---------------- CREATE CONTINENT COLUMN ----------------
-    import pycountry_convert as pc
-    def country_to_continent(country_name):
-        try:
-            alpha2 = pycountry.countries.lookup(country_name).alpha_2
-            code = pc.country_alpha2_to_continent_code(alpha2)
-            return pc.convert_continent_code_to_continent_name(code)
-        except:
-            return "Unknown"
-
-    df["continent"] = df["alert-country"].apply(country_to_continent)
+    df['continent'] = df['alert-country'].apply(get_continent)
 
     # List missing countries once
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
