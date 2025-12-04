@@ -102,25 +102,34 @@ def multiselect_with_all(label, options, key):
         st.session_state[key] = selected
         return selected
         
-continent_options = data['continent'].dropna().unique()
-selected_continent = multiselect_with_all("Select Continent", continent_options, "selected_continent")
+# ---------------- CONTINENT AND COUNTRY FILTER ----------------
+# Assume 'data' is your loaded dataframe with 'alert-country' and 'continent' columns
 
-# ---------- Country filter (depends on selected continents) ----------
+# Get unique continents
+continent_options = sorted(data['continent'].dropna().unique())
+selected_continents = multiselect_with_all("Select Continent", continent_options, "selected_continents")
+
+# Filter countries based on selected continent(s)
 if "Select All" in selected_continents:
     country_options = sorted(data['alert-country'].dropna().unique())
 else:
-    country_options = sorted(data[data['continent'].isin(selected_continents)]['alert-country'].unique())
+    country_options = sorted(
+        data[data['continent'].isin(selected_continents)]['alert-country'].dropna().unique()
+    )
 
-alert_type_options = data['alert-type'].dropna().unique()
+# Country selection
+selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
+
+# ---------------- ALERT TYPE FILTER ----------------
+alert_type_options = sorted(data['alert-type'].dropna().unique())
 selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_options, "selected_alert_types")
 
-alert_impact_options = data['alert-impact'].dropna().unique()
+# ---------------- ALERT IMPACT FILTER ----------------
+alert_impact_options = sorted(data['alert-impact'].dropna().unique())
 selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
-
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
-    ((data['continent'].isin(selected_continents)) if "Select All" not in selected_continents else True) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
     (data['alert-impact'].isin(selected_alert_impacts))
