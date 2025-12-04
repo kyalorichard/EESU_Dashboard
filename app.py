@@ -102,6 +102,39 @@ st.markdown("""
 
 st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separator
 
+# ---------------- MULTI-SELECT CUSTOM CSS ----------------
+st.markdown("""
+<style>
+/* Change multi-select background and text */
+.css-1wa3eu0 .css-1d391kg {
+    background-color: #660094 !important;  /* selected options */
+    color: white !important;               /* selected text */
+}
+
+/* Placeholder text color */
+.css-1wa3eu0 input {
+    color: #660094 !important; 
+}
+
+/* Dropdown menu background */
+.css-1gtu0r7 {
+    background-color: #f2e6ff !important; 
+    color: #660094 !important;
+}
+
+/* Hover effect on dropdown items */
+.css-1gtu0r7 div[role="option"]:hover {
+    background-color: #b266ff !important; 
+    color: white !important;
+}
+
+/* Remove default border highlight */
+.css-1wa3eu0 {
+    border-color: #660094 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 
