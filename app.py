@@ -67,7 +67,6 @@ selected_alert_types_multi = st.sidebar.multiselect(
     options=alert_type_options,
     default=alert_type_options  # all selected by default
 )
-filtered_global 
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
