@@ -375,11 +375,7 @@ with tab1:
     # Horizontal stacked bar chart with counts inside and totals
     if not tab4_data.empty:
         fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(
-            data=tab4_data,
-            y='alert-country',
-            x='count',
-            color_col='alert-impact',
-            colors={'Negative': '#660094', 'Positive': '#FFDB58'}  # adjust as needed
+            data=a4, y='alert-country', x='count', color_col='alert-impact', colors={'Negative': '#660094', 'Positive': '#FFDB58'}  # adjust as needed
         )
         st.plotly_chart(fig_tab4, use_container_width=True)
     else:
