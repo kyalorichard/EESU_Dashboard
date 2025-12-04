@@ -344,7 +344,9 @@ fig = px.choropleth(
     locations="alert-country",   # matches country names in your data
     locationmode="country names",
     color="Count",
-    projection="natural earth",
+    #projection="natural earth",
+    mapbox_style="satellite-streets",  # ✅ satellite look
+    center={"lat": 10, "lon": 0},       # center map globally
     hover_name="alert-country",
 )
 
@@ -367,7 +369,9 @@ fig.update_layout(
 )
 
 # ---- Show map ----
-st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map")
+#st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map")
+st.plotly_chart(fig, use_container_width=True, key="satellite_map")
+
 # ---------------- FOOTER ----------------
 st.markdown("""
 <hr>
