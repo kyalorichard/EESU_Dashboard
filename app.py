@@ -437,7 +437,7 @@ with tab5:
     render_summary_cards(summary_data)
     
 # Count alerts per country
-df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
+df_map = summary_data.groupby("alert-country").size().reset_index(name="count")
 
 #if df_map is not None and "alert-country" in df_map.columns and "count" in df_map.columns:
 fig = px.choropleth_mapbox(
