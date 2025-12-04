@@ -15,8 +15,7 @@ with open(geojson_file) as f:
     countries_gj = json.load(f)
 
 # ---------------- LOAD DATA ----------------
-@st.cache_data(ttl=3600)  # refresh cache every hour
-@st.cache_data(ttl=3600)  # refresh cache every hour
+@st.cache_data(ttl=0)  # refresh cache every hour
 def load_data():
     csv_file = Path.cwd() / "data" / "raw_data.csv"
     if not csv_file.exists():
