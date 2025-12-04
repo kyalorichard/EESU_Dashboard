@@ -436,25 +436,25 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     
-# Ensure df_map has the correct columns
-df_map = filtered_global.groupby("iso_alpha3").size().reset_index(name="count")
-df_map = df_map[df_map['iso_alpha3'].notna()]  # remove blanks
-
-fig = px.choropleth_mapbox(
-    df_map,
-    geojson=countries_gj,
-    locations="iso_alpha3",                 # column in df_map
-    featureidkey="properties.ISO_A3",      # match your geojson property
-    color="count",
-    hover_name="iso_alpha3",
-    hover_data={"count": True},
-    mapbox_style="satellite",
-    zoom=1,
-    center={"lat": 10, "lon": 0},
-    opacity=0.6
-)
-
-st.plotly_chart(fig, use_container_width=True)
+    # Ensure df_map has the correct columns
+    df_map = filtered_global.groupby("iso_alpha3").size().reset_index(name="count")
+    df_map = df_map[df_map['iso_alpha3'].notna()]  # remove blanks
+    
+    fig = px.choropleth_mapbox(
+        df_map,
+        geojson=countries_gj,
+        locations="iso_alpha3",                 # column in df_map
+        featureidkey="properties.ISO_A3",      # match your geojson property
+        color="count",
+        hover_name="iso_alpha3",
+        hover_data={"count": True},
+        mapbox_style="satellite",
+        zoom=1,
+        center={"lat": 10, "lon": 0},
+        opacity=0.6
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("""
