@@ -329,6 +329,22 @@ with tab5:
     active_tab = "Tab 5"
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
+    # ----------- WORLD MAP -----------
+iso_counts = filtered.groupby("iso_alpha3").size().reset_index()
+iso_counts.columns = ["ISO3", "Count"]
+iso_counts = iso_counts.dropna()
+
+fig_map = px.choropleth(
+    iso_counts,
+    locations="ISO3",
+    color="Count",
+    hover_name="ISO3",
+    hover_data={"Count": True, "ISO3": False},
+    title="Entries Count Per Country",
+)
+fig_map.update_layout(height=600)
+
+st.plotly_chart(fig_map, use_container_width=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("""
