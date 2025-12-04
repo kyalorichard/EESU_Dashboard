@@ -241,12 +241,11 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(autorange="reversed")  # keeps bars aligned to left axis
+        
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(zeroline=True, zerolinewidth=3)
-
+        
     fig.update_layout(
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -290,11 +289,11 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(autorange="reversed")  # keeps bars aligned to left axis
+        
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.fig.update_yaxes(zeroline=True, zerolinewidth=3)
+        
 
 
     fig.update_layout(
