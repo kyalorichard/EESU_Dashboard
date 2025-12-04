@@ -448,7 +448,7 @@ with tab5:
         locations="alert-country",                 # column in df_map
         featureidkey="properties.name",      # match your geojson property
         color="count",
-        hover_name="alert-country",
+        #hover_name="alert-country",
         hover_data={"count": True},
         mapbox_style="carto-positron",
         zoom=1,
@@ -457,6 +457,8 @@ with tab5:
     )
     fig.update_layout(
     margin={"r":0,"t":0,"l":0,"b":0},
+    paper_bgcolor="lightblue",
+    plot_bgcolor="lightblue",
     height=600,
     width=9000  # explicit pixel width
 )
