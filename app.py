@@ -373,7 +373,7 @@ with tab1:
     a4 = summary_data.groupby(['alert-country','alert-impact']).size().reset_index(name='count')
 
     # Horizontal stacked bar chart with counts inside and totals
-    if not tab4_data.empty:
+    if not a4.empty:
         fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(
             data=a4, y='alert-country', x='count', color_col='alert-impact', colors={'Negative': '#660094', 'Positive': '#FFDB58'}  # adjust as needed
         )
