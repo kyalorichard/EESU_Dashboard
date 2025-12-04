@@ -5,6 +5,7 @@ import plotly.express as px
 import json
 from pathlib import Path  
 import plotly.graph_objects as go
+from streamlit_plotly_events import plotly_events
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
