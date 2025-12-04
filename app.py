@@ -450,7 +450,8 @@ with tab5:
         featureidkey="properties.name",      # match your geojson property
         color="count",
         hover_name="alert-country",
-        hover_data={"count": True},
+        hover_data={"count": True,
+                    "alert-country": False,},
         color_continuous_scale="Greens",
         mapbox_style="open-street-map",
         zoom=1,
