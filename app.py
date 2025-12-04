@@ -180,7 +180,7 @@ filtered_global = data[
 st.markdown("""
 <style>
 .summary-card {
-    background: linear-gradient(135deg, #660094 0%, #9b00d1 100%);  /* purple gradient */;
+   background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
     color: white;
     padding: 5px;
     border-radius: 12px;
