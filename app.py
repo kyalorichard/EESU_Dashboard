@@ -15,8 +15,22 @@ def load_data():
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
         return pd.DataFrame()  # return empty dataframe if file missing
+    df = pd.read_csv(csv_file)
 
-    return pd.read_csv(csv_file)
+    # Add ISO Alpha-3 country codes
+    def get_iso3(country_name):
+        try:
+            return pycountry.countries.lookup(country_name).alpha_3
+        except LookupError:
+            return None
+
+    if 'country' in df.columns:
+        df['iso_alpha3'] = df['country'].apply(get_iso3)
+    else:
+        st.warning("No 'country' column found in CSV to map ISO codes.")
+    
+    return df
+    #return pd.read_csv(csv_file)
 
 data = load_data()
 
@@ -195,7 +209,7 @@ def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert
     return data
 
 # ---------------- TABS ----------------
-tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
@@ -286,6 +300,12 @@ with tab4:
     with r1c2: st.plotly_chart(create_bar_chart(d2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab4_chart2")
     with r2c1: st.plotly_chart(create_bar_chart(d3, x="alert-country", y="count"), use_container_width=True, key="tab4_chart3")
     with r2c2: st.plotly_chart(create_bar_chart(d4, x="alert-country", y="count"), use_container_width=True, key="tab4_chart4")
+
+# ---------------- TAB 5 ----------------
+with tab5:
+    active_tab = "Tab 5"
+    summary_data = get_summary_data(active_tab)
+    render_summary_cards(summary_data)
 
 # ---------------- FOOTER ----------------
 st.markdown("""
