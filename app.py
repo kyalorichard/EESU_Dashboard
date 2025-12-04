@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import json
+import pycountry 
 from pathlib import Path  
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
@@ -14,10 +15,7 @@ with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as 
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)  # refresh cache every hour
 def load_data():
-    import json
-    import pycountry  # keep for fallback if needed
-
-    csv_file = Path.cwd() / "data" / "raw_data.csv"
+     csv_file = Path.cwd() / "data" / "raw_data.csv"
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
         return pd.DataFrame()
