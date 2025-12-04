@@ -127,8 +127,11 @@ def multiselect_with_all(label, options, key):
         return selected
         
 # ---------------- CONTINENT AND COUNTRY FILTER ----------------
-# Assume 'data' is your loaded dataframe with 'alert-country' and 'continent' columns
 
+# Initialize a reset flag to avoid double rerun issues
+if "reset_triggered" not in st.session_state:
+    st.session_state.reset_triggered = False
+    
 # Get unique continents
 continent_options = sorted(data['continent'].dropna().unique())
 selected_continents = multiselect_with_all("Select Continent", continent_options, "selected_continents")
@@ -151,10 +154,6 @@ selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_opti
 # ---------------- ALERT IMPACT FILTER ----------------
 alert_impact_options = sorted(data['alert-impact'].dropna().unique())
 selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
-
-# Initialize reset flag
-if "reset_triggered" not in st.session_state:
-    st.session_state.reset_triggered = False
 
 # Reset Filters button
 if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_triggered:
