@@ -216,7 +216,7 @@ footer {
 def render_summary_cards(data):
     total_value = data["alert-country"].count()
     neg_alerts = filtered_global[filtered_global["alert-impact"] == "Negative"]["alert-impact"].count()
-    pos_alerts = filtered_global[filtered_global["alert-impact"] == "Postive"]["alert-impact"].count()
+    pos_alerts = filtered_global[filtered_global["alert-impact"] == "Positive"]["alert-impact"].count()
     max_value = data["alert-impact"].count()
     min_value = data["alert-country"].count()
 
