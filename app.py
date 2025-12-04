@@ -215,7 +215,7 @@ filtered_global = data[
 st.markdown("""
 <style>
 .summary-card {
-   background: linear-gradient(135deg, #660094 100%, #8a2be2 50%, #b266ff 0%);
+   background: linear-gradient(135deg, #660094 60%, #8a2be2 50%, #b266ff 20%);
     color: white;
     padding: 5px;
     border-radius: 12px;
