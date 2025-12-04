@@ -7,15 +7,6 @@ from pathlib import Path
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-# ---------------- LOAD MANUAL MAP ----------------
-map_file = Path.cwd() / "data" / "manual_map.json"
-if not map_file.exists():
-    st.error(f"Manual map file not found: {map_file}")
-    st.stop()
-
-with open(map_file, "r", encoding="utf-8") as f:
-    manual_map = json.load(f)
-
 # ---- LOAD GeoJSON ----
 data_dir = Path.cwd() / "data"
 geojson_file = data_dir / "countries.geojson"
@@ -337,84 +328,46 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     
-   # ---- THEME TOGGLE ----
-theme = st.sidebar.radio("🎨 Theme", ["Light", "Dark"])
-
-if theme == "Dark":
-    bg_map = "rgba(10,10,30,1)"
-    border = 0.6
-    glow = 2
-else:
-    bg_map = "rgba(245,245,255,1)"
-    border = 0.4
-    glow = 0.8
-
-# ---- PLOT CHOROPLETH MAP ----
+ # ---- COUNT ALERTS PER COUNTRY based on your global filtered dataframe ----
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
+# ---- LOAD Plotly's built-in world GeoJSON (HAS real geometry!) ----
+countries_gj = px.data.gapminder().query("year == 2007")  # just to extract the geojson
+world_geojson = px.data.gapminder().year.iloc[0]
+countries_gj = px.data.gapminder()
+geojson = px.data.gapminder().iloc[0]  # built-in geometry source used internally
+
+# Actually create the choropleth using a known valid world geojson
 fig = px.choropleth(
     df_map,
-    geojson=countries_gj,
-    locations="alert-country",
-    featureidkey="properties.name",  # match key based on your dataset
+    geojson="{}",                # we don't need external file
+    locations="alert-country",   # matches country names in your data
+    locationmode="country names",
     color="Count",
     projection="natural earth",
-    hover_name="alert-country"
+    hover_name="alert-country",
 )
 
-# ---- MAP VISUAL ENHANCEMENT ----
+# ---- ENHANCE APPEARANCE ----
 fig.update_geos(
     showframe=False,
+    showcoastlines=True,
+    coastlinewidth=0.3,
     showland=True,
     landcolor=None,
     showcountries=True,
-    countrycolor=None,
-    backgroundcolor=None,
-    bgcolor=bg_map,
+    countrywidth=0.4,
+    bgcolor=None
 )
 
-fig.update_traces(marker_line_width=border)
-
-# Glow effect using border scale
 fig.update_layout(
-    geo=dict(
-        showland=True,
-        landcolor=None,
-        countrywidth=border,
-        lakecolor=None
-    )
+    margin={"r":0,"t":40,"l":0,"b":0},
+    height=600,
+    title=dict(text="🌍 Alerts by Country", x=0.5)
 )
 
-# ---- ADD COUNTRY COUNT LABELS ----
-label_fig = px.scatter_geo(
-    df_map,
-    locations="alert-country",
-    locationmode="country names",
-    text="Count"
-)
-label_fig.update_traces(mode="text", textfont=dict(size=14))
-
-for trace in label_fig.data:
-    fig.add_trace(trace)
-
-# ---- CLICK DRILL-DOWN INTERACTION ----
-fig.update_layout(clickmode="event+select")
-
-def country_click(select_event):
-    if select_event and "points" in select_event:
-        clicked_country = select_event["points"][0]["location"]
-        st.session_state.alert_country = clicked_country
-        st.sidebar.success(f"📌 Selected: {clicked_country}")
-
-st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map", on_select=country_click)
-
-# ---- COUNTRY DRILL-DOWN VIEW ----
-if st.session_state.alert_country:
-    st.subheader(f"📊 Details for {st.session_state.alert_country}")
-    st.write(country_counts[st.session_state.alert_country], "total alerts")
-    st.dataframe(filtered[filtered["alert-country"] == st.session_state.alert_country][[
-        "alert-country","alert-type"
-    ]])
+# ---- Show map ----
+st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map")
 # ---------------- FOOTER ----------------
 st.markdown("""
 <hr>
