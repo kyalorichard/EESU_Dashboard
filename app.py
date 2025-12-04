@@ -359,7 +359,8 @@ fig.update_geos(
     landcolor=None,
     showcountries=True,
     countrywidth=0.4,
-    bgcolor=None
+    bgcolor="lightblue",
+    countrycolor="black"       # boundary color
 )
 
 fig.update_layout(
