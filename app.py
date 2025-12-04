@@ -7,7 +7,7 @@ from pathlib import Path
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ---------------- LOAD DATA FROM CSV ----------------
-@st.cache_data
+@st.cache_data(ttl=900)  # refresh cache every hour
 def load_data():
     # Use current working directory instead of __file__
     data_dir = Path.cwd() / "data"  
