@@ -7,12 +7,6 @@ from pathlib import Path
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-# ---- LOAD GeoJSON ----
-data_dir = Path.cwd() / "data"
-geojson_file = data_dir / "countries.geojson"
-
-with open(geojson_file) as f:
-    countries_gj = json.load(f)
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)  # refresh cache every hour
