@@ -199,10 +199,10 @@ with tab1:
     render_summary_cards(summary_data)
 
     st.header("📌 Overview")
-    a1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    a2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
-    a3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    a4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    a1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    a2 = summary_data.groupby("alert-type").size().reset_index(name="count")
+    a3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    a4 = summary_data.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
@@ -232,10 +232,10 @@ with tab2:
     filtered_summary2 = summary_data[summary_data['alert-impact'] == "Negative"]  
 
     st.header("📊 Negative Events Analysis")
-    v1 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
-    v2 = filtered_summary2.groupby("alert-type")["Value"].size().reset_index(name="count")
-    v3 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
-    v4 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
+    v1 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
+    v2 = filtered_summary2.groupby("alert-type").size().reset_index(name="count")
+    v3 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
+    v4 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
@@ -251,10 +251,10 @@ with tab3:
     render_summary_cards(summary_data)
 
     st.header("📈 Positive Events Analysis")
-    b1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    b2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
-    b3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    b4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    b1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    b2 = summary_data.groupby("alert-type").size().reset_index(name="count")
+    b3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    b4 = summary_data.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
@@ -270,10 +270,10 @@ with tab4:
     render_summary_cards(summary_data)
 
     st.header("📌 Others Analysis")
-    d1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    d2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
-    d3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    d4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    d1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    d2 = summary_data.groupby("alert-type").size().reset_index(name="count")
+    d3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    d4 = summary_data.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
