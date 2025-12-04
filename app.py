@@ -230,7 +230,13 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
         color_discrete_sequence=['#660094'],
         text=y
     )
-    fig.update_traces(textposition='outside')
+    #fig.update_traces(textposition='outside')
+     # Show labels inside the bars
+    fig.update_traces(
+        textposition='inside',
+        insidetextanchor='middle',
+        textfont=dict(size=14, color='white', family="Arial Black")  # bold & readable
+    )
     fig.update_layout(
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -264,9 +270,9 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
             name=cat,
             orientation='h' if horizontal else 'v',
             marker_color=color_sequence[i % len(color_sequence)],
-            text=df_cat[x] if not horizontal else df_cat[y],
+            text=df_cat[x] if not horizontal else df_cat[x],
             textposition='inside',
-            textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
+            textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=12),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
 
