@@ -27,3 +27,4 @@ fastparquet>=2023.12.0
 dash   
 altair
 streamlit-dash
+streamlit_plotly_events
