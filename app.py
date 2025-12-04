@@ -241,9 +241,11 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_xaxes(range=[0, data['rounded_y'].max()*1.1])  # bars touch axis
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_xaxes(range=[0, data['rounded_y'].max()*1.1])  # bars touch axis
 
     fig.update_layout(
         plot_bgcolor='white',
