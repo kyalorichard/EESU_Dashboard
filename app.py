@@ -392,7 +392,7 @@ with tab1:
         color_col='alert-impact', 
         colors={'Negative': '#660094', 'Positive': '#FFDB58'}
      )
-      st.plotly_chart(fig_tab4, use_container_width=True)
+     st.plotly_chart(fig_tab4, use_container_width=True)
     else:
      st.info("No data to display for Tab 4 after filtering blanks.")
     
