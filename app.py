@@ -209,7 +209,7 @@ with tab1:
     with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(a2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_bar_chart(a3, x="alert-country", y="count"), use_container_width=True, key="tab1_chart3")
-    with r2c2: st.plotly_chart(create_bar_chart(a4, x="alert-county", y="count"), use_container_width=True, key="tab1_chart4")
+    with r2c2: st.plotly_chart(create_bar_chart(a4, x="alert-country", y="count"), use_container_width=True, key="tab1_chart4")
 
 # ---------------- TAB 2 ----------------
 with tab2:
