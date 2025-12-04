@@ -45,34 +45,54 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 
 st.sidebar.header("🌍 Global Filters")
 # ---------------- SIDEBAR FILTERS ----------------
-# Helper function to add "Select All" to single-select dropdown
-def selectbox_with_all(label, options):
-    all_option = ["Select All"]
-    selected = st.sidebar.selectbox(label, options=all_option + list(options))
-    if selected == "Select All":
-        return options  # return all options if "Select All" chosen
-    else:
-        return [selected]
+# Initialize session state for filters if not already set
+if 'selected_countries' not in st.session_state:
+    st.session_state.selected_countries = list(data['alert-country'].dropna().unique())
+if 'selected_alert_type_single' not in st.session_state:
+    st.session_state.selected_alert_type_single = list(data['alert-type'].dropna().unique())
+if 'selected_alert_types_multi' not in st.session_state:
+    st.session_state.selected_alert_types_multi = list(data['alert-impact'].dropna().unique())
 
-# Single-select dropdowns with "Select All"
+# Reset button
+if st.sidebar.button("🔄 Reset Filters"):
+    st.session_state.selected_countries = list(data['alert-country'].dropna().unique())
+    st.session_state.selected_alert_type_single = list(data['alert-type'].dropna().unique())
+    st.session_state.selected_alert_types_multi = list(data['alert-impact'].dropna().unique())
+
+# Helper function for single-select with "Select All"
+def selectbox_with_all(label, options, key):
+    all_option = ["Select All"]
+    selected = st.sidebar.selectbox(
+        label,
+        options=all_option + list(options),
+        index=0 if st.session_state[key] == list(options) else None
+    )
+    if selected == "Select All":
+        st.session_state[key] = list(options)
+    else:
+        st.session_state[key] = [selected]
+    return st.session_state[key]
+
+# Render filters using session state
 country_options = data['alert-country'].dropna().unique()
-selected_countries = selectbox_with_all("Select Country", country_options)
+selected_countries = selectbox_with_all("Select Country", country_options, key='selected_countries')
 
 alert_type_options = data['alert-type'].dropna().unique()
-selected_alert_type_single = selectbox_with_all("Select Alert Type (Single)", alert_type_options)
+selected_alert_type_single = selectbox_with_all("Select Alert Type (Single)", alert_type_options, key='selected_alert_type_single')
 
-# Extra multi-select filter for alert-type
+# Multi-select filter
 selected_alert_types_multi = st.sidebar.multiselect(
     "Select Alert Types (Multi)",
     options=alert_type_options,
-    default=alert_type_options  # all selected by default
+    default=st.session_state.selected_alert_types_multi
 )
+st.session_state.selected_alert_types_multi = selected_alert_types_multi
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_type_single)) &
-    (data['alert-type'].isin(selected_alert_types_multi))
+    (data['alert-impact'].isin(selected_alert_types_multi))
 ]
 
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
@@ -115,7 +135,7 @@ footer {
 def render_summary_cards(data):
     total_value = data["alert-country"].count()
     avg_value = data["alert-type"].count()
-    max_value = data["alert-country"].count()
+    max_value = data["alert-impact"].count()
     min_value = data["alert-country"].count()
 
     col1, col2, col3, col4 = st.columns(4)
@@ -199,14 +219,14 @@ with tab1:
     render_summary_cards(summary_data)
 
     st.header("📌 Overview")
-    a1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby("alert-type").size().reset_index(name="count")
     a3 = summary_data.groupby("alert-country").size().reset_index(name="count")
     a4 = summary_data.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(a2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_bar_chart(a3, x="alert-country", y="count"), use_container_width=True, key="tab1_chart3")
     with r2c2: st.plotly_chart(create_bar_chart(a4, x="alert-country", y="count"), use_container_width=True, key="tab1_chart4")
