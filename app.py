@@ -117,7 +117,7 @@ def multiselect_with_all(label, options, key):
     selected = st.sidebar.multiselect(
         label,
         options=["Select All"] + list(options),
-        default=initialize_session_state(key, ["Select All"])
+        default=st.session_state.get(key, ["Select All"])
     )
     if "Select All" in selected:
         st.session_state[key] = ["Select All"]
