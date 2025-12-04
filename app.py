@@ -215,7 +215,8 @@ footer {
 # ---------------- FUNCTION TO RENDER SUMMARY CARDS ----------------
 def render_summary_cards(data):
     total_value = data["alert-country"].count()
-    avg_value = data["alert-type"].count()
+    neg_alerts = filtered_global[filtered_global["alert-impact"] == "Negative"]["alert-impact"].count()
+    post_alerts = filtered_global[filtered_global["alert-impact"] == "Postive"]["alert-impact"].count()
     max_value = data["alert-impact"].count()
     min_value = data["alert-country"].count()
 
@@ -232,16 +233,16 @@ def render_summary_cards(data):
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)">
             <div class="summary-icon">📊</div>
-            <h2>{avg_value:.2f}</h2>
-            <p>Average Value</p>
+            <h2>{neg_alerts}</h2>
+            <p>Negative Alerts</p>
         </div>
         ''', unsafe_allow_html=True)
     with col3:
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
             <div class="summary-icon">📈</div>
-            <h2>{max_value}</h2>
-            <p>Max Value</p>
+            <h2>{pos_alerts}</h2>
+            <p>Positive Alerts</p>
         </div>
         ''', unsafe_allow_html=True)
 
