@@ -149,14 +149,14 @@ st.markdown("""
 .summary-card {
     background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
     color: white;
-    padding: 15px;
+    padding: 10px;
     border-radius: 15px;
     text-align: center;
     margin: 5px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 .summary-card h2 {
-    font-size: 36px;
+    font-size: 30px;
     margin: 5px 0;
 }
 .summary-card p {
@@ -165,12 +165,12 @@ st.markdown("""
     opacity: 0.9;
 }
 .summary-icon {
-    font-size: 30px;
+    font-size: 20px;
     margin-bottom: 5px;
 }
 /* Increase tabs name font size */
 .stTabs [role="tab"] button {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: bold;
 }
 footer {
