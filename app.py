@@ -24,8 +24,8 @@ def load_data():
         except LookupError:
             return None
 
-    if 'country' in df.columns:
-        df['iso_alpha3'] = df['country'].apply(get_iso3)
+    if 'alert-country' in df.columns:
+        df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
     else:
         st.warning("No 'country' column found in CSV to map ISO codes.")
     
