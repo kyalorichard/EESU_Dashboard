@@ -182,23 +182,23 @@ st.markdown("""
 .summary-card {
     background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
     color: white;
-    padding: 10px;
-    border-radius: 15px;
+    padding: 5px;
+    border-radius: 12px;
     text-align: center;
     margin: 5px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 .summary-card h2 {
-    font-size: 30px;
+    font-size: 22px;
     margin: 5px 0;
 }
 .summary-card p {
-    font-size: 16px;
+    font-size: 12px;
     margin: 0;
     opacity: 0.9;
 }
 .summary-icon {
-    font-size: 20px;
+    font-size: 14px;
     margin-bottom: 5px;
 }
 /* Increase tabs name font size */
