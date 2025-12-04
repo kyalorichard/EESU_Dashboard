@@ -224,30 +224,34 @@ def render_summary_cards(data):
     with col1:
         st.markdown(f'''
         <div class="summary-card">
-            <h2>{total_value}</h2>
             <p>Total Value</p>
+            <h1>{total_value}</h1>
+            
         </div>
         ''', unsafe_allow_html=True)
     with col2:
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)">
-             <h2>{neg_alerts}</h2>
-            <p>Negative Alerts</p>
+             <p>Negative Alerts</p>
+             <h1>{neg_alerts}</h1>
+            
         </div>
         ''', unsafe_allow_html=True)
     with col3:
         st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
-            <h2>{pos_alerts}</h2>
             <p>Positive Alerts</p>
+            <h1>{pos_alerts}</h1>
+            
         </div>
         ''', unsafe_allow_html=True)
 
     with col4:
        st.markdown(f'''
         <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
-            <h2>{max_value}</h2>
             <p>Max Value</p>
+            <h1>{max_value}</h1>
+            
         </div>
         ''', unsafe_allow_html=True)
    
