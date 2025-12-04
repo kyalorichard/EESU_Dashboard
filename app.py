@@ -179,13 +179,13 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
-def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_type=[]):
+def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_type2=[]):
     data = filtered_global.copy()
     if active_tab == "Tab 2":
         data = data[
             (data["alert-country"].isin(tab2_country)) &
             (data["alert-type"].isin(tab2_alert_type)) &
-            (data["alert-type"].isin(tab2_alert_type))
+            (data["alert-type"].isin(tab2_alert_type2))
         ]
     return data
 
