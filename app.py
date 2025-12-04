@@ -328,73 +328,50 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     
-# ---------------- THEME / BACKGROUND ----------------
-theme = st.sidebar.radio("🎨 Theme", ["Light", "Dark"])
-if theme == "Dark":
-    bg_color = "rgba(10,10,30,1)"
-else:
-    bg_color = "rgba(245,245,255,1)"
-
-# ---------------- COUNT ALERTS PER COUNTRY ----------------
+ # ---- COUNT ALERTS PER COUNTRY based on your global filtered dataframe ----
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
-# ---------------- CHOROPLETH MAPBOX (SATELLITE LOOK) ----------------
-px.set_mapbox_access_token("YOUR_MAPBOX_TOKEN")  # optional if using Mapbox tiles
+# ---- LOAD Plotly's built-in world GeoJSON (HAS real geometry!) ----
+countries_gj = px.data.gapminder().query("year == 2007")  # just to extract the geojson
+world_geojson = px.data.gapminder().year.iloc[0]
+countries_gj = px.data.gapminder()
+geojson = px.data.gapminder().iloc[0]  # built-in geometry source used internally
 
-fig = px.choropleth_mapbox(
+# Actually create the choropleth using a known valid world geojson
+fig = px.choropleth(
     df_map,
-    locations="alert-country",
+    geojson="{}",                # we don't need external file
+    locations="alert-country",   # matches country names in your data
+    locationmode="country names",
     color="Count",
+    #projection="natural earth",
+    mapbox_style="satellite-streets",  # ✅ satellite look
+    center={"lat": 10, "lon": 0},       # center map globally
     hover_name="alert-country",
-    hover_data={"Count": True},
-    color_continuous_scale="Viridis",
-    mapbox_style="satellite-streets",
-    center={"lat": 10, "lon": 0},
-    zoom=1,
-    opacity=0.6
 )
 
-# ---------------- ADD COUNTRY LABELS ----------------
-# For proper label placement, you may want lat/lon per country
-# Here, we approximate with 0,0 for demonstration
-labels = go.Scattermapbox(
-    lat=[0]*len(df_map),
-    lon=[0]*len(df_map),
-    mode="text",
-    text=df_map["Count"],
-    hoverinfo="skip",
-    textfont=dict(size=14, color="white")
+# ---- ENHANCE APPEARANCE ----
+fig.update_geos(
+    showframe=False,
+    showcoastlines=True,
+    coastlinewidth=0.3,
+    showland=True,
+    landcolor=None,
+    showcountries=True,
+    countrywidth=0.4,
+    bgcolor="lightblue",
+    countrycolor="black"       # boundary color
 )
-fig.add_trace(labels)
 
-# ---------------- ENHANCE BOUNDARIES ----------------
 fig.update_layout(
-    mapbox_layers=[
-        {
-            "sourcetype": "raster",
-            "source": ["https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=YOUR_MAPBOX_TOKEN"],
-            "below": "traces",
-            "opacity": 0.6
-        }
-    ],
     margin={"r":0,"t":40,"l":0,"b":0},
-    height=700,
-    title=dict(text="🌍 Alerts by Country (Satellite + Boundaries)", x=0.5),
-    mapbox=dict(bgcolor=bg_color)
+    height=800,
+    title=dict(text="🌍 Alerts by Country", x=0.5)
 )
 
-# ---------------- SHOW MAP ----------------
+# ---- Show map ----
+#st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map")
 st.plotly_chart(fig, use_container_width=True, key="satellite_map")
-
-# ---------------- COUNTRY DRILL-DOWN ----------------
-if st.session_state.alert_country:
-    st.subheader(f"📊 Details for {st.session_state.alert_country}")
-    st.write(f"Total Alerts: {country_counts[st.session_state.alert_country]}")
-    st.dataframe(
-        summary_data[summary_data["alert-country"] == st.session_state.alert_country][
-            ["alert-country","alert-type"]
-        ]
-    )
 
 # ---------------- FOOTER ----------------
 st.markdown("""
