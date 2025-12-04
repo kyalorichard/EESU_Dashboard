@@ -13,7 +13,7 @@ with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as 
     country_meta = json.load(f)
 
 # ---------- ✅ Load Countries GeoJSON safely ----------
-geojson_file = Path.cwd() / "data" / "countries.geojson"
+geojson_file = Path.cwd() / "data" / "countriess.geojson"
 
 if not geojson_file.exists():
     st.error("❌ countries.geojson file missing inside /data folder")
@@ -436,17 +436,19 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     
-    # Ensure df_map has the correct columns
-    df_map = filtered_global.groupby("iso_alpha3").size().reset_index(name="count")
-    df_map = df_map[df_map['iso_alpha3'].notna()]  # remove blanks
+    df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
+    # Only include countries that exist in the GeoJSON
+    geo_countries = [feature['properties']['name'] for feature in countries_gj['features']]
+    df_map = df_map[df_map['alert-country'].isin(geo_countries)]
     
+       
     fig = px.choropleth_mapbox(
         df_map,
         geojson=countries_gj,
-        locations="iso_alpha3",                 # column in df_map
-        featureidkey="properties.ISO_A3",      # match your geojson property
+        locations="alert-country",                 # column in df_map
+        featureidkey="properties.name",      # match your geojson property
         color="count",
-        hover_name="iso_alpha3",
+        hover_name="alert-country",
         hover_data={"count": True},
         mapbox_style="carto-positron"",
         zoom=1,
