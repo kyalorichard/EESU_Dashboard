@@ -456,8 +456,8 @@ with tab5:
         opacity=0.6
     )
     fig.update_layout(
-    margin={"r":0,"t":0,"l":0,"b":0},
-    paper_bgcolor="lightblue",
+    margin={"r":0,"t":1,"l":0,"b":0},
+    #paper_bgcolor="lightblue",
     plot_bgcolor="lightblue",
     height=600,
     width=9000  # explicit pixel width
