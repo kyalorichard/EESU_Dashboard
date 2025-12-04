@@ -23,6 +23,8 @@ def load_data():
     
     # Clean country names
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
+    # Remove unwanted placeholder countries
+    df = df[df['alert-country'] != "Jose"]
     
     # Filter out rows with blank or missing alert-impact
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
