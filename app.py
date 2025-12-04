@@ -401,7 +401,7 @@ with tab1:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    #st.header("📌 Overview")
+    st.header("Distribution of Postove and Negative Events")
     a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
