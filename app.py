@@ -237,6 +237,14 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
         insidetextanchor='end', # anchor at the end (top of bar segment)
         textfont=dict(size=13, color='white', family="Arial Black")  # bold & readable
     )
+    # Bold axis line
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+
     fig.update_layout(
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -276,6 +284,14 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
             textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=13, family="Arial Black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
+        # Bold axis line
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+
 
     fig.update_layout(
         barmode='stack',
