@@ -8,7 +8,7 @@ from pathlib import Path
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ----------- LOAD MASTER COUNTRY ISO MAP -----------
-map_file = Path.cwd() / "data" / "all_countries_iso.json"
+map_file = Path.cwd() / "data" / "manual_map.json"
 with open(map_file, "r", encoding="utf-8") as f:
     manual_map = json.load(f)
     
