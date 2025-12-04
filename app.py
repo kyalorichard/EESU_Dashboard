@@ -216,14 +216,14 @@ with tab2:
     active_tab = "Tab 2"
     col1, col2, col3 = st.columns(3)
     with col1:
-        tab2_category_filter = st.multiselect("alert-country", df["alert-country"].unique(),
-                                              default=df["alert-country"].unique())
+        tab2_category_filter = st.multiselect("alert-country", data["alert-country"].unique(),
+                                              default=data["alert-country"].unique())
     with col2:
         tab2_region_filter = st.multiselect("alert-type (Tab 2)", df["alert-type"].unique(),
-                                            default=df["alert-type"].unique())
+                                            default=data["alert-type"].unique())
     with col3:
         tab2_country_filter = st.multiselect("alert-type (Tab 2)", df["alert-type"].unique(),
-                                             default=df["alert-type"].unique())
+                                             default=data["alert-type"].unique())
 
     summary_data = get_summary_data(active_tab, tab2_category_filter, tab2_region_filter, tab2_country_filter)
     render_summary_cards(summary_data)
