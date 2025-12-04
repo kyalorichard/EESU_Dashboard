@@ -443,18 +443,17 @@ df_map = summary_data.groupby("alert-country").size().reset_index(name="count")
 fig = px.choropleth_mapbox(
     df_map,
     geojson=countries_gj,
-    locations="iso_alpha3",
-    featureidkey="properties.ISO_A2",
-    hover_data={"count": True},
-    hover_name="iso_alpha3",  # ✅ shows full country name on hover
+    locations="iso_alpha3",                 # your column in df_map
+    featureidkey="properties.ISO_A2",       # matches geojson property
+    color="count",
+    hover_name="alert-country",
+    hover_data={"count": True},             # shows count on hover
     mapbox_style="satellite",
     zoom=1,
-    height=600,
     center={"lat": 10, "lon": 0},
-    opacity=0.5,
-    text="count"  # optional numeric label
+    opacity=0.6
 )
-fig.update_traces(textposition="top center")
+
 st.plotly_chart(fig, use_container_width=True, key="satellite_map")
 
 #else:
