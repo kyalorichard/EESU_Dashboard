@@ -445,10 +445,10 @@ with tab5:
     fig = px.choropleth_mapbox(
         df_map,
         geojson=countries_gj,
-        locations="alert-country",                 # column in df_map
+        #locations="alert-country",                 # column in df_map
         featureidkey="properties.name",      # match your geojson property
         color="count",
-        #hover_name="alert-country",
+        hover_name="alert-country",
         hover_data={"count": True},
         mapbox_style="carto-positron",
         zoom=1,
