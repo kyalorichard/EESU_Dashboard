@@ -13,7 +13,7 @@ with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as 
     country_meta = json.load(f)
 
 # ---------- ✅ Load Countries GeoJSON safely ----------
-geojson_file = Path.cwd() / "data" / "countries.geo.json"
+geojson_file = Path.cwd() / "data" / "countries.geojson"
 
 if not geojson_file.exists():
     st.error("❌ countries.geojson file missing inside /data folder")
@@ -436,28 +436,25 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     
-# Count alerts per country
-df_map = summary_data.groupby("alert-country").size().reset_index(name="count")
+# Ensure df_map has the correct columns
+df_map = filtered_global.groupby("iso_alpha3").size().reset_index(name="count")
+df_map = df_map[df_map['iso_alpha3'].notna()]  # remove blanks
 
-#if df_map is not None and "alert-country" in df_map.columns and "count" in df_map.columns:
 fig = px.choropleth_mapbox(
     df_map,
     geojson=countries_gj,
-    locations="iso_alpha3",                 # your column in df_map
-    featureidkey="properties.ISO_A2",       # matches geojson property
+    locations="iso_alpha3",                 # column in df_map
+    featureidkey="properties.ISO_A3",      # match your geojson property
     color="count",
-    hover_name="alert-country",
-    hover_data={"count": True},             # shows count on hover
+    hover_name="iso_alpha3",
+    hover_data={"count": True},
     mapbox_style="satellite",
     zoom=1,
     center={"lat": 10, "lon": 0},
     opacity=0.6
 )
 
-st.plotly_chart(fig, use_container_width=True, key="satellite_map")
-
-#else:
-    #st.warning("⚠️ Map not loaded → Required columns missing from data")
+st.plotly_chart(fig, use_container_width=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("""
