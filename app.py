@@ -16,6 +16,13 @@ if not map_file.exists():
 with open(map_file, "r", encoding="utf-8") as f:
     manual_map = json.load(f)
 
+# ---- LOAD GeoJSON ----
+data_dir = Path.cwd() / "data"
+geojson_file = data_dir / "countries.geojson"
+
+with open(geojson_file) as f:
+    countries_gj = json.load(f)
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=3600)  # refresh cache every hour
 def load_data():
@@ -329,26 +336,85 @@ with tab5:
     active_tab = "Tab 5"
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
-    # ----------- WORLD MAP -----------
-iso_counts = summary_data.groupby("iso_alpha3").size().reset_index()
-iso_counts.columns = ["ISO3", "Count"]
-iso_counts = iso_counts.dropna()
+    
+   # ---- THEME TOGGLE ----
+theme = st.sidebar.radio("🎨 Theme", ["Light", "Dark"])
 
-fig_map = px.choropleth(
-    iso_counts,
-    locations="ISO3",
+if theme == "Dark":
+    bg_map = "rgba(10,10,30,1)"
+    border = 0.6
+    glow = 2
+else:
+    bg_map = "rgba(245,245,255,1)"
+    border = 0.4
+    glow = 0.8
+
+# ---- PLOT CHOROPLETH MAP ----
+df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
+
+fig = px.choropleth(
+    df_map,
+    geojson=countries_gj,
+    locations="alert-country",
+    featureidkey="properties.name",  # match key based on your dataset
     color="Count",
-    hover_name="ISO3",
-    hover_data={"Count": True, "ISO3": False},
-    title="Entries Count Per Country",
+    projection="natural earth",
+    hover_name="alert-country"
 )
-fig_map.update_layout(height=600)
 
-st.plotly_chart(fig_map, use_container_width=True)
+# ---- MAP VISUAL ENHANCEMENT ----
+fig.update_geos(
+    showframe=False,
+    showland=True,
+    landcolor=None,
+    showcountries=True,
+    countrycolor=None,
+    backgroundcolor=None,
+    bgcolor=bg_map,
+)
 
-if summary_data.empty:
-    st.info("No entries match the selected filters — map and charts will show zero data.")
+fig.update_traces(marker_line_width=border)
 
+# Glow effect using border scale
+fig.update_layout(
+    geo=dict(
+        showland=True,
+        landcolor=None,
+        countrywidth=border,
+        lakecolor=None
+    )
+)
+
+# ---- ADD COUNTRY COUNT LABELS ----
+label_fig = px.scatter_geo(
+    df_map,
+    locations="alert-country",
+    locationmode="country names",
+    text="Count"
+)
+label_fig.update_traces(mode="text", textfont=dict(size=14))
+
+for trace in label_fig.data:
+    fig.add_trace(trace)
+
+# ---- CLICK DRILL-DOWN INTERACTION ----
+fig.update_layout(clickmode="event+select")
+
+def country_click(select_event):
+    if select_event and "points" in select_event:
+        clicked_country = select_event["points"][0]["location"]
+        st.session_state.alert_country = clicked_country
+        st.sidebar.success(f"📌 Selected: {clicked_country}")
+
+st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map", on_select=country_click)
+
+# ---- COUNTRY DRILL-DOWN VIEW ----
+if st.session_state.alert_country:
+    st.subheader(f"📊 Details for {st.session_state.alert_country}")
+    st.write(country_counts[st.session_state.alert_country], "total alerts")
+    st.dataframe(filtered[filtered["alert-country"] == st.session_state.alert_country][[
+        "alert-country","alert-type"
+    ]])
 # ---------------- FOOTER ----------------
 st.markdown("""
 <hr>
