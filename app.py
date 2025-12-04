@@ -127,11 +127,7 @@ def multiselect_with_all(label, options, key):
         return selected
         
 # ---------------- CONTINENT AND COUNTRY FILTER ----------------
-
-# Initialize a reset flag to avoid double rerun issues
-if "reset_triggered" not in st.session_state:
-    st.session_state.reset_triggered = False
-    
+  
 # Get unique continents
 continent_options = sorted(data['continent'].dropna().unique())
 selected_continents = multiselect_with_all("Select Continent", continent_options, "selected_continents")
