@@ -247,7 +247,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
-def create_h_stacked_bar(data, y, x, color_col, height=600):
+def create_h_stacked_bar(data, y, x, color_col, height=400):
         # Prepare the stacked bar
     categories = sorted(data[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']  # Map to categories
@@ -260,7 +260,7 @@ def create_h_stacked_bar(data, y, x, color_col, height=600):
             y=df_cat[y],
             x=df_cat[x],
             name=cat,
-            orientation='h',
+            orientation='h' if horizontal else 'v',
             marker_color=color_sequence[i % len(color_sequence)],
             text=df_cat[x],
             textposition='inside',
