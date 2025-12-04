@@ -20,6 +20,12 @@ def load_data():
         return pd.DataFrame()
 
     df = pd.read_csv(csv_file)
+    
+    # Clean country names
+    df['alert-country'] = df['alert-country'].astype(str).str.strip()
+    
+    # Filter out rows with blank or missing alert-impact
+    df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     if 'alert-country' not in df.columns:
         st.warning("No 'alert-country' column found in CSV.")
