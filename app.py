@@ -247,7 +247,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
-def create_horizontal_stacked_bar_chart_with_totals(data, y, x, color_col, height=600):
+def create_h_stacked_bar(data, y, x, color_col, height=600):
         # Prepare the stacked bar
     categories = sorted(data[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']  # Map to categories
@@ -328,11 +328,11 @@ with tab1:
 
 
     # Horizontal stacked bar chart with counts inside and totals
-    st.write("DEBUG a4 after filter:", a4)
+    st.write("DEBUG a3 after filter:", a3)
     required_cols = ['alert-type', 'alert-impact', 'count']
-    if not a4.empty and all(col in a4.columns for col in required_cols):
-        fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(
-            data=a4, y='alert-type', x='count', color_col='alert-impact', colors={'Negative': '#660094', 'Positive': '#FFDB58'})
+    if not a3.empty and all(col in a3.columns for col in required_cols):
+        fig_tab4 = create_h_stacked_bar(
+            data=a3, y='continent', x='count', color_col='alert-impact', colors={'Negative': '#660094', 'Positive': '#FFDB58'})
         st.plotly_chart(fig_tab4, use_container_width=True)
     else:
         st.info("No data available to display for Tab 4.")
