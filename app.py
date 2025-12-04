@@ -237,6 +237,61 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     return fig
 
+# ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
+def create_horizontal_stacked_bar_chart_with_totals(data, y, x, color_col, height=600):
+    import plotly.graph_objects as go
+
+    # Prepare the stacked bar
+    categories = sorted(data[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094']  # Map to categories
+
+    fig = go.Figure()
+
+    for i, cat in enumerate(categories):
+        df_cat = data[data[color_col] == cat]
+        fig.add_trace(go.Bar(
+            y=df_cat[y],
+            x=df_cat[x],
+            name=cat,
+            orientation='h',
+            marker_color=color_sequence[i % len(color_sequence)],
+            text=df_cat[x],
+            textposition='inside',
+            textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
+            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+        ))
+
+    # Add total count labels at the end of each bar
+    total_counts = data.groupby(y)[x].sum().reset_index()
+    fig.add_trace(go.Bar(
+        y=total_counts[y],
+        x=total_counts[x],
+        orientation='h',
+        marker_color='rgba(0,0,0,0)',  # invisible bar
+        showlegend=False,
+        text=total_counts[x],
+        textposition='outside',
+        textfont=dict(color='black', size=14),
+        hoverinfo='skip'
+    ))
+
+    fig.update_layout(
+        barmode='stack',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        height=height,
+        margin=dict(l=120, r=20, t=20, b=20),
+        xaxis_title=None,
+        yaxis_title=None,
+        uniformtext_minsize=12,
+        uniformtext_mode='hide',
+        bargap=0.3,
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(showgrid=False)
+
+    return fig
+
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
 def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_impact=[]):
     data = filtered_global.copy()
@@ -251,6 +306,60 @@ def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
 
+# ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
+def create_horizontal_stacked_bar_chart_with_totals(data, y, x, color_col, height=600):
+    import plotly.graph_objects as go
+
+    # Prepare the stacked bar
+    categories = sorted(data[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094']  # Map to categories
+
+    fig = go.Figure()
+
+    for i, cat in enumerate(categories):
+        df_cat = data[data[color_col] == cat]
+        fig.add_trace(go.Bar(
+            y=df_cat[y],
+            x=df_cat[x],
+            name=cat,
+            orientation='h',
+            marker_color=color_sequence[i % len(color_sequence)],
+            text=df_cat[x],
+            textposition='inside',
+            textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
+            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+        ))
+
+    # Add total count labels at the end of each bar
+    total_counts = data.groupby(y)[x].sum().reset_index()
+    fig.add_trace(go.Bar(
+        y=total_counts[y],
+        x=total_counts[x],
+        orientation='h',
+        marker_color='rgba(0,0,0,0)',  # invisible bar
+        showlegend=False,
+        text=total_counts[x],
+        textposition='outside',
+        textfont=dict(color='black', size=14),
+        hoverinfo='skip'
+    ))
+
+    fig.update_layout(
+        barmode='stack',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        height=height,
+        margin=dict(l=120, r=20, t=20, b=20),
+        xaxis_title=None,
+        yaxis_title=None,
+        uniformtext_minsize=12,
+        uniformtext_mode='hide',
+        bargap=0.3,
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(showgrid=False)
+
+
 # ---------------- TAB 1 ----------------
 with tab1:
     active_tab = "Tab 1"
@@ -261,14 +370,24 @@ with tab1:
     a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby("alert-type").size().reset_index(name="count")
     a3 = summary_data.groupby("continent").size().reset_index(name="count")
-    a4 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    a4 = summary_data.groupby(['alert-country', 'alert-impact']).size().reset_index(name='count')
 
+    # Horizontal stacked bar chart with counts inside and totals
+    fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(data=a1, y='alert-country', x='count', color_col='alert-impact')
+    
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
     with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(a2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab1_chart2")
-    with r2c1: st.plotly_chart(create_bar_chart(a3, x="continent", y="count"), use_container_width=True, key="tab1_chart3")
-    with r2c2: st.plotly_chart(create_bar_chart(a4, x="alert-country", y="count"), use_container_width=True, key="tab1_chart4")
+    #with r2c1: st.plotly_chart(create_bar_chart(a3, x="continent", y="count"), use_container_width=True, key="tab1_chart3")
+    with r2c2: st.plotly_chart(fig_tab4, use_container_width=True)
+
+# --- Create stacked bar chart data ---
+   
+
+    
+
+    
 
 # ---------------- TAB 2 ----------------
 with tab2:
