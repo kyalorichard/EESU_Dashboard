@@ -227,12 +227,15 @@ with tab2:
 
     summary_data = get_summary_data(active_tab, tab2_category_filter, tab2_region_filter, tab2_country_filter)
     render_summary_cards(summary_data)
+    
+    # Example: filter by 'alert_country' before counting
+    filtered_summary2 = summary_data[summary_data['alert_impact'] == "Negative"]  
 
     st.header("📊 Negative Events Analysis")
-    v1 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    v2 = summary_data.groupby("alert-type")["Value"].size().reset_index(name="count")
-    v3 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
-    v4 = summary_data.groupby("alert-country")["Value"].size().reset_index(name="count")
+    v1 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
+    v2 = filtered_summary2.groupby("alert-type")["Value"].size().reset_index(name="count")
+    v3 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
+    v4 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
