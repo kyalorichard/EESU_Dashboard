@@ -448,7 +448,7 @@ with tab5:
         color="count",
         hover_name="iso_alpha3",
         hover_data={"count": True},
-        mapbox_style="satellite",
+        mapbox_style="carto-positron"",
         zoom=1,
         center={"lat": 10, "lon": 0},
         opacity=0.6
