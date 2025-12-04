@@ -370,7 +370,8 @@ with tab1:
     a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby("alert-type").size().reset_index(name="count")
     a3 = summary_data.groupby("continent").size().reset_index(name="count")
-    a4 = summary_data.groupby(['alert-country', 'alert-impact']).size().reset_index(name='count')
+   
+ a4 = summary_data.groupby(['alert-country', 'alert-impact']).size().reset_index(name='count')
 
 
     # Horizontal stacked bar chart with counts inside and totals
