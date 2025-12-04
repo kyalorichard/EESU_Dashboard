@@ -385,13 +385,8 @@ with tab1:
     st.write("DEBUG a4 after filter:", a4)
     required_cols = ['alert-country', 'alert-impact', 'count']
     if not a4.empty and all(col in a4.columns for col in required_cols):
-    fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(
-        data=a4, 
-        y='alert-country', 
-        x='count', 
-        color_col='alert-impact', 
-        colors={'Negative': '#660094', 'Positive': '#FFDB58'}
-        )
+        fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(
+            data=a4, y='alert-country', x='count', color_col='alert-impact', colors={'Negative': '#660094', 'Positive': '#FFDB58'})
         st.plotly_chart(fig_tab4, use_container_width=True)
     else:
         st.info("No data available to display for Tab 4.")
