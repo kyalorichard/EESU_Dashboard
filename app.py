@@ -234,7 +234,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
      # Show labels inside the bars
     fig.update_traces(
         textposition='inside',
-        insidetextanchor='middle',
+        insidetextanchor='end', # anchor at the end (top of bar segment)
         textfont=dict(size=13, color='white', family="Arial Black")  # bold & readable
     )
     fig.update_layout(
@@ -247,7 +247,6 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
         uniformtext_minsize=12,
         uniformtext_mode='hide',
         bargap=0.2,
-        legend_title_text='Count (rounded)'  # update legend title
     )
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
@@ -273,6 +272,7 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
             marker_color=color_sequence[i % len(color_sequence)],
             text=df_cat[x] if not horizontal else df_cat[x],
             textposition='inside',
+            insidetextanchor='end', # anchor at the end (top of bar segment)
             textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=13, family="Arial Black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
@@ -288,7 +288,6 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
         uniformtext_minsize=12,
         uniformtext_mode='hide',
         bargap=0.2,
-        legend_title_text='Count (rounded)'  # update legend title
     )
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(showgrid=False)
