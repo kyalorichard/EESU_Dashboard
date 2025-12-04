@@ -373,14 +373,18 @@ with tab1:
     a4 = summary_data.groupby(['alert-country', 'alert-impact']).size().reset_index(name='count')
 
     # Horizontal stacked bar chart with counts inside and totals
-    fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(data=a4, y='alert-country', x='count', color_col='alert-impact')
+    if not tab4_data.empty:
+        fig_tab4 = create_horizontal_stacked_bar_chart_with_totals(data=a4, y='alert-country', x='count', color_col='alert-impact')
+        st.plotly_chart(fig_tab4, use_container_width=True)
+    else:
+        st.info("No data to display for Tab 4 with current filters.")
     
-    r1c1, r1c2 = st.columns(2, gap="large")
-    r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
-    with r1c2: st.plotly_chart(create_bar_chart(a2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab1_chart2")
+   # r1c1, r1c2 = st.columns(2, gap="large")
+   # r2c1, r2c2 = st.columns(2, gap="large")
+   # with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
+    #with r1c2: st.plotly_chart(create_bar_chart(a2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab1_chart2")
     #with r2c1: st.plotly_chart(create_bar_chart(a3, x="continent", y="count"), use_container_width=True, key="tab1_chart3")
-    with r2c2: st.plotly_chart(fig_tab4, use_container_width=True)
+    #with r2c2: st.plotly_chart(fig_tab4, use_container_width=True)
 
 # --- Create stacked bar chart data ---
    
