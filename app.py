@@ -94,7 +94,6 @@ filtered_global = data[
     (data['alert-type'].isin(selected_alert_type_single)) &
     (data['alert-impact'].isin(selected_alert_types_multi))
 ]
-
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
 <style>
