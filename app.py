@@ -444,10 +444,10 @@ if df_map is not None and "alert-country" in df_map.columns and "count" in df_ma
     fig = px.choropleth_mapbox(
         df_map,
         geojson=countries_gj,
-        locations="alert-country",
-        featureidkey="properties.ISO3",
+        locations="iso_alpha3",
+        featureidkey="properties.ISO_A2",
         color="count",
-        hover_name="alert-country",  # ✅ shows full country name on hover
+        hover_name="iso_alpha3",  # ✅ shows full country name on hover
         mapbox_style="satellite",
         zoom=1,
         height=600,
