@@ -9,43 +9,60 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # ---------------- LOAD DATA FROM CSV ----------------
 @st.cache_data(ttl=3600)  # refresh cache every hour
 def load_data():
+    # Load CSV
     data_dir = Path.cwd() / "data"
     csv_file = data_dir / "raw_data.csv"
     
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
         return pd.DataFrame()
-
+    
     df = pd.read_csv(csv_file)
 
-    # Manual mapping for countries pycountry may not recognize
+    # Ensure country column exists
+    if 'alert-country' not in df.columns:
+        st.warning("No 'alert-country' column found in CSV to map ISO codes.")
+        return df
+
+    # Clean country names
+    df['alert-country'] = df['alert-country'].astype(str).str.strip()
+
+    # Manual mapping for exceptions
     manual_map = {
-        "Czechia": "CZE",
-        "South Korea": "KOR",
-        "Russia": "RUS",
         "USA": "USA",
         "United States": "USA",
         "United Kingdom": "GBR",
-        # add more as needed
+        "Czechia": "CZE",
+        "South Korea": "KOR",
+        "Russia": "RUS",
+        "Republic of Congo": "COG",
+        "Democratic Republic of Congo": "COD",
+        "Hong Kong": "HKG",
+        "Palestine": "PSE",
+        "Timor Leste": "TLS",
+        "The Gambia": "GMB",
+        "Eswatini": "SWZ",
+        # Add more exceptions as needed
     }
 
+    # Function to safely get ISO alpha-3 code
     def get_iso3(country_name):
+        if pd.isna(country_name) or country_name == "":
+            return None
+        if country_name in manual_map:
+            return manual_map[country_name]
         try:
-            if pd.isna(country_name) or str(country_name).strip() == "":
-                return None
-            country_name_clean = str(country_name).strip()
-            if country_name_clean in manual_map:
-                return manual_map[country_name_clean]
-            country = pycountry.countries.lookup(country_name_clean)
-            return country.alpha_3
-        except Exception:
-            st.warning(f"Could not find ISO code for: {country_name}")
+            return pycountry.countries.lookup(country_name).alpha_3
+        except:
             return None
 
-    if 'alert-country' in df.columns:
-        df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
-    else:
-        st.warning("No 'alert-country' column found in CSV to map ISO codes.")
+    # Apply ISO mapping
+    df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
+
+    # Collect all unknown countries (only once)
+    missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
+    if len(missing_countries) > 0:
+        st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
     return df
     #return pd.read_csv(csv_file)
