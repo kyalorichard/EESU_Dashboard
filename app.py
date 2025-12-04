@@ -7,17 +7,18 @@ from pathlib import Path
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # ---------------- LOAD DATA FROM CSV ----------------
-@st.cache_data(ttl=900)  # refresh cache every hour
+@st.cache_data(ttl=3600)  # refresh cache every hour
 def load_data():
-    # Use current working directory instead of __file__
-    data_dir = Path.cwd() / "data"  
-    csv_file = data_dir / "raw_data.csv"  
+    data_dir = Path.cwd() / "data"
+    csv_file = data_dir / "raw_data.csv"
+    
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
-        return pd.DataFrame()  # return empty dataframe if file missing
+        return pd.DataFrame()
+
     df = pd.read_csv(csv_file)
 
-        # ---------------- MANUAL COUNTRY MAPPING ----------------
+    # Manual mapping for countries pycountry may not recognize
     manual_map = {
         "Czechia": "CZE",
         "South Korea": "KOR",
@@ -28,20 +29,19 @@ def load_data():
         # add more as needed
     }
 
-    # ---------------- ISO ALPHA-3 FUNCTION ----------------
     def get_iso3(country_name):
-        if pd.isna(country_name):
-            return None
-        country_name = str(country_name).strip()
-        if country_name in manual_map:
-            return manual_map[country_name]
         try:
-            return pycountry.countries.lookup(country_name).alpha_3
-        except LookupError:
+            if pd.isna(country_name) or str(country_name).strip() == "":
+                return None
+            country_name_clean = str(country_name).strip()
+            if country_name_clean in manual_map:
+                return manual_map[country_name_clean]
+            country = pycountry.countries.lookup(country_name_clean)
+            return country.alpha_3
+        except Exception:
             st.warning(f"Could not find ISO code for: {country_name}")
             return None
 
-    # ---------------- APPLY ISO CODES ----------------
     if 'alert-country' in df.columns:
         df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
     else:
