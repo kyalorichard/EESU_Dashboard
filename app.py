@@ -44,30 +44,35 @@ st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separa
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 
 st.sidebar.header("🌍 Global Filters")
-# ---------------- SIDEBAR FILTERS ----------------
-# Helper function to add "Select All" to single-select dropdown
-def selectbox_with_all(label, options):
-    all_option = ["Select All"]
-    selected = st.sidebar.selectbox(label, options=all_option + list(options))
-    if selected == "Select All":
-        return options  # return all options if "Select All" chosen
-    else:
-        return [selected]
+# ---------------- SESSION STATE FILTERS ----------------
+def initialize_session_state(key, default):
+    if key not in st.session_state:
+        st.session_state[key] = default
+    return st.session_state[key]
 
-# Single-select dropdowns with "Select All"
+# Multi-select with "Select All" functionality
+def multiselect_with_all(label, options, key):
+    selected = st.sidebar.multiselect(
+        label,
+        options=["Select All"] + list(options),
+        default=initialize_session_state(key, ["Select All"])
+    )
+    if "Select All" in selected:
+        st.session_state[key] = ["Select All"]
+        return list(options)
+    else:
+        st.session_state[key] = selected
+        return selected
+
 country_options = data['alert-country'].dropna().unique()
-selected_countries = selectbox_with_all("Select Country", country_options)
+selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
 
 alert_type_options = data['alert-type'].dropna().unique()
-selected_alert_type_single = selectbox_with_all("Select Alert Type (Single)", alert_type_options)
+selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_options, "selected_alert_types")
 
-# Extra multi-select filter for alert-type
-alert_impact_options = data['alert-type'].dropna().unique()
-selected_alert_types_multi = st.sidebar.multiselect(
-    "Select Alert Types (Multi)",
-    options=alert_impact_options,
-    default=alert_impact_options  # all selected by default
-)
+alert_impact_options = data['alert-impact'].dropna().unique()
+selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
+
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
