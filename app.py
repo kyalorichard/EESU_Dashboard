@@ -332,10 +332,10 @@ with tab1:
     required_cols = ['alert-type', 'alert-impact', 'count']
     if not a3.empty and all(col in a3.columns for col in required_cols):
         fig_tab4 = create_h_stacked_bar(
-            data=a3, y='continent', x='count', color_col='alert-impact', colors={'Negative': '#660094', 'Positive': '#FFDB58'})
-        st.plotly_chart(fig_tab4, use_container_width=True)
+            data=a3, y='continent', x='count', color_col='alert-impact')
+        st.plotly_chart(fig_tab4, use_container_width=True,, key="tab1_chart1")
     else:
-        st.info("No data available to display for Tab 4.")
+        st.info("No data available to display for Tab 1.")
     
    # r1c1, r1c2 = st.columns(2, gap="large")
    # r2c1, r2c2 = st.columns(2, gap="large")
