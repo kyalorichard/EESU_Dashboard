@@ -8,6 +8,18 @@ import plotly.graph_objects as go
 from streamlit_plotly_events import plotly_events
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+
+
+# ---------------- DASHBOARD TITLE ----------------
+st.markdown("""
+<h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:52px;'>
+    EU SEE Dashboard
+</h1>
+<p style='margin-top:0; color:gray; font-size:16px;'></p>
+""", unsafe_allow_html=True)
+
+st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separator
+
 # ---------------- MULTI-SELECT CUSTOM CSS ----------------
 st.markdown("""
 <style>
@@ -123,16 +135,6 @@ st.markdown("""
     .css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
 </style>
 """, unsafe_allow_html=True)
-
-# ---------------- DASHBOARD TITLE ----------------
-st.markdown("""
-<h1 style='margin-bottom:2px; line-height:1.1; color:#660094; font-size:52px;'>
-    EU SEE Dashboard
-</h1>
-<p style='margin-top:0; color:gray; font-size:16px;'></p>
-""", unsafe_allow_html=True)
-
-st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separator
 
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
