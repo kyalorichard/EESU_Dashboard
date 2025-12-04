@@ -67,9 +67,10 @@ selected_alert_types_multi = st.sidebar.multiselect(
     options=alert_type_options,
     default=alert_type_options  # all selected by default
 )
+filtered_global 
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
-filtered_data = data[
+filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_type_single)) &
     (data['alert-type'].isin(selected_alert_types_multi))
@@ -229,7 +230,7 @@ with tab2:
     render_summary_cards(summary_data)
     
     # Example: filter by 'alert_country' before counting
-    filtered_summary2 = summary_data[summary_data['alert_impact'] == "Negative"]  
+    filtered_summary2 = summary_data[summary_data['alert-impact'] == "Negative"]  
 
     st.header("📊 Negative Events Analysis")
     v1 = filtered_summary2.groupby("alert-country")["Value"].size().reset_index(name="count")
