@@ -2,64 +2,52 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import json
 from pathlib import Path  
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-# ---------------- LOAD DATA FROM CSV ----------------
+# ---------------- LOAD MANUAL MAP ----------------
+map_file = Path.cwd() / "data" / "manual_map.json"
+if not map_file.exists():
+    st.error(f"Manual map file not found: {map_file}")
+    st.stop()
+
+with open(map_file, "r", encoding="utf-8") as f:
+    manual_map = json.load(f)
+
+# ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=3600)  # refresh cache every hour
 def load_data():
-    # Load CSV
-    data_dir = Path.cwd() / "data"
-    csv_file = data_dir / "raw_data.csv"
-    
+    csv_file = Path.cwd() / "data" / "raw_data.csv"
     if not csv_file.exists():
         st.error(f"CSV file not found: {csv_file}")
         return pd.DataFrame()
-    
+
     df = pd.read_csv(csv_file)
 
-    # Ensure country column exists
     if 'alert-country' not in df.columns:
-        st.warning("No 'alert-country' column found in CSV to map ISO codes.")
+        st.warning("No 'alert-country' column found in CSV.")
         return df
 
     # Clean country names
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
 
-    # Manual mapping for exceptions
-    manual_map = {
-        "USA": "USA",
-        "United States": "USA",
-        "United Kingdom": "GBR",
-        "Czechia": "CZE",
-        "South Korea": "KOR",
-        "Russia": "RUS",
-        "Republic of Congo": "COG",
-        "Democratic Republic of Congo": "COD",
-        "Hong Kong": "HKG",
-        "Palestine": "PSE",
-        "Timor Leste": "TLS",
-        "The Gambia": "GMB",
-        "Eswatini": "SWZ",
-        # Add more exceptions as needed
-    }
-
-    # Function to safely get ISO alpha-3 code
+    # Function to get ISO3 codes
     def get_iso3(country_name):
         if pd.isna(country_name) or country_name == "":
             return None
-        if country_name in manual_map:
-            return manual_map[country_name]
+        country_name_clean = str(country_name).strip()
+        if country_name_clean in manual_map:
+            return manual_map[country_name_clean]
         try:
-            return pycountry.countries.lookup(country_name).alpha_3
+            return pycountry.countries.lookup(country_name_clean).alpha_3
         except:
             return None
 
-    # Apply ISO mapping
     df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
 
-    # Collect all unknown countries (only once)
+    # List missing countries once
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
     if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
