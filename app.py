@@ -154,14 +154,15 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 
 # ---------------- RESET FILTERS BUTTON ----------------
 if st.sidebar.button("🔄 Reset Filters"):
-    # Reset session state for all global filters
+    # Reset all session state filters to default
     st.session_state["selected_continents"] = ["Select All"]
     st.session_state["selected_countries"] = ["Select All"]
     st.session_state["selected_alert_types"] = ["Select All"]
     st.session_state["selected_alert_impacts"] = ["Select All"]
-    
+
     # Rerun the app so all filters update immediately
     st.experimental_rerun()
+
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
