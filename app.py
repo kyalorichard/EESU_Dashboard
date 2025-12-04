@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import json
-import pycountry 
 from pathlib import Path  
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
