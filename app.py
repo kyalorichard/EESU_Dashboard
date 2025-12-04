@@ -452,7 +452,7 @@ with tab5:
         hover_name="alert-country",
         hover_data={"count": True},
         color_continuous_scale="Picnic",
-        mapbox_style="satellite",
+        mapbox_style="open-street-map",
         zoom=1,
         center={"lat": 10, "lon": 0},
         opacity=0.6
@@ -460,7 +460,7 @@ with tab5:
     fig.update_layout(
     margin={"r":0,"t":1,"l":0,"b":0},
     height=500,
-    mapbox_style="carto-positron",  # simple map background
+   
       
     )
     st.plotly_chart(fig, use_container_width=True)
