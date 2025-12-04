@@ -77,8 +77,8 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
-    (data['alert-type'].isin(selected_alert_type_single)) &
-    (data['alert-impact'].isin(selected_alert_types_multi))
+    (data['alert-type'].isin(selected_alert_types)) &
+    (data['alert-impact'].isin(selected_alert_impacts))
 ]
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
