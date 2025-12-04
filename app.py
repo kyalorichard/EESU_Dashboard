@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 import json
 from pathlib import Path  
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -247,9 +248,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
 
 # ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
 def create_horizontal_stacked_bar_chart_with_totals(data, y, x, color_col, height=600):
-    import plotly.graph_objects as go
-
-    # Prepare the stacked bar
+        # Prepare the stacked bar
     categories = sorted(data[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']  # Map to categories
 
@@ -313,59 +312,6 @@ def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert
 
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
-
-# ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
-def create_horizontal_stacked_bar_chart_with_totals(data, y, x, color_col, height=600):
-    import plotly.graph_objects as go
-
-    # Prepare the stacked bar
-    categories = sorted(data[color_col].unique())
-    color_sequence = ['#FFDB58', '#660094']  # Map to categories
-
-    fig = go.Figure()
-
-    for i, cat in enumerate(categories):
-        df_cat = data[data[color_col] == cat]
-        fig.add_trace(go.Bar(
-            y=df_cat[y],
-            x=df_cat[x],
-            name=cat,
-            orientation='h',
-            marker_color=color_sequence[i % len(color_sequence)],
-            text=df_cat[x],
-            textposition='inside',
-            textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
-            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
-        ))
-
-    # Add total count labels at the end of each bar
-    total_counts = data.groupby(y)[x].sum().reset_index()
-    fig.add_trace(go.Bar(
-        y=total_counts[y],
-        x=total_counts[x],
-        orientation='h',
-        marker_color='rgba(0,0,0,0)',  # invisible bar
-        showlegend=False,
-        text=total_counts[x],
-        textposition='outside',
-        textfont=dict(color='black', size=14),
-        hoverinfo='skip'
-    ))
-
-    fig.update_layout(
-        barmode='stack',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        height=height,
-        margin=dict(l=120, r=20, t=20, b=20),
-        xaxis_title=None,
-        yaxis_title=None,
-        uniformtext_minsize=12,
-        uniformtext_mode='hide',
-        bargap=0.3,
-    )
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=False)
 
 
 # ---------------- TAB 1 ----------------
