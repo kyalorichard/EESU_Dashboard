@@ -309,8 +309,6 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
         
-
-
     fig.update_layout(
         barmode='stack',
         plot_bgcolor='white',
@@ -342,7 +340,6 @@ def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
 
-
 # ---------------- TAB 1 ----------------
 with tab1:
     active_tab = "Tab 1"
@@ -354,23 +351,13 @@ with tab1:
     a2 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
     a4 = summary_data.groupby(["alert-country", "alert-impact"]).size().reset_index(name='count')
-
-
-  
-    
+   
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
     with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
     with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
-
-# --- Create stacked bar chart data ---
-   
-
-    
-
-    
 
 # ---------------- TAB 2 ----------------
 with tab2:
@@ -452,29 +439,29 @@ with tab5:
 # Count alerts per country
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
-fig = px.choropleth_mapbox(
-    df_map,
-    geojson=countries_gj,
-    locations="alert-country",
-    featureidkey="properties.name",
-    color="count",
-    hover_name="alert-country",
-    mapbox_style="satellite-streets",
-    zoom=1,
-    center={"lat": 10, "lon": 0},
-)
+if df_map is not None and "alert-country" in df_map.columns and "count" in df_map.columns:
 
-# Add country boundary lines
-fig.update_traces(marker_line_width=0.6)
+    fig = px.choropleth_mapbox(
+        df_map,
+        geojson=countries_gj,
+        locations="alert-country",
+        featureidkey="properties.ISO3",
+        color="count",
+        hover_name="alert-country",  # ✅ shows full country name on hover
+        mapbox_style="satellite",
+        zoom=1,
+        height=600,
+        center={"lat": 10, "lon": 0},
+        opacity=0.5,
+        text="count"  # optional numeric label
+    )
 
-# Force boundaries to show
-fig.update_layout(
-    margin={"r": 0, "t": 30, "l": 0, "b": 0},
-    height=700,
-)
+    fig.update_traces(textposition="top center")
 
-st.plotly_chart(fig, use_container_width=True, key="global_filtered_sat_map")
+    st.plotly_chart(fig, use_container_width=True, key="satellite_map")
 
+else:
+    st.warning("⚠️ Map not loaded → Required columns missing from data")
 
 # ---------------- FOOTER ----------------
 st.markdown("""
