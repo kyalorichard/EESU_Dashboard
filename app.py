@@ -152,6 +152,17 @@ selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_opti
 alert_impact_options = sorted(data['alert-impact'].dropna().unique())
 selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
 
+# ---------------- RESET FILTERS BUTTON ----------------
+if st.sidebar.button("🔄 Reset Filters"):
+    # Reset session state for all global filters
+    st.session_state["selected_continents"] = ["Select All"]
+    st.session_state["selected_countries"] = ["Select All"]
+    st.session_state["selected_alert_types"] = ["Select All"]
+    st.session_state["selected_alert_impacts"] = ["Select All"]
+    
+    # Rerun the app so all filters update immediately
+    st.experimental_rerun()
+
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
