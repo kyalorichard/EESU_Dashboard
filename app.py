@@ -81,11 +81,16 @@ alert_type_options = data['alert-type'].dropna().unique()
 selected_alert_type_single = selectbox_with_all("Select Alert Type (Single)", alert_type_options, key='selected_alert_type_single')
 
 # Multi-select filter
+# Make sure default values exist in current options
+valid_default_multi = [val for val in st.session_state.selected_alert_types_multi if val in alert_type_options]
+
 selected_alert_types_multi = st.sidebar.multiselect(
     "Select Alert Types (Multi)",
     options=alert_type_options,
-    default=st.session_state.selected_alert_types_multi
+    default=valid_default_multi if valid_default_multi else list(alert_type_options)
 )
+
+# Update session state
 st.session_state.selected_alert_types_multi = selected_alert_types_multi
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
