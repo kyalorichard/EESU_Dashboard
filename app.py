@@ -260,6 +260,8 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
             y=df_cat[y],
             x=df_cat[x],
             name=cat,
+            x=x if not horizontal else y,
+            y=y if not horizontal else x,
             orientation='h' if horizontal else 'v',
             marker_color=color_sequence[i % len(color_sequence)],
             text=df_cat[x],
@@ -267,20 +269,6 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
             textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
-
-    # Add total count labels at the end of each bar
-    total_counts = data.groupby(y)[x].sum().reset_index()
-    fig.add_trace(go.Bar(
-        y=total_counts[y],
-        x=total_counts[x],
-        orientation='h',
-        marker_color='rgba(0,0,0,0)',  # invisible bar
-        showlegend=False,
-        text=total_counts[x],
-        textposition='outside',
-        textfont=dict(color='black', size=14),
-        hoverinfo='skip'
-    ))
 
     fig.update_layout(
         barmode='stack',
