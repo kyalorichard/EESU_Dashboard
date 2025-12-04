@@ -11,7 +11,21 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # ----------- LOAD MASTER COUNTRY ISO MAP -----------
 with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as f:
     country_meta = json.load(f)
-    
+
+# ---------- ✅ Load Countries GeoJSON safely ----------
+geojson_file = Path.cwd() / "data" / "countries.geo.json"
+
+if not geojson_file.exists():
+    st.error("❌ countries.geojson file missing inside /data folder")
+    countries_gj = None
+else:
+    try:
+        with open(geojson_file) as f:
+            countries_gj = json.load(f)
+    except json.JSONDecodeError:
+        st.error("❌ Invalid countries.geojson format")
+        countries_gj = None
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)  # refresh cache every hour
 def load_data():
