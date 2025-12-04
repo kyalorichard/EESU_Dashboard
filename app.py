@@ -7,7 +7,11 @@ from pathlib import Path
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-
+# ----------- LOAD MASTER COUNTRY ISO MAP -----------
+map_file = Path.cwd() / "data" / "all_countries_iso.json"
+with open(map_file, "r", encoding="utf-8") as f:
+    manual_map = json.load(f)
+    
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)  # refresh cache every hour
 def load_data():
