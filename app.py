@@ -330,7 +330,7 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     # ----------- WORLD MAP -----------
-iso_counts = filtered.groupby("iso_alpha3").size().reset_index()
+iso_counts = summary_data.groupby("iso_alpha3").size().reset_index()
 iso_counts.columns = ["ISO3", "Count"]
 iso_counts = iso_counts.dropna()
 
@@ -345,6 +345,9 @@ fig_map = px.choropleth(
 fig_map.update_layout(height=600)
 
 st.plotly_chart(fig_map, use_container_width=True)
+
+if summary_data.empty:
+    st.info("No entries match the selected filters — map and charts will show zero data.")
 
 # ---------------- FOOTER ----------------
 st.markdown("""
