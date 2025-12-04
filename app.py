@@ -401,7 +401,7 @@ with tab1:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    st.header("📌 Overview")
+    #st.header("📌 Overview")
     a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a2 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
@@ -434,7 +434,7 @@ with tab2:
     # Example: filter by 'alert_country' before counting
     filtered_summary2 = summary_data[summary_data['alert-impact'] == "Negative"]  
 
-    st.header("📊 Negative Events Analysis")
+    #st.header("📊 Negative Events Analysis")
     v1 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
     v2 = filtered_summary2.groupby("alert-type").size().reset_index(name="count")
     v3 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
@@ -453,7 +453,7 @@ with tab3:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    st.header("📈 Positive Events Analysis")
+    #st.header("📈 Positive Events Analysis")
     b1 = summary_data.groupby("alert-country").size().reset_index(name="count")
     b2 = summary_data.groupby("alert-type").size().reset_index(name="count")
     b3 = summary_data.groupby("alert-country").size().reset_index(name="count")
@@ -472,7 +472,7 @@ with tab4:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    st.header("📌 Others Analysis")
+    #st.header("📌 Others Analysis")
     d1 = summary_data.groupby("alert-country").size().reset_index(name="count")
     d2 = summary_data.groupby("alert-type").size().reset_index(name="count")
     d3 = summary_data.groupby("alert-country").size().reset_index(name="count")
