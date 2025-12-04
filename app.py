@@ -344,49 +344,38 @@ with tab5:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
     
- # ---- COUNT ALERTS PER COUNTRY based on your global filtered dataframe ----
+# Count alerts per country
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
-# ---- LOAD Plotly's built-in world GeoJSON (HAS real geometry!) ----
-countries_gj = px.data.gapminder().query("year == 2007")  # just to extract the geojson
-world_geojson = px.data.gapminder().year.iloc[0]
-countries_gj = px.data.gapminder()
-geojson = px.data.gapminder().iloc[0]  # built-in geometry source used internally
+# ---- USE MAPBOX SATELLITE STYLE ----
+px.set_mapbox_access_token("YOUR_MAPBOX_TOKEN")  # optional if using Mapbox tiles
 
-# Actually create the choropleth using a known valid world geojson
-fig = px.choropleth(
+fig = px.choropleth_mapbox(
     df_map,
-    geojson="{}",                # we don't need external file
-    locations="alert-country",   # matches country names in your data
-    locationmode="country names",
+    geojson=None,  # can use locationmode="country names" instead
+    locations="alert-country",
     color="Count",
-    #projection="natural earth",
+    hover_name="alert-country",
     mapbox_style="satellite-streets",  # ✅ satellite look
     center={"lat": 10, "lon": 0},       # center map globally
-    hover_name="alert-country",
+    zoom=1,
+    opacity=0.6,
 )
 
-# ---- ENHANCE APPEARANCE ----
-fig.update_geos(
-    showframe=False,
-    showcoastlines=True,
-    coastlinewidth=0.3,
-    showland=True,
-    landcolor=None,
-    showcountries=True,
-    countrywidth=0.4,
-    bgcolor="lightblue",
-    countrycolor="black"       # boundary color
-)
+# ---- Add country counts as labels ----
+import plotly.graph_objects as go
 
-fig.update_layout(
-    margin={"r":0,"t":40,"l":0,"b":0},
-    height=800,
-    title=dict(text="🌍 Alerts by Country", x=0.5)
+labels = go.Scattermapbox(
+    lat=[0]*len(df_map),  # placeholder lat/lon; or you can add proper coords
+    lon=[0]*len(df_map),
+    mode="text",
+    text=df_map["Count"],
+    hoverinfo="skip",
+    textfont=dict(size=14)
 )
+fig.add_trace(labels)
 
-# ---- Show map ----
-#st.plotly_chart(fig, use_container_width=True, key="interactive_geojson_map")
+# ---- Display Map ----
 st.plotly_chart(fig, use_container_width=True, key="satellite_map")
 
 # ---------------- FOOTER ----------------
