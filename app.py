@@ -105,8 +105,11 @@ def multiselect_with_all(label, options, key):
 continent_options = data['continent'].dropna().unique()
 selected_continent = multiselect_with_all("Select Continent", continent_options, "selected_continent")
 
-country_options = data['alert-country'].dropna().unique()
-selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
+# ---------- Country filter (depends on selected continents) ----------
+if "Select All" in selected_continents:
+    country_options = sorted(data['alert-country'].dropna().unique())
+else:
+    country_options = sorted(data[data['continent'].isin(selected_continents)]['alert-country'].unique())
 
 alert_type_options = data['alert-type'].dropna().unique()
 selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_options, "selected_alert_types")
@@ -117,7 +120,7 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
 filtered_global = data[
-    (data['continent'].isin(selected_continent)) &
+    ((data['continent'].isin(selected_continents)) if "Select All" not in selected_continents else True) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
     (data['alert-impact'].isin(selected_alert_impacts))
