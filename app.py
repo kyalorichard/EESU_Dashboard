@@ -455,6 +455,11 @@ with tab5:
         center={"lat": 10, "lon": 0},
         opacity=0.6
     )
+    fig.update_layout(
+    margin={"r":0,"t":0,"l":0,"b":0},
+    height=700,
+    width=1000  # explicit pixel width
+)
     
     st.plotly_chart(fig, use_container_width=True)
 
