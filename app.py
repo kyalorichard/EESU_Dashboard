@@ -46,51 +46,44 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
 st.sidebar.header("🌍 Global Filters")
 # ---------------- SIDEBAR FILTERS ----------------
 # Initialize session state for filters if not already set
+def init_filters():
+    st.session_state.selected_countries = list(data['alert-country'].dropna().unique())
+    st.session_state.selected_alert_type_single = list(data['alert-type'].dropna().unique())
+    st.session_state.selected_alert_types_multi = list(data['alert-impact'].dropna().unique())
+
 if 'selected_countries' not in st.session_state:
-    st.session_state.selected_countries = list(data['alert-country'].dropna().unique())
-if 'selected_alert_type_single' not in st.session_state:
-    st.session_state.selected_alert_type_single = list(data['alert-type'].dropna().unique())
-if 'selected_alert_types_multi' not in st.session_state:
-    st.session_state.selected_alert_types_multi = list(data['alert-impact'].dropna().unique())
+    init_filters()
 
-# Reset button
-if st.sidebar.button("🔄 Reset Filters"):
-    st.session_state.selected_countries = list(data['alert-country'].dropna().unique())
-    st.session_state.selected_alert_type_single = list(data['alert-type'].dropna().unique())
-    st.session_state.selected_alert_types_multi = list(data['alert-impact'].dropna().unique())
+# Reset button with callback
+def reset_filters():
+    init_filters()
 
-# Helper function for single-select with "Select All"
-def selectbox_with_all(label, options, key):
-    all_option = ["Select All"]
-    selected = st.sidebar.selectbox(
-        label,
-        options=all_option + list(options),
-        index=0 if st.session_state[key] == list(options) else None
-    )
-    if selected == "Select All":
-        st.session_state[key] = list(options)
-    else:
-        st.session_state[key] = [selected]
-    return st.session_state[key]
+st.sidebar.button("🔄 Reset Filters", on_click=reset_filters)
 
-# Render filters using session state
+# Now render filters using session_state safely
 country_options = data['alert-country'].dropna().unique()
-selected_countries = selectbox_with_all("Select Country", country_options, key='selected_countries')
+selected_countries = st.sidebar.multiselect(
+    "Select Country",
+    options=country_options,
+    default=st.session_state.selected_countries
+)
+st.session_state.selected_countries = selected_countries
 
 alert_type_options = data['alert-type'].dropna().unique()
-selected_alert_type_single = selectbox_with_all("Select Alert Type (Single)", alert_type_options, key='selected_alert_type_single')
+selected_alert_type_single = st.sidebar.multiselect(
+    "Select Alert Type (Single)",
+    options=alert_type_options,
+    default=st.session_state.selected_alert_type_single
+)
+st.session_state.selected_alert_type_single = selected_alert_type_single
 
-# Multi-select filter
-# Make sure default values exist in current options
+# Robust multi-select
 valid_default_multi = [val for val in st.session_state.selected_alert_types_multi if val in alert_type_options]
-
 selected_alert_types_multi = st.sidebar.multiselect(
     "Select Alert Types (Multi)",
     options=alert_type_options,
     default=valid_default_multi if valid_default_multi else list(alert_type_options)
 )
-
-# Update session state
 st.session_state.selected_alert_types_multi = selected_alert_types_multi
 
 # ---------------- FILTER DATA BASED ON SELECTION ----------------
