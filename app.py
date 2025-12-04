@@ -264,7 +264,7 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
             name=cat,
             orientation='h' if horizontal else 'v',
             marker_color=color_sequence[i % len(color_sequence)],
-            text=df_cat[y] if not horizontal else df_cat[x],
+            text=df_cat[x] if not horizontal else df_cat[y],
             textposition='inside',
             textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=14),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
@@ -322,7 +322,7 @@ with tab1:
     with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
-    with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart4")
+    with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
 
 # --- Create stacked bar chart data ---
    
