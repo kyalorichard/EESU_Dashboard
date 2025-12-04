@@ -440,25 +440,22 @@ with tab5:
 df_map = summary_data.groupby("alert-country").size().reset_index(name="Count")
 
 #if df_map is not None and "alert-country" in df_map.columns and "count" in df_map.columns:
-
-    fig = px.choropleth_mapbox(
-        df_map,
-        geojson=countries_gj,
-        locations="iso_alpha3",
-        featureidkey="properties.ISO_A2",
-        color="count",
-        hover_name="iso_alpha3",  # ✅ shows full country name on hover
-        mapbox_style="satellite",
-        zoom=1,
-        height=600,
-        center={"lat": 10, "lon": 0},
-        opacity=0.5,
-        text="count"  # optional numeric label
-    )
-
-    fig.update_traces(textposition="top center")
-
-    st.plotly_chart(fig, use_container_width=True, key="satellite_map")
+fig = px.choropleth_mapbox(
+    df_map,
+    geojson=countries_gj,
+    locations="iso_alpha3",
+    featureidkey="properties.ISO_A2",
+    color="count",
+    hover_name="iso_alpha3",  # ✅ shows full country name on hover
+    mapbox_style="satellite",
+    zoom=1,
+    height=600,
+    center={"lat": 10, "lon": 0},
+    opacity=0.5,
+    text="count"  # optional numeric label
+)
+fig.update_traces(textposition="top center")
+st.plotly_chart(fig, use_container_width=True, key="satellite_map")
 
 #else:
     #st.warning("⚠️ Map not loaded → Required columns missing from data")
