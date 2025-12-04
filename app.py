@@ -459,10 +459,10 @@ with tab5:
     )
     fig.update_layout(
     margin={"r":0,"t":1,"l":0,"b":0},
+    height=500,
     mapbox_style="carto-positron",  # simple map background
     mapbox_bgcolor="lightblue",      # non-land area color
-    height=500,
-    width=900  # explicit pixel width
+  
     )
     st.plotly_chart(fig, use_container_width=True)
     
