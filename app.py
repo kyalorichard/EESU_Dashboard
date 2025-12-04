@@ -452,20 +452,18 @@ with tab5:
         hover_name="alert-country",
         hover_data={"count": True,
                     "alert-country": False,},
+        labels={
+        "count": "Number of Alerts",
+        },
         color_continuous_scale="Greens",
         mapbox_style="open-street-map",
         zoom=1,
         center={"lat": 10, "lon": 0},
         opacity=0.6
-    ),
-    labels={
-        "count": "Number of Alerts",
-    },
+    )
     fig.update_layout(
-    margin={"r":0,"t":1,"l":0,"b":0},
-    height=500,
-   
-      
+        margin={"r":0,"t":1,"l":0,"b":0},
+        height=500
     )
     st.markdown("<br>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
