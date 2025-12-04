@@ -463,6 +463,7 @@ with tab5:
    
       
     )
+    st.markdown("<br><br>", unsafe_allow_html=True)
     st.plotly_chart(fig, use_container_width=True)
     
     
