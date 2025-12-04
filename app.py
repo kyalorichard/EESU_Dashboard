@@ -213,19 +213,11 @@ def render_summary_cards(data):
         ''', unsafe_allow_html=True)
 
     with col4:
-        st.markdown(f'''
-        <div style="display:flex; flex-direction:column; gap:6px;">
-            <div class="summary-card" style="background:#fc4a1a; padding:10px;">
-                <div class="summary-icon" style="font-size:24px;">📉</div>
-                <h2 style="font-size:26px;">{data["alert-impact"].count()}</h2>
-                <p style="font-size:14px;">Negative Alerts</p>
-            </div>
-            
-            <div class="summary-card" style="background:#660094; padding:10px;">
-                <div class="summary-icon" style="font-size:24px;">✅</div>
-                <h2 style="font-size:26px;">{data["alert-country"].count()}</h2>
-                <p style="font-size:14px;">Total Countries</p>
-            </div>
+       st.markdown(f'''
+        <div class="summary-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
+            <div class="summary-icon">📈</div>
+            <h2>{max_value}</h2>
+            <p>Max Value</p>
         </div>
         ''', unsafe_allow_html=True)
    
