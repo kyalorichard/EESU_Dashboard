@@ -1,0 +1,220 @@
+import pandas as pd
+import openai
+from tqdm import tqdm
+import json
+import time
+import os
+from datetime import datetime
+from langdetect import detect  # Language detection library
+
+# ---------------- CONFIG ----------------
+openai.api_key = "YOUR_API_KEY"  # Set your OpenAI API key here
+INPUT_CSV = "your_data.csv"      # Input CSV file path
+OUTPUT_CSV = "your_data_with_repression_info.csv"  # Output CSV path
+SUMMARY_COL = "summary"          # Column in CSV containing text summaries
+
+# Token & batch control
+MAX_BATCH_TOKENS = 2000          # Approximate max tokens per batch including prompts
+MIN_BATCH_SIZE = 1               # Minimum number of summaries per batch
+MAX_BATCH_SIZE = 50              # Maximum number of summaries per batch
+DEFAULT_BATCH_SIZE = 5           # Starting batch size (smaller because language instructions add tokens)
+
+# API and logging
+MAX_RETRIES = 5                  # Max retries on API failure
+MODEL = "gpt-5-mini"             # Model to use
+LOG_FILE = "batch_processing_log.csv"  # CSV log for batch processing info
+
+# Dynamic batch tuning parameters
+LATENCY_TARGET = 10              # Desired API latency per batch in seconds
+LATENCY_TOLERANCE = 2            # Acceptable deviation
+ADJUST_FACTOR = 0.2              # Fractional increase/decrease of batch size
+
+# ---------------- MULTI-LANGUAGE THEMES ----------------
+# Define options for each indicator in multiple languages
+ACTOR_THEMES = {
+    "en": ["Government", "Company", "Military", "Unknown"],
+    "es": ["Gobierno", "Empresa", "Militar", "Desconocido"],
+    "fr": ["Gouvernement", "Entreprise", "Militaire", "Inconnu"]
+}
+
+SUBJECT_THEMES = {
+    "en": ["Workers", "Journalists", "Opposition", "Ethnic group", "Unknown"],
+    "es": ["Trabajadores", "Periodistas", "Oposición", "Grupo étnico", "Desconocido"],
+    "fr": ["Travailleurs", "Journalistes", "Opposition", "Groupe ethnique", "Inconnu"]
+}
+
+MECHANISM_THEMES = {
+    "en": ["Arrest", "Detention", "Threat", "Censorship", "Unknown"],
+    "es": ["Arresto", "Detención", "Amenaza", "Censura", "Desconocido"],
+    "fr": ["Arrestation", "Détention", "Menace", "Censure", "Inconnu"]
+}
+
+TYPE_THEMES = {
+    "en": ["Political repression", "Labor repression", "Ethnic repression", "Media repression", "Unknown"],
+    "es": ["Represión política", "Represión laboral", "Represión étnica", "Represión mediática", "Desconocido"],
+    "fr": ["Répression politique", "Répression du travail", "Répression ethnique", "Répression médiatique", "Inconnu"]
+}
+
+# ---------------- LOAD CSV ----------------
+df = pd.read_csv(INPUT_CSV)
+
+# Initialize output columns if missing
+for col in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]:
+    if col not in df.columns:
+        df[col] = ""
+
+# ---------------- HELPERS ----------------
+def estimate_tokens(text):
+    """Estimate token count for a string (rough approximation)."""
+    return len(text) // 4 + 1
+
+def build_prompt(batch_summaries):
+    """
+    Build the prompt for the batch:
+    - Detect language per summary
+    - Include only relevant language options for each summary
+    """
+    numbered_texts = []
+    for idx, summary in enumerate(batch_summaries):
+        # Detect language for this summary
+        try:
+            lang = detect(summary)
+        except:
+            lang = "en"
+        if lang not in ACTOR_THEMES:
+            lang = "en"
+
+        # Append summary + language + theme options
+        numbered_texts.append(
+            f"{idx+1}. Summary: {summary}\n"
+            f"Language: {lang}\n"
+            f"Actor of repression options: {', '.join(ACTOR_THEMES[lang])}\n"
+            f"Subject of repression options: {', '.join(SUBJECT_THEMES[lang])}\n"
+            f"Mechanism of repression options: {', '.join(MECHANISM_THEMES[lang])}\n"
+            f"Type of event options: {', '.join(TYPE_THEMES[lang])}"
+        )
+
+    numbered_text = "\n\n".join(numbered_texts)
+
+    # Full prompt with instructions for JSON output
+    prompt = f"""
+Extract repression info from each text below. For each summary, select the themes in the provided language.
+Return a JSON array of objects in the same order as the texts. Format each object as:
+
+{{
+    "Actor of repression": "...",
+    "Subject of repression": "...",
+    "Mechanism of repression": "...",
+    "Type of event": "..."
+}}
+
+Texts:
+{numbered_text}
+"""
+    return prompt
+
+def extract_batch(batch_summaries):
+    """
+    Send the batch to OpenAI API and return JSON results.
+    Retries up to MAX_RETRIES on failure.
+    """
+    prompt = build_prompt(batch_summaries)
+    for attempt in range(MAX_RETRIES):
+        try:
+            start_time = time.time()
+            response = openai.ChatCompletion.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0
+            )
+            duration = time.time() - start_time
+            content = response['choices'][0]['message']['content'].strip()
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError:
+                # Attempt to fix common JSON issues
+                content_fixed = content.replace("\n", "").replace("'", '"')
+                data = json.loads(content_fixed)
+            return data, duration
+        except Exception as e:
+            print(f"Error: {e}. Retrying ({attempt+1}/{MAX_RETRIES})...")
+            time.sleep(2 ** attempt)  # Exponential backoff
+    # If all retries fail, return error objects
+    duration = None
+    return [{"Actor of repression": "Error",
+             "Subject of repression": "Error",
+             "Mechanism of repression": "Error",
+             "Type of event": "Error"} for _ in batch_summaries], duration
+
+# ---------------- RESUME AND LOGGING ----------------
+# Check if output exists to resume processing
+if os.path.exists(OUTPUT_CSV):
+    df_out = pd.read_csv(OUTPUT_CSV)
+    start_idx = df_out[df_out["Actor of repression"].isna() | (df_out["Actor of repression"] == "")].index.min()
+    if pd.isna(start_idx):
+        print("All rows already processed.")
+        exit()
+else:
+    start_idx = 0
+    df_out = df.copy()
+
+# Initialize log file if not exists
+if not os.path.exists(LOG_FILE):
+    pd.DataFrame(columns=["Batch Start Index", "Batch Size", "Estimated Tokens", "API Duration(s)", "Timestamp"]).to_csv(LOG_FILE, index=False)
+
+# ---------------- PROCESS WITH TOKEN-AWARE BATCHING ----------------
+i = start_idx
+batch_size = DEFAULT_BATCH_SIZE
+pbar = tqdm(total=len(df) - start_idx)
+
+while i < len(df):
+    batch_summaries = []
+    batch_tokens = 0
+    batch_start_idx = i
+
+    # Accumulate summaries until token limit or batch size reached
+    while i < len(df) and len(batch_summaries) < batch_size:
+        summary = str(df[SUMMARY_COL].iloc[i])
+        tokens = estimate_tokens(summary) + 50  # +50 for per-summary language instructions
+        if batch_tokens + tokens > MAX_BATCH_TOKENS:
+            break
+        batch_summaries.append(summary)
+        batch_tokens += tokens
+        i += 1
+
+    # Extract information from API
+    results, duration = extract_batch(batch_summaries)
+
+    # Write results to dataframe
+    for j, res in enumerate(results):
+        idx = batch_start_idx + j
+        df_out.at[idx, "Actor of repression"] = res.get("Actor of repression", "Unknown")
+        df_out.at[idx, "Subject of repression"] = res.get("Subject of repression", "Unknown")
+        df_out.at[idx, "Mechanism of repression"] = res.get("Mechanism of repression", "Unknown")
+        df_out.at[idx, "Type of event"] = res.get("Type of event", "Unknown")
+
+    # Save intermediate results
+    df_out.to_csv(OUTPUT_CSV, index=False)
+
+    # Log batch info
+    log_entry = {
+        "Batch Start Index": batch_start_idx,
+        "Batch Size": len(batch_summaries),
+        "Estimated Tokens": batch_tokens,
+        "API Duration(s)": duration,
+        "Timestamp": datetime.now().isoformat()
+    }
+    pd.DataFrame([log_entry]).to_csv(LOG_FILE, mode='a', header=False, index=False)
+
+    # Adjust batch size dynamically based on API latency
+    if duration:
+        if duration < LATENCY_TARGET - LATENCY_TOLERANCE:
+            batch_size = min(int(batch_size * (1 + ADJUST_FACTOR)), MAX_BATCH_SIZE)
+        elif duration > LATENCY_TARGET + LATENCY_TOLERANCE:
+            batch_size = max(int(batch_size * (1 - ADJUST_FACTOR)), MIN_BATCH_SIZE)
+
+    pbar.update(len(batch_summaries))
+
+pbar.close()
+print("Processing complete! CSV saved at:", OUTPUT_CSV)
+print("Batch log saved at:", LOG_FILE)
