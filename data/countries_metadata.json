@@ -132,5 +132,8 @@
   "Uganda": {"iso_alpha3": "UGA", "continent": "Africa"},
   "Venezuela": {"iso_alpha3": "VEN", "continent": "South America"},
   "Zambia": {"iso_alpha3": "ZMB", "continent": "Africa"},
-  "Zimbabwe": {"iso_alpha3": "ZWE", "continent": "Africa"}
+  "Zimbabwe": {"iso_alpha3": "ZWE", "continent": "Africa"},
+  "Republic of Congo": {"iso_alpha3": "COG", "continent": "Africa"},
+  "Democratic Republic of Congo": {"iso_alpha3": "COD", "continent": "Africa"},
+  "The Gambia": {"iso_alpha3": "GMB", "continent": "Africa"}
 }
