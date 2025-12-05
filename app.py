@@ -388,6 +388,8 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
         plot_bgcolor='white',
         paper_bgcolor='white',
         height=height,
+        xaxis=dict(tickangle=-45, automargin=True ),
+        yaxis=dict(automargin=True ),
         margin=dict(l=120, r=20, t=20, b=20),
         xaxis_title=None,
         yaxis_title=None,
