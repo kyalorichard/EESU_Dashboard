@@ -35,6 +35,7 @@ openai>=1.0.0
 
 # Data handling
 pyarrow>=11.0
+ #fastparquet>=2023.7
 
 # Progress bars
 tqdm>=4.65
@@ -42,6 +43,8 @@ tqdm>=4.65
 # Environment variable support
 python-dotenv>=1.0
 
+#faster and more accurate language detection,
+langid>=1.1.6
 
 dash   
 altair
