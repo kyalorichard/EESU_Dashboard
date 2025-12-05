@@ -226,9 +226,9 @@ st.session_state.reset_triggered = False
 filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
-    (data['enabling-principle'].apply( lambda x: contains_any(x, selected_enablinge_principle))
+    (data['enabling-principle'].apply( lambda x: contains_any(x, selected_enablinge_principle)) &
     (data['alert-impact'].isin(selected_alert_impacts))
-]
+     ]
 
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
