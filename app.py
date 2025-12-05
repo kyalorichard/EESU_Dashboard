@@ -427,7 +427,7 @@ with tab1:
     summary_data = get_summary_data(active_tab)
     render_summary_cards(summary_data)
 
-    st.header("Distribution of Postove and Negative Events")
+    st.header("Distribution of Positive and Negative Events")
     #a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
     df_clean = (summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")}).explode("enabling-principle"))
