@@ -161,6 +161,13 @@ def multiselect_with_all(label, options, key):
         st.session_state[key] = selected
         return selected
         
+# ---------------- FILTER DATA BASED ON SELECTION (CONTAINS) --------------
+def contains_any(cell_value, selected_values):
+    if pd.isna(cell_value):
+        return False
+    cell_value = str(cell_value)
+    return any(sel in cell_value for sel in selected_values)
+        
 # ---------------- CONTINENT AND COUNTRY FILTER ----------------
   
 # Get unique continents
@@ -179,8 +186,17 @@ else:
 selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
 
 # ---------------- ALERT TYPE FILTER ----------------
-alert_type_options = sorted(data['alert-type'].dropna().unique())
+alert_type_options = sorted(data['alert-type'].dropna().unique()
 selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_options, "selected_alert_types")
+
+# ---------------- ENABLING PRINCIPLES FILTER ----------------
+enabling_principle_options = sorted(data['enabling-principle'].dropna()
+                            .str.split(",")
+                            .explode()
+                            .str.strip()
+                            .unique()
+                            .tolist())
+selected_enablinge_principle = multiselect_with_all("Select Enabling Principle", enabling_principle_options, "selected_enablinge_principle")
 
 # ---------------- ALERT IMPACT FILTER ----------------
 alert_impact_options = sorted(data['alert-impact'].dropna().unique())
@@ -191,6 +207,7 @@ if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_trigge
     st.session_state["selected_continents"] = ["Select All"]
     st.session_state["selected_countries"] = ["Select All"]
     st.session_state["selected_alert_types"] = ["Select All"]
+    st.session_state["selected_enablinge_principle"] = ["Select All"]
     st.session_state["selected_alert_impacts"] = ["Select All"]
     
     # Mark that reset was triggered to avoid multiple reruns
@@ -209,8 +226,10 @@ st.session_state.reset_triggered = False
 filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
+    (data['enabling-principle'].apply( lambda x: contains_any(x, selected_enablinge_principle))
     (data['alert-impact'].isin(selected_alert_impacts))
 ]
+
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
 st.markdown("""
 <style>
