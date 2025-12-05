@@ -339,7 +339,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=350):
         #plot_bgcolor='white',
         #paper_bgcolor='lightgray',
         plot_bgcolor='white',  # transparent inside plot
-        paper_bgcolor='#87CEFA', # outer background
+        paper_bgcolor='#D3D3D3', # outer background
         height=height,
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis_title=None,
@@ -390,7 +390,7 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=350):
         #plot_bgcolor='white',
         #paper_bgcolor='white',
         plot_bgcolor='white',  # transparent inside plot
-        paper_bgcolor='#87CEFA', # outer background
+        paper_bgcolor='#D3D3D3', # outer background 30px,
         height=height,
         xaxis=dict(tickangle=90, automargin=True ),
         yaxis=dict(automargin=True ),
@@ -444,20 +444,12 @@ with tab1:
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
 
-    st.markdown("""
-    <div style="
-    border-radius: 30px;
-    padding: 5px;
-    background-color: white;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-    ">
-    """, unsafe_allow_html=True)
     #with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c1: st.plotly_chart(create_h_stacked_bar( a1, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart1")
     with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
     with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
-    st.markdown("</div>", unsafe_allow_html=True)
+
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
