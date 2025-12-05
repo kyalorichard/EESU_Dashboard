@@ -387,8 +387,10 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
         
     fig.update_layout(
         barmode='stack',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
+        #plot_bgcolor='white',
+        #paper_bgcolor='white',
+        plot_bgcolor='rgba(255,255,255,0)',  # transparent inside plot
+        paper_bgcolor='rgba(255,255,255,1)', # outer background
         height=height,
         xaxis=dict(tickangle=90, automargin=True ),
         yaxis=dict(automargin=True ),
@@ -455,7 +457,7 @@ with tab1:
     with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
     with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
-st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
