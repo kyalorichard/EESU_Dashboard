@@ -13,7 +13,7 @@ INPUT_CSV = "your_data.csv"      # Input CSV file path
 SUMMARY_COL = "summary"          # Column in CSV containing text summaries
 
 # ---------------- OUTPUT FOLDER ----------------
-OUTPUT_FOLDER = "data/outputs"   # Folder to save outputs
+OUTPUT_FOLDER = "data"   # Folder to save outputs
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
 
 OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final.parquet")
@@ -35,30 +35,15 @@ LATENCY_TARGET = 10              # Desired API latency per batch (seconds)
 LATENCY_TOLERANCE = 2            # Acceptable deviation
 ADJUST_FACTOR = 0.2              # Fractional increase/decrease of batch size
 
-# ---------------- MULTI-LANGUAGE THEMES ----------------
-ACTOR_THEMES = {
-    "en": ["Government", "Company", "Military", "Unknown"],
-    "es": ["Gobierno", "Empresa", "Militar", "Desconocido"],
-    "fr": ["Gouvernement", "Entreprise", "Militaire", "Inconnu"]
-}
+# ---------------- LOAD THEMES FROM JSON ----------------
+THEMES_FILE = "data/themes.json"
+with open(THEMES_FILE, "r", encoding="utf-8") as f:
+    themes = json.load(f)
 
-SUBJECT_THEMES = {
-    "en": ["Workers", "Journalists", "Opposition", "Ethnic group", "Unknown"],
-    "es": ["Trabajadores", "Periodistas", "Oposición", "Grupo étnico", "Desconocido"],
-    "fr": ["Travailleurs", "Journalistes", "Opposition", "Groupe ethnique", "Inconnu"]
-}
-
-MECHANISM_THEMES = {
-    "en": ["Arrest", "Detention", "Threat", "Censorship", "Unknown"],
-    "es": ["Arresto", "Detención", "Amenaza", "Censura", "Desconocido"],
-    "fr": ["Arrestation", "Détention", "Menace", "Censure", "Inconnu"]
-}
-
-TYPE_THEMES = {
-    "en": ["Political repression", "Labor repression", "Ethnic repression", "Media repression", "Unknown"],
-    "es": ["Represión política", "Represión laboral", "Represión étnica", "Represión mediática", "Desconocido"],
-    "fr": ["Répression politique", "Répression du travail", "Répression ethnique", "Répression médiatique", "Inconnu"]
-}
+ACTOR_THEMES = themes["ACTOR_THEMES"]
+SUBJECT_THEMES = themes["SUBJECT_THEMES"]
+MECHANISM_THEMES = themes["MECHANISM_THEMES"]
+TYPE_THEMES = themes["TYPE_THEMES"]
 
 # ---------------- LOAD CSV ----------------
 df = pd.read_csv(INPUT_CSV)
@@ -73,12 +58,12 @@ def estimate_tokens(text):
     """Estimate token count for a string (rough approximation)."""
     return len(text) // 4 + 1
 
+def format_theme_options(theme_list, lang):
+    """Format theme options with labels and definitions."""
+    return ", ".join([f'{t["label"]} ({t["definition"]})' for t in theme_list[lang]])
+
 def build_prompt(batch_summaries):
-    """
-    Build the prompt for the batch:
-    - Detect language per summary
-    - Include relevant theme options for each summary
-    """
+    """Build the prompt for the batch with language detection and theme options."""
     numbered_texts = []
     for idx, summary in enumerate(batch_summaries):
         try:
@@ -91,14 +76,13 @@ def build_prompt(batch_summaries):
         numbered_texts.append(
             f"{idx+1}. Summary: {summary}\n"
             f"Language: {lang}\n"
-            f"Actor of repression options: {', '.join(ACTOR_THEMES[lang])}\n"
-            f"Subject of repression options: {', '.join(SUBJECT_THEMES[lang])}\n"
-            f"Mechanism of repression options: {', '.join(MECHANISM_THEMES[lang])}\n"
-            f"Type of event options: {', '.join(TYPE_THEMES[lang])}"
+            f"Actor of repression options: {format_theme_options(ACTOR_THEMES, lang)}\n"
+            f"Subject of repression options: {format_theme_options(SUBJECT_THEMES, lang)}\n"
+            f"Mechanism of repression options: {format_theme_options(MECHANISM_THEMES, lang)}\n"
+            f"Type of event options: {format_theme_options(TYPE_THEMES, lang)}"
         )
 
     numbered_text = "\n\n".join(numbered_texts)
-
     prompt = f"""
 Extract repression info from each text below. For each summary, select the themes in the provided language.
 Return a JSON array of objects in the same order as the texts. Format each object as:
@@ -116,10 +100,7 @@ Texts:
     return prompt
 
 def extract_batch(batch_summaries):
-    """
-    Send batch to OpenAI API and return JSON results.
-    Retries up to MAX_RETRIES on failure.
-    """
+    """Send batch to OpenAI API and return JSON results with retries."""
     prompt = build_prompt(batch_summaries)
     for attempt in range(MAX_RETRIES):
         try:
@@ -134,14 +115,13 @@ def extract_batch(batch_summaries):
             try:
                 data = json.loads(content)
             except json.JSONDecodeError:
-                # Attempt to fix common JSON formatting issues
+                # Fix common JSON formatting issues
                 content_fixed = content.replace("\n", "").replace("'", '"')
                 data = json.loads(content_fixed)
             return data, duration
         except Exception as e:
             print(f"Error: {e}. Retrying ({attempt+1}/{MAX_RETRIES})...")
-            time.sleep(2 ** attempt)  # exponential backoff
-    # If all retries fail, return error objects
+            time.sleep(2 ** attempt)
     duration = None
     return [{"Actor of repression": "Error",
              "Subject of repression": "Error",
@@ -163,7 +143,7 @@ else:
 if not os.path.exists(LOG_FILE):
     pd.DataFrame(columns=["Batch Start Index", "Batch Size", "Estimated Tokens", "API Duration(s)", "Timestamp"]).to_csv(LOG_FILE, index=False)
 
-# ---------------- PROCESS WITH TOKEN-AWARE BATCHING ----------------
+# ---------------- PROCESS WITH DYNAMIC BATCHING ----------------
 i = start_idx
 batch_size = DEFAULT_BATCH_SIZE
 pbar = tqdm(total=len(df) - start_idx)
@@ -176,14 +156,14 @@ while i < len(df):
     # Accumulate summaries until token limit or batch size reached
     while i < len(df) and len(batch_summaries) < batch_size:
         summary = str(df[SUMMARY_COL].iloc[i])
-        tokens = estimate_tokens(summary) + 50  # +50 for per-summary language instructions
+        tokens = estimate_tokens(summary) + 50
         if batch_tokens + tokens > MAX_BATCH_TOKENS:
             break
         batch_summaries.append(summary)
         batch_tokens += tokens
         i += 1
 
-    # Extract information from API
+    # Extract information
     results, duration = extract_batch(batch_summaries)
 
     # Write results to dataframe
@@ -194,7 +174,7 @@ while i < len(df):
         df_out.at[idx, "Mechanism of repression"] = res.get("Mechanism of repression", "Unknown")
         df_out.at[idx, "Type of event"] = res.get("Type of event", "Unknown")
 
-    # Save intermediate Parquet after each batch
+    # Save intermediate Parquet
     df_out.to_parquet(INTERMEDIATE_PARQUET, index=False, engine="pyarrow")
 
     # Log batch info
@@ -207,7 +187,7 @@ while i < len(df):
     }
     pd.DataFrame([log_entry]).to_csv(LOG_FILE, mode='a', header=False, index=False)
 
-    # Adjust batch size dynamically based on API latency
+    # Adjust batch size dynamically
     if duration:
         if duration < LATENCY_TARGET - LATENCY_TOLERANCE:
             batch_size = min(int(batch_size * (1 + ADJUST_FACTOR)), MAX_BATCH_SIZE)
