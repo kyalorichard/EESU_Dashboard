@@ -310,7 +310,7 @@ def render_summary_cards(data):
         ''', unsafe_allow_html=True)
    
 # ---------------- FUNCTION TO CREATE PLOTLY BAR CHART ----------------
-def create_bar_chart(data, x, y, horizontal=False, height=400):
+def create_bar_chart(data, x, y, horizontal=False, height=350):
     fig = px.bar(
         data,
         x=x if not horizontal else y,
@@ -339,7 +339,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
         #plot_bgcolor='white',
         #paper_bgcolor='lightgray',
         plot_bgcolor='rgba(255,255,255,0)',  # transparent inside plot
-        paper_bgcolor='rgba(255,255,255,1)', # outer background
+        paper_bgcolor='#f7eee1', # outer background
         height=height,
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis_title=None,
@@ -353,7 +353,7 @@ def create_bar_chart(data, x, y, horizontal=False, height=400):
     return fig
 
 # ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
-def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
+def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=350):
         # Prepare the stacked bar
     categories = sorted(data[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']  # Map to categories
@@ -390,7 +390,7 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
         #plot_bgcolor='white',
         #paper_bgcolor='white',
         plot_bgcolor='rgba(255,255,255,0)',  # transparent inside plot
-        paper_bgcolor='rgba(255,255,255,1)', # outer background
+        paper_bgcolor='#f7eee1', # outer background
         height=height,
         xaxis=dict(tickangle=90, automargin=True ),
         yaxis=dict(automargin=True ),
