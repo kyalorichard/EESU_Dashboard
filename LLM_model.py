@@ -8,8 +8,8 @@ from datetime import datetime
 from langdetect import detect  # Language detection library
 
 # ---------------- CONFIG ----------------
-openai.api_key = "YOUR_API_KEY"  # Set your OpenAI API key here
-INPUT_CSV = "your_data.csv"      # Input CSV file path
+openai.api_key = ""  # Set your OpenAI API key here
+INPUT_CSV = "raw_data.csv"      # Input CSV file path
 SUMMARY_COL = "summary"          # Column in CSV containing text summaries
 
 # ---------------- OUTPUT FOLDER ----------------
