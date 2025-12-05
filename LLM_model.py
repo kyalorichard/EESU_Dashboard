@@ -19,7 +19,7 @@ if not openai.api_key:
 INPUT_CSV = "data/raw_data.csv"             # Input CSV
 SUMMARY_COL = "summary"                 # Column containing text summaries
 
-OUTPUT_FOLDER = "data/output"          # Folder to save outputs
+OUTPUT_FOLDER = "data"          # Folder to save outputs
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final.parquet")
