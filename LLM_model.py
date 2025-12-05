@@ -5,37 +5,39 @@ import json
 import time
 import os
 from datetime import datetime
-from langdetect import detect  # Language detection library
+from langdetect import detect
+from dotenv import load_dotenv
+
+# ---------------- LOAD ENVIRONMENT VARIABLES ----------------
+load_dotenv()  # Load .env file from project root
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
+    raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY in .env")
 
 # ---------------- CONFIG ----------------
-openai.api_key = ""  # Set your OpenAI API key here
-INPUT_CSV = "raw_data.csv"      # Input CSV file path
-SUMMARY_COL = "summary"          # Column in CSV containing text summaries
+INPUT_CSV = "data/raw_data.csv"             # Input CSV
+SUMMARY_COL = "summary"                 # Column containing text summaries
 
-# ---------------- OUTPUT FOLDER ----------------
-OUTPUT_FOLDER = "data"   # Folder to save outputs
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
+OUTPUT_FOLDER = "data/output"          # Folder to save outputs
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final.parquet")
 INTERMEDIATE_PARQUET = os.path.join(OUTPUT_FOLDER, "intermediate_output.parquet")
 LOG_FILE = os.path.join(OUTPUT_FOLDER, "batch_processing_log.csv")
 
-# ---------------- BATCH & TOKEN CONFIG ----------------
-MAX_BATCH_TOKENS = 2000          # Approximate max tokens per batch including prompts
-MIN_BATCH_SIZE = 1               # Minimum number of summaries per batch
-MAX_BATCH_SIZE = 50              # Maximum number of summaries per batch
-DEFAULT_BATCH_SIZE = 5           # Starting batch size
+MAX_BATCH_TOKENS = 2000
+MIN_BATCH_SIZE = 1
+MAX_BATCH_SIZE = 50
+DEFAULT_BATCH_SIZE = 5
 
-# API and retries
-MAX_RETRIES = 5                  # Max retries on API failure
-MODEL = "gpt-5-mini"             # Model to use
+MAX_RETRIES = 5
+MODEL = "gpt-5-mini"
+LATENCY_TARGET = 10
+LATENCY_TOLERANCE = 2
+ADJUST_FACTOR = 0.2
 
-# Dynamic batch adjustment
-LATENCY_TARGET = 10              # Desired API latency per batch (seconds)
-LATENCY_TOLERANCE = 2            # Acceptable deviation
-ADJUST_FACTOR = 0.2              # Fractional increase/decrease of batch size
-
-# ---------------- LOAD THEMES FROM JSON ----------------
+# ---------------- LOAD THEMES ----------------
 THEMES_FILE = "data/themes.json"
 with open(THEMES_FILE, "r", encoding="utf-8") as f:
     themes = json.load(f)
@@ -48,22 +50,19 @@ TYPE_THEMES = themes["TYPE_THEMES"]
 # ---------------- LOAD CSV ----------------
 df = pd.read_csv(INPUT_CSV)
 
-# Initialize output columns if missing
+# Initialize output columns
 for col in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]:
     if col not in df.columns:
         df[col] = ""
 
 # ---------------- HELPER FUNCTIONS ----------------
 def estimate_tokens(text):
-    """Estimate token count for a string (rough approximation)."""
     return len(text) // 4 + 1
 
 def format_theme_options(theme_list, lang):
-    """Format theme options with labels and definitions."""
     return ", ".join([f'{t["label"]} ({t["definition"]})' for t in theme_list[lang]])
 
 def build_prompt(batch_summaries):
-    """Build the prompt for the batch with language detection and theme options."""
     numbered_texts = []
     for idx, summary in enumerate(batch_summaries):
         try:
@@ -100,7 +99,6 @@ Texts:
     return prompt
 
 def extract_batch(batch_summaries):
-    """Send batch to OpenAI API and return JSON results with retries."""
     prompt = build_prompt(batch_summaries)
     for attempt in range(MAX_RETRIES):
         try:
@@ -115,7 +113,6 @@ def extract_batch(batch_summaries):
             try:
                 data = json.loads(content)
             except json.JSONDecodeError:
-                # Fix common JSON formatting issues
                 content_fixed = content.replace("\n", "").replace("'", '"')
                 data = json.loads(content_fixed)
             return data, duration
@@ -139,7 +136,6 @@ else:
     start_idx = 0
     df_out = df.copy()
 
-# Initialize log file if not exists
 if not os.path.exists(LOG_FILE):
     pd.DataFrame(columns=["Batch Start Index", "Batch Size", "Estimated Tokens", "API Duration(s)", "Timestamp"]).to_csv(LOG_FILE, index=False)
 
@@ -153,7 +149,6 @@ while i < len(df):
     batch_tokens = 0
     batch_start_idx = i
 
-    # Accumulate summaries until token limit or batch size reached
     while i < len(df) and len(batch_summaries) < batch_size:
         summary = str(df[SUMMARY_COL].iloc[i])
         tokens = estimate_tokens(summary) + 50
@@ -163,10 +158,8 @@ while i < len(df):
         batch_tokens += tokens
         i += 1
 
-    # Extract information
     results, duration = extract_batch(batch_summaries)
 
-    # Write results to dataframe
     for j, res in enumerate(results):
         idx = batch_start_idx + j
         df_out.at[idx, "Actor of repression"] = res.get("Actor of repression", "Unknown")
@@ -174,10 +167,8 @@ while i < len(df):
         df_out.at[idx, "Mechanism of repression"] = res.get("Mechanism of repression", "Unknown")
         df_out.at[idx, "Type of event"] = res.get("Type of event", "Unknown")
 
-    # Save intermediate Parquet
     df_out.to_parquet(INTERMEDIATE_PARQUET, index=False, engine="pyarrow")
 
-    # Log batch info
     log_entry = {
         "Batch Start Index": batch_start_idx,
         "Batch Size": len(batch_summaries),
@@ -187,7 +178,6 @@ while i < len(df):
     }
     pd.DataFrame([log_entry]).to_csv(LOG_FILE, mode='a', header=False, index=False)
 
-    # Adjust batch size dynamically
     if duration:
         if duration < LATENCY_TARGET - LATENCY_TOLERANCE:
             batch_size = min(int(batch_size * (1 + ADJUST_FACTOR)), MAX_BATCH_SIZE)
@@ -198,8 +188,8 @@ while i < len(df):
 
 pbar.close()
 
-# ---------------- SAVE FINAL OUTPUT ----------------
 df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
-print("Processing complete! Final Parquet saved at:", OUTPUT_PARQUET)
-print("Intermediate Parquet saved at:", INTERMEDIATE_PARQUET)
-print("Batch log saved at:", LOG_FILE)
+print("Processing complete!")
+print("Final Parquet:", OUTPUT_PARQUET)
+print("Intermediate Parquet:", INTERMEDIATE_PARQUET)
+print("Batch log:", LOG_FILE)
