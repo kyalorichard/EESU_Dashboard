@@ -338,8 +338,8 @@ def create_bar_chart(data, x, y, horizontal=False, height=350):
     fig.update_layout(
         #plot_bgcolor='white',
         #paper_bgcolor='lightgray',
-        plot_bgcolor='rgba(255,255,255,0)',  # transparent inside plot
-        paper_bgcolor='#f7eee1', # outer background
+        plot_bgcolor='white',  # transparent inside plot
+        paper_bgcolor='#87CEFA', # outer background
         height=height,
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis_title=None,
@@ -389,8 +389,8 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=350):
         barmode='stack',
         #plot_bgcolor='white',
         #paper_bgcolor='white',
-        plot_bgcolor='rgba(255,255,255,0)',  # transparent inside plot
-        paper_bgcolor='#f7eee1', # outer background
+        plot_bgcolor='white',  # transparent inside plot
+        paper_bgcolor='#87CEFA', # outer background
         height=height,
         xaxis=dict(tickangle=90, automargin=True ),
         yaxis=dict(automargin=True ),
@@ -446,8 +446,8 @@ with tab1:
 
     st.markdown("""
     <div style="
-    border-radius: 15px;
-    padding: 10px;
+    border-radius: 30px;
+    padding: 5px;
     background-color: white;
     box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
     ">
