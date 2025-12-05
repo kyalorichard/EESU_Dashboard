@@ -388,7 +388,7 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
         plot_bgcolor='white',
         paper_bgcolor='white',
         height=height,
-        xaxis=dict(tickangle=-45, automargin=True ),
+        xaxis=dict(tickangle=90, automargin=True ),
         yaxis=dict(automargin=True ),
         margin=dict(l=120, r=20, t=20, b=20),
         xaxis_title=None,
@@ -401,6 +401,11 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=400):
     fig.update_yaxes(showgrid=False)
 
     return fig
+# ---------------- FUNCTION TO SHORTEN LONG SENTENCES ----------------
+def wrap_label_by_words(label, words_per_line=4):
+    words = label.split()
+    lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+    return "<br>".join(lines)
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
 def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_impact=[]):
@@ -426,7 +431,7 @@ with tab1:
     #a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
     df_clean = (summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")}).explode("enabling-principle"))
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
 
     a2 = df_clean.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
