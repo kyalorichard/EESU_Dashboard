@@ -186,7 +186,7 @@ else:
 selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
 
 # ---------------- ALERT TYPE FILTER ----------------
-alert_type_options = sorted(data['alert-type'].dropna().unique()
+alert_type_options = sorted(data['alert-type'].dropna().unique())
 selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_options, "selected_alert_types")
 
 # ---------------- ENABLING PRINCIPLES FILTER ----------------
