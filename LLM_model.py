@@ -10,27 +10,32 @@ from langdetect import detect  # Language detection library
 # ---------------- CONFIG ----------------
 openai.api_key = "YOUR_API_KEY"  # Set your OpenAI API key here
 INPUT_CSV = "your_data.csv"      # Input CSV file path
-OUTPUT_CSV = "your_data_with_repression_info.csv"  # Output CSV path
 SUMMARY_COL = "summary"          # Column in CSV containing text summaries
 
-# Token & batch control
+# ---------------- OUTPUT FOLDER ----------------
+OUTPUT_FOLDER = "data/outputs"   # Folder to save outputs
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
+
+OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final.parquet")
+INTERMEDIATE_PARQUET = os.path.join(OUTPUT_FOLDER, "intermediate_output.parquet")
+LOG_FILE = os.path.join(OUTPUT_FOLDER, "batch_processing_log.csv")
+
+# ---------------- BATCH & TOKEN CONFIG ----------------
 MAX_BATCH_TOKENS = 2000          # Approximate max tokens per batch including prompts
 MIN_BATCH_SIZE = 1               # Minimum number of summaries per batch
 MAX_BATCH_SIZE = 50              # Maximum number of summaries per batch
-DEFAULT_BATCH_SIZE = 5           # Starting batch size (smaller because language instructions add tokens)
+DEFAULT_BATCH_SIZE = 5           # Starting batch size
 
-# API and logging
+# API and retries
 MAX_RETRIES = 5                  # Max retries on API failure
 MODEL = "gpt-5-mini"             # Model to use
-LOG_FILE = "batch_processing_log.csv"  # CSV log for batch processing info
 
-# Dynamic batch tuning parameters
-LATENCY_TARGET = 10              # Desired API latency per batch in seconds
+# Dynamic batch adjustment
+LATENCY_TARGET = 10              # Desired API latency per batch (seconds)
 LATENCY_TOLERANCE = 2            # Acceptable deviation
 ADJUST_FACTOR = 0.2              # Fractional increase/decrease of batch size
 
 # ---------------- MULTI-LANGUAGE THEMES ----------------
-# Define options for each indicator in multiple languages
 ACTOR_THEMES = {
     "en": ["Government", "Company", "Military", "Unknown"],
     "es": ["Gobierno", "Empresa", "Militar", "Desconocido"],
@@ -63,7 +68,7 @@ for col in ["Actor of repression", "Subject of repression", "Mechanism of repres
     if col not in df.columns:
         df[col] = ""
 
-# ---------------- HELPERS ----------------
+# ---------------- HELPER FUNCTIONS ----------------
 def estimate_tokens(text):
     """Estimate token count for a string (rough approximation)."""
     return len(text) // 4 + 1
@@ -72,11 +77,10 @@ def build_prompt(batch_summaries):
     """
     Build the prompt for the batch:
     - Detect language per summary
-    - Include only relevant language options for each summary
+    - Include relevant theme options for each summary
     """
     numbered_texts = []
     for idx, summary in enumerate(batch_summaries):
-        # Detect language for this summary
         try:
             lang = detect(summary)
         except:
@@ -84,7 +88,6 @@ def build_prompt(batch_summaries):
         if lang not in ACTOR_THEMES:
             lang = "en"
 
-        # Append summary + language + theme options
         numbered_texts.append(
             f"{idx+1}. Summary: {summary}\n"
             f"Language: {lang}\n"
@@ -96,7 +99,6 @@ def build_prompt(batch_summaries):
 
     numbered_text = "\n\n".join(numbered_texts)
 
-    # Full prompt with instructions for JSON output
     prompt = f"""
 Extract repression info from each text below. For each summary, select the themes in the provided language.
 Return a JSON array of objects in the same order as the texts. Format each object as:
@@ -115,7 +117,7 @@ Texts:
 
 def extract_batch(batch_summaries):
     """
-    Send the batch to OpenAI API and return JSON results.
+    Send batch to OpenAI API and return JSON results.
     Retries up to MAX_RETRIES on failure.
     """
     prompt = build_prompt(batch_summaries)
@@ -132,13 +134,13 @@ def extract_batch(batch_summaries):
             try:
                 data = json.loads(content)
             except json.JSONDecodeError:
-                # Attempt to fix common JSON issues
+                # Attempt to fix common JSON formatting issues
                 content_fixed = content.replace("\n", "").replace("'", '"')
                 data = json.loads(content_fixed)
             return data, duration
         except Exception as e:
             print(f"Error: {e}. Retrying ({attempt+1}/{MAX_RETRIES})...")
-            time.sleep(2 ** attempt)  # Exponential backoff
+            time.sleep(2 ** attempt)  # exponential backoff
     # If all retries fail, return error objects
     duration = None
     return [{"Actor of repression": "Error",
@@ -147,9 +149,8 @@ def extract_batch(batch_summaries):
              "Type of event": "Error"} for _ in batch_summaries], duration
 
 # ---------------- RESUME AND LOGGING ----------------
-# Check if output exists to resume processing
-if os.path.exists(OUTPUT_CSV):
-    df_out = pd.read_csv(OUTPUT_CSV)
+if os.path.exists(INTERMEDIATE_PARQUET):
+    df_out = pd.read_parquet(INTERMEDIATE_PARQUET)
     start_idx = df_out[df_out["Actor of repression"].isna() | (df_out["Actor of repression"] == "")].index.min()
     if pd.isna(start_idx):
         print("All rows already processed.")
@@ -193,8 +194,8 @@ while i < len(df):
         df_out.at[idx, "Mechanism of repression"] = res.get("Mechanism of repression", "Unknown")
         df_out.at[idx, "Type of event"] = res.get("Type of event", "Unknown")
 
-    # Save intermediate results
-    df_out.to_csv(OUTPUT_CSV, index=False)
+    # Save intermediate Parquet after each batch
+    df_out.to_parquet(INTERMEDIATE_PARQUET, index=False, engine="pyarrow")
 
     # Log batch info
     log_entry = {
@@ -216,5 +217,9 @@ while i < len(df):
     pbar.update(len(batch_summaries))
 
 pbar.close()
-print("Processing complete! CSV saved at:", OUTPUT_CSV)
+
+# ---------------- SAVE FINAL OUTPUT ----------------
+df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
+print("Processing complete! Final Parquet saved at:", OUTPUT_PARQUET)
+print("Intermediate Parquet saved at:", INTERMEDIATE_PARQUET)
 print("Batch log saved at:", LOG_FILE)
