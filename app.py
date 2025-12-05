@@ -421,15 +421,17 @@ with tab1:
     render_summary_cards(summary_data)
 
     st.header("Distribution of Postove and Negative Events")
-    a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
-    a2 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
+    #a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
+    a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
+    a2 = summary_data.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
     a4 = summary_data.groupby(["alert-country", "alert-impact"]).size().reset_index(name='count')
    
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
-    with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
+    #with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c1: st.plotly_chart(create_h_stacked_bar( a1, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
     with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
     with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
 
