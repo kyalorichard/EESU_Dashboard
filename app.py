@@ -423,7 +423,13 @@ with tab1:
     st.header("Distribution of Postove and Negative Events")
     #a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
-    a2 = summary_data.groupby(["enabling-principle", "alert-impact"]).dropna().str.split(",").explode().str.strip().unique().tolist().size().reset_index(name='count')
+    summary_data
+        .assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")})
+        .explode("alert-impact")
+    )
+    df_clean["enabling-principle"] = df_clean["enabling-principlet"].str.strip()
+
+    a2 = df_clean.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
     a4 = summary_data.groupby(["alert-country", "alert-impact"]).size().reset_index(name='count')
    
