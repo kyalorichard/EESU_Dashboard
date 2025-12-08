@@ -490,17 +490,17 @@ with tab2:
 
     
     with col1:
-        tab2_actor_filter = st.multiselect("Actor of repression",  filtered_summary2["Actor of repression"].unique(),
-                                              default= filtered_summary2["Actor of repression"].unique())
+        tab2_actor_filter = st.multiselect("Actor of repression",  filtered_summary2["Actor of repression"].dropna().unique(),
+                                              default= filtered_summary2["Actor of repression"].dropna().unique())
     with col2:
-        tab2_subject_filter = st.multiselect("Subject of repression", data["Subject of repression"].unique(),
-                                            default= filtered_summary2["Subject of repression"].unique())
+        tab2_subject_filter = st.multiselect("Subject of repression", data["Subject of repression"].dropna().unique(),
+                                            default= filtered_summary2["Subject of repression"].dropna().unique())
     with col3:
         tab2_mechanism_filter = st.multiselect("actor of repression",  filtered_summary2["Mechanism of repression"].unique(),
-                                             default=data["Mechanism of repression"].unique())
+                                             default=data["Mechanism of repression"].dropna().unique())
     with col4:
-        tab2_type_filter = st.multiselect("Type of repression)",  filtered_summary2["Type of event"].unique(),
-                                          default= filtered_summary2["Type of event"].unique())
+        tab2_type_filter = st.multiselect("Type of repression)",  filtered_summary2["Type of event"].dropna().unique(),
+                                          default= filtered_summary2["Type of event"].dropna().unique())
 
 
     filtered_summary2 = get_summary_data(active_tab, tab2_subject_filter, tab2_mechanism_filter, tab2_type_filter)
