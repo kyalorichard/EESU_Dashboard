@@ -188,22 +188,21 @@ def contains_any(cell_value, selected_values):
 # Get unique continents
 col1, col2 = st.sidebar.columns(2)
 
-# Continent
+# Continent filter
 with col1:
     continent_options = sorted(data['continent'].dropna().unique())
     selected_continents = multiselect_with_all(
         "Continent", continent_options, "selected_continents"
     )
 
-# Countries filtered based on continent
+# Country filter (depends on continent)
 with col2:
     if "Select All" in selected_continents:
         country_options = sorted(data['alert-country'].dropna().unique())
     else:
         country_options = sorted(
-            data[data['continent'].isin(selected_continents)]['alert-country']
-            .dropna()
-            .unique()
+            data[data['continent'].isin(selected_continents)]
+            ['alert-country'].dropna().unique()
         )
 
     selected_countries = multiselect_with_all(
