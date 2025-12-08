@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Full automated WordPress -> S3 -> Lambda -> Streamlit stack with monitoring
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of EC2 KeyPair for SSH access
+  EC2InstanceType:
+    Type: String
+    Default: t3.micro
+  UbuntuAmiId:
+    Type: AWS::EC2::Image::Id
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: List of public subnets for EC2 and ALB
+  ACMCertificateArn:
+    Type: String
+    Description: ACM certificate ARN for HTTPS
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository URL
+  GitHubBranch:
+    Type: String
+    Default: main
+  NotificationEmail:
+    Type: String
+  SESNotificationEmail:
+    Type: String
+  LambdaScheduleExpression:
+    Type: String
+    Default: "cron(0 0 * * ? *)"
+
+Resources:
+
+  ############################################################
+  # S3 Bucket for cumulative CSV and checkpoint
+  ############################################################
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-data"
+
+  ############################################################
+  # IAM Role for Lambda
+  ############################################################
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+
+  ############################################################
+  # Lambda Function for incremental WordPress sync
+  ############################################################
+  WordPressSyncLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: lambda/lambda.zip
+      Timeout: 300
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref S3Bucket
+          S3_PREFIX: wp_incremental_csv
+          SES_EMAIL: !Ref SESNotificationEmail
+          DB_HOST: <YOUR_DB_HOST>
+          DB_USER: <YOUR_DB_USER>
+          DB_PASSWORD: <YOUR_DB_PASSWORD>
+          DB_NAME: <YOUR_DB_NAME>
+
+  ############################################################
+  # EventBridge Rule to trigger Lambda daily
+  ############################################################
+  LambdaEventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: !Ref LambdaScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WordPressSyncLambda.Arn
+          Id: WordPressSyncLambdaTarget
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WordPressSyncLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt LambdaEventBridgeRule.Arn
+
+  ############################################################
+  # Security Group for EC2 + ALB
+  ############################################################
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP/HTTPS to Streamlit
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  ############################################################
+  # IAM Role for EC2
+  ############################################################
+  EC2InstanceProfileRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref EC2InstanceProfileRole]
+
+  ############################################################
+  # EC2 Instance for Streamlit
+  ############################################################
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref EC2InstanceType
+      KeyName: !Ref KeyName
+      ImageId: !Ref UbuntuAmiId
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      SubnetId: !Select [0, !Ref SubnetIds]
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update system and install docker/git/cloudwatch agent
+          sudo apt-get update -y
+          sudo apt-get install -y docker.io git amazon-cloudwatch-agent
+          mkdir -p /home/ubuntu/app && cd /home/ubuntu/app
+          # Pull Streamlit app from GitHub
+          git clone -b ${GitHubBranch} ${GitHubRepo} . || git pull
+          cd streamlit
+          # Build and run Streamlit Docker container
+          docker build -t streamlit-dashboard .
+          docker stop streamlit-dashboard || true
+          docker rm streamlit-dashboard || true
+          docker run -d -p 8501:8501 --name streamlit-dashboard \
+            -e S3_BUCKET_NAME=${S3Bucket} \
+            -e S3_PREFIX=wp_incremental_csv \
+            streamlit-dashboard
+          # Start CloudWatch Agent to capture Docker logs
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+            -a start
+
+Outputs:
+  StreamlitURL:
+    Description: "Streamlit dashboard endpoint"
+    Value: !Sub "http://${EC2Instance.PublicDnsName}:8501"
