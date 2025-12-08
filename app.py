@@ -220,23 +220,16 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 # ---------------- MONTH FILTER ----------------
 # Get unique months in chronological order
 month_options = sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
-
 # Create a multi-select dropdown for months
 selected_months = multiselect_with_all("Select Month", month_options, "selected_months")
 
 # ---------------- YEAR FILTER ----------------
 # Get unique years in ascending order
 year_options = sorted(data['year'].dropna().unique())
-
 # Create a multi-select dropdown for years
 selected_years = multiselect_with_all("Select Year", year_options, "selected_years")
 
-# ---------------- FILTER DATA BASED ON MONTH AND YEAR ----------------
-# Apply month and year filters to the global filtered dataset
-filtered_global = filtered_global[
-    filtered_global['month'].isin(selected_months) &
-    filtered_global['year'].isin(selected_years)
-]
+
 
 # Reset Filters button
 if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_triggered:
@@ -266,7 +259,7 @@ filtered_global = data[
     (data['alert-type'].isin(selected_alert_types)) &
     (data['enabling-principle'].apply( lambda x: contains_any(x, selected_enablinge_principle))) &
     (data['alert-impact'].isin(selected_alert_impacts)) &
-    (data['month'].isin(selected_months)) &
+    (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
     ]
 
