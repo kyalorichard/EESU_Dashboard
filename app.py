@@ -88,14 +88,21 @@ st.sidebar.header("🌍 Global Filters")
 def safe_multiselect(label, options, session_key):
     """Multiselect with 'Select All' and error catching."""
     options = ["Select All"] + sorted(options)
-    default = st.session_state.get(session_key, ["Select All"])
+    
+    # Initialize session state if key does not exist
+    if session_key not in st.session_state:
+        st.session_state[session_key] = ["Select All"]
+    
     try:
-        selected = st.sidebar.multiselect(label, options, default=default, key=session_key)
+        selected = st.sidebar.multiselect(label, options, default=st.session_state[session_key], key=session_key)
     except Exception:
         selected = ["Select All"]
-    if "Select All" in selected:
+
+    # If 'Select All' is selected, return all options except the placeholder
+    if "Select All" in selected or len(selected) == 0:
         st.session_state[session_key] = ["Select All"]
         return options[1:]
+    
     st.session_state[session_key] = selected
     return selected
 
