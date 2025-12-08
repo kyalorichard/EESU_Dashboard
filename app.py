@@ -535,27 +535,27 @@ with tab2:
     # Render summary cards
     render_summary_cards(summary_data)
 
-    
-    summary_data["enabling-principle"] = summary_data["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
+    df_clean = (summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")}).explode("enabling-principle"))
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
 
 
     #st.header("📈 Positive Events Analysis")
     t1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
-    t2 = summary_data.groupby("enabling-principle").size().reset_index(name="count")
+    t2 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
     t3 = summary_data.groupby("continent").size().reset_index(name="count")
     t4 = summary_data.groupby("alert-country").size().reset_index(name="count")
     t5 = summary_data.groupby("alert-type").size().reset_index(name="count")
     t6 = summary_data.groupby("month_name").size().reset_index(name="count")
 
-    r1c1, r1c2 = st.columns(2, gap="large")
-    r2c1, r2c2 = st.columns(2, gap="large")
+    r1c1, r1c2, r1c3= st.columns(3, gap="large")
+    r2c1, r2c2, r2c3 = st.columns(3, gap="large")
     r3c1, r3c2 = st.columns(2, gap="large")
     with r1c1: st.plotly_chart(create_bar_chart(t1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(t2, x="enabling-principle", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
-    with r2c1: st.plotly_chart(create_bar_chart(t3, x="continent", y="count"), use_container_width=True, key="tab2_chart3")
-    with r2c2: st.plotly_chart(create_bar_chart(t4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
-    with r3c1: st.plotly_chart(create_bar_chart(t5, x="alert-type", y="count"), use_container_width=True, key="tab2_chart5")
-    with r3c2: st.plotly_chart(create_bar_chart(t6, x="month_name", y="count"), use_container_width=True, key="tab2_chart5")
+    with r1c3: st.plotly_chart(create_bar_chart(t3, x="continent", y="count"), use_container_width=True, key="tab2_chart3")
+    with r2c1: st.plotly_chart(create_bar_chart(t4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
+    with r2c2: st.plotly_chart(create_bar_chart(t5, x="alert-type", y="count"), use_container_width=True, key="tab2_chart5")
+    with r2c3: st.plotly_chart(create_bar_chart(t6, x="month_name", y="count"), use_container_width=True, key="tab2_chart6")
         
 # ---------------- TAB 3 ----------------
 with tab3:
