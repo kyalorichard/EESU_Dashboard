@@ -163,8 +163,8 @@ def initialize_session_state(key, default):
     return st.session_state[key]
 
 # Multi-select with "Select All" functionality
-def multiselect_with_all(label, options, key):
-    selected = st.sidebar.multiselect(
+def multiselect_with_all(container, label, options, key):
+    selected = container.multiselect(
         label,
         options=["Select All"] + list(options),
         default=st.session_state.get(key, ["Select All"])
@@ -192,7 +192,7 @@ col1, col2 = st.sidebar.columns(2)
 with col1:
     continent_options = sorted(data['continent'].dropna().unique())
     selected_continents = multiselect_with_all(
-        "Continent", continent_options, "selected_continents"
+        col1, "Continent", continent_options, "selected_continents"
     )
 
 # Country filter (depends on continent)
@@ -206,7 +206,7 @@ with col2:
         )
 
     selected_countries = multiselect_with_all(
-        "Country", country_options, "selected_countries"
+        col2, "Country", country_options, "selected_countries"
     )
 
 # ---------------- ALERT TYPE FILTER ----------------
