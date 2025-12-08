@@ -486,44 +486,59 @@ with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
      
-    filtered_summary2 = get_summary_data(active_tab, selected_subject_filter, selected_mechanism_filter, selected_type_filter)
-    render_summary_cards(filtered_summary2)
-    
-    
-     # Example: filter by 'alert_country' before counting
-    filtered_summary2 = filtered_summary2[filtered_summary2['alert-impact'] == "Negative"]  
-  
-    alert_impact_options = sorted(data['alert-impact'].dropna().unique())
-    selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
+     # Filter only Negative alerts first
+    filtered_summary2 = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
 
-    
+    # ---------------- COLUMN FILTERS ----------------
     with col1:
-        selected_actor_filter = multiselect_with_all("Actor of repression",  filtered_summary2["Actor of repression"].dropna().unique(),
-                                             "selected_actor_filter")
+        actor_options = sorted(filtered_summary2["Actor of repression"].dropna().unique())
+        selected_actor_filter = multiselect_with_all("Actor of repression", actor_options, "selected_actor_filter")
+    
     with col2:
-        selected_subject_filter = multiselect_with_all("Subject of repression", data["Subject of repression"].dropna().unique(),
-                                            "selected_subject_filter")
+        subject_options = sorted(filtered_summary2["Subject of repression"].dropna().unique())
+        selected_subject_filter = multiselect_with_all("Subject of repression", subject_options, "selected_subject_filter")
+    
     with col3:
-        selected_mechanism_filter = multiselect_with_all("Actor of repression",  filtered_summary2["Mechanism of repression"].dropna().unique(),
-                                             "selected_mechanism_filter")
+        mechanism_options = sorted(filtered_summary2["Mechanism of repression"].dropna().unique())
+        selected_mechanism_filter = multiselect_with_all("Mechanism of repression", mechanism_options, "selected_mechanism_filter")
+    
     with col4:
-        selected_type_filter = multiselect_with_all("Type of repression)",  filtered_summary2["Type of event"].dropna().unique(),
-                                          "selected_type_filter")
+        type_options = sorted(filtered_summary2["Type of event"].dropna().unique())
+        selected_type_filter = multiselect_with_all("Type of event", type_options, "selected_type_filter")
 
-   
+    # ---------------- APPLY FILTERS ----------------
+    filtered_summary2 = filtered_summary2[
+        (filtered_summary2["Actor of repression"].isin(selected_actor_filter)) &
+        (filtered_summary2["Subject of repression"].isin(selected_subject_filter)) &
+        (filtered_summary2["Mechanism of repression"].isin(selected_mechanism_filter)) &
+        (filtered_summary2["Type of event"].isin(selected_type_filter))
+    ]
 
-    #st.header("📊 Negative Events Analysis")
+    # ---------------- RENDER SUMMARY CARDS ----------------
+    render_summary_cards(filtered_summary2)
+
+    # ---------------- PLOT CHARTS ----------------
+    st.header("📊 Negative Events Analysis")
+
     v1 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
     v2 = filtered_summary2.groupby("alert-type").size().reset_index(name="count")
     v3 = filtered_summary2.groupby("continent").size().reset_index(name="count")
-    v4 = filtered_summary2.groupby("enabling-principle").size().reset_index(name="count")
+    v4 = (filtered_summary2.assign(**{"enabling-principle": filtered_summary2["enabling-principle"].astype(str).str.split(",")})
+                    .explode("enabling-principle"))
+    v4["enabling-principle"] = v4["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
+    v4 = v4.groupby("enabling-principle").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(v1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
-    with r1c2: st.plotly_chart(create_bar_chart(v2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
-    with r2c1: st.plotly_chart(create_bar_chart(v3, x="month_name", y="count"), use_container_width=True, key="tab2_chart3")
-    with r2c2: st.plotly_chart(create_bar_chart(v4, x="enabling-principle", y="count"), use_container_width=True, key="tab2_chart4")
+
+    with r1c1:
+        st.plotly_chart(create_bar_chart(v1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
+    with r1c2:
+        st.plotly_chart(create_bar_chart(v2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
+    with r2c1:
+        st.plotly_chart(create_bar_chart(v3, x="continent", y="count"), use_container_width=True, key="tab2_chart3")
+    with r2c2:
+        st.plotly_chart(create_bar_chart(v4, x="enabling-principle", y="count"), use_container_width=True, key="tab2_chart4")
 
 # ---------------- TAB 3 ----------------
 with tab3:
