@@ -496,19 +496,19 @@ with tab2:
     render_summary_cards(summary_data)
     with col1:
         actor_type_options = sorted(filtered_global['Actor of repression'].dropna().unique())
-        selected_actor_types = multiselect_with_all("Select Alert Type", actor_type_options, "selected_actor_types")
+        selected_actor_types = st.multiselect("Select Alert Type", actor_type_options, "selected_actor_types")
         
     with col2:
         subject_type_options = sorted(filtered_global['Subject of repression'].dropna().unique())
-        selected_subject_types = multiselect_with_all("Select Subject Type", subject_type_options, "selected_subject_types")
+        selected_subject_types = st.multiselect("Select Subject Type", subject_type_options, "selected_subject_types")
     
     with col3:
         mechanism_type_options = sorted(filtered_global['Mechanism of repression'].dropna().unique())
-        selected_mechanism_types = multiselect_with_all("Select Mechanism Type", mechanism_type_options, "selected_mechanism_types")
+        selected_mechanism_types = st.multiselect("Select Mechanism Type", mechanism_type_options, "selected_mechanism_types")
     
     with col4:
         event_type_options = sorted(filtered_global['Type of event'].dropna().unique())
-        selected_event_types = multiselect_with_all("Select Event Type", event_type_options, "selected_event_types")
+        selected_event_types = st.multiselect("Select Event Type", event_type_options, "selected_event_types")
 
    
     # Filter data for Tab 2 using these selections
