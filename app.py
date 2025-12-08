@@ -301,11 +301,11 @@ footer {
 
 # ---------------- FUNCTION TO RENDER SUMMARY CARDS ----------------
 def render_summary_cards(data):
-    total_value = filtered_global["alert-country"].count()
+    total_value = data["alert-country"].count()
     neg_alerts = filtered_global[filtered_global["alert-impact"] == "Negative"]["alert-impact"].count()
     pos_alerts = filtered_global[filtered_global["alert-impact"] == "Positive"]["alert-impact"].count()
-    max_value = filtered_global["alert-impact"].count()
-    min_value = filtered_global["alert-country"].count()
+    max_value = data["alert-impact"].count()
+    min_value = data["alert-country"].count()
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -441,16 +441,15 @@ def wrap_label_by_words(label, words_per_line=4):
     return "<br>".join(lines)
 
 # ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
-def get_summary_data(active_tab, selected_subject_filter=[], selected_mechanism_filter=[], selected_type_filter=[]):
+def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_impact=[]):
     data = filtered_global.copy()
     if active_tab == "Tab 2":
         data = data[
-            (data["Subject of repression"].isin(selected_subject_filter)) &
-            (data["Mechanism of repression"].isin(selected_mechanism_filter)) &
-            (data["Type of event"].isin(selected_type_filter))
+            (data["alert-country"].isin(tab2_country)) &
+            (data["alert-type"].isin(tab2_alert_type)) &
+            (data["alert-impact"].isin(tab2_alert_impact))
         ]
     return data
-        
 
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
@@ -484,7 +483,8 @@ with tab1:
 with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
-    # Example: filter by 'alert_country' before counting
+    
+     # Example: filter by 'alert_country' before counting
     filtered_summary2 = data[data['alert-impact'] == "Negative"]  
     
 alert_impact_options = sorted(data['alert-impact'].dropna().unique())
@@ -501,7 +501,7 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
         selected_mechanism_filter = multiselect_with_all("Actor of repression",  filtered_summary2["Mechanism of repression"].dropna().unique(),
                                              "selected_mechanism_filter")
     with col4:
-        selected_type_filter = multiselect_with_all("Type of repression",  filtered_summary2["Type of event"].dropna().unique(),
+        selected_type_filter = multiselect_with_all("Type of repression)",  filtered_summary2["Type of event"].dropna().unique(),
                                           "selected_type_filter")
 
 
@@ -523,7 +523,6 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
     with r2c1: st.plotly_chart(create_bar_chart(v3, x="alert-country", y="count"), use_container_width=True, key="tab2_chart3")
     with r2c2: st.plotly_chart(create_bar_chart(v4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
 
-    
 # ---------------- TAB 3 ----------------
 with tab3:
     active_tab = "Tab 3"
