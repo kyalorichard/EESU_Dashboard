@@ -535,6 +535,10 @@ with tab2:
     # Render summary cards
     render_summary_cards(summary_data)
 
+    
+    summary_data["enabling-principle"] = summary_data["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
+
+
     #st.header("📈 Positive Events Analysis")
     t1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     t2 = summary_data.groupby("enabling-principle").size().reset_index(name="count")
@@ -551,7 +555,7 @@ with tab2:
     with r2c1: st.plotly_chart(create_bar_chart(t3, x="continent", y="count"), use_container_width=True, key="tab2_chart3")
     with r2c2: st.plotly_chart(create_bar_chart(t4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
     with r3c1: st.plotly_chart(create_bar_chart(t5, x="alert-type", y="count"), use_container_width=True, key="tab2_chart5")
-    with r3c2: st.plotly_chart(create_bar_chart(t6, x="MONTH_NAME", y="count"), use_container_width=True, key="tab2_chart5")
+    with r3c2: st.plotly_chart(create_bar_chart(t6, x="month_name", y="count"), use_container_width=True, key="tab2_chart5")
         
 # ---------------- TAB 3 ----------------
 with tab3:
