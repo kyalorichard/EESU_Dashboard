@@ -461,90 +461,23 @@ with tab1:
     render_summary_cards(summary_data)
 
     st.header("Distribution of Positive and Negative Events")
-   # ---------------- SESSION STATE FOR CLICK FILTERS ----------------
-    if "tab1_click_filters" not in st.session_state:
-        st.session_state["tab1_click_filters"] = {
-            'alert-type': None,
-            'enabling-principle': None,
-            'continent': None,
-            'alert-country': None
-        }
-
-    # ---------------- CLEAR CLICK FILTERS BUTTON ----------------
-    if st.button("🧹 Clear Chart Click Filters"):
-        st.session_state["tab1_click_filters"] = {
-            'alert-type': None,
-            'enabling-principle': None,
-            'continent': None,
-            'alert-country': None
-        }
-
-    # ---------------- PREPARE CHART DATA ----------------
+    #a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
     a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
-    df_clean = (
-        summary_data
-        .assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")})
-        .explode("enabling-principle")
-    )
+    df_clean = (summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")}).explode("enabling-principle"))
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
 
     a2 = df_clean.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count')
     a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
     a4 = summary_data.groupby(["alert-country", "alert-impact"]).size().reset_index(name='count')
-
+   
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
 
-    # ---------------- CHART 1 ----------------
-    fig1 = create_h_stacked_bar(a1, y="alert-type", x="count", color_col="alert-impact", horizontal=True)
-    clicked_points1 = plotly_events(fig1, click_event=True)
-    with r1c1:
-        st.plotly_chart(fig1, use_container_width=True, key="tab1_chart1")
-
-    # ---------------- CHART 2 ----------------
-    fig2 = create_h_stacked_bar(a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True)
-    clicked_points2 = plotly_events(fig2, click_event=True)
-    with r1c2:
-        st.plotly_chart(fig2, use_container_width=True, key="tab1_chart2")
-
-    # ---------------- CHART 3 ----------------
-    fig3 = create_h_stacked_bar(a3, y="continent", x="count", color_col="alert-impact", horizontal=False)
-    clicked_points3 = plotly_events(fig3, click_event=True)
-    with r2c1:
-        st.plotly_chart(fig3, use_container_width=True, key="tab1_chart3")
-
-    # ---------------- CHART 4 ----------------
-    fig4 = create_h_stacked_bar(a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True)
-    clicked_points4 = plotly_events(fig4, click_event=True)
-    with r2c2:
-        st.plotly_chart(fig4, use_container_width=True, key="tab1_chart4")
-
-    # ---------------- UPDATE SESSION STATE WITH CLICKS ----------------
-    if clicked_points1:
-        st.session_state["tab1_click_filters"]['alert-type'] = [p['y'] for p in clicked_points1]
-    if clicked_points2:
-        st.session_state["tab1_click_filters"]['enabling-principle'] = [p['y'] for p in clicked_points2]
-    if clicked_points3:
-        st.session_state["tab1_click_filters"]['continent'] = [p['y'] for p in clicked_points3]
-    if clicked_points4:
-        st.session_state["tab1_click_filters"]['alert-country'] = [p['y'] for p in clicked_points4]
-
-    # ---------------- APPLY CUMULATIVE CLICK FILTERS ----------------
-    cumulative_filters = st.session_state["tab1_click_filters"]
-    for col, selected_values in cumulative_filters.items():
-        if selected_values:
-            if col == 'enabling-principle':
-                filtered_tab1 = filtered_tab1[filtered_tab1['enabling-principle'].apply(lambda x: contains_any(x, selected_values))]
-            else:
-                filtered_tab1 = filtered_tab1[filtered_tab1[col].isin(selected_values)]
-
-    # ---------------- DYNAMIC SUMMARY CARDS ----------------
-    render_summary_cards(filtered_tab1)
-
-    # ---------------- SHOW FILTERED DATA ----------------
-    if any(cumulative_filters.values()):
-        st.markdown("### Filtered Data Based on Clicks (Cumulative Across Charts)")
-        st.dataframe(filtered_tab1)
+    #with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c1: st.plotly_chart(create_h_stacked_bar( a1, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
+    with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
+    with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
 
 # ---------------- TAB 2 ----------------
 with tab2:
