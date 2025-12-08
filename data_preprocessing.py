@@ -9,12 +9,11 @@ from dotenv import load_dotenv
 from email.message import EmailMessage
 import smtplib
 from tqdm.asyncio import tqdm_asyncio
+import random
 
 # ---------------- CONFIG ----------------
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
-if not openai.api_key:
-    raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY in .env")
 
 INPUT_CSV = "data/raw_data.csv"
 SUMMARY_COL = "summary"
@@ -41,7 +40,18 @@ ADJUST_FACTOR = 0.2
 CONCURRENT_BATCHES = 3
 COST_PER_1K_TOKENS = 0.003
 
-TEST_ROWS = 3  # set to None for full dataset
+TEST_ROWS = 3  # set None for full dataset
+
+# ---------------- MOCK MODE CONFIG ----------------
+MOCK_MODE = True
+MOCK_CONFIG = {
+    "quota_error_batches": 1,        # First N batches simulate quota errors
+    "malformed_json_prob": 0.3,      # Probability a batch returns malformed JSON
+    "missing_keys_prob": 0.2,        # Probability some keys are missing in a batch
+    "latency_range": (0.5, 2.0),     # Simulated API response time in seconds
+    "fixed_keys": ["Actor of repression", "Subject of repression",
+                   "Mechanism of repression", "Type of event"]
+}
 
 # ---------------- LOAD THEMES ----------------
 THEMES_FILE = "data/themes.json"
@@ -111,13 +121,80 @@ Texts:
 """
     return prompt
 
-# ---------------- EXTRACT BATCH (async-safe) ----------------
+# ---------------- MOCK EXTRACT_BATCH ----------------
+async def mock_extract_batch(batch_summaries):
+    if not hasattr(mock_extract_batch, "call_count"):
+        mock_extract_batch.call_count = 0
+        mock_extract_batch.quota_error_batches = 0
+        mock_extract_batch.malformed_json_batches = 0
+        mock_extract_batch.missing_keys_batches = 0
+
+    # Simulate quota error for first N batches
+    if mock_extract_batch.call_count < MOCK_CONFIG["quota_error_batches"]:
+        mock_extract_batch.call_count += 1
+        mock_extract_batch.quota_error_batches += 1
+        raise Exception("You exceeded your current quota (simulated).")
+
+    batch_data = []
+    missing_keys_in_batch = False
+    malformed_in_batch = False
+
+    for summary in batch_summaries:
+        r = {}
+        # Possibly omit some keys
+        if random.random() < MOCK_CONFIG["missing_keys_prob"]:
+            keys_to_include = random.sample(MOCK_CONFIG["fixed_keys"], k=random.randint(1, len(MOCK_CONFIG["fixed_keys"])))
+            missing_keys_in_batch = True
+        else:
+            keys_to_include = MOCK_CONFIG["fixed_keys"]
+
+        for key in keys_to_include:
+            r[key] = f"{key} Value"
+
+        # Possibly make malformed
+        if random.random() < MOCK_CONFIG["malformed_json_prob"]:
+            batch_data.append(json.dumps(r)[:-1])  # remove last char to simulate malformed
+            malformed_in_batch = True
+        else:
+            batch_data.append(r)
+
+    # Update issue counters
+    if malformed_in_batch:
+        mock_extract_batch.malformed_json_batches += 1
+    if missing_keys_in_batch:
+        mock_extract_batch.missing_keys_batches += 1
+
+    mock_extract_batch.call_count += 1
+
+    # Combine into simulated API string
+    response_content_list = []
+    for r in batch_data:
+        if isinstance(r, dict):
+            response_content_list.append(json.dumps(r))
+        else:
+            response_content_list.append(r)
+    response_content = "[" + ",".join(response_content_list) + "]"
+
+    # Simulate latency
+    await asyncio.sleep(random.uniform(*MOCK_CONFIG["latency_range"]))
+
+    # Attempt to parse; fallback will handle malformed JSON
+    try:
+        parsed_data = json.loads(response_content)
+    except:
+        parsed_data = response_content
+
+    return parsed_data, random.uniform(*MOCK_CONFIG["latency_range"])
+
+# ---------------- EXTRACT BATCH ----------------
 async def extract_batch(batch_summaries):
+    if MOCK_MODE:
+        return await mock_extract_batch(batch_summaries)
+
     prompt = build_prompt(batch_summaries)
     for attempt in range(MAX_RETRIES):
         try:
             start_time = datetime.now()
-            # Run sync OpenAI API in a thread
             response = await asyncio.to_thread(
                 openai.chat.completions.create,
                 model=MODEL,
@@ -126,7 +203,6 @@ async def extract_batch(batch_summaries):
             )
             duration = (datetime.now() - start_time).total_seconds()
             content = response.choices[0].message.content.strip()
-
             try:
                 data = json.loads(content)
             except json.JSONDecodeError:
@@ -172,9 +248,8 @@ def send_email_notification(subject, body, to_email):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-# ---------------- MAIN ASYNC PROCESSING ----------------
+# ---------------- MAIN PROCESSING ----------------
 async def process_all_incremental_resume():
-    # Load previous outputs
     if os.path.exists(INTERMEDIATE_PARQUET):
         df_out = pd.read_parquet(INTERMEDIATE_PARQUET)
         if len(df) > len(df_out):
@@ -183,7 +258,6 @@ async def process_all_incremental_resume():
     else:
         df_out = df.copy()
 
-    # Load failed batches
     failed_batches = []
     if os.path.exists(FAILED_BATCHES_FILE):
         with open(FAILED_BATCHES_FILE, "r", encoding="utf-8") as f:
@@ -206,7 +280,7 @@ async def process_all_incremental_resume():
         batch_tokens = 0
         batch_start_idx = i
         while i < len(df_out) and len(batch_summaries) < batch_size:
-            if df_out.at[i,"Actor of repression"]: 
+            if df_out.at[i,"Actor of repression"]:
                 i += 1
                 continue
             summary = str(df_out.at[i,SUMMARY_COL])
@@ -217,9 +291,8 @@ async def process_all_incremental_resume():
             batch_tokens += tokens
             i += 1
         if batch_summaries:
-            normal_batches.append([batch_start_idx, batch_summaries, batch_tokens, 0])  # retries=0
+            normal_batches.append([batch_start_idx, batch_summaries, batch_tokens, 0])
 
-    # Combine failed batches first
     for fb in failed_batches:
         fb.setdefault("retries",0)
     batches_to_process = failed_batches + normal_batches
@@ -227,8 +300,45 @@ async def process_all_incremental_resume():
     async def process_batch(batch_start_idx, batch_summaries, batch_tokens, retries):
         nonlocal batch_size, total_tokens_processed, total_cost, df_out, permanently_failed
         async with semaphore:
-            results, duration = await extract_batch(batch_summaries)
-        if all(r.get("Actor of repression")=="Error" for r in results):
+            try:
+                results, duration = await extract_batch(batch_summaries)
+            except Exception as e:
+                print(f"Batch {batch_start_idx} error: {e}. Retrying ({retries+1}/{MAX_RETRIES})...")
+                retries += 1
+                if retries > MAX_RETRIES:
+                    permanently_failed.append({
+                        "start_idx": batch_start_idx,
+                        "summaries": batch_summaries,
+                        "tokens": batch_tokens,
+                        "retries": retries
+                    })
+                    return 0
+                else:
+                    return (batch_start_idx, batch_summaries, batch_tokens, retries)
+
+        # --- PATCH: Convert any string or malformed results into dicts ---
+        safe_results = []
+        if isinstance(results, list):
+            for r in results:
+                if isinstance(r, dict):
+                    safe_results.append(r)
+                else:
+                    safe_results.append({
+                        "Actor of repression": "Error",
+                        "Subject of repression": "Error",
+                        "Mechanism of repression": "Error",
+                        "Type of event": "Error"
+                    })
+        else:
+            # entire batch is malformed string
+            safe_results = [{
+                "Actor of repression": "Error",
+                "Subject of repression": "Error",
+                "Mechanism of repression": "Error",
+                "Type of event": "Error"
+            } for _ in batch_summaries]
+
+        if all(r.get("Actor of repression")=="Error" for r in safe_results):
             retries += 1
             if retries > MAX_RETRIES:
                 permanently_failed.append({
@@ -241,7 +351,7 @@ async def process_all_incremental_resume():
             else:
                 return (batch_start_idx, batch_summaries, batch_tokens, retries)
         else:
-            for j,res in enumerate(results):
+            for j,res in enumerate(safe_results):
                 idx = batch_start_idx+j
                 df_out.at[idx,"Actor of repression"] = res.get("Actor of repression","Unknown")
                 df_out.at[idx,"Subject of repression"] = res.get("Subject of repression","Unknown")
@@ -274,26 +384,32 @@ async def process_all_incremental_resume():
         pending_batches = [r for r in results if r] + pending_batches[CONCURRENT_BATCHES:]
     pbar.close()
 
-    # Save permanently failed
     if permanently_failed:
         with open(PERMANENTLY_FAILED_FILE,"w",encoding="utf-8") as f:
             json.dump(permanently_failed,f,ensure_ascii=False,indent=2)
 
-    # Save remaining failed
     remaining_failed = [b for b in pending_batches if b]
     with open(FAILED_BATCHES_FILE,"w",encoding="utf-8") as f:
         json.dump(remaining_failed,f,ensure_ascii=False,indent=2)
 
-    return df_out, total_tokens_processed, total_cost, len(remaining_failed), len(permanently_failed)
+    # ---------------- MOCK STATS ----------------
+    mock_stats = None
+    if MOCK_MODE:
+        mock_stats = {
+            "total_batches": getattr(mock_extract_batch, "call_count", 0),
+            "quota_errors": getattr(mock_extract_batch, "quota_error_batches", 0),
+            "malformed_json": getattr(mock_extract_batch, "malformed_json_batches", 0),
+            "missing_keys": getattr(mock_extract_batch, "missing_keys_batches", 0)
+        }
+
+    return df_out, total_tokens_processed, total_cost, len(remaining_failed), len(permanently_failed), mock_stats
 
 # ---------------- RUN ----------------
-df_out, total_tokens, total_cost, remaining_failed_count, permanently_failed_count = asyncio.run(process_all_incremental_resume())
+df_out, total_tokens, total_cost, remaining_failed_count, permanently_failed_count, mock_stats = asyncio.run(process_all_incremental_resume())
 
-# Save final outputs
 df_out.to_parquet(OUTPUT_PARQUET,index=False,engine="pyarrow")
 df_out.to_csv(OUTPUT_CSV,index=False)
 
-# ---------------- EMAIL NOTIFICATION ----------------
 summary_message = (
     f"✅ Processing Complete!\n"
     f"Final Parquet: {OUTPUT_PARQUET}\n"
@@ -303,8 +419,19 @@ summary_message = (
     f"Remaining failed batches: {remaining_failed_count}\n"
     f"Permanently failed batches: {permanently_failed_count}\n"
     f"Total estimated tokens processed: {total_tokens}\n"
-    f"Total estimated OpenAI cost: ${total_cost:.4f}"
+    f"Total estimated OpenAI cost: ${total_cost:.4f}\n"
 )
+
+if MOCK_MODE and mock_stats:
+    summary_message += (
+        f"\n--- MOCK RUN SUMMARY ---\n"
+        f"Total batches processed: {mock_stats['total_batches']}\n"
+        f"Simulated quota errors: {mock_stats['quota_errors']}\n"
+        f"Batches with malformed JSON: {mock_stats['malformed_json']}\n"
+        f"Batches with missing keys: {mock_stats['missing_keys']}\n"
+        f"------------------------\n"
+    )
+
 recipient_email = os.getenv("NOTIFY_EMAIL")
 if recipient_email:
     send_email_notification(
