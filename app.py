@@ -139,9 +139,10 @@ def load_data():
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
         # Extract year and month
         df['year'] = df['creation_date'].dt.year
-        df['month'] = df['creation_date'].dt.month
+        #df['month'] = df['creation_date'].dt.month
+        df['month_name'] = df['creation_date'].dt.strftime('%B')
         # Optional: create a combined string for easier dropdown
-        df['year_month'] = df['creation_date'].dt.to_period('M').astype(str)
+        #df['year_month'] = df['creation_date'].dt.to_period('M').astype(str)
     else:
         st.warning("No 'creation_date' column found in CSV.")
 
@@ -218,7 +219,7 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 
 # ---------------- MONTH FILTER ----------------
 # Get unique months in chronological order
-month_options = sorted(data['month'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
+month_options = sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
 
 # Create a multi-select dropdown for months
 selected_months = multiselect_with_all("Select Month", month_options, default=month_options)
