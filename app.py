@@ -488,25 +488,25 @@ with tab2:
     summary_data2 = summary_data[summary_data['alert-impact'] == "Negative"] 
     render_summary_cards(summary_data)
 
-    tab2_actor = col_f1.multiselect(
+    tab2_actor = col1.multiselect_with_all(
         "Actor of Repression",
         options=sorted(filtered_global['Actor of repression'].dropna().unique()),
         default=sorted(filtered_global['Actor of repression'].dropna().unique())
     )
     
-    tab2_subject = col_f2.multiselect(
+    tab2_subject = col2.multiselect_with_all(
         "Subject of Repression",
         options=sorted(filtered_global['Subject of repression'].dropna().unique()),
         default=sorted(filtered_global['Subject of repression'].dropna().unique())
     )
-    
-    tab2_mechanism = col_f3.multiselect(
+
+    tab2_mechanism = col3.multiselect_with_all(
         "Mechanism of Repression",
         options=sorted(filtered_global['Mechanism of repression'].dropna().unique()),
         default=sorted(filtered_global['Mechanism of repression'].dropna().unique())
     )
     
-    tab2_event_type = col_f4.multiselect(
+    tab2_event_type = col4.multiselect_with_all(
         "Type of Event",
         options=sorted(filtered_global['Type of event'].dropna().unique()),
         default=sorted(filtered_global['Type of event'].dropna().unique())
