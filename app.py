@@ -222,14 +222,14 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 month_options = sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
 
 # Create a multi-select dropdown for months
-selected_months = multiselect_with_all("Select Month", month_options, default=month_options)
+selected_months = multiselect_with_all("Select Month", month_options, "selected_months")
 
 # ---------------- YEAR FILTER ----------------
 # Get unique years in ascending order
 year_options = sorted(data['year'].dropna().unique())
 
 # Create a multi-select dropdown for years
-selected_years = multiselect_with_all("Select Year", year_options, default=year_options)
+selected_years = multiselect_with_all("Select Year", year_options, "selected_years")
 
 # ---------------- FILTER DATA BASED ON MONTH AND YEAR ----------------
 # Apply month and year filters to the global filtered dataset
