@@ -268,7 +268,7 @@ with tab2:
     r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=True),use_container_width=True)
     r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=True),use_container_width=True)
     r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True),use_container_width=True)
-    r2c2.plotly_chart(create_bar_chart(t5,"alerty-type","count",horizontal=False),use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=False),use_container_width=True)
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True)
 
 # ---------------- TAB 3 ----------------
