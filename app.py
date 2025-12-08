@@ -540,7 +540,7 @@ with tab2:
 
 
     #st.header("📈 Positive Events Analysis")
-    t1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
+    t1 = summary_data.groupby("Actor of repression").size().reset_index(name="count")
     t2 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
     t3 = summary_data.groupby("continent").size().reset_index(name="count")
     t4 = summary_data.groupby("alert-country").size().reset_index(name="count")
@@ -550,7 +550,7 @@ with tab2:
     r1c1, r1c2, r1c3= st.columns(3, gap="large")
     r2c1, r2c2, r2c3 = st.columns(3, gap="large")
     r3c1, r3c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(t1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
+    with r1c1: st.plotly_chart(create_bar_chart(t1, x="Actor of repressiont", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(t2, x="enabling-principle", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
     with r1c3: st.plotly_chart(create_bar_chart(t3, x="continent", y="count"), use_container_width=True, key="tab2_chart3")
     with r2c1: st.plotly_chart(create_bar_chart(t4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
