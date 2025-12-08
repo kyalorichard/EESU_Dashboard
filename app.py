@@ -480,6 +480,19 @@ with tab1:
     with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart4")
 
 # ---------------- TAB 2 ----------------
+
+def multiselect_with_all2(label, options, key):
+    selected = st.sidebar.multiselect(
+        label,
+        options=["Select All"] + list(options),
+        default=st.session_state.get(key, ["Select All"])
+    )
+    if "Select All" in selected:
+        st.session_state[key] = ["Select All"]
+        return list(options)
+    else:
+        st.session_state[key] = selected
+        return selected
 with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
@@ -496,19 +509,19 @@ with tab2:
     render_summary_cards(summary_data)
     with col1:
         actor_type_options = sorted(filtered_global['Actor of repression'].dropna().unique())
-        selected_actor_types = st.multiselect("Select Alert Type", actor_type_options, "selected_actor_types")
+        selected_actor_types = multiselect_with_all2("Select Alert Type", actor_type_options, "selected_actor_types")
         
     with col2:
         subject_type_options = sorted(filtered_global['Subject of repression'].dropna().unique())
-        selected_subject_types = st.multiselect("Select Subject Type", subject_type_options, "selected_subject_types")
+        selected_subject_types = multiselect_with_all2("Select Subject Type", subject_type_options, "selected_subject_types")
     
     with col3:
         mechanism_type_options = sorted(filtered_global['Mechanism of repression'].dropna().unique())
-        selected_mechanism_types = st.multiselect("Select Mechanism Type", mechanism_type_options, "selected_mechanism_types")
+        selected_mechanism_types = multiselect_with_all2("Select Mechanism Type", mechanism_type_options, "selected_mechanism_types")
     
     with col4:
         event_type_options = sorted(filtered_global['Type of event'].dropna().unique())
-        selected_event_types = st.multiselect("Select Event Type", event_type_options, "selected_event_types")
+        selected_event_types = multiselect_with_all2("Select Event Type", event_type_options, "selected_event_types")
 
    
     # Filter data for Tab 2 using these selections
