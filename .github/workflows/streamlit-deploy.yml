@@ -1,6 +1,5 @@
 name: Deploy Streamlit Multi-Env
 
-# Trigger workflow on push to main (prod) or staging......
 on:
   push:
     branches: [ main, staging ]
@@ -8,15 +7,14 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
 
     steps:
-      # 1️⃣ Checkout repository
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      # 2️⃣ Determine environment based on branch
-      - name: Set environment
-        id: set-env
+      # ENV detect
+      - name: Set ENV
         run: |
           if [[ "${GITHUB_REF##*/}" == "staging" ]]; then
             echo "ENV=staging" >> $GITHUB_ENV
@@ -24,63 +22,77 @@ jobs:
             echo "ENV=production" >> $GITHUB_ENV
           fi
 
-      # 3️⃣ Select correct EC2 host and SSH key based on ENV
-      - name: Set EC2 connection info
+      # AWS auth
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Set host
+      - name: Set host
         run: |
           if [[ "$ENV" == "staging" ]]; then
             echo "EC2_HOST=${{ secrets.EC2_HOST_STAGING }}" >> $GITHUB_ENV
-            echo "EC2_KEY=${{ secrets.EC2_SSH_KEY_STAGING }}" >> $GITHUB_ENV
+            echo "${{ secrets.EC2_KEY_STAGING }}" > key.pem
           else
             echo "EC2_HOST=${{ secrets.EC2_HOST_PROD }}" >> $GITHUB_ENV
-            echo "EC2_KEY=${{ secrets.EC2_SSH_KEY_PROD }}" >> $GITHUB_ENV
+            echo "${{ secrets.EC2_KEY_PROD }}" > key.pem
           fi
+          chmod 600 key.pem
 
-      # 4️⃣ Copy Streamlit files to EC2
-      - name: Copy Streamlit app to EC2
-        uses: appleboy/scp-action@v0.1.5
-        with:
-          host: ${{ env.EC2_HOST }}
-          username: ubuntu
-          key: ${{ env.EC2_KEY }}
-          source: "streamlit/*"
-          target: "/home/ubuntu/app/streamlit/"
+      # Upload
+      - name: Upload app
+        run: |
+          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
+          streamlit/ ubuntu@${EC2_HOST}:/home/ubuntu/app/
 
-      # 5️⃣ Rebuild Docker and run Streamlit container
-      - name: Rebuild Docker on EC2
-        uses: appleboy/ssh-action@v0.1.5
-        with:
-          host: ${{ env.EC2_HOST }}
-          username: ubuntu
-          key: ${{ env.EC2_KEY }}
-          script: |
-            cd /home/ubuntu/app/streamlit
+      # Backup image
+      - name: Backup image
+        run: |
+          ssh -i key.pem ubuntu@${EC2_HOST} \
+          "docker tag streamlit-dashboard streamlit-dashboard:backup || true"
+
+      # Deploy container
+      - name: Deploy container
+        run: |
+          ssh -i key.pem ubuntu@${EC2_HOST} << EOF
+            cd ~/app
             docker build -t streamlit-dashboard .
             docker stop streamlit-dashboard || true
             docker rm streamlit-dashboard || true
-            docker run -d -p 8501:8501 --name streamlit-dashboard \
-              -e ENVIRONMENT=${{ env.ENV }} \
-              -e S3_BUCKET_NAME=${{ env.ENV }}-wordpress-dashboard-full-data \
-              -e S3_PREFIX=wp_incremental_csv \
-              streamlit-dashboard
 
-      # 6️⃣ Trigger CloudFormation deploy for Lambda & EC2 updates
-      - name: Deploy CloudFormation stack
+            docker run -d -p 8501:8501 \
+              -e S3_BUCKET_NAME=${ENV}-wordpress-dashboard-full-data \
+              -e S3_PREFIX=wp_incremental_csv \
+              --name streamlit-dashboard streamlit-dashboard
+          EOF
+
+      # Health check + rollback
+      - name: Health check + rollback
         run: |
-          if [[ "$ENV" == "staging" ]]; then
-            STACK_NAME="wordpress-dashboard-staging"
-            GITHUB_BRANCH="staging"
-          else
-            STACK_NAME="wordpress-dashboard-production"
-            GITHUB_BRANCH="main"
+          sleep 25
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${EC2_HOST}:8501)
+
+          if [ "$STATUS" != "200" ]; then
+            echo "Deploy failed. Rolling back..."
+            ssh -i key.pem ubuntu@${EC2_HOST} << EOF
+              docker stop streamlit-dashboard || true
+              docker rm streamlit-dashboard || true
+              docker run -d -p 8501:8501 \
+                --name streamlit-dashboard streamlit-dashboard:backup
+            EOF
+            exit 1
           fi
 
+      # CloudFormation
+      - name: CloudFormation Deploy
+        run: |
           aws cloudformation deploy \
-            --stack-name $STACK_NAME \
+            --stack-name wordpress-dashboard-$ENV \
             --template-file cloudformation/full-stack-multi-env.yaml \
             --parameter-overrides \
-                Environment=$ENV \
-                GitHubBranch=$GITHUB_BRANCH \
-                NotificationEmail=${{ secrets.NOTIFICATION_EMAIL }} \
-                SESNotificationEmail=${{ secrets.SES_EMAIL }} \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region us-east-1
+              Environment=$ENV \
+              NotificationEmail=${{ secrets.NOTIFICATION_EMAIL }} \
+              SESNotificationEmail=${{ secrets.SES_EMAIL }} \
+            --capabilities CAPABILITY_NAMED_IAM
