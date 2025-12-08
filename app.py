@@ -260,7 +260,7 @@ with tab2:
     t2 = summary_data.groupby("Subject of repression").size().reset_index(name="count")
     t3 = summary_data.groupby("Mechanism of repression").size().reset_index(name="count")
     t4 = summary_data.groupby("Type of event").size().reset_index(name="count")
-    t5 = summary_data.groupby("alert-typ3").size().reset_index(name="count")
+    t5 = summary_data.groupby("alert-type").size().reset_index(name="count")
     t6 = summary_data.groupby("enabling-principle").size().reset_index(name="count")
 
     r1c1,r1c2,r1c3=st.columns(3); r2c1,r2c2,r2c3=st.columns(3)
