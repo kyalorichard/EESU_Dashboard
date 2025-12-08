@@ -46,6 +46,12 @@ python-dotenv>=1.0
 #faster and more accurate language detection,
 langid>=1.1.6
 
+# For Lambda DB and S3 access
+pymysql
+boto3
+pandas
+
+
 dash   
 altair
 streamlit-dash
