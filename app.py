@@ -86,11 +86,11 @@ else:
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)  # refresh cache every hour
 def load_data():
-    csv_file = Path.cwd() / "data" / "raw_data.csv"
-    if not csv_file.exists():
-        st.error(f"CSV file not found: {csv_file}")
-        return pd.DataFrame()
+    parquet_file = Path.cwd() / "data" / "output_final.parquet"
 
+    if not parquet_file.exists():
+        st.error(f"Parquet file not found: {parquet_file}")
+        return pd.DataFrame()
     df = pd.read_csv(csv_file)
     
     # Clean country names
@@ -102,7 +102,7 @@ def load_data():
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     if 'alert-country' not in df.columns:
-        st.warning("No 'alert-country' column found in CSV.")
+        st.warning("No 'alert-country' column found in the dataset.")
         return df
 
     # Clean country names
