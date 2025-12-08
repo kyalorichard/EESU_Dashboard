@@ -513,10 +513,10 @@ with tab2:
     render_summary_cards(summary_data)
 
     #st.header("📈 Positive Events Analysis")
-    t1 = summary_data2.groupby("alert-country").size().reset_index(name="count")
-    t2 = summary_data2.groupby("alert-type").size().reset_index(name="count")
-    t3 = summary_data2.groupby("alert-country").size().reset_index(name="count")
-    t4 = summary_data2.groupby("alert-country").size().reset_index(name="count")
+    t1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    t2 = summary_data.groupby("alert-type").size().reset_index(name="count")
+    t3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    t4 = summary_data.groupby("alert-country").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
