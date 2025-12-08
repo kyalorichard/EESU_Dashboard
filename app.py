@@ -509,7 +509,7 @@ with tab2:
    # render_summary_cards(summary_data)
     with col1:
         actor_type_options = sorted(filtered_global['Actor of repression'].str.strip().dropna().unique())
-        selected_actor_types = multiselect_with_all2("Select Alert Type", actor_type_options, "selected_actor_types")
+        selected_actor_types = multiselect_with_all2("Select Actor Type", actor_type_options, "selected_actor_types")
         
     with col2:
         subject_type_options = sorted(filtered_global['Subject of repression'].str.strip().dropna().unique())
