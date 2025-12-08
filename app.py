@@ -221,7 +221,7 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
 month_options = sorted(data['month'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
 
 # Create a multi-select dropdown for months
-selected_months = multiselect_with_all("Select Month",month_options,default=month_options  # default: all months selected )
+selected_months = multiselect_with_all("Select Month", month_options, default=month_options  # default: all months selected )
 
 # ---------------- YEAR FILTER ----------------
 # Get unique years in ascending order
