@@ -495,7 +495,7 @@ with tab2:
     
     with col1:
         selected_actor_filter = multiselect_with_all("Actor of repression",  filtered_summary2["Actor of repression"].dropna().unique(),
-                                             "selected_actor_filter"))
+                                             "selected_actor_filter")
     with col2:
         selected_subject_filter = multiselect_with_all("Subject of repression", data["Subject of repression"].dropna().unique(),
                                             "selected_subject_filter")
