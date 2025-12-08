@@ -21,16 +21,37 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyyaml
+          pip install pyyaml python-dotenv
+
+      # ✅ Load .env values securely from GitHub Secrets
+      - name: Load environment variables
+        run: |
+          echo "SMTP_EMAIL=${{ secrets.SMTP_EMAIL }}" >> $GITHUB_ENV
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
+          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
 
       - name: Run scheduled script
-        env:
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-        run: python run_if_scheduled.py
+        run: python data_prerocessing.py
 
-      # ✅ NEW STEP - Upload logs
+      # ✅ Upload logs
       - name: Upload scheduler logs
         uses: actions/upload-artifact@v4
         with:
           name: scheduler-logs
           path: scheduler.log
+          if-no-files-found: warn
+
+      # ✅ Send SUCCESS email only
+      - name: Send success email
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.SMTP_HOST }}
+          server_port: ${{ env.SMTP_PORT }}
+          username: ${{ env.SMTP_EMAIL }}
+          password: ${{ env.SMTP_PASSWORD }}
+          subject: "✅ Script ran successfully"
+          body: "Your scheduled script ran successfully on GitHub Actions."
+          to: ${{ env.SMTP_EMAIL }}
+          from: "GitHub Actions <${{ env.SMTP_EMAIL }}>"
