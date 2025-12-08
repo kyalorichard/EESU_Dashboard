@@ -482,7 +482,7 @@ with tab1:
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
-    col1, col2, col3, col4 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         tab2_actor_filter = st.multiselect("Actor of repression", data["Actor of repression"].unique(),
                                               default=data["Actor of repression"].unique())
