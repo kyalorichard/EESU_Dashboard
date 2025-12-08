@@ -301,11 +301,11 @@ footer {
 
 # ---------------- FUNCTION TO RENDER SUMMARY CARDS ----------------
 def render_summary_cards(data):
-    total_value = data["alert-country"].count()
+    total_value = filtered_global["alert-country"].count()
     neg_alerts = filtered_global[filtered_global["alert-impact"] == "Negative"]["alert-impact"].count()
     pos_alerts = filtered_global[filtered_global["alert-impact"] == "Positive"]["alert-impact"].count()
-    max_value = data["alert-impact"].count()
-    min_value = data["alert-country"].count()
+    max_value = filtered_global["alert-impact"].count()
+    min_value = filtered_global["alert-country"].count()
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
