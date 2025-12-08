@@ -531,7 +531,7 @@ with tab2:
         (filtered_global['Mechanism of repression'].isin(selected_mechanism_types)) &
         (filtered_global['Type of event'].isin(selected_event_types))
     ]
-    
+    summary_data = summary_data[summary_data['alert-impact'] == "Negative"] 
     # Render summary cards
     render_summary_cards(summary_data)
 
