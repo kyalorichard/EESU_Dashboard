@@ -163,8 +163,8 @@ def initialize_session_state(key, default):
     return st.session_state[key]
 
 # Multi-select with "Select All" functionality
-def multiselect_with_all(container, label, options, key):
-    selected = container.multiselect(
+def multiselect_with_all( label, options, key):
+    selected = st.sidebar.multiselect(
         label,
         options=["Select All"] + list(options),
         default=st.session_state.get(key, ["Select All"])
@@ -186,28 +186,20 @@ def contains_any(cell_value, selected_values):
 # ---------------- CONTINENT AND COUNTRY FILTER ----------------
   
 # Get unique continents
-col1, col2 = st.sidebar.columns(2)
+continent_options = sorted(data['continent'].dropna().unique())
+selected_continents = multiselect_with_all("Select Continent", continent_options, "selected_continents")
 
-# Continent filter
-with col1:
-    continent_options = sorted(data['continent'].dropna().unique())
-    selected_continents = multiselect_with_all(
-        col1, "Continent", continent_options, "selected_continents"
+# Filter countries based on selected continent(s)
+if "Select All" in selected_continents:
+    country_options = sorted(data['alert-country'].dropna().unique())
+else:
+    country_options = sorted(
+        data[data['continent'].isin(selected_continents)]['alert-country'].dropna().unique()
     )
 
-# Country filter (depends on continent)
-with col2:
-    if "Select All" in selected_continents:
-        country_options = sorted(data['alert-country'].dropna().unique())
-    else:
-        country_options = sorted(
-            data[data['continent'].isin(selected_continents)]
-            ['alert-country'].dropna().unique()
-        )
+# Country selection
+selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
 
-    selected_countries = multiselect_with_all(
-        col2, "Country", country_options, "selected_countries"
-    )
 
 # ---------------- ALERT TYPE FILTER ----------------
 alert_type_options = sorted(data['alert-type'].dropna().unique())
