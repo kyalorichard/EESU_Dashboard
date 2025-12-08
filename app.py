@@ -431,7 +431,7 @@ def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=350):
         bargap=0.2,
     )
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(showgrid=False)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
 
     return fig
 # ---------------- FUNCTION TO SHORTEN LONG SENTENCES ----------------
