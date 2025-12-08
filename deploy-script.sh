@@ -47,10 +47,10 @@ aws cloudformation deploy \
       UbuntuAmiId=ami-0abcdef1234567890 \
       VPCId=vpc-0123456789abcdef0 \
       SubnetIds=subnet-1234abcd,subnet-5678efgh \
-      GitHubRepo=https://github.com/yourusername/wordpress-dashboard-full.git \
+      GitHubRepo=https://github.com/kyalorichard/wordpress-dashboard-full.git \
       GitHubBranch=$GITHUB_BRANCH \
-      NotificationEmail=your-email@example.com \
-      SESNotificationEmail=your-email@example.com \
+      NotificationEmail=your-kyalorichard11@gmail.com \
+      SESNotificationEmail=your-kyalorichard11@gmail.com.com \
       LambdaScheduleExpression="cron(0 0 * * ? *)" \
   --capabilities CAPABILITY_NAMED_IAM \
   --region $AWS_REGION
