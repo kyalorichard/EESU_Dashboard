@@ -91,7 +91,7 @@ def load_data():
     if not parquet_file.exists():
         st.error(f"Parquet file not found: {parquet_file}")
         return pd.DataFrame()
-    df = pd.read_csv(csv_file)
+    df = pd.read_parquet(parquet_file)
     
     # Clean country names
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
