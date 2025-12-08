@@ -488,6 +488,41 @@ with tab2:
     summary_data2 = summary_data[summary_data['alert-impact'] == "Negative"] 
     render_summary_cards(summary_data)
 
+    tab2_actor = col_f1.multiselect(
+        "Actor of Repression",
+        options=sorted(filtered_global['Actor of repression'].dropna().unique()),
+        default=sorted(filtered_global['Actor of repression'].dropna().unique())
+    )
+    
+    tab2_subject = col_f2.multiselect(
+        "Subject of Repression",
+        options=sorted(filtered_global['Subject of repression'].dropna().unique()),
+        default=sorted(filtered_global['Subject of repression'].dropna().unique())
+    )
+    
+    tab2_mechanism = col_f3.multiselect(
+        "Mechanism of Repression",
+        options=sorted(filtered_global['Mechanism of repression'].dropna().unique()),
+        default=sorted(filtered_global['Mechanism of repression'].dropna().unique())
+    )
+    
+    tab2_event_type = col_f4.multiselect(
+        "Type of Event",
+        options=sorted(filtered_global['Type of event'].dropna().unique()),
+        default=sorted(filtered_global['Type of event'].dropna().unique())
+    )
+    
+    # Filter data for Tab 2 using these selections
+    summary_data = filtered_global[
+        (filtered_global['Actor of repression'].isin(tab2_actor)) &
+        (filtered_global['Subject of repression'].isin(tab2_subject)) &
+        (filtered_global['Mechanism of repression'].isin(tab2_mechanism)) &
+        (filtered_global['Type of event'].isin(tab2_event_type))
+    ]
+    
+    # Render summary cards
+    render_summary_cards(summary_data)
+
     #st.header("📈 Positive Events Analysis")
     t1 = summary_data2.groupby("alert-country").size().reset_index(name="count")
     t2 = summary_data2.groupby("alert-type").size().reset_index(name="count")
