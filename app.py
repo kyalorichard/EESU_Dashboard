@@ -228,7 +228,7 @@ selected_months = multiselect_with_all("Select Month", month_options, default=mo
 year_options = sorted(data['year'].dropna().unique())
 
 # Create a multi-select dropdown for years
-selected_years = multiselect_with_all("Select Year", year_options, default=year_options  # default: all years selected)
+selected_years = multiselect_with_all("Select Year", year_options, default=year_options)
 
 # ---------------- FILTER DATA BASED ON MONTH AND YEAR ----------------
 # Apply month and year filters to the global filtered dataset
