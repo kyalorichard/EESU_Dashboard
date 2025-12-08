@@ -144,7 +144,7 @@ def load_data():
         # Optional: create a combined string for easier dropdown
         #df['year_month'] = df['creation_date'].dt.to_period('M').astype(str)
     else:
-        st.warning("No 'creation_date' column found in CSV.")
+        st.warning("No 'creation_date' column found in the dataset.")
 
     return df
     #return pd.read_csv(csv_file)
