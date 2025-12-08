@@ -486,7 +486,7 @@ with tab2:
     
     summary_data = get_summary_data(active_tab)
     summary_data = summary_data[summary_data['alert-impact'] == "Negative"] 
-    #render_summary_cards(summary_data)
+    render_summary_cards(summary_data)
     
     actor_type_options = sorted(filtered_global['Actor of repression'].dropna().unique())
     selected_actor_types = col1.multiselect_with_all("Select Alert Type", actor_type_options, "selected_actor_types")
