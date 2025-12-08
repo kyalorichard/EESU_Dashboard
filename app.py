@@ -506,21 +506,21 @@ with tab2:
     
     summary_data = get_summary_data(active_tab)
     #summary_data = summary_data[summary_data['alert-impact'] == "Negative"] 
-    render_summary_cards(summary_data)
+   # render_summary_cards(summary_data)
     with col1:
-        actor_type_options = sorted(filtered_global['Actor of repression'].dropna().unique())
+        actor_type_options = sorted(filtered_global['Actor of repression'].str.strip().dropna().unique())
         selected_actor_types = multiselect_with_all2("Select Alert Type", actor_type_options, "selected_actor_types")
         
     with col2:
-        subject_type_options = sorted(filtered_global['Subject of repression'].dropna().unique())
+        subject_type_options = sorted(filtered_global['Subject of repression'].str.strip().dropna().unique())
         selected_subject_types = multiselect_with_all2("Select Subject Type", subject_type_options, "selected_subject_types")
     
     with col3:
-        mechanism_type_options = sorted(filtered_global['Mechanism of repression'].dropna().unique())
+        mechanism_type_options = sorted(filtered_global['Mechanism of repression'].str.strip().dropna().unique())
         selected_mechanism_types = multiselect_with_all2("Select Mechanism Type", mechanism_type_options, "selected_mechanism_types")
     
     with col4:
-        event_type_options = sorted(filtered_global['Type of event'].dropna().unique())
+        event_type_options = sorted(filtered_global['Type of event'].str.strip().dropna().unique())
         selected_event_types = multiselect_with_all2("Select Event Type", event_type_options, "selected_event_types")
 
    
