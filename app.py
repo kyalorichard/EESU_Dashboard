@@ -491,7 +491,7 @@ with tab2:
     actor_type_options = sorted(filtered_global['Actor of repression'].dropna().unique())
     selected_actor_types = multiselect_with_all("Select Alert Type", actor_type_options, "selected_actor_types")
     
-    subject_type_options = sorted(filtered_global['['Subject of repression'].dropna().unique())
+    subject_type_options = sorted(filtered_global['Subject of repression'].dropna().unique())
     selected_subject_types = multiselect_with_all("Select Subject Type", subject_type_options, "selected_subject_types")
     
     subject_mechanism_options = sorted(filtered_global['Mechanism of repression'].dropna().unique())
