@@ -84,8 +84,9 @@ def load_data():
 data = load_data()
 
 # ---------------- HELPER FUNCTIONS ----------------
-def multiselect_with_all(label, options, session_key):
-    selected = st.sidebar.multiselect(
+def multiselect_with_all(label, options, session_key, sidebar=True):
+    container = st.sidebar if sidebar else st
+    selected = container.multiselect(
         label, options=["Select All"] + list(options),
         default=st.session_state.get(session_key, ["Select All"])
     )
@@ -124,11 +125,31 @@ def create_bar_chart(df, x, y, horizontal=False, height=350):
     fig.update_layout(height=height, margin=dict(l=20,r=20,t=20,b=20), xaxis_title=None, yaxis_title=None, uniformtext_minsize=12, uniformtext_mode='hide', bargap=0.2)
     return fig
 
+def create_h_stacked_bar(df, y, x, color_col, horizontal=False, height=350):
+    categories = sorted(df[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094']
+    fig = go.Figure()
+    for i, cat in enumerate(categories):
+        df_cat = df[df[color_col]==cat]
+        fig.add_trace(go.Bar(
+            x=df_cat[y] if not horizontal else df_cat[x],
+            y=df_cat[x] if not horizontal else df_cat[y],
+            name=cat,
+            orientation='h' if horizontal else 'v',
+            marker_color=color_sequence[i % len(color_sequence)],
+            text=df_cat[x] if not horizontal else df_cat[x],
+            textposition='inside',
+            insidetextanchor='end',
+            textfont=dict(color='black' if color_sequence[i]=='#FFDB58' else 'white', size=13, family="Arial Black"),
+            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+        ))
+    fig.update_layout(barmode='stack', height=height, margin=dict(l=120,r=20,t=20,b=20), xaxis_title=None, yaxis_title=None, uniformtext_minsize=12, uniformtext_mode='hide', bargap=0.2)
+    return fig
+
 # ---------------- SIDEBAR GLOBAL FILTERS ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
 st.sidebar.header("🌍 Global Filters")
 
-# Reset all filters function
 def reset_all_filters():
     keys = [
         "selected_continents", "selected_countries", "selected_alert_types",
@@ -141,12 +162,9 @@ def reset_all_filters():
 
 st.sidebar.button("🔄 Reset All Filters", on_click=reset_all_filters)
 
-# Global multiselect filters
+# ---------------- GLOBAL MULTISELECT FILTERS ----------------
 selected_continents = multiselect_with_all("Select Continent", sorted(data['continent'].dropna().unique()), "selected_continents")
-if "Select All" in selected_continents:
-    country_options = sorted(data['alert-country'].dropna().unique())
-else:
-    country_options = sorted(data[data['continent'].isin(selected_continents)]['alert-country'].dropna().unique())
+country_options = sorted(data['alert-country'].dropna().unique()) if "Select All" in selected_continents else sorted(data[data['continent'].isin(selected_continents)]['alert-country'].dropna().unique())
 selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
 selected_alert_types = multiselect_with_all("Select Alert Type", sorted(data['alert-type'].dropna().unique()), "selected_alert_types")
 enabling_principle_options = sorted(data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique())
@@ -170,38 +188,96 @@ filtered_global = data[
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
 
+# ---------- TAB 1 ----------
 with tab1:
     render_summary_cards(filtered_global)
     st.header("Distribution of Positive and Negative Events")
     df1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    st.plotly_chart(create_bar_chart(df1, x="alert-type", y="count", horizontal=True), use_container_width=True)
+    df2 = (filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle"))
+    df2["enabling-principle"] = df2["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x))
+    df2_group = df2.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+    df3 = filtered_global.groupby(["continent","alert-impact"]).size().reset_index(name='count')
+    df4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
+    
+    r1c1,r1c2 = st.columns(2,gap="large")
+    r2c1,r2c2 = st.columns(2,gap="large")
+    
+    r1c1.plotly_chart(create_h_stacked_bar(df1,"alert-type","count","alert-impact",horizontal=True), use_container_width=True)
+    r1c2.plotly_chart(create_h_stacked_bar(df2_group,"enabling-principle","count","alert-impact",horizontal=True), use_container_width=True)
+    r2c1.plotly_chart(create_h_stacked_bar(df3,"continent","count","alert-impact"), use_container_width=True)
+    r2c2.plotly_chart(create_h_stacked_bar(df4,"alert-country","count","alert-impact"), use_container_width=True)
 
+# ---------- TAB 2 ----------
 with tab2:
-    # Tab2 filters (actor, subject, mechanism, event)
-    actor_types = multiselect_with_all("Select Actor Type", sorted(filtered_global['Actor of repression'].dropna().unique()), "selected_actor_types")
-    subject_types = multiselect_with_all("Select Subject Type", sorted(filtered_global['Subject of repression'].dropna().unique()), "selected_subject_types")
-    mechanism_types = multiselect_with_all("Select Mechanism Type", sorted(filtered_global['Mechanism of repression'].dropna().unique()), "selected_mechanism_types")
-    event_types = multiselect_with_all("Select Event Type", sorted(filtered_global['Type of event'].dropna().unique()), "selected_event_types")
-
+    actor_types = multiselect_with_all("Select Actor Type", sorted(filtered_global['Actor of repression'].dropna().unique()), "selected_actor_types", sidebar=False)
+    subject_types = multiselect_with_all("Select Subject Type", sorted(filtered_global['Subject of repression'].dropna().unique()), "selected_subject_types", sidebar=False)
+    mechanism_types = multiselect_with_all("Select Mechanism Type", sorted(filtered_global['Mechanism of repression'].dropna().unique()), "selected_mechanism_types", sidebar=False)
+    event_types = multiselect_with_all("Select Event Type", sorted(filtered_global['Type of event'].dropna().unique()), "selected_event_types", sidebar=False)
+    
     tab2_data = filtered_global[
         (filtered_global['Actor of repression'].isin(actor_types)) &
         (filtered_global['Subject of repression'].isin(subject_types)) &
         (filtered_global['Mechanism of repression'].isin(mechanism_types)) &
         (filtered_global['Type of event'].isin(event_types)) &
-        (filtered_global['alert-impact'] == "Negative")
+        (filtered_global['alert-impact']=="Negative")
     ]
     render_summary_cards(tab2_data)
-    st.plotly_chart(create_bar_chart(tab2_data.groupby("Actor of repression").size().reset_index(name="count"), "Actor of repression", "count", horizontal=True), use_container_width=True)
+    
+    df2_clean = (tab2_data.assign(**{"enabling-principle": tab2_data["enabling-principle"].str.split(",")}).explode("enabling-principle"))
+    df2_clean["enabling-principle"] = df2_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x))
+    
+    t1 = tab2_data.groupby("Actor of repression").size().reset_index(name="count")
+    t2 = df2_clean.groupby("enabling-principle").size().reset_index(name="count")
+    t3 = tab2_data.groupby("continent").size().reset_index(name="count")
+    t4 = tab2_data.groupby("alert-country").size().reset_index(name="count")
+    t5 = tab2_data.groupby("alert-type").size().reset_index(name="count")
+    t6 = tab2_data.groupby("month_name").size().reset_index(name="count")
+    
+    r1c1,r1c2,r1c3= st.columns(3,gap="large")
+    r2c1,r2c2,r2c3 = st.columns(3,gap="large")
+    r3c1,r3c2 = st.columns(2,gap="large")
+    
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=True), use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(t2,"enabling-principle","count",horizontal=True), use_container_width=True)
+    r1c3.plotly_chart(create_bar_chart(t3,"continent","count"), use_container_width=True)
+    r2c1.plotly_chart(create_bar_chart(t4,"alert-country","count"), use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count"), use_container_width=True)
+    r2c3.plotly_chart(create_bar_chart(t6,"month_name","count"), use_container_width=True)
 
+# ---------- TAB 3 ----------
 with tab3:
     tab3_data = filtered_global[filtered_global['alert-impact']=="Positive"]
     render_summary_cards(tab3_data)
-    st.plotly_chart(create_bar_chart(tab3_data.groupby("alert-country").size().reset_index(name="count"), "alert-country", "count", horizontal=True), use_container_width=True)
+    b1 = tab3_data.groupby("alert-country").size().reset_index(name="count")
+    b2 = tab3_data.groupby("alert-type").size().reset_index(name="count")
+    b3 = tab3_data.groupby("alert-country").size().reset_index(name="count")
+    b4 = tab3_data.groupby("alert-country").size().reset_index(name="count")
+    
+    r1c1,r1c2= st.columns(2,gap="large")
+    r2c1,r2c2= st.columns(2,gap="large")
+    
+    r1c1.plotly_chart(create_bar_chart(b3,"alert-country","count",horizontal=True), use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(b4,"alert-country","count",horizontal=True), use_container_width=True)
+    r2c1.plotly_chart(create_bar_chart(b1,"alert-country","count"), use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(b2,"alert-type","count"), use_container_width=True)
 
+# ---------- TAB 4 ----------
 with tab4:
     render_summary_cards(filtered_global)
-    st.plotly_chart(create_bar_chart(filtered_global.groupby("alert-type").size().reset_index(name="count"), "alert-type", "count", horizontal=True), use_container_width=True)
+    d1 = filtered_global.groupby("alert-country").size().reset_index(name="count")
+    d2 = filtered_global.groupby("alert-type").size().reset_index(name="count")
+    d3 = filtered_global.groupby("alert-country").size().reset_index(name="count")
+    d4 = filtered_global.groupby("alert-country").size().reset_index(name="count")
+    
+    r1c1,r1c2 = st.columns(2,gap="large")
+    r2c1,r2c2 = st.columns(2,gap="large")
+    
+    r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True)
+    r2c1.plotly_chart(create_bar_chart(d3,"alert-country","count"), use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(d4,"alert-country","count"), use_container_width=True)
 
+# ---------- TAB 5 ----------
 with tab5:
     geojson_file = Path.cwd() / "data" / "countriess.geojson"
     if geojson_file.exists():
