@@ -483,7 +483,7 @@ with tab1:
     a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
     df_clean = (
         summary_data
-        .assign(**{"enabling-principle": filtered_tab1["enabling-principle"].astype(str).str.split(",")})
+        .assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")})
         .explode("enabling-principle")
     )
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
