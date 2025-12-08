@@ -1,292 +1,589 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import altair as alt
 import plotly.express as px
-import time as t
-# --------------------------
-# CUSTOM CSS: Sidebar / Menu Font Sizes
-# --------------------------
+import json
+from pathlib import Path  
+import plotly.graph_objects as go
+from streamlit_plotly_events import plotly_events
+
+st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+
+
+# ---------------- DASHBOARD TITLE ----------------
+st.markdown("""
+<h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px;'>
+    EU SEE Dashboard
+</h1>
+<p style='margin-top:0; color:gray; font-size:16px;'></p>
+""", unsafe_allow_html=True)
+
+st.markdown("<hr style='margin:5px 0'>", unsafe_allow_html=True)  # tight separator
+
+# ---------------- MULTI-SELECT CUSTOM CSS ----------------
 st.markdown("""
 <style>
-/* Sidebar title */
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3,
-[data-testid="stSidebar"] {
-    font-size: 30px !important;  /* adjust sidebar menu size */
+/* Change multi-select background and text */
+.css-1wa3eu0 .css-1d391kg {
+    background-color: #660094 !important;  /* selected options */
+    color: white !important;               /* selected text */
 }
 
-/* Selectbox & multiselect font size */
-.stSelectbox div[data-baseweb="select"],
-.stMultiSelect div[data-baseweb="select"] {
-    font-size: 18px !important;
+/* Placeholder text color */
+.css-1wa3eu0 input {
+    color: #660094 !important; 
 }
 
-/* Slider label font */
-.stSlider label {
-    font-size: 16px !important;
+/* Dropdown menu background */
+.css-1gtu0r7 {
+    background-color: #f2e6ff !important; 
+    color: #660094 !important;
 }
 
-/* Sidebar section header */
-.sidebar-header {
-    font-size: 30px !important;
+/* Hover effect on dropdown items */
+.css-1gtu0r7 div[role="option"]:hover {
+    background-color: #b266ff !important; 
+    color: white !important;
+}
+
+/* Remove default border highlight */
+.css-1wa3eu0 {
+    border-color: #660094 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------- LOAD MASTER COUNTRY ISO MAP -----------
+with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as f:
+    country_meta = json.load(f)
+
+# ---------- ✅ Load Countries GeoJSON safely ----------
+geojson_file = Path.cwd() / "data" / "countriess.geojson"
+
+if not geojson_file.exists():
+    st.error("❌ countries.geojson file missing inside /data folder")
+    countries_gj = None
+else:
+    try:
+        with open(geojson_file) as f:
+            countries_gj = json.load(f)
+    except json.JSONDecodeError:
+        st.error("❌ Invalid countries.geojson format")
+        countries_gj = None
+# ---------------- S3 CONFIGURATION ----------------
+S3_BUCKET = st.secrets.get("S3_BUCKET_NAME", "staging-wordpress-dashboard-full-data")
+S3_PREFIX = st.secrets.get("S3_PREFIX", "wp_incremental_csv")
+REFRESH_INTERVAL_MINUTES = 5  # auto-refresh every 5 minutes
+
+s3 = boto3.client("s3")
+
+# ---------------- LOAD DATA ----------------
+@st.cache_data(ttl=0)  # refresh cache every hour
+def load_data():
+    """Fetch all incremental CSVs from S3 and combine into a single DataFrame."""
+    objects = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=S3_PREFIX)
+    dfs = []
+    for obj in objects.get("Contents", []):
+        if obj["Key"].endswith(".csv"):
+            csv_obj = s3.get_object(Bucket=S3_BUCKET, Key=obj["Key"])
+            df = pd.read_csv(io.BytesIO(csv_obj["Body"].read()))
+            dfs.append(df)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+    else:
+        df = pd.DataFrame()
+    
+    # Clean country names
+    df['alert-country'] = df['alert-country'].astype(str).str.strip()
+    # Remove unwanted placeholder countries
+    df = df[df['alert-country'] != "Jose"]
+    
+    # Filter out rows with blank or missing alert-impact
+    df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
+
+    if 'alert-country' not in df.columns:
+        st.warning("No 'alert-country' column found in CSV.")
+        return df
+
+    # Clean country names
+    df['alert-country'] = df['alert-country'].astype(str).str.strip()
+
+    # ---- LOAD COUNTRIES METADATA JSON ----
+    json_file = Path.cwd() / "data" / "countries_metadata.json"
+    if not json_file.exists():
+        st.error(f"Countries metadata JSON not found: {json_file}")
+        return df
+
+    with open(json_file, encoding="utf-8") as f:
+        country_meta = json.load(f)
+
+    # Map ISO3
+    def get_iso3(country_name):
+        return country_meta.get(country_name, {}).get("iso_alpha3", None)
+
+    # Map continent
+    def get_continent(country_name):
+        return country_meta.get(country_name, {}).get("continent", "Unknown")
+
+    df['iso_alpha3'] = df['alert-country'].apply(get_iso3)
+    df['continent'] = df['alert-country'].apply(get_continent)
+
+    # List missing countries once
+    missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
+    if len(missing_countries) > 0:
+        st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
+
+    return df
+    #return pd.read_csv(csv_file)
+
+data = load_data()
+
+# ---------------- SESSION STATE AUTO-REFRESH ----------------
+if "last_refresh" not in st.session_state:
+    st.session_state.last_refresh = datetime.now() - timedelta(minutes=REFRESH_INTERVAL_MINUTES)
+
+def should_refresh():
+    return datetime.now() - st.session_state.last_refresh > timedelta(minutes=REFRESH_INTERVAL_MINUTES)
+
+if "data" not in st.session_state or should_refresh():
+    st.session_state.data = load_data_from_s3()
+    st.session_state.last_refresh = datetime.now()
+
+data = st.session_state.data
+
+# ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
+st.markdown("""
+<style>
+    /* Remove Streamlit's default top padding */
+    .css-18e3th9 {padding-top: 0rem;}
+    /* Optional: reduce spacing around main container */
+    .css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------------- GLOBAL SIDEBAR FILTERS ----------------
+st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)  # top of sidebar
+
+st.sidebar.header("🌍 Global Filters")
+# ---------------- SESSION STATE FILTERS ----------------
+def initialize_session_state(key, default):
+    if key not in st.session_state:
+        st.session_state[key] = default
+    return st.session_state[key]
+
+# Multi-select with "Select All" functionality
+def multiselect_with_all(label, options, key):
+    selected = st.sidebar.multiselect(
+        label,
+        options=["Select All"] + list(options),
+        default=st.session_state.get(key, ["Select All"])
+    )
+    if "Select All" in selected:
+        st.session_state[key] = ["Select All"]
+        return list(options)
+    else:
+        st.session_state[key] = selected
+        return selected
+        
+# ---------------- FILTER DATA BASED ON SELECTION (CONTAINS) --------------
+def contains_any(cell_value, selected_values):
+    if pd.isna(cell_value):
+        return False
+    cell_value = str(cell_value)
+    return any(sel in cell_value for sel in selected_values)
+        
+# ---------------- CONTINENT AND COUNTRY FILTER ----------------
+  
+# Get unique continents
+continent_options = sorted(data['continent'].dropna().unique())
+selected_continents = multiselect_with_all("Select Continent", continent_options, "selected_continents")
+
+# Filter countries based on selected continent(s)
+if "Select All" in selected_continents:
+    country_options = sorted(data['alert-country'].dropna().unique())
+else:
+    country_options = sorted(
+        data[data['continent'].isin(selected_continents)]['alert-country'].dropna().unique()
+    )
+
+# Country selection
+selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
+
+# ---------------- ALERT TYPE FILTER ----------------
+alert_type_options = sorted(data['alert-type'].dropna().unique())
+selected_alert_types = multiselect_with_all("Select Alert Type", alert_type_options, "selected_alert_types")
+
+# ---------------- ENABLING PRINCIPLES FILTER ----------------
+enabling_principle_options = sorted(data['enabling-principle'].dropna()
+                            .str.split(",")
+                            .explode()
+                            .str.strip()
+                            .unique()
+                            .tolist())
+selected_enablinge_principle = multiselect_with_all("Select Enabling Principle", enabling_principle_options, "selected_enablinge_principle")
+
+# ---------------- ALERT IMPACT FILTER ----------------
+alert_impact_options = sorted(data['alert-impact'].dropna().unique())
+selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
+
+# Reset Filters button
+if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_triggered:
+    st.session_state["selected_continents"] = ["Select All"]
+    st.session_state["selected_countries"] = ["Select All"]
+    st.session_state["selected_alert_types"] = ["Select All"]
+    st.session_state["selected_enablinge_principle"] = ["Select All"]
+    st.session_state["selected_alert_impacts"] = ["Select All"]
+    
+    # Mark that reset was triggered to avoid multiple reruns
+    #st.session_state.reset_triggered = True
+    #st.experimental_rerun()
+
+# Clear the flag after rerun so the button works again
+st.session_state.reset_triggered = False
+
+
+# After rerun, clear the flag so next user click works
+st.session_state.reset_triggered = False
+
+
+# ---------------- FILTER DATA BASED ON SELECTION ----------------
+filtered_global = data[
+    (data['alert-country'].isin(selected_countries)) &
+    (data['alert-type'].isin(selected_alert_types)) &
+    (data['enabling-principle'].apply( lambda x: contains_any(x, selected_enablinge_principle))) &
+    (data['alert-impact'].isin(selected_alert_impacts))
+    ]
+
+# ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
+st.markdown("""
+<style>
+.summary-card {
+   background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
+    color: white;
+    padding: 5px;
+    border-radius: 12px;
+    text-align: center;
+    margin: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.summary-card h2 {
+    font-size: 22px;
+    margin: 5px 0;
+}
+.summary-card p {
+    font-size: 12px;
+    margin: 0;
+    opacity: 0.9;
+}
+.summary-icon {
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+/* Increase tabs name font size */
+.stTabs [role="tab"] button {
+    font-size: 20px;
     font-weight: bold;
 }
-
-/* Top toolbar menu */
-header div[data-testid="stToolbar"] {
-    font-size: 30px !important;
+footer {
+    visibility: hidden;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --------------------------
-# Remove Streamlit padding/margin for full width
-# --------------------------
-st.markdown("""
-<style>
-.block-container {
-    padding-left: 20px;
-    padding-right: 20px;
-    max-width: 100%;
-}
-</style>
-""", unsafe_allow_html=True)
+# ---------------- FUNCTION TO RENDER SUMMARY CARDS ----------------
+def render_summary_cards(data):
+    total_value = data["alert-country"].count()
+    neg_alerts = filtered_global[filtered_global["alert-impact"] == "Negative"]["alert-impact"].count()
+    pos_alerts = filtered_global[filtered_global["alert-impact"] == "Positive"]["alert-impact"].count()
+    max_value = data["alert-impact"].count()
+    min_value = data["alert-country"].count()
 
-#------------------------------
-# Remove Streamlit padding/margin for full width
-# --------------------------
-st.markdown("""
-<style>
-    .block-container {
-        padding-left: 20px;
-        padding-right: 20px;
-        max-width: 100%;
-    }
-    .stColumn > div {
-        padding-left: 0rem;
-        padding-right: 0rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --------------------------
-# Sample Data
-# --------------------------
-np.random.seed(42)
-dates = pd.date_range("2025-01-01", periods=10)
-categories = ["A", "B", "C"]
-tags = ["X", "Y", "Z"]
-countries = ["Kenya", "Ethiopia", "Uganda", "Tanzania"]
-
-def create_df():
-    return pd.DataFrame({
-        "Date": np.random.choice(dates, 10),
-        "Category": np.random.choice(categories, 10),
-        "Tag": np.random.choice(tags, 10),
-        "Country": np.random.choice(countries, 10),
-        "Value1": np.random.randint(0, 100, 10),
-        "Value2": np.random.randint(0, 100, 10)
-    })
-
-df1 = create_df()
-df2 = create_df()
-df3 = create_df()
-df_map = pd.concat([df1, df2, df3])
-df_line = create_df()  # for line charts
-
-# --------------------------
-# Session State
-# --------------------------
-if "selected_country" not in st.session_state:
-    st.session_state.selected_country = "All"
-
-# --------------------------
-# Sidebar Filters
-# --------------------------
-st.sidebar.header("Global Filters")
-selected_category = st.sidebar.selectbox("Category", ["All"] + categories)
-selected_tags = st.sidebar.multiselect("Tags", tags, default=tags)
-start_date, end_date = st.sidebar.date_input("Date Range", [df_map['Date'].min(), df_map['Date'].max()])
-min_value, max_value = st.sidebar.slider("Value1 Range", 0, 100, (0,100))
-if st.sidebar.button("Reset Filters"):
-    st.session_state.selected_country = "All"
-# --------------------------
-# Filter Function
-# --------------------------
-def filter_data(df, country_filter):
-    df_filtered = df.copy()
-    if selected_category != "All":
-        df_filtered = df_filtered[df_filtered["Category"]==selected_category]
-    df_filtered = df_filtered[df_filtered["Tag"].isin(selected_tags)]
-    df_filtered = df_filtered[(df_filtered["Date"] >= pd.to_datetime(start_date)) & (df_filtered["Date"] <= pd.to_datetime(end_date))]
-    df_filtered = df_filtered[(df_filtered["Value1"] >= min_value) & (df_filtered["Value1"] <= max_value)]
-    if country_filter != "All":
-        df_filtered = df_filtered[df_filtered["Country"]==country_filter]
-    return df_filtered
-
-df1_f = filter_data(df1, st.session_state.selected_country)
-df2_f = filter_data(df2, st.session_state.selected_country)
-df3_f = filter_data(df3, st.session_state.selected_country)
-df_line_f = filter_data(df_line, st.session_state.selected_country)
-df_map_f = filter_data(df_map, st.session_state.selected_country)
-
-# --------------------------
-# Top Summary: Single card with all metrics horizontally
-# --------------------------
-
-summary_values = [
-    ("Total Value1", df1_f['Value1'].sum(), "📊"),
-    ("Avg Value1", df1_f['Value1'].mean(), "📈"),
-    ("Total Value2", df2_f['Value2'].sum(), "💰"),
-    ("Avg Value2", df2_f['Value2'].mean(), "📉"),
-    ("Count Records", len(df_map_f), "🧾")
-]
-
-
-# CSS for top summary row
-st.markdown("""
-<style>
-.summary-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    width: 300px;
-    margin-bottom: 20px;
-}
-.metric-card {
-    flex: 1;
-    height: 150px;
-    border-radius: 20px;
-    background: linear-gradient(145deg, #d0e7ff, #a0d4ff);
-    box-shadow: 6px 6px 12px #c8d0e7, -6px -6px 12px #ffffff;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: transform 0.2s;
-    text-align: center;
-}
-.metric-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 8px 8px 16px #b0b8d0, -8px -8px 16px #ffffff;
-}
-.metric-icon { font-size: 26px; margin-bottom: 6px; }
-.metric-label { font-size: 16px; color: #333; margin-bottom: 4px; }
-.metric-number { font-size: 28px; font-weight: bold; }
-</style>
-""", unsafe_allow_html=True)
-
-# Render cards
-st.markdown('<div class="summary-row">', unsafe_allow_html=True)
-
-# Use placeholders to animate numbers without blocking the UI
-placeholders = [st.empty() for _ in summary_values]
-
-# Animate numbers (non-blocking)
-for step in np.linspace(0, 1, 20):
-    for idx, (label, val, icon) in enumerate(summary_values):
-        current_val = val * step
-        placeholders[idx].markdown(f"""
-        <div class="metric-card">
-            <div class="metric-icon">{icon}</div>
-            <div class="metric-label">{label}</div>
-            <div class="metric-number">{current_val:,.2f}</div>
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(f'''
+        <div class="summary-card">
+            <p>Total Value</p>
+            <h1>{total_value}</h1>
+            
         </div>
-        """, unsafe_allow_html=True)
-    t.sleep(0.03)
+        ''', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'''
+        <div class="summary-card")">
+             <p>Negative Alerts</p>
+             <h1>{neg_alerts}</h1>
+            
+        </div>
+        ''', unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'''
+        <div class="summary-card")">
+            <p>Positive Alerts</p>
+            <h1>{pos_alerts}</h1>
+            
+        </div>
+        ''', unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
+    with col4:
+       st.markdown(f'''
+        <div class="summary-card")">
+            <p>Max Value</p>
+            <h1>{max_value}</h1>
+            
+        </div>
+        ''', unsafe_allow_html=True)
+   
+# ---------------- FUNCTION TO CREATE PLOTLY BAR CHART ----------------
+def create_bar_chart(data, x, y, horizontal=False, height=350):
+    fig = px.bar(
+        data,
+        x=x if not horizontal else y,
+        y=y if not horizontal else x,
+        orientation='h' if horizontal else 'v',
+        color_discrete_sequence=['#660094'],
+        text=y
+    )
+    #fig.update_traces(textposition='outside')
+     # Show labels inside the bars
+    fig.update_traces(
+        textposition='inside',
+        insidetextanchor='end', # anchor at the end (top of bar segment)
+        textfont=dict(size=13, color='white', family="Arial Black")  # bold & readable
+    )
+    # Bold axis line
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+    fig.update_layout(
+        #plot_bgcolor='white',
+        #paper_bgcolor='lightgray',
+        height=height,
+        margin=dict(l=20, r=20, t=20, b=20),
+        xaxis_title=None,
+        yaxis_title=None,
+        uniformtext_minsize=12,
+        uniformtext_mode='hide',
+        bargap=0.2,
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    return fig
 
-# --------------------------
-# Bar Plot Function with 3D/light background
-# --------------------------
-def create_bar_plot(df, title):
-    if df.empty:
-        st.warning(f"No data for {title}")
-        return
-    # Wrap chart in a div with rounded corners
-    st.markdown("<div style='border-radius:30px; overflow:hidden; padding:20px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
-    chart = alt.Chart(df).mark_bar().encode(
-        x='Date:T',
-        y='Value1:Q',
-        color='Category:N',
-        tooltip=['Date','Category','Tag','Country','Value1','Value2']
-    ).properties(
-        height=600,
-        background='#f0f0f3'
-    ).configure_axis(
-        grid=True,
-        gridColor='#dcdcdc'
-    ).interactive()
-    st.altair_chart(chart, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-# --------------------------
+# ---------------- FUNCTION TO CREATE HORIZONTAL STACKED BAR CHART WITH TOTALS ----------------
+def create_h_stacked_bar(data, y, x, color_col, horizontal=False, height=350):
+        # Prepare the stacked bar
+    categories = sorted(data[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094']  # Map to categories
 
-# Line Chart Function with 3D/light background
-# --------------------------
-def create_line_chart(df, title):
-    if df.empty:
-        st.warning("No data")
-        return
-    st.markdown("<div style='border-radius:30px; overflow:hidden; padding:20px; background-color:#f0f0f3;'>", unsafe_allow_html=True)
-    chart = alt.Chart(df).mark_line(point=True).encode(
-        x="Date:T",
-        y="Value1:Q",
-        color="Category:N",
-        tooltip=['Date','Category','Value1']
-    ).properties(
-        height=400,
-        background='#f0f0f3'
-    ).configure_axis(
-        grid=True,
-        gridColor='#dcdcdc'
-    ).interactive()
-    st.altair_chart(chart, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    fig = go.Figure()
 
-# --------------------------
-# Three Bar Plots
-# --------------------------
-st.subheader("Bar Plots")
-plots = [("Plot 1", df1_f), ("Plot 2", df2_f), ("Plot 3", df3_f)]
-with st.container():
-    cols = st.columns(len(plots), gap="small")
-    for idx, (title, df_tab) in enumerate(plots):
-        with cols[idx]:
-            st.subheader(title)
-            create_bar_plot(df_tab, title)
+    for i, cat in enumerate(categories):
+        df_cat = data[data[color_col] == cat]
+        fig.add_trace(go.Bar(
+            x=df_cat[y] if not horizontal else df_cat[x],
+            y=df_cat[x] if not horizontal else df_cat[y],
+            #y=df_cat[y],
+            #x=df_cat[x],
+            name=cat,
+            orientation='h' if horizontal else 'v',
+            marker_color=color_sequence[i % len(color_sequence)],
+            text=df_cat[x] if not horizontal else df_cat[x],
+            textposition='inside',
+            insidetextanchor='end', # anchor at the end (top of bar segment)
+            textfont=dict(color='black' if color_sequence[i] == '#FFDB58' else 'white', size=13, family="Arial Black"),
+            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+        ))
+        # Bold axis line
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+    fig.update_layout(
+        barmode='stack',
+        #plot_bgcolor='white',
+        #paper_bgcolor='white',
+        height=height,
+        xaxis=dict(tickangle=90, automargin=True ),
+        yaxis=dict(automargin=True ),
+        margin=dict(l=120, r=20, t=20, b=20),
+        xaxis_title=None,
+        yaxis_title=None,
+        uniformtext_minsize=12,
+        uniformtext_mode='hide',
+        bargap=0.2,
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(showgrid=False)
 
-# --------------------------
-# Map + Line Chart on the same row (only countries with data)
-# --------------------------
-st.subheader("Map & Line Chart")
-with st.container():
-    col_map, col_line = st.columns([1,1], gap="medium")  # equal width
+    return fig
+# ---------------- FUNCTION TO SHORTEN LONG SENTENCES ----------------
+def wrap_label_by_words(label, words_per_line=4):
+    words = label.split()
+    lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+    return "<br>".join(lines)
 
-    # Map
-    with col_map:
-        agg_df = df_map_f.groupby("Country").agg({"Value1":"sum","Value2":"sum"}).reset_index()
-        # Only keep countries with data
-        agg_df = agg_df[(agg_df["Value1"] > 0) | (agg_df["Value2"] > 0)]
-        agg_df["iso_alpha"] = agg_df["Country"].map({"Kenya":"KEN","Ethiopia":"ETH","Uganda":"UGA","Tanzania":"TZA"})
+# ---------------- FUNCTION TO GET DATA FOR SUMMARY CARDS ----------------
+def get_summary_data(active_tab, tab2_country=[], tab2_alert_type=[], tab2_alert_impact=[]):
+    data = filtered_global.copy()
+    if active_tab == "Tab 2":
+        data = data[
+            (data["alert-country"].isin(tab2_country)) &
+            (data["alert-type"].isin(tab2_alert_type)) &
+            (data["alert-impact"].isin(tab2_alert_impact))
+        ]
+    return data
 
-        fig_map = px.choropleth(
-            agg_df,
-            locations="iso_alpha",
-            color="Value1",
-            hover_name="Country",
-            hover_data={"Value1":True,"Value2":True,"iso_alpha":False},
-            color_continuous_scale="Viridis",
-            scope="africa"
-        )
-        fig_map.update_layout(
-            paper_bgcolor='#f0f0f3',
-            plot_bgcolor='#f0f0f3'
-        )
-        st.plotly_chart(fig_map, use_container_width=True)
+# ---------------- TABS ----------------
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Negative Events", "Positive Events", "Others", "Visualization map"])
 
-    # Line Chart
-    with col_line:
-        create_line_chart(df_line_f, "Line Chart")
+# ---------------- TAB 1 ----------------
+with tab1:
+    active_tab = "Tab 1"
+    summary_data = get_summary_data(active_tab)
+    render_summary_cards(summary_data)
+
+    st.header("Distribution of Positive and Negative Events")
+    #a1 = summary_data.groupby("alert-impact").size().reset_index(name="count")
+    a1 = summary_data.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
+    df_clean = (summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].astype(str).str.split(",")}).explode("enabling-principle"))
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
+
+    a2 = df_clean.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count')
+    a3 = summary_data.groupby(["continent", "alert-impact"]).size().reset_index(name='count')
+    a4 = summary_data.groupby(["alert-country", "alert-impact"]).size().reset_index(name='count')
+   
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+
+    #with r1c1: st.plotly_chart(create_bar_chart(a1, x="alert-impact", y="count", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c1: st.plotly_chart(create_h_stacked_bar( a1, y="alert-type", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart1")
+    with r1c2: st.plotly_chart(create_h_stacked_bar( a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart2")
+    with r2c1: st.plotly_chart(create_h_stacked_bar( a3, y="continent", x="count", color_col="alert-impact", horizontal=False), use_container_width=True, key="tab1_chart3")
+    with r2c2: st.plotly_chart(create_h_stacked_bar( a4, y="alert-country", x="count", color_col="alert-impact", horizontal=True), use_container_width=True, key="tab1_chart4")
+
+# ---------------- TAB 2 ----------------
+with tab2:
+    active_tab = "Tab 2"
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        tab2_country_filter = st.multiselect("alert-country", data["alert-country"].unique(),
+                                              default=data["alert-country"].unique())
+    with col2:
+        tab2_type_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
+                                            default=data["alert-type"].unique())
+    with col3:
+        tab2_impact_filter = st.multiselect("alert-type (Tab 2)", data["alert-impact"].unique(),
+                                             default=data["alert-impact"].unique())
+
+    summary_data = get_summary_data(active_tab, tab2_country_filter, tab2_type_filter, tab2_impact_filter)
+    render_summary_cards(summary_data)
+    
+    # Example: filter by 'alert_country' before counting
+    filtered_summary2 = summary_data[summary_data['alert-impact'] == "Negative"]  
+
+    #st.header("📊 Negative Events Analysis")
+    v1 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
+    v2 = filtered_summary2.groupby("alert-type").size().reset_index(name="count")
+    v3 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
+    v4 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
+
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(v1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(v2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(v3, x="alert-country", y="count"), use_container_width=True, key="tab2_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(v4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
+
+# ---------------- TAB 3 ----------------
+with tab3:
+    active_tab = "Tab 3"
+    summary_data = get_summary_data(active_tab)
+    render_summary_cards(summary_data)
+
+    #st.header("📈 Positive Events Analysis")
+    b1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    b2 = summary_data.groupby("alert-type").size().reset_index(name="count")
+    b3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    b4 = summary_data.groupby("alert-country").size().reset_index(name="count")
+
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(b3, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab3_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(b4, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab3_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(b1, x="alert-country", y="count"), use_container_width=True, key="tab3_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(b2, x="alert-type", y="count"), use_container_width=True, key="tab3_chart4")
+
+# ---------------- TAB 4 ----------------
+with tab4:
+    active_tab = "Tab 4"
+    summary_data = get_summary_data(active_tab)
+    render_summary_cards(summary_data)
+
+    #st.header("📌 Others Analysis")
+    d1 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    d2 = summary_data.groupby("alert-type").size().reset_index(name="count")
+    d3 = summary_data.groupby("alert-country").size().reset_index(name="count")
+    d4 = summary_data.groupby("alert-country").size().reset_index(name="count")
+
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+    with r1c1: st.plotly_chart(create_bar_chart(d1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab4_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(d2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab4_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(d3, x="alert-country", y="count"), use_container_width=True, key="tab4_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(d4, x="alert-country", y="count"), use_container_width=True, key="tab4_chart4")
+
+# ---------------- TAB 5 ----------------
+with tab5:
+    active_tab = "Tab 5"
+    summary_data = get_summary_data(active_tab)
+    render_summary_cards(summary_data)
+    
+    df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
+    # Only include countries that exist in the GeoJSON
+    geo_countries = [feature['properties']['name'] for feature in countries_gj['features']]
+    df_map = df_map[df_map['alert-country'].isin(geo_countries)]
+    
+       
+    fig = px.choropleth_mapbox(
+        df_map,
+        geojson=countries_gj,
+        locations="alert-country",                 # column in df_map
+        featureidkey="properties.name",      # match your geojson property
+        color="count",
+        hover_name="alert-country",
+        hover_data={"count": True,
+                    "alert-country": False,},
+        labels={
+        "count": "Number of Alerts",
+        },
+        color_continuous_scale="Greens",
+        mapbox_style="open-street-map",
+        zoom=1,
+        center={"lat": 10, "lon": 0},
+        opacity=0.6
+    )
+    fig.update_layout(
+        margin={"r":0,"t":1,"l":0,"b":0},
+        height=500
+    )
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    
+# ---------------- FOOTER ----------------
+st.markdown("""
+<hr>
+<div style='text-align: center; color: gray;'>
+    © 2025 EU SEE Dashboard. All rights reserved.
+</div>
+""", unsafe_allow_html=True)
