@@ -53,6 +53,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+# ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
+st.markdown("""
+<style>
+    /* Remove Streamlit's default top padding */
+    .css-18e3th9 {padding-top: 0rem;}
+    /* Optional: reduce spacing around main container */
+    .css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
+</style>
+""", unsafe_allow_html=True)
+
+
 # ----------- LOAD MASTER COUNTRY ISO MAP -----------
 with open(Path.cwd() / "data" / "countries_metadata.json", encoding="utf-8") as f:
     country_meta = json.load(f)
@@ -121,20 +133,22 @@ def load_data():
     if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
+     # ---------------- EXTRACT MONTH AND YEAR ----------------
+    if 'creation_date' in df.columns:
+        # Convert to datetime
+        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
+        # Extract year and month
+        df['year'] = df['creation_date'].dt.year
+        df['month'] = df['creation_date'].dt.month
+        # Optional: create a combined string for easier dropdown
+        df['year_month'] = df['creation_date'].dt.to_period('M').astype(str)
+    else:
+        st.warning("No 'creation_date' column found in CSV.")
+
     return df
     #return pd.read_csv(csv_file)
 
 data = load_data()
-
-# ---------------- REMOVE STREAMLIT DEFAULT TOP SPACING ----------------
-st.markdown("""
-<style>
-    /* Remove Streamlit's default top padding */
-    .css-18e3th9 {padding-top: 0rem;}
-    /* Optional: reduce spacing around main container */
-    .css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
-</style>
-""", unsafe_allow_html=True)
 
 
 # ---------------- GLOBAL SIDEBAR FILTERS ----------------
@@ -202,6 +216,27 @@ selected_enablinge_principle = multiselect_with_all("Select Enabling Principle",
 alert_impact_options = sorted(data['alert-impact'].dropna().unique())
 selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
 
+# ---------------- MONTH FILTER ----------------
+# Get unique months in chronological order
+month_options = sorted(data['month'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
+
+# Create a multi-select dropdown for months
+selected_months = multiselect_with_all("Select Month",month_options,default=month_options  # default: all months selected )
+
+# ---------------- YEAR FILTER ----------------
+# Get unique years in ascending order
+year_options = sorted(data['year'].dropna().unique())
+
+# Create a multi-select dropdown for years
+selected_years = multiselect_with_all("Select Year", year_options, default=year_options  # default: all years selected)
+
+# ---------------- FILTER DATA BASED ON MONTH AND YEAR ----------------
+# Apply month and year filters to the global filtered dataset
+filtered_global = filtered_global[
+    filtered_global['month'].isin(selected_months) &
+    filtered_global['year'].isin(selected_years)
+]
+
 # Reset Filters button
 if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_triggered:
     st.session_state["selected_continents"] = ["Select All"]
@@ -209,6 +244,8 @@ if st.sidebar.button("🔄 Reset Filters") and not st.session_state.reset_trigge
     st.session_state["selected_alert_types"] = ["Select All"]
     st.session_state["selected_enablinge_principle"] = ["Select All"]
     st.session_state["selected_alert_impacts"] = ["Select All"]
+    st.session_state["selected_months"] = ["Select All"]
+    st.session_state["selected_years"] = ["Select All"]
     
     # Mark that reset was triggered to avoid multiple reruns
     #st.session_state.reset_triggered = True
@@ -227,7 +264,9 @@ filtered_global = data[
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
     (data['enabling-principle'].apply( lambda x: contains_any(x, selected_enablinge_principle))) &
-    (data['alert-impact'].isin(selected_alert_impacts))
+    (data['alert-impact'].isin(selected_alert_impacts)) &
+    (data['month'].isin(selected_months)) &
+    (data['year'].isin(selected_years))
     ]
 
 # ---------------- CSS FOR SUMMARY CARDS & TABS ----------------
