@@ -260,12 +260,16 @@ with tab2:
     t2 = summary_data.groupby("Subject of repression").size().reset_index(name="count")
     t3 = summary_data.groupby("Mechanism of repression").size().reset_index(name="count")
     t4 = summary_data.groupby("Type of event").size().reset_index(name="count")
+    t5 = summary_data.groupby("alert-typ3").size().reset_index(name="count")
+    t6 = summary_data.groupby("enabling-principle").size().reset_index(name="count")
 
     r1c1,r1c2,r1c3=st.columns(3); r2c1,r2c2,r2c3=st.columns(3)
     r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=True),use_container_width=True)
     r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=True),use_container_width=True)
     r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=True),use_container_width=True)
     r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True),use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alerty-type","count",horizontal=False),use_container_width=True)
+    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True)
 
 # ---------------- TAB 3 ----------------
 with tab3:
