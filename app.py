@@ -485,7 +485,7 @@ with tab2:
     col1, col2, col3, col4 = st.columns(4)
     
     summary_data = get_summary_data(active_tab)
-    summary_data = summary_data[summary_data['alert-impact'] == "Negative"] 
+    #summary_data = summary_data[summary_data['alert-impact'] == "Negative"] 
     render_summary_cards(summary_data)
     
     actor_type_options = sorted(filtered_global['Actor of repression'].dropna().unique())
