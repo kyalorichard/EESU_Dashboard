@@ -482,18 +482,22 @@ with tab1:
 # ---------------- TAB 2 ----------------
 with tab2:
     active_tab = "Tab 2"
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(3)
     with col1:
-        tab2_country_filter = st.multiselect("alert-country", data["alert-country"].unique(),
-                                              default=data["alert-country"].unique())
+        tab2_actor_filter = st.multiselect("Actor of repression", data["Actor of repression"].unique(),
+                                              default=data["Actor of repression"].unique())
     with col2:
-        tab2_type_filter = st.multiselect("alert-type (Tab 2)", data["alert-type"].unique(),
-                                            default=data["alert-type"].unique())
+        tab2_subject_filter = st.multiselect("subject (Tab 2)", data["Subject of repression"].unique(),
+                                            default=data["Subject of repression"].unique())
     with col3:
-        tab2_impact_filter = st.multiselect("alert-type (Tab 2)", data["alert-impact"].unique(),
-                                             default=data["alert-impact"].unique())
+        tab2_mechanism_filter = st.multiselect("actor (Tab 2)", data["Mechanism of repression"].unique(),
+                                             default=data["Mechanism of repression"].unique())
+     with col4:
+        tab2_type_filter = st.multiselect("type (Tab 2)", data["Type of event"].unique(),
+                                             default=data["Type of event"].unique())
 
-    summary_data = get_summary_data(active_tab, tab2_country_filter, tab2_type_filter, tab2_impact_filter)
+
+    summary_data = get_summary_data(active_tab, tab2_cactor_filter, tab2_subject_filter, tab2_type_filter)
     render_summary_cards(summary_data)
     
     # Example: filter by 'alert_country' before counting
