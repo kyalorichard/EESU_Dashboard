@@ -483,6 +483,13 @@ with tab1:
 with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
+
+    # Filter for negative alerts only on first load
+    if "tab2_filtered_data" not in st.session_state:
+        st.session_state.tab2_filtered_data =   filtered_global[
+              filtered_global['alert-impact'] == "Negative"
+        ]
+
     
     summary_data = get_summary_data(active_tab)
     #summary_data = summary_data[summary_data['alert-impact'] == "Negative"] 
