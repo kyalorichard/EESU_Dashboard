@@ -483,25 +483,30 @@ with tab1:
 with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
+    
+     # Example: filter by 'alert_country' before counting
+    filtered_summary2 = data[data['alert-impact'] == "Negative"]  
+
+
+    
     with col1:
-        tab2_actor_filter = st.multiselect("Actor of repression", data["Actor of repression"].unique(),
-                                              default=data["Actor of repression"].unique())
+        tab2_actor_filter = st.multiselect("Actor of repression",  filtered_summary2["Actor of repression"].unique(),
+                                              default= filtered_summary2["Actor of repression"].unique())
     with col2:
-        tab2_subject_filter = st.multiselect("subject (Tab 2)", data["Subject of repression"].unique(),
-                                            default=data["Subject of repression"].unique())
+        tab2_subject_filter = st.multiselect("Subject of repression", data["Subject of repression"].unique(),
+                                            default= filtered_summary2["Subject of repression"].unique())
     with col3:
-        tab2_mechanism_filter = st.multiselect("actor (Tab 2)", data["Mechanism of repression"].unique(),
+        tab2_mechanism_filter = st.multiselect("actor of repression",  filtered_summary2["Mechanism of repression"].unique(),
                                              default=data["Mechanism of repression"].unique())
     with col4:
-        tab2_type_filter = st.multiselect("type (Tab 2)", data["Type of event"].unique(),
-                                          default=data["Type of event"].unique())
+        tab2_type_filter = st.multiselect("Type of repression)",  filtered_summary2["Type of event"].unique(),
+                                          default= filtered_summary2["Type of event"].unique())
 
 
-    summary_data = get_summary_data(active_tab, tab2_subject_filter, tab2_mechanism_filter, tab2_type_filter)
-    render_summary_cards(summary_data)
+    filtered_summary2 = get_summary_data(active_tab, tab2_subject_filter, tab2_mechanism_filter, tab2_type_filter)
+    render_summary_cards(filtered_summary2)
     
-    # Example: filter by 'alert_country' before counting
-    filtered_summary2 = summary_data[summary_data['alert-impact'] == "Negative"]  
+   
 
     #st.header("📊 Negative Events Analysis")
     v1 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
