@@ -1,50 +1,63 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Full automated WordPress -> S3 -> Lambda -> Streamlit stack with monitoring
+Description: Full automated WordPress -> S3 -> Lambda -> Streamlit stack supporting staging & production
 
 Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - staging
+      - production
+    Description: "Environment name"
+
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: Name of EC2 KeyPair for SSH access
+    Description: EC2 KeyPair for SSH
+
   EC2InstanceType:
     Type: String
     Default: t3.micro
+
   UbuntuAmiId:
     Type: AWS::EC2::Image::Id
+
   VPCId:
     Type: AWS::EC2::VPC::Id
+
   SubnetIds:
     Type: CommaDelimitedList
-    Description: List of public subnets for EC2 and ALB
-  ACMCertificateArn:
-    Type: String
-    Description: ACM certificate ARN for HTTPS
+    Description: Public subnets for EC2 and ALB
+
   GitHubRepo:
     Type: String
     Description: GitHub repository URL
+
   GitHubBranch:
     Type: String
-    Default: main
+    Description: Git branch (staging or main)
+
   NotificationEmail:
     Type: String
+
   SESNotificationEmail:
     Type: String
+
   LambdaScheduleExpression:
     Type: String
     Default: "cron(0 0 * * ? *)"
 
 Resources:
 
-  ############################################################
-  # S3 Bucket for cumulative CSV and checkpoint
-  ############################################################
+  ###############################
+  # S3 Bucket
+  ###############################
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${AWS::StackName}-data"
+      BucketName: !Sub "${Environment}-${AWS::StackName}-data"
 
-  ############################################################
+  ###############################
   # IAM Role for Lambda
-  ############################################################
+  ###############################
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -60,12 +73,13 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/AmazonSESFullAccess
 
-  ############################################################
-  # Lambda Function for incremental WordPress sync
-  ############################################################
+  ###############################
+  # Lambda Function
+  ###############################
   WordPressSyncLambda:
     Type: AWS::Lambda::Function
     Properties:
+      FunctionName: !Sub "${Environment}-WordPressSyncLambda"
       Handler: lambda_function.lambda_handler
       Runtime: python3.11
       Role: !GetAtt LambdaExecutionRole.Arn
@@ -75,17 +89,18 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
+          ENVIRONMENT: !Ref Environment
           S3_BUCKET_NAME: !Ref S3Bucket
           S3_PREFIX: wp_incremental_csv
           SES_EMAIL: !Ref SESNotificationEmail
-          DB_HOST: <YOUR_DB_HOST>
-          DB_USER: <YOUR_DB_USER>
-          DB_PASSWORD: <YOUR_DB_PASSWORD>
-          DB_NAME: <YOUR_DB_NAME>
+          DB_HOST: <DB_HOST>           # Fill in staging/prod DB in deploy script
+          DB_USER: <DB_USER>
+          DB_PASSWORD: <DB_PASSWORD>
+          DB_NAME: <DB_NAME>
 
-  ############################################################
-  # EventBridge Rule to trigger Lambda daily
-  ############################################################
+  ###############################
+  # EventBridge Rule
+  ###############################
   LambdaEventBridgeRule:
     Type: AWS::Events::Rule
     Properties:
@@ -103,13 +118,13 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt LambdaEventBridgeRule.Arn
 
-  ############################################################
-  # Security Group for EC2 + ALB
-  ############################################################
+  ###############################
+  # Security Group for EC2
+  ###############################
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP/HTTPS to Streamlit
+      GroupDescription: Allow HTTP/SSH
       VpcId: !Ref VPCId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -121,9 +136,9 @@ Resources:
           ToPort: 22
           CidrIp: 0.0.0.0/0
 
-  ############################################################
+  ###############################
   # IAM Role for EC2
-  ############################################################
+  ###############################
   EC2InstanceProfileRole:
     Type: AWS::IAM::Role
     Properties:
@@ -143,9 +158,9 @@ Resources:
     Properties:
       Roles: [!Ref EC2InstanceProfileRole]
 
-  ############################################################
-  # EC2 Instance for Streamlit
-  ############################################################
+  ###############################
+  # EC2 Instance
+  ###############################
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -156,17 +171,17 @@ Resources:
       SecurityGroupIds:
         - !Ref EC2SecurityGroup
       SubnetId: !Select [0, !Ref SubnetIds]
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-StreamlitEC2"
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          # Update system and install docker/git/cloudwatch agent
           sudo apt-get update -y
           sudo apt-get install -y docker.io git amazon-cloudwatch-agent
           mkdir -p /home/ubuntu/app && cd /home/ubuntu/app
-          # Pull Streamlit app from GitHub
           git clone -b ${GitHubBranch} ${GitHubRepo} . || git pull
           cd streamlit
-          # Build and run Streamlit Docker container
           docker build -t streamlit-dashboard .
           docker stop streamlit-dashboard || true
           docker rm streamlit-dashboard || true
@@ -174,9 +189,7 @@ Resources:
             -e S3_BUCKET_NAME=${S3Bucket} \
             -e S3_PREFIX=wp_incremental_csv \
             streamlit-dashboard
-          # Start CloudWatch Agent to capture Docker logs
-          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-            -a start
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a start
 
 Outputs:
   StreamlitURL:
