@@ -486,9 +486,8 @@ with tab2:
     
      # Example: filter by 'alert_country' before counting
     filtered_summary2 = data[data['alert-impact'] == "Negative"]  
-    
-alert_impact_options = sorted(data['alert-impact'].dropna().unique())
-selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
+    alert_impact_options = sorted(data['alert-impact'].dropna().unique())
+    selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
 
     
     with col1:
