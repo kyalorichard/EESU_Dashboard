@@ -1,37 +1,86 @@
-name: Deploy Streamlit to EC2
+name: Deploy Streamlit Multi-Env
 
+# Trigger workflow on push to main (prod) or staging
 on:
   push:
-    branches: [main]
+    branches: [ main, staging ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Copy Streamlit code to EC2
+      # 2️⃣ Determine environment based on branch
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "staging" ]]; then
+            echo "ENV=staging" >> $GITHUB_ENV
+          else
+            echo "ENV=production" >> $GITHUB_ENV
+          fi
+
+      # 3️⃣ Select correct EC2 host and SSH key based on ENV
+      - name: Set EC2 connection info
+        run: |
+          if [[ "$ENV" == "staging" ]]; then
+            echo "EC2_HOST=${{ secrets.EC2_HOST_STAGING }}" >> $GITHUB_ENV
+            echo "EC2_KEY=${{ secrets.EC2_SSH_KEY_STAGING }}" >> $GITHUB_ENV
+          else
+            echo "EC2_HOST=${{ secrets.EC2_HOST_PROD }}" >> $GITHUB_ENV
+            echo "EC2_KEY=${{ secrets.EC2_SSH_KEY_PROD }}" >> $GITHUB_ENV
+          fi
+
+      # 4️⃣ Copy Streamlit files to EC2
+      - name: Copy Streamlit app to EC2
         uses: appleboy/scp-action@v0.1.5
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ env.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ env.EC2_KEY }}
           source: "streamlit/*"
           target: "/home/ubuntu/app/streamlit/"
 
+      # 5️⃣ Rebuild Docker and run Streamlit container
       - name: Rebuild Docker on EC2
         uses: appleboy/ssh-action@v0.1.5
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ env.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ env.EC2_KEY }}
           script: |
             cd /home/ubuntu/app/streamlit
             docker build -t streamlit-dashboard .
             docker stop streamlit-dashboard || true
             docker rm streamlit-dashboard || true
             docker run -d -p 8501:8501 --name streamlit-dashboard \
-              -e S3_BUCKET_NAME=your-s3-bucket \
+              -e ENVIRONMENT=${{ env.ENV }} \
+              -e S3_BUCKET_NAME=${{ env.ENV }}-wordpress-dashboard-full-data \
               -e S3_PREFIX=wp_incremental_csv \
               streamlit-dashboard
+
+      # 6️⃣ Trigger CloudFormation deploy for Lambda & EC2 updates
+      - name: Deploy CloudFormation stack
+        run: |
+          if [[ "$ENV" == "staging" ]]; then
+            STACK_NAME="wordpress-dashboard-staging"
+            GITHUB_BRANCH="staging"
+          else
+            STACK_NAME="wordpress-dashboard-production"
+            GITHUB_BRANCH="main"
+          fi
+
+          aws cloudformation deploy \
+            --stack-name $STACK_NAME \
+            --template-file cloudformation/full-stack-multi-env.yaml \
+            --parameter-overrides \
+                Environment=$ENV \
+                GitHubBranch=$GITHUB_BRANCH \
+                NotificationEmail=${{ secrets.NOTIFICATION_EMAIL }} \
+                SESNotificationEmail=${{ secrets.SES_EMAIL }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region us-east-1
