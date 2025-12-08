@@ -498,18 +498,16 @@ with tab2:
     col1, col2, col3, col4 = st.columns(4)
     # ---- Tab 2 Only Reset Button ----
     if st.button("🔄 Reset Tab 2 Filters"):
-    keys_to_reset = [
-        "selected_actor_types",
-        "selected_subject_types",
-        "selected_mechanism_types",
-        "selected_event_types"
-    ]
-
-    for key in keys_to_reset:
-        if key in st.session_state:
-            st.session_state[key] = ["Select All"]
-
-    st.rerun()
+        keys_to_reset = [
+            "selected_actor_types",
+            "selected_subject_types",
+            "selected_mechanism_types",
+            "selected_event_types"
+        ]
+        for key in keys_to_reset:
+            if key in st.session_state:
+                st.session_state[key] = ["Select All"]
+        st.rerun()
 
 
     # Filter for negative alerts only on first load
