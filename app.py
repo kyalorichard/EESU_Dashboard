@@ -488,9 +488,9 @@ with tab2:
     
      # Example: filter by 'alert_country' before counting
     filtered_summary2 = data[data['alert-impact'] == "Negative"]  
-    
-alert_impact_options = sorted(data['alert-impact'].dropna().unique())
-selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
+  
+    alert_impact_options = sorted(data['alert-impact'].dropna().unique())
+    selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
 
     
     with col1:
@@ -513,17 +513,17 @@ selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impac
    
 
     #st.header("📊 Negative Events Analysis")
-    v1 = filtered_summary2.groupby("actor of repression").size().reset_index(name="count")
-    v2 = filtered_summary2.groupby("Subject of repression").size().reset_index(name="count")
-    v3 = filtered_summary2.groupby("Mechanism of repression").size().reset_index(name="count")
-    v4 = filtered_summary2.groupby("Type of event").size().reset_index(name="count")
+    v1 = filtered_summary2.groupby("alert-country").size().reset_index(name="count")
+    v2 = filtered_summary2.groupby("alert-type").size().reset_index(name="count")
+    v3 = filtered_summary2.groupby("continent").size().reset_index(name="count")
+    v4 = filtered_summary2.groupby("enabling-principle").size().reset_index(name="count")
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
     with r1c1: st.plotly_chart(create_bar_chart(v1, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
     with r1c2: st.plotly_chart(create_bar_chart(v2, x="alert-type", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
-    with r2c1: st.plotly_chart(create_bar_chart(v3, x="alert-country", y="count"), use_container_width=True, key="tab2_chart3")
-    with r2c2: st.plotly_chart(create_bar_chart(v4, x="alert-country", y="count"), use_container_width=True, key="tab2_chart4")
+    with r2c1: st.plotly_chart(create_bar_chart(v3, x="month_name", y="count"), use_container_width=True, key="tab2_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(v4, x="enabling-principle", y="count"), use_container_width=True, key="tab2_chart4")
 
 # ---------------- TAB 3 ----------------
 with tab3:
