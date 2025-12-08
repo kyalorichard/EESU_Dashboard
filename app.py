@@ -515,8 +515,10 @@ with tab2:
     ]
 
     # ---------------- RENDER SUMMARY CARDS ----------------
+    
+    filtered_summary2 = get_summary_data(active_tab, selected_subject_filter, selected_mechanism_filter, selected_type_filter)
     render_summary_cards(filtered_summary2)
-
+  
     # ---------------- PLOT CHARTS ----------------
     st.header("📊 Negative Events Analysis")
 
