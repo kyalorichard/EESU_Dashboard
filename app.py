@@ -482,7 +482,7 @@ with tab1:
 # ---------------- TAB 2 ----------------
 
 def multiselect_with_all2(label, options, key):
-    selected = st.sidebar.multiselect(
+    selected = st.multiselect(
         label,
         options=["Select All"] + list(options),
         default=st.session_state.get(key, ["Select All"])
