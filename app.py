@@ -186,19 +186,29 @@ def contains_any(cell_value, selected_values):
 # ---------------- CONTINENT AND COUNTRY FILTER ----------------
   
 # Get unique continents
-continent_options = sorted(data['continent'].dropna().unique())
-selected_continents = multiselect_with_all("Select Continent", continent_options, "selected_continents")
+col1, col2 = st.sidebar.columns(2)
 
-# Filter countries based on selected continent(s)
-if "Select All" in selected_continents:
-    country_options = sorted(data['alert-country'].dropna().unique())
-else:
-    country_options = sorted(
-        data[data['continent'].isin(selected_continents)]['alert-country'].dropna().unique()
+# Continent
+with col1:
+    continent_options = sorted(data['continent'].dropna().unique())
+    selected_continents = multiselect_with_all(
+        "Continent", continent_options, "selected_continents"
     )
 
-# Country selection
-selected_countries = multiselect_with_all("Select Country", country_options, "selected_countries")
+# Countries filtered based on continent
+with col2:
+    if "Select All" in selected_continents:
+        country_options = sorted(data['alert-country'].dropna().unique())
+    else:
+        country_options = sorted(
+            data[data['continent'].isin(selected_continents)]['alert-country']
+            .dropna()
+            .unique()
+        )
+
+    selected_countries = multiselect_with_all(
+        "Country", country_options, "selected_countries"
+    )
 
 # ---------------- ALERT TYPE FILTER ----------------
 alert_type_options = sorted(data['alert-type'].dropna().unique())
