@@ -170,14 +170,21 @@ def create_bar_chart(df, x, y, horizontal=False, height=350):
     fig = px.bar(df, x=x if not horizontal else y, y=y if not horizontal else x,
                  orientation='h' if horizontal else 'v', color_discrete_sequence=['#660094'], text=y)
     fig.update_traces(textposition='inside', insidetextanchor='end', textfont=dict(size=13, color='white', family="Arial Black"))
+    
+    # Remove axis labels
+    fig.update_xaxes(title=None)
+    fig.update_yaxes(title=None)
+
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+
     fig.update_layout(height=height, margin=dict(l=20,r=20,t=20,b=20))
     return fig
+
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350):
