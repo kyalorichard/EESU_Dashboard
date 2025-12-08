@@ -485,7 +485,64 @@ with tab1:
 with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
-     
+     # Filter only Negative alerts first, safely
+    if 'alert-impact' in filtered_global.columns:
+        filtered_summary2 = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+    else:
+        filtered_summary2 = filtered_global.copy()
+
+    # ---------------- COLUMN FILTERS ----------------
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        actor_options = sorted(filtered_summary2.get("Actor of repression", pd.Series()).dropna().unique())
+        selected_actor_filter = multiselect_with_all("Actor of repression", actor_options, "selected_actor_filter")
+
+    with col2:
+        subject_options = sorted(filtered_summary2.get("Subject of repression", pd.Series()).dropna().unique())
+        selected_subject_filter = multiselect_with_all("Subject of repression", subject_options, "selected_subject_filter")
+
+    with col3:
+        mechanism_options = sorted(filtered_summary2.get("Mechanism of repression", pd.Series()).dropna().unique())
+        selected_mechanism_filter = multiselect_with_all("Mechanism of repression", mechanism_options, "selected_mechanism_filter")
+
+    with col4:
+        type_options = sorted(filtered_summary2.get("Type of event", pd.Series()).dropna().unique())
+        selected_type_filter = multiselect_with_all("Type of event", type_options, "selected_type_filter")
+
+    # Apply filters using safe get_summary_data
+    filters_dict = {
+        "Actor of repression": selected_actor_filter,
+        "Subject of repression": selected_subject_filter,
+        "Mechanism of repression": selected_mechanism_filter,
+        "Type of event": selected_type_filter
+    }
+    filtered_summary2 = get_summary_data(active_tab, filters_dict)
+
+    # Render summary cards
+    render_summary_cards(filtered_summary2)
+
+    st.header("📊 Negative Events Analysis")
+
+    v1 = safe_groupby(filtered_summary2, ["alert-country"])
+    v2 = safe_groupby(filtered_summary2, ["alert-type"])
+    v3 = safe_groupby(filtered_summary2, ["continent"])
+
+    # Explode enabling-principle safely
+    if "enabling-principle" in filtered_summary2.columns:
+        v4 = filtered_summary2.assign(**{"enabling-principle": filtered_summary2["enabling-principle"].astype(str).str.split(",")}).explode("enabling-principle")
+        v4["enabling-principle"] = v4["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, 4))
+        v4 = safe_groupby(v4, ["enabling-principle"])
+    else:
+        v4 = pd.DataFrame(columns=["enabling-principle", "count"])
+
+    r1c1, r1c2 = st.columns(2, gap="large")
+    r2c1, r2c2 = st.columns(2, gap="large")
+
+    with r1c1: st.plotly_chart(create_bar_chart(v1, x="alert-country", y="count", horizontal=True), use_container_width=True)
+    with r1c2: st.plotly_chart(create_bar_chart(v2, x="alert-type", y="count", horizontal=True), use_container_width=True)
+    with r2c1: st.plotly_chart(create_bar_chart(v3, x="continent", y="count"), use_container_width=True)
+    with r2c2: st.plotly_chart(create_bar_chart(v4, x="enabling-principle", y="count"), use_container_width=True)
      
 # ---------------- TAB 3 ----------------
 with tab3:
