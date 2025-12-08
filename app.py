@@ -492,12 +492,12 @@ with tab2:
     with col3:
         tab2_mechanism_filter = st.multiselect("actor (Tab 2)", data["Mechanism of repression"].unique(),
                                              default=data["Mechanism of repression"].unique())
-     with col4:
+    with col4:
         tab2_type_filter = st.multiselect("type (Tab 2)", data["Type of event"].unique(),
-                                             default=data["Type of event"].unique())
+                                          default=data["Type of event"].unique())
 
 
-    summary_data = get_summary_data(active_tab, tab2_cactor_filter, tab2_subject_filter, tab2_type_filter)
+    summary_data = get_summary_data(active_tab, tab2_subject_filter, tab2_mechanism_filter, tab2_type_filter)
     render_summary_cards(summary_data)
     
     # Example: filter by 'alert_country' before counting
