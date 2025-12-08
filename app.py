@@ -495,10 +495,10 @@ with tab2:
 
     r1c1, r1c2 = st.columns(2, gap="large")
     r2c1, r2c2 = st.columns(2, gap="large")
-    with r1c1: st.plotly_chart(create_bar_chart(t3, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab3_chart1")
-    with r1c2: st.plotly_chart(create_bar_chart(t4, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab3_chart2")
-    with r2c1: st.plotly_chart(create_bar_chart(t1, x="alert-country", y="count"), use_container_width=True, key="tab3_chart3")
-    with r2c2: st.plotly_chart(create_bar_chart(t2, x="alert-type", y="count"), use_container_width=True, key="tab3_chart4")
+    with r1c1: st.plotly_chart(create_bar_chart(t3, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab2_chart1")
+    with r1c2: st.plotly_chart(create_bar_chart(t4, x="alert-country", y="count", horizontal=True), use_container_width=True, key="tab2_chart2")
+    with r2c1: st.plotly_chart(create_bar_chart(t1, x="alert-country", y="count"), use_container_width=True, key="tab2_chart3")
+    with r2c2: st.plotly_chart(create_bar_chart(t2, x="alert-type", y="count"), use_container_width=True, key="tab2_chart4")
 # ---------------- TAB 3 ----------------
 with tab3:
     active_tab = "Tab 3"
