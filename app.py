@@ -494,7 +494,7 @@ with tab2:
     subject_type_options = sorted(filtered_global['Subject of repression'].dropna().unique())
     selected_subject_types = multiselect_with_all("Select Subject Type", subject_type_options, "selected_subject_types")
     
-    subject_mechanism_options = sorted(filtered_global['Mechanism of repression'].dropna().unique())
+    smechanism_type_options = sorted(filtered_global['Mechanism of repression'].dropna().unique())
     selected_mechanism_types = multiselect_with_all("Select Mechanism Type", mechanism_type_options, "selected_mechanism_types")
     
     event_type_options = sorted(filtered_global['Type of event'].dropna().unique())
