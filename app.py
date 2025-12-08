@@ -485,9 +485,13 @@ with tab1:
 with tab2:
     active_tab = "Tab 2"
     col1, col2, col3, col4 = st.columns(4)
+     
+    filtered_summary2 = get_summary_data(active_tab, selected_subject_filter, selected_mechanism_filter, selected_type_filter)
+    render_summary_cards(filtered_summary2)
+    
     
      # Example: filter by 'alert_country' before counting
-    filtered_summary2 = data[data['alert-impact'] == "Negative"]  
+    filtered_summary2 = filtered_summary2[filtered_summary2['alert-impact'] == "Negative"]  
   
     alert_impact_options = sorted(data['alert-impact'].dropna().unique())
     selected_alert_impacts = multiselect_with_all("Select Alert Impact", alert_impact_options, "selected_alert_impacts")
@@ -506,10 +510,6 @@ with tab2:
         selected_type_filter = multiselect_with_all("Type of repression)",  filtered_summary2["Type of event"].dropna().unique(),
                                           "selected_type_filter")
 
-
-    filtered_summary2 = get_summary_data(active_tab, selected_subject_filter, selected_mechanism_filter, selected_type_filter)
-    render_summary_cards(filtered_summary2)
-    
    
 
     #st.header("📊 Negative Events Analysis")
