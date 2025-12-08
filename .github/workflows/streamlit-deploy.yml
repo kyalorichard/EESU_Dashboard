@@ -1,6 +1,6 @@
 name: Deploy Streamlit Multi-Env
 
-# Trigger workflow on push to main (prod) or staging
+# Trigger workflow on push to main (prod) or staging......
 on:
   push:
     branches: [ main, staging ]
