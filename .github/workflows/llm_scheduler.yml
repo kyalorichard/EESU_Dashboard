@@ -2,7 +2,7 @@ name: Run Scheduled Scripts
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/5 * * * *'   # runs every 5 minutes
   workflow_dispatch:
 
 concurrency:
@@ -25,22 +25,37 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyyaml python-dotenv
+          pip install -r requirements.txt
+          pip install python-dotenv tqdm langdetect tiktoken openai
 
-      # ✅ Load environment variables
-      - name: Load environment variables
+      # ✅ Load environment variables from GitHub Secrets
+      - name: Set environment variables
         run: |
-          echo "SMTP_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
-          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
+          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> $GITHUB_ENV
+          echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
+          echo "NOTIFY_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+          echo "RUN_LIVE=${{ secrets.RUN_LIVE }}" >> $GITHUB_ENV   # true/false
 
-      # ✅ Timestamped log file
+      # ✅ Generate timestamped log file
       - name: Generate timestamped log file
         run: |
           echo "LOG_FILE=scheduler_$(date +'%Y-%m-%d_%H-%M-%S').log" >> $GITHUB_ENV
 
-      # ✅ Run script with retries + exponential backoff
+      # ✅ Set mode for Python script
+      - name: Determine run mode
+        run: |
+          if [ "${RUN_LIVE}" == "true" ]; then
+            echo "MODE=live" >> $GITHUB_ENV
+            echo "Running in LIVE mode (OpenAI calls enabled)"
+          else
+            echo "MODE=mock" >> $GITHUB_ENV
+            echo "Running in MOCK mode (simulated API)"
+          fi
+
+      # ✅ Run Python script with retries + exponential backoff
       - name: Run script with retries and backoff
         run: |
           echo "Script started at $(date)" | tee -a $LOG_FILE
@@ -52,8 +67,7 @@ jobs:
           until [ $ATTEMPT -gt $MAX_ATTEMPTS ]
           do
             echo "Attempt $ATTEMPT of $MAX_ATTEMPTS" | tee -a $LOG_FILE
-            python data_preprocessing.py 2>&1 | tee -a $LOG_FILE
-
+            python data_preprocessing.py --mode $MODE 2>&1 | tee -a $LOG_FILE
             EXIT_CODE=${PIPESTATUS[0]}
 
             if [ $EXIT_CODE -eq 0 ]; then
@@ -74,7 +88,7 @@ jobs:
 
           echo "Script ended at $(date)" | tee -a $LOG_FILE
 
-      # ✅ Upload logs to GitHub Artifacts
+      # ✅ Upload logs as artifacts
       - name: Upload scheduler logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -88,9 +102,9 @@ jobs:
         if: success()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ env.NOTIFY_EMAIL }}
+          server_address: ${{ env.SMTP_HOST }}
           server_port: ${{ env.SMTP_PORT }}
-          username: ${{ env.NOTIFY_EMAIL }}
+          username: ${{ env.SMTP_USER }}
           password: ${{ env.SMTP_PASS }}
           subject: "✅ Script ran successfully"
           body: |
@@ -98,17 +112,18 @@ jobs:
 
             Repository: ${{ github.repository }}
             Run ID: ${{ github.run_id }}
-          to: ${{ env.SMTP_EMAIL }}
-          from: "GitHub Actions <${{ env.SMTP_EMAIL }}>"
+            Mode: $MODE
+          to: ${{ env.NOTIFY_EMAIL }}
+          from: "GitHub Actions <${{ env.SMTP_USER }}>"
 
       # ❌ Send FAILURE email + attach logs
       - name: Send failure email with logs attached
         if: failure()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ env.NOTIFY_EMAIL }}
+          server_address: ${{ env.SMTP_HOST }}
           server_port: ${{ env.SMTP_PORT }}
-          username: ${{ env.NOTIFY_EMAIL }}
+          username: ${{ env.SMTP_USER }}
           password: ${{ env.SMTP_PASS }}
           subject: "❌ Script failed – Logs attached"
           body: |
@@ -117,8 +132,9 @@ jobs:
             Repository: ${{ github.repository }}
             Workflow: ${{ github.workflow }}
             Run ID: ${{ github.run_id }}
+            Mode: $MODE
 
             The execution log file is attached to this email.
-          to: ${{ env.SMTP_EMAIL }}
-          from: "GitHub Actions <${{ env.NOTIFY_EMAIL }}>"
+          to: ${{ env.NOTIFY_EMAIL }}
+          from: "GitHub Actions <${{ env.SMTP_USER }}>"
           attachments: ${{ env.LOG_FILE }}
