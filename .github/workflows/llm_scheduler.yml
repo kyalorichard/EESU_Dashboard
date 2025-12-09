@@ -2,7 +2,7 @@ name: Run Scheduled Scripts
 
 on:
   schedule:
-    - cron: '*/2 * * * *'  # every 5 minutes
+    - cron: '*/2 * * * *'  # every 2 minutes
   workflow_dispatch:
 
 concurrency:
