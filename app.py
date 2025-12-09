@@ -453,7 +453,7 @@ with tab5:
             lat=centroids_df["lat"],
             lon=centroids_df["lon"],
             marker_line_width=1,
-            marker_line_color="black"
+            marker_line_color="black",
             mode="markers",
             marker=dict(
                 size=(centroids_df["count"] * 1.5).clip(5, 40),
