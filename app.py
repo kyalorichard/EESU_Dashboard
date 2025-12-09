@@ -352,13 +352,16 @@ with tab5:
                         coords.extend(poly[0])
 
         # Safe zoom calculation
-        def calculate_zoom(lons, lats):
-            if not lons or not lats:
-                return {"lat": 10, "lon": 0}, 1
-            center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-            zoom = max(1, min(5, 2 / (max(lons) - min(lons) + 0.01)))
-            return center, zoom
-
+        if coords:
+                lons, lats = zip(*coords)
+                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
+                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
+            else:
+                center = {"lat":10,"lon":0}
+                zoom = 1
+        else:
+            center = {"lat":10,"lon":0}
+            zoom = 1
         lons, lats = zip(*coords) if coords else ([], [])
         center, zoom = calculate_zoom(lons, lats)
 
