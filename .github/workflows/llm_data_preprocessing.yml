@@ -27,7 +27,7 @@ jobs:
       # ✅ Load .env values securely from GitHub Secrets
       - name: Load environment variables
         run: |
-          echo "SMTP_EMAIL=${{ secrets.SMTP_EMAIL }}" >> $GITHUB_ENV
+          echo "SMTP_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
           echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
