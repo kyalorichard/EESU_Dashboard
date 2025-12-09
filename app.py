@@ -341,14 +341,14 @@ with tab5:
 
  
          # Prepare hover text
-    def get_hover_text(country):
-        #sub_df = filtered_global[filtered_global['alert-country'] == country]
-        negative = df_map[df_map['alert-impact']=="Negative"].shape[0]
-        positive = df_map[df_map['alert-impact']=="Positive"].shape[0]
-        principles = ", ".join(df_map['enabling-principle'].dropna().unique())
-        return f"<b>{country}</b><br>Total Alerts: {df_map.shape[0]}<br>Negative: {negative}<br>Positive: {positive}<br>Enabling Principles: {principles}"
-
-    map_df['hover_text'] = map_df['alert-country'].apply(get_hover_text)
+        def get_hover_text(country):
+            #sub_df = filtered_global[filtered_global['alert-country'] == country]
+            negative = df_map[df_map['alert-impact']=="Negative"].shape[0]
+            positive = df_map[df_map['alert-impact']=="Positive"].shape[0]
+            principles = ", ".join(df_map['enabling-principle'].dropna().unique())
+            return f"<b>{country}</b><br>Total Alerts: {df_map.shape[0]}<br>Negative: {negative}<br>Positive: {positive}<br>Enabling Principles: {principles}"
+            
+        df_map['hover_text'] = df_map['alert-country'].apply(get_hover_text)
 
         
         if not df_map.empty:
