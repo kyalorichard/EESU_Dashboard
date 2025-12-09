@@ -13,26 +13,27 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 st.markdown("""
 <style>
 /* Multiselect container border */
-div[data-testid="stMultiSelect"] > div {
+.stMultiSelect div[data-baseweb="select"] {
     border-color: #660094 !important;
     border-radius: 8px !important;
 }
 
 /* Input text inside multiselect */
-div[data-testid="stMultiSelect"] input {
+.stMultiSelect input {
     color: #660094 !important;
 }
 
 /* Dropdown menu background and text */
-div[data-testid="stMultiSelect"] div[role="listbox"] {
+.stMultiSelect [role="listbox"] {
     background-color: #f2e6ff !important;
     color: #660094 !important;
     border-radius: 8px !important;
 }
 
 /* Hover effect for options in dropdown */
-[aria-label="Multiselect options"] > div > div > div[role="option"]:hover {
+.stMultiSelect [role="option"]:hover {
     color: white !important;
+    background-color: #660094 !important;
     transition: background-color 0.3s ease;
 }
 
@@ -43,7 +44,7 @@ div[data-testid="stMultiSelect"] div[role="listbox"] {
     100% {background-position: 0% 50%;}
 }
 
-[aria-label="Multiselect options"] > div > div > div[role="option"][data-selected="true"] {
+.stMultiSelect [aria-selected="true"] {
     background: linear-gradient(135deg, #660094, #8a2be2, #b266ff, #d399ff);
     background-size: 300% 300%;
     color: white !important;
@@ -57,12 +58,12 @@ div[data-testid="stMultiSelect"] div[role="listbox"] {
 }
 
 /* Hover effect for selected pills */
-[aria-label="Multiselect options"] > div > div > div[role="option"][data-selected="true"]:hover {
+.stMultiSelect [aria-selected="true"]:hover {
     transform: scale(1.05);
 }
 
 /* Animated gradient for input pills */
-div[data-testid="stMultiSelect"] div[aria-label="Remove"] {
+.stMultiSelect .css-1pahdxg-control .css-1rhbuit-multiValue {
     background: linear-gradient(135deg, #660094, #8a2be2, #b266ff, #d399ff);
     background-size: 300% 300%;
     color: white !important;
@@ -76,7 +77,7 @@ div[data-testid="stMultiSelect"] div[aria-label="Remove"] {
 }
 
 /* Hover effect for input pills */
-div[data-testid="stMultiSelect"] div[aria-label="Remove"]:hover {
+.stMultiSelect .css-1pahdxg-control .css-1rhbuit-multiValue:hover {
     transform: scale(1.05);
 }
 </style>
