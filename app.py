@@ -244,8 +244,8 @@ with tab1:
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
     r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="continent",x="count",color_col="alert-impact"),use_container_width=True)
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact"),use_container_width=True)
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="continent",x="count",color_col="alert-impact, horizontal=True"),use_container_width=True)
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", ,horizontal=True),use_container_width=True)
 
 # ---------------- TAB 2 ----------------
 with tab2:
@@ -284,7 +284,7 @@ with tab2:
     r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False),use_container_width=True)
     r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False),use_container_width=True)
     r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True),use_container_width=True)
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=False),use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True),use_container_width=True)
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True)
 
 # ---------------- TAB 3 ----------------
