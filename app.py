@@ -178,9 +178,11 @@ def create_bar_chart(df, x, y, horizontal=False, height=350):
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
 
     fig.update_layout(height=height, margin=dict(l=20,r=20,t=20,b=20))
     return fig
@@ -208,11 +210,14 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(barmode='stack', height=height, margin=dict(l=120,r=20,t=20,b=20))
+        fig.update_layout(barmode='stack', height=height, margin=dict(l=120,r=20,t=20,b=20))
     return fig
+    
     # ---------------- FUNCTION TO SHORTEN LONG SENTENCES ----------------
 def wrap_label_by_words(label, words_per_line=4):
     words = label.split()
