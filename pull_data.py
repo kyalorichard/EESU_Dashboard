@@ -253,4 +253,4 @@ def lambda_handler(event, context):
 # ------------------- Run locally -------------------
 if __name__ == "__main__":
     output = lambda_handler({}, {})
-    print(json.dumps(output))  # Ensure workflow can parse JSON
+    print(json.dumps(output))  # Ensure workflow can parse JSON...
