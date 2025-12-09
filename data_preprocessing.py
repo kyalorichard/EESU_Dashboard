@@ -193,36 +193,67 @@ async def process_all(mock_mode=False):
     batches = [(idx, summ, 0) for idx, summ in build_batches(df_out)]
     print(f"Total batches to process: {len(batches)}")
 
-    async def process_batch(batch_start_idx, batch_summaries, retries):
+   # ---------------- MAIN PROCESS ----------------
+async def process_all(mock_mode=False):
+    # Load previous output if exists
+    if os.path.exists(OUTPUT_PARQUET):
+        df_out = pd.read_parquet(OUTPUT_PARQUET)
+        print(f"Loaded previous output: {OUTPUT_PARQUET}")
+    else:
+        df_out = df.copy()
+
+    permanently_failed = []
+    semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
+    
+    # Build batches (only 2 elements per batch: start_idx, batch_summaries)
+    batches = [(idx, summ) for idx, summ in build_batches(df_out)]
+    print(f"Total batches to process: {len(batches)}")
+
+    async def process_batch(batch_start_idx, batch_summaries):
         async with semaphore:
-            try:
-                results, _ = await extract_batch(batch_summaries, mock_mode)
-            except Exception as e:
-                if retries < MAX_RETRIES:
-                    return await process_batch(batch_start_idx, batch_summaries, retries+1)
+            retries = 0
+            while retries <= MAX_RETRIES:
+                try:
+                    results, _ = await extract_batch(batch_summaries, mock_mode)
+                    # Successfully processed, break out of retry loop
+                    break
+                except Exception as e:
+                    retries += 1
+                    print(f"Batch starting at {batch_start_idx} failed (attempt {retries}): {e}")
+                    await asyncio.sleep(2 ** retries)
+            else:
+                # Permanently failed after retries
                 permanently_failed.append({"start_idx": batch_start_idx, "error": str(e)})
                 results = [{"Actor of repression": "Error",
                             "Subject of repression": "Error",
                             "Mechanism of repression": "Error",
                             "Type of event": "Error"} for _ in batch_summaries]
+
+            # Update dataframe
             for j, res in enumerate(results):
                 idx = batch_start_idx + j
                 for key in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]:
                     df_out.at[idx, key] = res.get(key, "Unknown")
             print(f"Processed batch starting at row {batch_start_idx}, {len(results)} rows")
 
+    # Process batches in groups respecting concurrency
     for i in range(0, len(batches), CONCURRENT_BATCHES):
         tasks = [process_batch(*b) for b in batches[i:i+CONCURRENT_BATCHES]]
         await asyncio.gather(*tasks)
+
+        # Periodic intermediate save
         if (i // CONCURRENT_BATCHES + 1) % SAVE_EVERY_N_BATCHES == 0:
             df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
             print(f"Intermediate save after batch group {i // CONCURRENT_BATCHES + 1}")
 
+    # Final save
     df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
     df_out.to_csv(OUTPUT_CSV, index=False)
+
     if permanently_failed:
         with open(PERMANENTLY_FAILED_FILE, "w", encoding="utf-8") as f:
             json.dump(permanently_failed, f, indent=2)
+
     return df_out
 
 # ---------------- RUN ----------------
