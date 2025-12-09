@@ -30,8 +30,8 @@ jobs:
       # ✅ Load environment variables
       - name: Load environment variables
         run: |
-          echo "SMTP_EMAIL=${{ secrets.SMTP_EMAIL }}" >> $GITHUB_ENV
-          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
+          echo "SMTP_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
 
@@ -90,7 +90,7 @@ jobs:
         with:
           server_address: ${{ env.NOTIFY_EMAIL }}
           server_port: ${{ env.SMTP_PORT }}
-          username: ${{ env.SMTP_EMAIL }}
+          username: ${{ env.NOTIFY_EMAIL }}
           password: ${{ env.SMTP_PASS }}
           subject: "✅ Script ran successfully"
           body: |
@@ -108,7 +108,7 @@ jobs:
         with:
           server_address: ${{ env.NOTIFY_EMAIL }}
           server_port: ${{ env.SMTP_PORT }}
-          username: ${{ env.SMTP_EMAIL }}
+          username: ${{ env.NOTIFY_EMAIL }}
           password: ${{ env.SMTP_PASS }}
           subject: "❌ Script failed – Logs attached"
           body: |
@@ -120,5 +120,5 @@ jobs:
 
             The execution log file is attached to this email.
           to: ${{ env.SMTP_EMAIL }}
-          from: "GitHub Actions <${{ env.SMTP_EMAIL }}>"
+          from: "GitHub Actions <${{ env.NOTIFY_EMAIL }}>"
           attachments: ${{ env.LOG_FILE }}
