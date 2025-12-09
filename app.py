@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import json
 from pathlib import Path
-import io
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -23,6 +22,7 @@ st.markdown("""
 /* Remove top spacing */
 .css-18e3th9 {padding-top: 0rem;}
 .css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
+
 /* Summary card styling */
 .summary-card {
    background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
@@ -77,6 +77,11 @@ def load_data():
 data = load_data()
 
 # ---------------- HELPER FUNCTIONS ----------------
+def wrap_label_by_words(label, words_per_line=4):
+    words = str(label).split()
+    lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+    return "<br>".join(lines)
+
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
     options_with_all = ["Select All"] + options
@@ -98,20 +103,69 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         st.session_state[session_key] = selected
         return selected
 
+def groupby_count(df, group_cols):
+    return df.groupby(group_cols).size().reset_index(name='count')
+
+def add_download_buttons(df, prefix="filtered"):
+    if not df.empty:
+        csv_name = f"{prefix}.csv"
+        excel_name = f"{prefix}.xlsx"
+        st.download_button(
+            label="📥 Download CSV",
+            data=df.to_csv(index=False).encode('utf-8'),
+            file_name=csv_name,
+            mime="text/csv"
+        )
+        st.download_button(
+            label="📥 Download Excel",
+            data=df.to_excel(index=False, engine='openpyxl'),
+            file_name=excel_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info("No data to export.")
+
+# ---------------- GLOBAL FILTERS ----------------
+st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
+st.sidebar.header("🌍 Global Filters")
+
+selected_continents = safe_multiselect("Select Continent", data['continent'].dropna().unique(), "selected_continents")
+filtered_countries = data[data['continent'].isin(selected_continents)] if "Select All" not in selected_continents else data
+selected_countries = safe_multiselect("Select Country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
+selected_alert_types = safe_multiselect("Select Alert Type", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_enabling_principle = safe_multiselect("Select Enabling Principle", 
+                                               data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+                                               "selected_enabling_principle")
+selected_alert_impacts = safe_multiselect("Select Alert Impact", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+selected_years = safe_multiselect("Select Year", sorted(data['year'].dropna().unique()), "selected_years")
+
+available_months = sorted(
+    data[data['year'].isin(selected_years)]['month_name'].dropna().unique() if "Select All" not in selected_years else data['month_name'].dropna().unique(),
+    key=lambda m: pd.to_datetime(m, format='%B').month
+)
+selected_months = safe_multiselect("Select Month", available_months, "selected_months")
+
+# Reset button
+if st.sidebar.button("🔄 Reset Filters"):
+    for key in ["selected_continents","selected_countries","selected_alert_types","selected_enabling_principle",
+                "selected_alert_impacts","selected_months","selected_years"]:
+        st.session_state[key] = ["Select All"]
+
+# ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
     if pd.isna(cell_value): return False
     return any(sel in str(cell_value) for sel in selected_values)
 
-def wrap_label_by_words(label, words_per_line=4):
-    words = str(label).split()
-    lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
-    return "<br>".join(lines)
+filtered_global = data[
+    (data['alert-country'].isin(selected_countries)) &
+    (data['alert-type'].isin(selected_alert_types)) &
+    (data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
+    (data['alert-impact'].isin(selected_alert_impacts)) &
+    (data['month_name'].isin(selected_months)) &
+    (data['year'].isin(selected_years))
+]
 
-def groupby_count(df, group_cols, count_col_name="count"):
-    if isinstance(group_cols, str):
-        group_cols = [group_cols]
-    return df.groupby(group_cols).size().reset_index(name=count_col_name)
-
+# ---------------- SUMMARY CARDS ----------------
 def render_summary_cards(df):
     cards = [
         {"label": "Total Alerts", "value": df.shape[0]},
@@ -119,27 +173,34 @@ def render_summary_cards(df):
         {"label": "Positive Alerts", "value": df[df['alert-impact']=="Positive"].shape[0]},
         {"label": "Max Alerts", "value": df.shape[0]}
     ]
-    num_cards = len(cards)
-    font_size_value = max(16, 24 - num_cards*2)
-    font_size_label = max(10, 14 - num_cards)
-    col_count = min(num_cards, 4)
+    col_count = min(len(cards), 4)
     cols = st.columns(col_count)
     for i, card in enumerate(cards):
         col = cols[i % col_count]
         col.markdown(
             f"""
             <div class="summary-card" style="padding:10px;">
-                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
+                <p style="font-size:14px; margin:0;">{card['label']}</p>
+                <h2 style="font-size:24px; margin:5px 0;">{card['value']}</h2>
             </div>
             """, unsafe_allow_html=True
         )
 
+# ---------------- PLOTLY HOVER STYLE ----------------
+hoverlabel_style = dict(
+    bgcolor="#660094",
+    font_size=12,
+    font_family="Arial",
+    font_color="white",
+    bordercolor="black"
+)
+
+# ---------------- BAR CHART ----------------
 def create_bar_chart(df, x, y, horizontal=False):
-    num_bars = df.shape[0]
-    height = 350
     df = df.copy()
     df[x] = df[x].apply(lambda l: wrap_label_by_words(l, words_per_line=3))
+    hover_template = f"<b>%{{x if not horizontal else y}}</b><br>{y}: %{{y if not horizontal else x}}<extra></extra>"
+
     fig = px.bar(
         df,
         x=x if not horizontal else y,
@@ -148,27 +209,36 @@ def create_bar_chart(df, x, y, horizontal=False):
         color_discrete_sequence=['#660094'],
         text=y
     )
+
     fig.update_traces(
         textposition='inside',
         insidetextanchor='end',
-        textfont=dict(size=12, color='white', family="Arial Black")
+        textfont=dict(size=12, color='white', family="Arial Black"),
+        hovertemplate=hover_template,
+        hoverlabel=hoverlabel_style
     )
+
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')           
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
+    fig.update_layout(height=350, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     return fig
 
+# ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False):
     categories = sorted(df[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
+
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
         df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(l, words_per_line=4))
+        hover_template = f"<b>%{{y if not horizontal else x}}</b><br>{cat}: %{{x if not horizontal else y}}<extra></extra>"
+
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else df_cat[x],
             y=df_cat[x] if not horizontal else df_cat[y],
@@ -179,95 +249,28 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
             textposition='inside',
             insidetextanchor='end',
             textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial Black"),
-            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+            hovertemplate=hover_template,
+            hoverlabel=hoverlabel_style
         ))
+
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+
     fig.update_layout(barmode='stack', height=350, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     return fig
-
-def add_download_buttons(df, filename_prefix="filtered_data"):
-    if df.empty: return
-    csv_buffer = io.StringIO()
-    df.to_csv(csv_buffer, index=False)
-    st.download_button(
-        label="📥 Download CSV",
-        data=csv_buffer.getvalue(),
-        file_name=f"{filename_prefix}.csv",
-        mime="text/csv"
-    )
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Data")
-    st.download_button(
-        label="📥 Download Excel",
-        data=excel_buffer.getvalue(),
-        file_name=f"{filename_prefix}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# ---------------- GLOBAL FILTERS ----------------
-st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
-st.sidebar.header("🌍 Global Filters")
-st.sidebar.markdown("Select continents to filter the dataset. Default is all continents.")
-selected_continents = safe_multiselect("Select Continent", data['continent'].dropna().unique(), "selected_continents")
-
-filtered_countries = data[data['continent'].isin(selected_continents)] if "Select All" not in selected_continents else data
-st.sidebar.markdown("Select countries to focus on specific regions.")
-selected_countries = safe_multiselect("Select Country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
-
-st.sidebar.markdown("Select alert types (Negative/Positive etc.)")
-selected_alert_types = safe_multiselect("Select Alert Type", data['alert-type'].dropna().unique(), "selected_alert_types")
-
-st.sidebar.markdown("Select enabling principles relevant to the alerts.")
-selected_enabling_principle = safe_multiselect(
-    "Select Enabling Principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
-    "selected_enabling_principle"
-)
-
-st.sidebar.markdown("Select alert impacts (Positive/Negative).")
-selected_alert_impacts = safe_multiselect("Select Alert Impact", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-
-st.sidebar.markdown("Select years to filter the dataset.")
-selected_years = safe_multiselect("Select Year", sorted(data['year'].dropna().unique()), "selected_years")
-
-# Filter months based on years
-if "Select All" in selected_years:
-    available_months = sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month)
-else:
-    available_months = sorted(
-        data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
-        key=lambda m: pd.to_datetime(m, format='%B').month
-    )
-selected_months = safe_multiselect("Select Month", available_months, "selected_months")
-
-# Reset button
-if st.sidebar.button("🔄 Reset Filters"):
-    for key in ["selected_continents","selected_countries","selected_alert_types","selected_enabling_principle",
-                "selected_alert_impacts","selected_months","selected_years"]:
-        st.session_state[key] = ["Select All"]
-
-# ---------------- FILTER DATA ----------------
-filtered_global = data[
-    (data['alert-country'].isin(selected_countries)) &
-    (data['alert-type'].isin(selected_alert_types)) &
-    (data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
-    (data['alert-impact'].isin(selected_alert_impacts)) &
-    (data['month_name'].isin(selected_months)) &
-    (data['year'].isin(selected_years))
-]
 
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
+    st.subheader("Overview")
     add_download_buttons(filtered_global, "Overview_filtered")
+
     render_summary_cards(filtered_global)
     a1 = groupby_count(filtered_global, ["alert-type","alert-impact"])
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
@@ -276,25 +279,22 @@ with tab1:
     a3 = groupby_count(filtered_global, ["continent","alert-impact"])
     a4 = groupby_count(filtered_global, ["alert-country","alert-impact"])
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
-    r1c1.plotly_chart(create_h_stacked_bar(a1,"alert-type","count","alert-impact",horizontal=True), use_container_width=True)
-    r1c2.plotly_chart(create_h_stacked_bar(a2,"enabling-principle","count","alert-impact",horizontal=True), use_container_width=True)
-    r2c1.plotly_chart(create_h_stacked_bar(a3,"continent","count","alert-impact"), use_container_width=True)
-    r2c2.plotly_chart(create_h_stacked_bar(a4,"alert-country","count","alert-impact"), use_container_width=True)
+    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
+    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="continent",x="count",color_col="alert-impact", horizontal=False),use_container_width=True)
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True)
 
 # ---------------- TAB 2 ----------------
 with tab2:
+    st.subheader("Negative Events")
     reactive_df = filtered_global[filtered_global['alert-impact']=="Negative"]
-    add_download_buttons(reactive_df, "Negative_Events_filtered")
+    add_download_buttons(reactive_df, "NegativeEvents_filtered")
 
     col1,col2,col3,col4 = st.columns(4)
-    with col1:
-        selected_actor_types = safe_multiselect("Actor Type", reactive_df['Actor of repression'].dropna().unique(), "selected_actor_types", sidebar=False)
-    with col2:
-        selected_subject_types = safe_multiselect("Subject Type", reactive_df['Subject of repression'].dropna().unique(), "selected_subject_types", sidebar=False)
-    with col3:
-        selected_mechanism_types = safe_multiselect("Mechanism Type", reactive_df['Mechanism of repression'].dropna().unique(), "selected_mechanism_types", sidebar=False)
-    with col4:
-        selected_event_types = safe_multiselect("Event Type", reactive_df['Type of event'].dropna().unique(), "selected_event_types", sidebar=False)
+    selected_actor_types = safe_multiselect("Actor Type", reactive_df['Actor of repression'].dropna().unique(), "selected_actor_types", sidebar=False)
+    selected_subject_types = safe_multiselect("Subject Type", reactive_df['Subject of repression'].dropna().unique(), "selected_subject_types", sidebar=False)
+    selected_mechanism_types = safe_multiselect("Mechanism Type", reactive_df['Mechanism of repression'].dropna().unique(), "selected_mechanism_types", sidebar=False)
+    selected_event_types = safe_multiselect("Event Type", reactive_df['Type of event'].dropna().unique(), "selected_event_types", sidebar=False)
 
     summary_data = reactive_df[
         (reactive_df['Actor of repression'].isin(selected_actor_types)) &
@@ -302,34 +302,33 @@ with tab2:
         (reactive_df['Mechanism of repression'].isin(selected_mechanism_types)) &
         (reactive_df['Type of event'].isin(selected_event_types))
     ]
-    if summary_data.empty:
-        st.info("No records match the selected filters.")
-    render_summary_cards(summary_data)
 
-    t1 = groupby_count(summary_data, "Actor of repression")
-    t2 = groupby_count(summary_data, "Subject of repression")
-    t3 = groupby_count(summary_data, "Mechanism of repression")
-    t4 = groupby_count(summary_data, "Type of event")
-    t5 = groupby_count(summary_data, "alert-type")
+    render_summary_cards(summary_data)
+    t1 = groupby_count(summary_data, ["Actor of repression"])
+    t2 = groupby_count(summary_data, ["Subject of repression"])
+    t3 = groupby_count(summary_data, ["Mechanism of repression"])
+    t4 = groupby_count(summary_data, ["Type of event"])
+    t5 = groupby_count(summary_data, ["alert-type"])
     df_clean = summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].str.split(",")}).explode("enabling-principle")
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-    t6 = groupby_count(df_clean, "enabling-principle")
+    t6 = groupby_count(df_clean, ["enabling-principle"])
 
     r1c1,r1c2,r1c3 = st.columns(3); r2c1,r2c2,r2c3 = st.columns(3)
-    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True)
-    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True)
-    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True)
-    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True), use_container_width=True)
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
-    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False),use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False),use_container_width=True)
+    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False),use_container_width=True)
+    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True),use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True),use_container_width=True)
+    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True)
 
 # ---------------- TAB 3 ----------------
 with tab3:
+    st.subheader("Positive Events")
     positive_df = filtered_global[filtered_global['alert-impact']=="Positive"]
-    add_download_buttons(positive_df, "Positive_Events_filtered")
+    add_download_buttons(positive_df, "PositiveEvents_filtered")
     render_summary_cards(positive_df)
-    b1 = groupby_count(positive_df, "alert-country")
-    b2 = groupby_count(positive_df, "alert-type")
+    b1 = groupby_count(positive_df, ["alert-country"])
+    b2 = groupby_count(positive_df, ["alert-type"])
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_bar_chart(b1,"alert-country","count",horizontal=True), use_container_width=True)
@@ -337,70 +336,28 @@ with tab3:
 
 # ---------------- TAB 4 ----------------
 with tab4:
-    add_download_buttons(filtered_global, "Others_filtered")
+    st.subheader("Other Alerts")
+    add_download_buttons(filtered_global, "OtherAlerts_filtered")
     render_summary_cards(filtered_global)
-    d1 = groupby_count(filtered_global, "alert-country")
-    d2 = groupby_count(filtered_global, "alert-type")
+    d1 = groupby_count(filtered_global, ["alert-country"])
+    d2 = groupby_count(filtered_global, ["alert-type"])
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True)
     r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True)
 
-# ---------------- TAB 5 (MAP) ----------------
+# ---------------- TAB 5 ----------------
 with tab5:
-    add_download_buttons(filtered_global, "Map_filtered")
-    geo_file = Path.cwd() / "data" / "countriess.geojson"
-    if geo_file.exists():
-        with open(geo_file) as f: 
-            countries_gj = json.load(f)
-        df_map = groupby_count(filtered_global, "alert-country")
-        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
-        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
-        
-        if not df_map.empty:
-            coords = []
-            for feature in countries_gj['features']:
-                if feature['properties']['name'] in df_map['alert-country'].values:
-                    geometry = feature['geometry']
-                    if geometry['type'] == "Polygon":
-                        for coord in geometry['coordinates'][0]:
-                            coords.append(coord)
-                    elif geometry['type'] == "MultiPolygon":
-                        for poly in geometry['coordinates']:
-                            for coord in poly[0]:
-                                coords.append(coord)
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
-            else:
-                center = {"lat":10,"lon":0}
-                zoom = 1
-        else:
-            center = {"lat":10,"lon":0}
-            zoom = 1
-
-        map_height = max(400, len(df_map)*20)
-        fig = px.choropleth_mapbox(
-            df_map,
-            geojson=countries_gj,
-            locations="alert-country",
-            featureidkey="properties.name",
-            color="count",
-            hover_name="alert-country",
-            hover_data={"count":True,"alert-country":False},
-            color_continuous_scale="Greens",
-            mapbox_style="open-street-map",
-            zoom=zoom,
-            center=center,
-            opacity=0.6
-        )
-        fig.update_layout(margin={"r":0,"t":1,"l":0,"b":0}, height=map_height)
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
-        st.plotly_chart(fig,use_container_width=True)
-    else:
-        st.warning("GeoJSON file not found for map visualization.")
-
-# ---------------- FOOTER ----------------
-st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
+    st.subheader("Visualization Map")
+    map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
+    fig = px.choropleth(
+        map_df,
+        locations="iso_alpha3",
+        color="count",
+        hover_name="alert-country",
+        color_continuous_scale="Purples"
+    )
+    fig.update_traces(
+        hoverlabel=hoverlabel_style
+    )
+    st.plotly_chart(fig, use_container_width=True)
