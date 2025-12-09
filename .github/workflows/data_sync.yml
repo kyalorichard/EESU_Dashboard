@@ -1,0 +1,119 @@
+name: WordPress Sync Every 2 Minutes
+
+on:
+  schedule:
+    - cron: '*/2 * * * *'   # Every 2 minutes
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Setup Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pymysql boto3 pandas python-dotenv
+
+      # Step 4: Ensure .env exists from GitHub Secrets
+      - name: Create .env from GitHub Secrets
+        run: |
+          echo "REGION=${{ secrets.REGION }}" >> .env
+          echo "LAMBDA_ROLE=${{ secrets.LAMBDA_ROLE }}" >> .env
+          echo "LAMBDA_NAME_STAGING=${{ secrets.LAMBDA_NAME_STAGING }}" >> .env
+          echo "LAMBDA_NAME_PROD=${{ secrets.LAMBDA_NAME_PROD }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "S3_BUCKET_STAGING=${{ secrets.S3_BUCKET_STAGING }}" >> .env
+          echo "S3_BUCKET_PROD=${{ secrets.S3_BUCKET_PROD }}" >> .env
+          echo "CSV_KEY=${{ secrets.CSV_KEY }}" >> .env
+          echo "CHECKPOINT_KEY=${{ secrets.CHECKPOINT_KEY }}" >> .env
+          echo "SES_FROM=${{ secrets.SES_FROM }}" >> .env
+          echo "SES_TO=${{ secrets.SES_TO }}" >> .env
+          echo "NOTIFICATION_EMAIL=${{ secrets.NOTIFICATION_EMAIL }}" >> .env
+          echo "EC2_USER=${{ secrets.EC2_USER }}" >> .env
+          echo "EC2_HOST_STAGING=${{ secrets.EC2_HOST_STAGING }}" >> .env
+          echo "EC2_HOST_PROD=${{ secrets.EC2_HOST_PROD }}" >> .env
+          echo "EC2_KEY=${{ secrets.EC2_KEY }}" >> .env
+          echo "DOCKER_IMAGE_TAG_STAGING=${{ secrets.DOCKER_IMAGE_TAG_STAGING }}" >> .env
+          echo "DOCKER_IMAGE_TAG_PROD=${{ secrets.DOCKER_IMAGE_TAG_PROD }}" >> .env
+          echo "STREAMLIT_PORT=${{ secrets.STREAMLIT_PORT }}" >> .env
+          echo "COUNTRY_META_FILE=${{ secrets.COUNTRY_META_FILE }}" >> .env
+          echo "GEOJSON_FILE=${{ secrets.GEOJSON_FILE }}" >> .env
+          echo "AUTORELOAD_INTERVAL=${{ secrets.AUTORELOAD_INTERVAL }}" >> .env
+          echo "CHECKPOINT_TTL=${{ secrets.CHECKPOINT_TTL }}" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "NOTIFY_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> .env
+          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
+          echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> .env
+          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> .env
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> .env
+          echo "TEST_ROWS=${{ secrets.TEST_ROWS }}" >> .env
+
+      # Step 5: Run WordPress sync script and capture JSON output
+      - name: Run WordPress Sync and capture output
+        id: wp_sync
+        run: |
+          OUTPUT=$(python wp_sync.py)
+          echo "SYNC_OUTPUT=$OUTPUT" >> $GITHUB_ENV
+          echo "$OUTPUT"
+
+      # Step 6: Parse JSON output to set EMAIL_BODY
+      - name: Prepare dynamic email body
+        id: parse_output
+        run: |
+          python - <<'EOF'
+import json, os
+data = json.loads(os.environ["SYNC_OUTPUT"])
+if data.get("status") == "success":
+    body = f"✅ WordPress Sync Successful!\nNew posts: {data.get('new_rows')}\nTotal posts: {data.get('total_rows')}\nBatches: {data.get('batches')}\nExecution time: {data.get('execution_time'):.2f} seconds"
+elif data.get("status") == "no_new_posts":
+    body = "✅ WordPress Sync completed: no new or updated posts since last sync."
+else:
+    body = f"❌ WordPress Sync FAILED!\nError: {data.get('error')}\nExecution time: {data.get('execution_time'):.2f} seconds"
+with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+    env_file.write(f"EMAIL_BODY<<EOF\n{body}\nEOF\n")
+EOF
+
+      # Step 7: Send email on success
+      - name: Send Email on Success
+        if: ${{ success() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "✅ WordPress Sync Successful"
+          body: ${{ env.EMAIL_BODY }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.SMTP_USER }}
+          secure: true
+
+      # Step 8: Send email on failure
+      - name: Send Email on Failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "❌ WordPress Sync FAILED"
+          body: ${{ env.EMAIL_BODY }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.SMTP_USER }}
+          secure: true
