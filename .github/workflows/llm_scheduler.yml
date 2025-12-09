@@ -63,13 +63,13 @@ jobs:
       - name: Prepare email content
         run: |
           if [ "${SCRIPT_EXIT_CODE}" == "0" ]; then
-            echo "EMAIL_SUBJECT=✅ Script ran successfully" >> $GITHUB_ENV
+            echo 'EMAIL_SUBJECT=✅ Script ran successfully' >> $GITHUB_ENV
             echo 'EMAIL_BODY=Your scheduled script completed successfully.
 
 Repository: '"$GITHUB_REPOSITORY"'
 Run ID: '"$GITHUB_RUN_ID"'
 Mode: '"$MODE"'' >> $GITHUB_ENV
-            echo "EMAIL_ATTACH=" >> $GITHUB_ENV
+            echo 'EMAIL_ATTACH=' >> $GITHUB_ENV
           else
             echo 'EMAIL_SUBJECT=❌ Script failed - Logs attached' >> $GITHUB_ENV
             echo 'EMAIL_BODY=Your scheduled script FAILED.
