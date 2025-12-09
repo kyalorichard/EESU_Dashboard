@@ -34,7 +34,9 @@ jobs:
           echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
-          echo "NOTIFY_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
+          echo "TO_EMAIL=${{ secrets.TO_EMAIL }}" >> $GITHUB_ENV
+          echo "CC_EMAIL=${{ secrets.CC_EMAIL }}" >> $GITHUB_ENV
+          echo "BCC_EMAIL=${{ secrets.BCC_EMAIL }}" >> $GITHUB_ENV
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
           echo "RUN_LIVE=${{ secrets.RUN_LIVE }}" >> $GITHUB_ENV
 
@@ -62,11 +64,22 @@ jobs:
         run: |
           if [ "${SCRIPT_EXIT_CODE}" == "0" ]; then
             echo "EMAIL_SUBJECT=✅ Script ran successfully" >> $GITHUB_ENV
-            echo "EMAIL_BODY=Your scheduled script completed successfully.\n\nRepository: $GITHUB_REPOSITORY\nRun ID: $GITHUB_RUN_ID\nMode: $MODE" >> $GITHUB_ENV
+            echo 'EMAIL_BODY=Your scheduled script completed successfully.
+
+Repository: '"$GITHUB_REPOSITORY"'
+Run ID: '"$GITHUB_RUN_ID"'
+Mode: '"$MODE"'' >> $GITHUB_ENV
             echo "EMAIL_ATTACH=" >> $GITHUB_ENV
           else
             echo "EMAIL_SUBJECT=❌ Script failed – Logs attached" >> $GITHUB_ENV
-            echo "EMAIL_BODY=Your scheduled script FAILED.\n\nRepository: $GITHUB_REPOSITORY\nWorkflow: $GITHUB_WORKFLOW\nRun ID: $GITHUB_RUN_ID\nMode: $MODE\n\nThe execution log file is attached." >> $GITHUB_ENV
+            echo 'EMAIL_BODY=Your scheduled script FAILED.
+
+Repository: '"$GITHUB_REPOSITORY"'
+Workflow: '"$GITHUB_WORKFLOW"'
+Run ID: '"$GITHUB_RUN_ID"'
+Mode: '"$MODE"'
+
+The execution log file is attached.' >> $GITHUB_ENV
             echo "EMAIL_ATTACH=$LOG_FILE" >> $GITHUB_ENV
           fi
 
@@ -87,6 +100,8 @@ jobs:
           username: ${{ env.SMTP_USER }}
           password: ${{ env.SMTP_PASS }}
           to: ${{ env.NOTIFY_EMAIL }}
+          #cc: ${{ env.CC_EMAIL }}    # optional, multiple addresses separated by commas
+          #bcc: ${{ env.BCC_EMAIL }}  # optional, multiple addresses separated by commas
           from: "GitHub Actions <${{ env.SMTP_USER }}>"
           subject: ${{ env.EMAIL_SUBJECT }}
           body: ${{ env.EMAIL_BODY }}
