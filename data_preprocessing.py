@@ -15,7 +15,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
-NOTIFY_EMAILos = os.getenv("NOTIFY_EMAIL")
+NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL")
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 SMTP_HOST = os.getenv("SMTP_HOST")
@@ -179,19 +179,6 @@ def send_email(subject, body, to_email):
         print(f"Email successfully sent to {to_email}")
     except Exception as e:
         print(f"Email failed: {e}")
-
-# ---------------- MAIN PROCESS ----------------
-async def process_all(mock_mode=False):
-    if os.path.exists(OUTPUT_PARQUET):
-        df_out = pd.read_parquet(OUTPUT_PARQUET)
-        print(f"Loaded previous output: {OUTPUT_PARQUET}")
-    else:
-        df_out = df.copy()
-
-    permanently_failed = []
-    semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
-    batches = [(idx, summ, 0) for idx, summ in build_batches(df_out)]
-    print(f"Total batches to process: {len(batches)}")
 
    # ---------------- MAIN PROCESS ----------------
 async def process_all(mock_mode=False):
