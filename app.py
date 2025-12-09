@@ -109,44 +109,21 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
 st.sidebar.header("🌍 Global Filters")
 
-# Create 2 columns in sidebar for filters
-col1, col2 = st.sidebar.columns(2)
+selected_continents = safe_multiselect("Select Continent", data['continent'].dropna().unique(), "selected_continents")
+filtered_countries = data[data['continent'].isin(selected_continents)] if "Select All" not in selected_continents else data
+selected_countries = safe_multiselect("Select Country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
+selected_alert_types = safe_multiselect("Select Alert Type", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_enabling_principle = safe_multiselect("Select Enabling Principle", 
+                                               data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+                                               "selected_enabling_principle")
+selected_alert_impacts = safe_multiselect("Select Alert Impact", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+selected_months = safe_multiselect("Select Month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month), "selected_months")
+selected_years = safe_multiselect("Select Year", sorted(data['year'].dropna().unique()), "selected_years")
 
-with col1:
-    selected_continents = safe_multiselect(
-        "Continent", data['continent'].dropna().unique(), "selected_continents", sidebar=False
-    )
-    selected_alert_types = safe_multiselect(
-        "Alert Type", data['alert-type'].dropna().unique(), "selected_alert_types", sidebar=False
-    )
-    selected_alert_impacts = safe_multiselect(
-        "Alert Impact", data['alert-impact'].dropna().unique(), "selected_alert_impacts", sidebar=False
-    )
-    selected_months = safe_multiselect(
-        "Month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B')), 
-        "selected_months", sidebar=False
-    )
-
-with col2:
-    filtered_countries = data[data['continent'].isin(selected_continents)] if "Select All" not in selected_continents else data
-    selected_countries = safe_multiselect(
-        "Country", filtered_countries['alert-country'].dropna().unique(), "selected_countries", sidebar=False
-    )
-    selected_enabling_principle = safe_multiselect(
-        "Enabling Principle", 
-        data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(), 
-        "selected_enabling_principle", sidebar=False
-    )
-    selected_years = safe_multiselect(
-        "Year", sorted(data['year'].dropna().unique()), "selected_years", sidebar=False
-    )
-
-# Reset button at bottom
+# Reset button
 if st.sidebar.button("🔄 Reset Filters"):
-    for key in [
-        "selected_continents","selected_countries","selected_alert_types",
-        "selected_enabling_principle","selected_alert_impacts","selected_months","selected_years"
-    ]:
+    for key in ["selected_continents","selected_countries","selected_alert_types","selected_enabling_principle",
+                "selected_alert_impacts","selected_months","selected_years"]:
         st.session_state[key] = ["Select All"]
 
 # ---------------- FILTER DATA ----------------
