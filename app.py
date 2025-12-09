@@ -98,12 +98,6 @@ div[data-testid="stMultiSelect"] div[aria-label="Remove"]:hover {
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
-/* Multi-select styling */
-.css-1wa3eu0 .css-1d391kg {background-color: #660094 !important; color: white !important;}
-.css-1wa3eu0 input {color: #660094 !important;}
-.css-1gtu0r7 {background-color: #f2e6ff !important; color: #660094 !important;}
-.css-1gtu0r7 div[role="option"]:hover {background-color: #b266ff !important; color: white !important;}
-.css-1wa3eu0 {border-color: #660094 !important;}
 
 /* Remove top spacing */
 .css-18e3th9 {padding-top: 0rem;}
