@@ -235,10 +235,10 @@ with tab1:
     a3 = filtered_global.groupby(["continent","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
-    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
-    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="continent",x="count",color_col="alert-impact", horizontal=False),use_container_width=True)
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True)
+    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
+    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="continent",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
 # ---------------- TAB 2 ----------------
 with tab2:
@@ -273,12 +273,12 @@ with tab2:
     t6 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
 
     r1c1,r1c2,r1c3 = st.columns(3); r2c1,r2c2,r2c3 = st.columns(3)
-    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False),use_container_width=True)
-    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False),use_container_width=True)
-    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False),use_container_width=True)
-    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True),use_container_width=True)
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True),use_container_width=True)
-    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True)
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False),use_container_width=True,  key="tab2_chart1")
+    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False),use_container_width=True,  key="tab2_chart2")
+    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False),use_container_width=True,  key="tab2_chart3")
+    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True),use_container_width=True,  key="tab2_chart4")
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True),use_container_width=True,  key="tab2_chart5")
+    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True,  key="tab2_chart6")
 
 # ---------------- TAB 3 ----------------
 with tab3:
@@ -288,8 +288,8 @@ with tab3:
     b2 = positive_df.groupby("alert-type").size().reset_index(name="count")
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
-    r1c1.plotly_chart(create_bar_chart(b1,"alert-country","count",horizontal=True), use_container_width=True)
-    r1c2.plotly_chart(create_bar_chart(b2,"alert-type","count",horizontal=True), use_container_width=True)
+    r1c1.plotly_chart(create_bar_chart(b1,"alert-country","count",horizontal=True), use_container_width=True,  key="tab3_chart1")
+    r1c2.plotly_chart(create_bar_chart(b2,"alert-type","count",horizontal=True), use_container_width=True,  key="tab3_chart2")
 
 # ---------------- TAB 4 ----------------
 with tab4:
@@ -298,8 +298,8 @@ with tab4:
     d2 = filtered_global.groupby("alert-type").size().reset_index(name="count")
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
-    r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True)
-    r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True)
+    r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True, key="tab4_chart1")
+    r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True,  key="tab4_chart2")
 
 # ---------------- TAB 5 (MAP) ----------------
 with tab5:
