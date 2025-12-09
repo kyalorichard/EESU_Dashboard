@@ -339,18 +339,6 @@ with tab5:
         geo_countries = [f['properties']['name'] for f in countries_gj['features']]
         df_map = df_map[df_map['alert-country'].isin(geo_countries)]
         map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
-
- 
-         # Prepare hover text
-        def get_hover_text(country):
-            sub_df = filtered_global[filtered_global['alert-country'] == country]
-            negative = sub_df[sub_df['alert-impact']=="Negative"].shape[0]
-            positive = sub_df[sub_df['alert-impact']=="Positive"].shape[0]
-            principles = ", ".join(sub_df['enabling-principle'].dropna().unique())
-            return f"<b>{country}</b><br>Total Alerts: {sub_df.shape[0]}<br>Negative: {negative}<br>Positive: {positive}<br>Enabling Principles: {principles}"
-            
-        map_df['hover_text'] = map_df['alert-country'].apply(get_hover_text)
-
         
         if not df_map.empty:
             coords = []
@@ -383,8 +371,7 @@ with tab5:
             featureidkey="properties.name",
             color="count",
             hover_name="alert-country",
-            #hover_data={"count":True,"alert-country":False},
-            hover_data={"count":True, "alert-country":False, "hover_text":True},
+            hover_data={"count":True,"alert-country":False},            
             color_continuous_scale="Greens",
             mapbox_style="open-street-map",
             zoom=zoom,
