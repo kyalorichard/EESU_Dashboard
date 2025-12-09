@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 from datetime import datetime
-from langdetect import detect
+from langdetect import detect, LangDetectException
 from dotenv import load_dotenv
 from email.message import EmailMessage
 import smtplib
@@ -31,7 +31,7 @@ PERMANENTLY_FAILED_FILE = os.path.join(OUTPUT_FOLDER, "permanently_failed_batche
 
 # ---------------- CONFIG ----------------
 MAX_BATCH_TOKENS = 10000
-MAX_BATCH_SIZE = None
+MAX_BATCH_SIZE = None  # Max rows per batch
 CONCURRENT_BATCHES = 3
 MAX_RETRIES = 2
 SAVE_EVERY_N_BATCHES = 2
@@ -75,7 +75,7 @@ def build_prompt(batch_summaries):
     for idx, summary in enumerate(batch_summaries):
         try:
             lang = detect(summary) if summary.strip() else "en"
-        except:
+        except LangDetectException:
             lang = "en"
         if lang not in ACTOR_THEMES:
             lang = "en"
@@ -180,7 +180,7 @@ def send_email(subject, body, to_email):
     except Exception as e:
         print(f"Email failed: {e}")
 
-   # ---------------- MAIN PROCESS ----------------
+# ---------------- MAIN PROCESS ----------------
 async def process_all(mock_mode=False):
     # Load previous output if exists
     if os.path.exists(OUTPUT_PARQUET):
@@ -191,49 +191,44 @@ async def process_all(mock_mode=False):
 
     permanently_failed = []
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
-    
-    # Build batches (only 2 elements per batch: start_idx, batch_summaries)
-    batches = [(idx, summ) for idx, summ in build_batches(df_out)]
+
+    batches = build_batches(df_out, max_rows=MAX_BATCH_SIZE)
     print(f"Total batches to process: {len(batches)}")
 
     async def process_batch(batch_start_idx, batch_summaries):
         async with semaphore:
             retries = 0
+            last_exception = None
             while retries <= MAX_RETRIES:
                 try:
                     results, _ = await extract_batch(batch_summaries, mock_mode)
-                    # Successfully processed, break out of retry loop
                     break
-                except Exception as e:
+                except Exception as exc:
                     retries += 1
-                    print(f"Batch starting at {batch_start_idx} failed (attempt {retries}): {e}")
+                    last_exception = exc
+                    print(f"Batch starting at {batch_start_idx} failed (attempt {retries}): {exc}")
                     await asyncio.sleep(2 ** retries)
             else:
-                # Permanently failed after retries
-                permanently_failed.append({"start_idx": batch_start_idx, "error": str(e)})
+                permanently_failed.append({"start_idx": batch_start_idx, "error": str(last_exception)})
                 results = [{"Actor of repression": "Error",
                             "Subject of repression": "Error",
                             "Mechanism of repression": "Error",
                             "Type of event": "Error"} for _ in batch_summaries]
 
-            # Update dataframe
             for j, res in enumerate(results):
                 idx = batch_start_idx + j
                 for key in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]:
                     df_out.at[idx, key] = res.get(key, "Unknown")
             print(f"Processed batch starting at row {batch_start_idx}, {len(results)} rows")
 
-    # Process batches in groups respecting concurrency
     for i in range(0, len(batches), CONCURRENT_BATCHES):
         tasks = [process_batch(*b) for b in batches[i:i+CONCURRENT_BATCHES]]
         await asyncio.gather(*tasks)
 
-        # Periodic intermediate save
         if (i // CONCURRENT_BATCHES + 1) % SAVE_EVERY_N_BATCHES == 0:
             df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
             print(f"Intermediate save after batch group {i // CONCURRENT_BATCHES + 1}")
 
-    # Final save
     df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
     df_out.to_csv(OUTPUT_CSV, index=False)
 
@@ -244,11 +239,11 @@ async def process_all(mock_mode=False):
     return df_out
 
 # ---------------- RUN ----------------
-# Set mock_mode=True to simulate extraction
-mock_mode = True  # Change to False to use live GPT API
-df_out = asyncio.run(process_all(mock_mode=mock_mode))
+if __name__ == "__main__":
+    mock_mode = True  # Change to False to use live GPT API
+    df_out = asyncio.run(process_all(mock_mode=mock_mode))
 
-summary_message = f"Processing complete! Total rows: {len(df_out)} | Mock mode: {mock_mode}"
-print(summary_message)
-if NOTIFY_EMAIL:
-    send_email("Extraction Completed", summary_message, NOTIFY_EMAIL)
+    summary_message = f"Processing complete! Total rows: {len(df_out)} | Mock mode: {mock_mode}"
+    print(summary_message)
+    if NOTIFY_EMAIL:
+        send_email("Extraction Completed", summary_message, NOTIFY_EMAIL)
