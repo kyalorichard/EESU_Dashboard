@@ -2,9 +2,12 @@ name: Run Scheduled Scripts
 
 on:
   schedule:
-   # - cron: '0 3 1,15 * *'
     - cron: '*/5 * * * *'
   workflow_dispatch:
+
+concurrency:
+  group: scheduled-job
+  cancel-in-progress: true
 
 jobs:
   run:
@@ -24,35 +27,98 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyyaml python-dotenv
 
-      # ✅ Load .env values securely from GitHub Secrets
+      # ✅ Load environment variables
       - name: Load environment variables
         run: |
-          echo "SMTP_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
-          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
+          echo "SMTP_EMAIL=${{ secrets.SMTP_EMAIL }}" >> $GITHUB_ENV
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
 
-      - name: Run scheduled script
-        run: python data_preprocessing.py
+      # ✅ Timestamped log file
+      - name: Generate timestamped log file
+        run: |
+          echo "LOG_FILE=scheduler_$(date +'%Y-%m-%d_%H-%M-%S').log" >> $GITHUB_ENV
 
-      # ✅ Upload logs
+      # ✅ Run script with retries + exponential backoff
+      - name: Run script with retries and backoff
+        run: |
+          echo "Script started at $(date)" | tee -a $LOG_FILE
+
+          ATTEMPT=1
+          MAX_ATTEMPTS=3
+          BASE_DELAY=30
+
+          until [ $ATTEMPT -gt $MAX_ATTEMPTS ]
+          do
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS" | tee -a $LOG_FILE
+            python data_preprocessing.py 2>&1 | tee -a $LOG_FILE
+
+            EXIT_CODE=${PIPESTATUS[0]}
+
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "✅ Script succeeded on attempt $ATTEMPT" | tee -a $LOG_FILE
+              break
+            else
+              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                DELAY=$((BASE_DELAY * 2 ** (ATTEMPT - 1)))
+                echo "⏳ Waiting ${DELAY}s before retry..." | tee -a $LOG_FILE
+                sleep $DELAY
+              else
+                echo "❌ All retry attempts failed" | tee -a $LOG_FILE
+                exit 1
+              fi
+              ((ATTEMPT++))
+            fi
+          done
+
+          echo "Script ended at $(date)" | tee -a $LOG_FILE
+
+      # ✅ Upload logs to GitHub Artifacts
       - name: Upload scheduler logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: scheduler-logs
-          path: scheduler.log
+          path: ${{ env.LOG_FILE }}
           if-no-files-found: warn
 
-      # ✅ Send SUCCESS email only
+      # ✅ Send SUCCESS email
       - name: Send success email
         if: success()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ env.SMTP_HOST }}
+          server_address: ${{ env.NOTIFY_EMAIL }}
           server_port: ${{ env.SMTP_PORT }}
           username: ${{ env.SMTP_EMAIL }}
-          password: ${{ env.SMTP_PASSWORD }}
+          password: ${{ env.SMTP_PASS }}
           subject: "✅ Script ran successfully"
-          body: "Your scheduled script ran successfully on GitHub Actions."
+          body: |
+            Your scheduled script completed successfully.
+
+            Repository: ${{ github.repository }}
+            Run ID: ${{ github.run_id }}
           to: ${{ env.SMTP_EMAIL }}
           from: "GitHub Actions <${{ env.SMTP_EMAIL }}>"
+
+      # ❌ Send FAILURE email + attach logs
+      - name: Send failure email with logs attached
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.NOTIFY_EMAIL }}
+          server_port: ${{ env.SMTP_PORT }}
+          username: ${{ env.SMTP_EMAIL }}
+          password: ${{ env.SMTP_PASS }}
+          subject: "❌ Script failed – Logs attached"
+          body: |
+            Your scheduled script FAILED.
+
+            Repository: ${{ github.repository }}
+            Workflow: ${{ github.workflow }}
+            Run ID: ${{ github.run_id }}
+
+            The execution log file is attached to this email.
+          to: ${{ env.SMTP_EMAIL }}
+          from: "GitHub Actions <${{ env.SMTP_EMAIL }}>"
+          attachments: ${{ env.LOG_FILE }}
