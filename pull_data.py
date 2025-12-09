@@ -1,27 +1,28 @@
 """
-Lambda function to:
-- Connect to WordPress MySQL database
-- Fetch new/updated posts since last sync
+Production-ready Lambda for WordPress incremental sync with full CloudWatch metrics:
+- Fetch new/updated posts using post_modified
+- Batch processing for scalability
 - Merge with cumulative CSV in S3
-- Update checkpoint in S3
-- Send SES email notifications on success/failure
+- Update checkpoint
+- SES notifications
+- Automatic retries
 - Logs to CloudWatch
+- Push custom metrics: PostsSynced, TotalPosts, SyncErrors, BatchCount, ExecutionTime
 """
 
 import os
 import pymysql
 import boto3
-import csv
 import json
-from datetime import datetime
 import logging
+import time
 from io import StringIO
 import pandas as pd
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Environment variables for DB, S3, and SES
+# Environment variables
 S3_BUCKET = os.environ['S3_BUCKET_NAME']
 S3_PREFIX = os.environ.get('S3_PREFIX', 'wp_incremental_csv')
 DB_HOST = os.environ['DB_HOST']
@@ -29,39 +30,101 @@ DB_USER = os.environ['DB_USER']
 DB_PASSWORD = os.environ['DB_PASSWORD']
 DB_NAME = os.environ['DB_NAME']
 SES_EMAIL = os.environ.get('SES_EMAIL')
+BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 500))
+MAX_RETRIES = int(os.environ.get('MAX_RETRIES', 3))
+RETRY_DELAY = float(os.environ.get('RETRY_DELAY', 2))  # seconds
+METRIC_NAMESPACE = os.environ.get('METRIC_NAMESPACE', 'WordPressSyncMetrics')
 
 s3 = boto3.client('s3')
 ses = boto3.client('ses')
+cloudwatch = boto3.client('cloudwatch')
 
 CHECKPOINT_KEY = f"{S3_PREFIX}/checkpoint.json"
 CUMULATIVE_CSV_KEY = f"{S3_PREFIX}/wordpress_cumulative.csv"
 
+
+# ------------------- Retry Decorator -------------------
+def retry(func):
+    """Retry decorator with exponential backoff"""
+    def wrapper(*args, **kwargs):
+        delay = RETRY_DELAY
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.warning(f"Attempt {attempt} failed for {func.__name__}: {e}")
+                if attempt == MAX_RETRIES:
+                    raise
+                time.sleep(delay)
+                delay *= 2
+    return wrapper
+
+
+# ------------------- AWS & DB Wrappers -------------------
+@retry
+def s3_get_object(**kwargs):
+    return s3.get_object(**kwargs)
+
+@retry
+def s3_put_object(**kwargs):
+    return s3.put_object(**kwargs)
+
+@retry
+def ses_send_email(**kwargs):
+    return ses.send_email(**kwargs)
+
+@retry
+def db_connect():
+    return pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, db=DB_NAME)
+
+@retry
+def put_metric(name, value):
+    """Push custom metric to CloudWatch"""
+    cloudwatch.put_metric_data(
+        Namespace=METRIC_NAMESPACE,
+        MetricData=[{
+            'MetricName': name,
+            'Value': value,
+            'Unit': 'Count' if name != "ExecutionTime" else 'Seconds'
+        }]
+    )
+
+
+# ------------------- Utility Functions -------------------
 def get_last_sync_time():
-    """Fetch last sync timestamp from S3 checkpoint"""
     try:
-        resp = s3.get_object(Bucket=S3_BUCKET, Key=CHECKPOINT_KEY)
+        resp = s3_get_object(Bucket=S3_BUCKET, Key=CHECKPOINT_KEY)
         checkpoint = json.loads(resp['Body'].read())
-        return checkpoint.get('last_sync')
+        last_sync = checkpoint.get('last_sync')
+        if last_sync:
+            logger.info(f"Last sync time from checkpoint: {last_sync}")
+        return last_sync
     except s3.exceptions.NoSuchKey:
         logger.info("No checkpoint found. Fetching all posts.")
         return None
+    except Exception as e:
+        logger.error(f"Error reading checkpoint: {e}")
+        return None
+
 
 def update_checkpoint(timestamp):
-    """Update checkpoint in S3 with latest sync time"""
-    s3.put_object(
-        Bucket=S3_BUCKET,
-        Key=CHECKPOINT_KEY,
-        Body=json.dumps({"last_sync": timestamp})
-    )
-    logger.info(f"Updated checkpoint to {timestamp}")
+    try:
+        s3_put_object(
+            Bucket=S3_BUCKET,
+            Key=CHECKPOINT_KEY,
+            Body=json.dumps({"last_sync": timestamp})
+        )
+        logger.info(f"Updated checkpoint to {timestamp}")
+    except Exception as e:
+        logger.error(f"Failed to update checkpoint: {e}")
+
 
 def send_email(subject, body):
-    """Send SES email notification"""
     if not SES_EMAIL:
         logger.warning("SES_EMAIL not set. Skipping email notification.")
         return
     try:
-        ses.send_email(
+        ses_send_email(
             Source=SES_EMAIL,
             Destination={'ToAddresses': [SES_EMAIL]},
             Message={
@@ -69,68 +132,119 @@ def send_email(subject, body):
                 'Body': {'Text': {'Data': body}}
             }
         )
+        logger.info(f"Email sent: {subject}")
     except Exception as e:
         logger.error(f"Failed to send SES email: {e}")
 
+
+def fetch_posts_batch(cursor, last_modified, batch_size):
+    if last_modified:
+        cursor.execute(
+            "SELECT ID, post_title, post_date, post_modified FROM wp_posts "
+            "WHERE post_status='publish' AND post_type='post' AND post_modified > %s "
+            "ORDER BY post_modified ASC LIMIT %s",
+            (last_modified, batch_size)
+        )
+    else:
+        cursor.execute(
+            "SELECT ID, post_title, post_date, post_modified FROM wp_posts "
+            "WHERE post_status='publish' AND post_type='post' "
+            "ORDER BY post_modified ASC LIMIT %s",
+            (batch_size,)
+        )
+    return cursor.fetchall()
+
+
+# ------------------- Lambda Handler -------------------
 def lambda_handler(event, context):
-    """Main Lambda handler"""
+    start_time = time.time()
+    batch_count = 0
     try:
         last_sync = get_last_sync_time()
-        conn = pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, db=DB_NAME)
-        cursor = conn.cursor()
 
-        # Fetch only new posts since last sync
-        if last_sync:
-            logger.info(f"Fetching posts updated since {last_sync}")
-            cursor.execute(
-                "SELECT ID, post_title, post_date FROM wp_posts "
-                "WHERE post_status='publish' AND post_type='post' AND post_date > %s",
-                (last_sync,)
-            )
-        else:
-            logger.info("Fetching all posts")
-            cursor.execute(
-                "SELECT ID, post_title, post_date FROM wp_posts "
-                "WHERE post_status='publish' AND post_type='post'"
-            )
-
-        rows = cursor.fetchall()
-        if not rows:
-            logger.info("No new posts to sync.")
-            send_email("WordPress Sync Completed", "No new posts since last sync.")
-            return {"status": "no_new_posts"}
-
-        # Read existing cumulative CSV from S3 if exists
+        # Load existing cumulative CSV
+        df_existing = pd.DataFrame(columns=['ID', 'Title', 'Date', 'Modified'])
         try:
-            resp = s3.get_object(Bucket=S3_BUCKET, Key=CUMULATIVE_CSV_KEY)
+            resp = s3_get_object(Bucket=S3_BUCKET, Key=CUMULATIVE_CSV_KEY)
             df_existing = pd.read_csv(resp['Body'])
             logger.info("Loaded existing cumulative CSV from S3.")
         except s3.exceptions.NoSuchKey:
-            df_existing = pd.DataFrame(columns=['ID', 'Title', 'Date'])
             logger.info("No cumulative CSV found. Creating new.")
+        except Exception as e:
+            logger.error(f"Error reading cumulative CSV: {e}")
 
-        # Merge new rows with existing CSV
-        df_new = pd.DataFrame(rows, columns=['ID', 'Title', 'Date'])
-        df_cumulative = pd.concat([df_existing, df_new], ignore_index=True).drop_duplicates(subset=['ID'])
+        # Connect to DB
+        conn = db_connect()
+        cursor = conn.cursor()
 
-        # Save cumulative CSV in memory and upload to S3
+        all_new_rows = []
+        last_modified = last_sync
+
+        # Batch fetch loop
+        while True:
+            rows = fetch_posts_batch(cursor, last_modified, BATCH_SIZE)
+            if not rows:
+                break
+
+            df_batch = pd.DataFrame(rows, columns=['ID', 'Title', 'Date', 'Modified'])
+            all_new_rows.append(df_batch)
+            last_modified = df_batch['Modified'].max()
+            batch_count += 1
+            logger.info(f"Fetched batch {batch_count} with {len(df_batch)} posts; next batch starts after {last_modified}")
+
+        cursor.close()
+        conn.close()
+
+        if not all_new_rows:
+            logger.info("No new or updated posts to sync.")
+            send_email("WordPress Sync Completed", "No new or updated posts since last sync.")
+            put_metric("PostsSynced", 0)
+            put_metric("BatchCount", 0)
+            execution_time = time.time() - start_time
+            put_metric("ExecutionTime", execution_time)
+            return {"status": "no_new_posts"}
+
+        # Merge all batches
+        df_new = pd.concat(all_new_rows, ignore_index=True)
+        df_cumulative = pd.concat([df_existing, df_new], ignore_index=True)
+        df_cumulative.drop_duplicates(subset=['ID'], keep='last', inplace=True)
+        df_cumulative.sort_values('Modified', inplace=True)
+
+        # Upload cumulative CSV
         csv_buffer = StringIO()
         df_cumulative.to_csv(csv_buffer, index=False)
-        s3.put_object(Bucket=S3_BUCKET, Key=CUMULATIVE_CSV_KEY, Body=csv_buffer.getvalue())
+        s3_put_object(Bucket=S3_BUCKET, Key=CUMULATIVE_CSV_KEY, Body=csv_buffer.getvalue())
         logger.info(f"Cumulative CSV updated in S3: {CUMULATIVE_CSV_KEY}")
 
         # Update checkpoint
-        now_iso = datetime.utcnow().isoformat()
-        update_checkpoint(now_iso)
+        checkpoint_time = df_new['Modified'].max()
+        update_checkpoint(checkpoint_time)
 
+        # Send success email
         send_email(
             "WordPress Sync Successful",
-            f"Successfully synced {len(df_new)} new posts.\nTotal posts: {len(df_cumulative)}"
+            f"Successfully synced {len(df_new)} new or updated posts.\nTotal posts: {len(df_cumulative)}"
         )
 
-        return {"status": "success", "new_rows": len(df_new), "total_rows": len(df_cumulative)}
+        # Push metrics
+        put_metric("PostsSynced", len(df_new))
+        put_metric("TotalPosts", len(df_cumulative))
+        put_metric("BatchCount", batch_count)
+        execution_time = time.time() - start_time
+        put_metric("ExecutionTime", execution_time)
+
+        return {
+            "status": "success",
+            "new_rows": len(df_new),
+            "total_rows": len(df_cumulative),
+            "batches": batch_count,
+            "execution_time": execution_time
+        }
 
     except Exception as e:
         logger.error(f"Error in WordPress sync: {e}")
         send_email("WordPress Sync Failed", f"Error: {e}")
+        put_metric("SyncErrors", 1)
+        execution_time = time.time() - start_time
+        put_metric("ExecutionTime", execution_time)
         raise
