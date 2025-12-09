@@ -79,6 +79,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Send email notification
+        if: always()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ env.SMTP_HOST }}
@@ -90,3 +91,4 @@ jobs:
           subject: ${{ env.EMAIL_SUBJECT }}
           body: ${{ env.EMAIL_BODY }}
           attachments: ${{ env.EMAIL_ATTACH }}
+          secure: true
