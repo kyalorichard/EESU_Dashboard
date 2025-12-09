@@ -11,12 +11,59 @@ import smtplib
 from tqdm.asyncio import tqdm_asyncio
 import random
 
-# ---------------- CONFIG ----------------
+# ---------------- LOAD ENV ----------------
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
+MODEL = "gpt-5-mini"
+
+# Email
+NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL")
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+
+# AWS / Lambda
+REGION = os.getenv("REGION")
+LAMBDA_ROLE = os.getenv("LAMBDA_ROLE")
+LAMBDA_NAME_STAGING = os.getenv("LAMBDA_NAME_STAGING")
+LAMBDA_NAME_PROD = os.getenv("LAMBDA_NAME_PROD")
+
+# WordPress DB
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASS")
+DB_NAME = os.getenv("DB_NAME")
+
+# S3
+S3_BUCKET_STAGING = os.getenv("S3_BUCKET_STAGING")
+S3_BUCKET_PROD = os.getenv("S3_BUCKET_PROD")
+CSV_KEY = os.getenv("CSV_KEY")
+CHECKPOINT_KEY = os.getenv("CHECKPOINT_KEY")
+
+# EC2 / Streamlit
+EC2_USER = os.getenv("EC2_USER")
+EC2_HOST_STAGING = os.getenv("EC2_HOST_STAGING")
+EC2_HOST_PROD = os.getenv("EC2_HOST_PROD")
+EC2_KEY = os.getenv("EC2_KEY")
+DOCKER_IMAGE_TAG_STAGING = os.getenv("DOCKER_IMAGE_TAG_STAGING")
+DOCKER_IMAGE_TAG_PROD = os.getenv("DOCKER_IMAGE_TAG_PROD")
+STREAMLIT_PORT = int(os.getenv("STREAMLIT_PORT", 8501))
+
+# Dashboard files
+COUNTRY_META_FILE = os.getenv("COUNTRY_META_FILE")
+GEOJSON_FILE = os.getenv("GEOJSON_FILE")
+
+# Optional
+AUTORELOAD_INTERVAL = int(os.getenv("AUTORELOAD_INTERVAL", 60000))
+CHECKPOINT_TTL = int(os.getenv("CHECKPOINT_TTL", 24))
+TEST_ROWS = int(os.getenv("TEST_ROWS", 3))
+
+# ---------------- FILE PATHS ----------------
 INPUT_CSV = "data/raw_data.csv"
-SUMMARY_COL = "summary"
 OUTPUT_FOLDER = "data"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -27,28 +74,26 @@ LOG_FILE = os.path.join(OUTPUT_FOLDER, "batch_processing_log.csv")
 FAILED_BATCHES_FILE = os.path.join(OUTPUT_FOLDER, "failed_batches.json")
 PERMANENTLY_FAILED_FILE = os.path.join(OUTPUT_FOLDER, "permanently_failed_batches.json")
 
+# ---------------- BATCH / PROCESS CONFIG ----------------
 MAX_BATCH_TOKENS = 10000
 MIN_BATCH_SIZE = 1
 MAX_BATCH_SIZE = 2
 DEFAULT_BATCH_SIZE = 2
 SAVE_EVERY_N_BATCHES = 2
 MAX_RETRIES = 2
-MODEL = "gpt-5-mini"
 LATENCY_TARGET = 5
 LATENCY_TOLERANCE = 2
 ADJUST_FACTOR = 0.2
 CONCURRENT_BATCHES = 3
 COST_PER_1K_TOKENS = 0.003
 
-TEST_ROWS = None  # set None for full dataset
-
-# ---------------- MOCK MODE CONFIG ----------------
+# ---------------- MOCK MODE ----------------
 MOCK_MODE = True
 MOCK_CONFIG = {
-    "quota_error_batches": 1,        # First N batches simulate quota errors
-    "malformed_json_prob": 0.3,      # Probability a batch returns malformed JSON
-    "missing_keys_prob": 0.2,        # Probability some keys are missing in a batch
-    "latency_range": (0.5, 2.0),     # Simulated API response time in seconds
+    "quota_error_batches": 1,
+    "malformed_json_prob": 0.3,
+    "missing_keys_prob": 0.2,
+    "latency_range": (0.5, 2.0),
     "fixed_keys": ["Actor of repression", "Subject of repression",
                    "Mechanism of repression", "Type of event"]
 }
@@ -129,7 +174,6 @@ async def mock_extract_batch(batch_summaries):
         mock_extract_batch.malformed_json_batches = 0
         mock_extract_batch.missing_keys_batches = 0
 
-    # Simulate quota error for first N batches
     if mock_extract_batch.call_count < MOCK_CONFIG["quota_error_batches"]:
         mock_extract_batch.call_count += 1
         mock_extract_batch.quota_error_batches += 1
@@ -141,7 +185,6 @@ async def mock_extract_batch(batch_summaries):
 
     for summary in batch_summaries:
         r = {}
-        # Possibly omit some keys
         if random.random() < MOCK_CONFIG["missing_keys_prob"]:
             keys_to_include = random.sample(MOCK_CONFIG["fixed_keys"], k=random.randint(1, len(MOCK_CONFIG["fixed_keys"])))
             missing_keys_in_batch = True
@@ -151,14 +194,12 @@ async def mock_extract_batch(batch_summaries):
         for key in keys_to_include:
             r[key] = f"{key} Value"
 
-        # Possibly make malformed
         if random.random() < MOCK_CONFIG["malformed_json_prob"]:
-            batch_data.append(json.dumps(r)[:-1])  # remove last char to simulate malformed
+            batch_data.append(json.dumps(r)[:-1])  # malformed
             malformed_in_batch = True
         else:
             batch_data.append(r)
 
-    # Update issue counters
     if malformed_in_batch:
         mock_extract_batch.malformed_json_batches += 1
     if missing_keys_in_batch:
@@ -166,7 +207,6 @@ async def mock_extract_batch(batch_summaries):
 
     mock_extract_batch.call_count += 1
 
-    # Combine into simulated API string
     response_content_list = []
     for r in batch_data:
         if isinstance(r, dict):
@@ -175,10 +215,8 @@ async def mock_extract_batch(batch_summaries):
             response_content_list.append(r)
     response_content = "[" + ",".join(response_content_list) + "]"
 
-    # Simulate latency
     await asyncio.sleep(random.uniform(*MOCK_CONFIG["latency_range"]))
 
-    # Attempt to parse; fallback will handle malformed JSON
     try:
         parsed_data = json.loads(response_content)
     except:
@@ -230,19 +268,15 @@ async def extract_batch(batch_summaries):
 
 # ---------------- EMAIL FUNCTION ----------------
 def send_email_notification(subject, body, to_email):
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
-    smtp_host = os.getenv("SMTP_HOST")
-    smtp_port = int(os.getenv("SMTP_PORT", 587))
     msg = EmailMessage()
     msg.set_content(body)
     msg['Subject'] = subject
-    msg['From'] = smtp_user
+    msg['From'] = SMTP_USER
     msg['To'] = to_email
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
-            server.login(smtp_user, smtp_pass)
+            server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
         print(f"Email sent to {to_email}")
     except Exception as e:
@@ -269,21 +303,20 @@ async def process_all_incremental_resume():
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
     permanently_failed = []
 
-    # Prepare normal batches
     i = 0
     normal_batches = []
     while i < len(df_out):
-        if df_out.at[i,"Actor of repression"]:
+        if pd.notna(df_out.at[i,"Actor of repression"]) and df_out.at[i,"Actor of repression"] != "":
             i += 1
             continue
         batch_summaries = []
         batch_tokens = 0
         batch_start_idx = i
         while i < len(df_out) and len(batch_summaries) < batch_size:
-            if df_out.at[i,"Actor of repression"]:
+            if pd.notna(df_out.at[i,"Actor of repression"]) and df_out.at[i,"Actor of repression"] != "":
                 i += 1
                 continue
-            summary = str(df_out.at[i,SUMMARY_COL])
+            summary = str(df_out.at[i,"summary"])
             tokens = estimate_tokens(summary)
             if batch_tokens + tokens > MAX_BATCH_TOKENS:
                 break
@@ -316,64 +349,61 @@ async def process_all_incremental_resume():
                 else:
                     return (batch_start_idx, batch_summaries, batch_tokens, retries)
 
-        # --- PATCH: Convert any string or malformed results into dicts ---
-        safe_results = []
-        if isinstance(results, list):
-            for r in results:
-                if isinstance(r, dict):
-                    safe_results.append(r)
-                else:
-                    safe_results.append({
-                        "Actor of repression": "Error",
-                        "Subject of repression": "Error",
-                        "Mechanism of repression": "Error",
-                        "Type of event": "Error"
-                    })
-        else:
-            # entire batch is malformed string
-            safe_results = [{
-                "Actor of repression": "Error",
-                "Subject of repression": "Error",
-                "Mechanism of repression": "Error",
-                "Type of event": "Error"
-            } for _ in batch_summaries]
-
-        if all(r.get("Actor of repression")=="Error" for r in safe_results):
-            retries += 1
-            if retries > MAX_RETRIES:
-                permanently_failed.append({
-                    "start_idx": batch_start_idx,
-                    "summaries": batch_summaries,
-                    "tokens": batch_tokens,
-                    "retries": retries
-                })
-                return 0
+            safe_results = []
+            if isinstance(results, list):
+                for r in results:
+                    if isinstance(r, dict):
+                        safe_results.append(r)
+                    else:
+                        safe_results.append({
+                            "Actor of repression": "Error",
+                            "Subject of repression": "Error",
+                            "Mechanism of repression": "Error",
+                            "Type of event": "Error"
+                        })
             else:
-                return (batch_start_idx, batch_summaries, batch_tokens, retries)
-        else:
-            for j,res in enumerate(safe_results):
-                idx = batch_start_idx+j
-                df_out.at[idx,"Actor of repression"] = res.get("Actor of repression","Unknown")
-                df_out.at[idx,"Subject of repression"] = res.get("Subject of repression","Unknown")
-                df_out.at[idx,"Mechanism of repression"] = res.get("Mechanism of repression","Unknown")
-                df_out.at[idx,"Type of event"] = res.get("Type of event","Unknown")
+                safe_results = [{
+                    "Actor of repression": "Error",
+                    "Subject of repression": "Error",
+                    "Mechanism of repression": "Error",
+                    "Type of event": "Error"
+                } for _ in batch_summaries]
 
-        log_entry = {"Batch Start Index": batch_start_idx,"Batch Size":len(batch_summaries),
-                     "Estimated Tokens":batch_tokens,"API Duration(s)":duration,"Timestamp":datetime.now().isoformat()}
-        pd.DataFrame([log_entry]).to_csv(LOG_FILE, mode='a', header=not os.path.exists(LOG_FILE), index=False)
-        df_out.to_parquet(INTERMEDIATE_PARQUET,index=False,engine="pyarrow")
+            if all(r.get("Actor of repression")=="Error" for r in safe_results):
+                retries += 1
+                if retries > MAX_RETRIES:
+                    permanently_failed.append({
+                        "start_idx": batch_start_idx,
+                        "summaries": batch_summaries,
+                        "tokens": batch_tokens,
+                        "retries": retries
+                    })
+                    return 0
+                else:
+                    return (batch_start_idx, batch_summaries, batch_tokens, retries)
+            else:
+                for j,res in enumerate(safe_results):
+                    idx = batch_start_idx+j
+                    df_out.at[idx,"Actor of repression"] = res.get("Actor of repression","Unknown")
+                    df_out.at[idx,"Subject of repression"] = res.get("Subject of repression","Unknown")
+                    df_out.at[idx,"Mechanism of repression"] = res.get("Mechanism of repression","Unknown")
+                    df_out.at[idx,"Type of event"] = res.get("Type of event","Unknown")
 
-        if duration:
-            if duration < LATENCY_TARGET - LATENCY_TOLERANCE:
-                batch_size = min(int(batch_size*(1+ADJUST_FACTOR)), MAX_BATCH_SIZE)
-            elif duration > LATENCY_TARGET + LATENCY_TOLERANCE:
-                batch_size = max(int(batch_size*(1-ADJUST_FACTOR)), MIN_BATCH_SIZE)
+            log_entry = {"Batch Start Index": batch_start_idx,"Batch Size":len(batch_summaries),
+                         "Estimated Tokens":batch_tokens,"API Duration(s)":duration,"Timestamp":datetime.now().isoformat()}
+            pd.DataFrame([log_entry]).to_csv(LOG_FILE, mode='a', header=not os.path.exists(LOG_FILE), index=False)
+            df_out.to_parquet(INTERMEDIATE_PARQUET,index=False,engine="pyarrow")
 
-        total_tokens_processed += batch_tokens
-        total_cost = (total_tokens_processed/1000)*COST_PER_1K_TOKENS
-        return 0
+            if duration:
+                if duration < LATENCY_TARGET - LATENCY_TOLERANCE:
+                    batch_size = min(int(batch_size*(1+ADJUST_FACTOR)), MAX_BATCH_SIZE)
+                elif duration > LATENCY_TARGET + LATENCY_TOLERANCE:
+                    batch_size = max(int(batch_size*(1-ADJUST_FACTOR)), MIN_BATCH_SIZE)
 
-    # ---------------- MAIN LOOP ----------------
+            total_tokens_processed += batch_tokens
+            total_cost = (total_tokens_processed/1000)*COST_PER_1K_TOKENS
+            return 0
+
     pending_batches = batches_to_process
     pbar = tqdm_asyncio(total=len(pending_batches), desc="Processing batches")
     while pending_batches:
@@ -392,7 +422,6 @@ async def process_all_incremental_resume():
     with open(FAILED_BATCHES_FILE,"w",encoding="utf-8") as f:
         json.dump(remaining_failed,f,ensure_ascii=False,indent=2)
 
-    # ---------------- MOCK STATS ----------------
     mock_stats = None
     if MOCK_MODE:
         mock_stats = {
@@ -428,16 +457,4 @@ if MOCK_MODE and mock_stats:
         f"Total batches processed: {mock_stats['total_batches']}\n"
         f"Simulated quota errors: {mock_stats['quota_errors']}\n"
         f"Batches with malformed JSON: {mock_stats['malformed_json']}\n"
-        f"Batches with missing keys: {mock_stats['missing_keys']}\n"
-        f"------------------------\n"
-    )
-
-recipient_email = os.getenv("NOTIFY_EMAIL")
-if recipient_email:
-    send_email_notification(
-        subject="WordPress Summary Extraction Completed",
-        body=summary_message,
-        to_email=recipient_email
-    )
-
-print(summary_message)
+        f"Batches
