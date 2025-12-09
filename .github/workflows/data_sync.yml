@@ -67,7 +67,7 @@ jobs:
       - name: Run WordPress Sync and capture output
         id: wp_sync
         run: |
-          OUTPUT=$(python wp_sync.py)
+          OUTPUT=$(pull_data.py)
           echo "SYNC_OUTPUT=$OUTPUT" >> $GITHUB_ENV
           echo "$OUTPUT"
 
