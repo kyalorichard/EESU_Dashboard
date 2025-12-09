@@ -61,7 +61,6 @@ import os, json
 
 raw = os.environ.get("SYNC_OUTPUT", "{}")
 
-# Fix common quoting issues
 if raw.startswith("'") and raw.endswith("'"):
     raw = raw[1:-1].replace("'\"'\"'", "'")
 
@@ -112,7 +111,6 @@ else:
     skip_email = False
     body = f"<h3>❌ WordPress Sync FAILED!</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
 
-# Export variables
 with open(os.environ["GITHUB_ENV"], "a") as f:
     f.write("EMAIL_BODY<<EOF\n")
     f.write(body + "\n")
@@ -120,7 +118,6 @@ with open(os.environ["GITHUB_ENV"], "a") as f:
     f.write(f"EMAIL_SUBJECT={subject}\n")
     f.write(f"SKIP_EMAIL={str(skip_email)}\n")
 EOF
-
       - name: Send HTML Email Notification
         if: ${{ env.SKIP_EMAIL != 'True' }}
         uses: dawidd6/action-send-mail@v3
