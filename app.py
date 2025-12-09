@@ -182,7 +182,7 @@ def render_summary_cards(df):
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, horizontal=False):
     num_bars = df.shape[0]
-    height = max(350, num_bars * 30)
+    height = 350
     df = df.copy()
     df[x] = df[x].apply(lambda l: wrap_label_by_words(l, words_per_line=3))
     fig = px.bar(
@@ -225,8 +225,10 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     num_bars = df.shape[0]
-    height = max(350, num_bars * 30)
+    height = 350
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
+    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     return fig
 
 # ---------------- TABS ----------------
