@@ -245,7 +245,7 @@ with tab1:
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
     r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True)
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="continent",x="count",color_col="alert-impact, horizontal=True"),use_container_width=True)
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", ,horizontal=True),use_container_width=True)
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=True),use_container_width=True)
 
 # ---------------- TAB 2 ----------------
 with tab2:
