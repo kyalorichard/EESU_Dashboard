@@ -341,6 +341,7 @@ with tab5:
         df_map = df_map[df_map['alert-country'].isin(geo_countries)]
         
         # Safe coordinates extraction
+        # Safe coordinates extraction
         coords = []
         for feature in countries_gj['features']:
             if feature['properties']['name'] in df_map['alert-country'].values:
@@ -352,7 +353,7 @@ with tab5:
                         coords.extend(poly[0])
 
         # Safe zoom calculation
-        # Safe unzip
+     
         if coords:
             lons, lats = zip(*coords)
         else:
