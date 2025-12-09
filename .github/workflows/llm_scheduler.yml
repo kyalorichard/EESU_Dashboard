@@ -71,7 +71,7 @@ Run ID: '"$GITHUB_RUN_ID"'
 Mode: '"$MODE"'' >> $GITHUB_ENV
             echo "EMAIL_ATTACH=" >> $GITHUB_ENV
           else
-            echo "EMAIL_SUBJECT=❌ Script failed – Logs attached" >> $GITHUB_ENV
+            echo 'EMAIL_SUBJECT=❌ Script failed - Logs attached' >> $GITHUB_ENV
             echo 'EMAIL_BODY=Your scheduled script FAILED.
 
 Repository: '"$GITHUB_REPOSITORY"'
