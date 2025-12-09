@@ -2,7 +2,7 @@ name: Run Scheduled Scripts
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # runs every 5 minutes
+    - cron: '*/5 * * * *'   # every 5 minutes
   workflow_dispatch:
 
 concurrency:
@@ -14,21 +14,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # Step 2: Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      # Step 3: Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install python-dotenv tqdm langdetect tiktoken openai
 
-      # ✅ Load environment variables from GitHub Secrets
+      # Step 4: Set environment variables
       - name: Set environment variables
         run: |
           echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> $GITHUB_ENV
@@ -37,59 +40,35 @@ jobs:
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
           echo "NOTIFY_EMAIL=${{ secrets.NOTIFY_EMAIL }}" >> $GITHUB_ENV
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
-          echo "RUN_LIVE=${{ secrets.RUN_LIVE }}" >> $GITHUB_ENV   # true/false
+          echo "RUN_LIVE=${{ secrets.RUN_LIVE }}" >> $GITHUB_ENV
 
-      # ✅ Generate timestamped log file
-      - name: Generate timestamped log file
+      # Step 5: Generate timestamped log file
+      - name: Generate log file
         run: |
-          echo "LOG_FILE=scheduler_$(date +'%Y-%m-%d_%H-%M-%S').log" >> $GITHUB_ENV
+          mkdir -p logs
+          echo "LOG_FILE=logs/scheduler_$(date +'%Y-%m-%d_%H-%M-%S').log" >> $GITHUB_ENV
 
-      # ✅ Set mode for Python script
+      # Step 6: Determine mode
       - name: Determine run mode
         run: |
           if [ "${RUN_LIVE}" == "true" ]; then
             echo "MODE=live" >> $GITHUB_ENV
-            echo "Running in LIVE mode (OpenAI calls enabled)"
+            echo "Running in LIVE mode"
           else
             echo "MODE=mock" >> $GITHUB_ENV
-            echo "Running in MOCK mode (simulated API)"
+            echo "Running in MOCK mode"
           fi
 
-      # ✅ Run Python script with retries + exponential backoff
-      - name: Run script with retries and backoff
+      # Step 7: Run Python script and capture exit code
+      - name: Run Python script
+        id: run_script
         run: |
           echo "Script started at $(date)" | tee -a $LOG_FILE
+          python data_preprocessing.py --mode $MODE 2>&1 | tee -a $LOG_FILE
+          echo "SCRIPT_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
 
-          ATTEMPT=1
-          MAX_ATTEMPTS=3
-          BASE_DELAY=30
-
-          until [ $ATTEMPT -gt $MAX_ATTEMPTS ]
-          do
-            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS" | tee -a $LOG_FILE
-            python data_preprocessing.py --mode $MODE 2>&1 | tee -a $LOG_FILE
-            EXIT_CODE=${PIPESTATUS[0]}
-
-            if [ $EXIT_CODE -eq 0 ]; then
-              echo "✅ Script succeeded on attempt $ATTEMPT" | tee -a $LOG_FILE
-              break
-            else
-              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
-                DELAY=$((BASE_DELAY * 2 ** (ATTEMPT - 1)))
-                echo "⏳ Waiting ${DELAY}s before retry..." | tee -a $LOG_FILE
-                sleep $DELAY
-              else
-                echo "❌ All retry attempts failed" | tee -a $LOG_FILE
-                exit 1
-              fi
-              ((ATTEMPT++))
-            fi
-          done
-
-          echo "Script ended at $(date)" | tee -a $LOG_FILE
-
-      # ✅ Upload logs as artifacts
-      - name: Upload scheduler logs
+      # Step 8: Upload logs as artifacts
+      - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -97,44 +76,22 @@ jobs:
           path: ${{ env.LOG_FILE }}
           if-no-files-found: warn
 
-      # ✅ Send SUCCESS email
-      - name: Send success email
-        if: success()
+      # Step 9: Send merged email notification
+      - name: Send email notification
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ env.SMTP_HOST }}
           server_port: ${{ env.SMTP_PORT }}
           username: ${{ env.SMTP_USER }}
           password: ${{ env.SMTP_PASS }}
-          subject: "✅ Script ran successfully"
-          body: |
-            Your scheduled script completed successfully.
-
-            Repository: ${{ github.repository }}
-            Run ID: ${{ github.run_id }}
-            Mode: $MODE
           to: ${{ env.NOTIFY_EMAIL }}
           from: "GitHub Actions <${{ env.SMTP_USER }}>"
 
-      # ❌ Send FAILURE email + attach logs
-      - name: Send failure email with logs attached
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ env.SMTP_HOST }}
-          server_port: ${{ env.SMTP_PORT }}
-          username: ${{ env.SMTP_USER }}
-          password: ${{ env.SMTP_PASS }}
-          subject: "❌ Script failed – Logs attached"
+          subject: ${{ env.SCRIPT_EXIT_CODE == '0' && '✅ Script ran successfully' || '❌ Script failed – Logs attached' }}
           body: |
-            Your scheduled script FAILED.
-
-            Repository: ${{ github.repository }}
-            Workflow: ${{ github.workflow }}
-            Run ID: ${{ github.run_id }}
-            Mode: $MODE
-
-            The execution log file is attached to this email.
-          to: ${{ env.NOTIFY_EMAIL }}
-          from: "GitHub Actions <${{ env.SMTP_USER }}>"
-          attachments: ${{ env.LOG_FILE }}
+            ${{ env.SCRIPT_EXIT_CODE == '0' && (
+              'Your scheduled script completed successfully.\n\nRepository: ' + github.repository + '\nRun ID: ' + github.run_id + '\nMode: ' + env.MODE
+            ) || (
+              'Your scheduled script FAILED.\n\nRepository: ' + github.repository + '\nWorkflow: ' + github.workflow + '\nRun ID: ' + github.run_id + '\nMode: ' + env.MODE + '\n\nThe execution log file is attached.'
+            ) }}
+          attachments: ${{ env.SCRIPT_EXIT_CODE == '0' && '' || env.LOG_FILE }}
