@@ -335,37 +335,26 @@ with tab5:
         with open(geo_file) as f: 
             countries_gj = json.load(f)
         
-        # Base map data
         df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
         geo_countries = [f['properties']['name'] for f in countries_gj['features']]
         df_map = df_map[df_map['alert-country'].isin(geo_countries)]
 
-        # ----- Dynamic center & zoom -----
-        if not df_map.empty:
-            coords = []
-            for feature in countries_gj['features']:
-                if feature['properties']['name'] in df_map['alert-country'].values:
-                    geometry = feature['geometry']
-                    if geometry['type'] == "Polygon":
-                        coords.extend(geometry['coordinates'][0])
-                    elif geometry['type'] == "MultiPolygon":
-                        for poly in geometry['coordinates']:
-                            coords.extend(poly[0])
+        # --- Compute coordinates ---
+        coords = []
+        for feature in countries_gj['features']:
+            if feature['properties']['name'] in df_map['alert-country'].values:
+                geom = feature['geometry']
+                if geom['type'] == "Polygon":
+                    coords.extend(geom['coordinates'][0])
+                elif geom['type'] == "MultiPolygon":
+                    for poly in geom['coordinates']:
+                        coords.extend(poly[0])
 
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
-            else:
-                center = {"lat":10,"lon":0}
-                zoom = 1
-        else:
-            center = {"lat":10,"lon":0}
-            zoom = 1
+        lons, lats = zip(*coords) if coords else ([], [])
+        center, zoom = calculate_zoom(lons, lats)
 
-        # ----- Add advanced hover stats -----
+        # --- Compute hover stats ---
         stats = (
             filtered_global
             .groupby("alert-country")
@@ -376,16 +365,11 @@ with tab5:
             )
             .reset_index()
         )
-
         df_map = df_map.merge(stats, on="alert-country", how="left")
+        df_map["perc_negative"] = ((df_map["negative_alerts"]/df_map["total_alerts"])*100).round(1)
 
-        df_map["perc_negative"] = (
-            (df_map["negative_alerts"] / df_map["total_alerts"]) * 100
-        ).round(1)
-
-        # ----- Main choropleth -----
+        # --- Build figure ---
         map_height = max(400, len(df_map)*20)
-
         fig = px.choropleth_mapbox(
             df_map,
             geojson=countries_gj,
@@ -407,7 +391,6 @@ with tab5:
             opacity=0.65
         )
 
-        # ----- Card-style hover tooltip -----
         fig.update_traces(
             hovertemplate=(
                 "<b>%{location}</b><br>"
@@ -417,22 +400,25 @@ with tab5:
                 "% Negative: %{customdata[3]}%<extra></extra>"
             ),
             customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
+            marker_line_width=2,
+            marker_line_color="black",
             hoverlabel=dict(
                 bgcolor="#2D0055",
                 font_size=13,
                 font_family="Arial",
                 font_color="white",
-                bordercolor="#ffffff"
-            ),
-            marker_line_width=1,
-            marker_line_color="black"
+                bordercolor="black"
+            )
         )
 
-        # ----- Bubble density overlay -----
-        centroids = []
+        # --- Pulse glow effect ---
+        pulse_threshold = df_map["count"].quantile(0.85)
+        pulse_countries = df_map[df_map["count"] >= pulse_threshold].copy()
+
+        pulse_centroids = []
         for feature in countries_gj["features"]:
             name = feature["properties"]["name"]
-            if name in df_map["alert-country"].values:
+            if name in pulse_countries["alert-country"].values:
                 geom = feature["geometry"]
                 if geom["type"] == "Polygon":
                     coords = geom["coordinates"][0]
@@ -440,39 +426,34 @@ with tab5:
                     coords = geom["coordinates"][0][0]
                 lons = [c[0] for c in coords]
                 lats = [c[1] for c in coords]
-                centroids.append({
-                    "country": name,
-                    "lon": np.mean(lons),
-                    "lat": np.mean(lats)
-                })
+                pulse_centroids.append({"country": name, "lon": np.mean(lons), "lat": np.mean(lats)})
+        pulse_df = pd.DataFrame(pulse_centroids)
 
-        centroids_df = pd.DataFrame(centroids)
-        centroids_df = centroids_df.merge(df_map, left_on="country", right_on="alert-country", how="left")
+        if not pulse_df.empty:
+            for size in [10,18,26]:
+                fig.add_trace(go.Scattermapbox(
+                    lat=pulse_df["lat"],
+                    lon=pulse_df["lon"],
+                    mode="markers",
+                    marker=dict(
+                        size=size,
+                        color="rgba(255,0,0,0.15)"
+                    ),
+                    hoverinfo="skip",
+                    showlegend=False
+                ))
 
-        fig.add_trace(go.Scattermapbox(
-            lat=centroids_df["lat"],
-            lon=centroids_df["lon"],
-            mode="markers",
-            marker=dict(
-                size=(centroids_df["count"] * 1.5).clip(5, 40),
-                color="rgba(102,0,148,0.6)"
-            ),
-            hoverinfo="skip"
-        ))
-
-        # ----- Final layout -----
+        # --- Final layout ---
         fig.update_layout(
             margin={"r":0,"t":0,"l":0,"b":0},
-            height=map_height
+            height=map_height,
+            transition=dict(duration=1200, easing="cubic-in-out")
         )
 
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
-
         st.plotly_chart(fig, use_container_width=True)
-
     else:
         st.warning("GeoJSON file not found for map visualization.")
-
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
