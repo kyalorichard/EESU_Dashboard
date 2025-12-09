@@ -57,6 +57,10 @@ jobs:
 import os, json
 
 raw = os.environ.get("SYNC_OUTPUT", "{}")
+
+# Remove wrapping quotes if present
+if raw.startswith("'") and raw.endswith("'"):
+    raw = raw[1:-1].replace("'\"'\"'", "'")
 try:
     data = json.loads(raw)
 except json.JSONDecodeError:
