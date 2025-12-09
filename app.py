@@ -213,6 +213,12 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120,r=20,t=20,b=20))
     return fig
+    # ---------------- FUNCTION TO SHORTEN LONG SENTENCES ----------------
+def wrap_label_by_words(label, words_per_line=4):
+    words = label.split()
+    lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+    return "<br>".join(lines)
+
 
 # ---------------- TABS ----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
@@ -222,7 +228,8 @@ with tab1:
     render_summary_cards(filtered_global)
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
+
     a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
     a3 = filtered_global.groupby(["continent","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
@@ -263,7 +270,8 @@ with tab2:
     t5 = summary_data.groupby("alert-type").size().reset_index(name="count")
 
     df_clean = summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().apply(lambda x: wrap_label_by_words(x, words_per_line=4))
+
     t6 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
 
     r1c1,r1c2,r1c3=st.columns(3); r2c1,r2c2,r2c3=st.columns(3)
