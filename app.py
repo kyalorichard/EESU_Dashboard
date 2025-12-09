@@ -362,13 +362,13 @@ st.markdown("""
 <style>
 footer {
     visibility: visible;
-    position: relative;
+    position: bottom;
     bottom: 0;
     text-align: center;
     color: gray;
-    font-size: 12px;
+    font-size: 14px;
     padding-top: 5px;
-    padding-bottom: 5px;
+    padding-bottom: 2px;
 }
 </style>
 """, unsafe_allow_html=True)
