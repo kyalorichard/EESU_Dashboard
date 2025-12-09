@@ -100,8 +100,6 @@ The execution log file is attached.' >> $GITHUB_ENV
           username: ${{ env.SMTP_USER }}
           password: ${{ env.SMTP_PASS }}
           to: ${{ env.NOTIFY_EMAIL }}
-          #cc: ${{ env.CC_EMAIL }}    # optional, multiple addresses separated by commas
-          #bcc: ${{ env.BCC_EMAIL }}  # optional, multiple addresses separated by commas
           from: "GitHub Actions <${{ env.SMTP_USER }}>"
           subject: ${{ env.EMAIL_SUBJECT }}
           body: ${{ env.EMAIL_BODY }}
