@@ -15,10 +15,10 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
-NOTIFY_EMAIL = 'kyalorichard11@gmail.com' #os.getenv("NOTIFY_EMAIL")
-SMTP_USER = 'kyalorichard11@gmail.com'  #.getenv("SMTP_USER")
-SMTP_PASS = '25958927Kyalo.' #os.getenv("SMTP_PASS")
-SMTP_HOST = 'smtp.gmail.com' #os.getenv("SMTP_HOST")
+NOTIFY_EMAIL =os.getenv("NOTIFY_EMAIL")
+SMTP_USER = 'os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
+SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
 
 # ---------------- FILE PATHS ----------------
