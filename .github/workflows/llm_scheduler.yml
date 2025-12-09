@@ -58,6 +58,18 @@ jobs:
           python data_preprocessing.py --mode $MODE 2>&1 | tee -a $LOG_FILE
           echo "SCRIPT_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
 
+      - name: Prepare email content
+        run: |
+          if [ "${SCRIPT_EXIT_CODE}" == "0" ]; then
+            echo "EMAIL_SUBJECT=✅ Script ran successfully" >> $GITHUB_ENV
+            echo "EMAIL_BODY=Your scheduled script completed successfully.\n\nRepository: $GITHUB_REPOSITORY\nRun ID: $GITHUB_RUN_ID\nMode: $MODE" >> $GITHUB_ENV
+            echo "EMAIL_ATTACH=" >> $GITHUB_ENV
+          else
+            echo "EMAIL_SUBJECT=❌ Script failed – Logs attached" >> $GITHUB_ENV
+            echo "EMAIL_BODY=Your scheduled script FAILED.\n\nRepository: $GITHUB_REPOSITORY\nWorkflow: $GITHUB_WORKFLOW\nRun ID: $GITHUB_RUN_ID\nMode: $MODE\n\nThe execution log file is attached." >> $GITHUB_ENV
+            echo "EMAIL_ATTACH=$LOG_FILE" >> $GITHUB_ENV
+          fi
+
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -75,12 +87,6 @@ jobs:
           password: ${{ env.SMTP_PASS }}
           to: ${{ env.NOTIFY_EMAIL }}
           from: "GitHub Actions <${{ env.SMTP_USER }}>"
-
-          # ✅ Subject based on exit code
-          subject: ${{ env.SCRIPT_EXIT_CODE == '0' && '✅ Script ran successfully' || '❌ Script failed – Logs attached' }}
-
-          # ✅ Body based on exit code using format()
-          body: ${{ env.SCRIPT_EXIT_CODE == '0' && format('Your scheduled script completed successfully.\n\nRepository: {0}\nRun ID: {1}\nMode: {2}', github.repository, github.run_id, env.MODE) || format('Your scheduled script FAILED.\n\nRepository: {0}\nWorkflow: {1}\nRun ID: {2}\nMode: {3}\n\nThe execution log file is attached.', github.repository, github.workflow, github.run_id, env.MODE) }}
-
-          # ✅ Attach log only on failure
-          attachments: ${{ env.SCRIPT_EXIT_CODE == '0' && '' || env.LOG_FILE }}
+          subject: ${{ env.EMAIL_SUBJECT }}
+          body: ${{ env.EMAIL_BODY }}
+          attachments: ${{ env.EMAIL_ATTACH }}
