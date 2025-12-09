@@ -336,7 +336,6 @@ with tab5:
             countries_gj = json.load(f)
         
         df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-
         geo_countries = [f['properties']['name'] for f in countries_gj['features']]
         df_map = df_map[df_map['alert-country'].isin(geo_countries)]
 
@@ -344,13 +343,12 @@ with tab5:
         coords = []
         for feature in countries_gj['features']:
             if feature['properties']['name'] in df_map['alert-country'].values:
-                geom = feature['geometry']
-                if geom['type'] == "Polygon":
-                    coords.extend(geom['coordinates'][0])
-                elif geom['type'] == "MultiPolygon":
-                    for poly in geom['coordinates']:
+                geom = feature["geometry"]
+                if geom["type"] == "Polygon":
+                    coords.extend(geom["coordinates"][0])
+                elif geom["type"] == "MultiPolygon":
+                    for poly in geom["coordinates"]:
                         coords.extend(poly[0])
-
         lons, lats = zip(*coords) if coords else ([], [])
         center, zoom = calculate_zoom(lons, lats)
 
@@ -414,46 +412,33 @@ with tab5:
         # --- Pulse glow effect ---
         pulse_threshold = df_map["count"].quantile(0.85)
         pulse_countries = df_map[df_map["count"] >= pulse_threshold].copy()
-
         pulse_centroids = []
         for feature in countries_gj["features"]:
             name = feature["properties"]["name"]
             if name in pulse_countries["alert-country"].values:
                 geom = feature["geometry"]
-                if geom["type"] == "Polygon":
-                    coords = geom["coordinates"][0]
-                else:
-                    coords = geom["coordinates"][0][0]
+                coords = geom["coordinates"][0] if geom["type"]=="Polygon" else geom["coordinates"][0][0]
                 lons = [c[0] for c in coords]
                 lats = [c[1] for c in coords]
                 pulse_centroids.append({"country": name, "lon": np.mean(lons), "lat": np.mean(lats)})
         pulse_df = pd.DataFrame(pulse_centroids)
-
         if not pulse_df.empty:
             for size in [10,18,26]:
                 fig.add_trace(go.Scattermapbox(
                     lat=pulse_df["lat"],
                     lon=pulse_df["lon"],
                     mode="markers",
-                    marker=dict(
-                        size=size,
-                        color="rgba(255,0,0,0.15)"
-                    ),
+                    marker=dict(size=size,color="rgba(255,0,0,0.15)"),
                     hoverinfo="skip",
                     showlegend=False
                 ))
 
-        # --- Final layout ---
-        fig.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=map_height,
-            transition=dict(duration=1200, easing="cubic-in-out")
-        )
-
+        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=map_height, transition=dict(duration=1200,easing="cubic-in-out"))
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("GeoJSON file not found for map visualization.")
+
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
