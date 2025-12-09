@@ -1,13 +1,12 @@
 """
-Production-ready Lambda for WordPress incremental sync with full CloudWatch metrics:
-- Fetch new/updated posts using post_modified
-- Batch processing for scalability
-- Merge with cumulative CSV in S3
-- Update checkpoint
-- SES notifications
-- Automatic retries
-- Logs to CloudWatch
-- Push custom metrics: PostsSynced, TotalPosts, SyncErrors, BatchCount, ExecutionTime
+WordPress Incremental Sync Script (JSON output)
+- Uses .env for configuration
+- Fetches new/updated posts from MySQL
+- Merges with cumulative CSV in S3
+- Updates checkpoint
+- Sends SES notifications
+- Pushes CloudWatch metrics
+- Outputs JSON for GitHub Actions
 """
 
 import os
@@ -18,11 +17,11 @@ import logging
 import time
 from io import StringIO
 import pandas as pd
+from dotenv import load_dotenv
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+# ------------------- Load environment -------------------
+load_dotenv()  # Load from .env file
 
-# Environment variables
 S3_BUCKET = os.environ['S3_BUCKET_NAME']
 S3_PREFIX = os.environ.get('S3_PREFIX', 'wp_incremental_csv')
 DB_HOST = os.environ['DB_HOST']
@@ -32,20 +31,22 @@ DB_NAME = os.environ['DB_NAME']
 SES_EMAIL = os.environ.get('SES_EMAIL')
 BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 500))
 MAX_RETRIES = int(os.environ.get('MAX_RETRIES', 3))
-RETRY_DELAY = float(os.environ.get('RETRY_DELAY', 2))  # seconds
+RETRY_DELAY = float(os.environ.get('RETRY_DELAY', 2))
 METRIC_NAMESPACE = os.environ.get('METRIC_NAMESPACE', 'WordPressSyncMetrics')
 
+# ------------------- Setup clients and logging -------------------
 s3 = boto3.client('s3')
 ses = boto3.client('ses')
 cloudwatch = boto3.client('cloudwatch')
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 CHECKPOINT_KEY = f"{S3_PREFIX}/checkpoint.json"
 CUMULATIVE_CSV_KEY = f"{S3_PREFIX}/wordpress_cumulative.csv"
 
-
-# ------------------- Retry Decorator -------------------
+# ------------------- Retry decorator -------------------
 def retry(func):
-    """Retry decorator with exponential backoff"""
     def wrapper(*args, **kwargs):
         delay = RETRY_DELAY
         for attempt in range(1, MAX_RETRIES + 1):
@@ -59,8 +60,7 @@ def retry(func):
                 delay *= 2
     return wrapper
 
-
-# ------------------- AWS & DB Wrappers -------------------
+# ------------------- AWS & DB wrappers -------------------
 @retry
 def s3_get_object(**kwargs):
     return s3.get_object(**kwargs)
@@ -79,7 +79,6 @@ def db_connect():
 
 @retry
 def put_metric(name, value):
-    """Push custom metric to CloudWatch"""
     cloudwatch.put_metric_data(
         Namespace=METRIC_NAMESPACE,
         MetricData=[{
@@ -89,8 +88,7 @@ def put_metric(name, value):
         }]
     )
 
-
-# ------------------- Utility Functions -------------------
+# ------------------- Utility functions -------------------
 def get_last_sync_time():
     try:
         resp = s3_get_object(Bucket=S3_BUCKET, Key=CHECKPOINT_KEY)
@@ -106,7 +104,6 @@ def get_last_sync_time():
         logger.error(f"Error reading checkpoint: {e}")
         return None
 
-
 def update_checkpoint(timestamp):
     try:
         s3_put_object(
@@ -117,7 +114,6 @@ def update_checkpoint(timestamp):
         logger.info(f"Updated checkpoint to {timestamp}")
     except Exception as e:
         logger.error(f"Failed to update checkpoint: {e}")
-
 
 def send_email(subject, body):
     if not SES_EMAIL:
@@ -136,7 +132,6 @@ def send_email(subject, body):
     except Exception as e:
         logger.error(f"Failed to send SES email: {e}")
 
-
 def fetch_posts_batch(cursor, last_modified, batch_size):
     if last_modified:
         cursor.execute(
@@ -154,8 +149,7 @@ def fetch_posts_batch(cursor, last_modified, batch_size):
         )
     return cursor.fetchall()
 
-
-# ------------------- Lambda Handler -------------------
+# ------------------- Main Lambda handler -------------------
 def lambda_handler(event, context):
     start_time = time.time()
     batch_count = 0
@@ -202,7 +196,9 @@ def lambda_handler(event, context):
             put_metric("BatchCount", 0)
             execution_time = time.time() - start_time
             put_metric("ExecutionTime", execution_time)
-            return {"status": "no_new_posts"}
+            return {
+                "status": "no_new_posts"
+            }
 
         # Merge all batches
         df_new = pd.concat(all_new_rows, ignore_index=True)
@@ -233,6 +229,7 @@ def lambda_handler(event, context):
         execution_time = time.time() - start_time
         put_metric("ExecutionTime", execution_time)
 
+        # Return JSON output
         return {
             "status": "success",
             "new_rows": len(df_new),
@@ -247,4 +244,13 @@ def lambda_handler(event, context):
         put_metric("SyncErrors", 1)
         execution_time = time.time() - start_time
         put_metric("ExecutionTime", execution_time)
-        raise
+        return {
+            "status": "failure",
+            "error": str(e),
+            "execution_time": execution_time
+        }
+
+# ------------------- Run locally -------------------
+if __name__ == "__main__":
+    output = lambda_handler({}, {})
+    print(json.dumps(output))  # Ensure workflow can parse JSON
