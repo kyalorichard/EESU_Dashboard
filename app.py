@@ -8,14 +8,8 @@ from pathlib import Path
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-# ---------------- DASHBOARD TITLE ----------------
-st.markdown("""
-<h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px;'>
-    EU SEE Dashboard
-</h1>
-<hr style='margin:5px 0'>
-""", unsafe_allow_html=True)
 
+# ---------------- CUSTOM MULTISELECT CSS ----------------
 st.markdown("""
 <style>
 /* Multiselect container border */
@@ -39,24 +33,16 @@ div[data-testid="stMultiSelect"] div[role="listbox"] {
 /* Hover effect for options in dropdown */
 [aria-label="Multiselect options"] > div > div > div[role="option"]:hover {
     color: white !important;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    transition: background-color 0.3s ease;
 }
 
-/* Gradient animation keyframes */
+/* Animated gradient for selected dropdown items */
 @keyframes gradientShift {
     0% {background-position: 0% 50%;}
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
 
-/* Glow pulse keyframes */
-@keyframes pulseGlow {
-    0% {box-shadow: 0 0 6px rgba(102,0,148,0.5);}
-    50% {box-shadow: 0 0 15px rgba(138,43,226,0.8);}
-    100% {box-shadow: 0 0 6px rgba(178,102,255,0.5);}
-}
-
-/* Selected dropdown items as glowing gradient pills */
 [aria-label="Multiselect options"] > div > div > div[role="option"][data-selected="true"] {
     background: linear-gradient(135deg, #660094, #8a2be2, #b266ff, #d399ff);
     background-size: 300% 300%;
@@ -65,16 +51,17 @@ div[data-testid="stMultiSelect"] div[role="listbox"] {
     padding: 4px 10px !important;
     margin: 2px !important;
     font-weight: bold !important;
-    animation: gradientShift 5s ease infinite, pulseGlow 2s ease-in-out infinite;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
     transition: transform 0.2s ease;
+    animation: gradientShift 5s ease infinite;
 }
 
-/* Hover effect for selected dropdown pills */
+/* Hover effect for selected pills */
 [aria-label="Multiselect options"] > div > div > div[role="option"][data-selected="true"]:hover {
     transform: scale(1.05);
 }
 
-/* Input pills (top of box) as glowing gradient */
+/* Animated gradient for input pills */
 div[data-testid="stMultiSelect"] div[aria-label="Remove"] {
     background: linear-gradient(135deg, #660094, #8a2be2, #b266ff, #d399ff);
     background-size: 300% 300%;
@@ -83,8 +70,9 @@ div[data-testid="stMultiSelect"] div[aria-label="Remove"] {
     padding: 4px 10px !important;
     margin: 2px !important;
     font-weight: bold !important;
-    animation: gradientShift 5s ease infinite, pulseGlow 2s ease-in-out infinite;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
     transition: transform 0.2s ease;
+    animation: gradientShift 5s ease infinite;
 }
 
 /* Hover effect for input pills */
@@ -92,6 +80,14 @@ div[data-testid="stMultiSelect"] div[aria-label="Remove"]:hover {
     transform: scale(1.05);
 }
 </style>
+""", unsafe_allow_html=True)
+
+# ---------------- DASHBOARD TITLE ----------------
+st.markdown("""
+<h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px;'>
+    EU SEE Dashboard
+</h1>
+<hr style='margin:5px 0'>
 """, unsafe_allow_html=True)
 
 
