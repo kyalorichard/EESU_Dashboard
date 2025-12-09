@@ -11,6 +11,12 @@ import smtplib
 from tqdm.asyncio import tqdm_asyncio
 import random
 
+# ---------------- ARGUMENTS ----------------
+parser = argparse.ArgumentParser()
+parser.add_argument("--mode", default="mock", choices=["mock", "live"])
+args = parser.parse_args()
+MOCK_MODE = args.mode == "mock"
+
 # ---------------- LOAD ENV ----------------
 load_dotenv()
 
