@@ -117,8 +117,27 @@ selected_enabling_principle = safe_multiselect("Select Enabling Principle",
                                                data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
                                                "selected_enabling_principle")
 selected_alert_impacts = safe_multiselect("Select Alert Impact", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_months = safe_multiselect("Select Month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month), "selected_months")
 selected_years = safe_multiselect("Select Year", sorted(data['year'].dropna().unique()), "selected_years")
+
+# Filter available months based on selected years
+if "Select All" in selected_years:
+    available_months = sorted(
+        data['month_name'].dropna().unique(),
+        key=lambda m: pd.to_datetime(m, format='%B').month
+    )
+else:
+    available_months = sorted(
+        data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
+        key=lambda m: pd.to_datetime(m, format='%B').month
+    )
+
+# Month selection
+selected_months = safe_multiselect(
+    "Select Month", 
+    available_months, 
+    "selected_months"
+)
+#selected_months = safe_multiselect("Select Month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month), "selected_months")
 
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
