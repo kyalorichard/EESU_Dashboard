@@ -49,7 +49,7 @@ langid>=1.1.6
 # For Lambda DB and S3 access
 pymysql
 boto3
-pandas
+
 
 
 dash   
