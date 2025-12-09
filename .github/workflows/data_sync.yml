@@ -26,10 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install pymysql boto3 pandas python-dotenv
 
-      # Step 4: Ensure .env exists from GitHub Secrets
+      # Step 4: Create .env from GitHub Secrets (overwrite if exists)
       - name: Create .env from GitHub Secrets
         run: |
-          echo "REGION=${{ secrets.REGION }}" >> .env
+          echo "REGION=${{ secrets.REGION }}" > .env
           echo "LAMBDA_ROLE=${{ secrets.LAMBDA_ROLE }}" >> .env
           echo "LAMBDA_NAME_STAGING=${{ secrets.LAMBDA_NAME_STAGING }}" >> .env
           echo "LAMBDA_NAME_PROD=${{ secrets.LAMBDA_NAME_PROD }}" >> .env
@@ -64,55 +64,57 @@ jobs:
           echo "TEST_ROWS=${{ secrets.TEST_ROWS }}" >> .env
 
       # Step 5: Run WordPress sync script and capture JSON output
-      - name: Run WordPress Sync and capture output
+      - name: Run WordPress Sync
         id: wp_sync
         run: |
-          OUTPUT=$(pull_data.py)
-          echo "SYNC_OUTPUT=$OUTPUT" >> $GITHUB_ENV
+          set -o pipefail
+          OUTPUT=$(python pull_data.py)
           echo "$OUTPUT"
+          echo "SYNC_OUTPUT=$OUTPUT" >> $GITHUB_ENV
 
-      # Step 6: Parse JSON output to set EMAIL_BODY
+      # Step 6: Parse JSON output to create EMAIL_BODY
       - name: Prepare dynamic email body
-        id: parse_output
         run: |
           python - <<'EOF'
 import json, os
-data = json.loads(os.environ["SYNC_OUTPUT"])
-if data.get("status") == "success":
-    body = f"✅ WordPress Sync Successful!\nNew posts: {data.get('new_rows')}\nTotal posts: {data.get('total_rows')}\nBatches: {data.get('batches')}\nExecution time: {data.get('execution_time'):.2f} seconds"
-elif data.get("status") == "no_new_posts":
+
+raw = os.environ.get("SYNC_OUTPUT", "{}")
+try:
+    data = json.loads(raw)
+except json.JSONDecodeError:
+    data = {"status": "failed", "error": "Invalid JSON output", "execution_time": 0}
+
+status = data.get("status")
+if status == "success":
+    body = (
+        f"✅ WordPress Sync Successful!\n"
+        f"New posts: {data.get('new_rows', 0)}\n"
+        f"Total posts: {data.get('total_rows', 0)}\n"
+        f"Batches: {data.get('batches', 0)}\n"
+        f"Execution time: {data.get('execution_time', 0):.2f} seconds"
+    )
+elif status == "no_new_posts":
     body = "✅ WordPress Sync completed: no new or updated posts since last sync."
 else:
-    body = f"❌ WordPress Sync FAILED!\nError: {data.get('error')}\nExecution time: {data.get('execution_time'):.2f} seconds"
+    body = (
+        f"❌ WordPress Sync FAILED!\n"
+        f"Error: {data.get('error', 'Unknown')}\n"
+        f"Execution time: {data.get('execution_time', 0):.2f} seconds"
+    )
+
 with open(os.environ['GITHUB_ENV'], 'a') as env_file:
     env_file.write(f"EMAIL_BODY<<EOF\n{body}\nEOF\n")
 EOF
 
-      # Step 7: Send email on success
-      - name: Send Email on Success
-        if: ${{ success() }}
+      # Step 7: Send single email notification for success or failure
+      - name: Send Email Notification
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_HOST }}
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASS }}
-          subject: "✅ WordPress Sync Successful"
-          body: ${{ env.EMAIL_BODY }}
-          to: ${{ secrets.NOTIFY_EMAIL }}
-          from: ${{ secrets.SMTP_USER }}
-          secure: true
-
-      # Step 8: Send email on failure
-      - name: Send Email on Failure
-        if: ${{ failure() }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_HOST }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USER }}
-          password: ${{ secrets.SMTP_PASS }}
-          subject: "❌ WordPress Sync FAILED"
+          subject: ${{ success() ? '✅ WordPress Sync Successful' : '❌ WordPress Sync FAILED' }}
           body: ${{ env.EMAIL_BODY }}
           to: ${{ secrets.NOTIFY_EMAIL }}
           from: ${{ secrets.SMTP_USER }}
