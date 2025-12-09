@@ -358,4 +358,20 @@ with tab5:
         st.warning("GeoJSON file not found for map visualization.")
 
 # ---------------- FOOTER ----------------
-st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
+st.markdown("""
+<style>
+footer {
+    visibility: visible;
+    position: relative;
+    bottom: 0;
+    text-align: center;
+    color: gray;
+    font-size: 12px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("<footer>© 2025 EU SEE Dashboard. All rights reserved.</footer>", unsafe_allow_html=True)
+#st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
