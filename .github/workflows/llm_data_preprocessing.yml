@@ -33,7 +33,7 @@ jobs:
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
 
       - name: Run scheduled script
-        run: python data_prerocessing.py
+        run: python data_preprocessing.py
 
       # ✅ Upload logs
       - name: Upload scheduler logs
