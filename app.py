@@ -209,6 +209,12 @@ def create_bar_chart(df, x, y, horizontal=False):
         insidetextanchor='end',
         textfont=dict(size=12, color='white', family="Arial Black")
     )
+    # Bold axis line
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')           
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+       
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_layout(height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
@@ -236,6 +242,12 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
         ))
     num_bars = df.shape[0]
     height = 350
+    # Bold axis line
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+              
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
