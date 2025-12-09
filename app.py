@@ -188,7 +188,7 @@ def create_bar_chart(df, x, y, horizontal=False):
     fig.update_traces(
         textposition='inside',
         insidetextanchor='end',
-        textfont=dict(size=font_size, color='white', family="Arial Black")
+        textfont=dict(size=12, color='white', family="Arial Black")
     )
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
@@ -212,7 +212,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=13, family="Arial Black"),
+            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial Black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     num_bars = df.shape[0]
