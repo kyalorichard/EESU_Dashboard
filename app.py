@@ -338,17 +338,18 @@ with tab5:
         df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
         geo_countries = [f['properties']['name'] for f in countries_gj['features']]
         df_map = df_map[df_map['alert-country'].isin(geo_countries)]
+        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
  
          # Prepare hover text
         def get_hover_text(country):
-            #sub_df = filtered_global[filtered_global['alert-country'] == country]
-            negative = df_map[df_map['alert-impact']=="Negative"].shape[0]
-            positive = df_map[df_map['alert-impact']=="Positive"].shape[0]
-            principles = ", ".join(df_map['enabling-principle'].dropna().unique())
-            return f"<b>{country}</b><br>Total Alerts: {df_map.shape[0]}<br>Negative: {negative}<br>Positive: {positive}<br>Enabling Principles: {principles}"
+            sub_df = filtered_global[filtered_global['alert-country'] == country]
+            negative = sub_df[sub_df['alert-impact']=="Negative"].shape[0]
+            positive = sub_df[sub_df['alert-impact']=="Positive"].shape[0]
+            principles = ", ".join(sub_df['enabling-principle'].dropna().unique())
+            return f"<b>{country}</b><br>Total Alerts: {sub_df.shape[0]}<br>Negative: {negative}<br>Positive: {positive}<br>Enabling Principles: {principles}"
             
-        df_map['hover_text'] = df_map['alert-country'].apply(get_hover_text)
+        map_df['hover_text'] = map_df['alert-country'].apply(get_hover_text)
 
         
         if not df_map.empty:
