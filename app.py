@@ -425,7 +425,7 @@ with tab5:
                 bordercolor="#ffffff"
             ),
             marker_line_width=1,
-            marker_line_color="white"
+            marker_line_color="black"
         )
 
         # ----- Bubble density overlay -----
@@ -452,8 +452,6 @@ with tab5:
         fig.add_trace(go.Scattermapbox(
             lat=centroids_df["lat"],
             lon=centroids_df["lon"],
-            marker_line_width=1,
-            marker_line_color="black",
             mode="markers",
             marker=dict(
                 size=(centroids_df["count"] * 1.5).clip(5, 40),
