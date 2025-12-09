@@ -40,7 +40,7 @@ ADJUST_FACTOR = 0.2
 CONCURRENT_BATCHES = 3
 COST_PER_1K_TOKENS = 0.003
 
-TEST_ROWS = 3  # set None for full dataset
+TEST_ROWS = None  # set None for full dataset
 
 # ---------------- MOCK MODE CONFIG ----------------
 MOCK_MODE = True
