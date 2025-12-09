@@ -44,73 +44,76 @@ jobs:
           mkdir -p logs
           LOG_FILE=logs/wp_sync.txt
           SYNC_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
           echo "Starting WordPress sync at $SYNC_TIME" | tee -a $LOG_FILE
           OUTPUT=$(python pull_data.py 2>&1 | tee -a $LOG_FILE)
-          echo "$OUTPUT"
+
           echo "SYNC_OUTPUT=$OUTPUT" >> $GITHUB_ENV
           echo "LOG_FILE=$LOG_FILE" >> $GITHUB_ENV
           echo "SYNC_TIME=$SYNC_TIME" >> $GITHUB_ENV
 
       - name: Prepare HTML email content with conditional coloring
         id: prepare_email
+        shell: bash
         run: |
           python - <<'EOF'
 import os, json
 
 raw = os.environ.get("SYNC_OUTPUT", "{}")
+
+# Fix common quoting issues
 if raw.startswith("'") and raw.endswith("'"):
     raw = raw[1:-1].replace("'\"'\"'", "'")
+
 try:
     data = json.loads(raw)
-except json.JSONDecodeError:
+except:
     data = {"status": "failed", "error": "Invalid JSON output", "execution_time": 0}
 
-status = data.get("status")
-new_posts = data.get("new_rows", 0)
-total_posts = data.get("total_rows", 0)
-batches = data.get("batches", 0)
-exec_time = data.get("execution_time", 0)
+status = data.get("status", "failed")
+new_posts = int(data.get("new_rows", 0) or 0)
+total_posts = int(data.get("total_rows", 0) or 0)
+batches = int(data.get("batches", 0) or 0)
+exec_time = float(data.get("execution_time", 0) or 0)
 sync_time = os.environ.get("SYNC_TIME", "Unknown time")
-repo = os.environ.get("GITHUB_REPOSITORY")
-run_id = os.environ.get("GITHUB_RUN_ID")
-artifact_page = f"https://github.com/{repo}/runs/{run_id}/artifacts"
 
-# Determine cell colors
-def color_icon(value, success=True, custom_color=None):
-    color = custom_color if custom_color else ('green' if success else 'red')
-    return f"<td style='color:{color}; text-align:center;'>{value}</td>"
+repo = os.environ.get("GITHUB_REPOSITORY", "")
+run_id = os.environ.get("GITHUB_RUN_ID", "")
+artifact_page = f"https://github.com/{repo}/actions/runs/{run_id}"
 
-# Conditional color for new posts
+def color_icon(ok=True, color=None):
+    c = color if color else ('green' if ok else 'red')
+    icon = "✅" if ok else "❌"
+    return f"<span style='color:{c}; font-weight:bold;'>{icon}</span>"
+
 new_posts_color = 'green' if new_posts > 0 else 'gray'
 
-# Build HTML table with conditional coloring
 table = f"""
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:450px;">
 <tr style="background-color:#f2f2f2;"><th>Metric</th><th>Value</th><th>Status</th></tr>
-<tr><td>New Posts</td><td>{new_posts}</td>{color_icon('✅', True, new_posts_color)}</tr>
-<tr><td>Total Posts</td><td>{total_posts}</td>{color_icon('✅', total_posts>=0)}</tr>
-<tr><td>Batches</td><td>{batches}</td>{color_icon('✅', batches>=0)}</tr>
-<tr><td>Execution Time</td><td>{exec_time:.2f} sec</td>{color_icon('✅', exec_time>=0)}</tr>
-<tr><td>Last Sync</td><td>{sync_time}</td>{color_icon('✅', status!='failed')}</tr>
+<tr><td>New Posts</td><td>{new_posts}</td><td>{color_icon(True, new_posts_color)}</td></tr>
+<tr><td>Total Posts</td><td>{total_posts}</td><td>{color_icon(True)}</td></tr>
+<tr><td>Batches</td><td>{batches}</td><td>{color_icon(True)}</td></tr>
+<tr><td>Execution Time</td><td>{exec_time:.2f} sec</td><td>{color_icon(True)}</td></tr>
+<tr><td>Last Sync</td><td>{sync_time}</td><td>{color_icon(status != 'failed')}</td></tr>
 </table>
 """
 
-# Construct email body
 if status == "success":
-    body = f"<h3>✅ WordPress Sync Successful!</h3>{table}<p>Download the log <a href='{artifact_page}'>here</a>.</p>"
-    skip_email = False
     subject = f"✅ WordPress Sync: {new_posts} New Posts ({sync_time})"
-elif status == "no_new_posts":
-    body = f"<h3>✅ WordPress Sync Completed: No New Posts</h3>{table}<p>Download the log <a href='{artifact_page}'>here</a>.</p>"
-    skip_email = True
-    subject = f"✅ WordPress Sync: No New Posts ({sync_time})"
-else:
-    body = f"<h3>❌ WordPress Sync FAILED!</h3>{table}<p>Download the log <a href='{artifact_page}'>here</a>.</p>"
     skip_email = False
+    body = f"<h3>✅ WordPress Sync Successful!</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
+elif status == "no_new_posts":
+    subject = f"✅ WordPress Sync: No New Posts ({sync_time})"
+    skip_email = True
+    body = f"<h3>✅ Sync Completed - No New Posts</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
+else:
     subject = f"❌ WordPress Sync FAILED ({sync_time})"
+    skip_email = False
+    body = f"<h3>❌ WordPress Sync FAILED!</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
 
-# Write environment variables
-with open(os.environ['GITHUB_ENV'], 'a') as f:
+# Export variables
+with open(os.environ["GITHUB_ENV"], "a") as f:
     f.write("EMAIL_BODY<<EOF\n")
     f.write(body + "\n")
     f.write("EOF\n")
