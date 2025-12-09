@@ -56,7 +56,7 @@ LATENCY_TARGET = 5
 LATENCY_TOLERANCE = 2
 ADJUST_FACTOR = 0.2
 CONCURRENT_BATCHES = 3
-COST_PER_1K_TOKENS = 0.003
+COST_PER_1K_TOKENS = 0.005
 TEST_ROWS = int(os.getenv("TEST_ROWS", 3))
 
 # ---------------- MOCK MODE ----------------
@@ -187,11 +187,20 @@ async def extract_batch(batch_summaries):
 
 # ---------------- EMAIL FUNCTION ----------------
 def send_email_notification(subject, body, to_email):
+    if not subject or not body or not to_email:
+        print("Cannot send email: missing subject, body, or recipient.")
+        return
+    if not SMTP_USER or not SMTP_PASS or not SMTP_HOST or not SMTP_PORT:
+        print("Cannot send email: missing SMTP credentials.")
+        return
+
     msg = EmailMessage()
     msg.set_content(body)
-    msg['Subject'] = subject
-    msg['From'] = SMTP_USER
-    msg['To'] = to_email
+    msg['Subject'] = str(subject)
+    msg['From'] = str(SMTP_USER)
+    msg['To'] = str(to_email)
+
+
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
