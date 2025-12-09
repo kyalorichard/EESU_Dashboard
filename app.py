@@ -334,40 +334,41 @@ with tab5:
     if geo_file.exists():
         with open(geo_file) as f: 
             countries_gj = json.load(f)
-        
+
+        # Aggregate data for map
         df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
         geo_countries = [f['properties']['name'] for f in countries_gj['features']]
         df_map = df_map[df_map['alert-country'].isin(geo_countries)]
-
-        # --- Compute coordinates ---
+        
+        # Safe coordinates extraction
         coords = []
         for feature in countries_gj['features']:
             if feature['properties']['name'] in df_map['alert-country'].values:
-                geom = feature["geometry"]
-                if geom["type"] == "Polygon":
-                    coords.extend(geom["coordinates"][0])
-                elif geom["type"] == "MultiPolygon":
-                    for poly in geom["coordinates"]:
+                geometry = feature['geometry']
+                if geometry['type'] == "Polygon":
+                    coords.extend(geometry['coordinates'][0])
+                elif geometry['type'] == "MultiPolygon":
+                    for poly in geometry['coordinates']:
                         coords.extend(poly[0])
+
+        # Safe zoom calculation
+        def calculate_zoom(lons, lats):
+            if not lons or not lats:
+                return {"lat": 10, "lon": 0}, 1
+            center = {"lat": np.mean(lats), "lon": np.mean(lons)}
+            zoom = max(1, min(5, 2 / (max(lons) - min(lons) + 0.01)))
+            return center, zoom
+
         lons, lats = zip(*coords) if coords else ([], [])
         center, zoom = calculate_zoom(lons, lats)
 
-        # --- Compute hover stats ---
-        stats = (
-            filtered_global
-            .groupby("alert-country")
-            .agg(
-                total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
-            )
-            .reset_index()
-        )
-        df_map = df_map.merge(stats, on="alert-country", how="left")
-        df_map["perc_negative"] = ((df_map["negative_alerts"]/df_map["total_alerts"])*100).round(1)
-
-        # --- Build figure ---
+        # Map height based on number of countries
         map_height = max(400, len(df_map)*20)
+
+        # Create hover text
+        df_map['hover_text'] = df_map.apply(lambda row: f"<b>{row['alert-country']}</b><br>Alerts: {row['count']}", axis=1)
+
+        # Plot map
         fig = px.choropleth_mapbox(
             df_map,
             geojson=countries_gj,
@@ -375,70 +376,32 @@ with tab5:
             featureidkey="properties.name",
             color="count",
             hover_name="alert-country",
-            hover_data={
-                "count": False,
-                "total_alerts": False,
-                "negative_alerts": False,
-                "positive_alerts": False,
-                "perc_negative": False
-            },
+            hover_data={"count": True, "alert-country": False, "hover_text": True},
             color_continuous_scale="Greens",
             mapbox_style="open-street-map",
             zoom=zoom,
             center=center,
-            opacity=0.65
+            opacity=0.6
         )
 
+        # Update hover template for styled background
         fig.update_traces(
-            hovertemplate=(
-                "<b>%{location}</b><br>"
-                "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
-                "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
-                "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "% Negative: %{customdata[3]}%<extra></extra>"
-            ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
-            marker_line_width=2,
-            marker_line_color="black",
-            hoverlabel=dict(
-                bgcolor="#2D0055",
-                font_size=13,
-                font_family="Arial",
-                font_color="white",
-                bordercolor="black"
-            )
+            hovertemplate=df_map['hover_text'],
+            marker_line_width=1,
+            marker_line_color='black'
         )
 
-        # --- Pulse glow effect ---
-        pulse_threshold = df_map["count"].quantile(0.85)
-        pulse_countries = df_map[df_map["count"] >= pulse_threshold].copy()
-        pulse_centroids = []
-        for feature in countries_gj["features"]:
-            name = feature["properties"]["name"]
-            if name in pulse_countries["alert-country"].values:
-                geom = feature["geometry"]
-                coords = geom["coordinates"][0] if geom["type"]=="Polygon" else geom["coordinates"][0][0]
-                lons = [c[0] for c in coords]
-                lats = [c[1] for c in coords]
-                pulse_centroids.append({"country": name, "lon": np.mean(lons), "lat": np.mean(lats)})
-        pulse_df = pd.DataFrame(pulse_centroids)
-        if not pulse_df.empty:
-            for size in [10,18,26]:
-                fig.add_trace(go.Scattermapbox(
-                    lat=pulse_df["lat"],
-                    lon=pulse_df["lon"],
-                    mode="markers",
-                    marker=dict(size=size,color="rgba(255,0,0,0.15)"),
-                    hoverinfo="skip",
-                    showlegend=False
-                ))
-
-        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=map_height, transition=dict(duration=1200,easing="cubic-in-out"))
+        # Layout adjustments
+        fig.update_layout(
+            margin={"r":0,"t":1,"l":0,"b":0},
+            height=map_height
+        )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("GeoJSON file not found for map visualization.")
+
 
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
