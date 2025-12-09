@@ -425,40 +425,11 @@ with tab5:
                 bordercolor="#ffffff"
             ),
             marker_line_width=1,
-            marker_line_color="white"
+            marker_line_color="black"
         )
 
         # ----- Bubble density overlay -----
-        centroids = []
-        for feature in countries_gj["features"]:
-            name = feature["properties"]["name"]
-            if name in df_map["alert-country"].values:
-                geom = feature["geometry"]
-                if geom["type"] == "Polygon":
-                    coords = geom["coordinates"][0]
-                else:
-                    coords = geom["coordinates"][0][0]
-                lons = [c[0] for c in coords]
-                lats = [c[1] for c in coords]
-                centroids.append({
-                    "country": name,
-                    "lon": np.mean(lons),
-                    "lat": np.mean(lats)
-                })
-
-        centroids_df = pd.DataFrame(centroids)
-        centroids_df = centroids_df.merge(df_map, left_on="country", right_on="alert-country", how="left")
-
-        fig.add_trace(go.Scattermapbox(
-            lat=centroids_df["lat"],
-            lon=centroids_df["lon"],
-            mode="markers",
-            marker=dict(
-                size=(centroids_df["count"] * 1.5).clip(5, 40),
-                color="rgba(102,0,148,0.6)"
-            ),
-            hoverinfo="skip"
-        ))
+        
 
         # ----- Final layout -----
         fig.update_layout(
