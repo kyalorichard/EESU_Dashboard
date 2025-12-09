@@ -8,66 +8,34 @@ from langdetect import detect
 from dotenv import load_dotenv
 from email.message import EmailMessage
 import smtplib
-from tqdm.asyncio import tqdm_asyncio
 import random
-import argparse
-
-# ---------------- ARGUMENTS ----------------
-parser = argparse.ArgumentParser()
-parser.add_argument("--mode", default="mock", choices=["mock", "live"])
-args = parser.parse_args()
-MOCK_MODE = args.mode == "mock"
 
 # ---------------- LOAD ENV ----------------
 load_dotenv()
-
-# OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
-MODEL = "gpt-5-mini"
 
-# Email
-NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL")
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASS")
-SMTP_HOST = os.getenv("SMTP_HOST")
+NOTIFY_EMAIL = 'kyalorichard11@gmail.com' #os.getenv("NOTIFY_EMAIL")
+SMTP_USER = 'kyalorichard11@gmail.com'  #.getenv("SMTP_USER")
+SMTP_PASS = '25958927Kyalo.' #os.getenv("SMTP_PASS")
+SMTP_HOST = 'smtp.gmail.com' #os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
 
 # ---------------- FILE PATHS ----------------
 INPUT_CSV = "data/raw_data.csv"
 OUTPUT_FOLDER = "data"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
 OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final.parquet")
 OUTPUT_CSV = os.path.join(OUTPUT_FOLDER, "output_final.csv")
-INTERMEDIATE_PARQUET = os.path.join(OUTPUT_FOLDER, "intermediate_output.parquet")
-LOG_FILE = os.path.join(OUTPUT_FOLDER, "batch_processing_log.csv")
-FAILED_BATCHES_FILE = os.path.join(OUTPUT_FOLDER, "failed_batches.json")
 PERMANENTLY_FAILED_FILE = os.path.join(OUTPUT_FOLDER, "permanently_failed_batches.json")
 
-# ---------------- BATCH / PROCESS CONFIG ----------------
+# ---------------- CONFIG ----------------
 MAX_BATCH_TOKENS = 10000
-MIN_BATCH_SIZE = 1
-MAX_BATCH_SIZE = 2
-DEFAULT_BATCH_SIZE = 2
-SAVE_EVERY_N_BATCHES = 2
-MAX_RETRIES = 2
-LATENCY_TARGET = 5
-LATENCY_TOLERANCE = 2
-ADJUST_FACTOR = 0.2
+MAX_BATCH_SIZE = None
 CONCURRENT_BATCHES = 3
-COST_PER_1K_TOKENS = 0.005
-TEST_ROWS = int(os.getenv("TEST_ROWS", 3))
-
-# ---------------- MOCK MODE ----------------
-MOCK_CONFIG = {
-    "quota_error_batches": 1,
-    "malformed_json_prob": 0.3,
-    "missing_keys_prob": 0.2,
-    "latency_range": (0.5, 2.0),
-    "fixed_keys": ["Actor of repression", "Subject of repression",
-                   "Mechanism of repression", "Type of event"]
-}
+MAX_RETRIES = 2
+SAVE_EVERY_N_BATCHES = 2
+TEST_ROWS = None  # Use for partial test runs
 
 # ---------------- LOAD THEMES ----------------
 THEMES_FILE = "data/themes.json"
@@ -91,16 +59,14 @@ for col in ["Actor of repression", "Subject of repression", "Mechanism of repres
 # ---------------- TOKEN ESTIMATION ----------------
 try:
     import tiktoken
-    encoding = tiktoken.encoding_for_model(MODEL)
+    encoding = tiktoken.encoding_for_model("gpt-5-mini")
     def estimate_tokens(text):
         return len(encoding.encode(text)) + 50
-    print("tiktoken detected: Using precise token estimation.")
 except ImportError:
-    print("tiktoken not found. Using rough token estimation (approx. 1 token per 4 chars).")
     def estimate_tokens(text):
         return max(1, len(text)//4 + 50)
 
-# ---------------- HELPER FUNCTIONS ----------------
+# ---------------- HELPERS ----------------
 def format_theme_options(theme_list, lang):
     return ", ".join([f'{t["label"]} ({t["definition"]})' for t in theme_list.get(lang, theme_list["en"])])
 
@@ -116,10 +82,10 @@ def build_prompt(batch_summaries):
         numbered_texts.append(
             f"{idx+1}. Summary: {summary}\n"
             f"Language: {lang}\n"
-            f"Actor of repression options: {format_theme_options(ACTOR_THEMES, lang)}\n"
-            f"Subject of repression options: {format_theme_options(SUBJECT_THEMES, lang)}\n"
-            f"Mechanism of repression options: {format_theme_options(MECHANISM_THEMES, lang)}\n"
-            f"Type of event options: {format_theme_options(TYPE_THEMES, lang)}"
+            f"Actor options: {format_theme_options(ACTOR_THEMES, lang)}\n"
+            f"Subject options: {format_theme_options(SUBJECT_THEMES, lang)}\n"
+            f"Mechanism options: {format_theme_options(MECHANISM_THEMES, lang)}\n"
+            f"Type options: {format_theme_options(TYPE_THEMES, lang)}"
         )
     numbered_text = "\n\n".join(numbered_texts)
     prompt = f"""
@@ -137,31 +103,14 @@ Texts:
 """
     return prompt
 
-# ---------------- MOCK EXTRACT_BATCH ----------------
+# ---------------- MOCK EXTRACT ----------------
 async def mock_extract_batch(batch_summaries):
-    if not hasattr(mock_extract_batch, "call_count"):
-        mock_extract_batch.call_count = 0
-        mock_extract_batch.quota_error_batches = 0
-        mock_extract_batch.malformed_json_batches = 0
-        mock_extract_batch.missing_keys_batches = 0
+    await asyncio.sleep(random.uniform(0.1, 0.5))
+    return [{k: f"{k} Value" for k in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]} for _ in batch_summaries], None
 
-    if mock_extract_batch.call_count < MOCK_CONFIG["quota_error_batches"]:
-        mock_extract_batch.call_count += 1
-        mock_extract_batch.quota_error_batches += 1
-        raise Exception("You exceeded your current quota (simulated).")
-
-    batch_data = []
-    for summary in batch_summaries:
-        r = {k: f"{k} Value" for k in MOCK_CONFIG["fixed_keys"]}
-        batch_data.append(r)
-
-    mock_extract_batch.call_count += 1
-    await asyncio.sleep(random.uniform(*MOCK_CONFIG["latency_range"]))
-    return batch_data, random.uniform(*MOCK_CONFIG["latency_range"])
-
-# ---------------- EXTRACT BATCH ----------------
-async def extract_batch(batch_summaries):
-    if MOCK_MODE:
+# ---------------- LIVE EXTRACT ----------------
+async def extract_batch(batch_summaries, mock_mode=False):
+    if mock_mode:
         return await mock_extract_batch(batch_summaries)
 
     prompt = build_prompt(batch_summaries)
@@ -169,7 +118,7 @@ async def extract_batch(batch_summaries):
         try:
             response = await asyncio.to_thread(
                 openai.chat.completions.create,
-                model=MODEL,
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0
             )
@@ -177,81 +126,111 @@ async def extract_batch(batch_summaries):
             data = json.loads(content)
             return data, None
         except Exception as e:
-            print(f"Error: {e}. Retrying ({attempt+1}/{MAX_RETRIES})...")
+            print(f"Attempt {attempt+1} failed: {e}")
             await asyncio.sleep(2 ** attempt)
-
+    # fallback
     return [{"Actor of repression": "Error",
              "Subject of repression": "Error",
              "Mechanism of repression": "Error",
              "Type of event": "Error"} for _ in batch_summaries], None
 
-# ---------------- EMAIL FUNCTION ----------------
-def send_email_notification(subject, body, to_email):
-    if not subject or not body or not to_email:
-        print("Cannot send email: missing subject, body, or recipient.")
+# ---------------- BATCHING ----------------
+def build_batches(df_input, max_tokens=MAX_BATCH_TOKENS, max_rows=None):
+    batches = []
+    i = 0
+    while i < len(df_input):
+        # skip already processed
+        if all(df_input.at[i, col] not in [None, ""] for col in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]):
+            i += 1
+            continue
+
+        batch_summaries = []
+        batch_start_idx = i
+        batch_tokens = 0
+        while i < len(df_input):
+            summary = str(df_input.at[i, "summary"])
+            est_tokens = estimate_tokens(summary)
+            if batch_tokens + est_tokens > max_tokens and batch_summaries:
+                break
+            batch_summaries.append(summary)
+            batch_tokens += est_tokens
+            i += 1
+            if max_rows and len(batch_summaries) >= max_rows:
+                break
+        if batch_summaries:
+            batches.append((batch_start_idx, batch_summaries))
+    return batches
+
+# ---------------- EMAIL ----------------
+def send_email(subject, body, to_email):
+    if not all([subject, body, to_email, SMTP_USER, SMTP_PASS, SMTP_HOST]):
+        print("Email not sent: Missing credentials or recipient.")
         return
-    if not SMTP_USER or not SMTP_PASS or not SMTP_HOST or not SMTP_PORT:
-        print("Cannot send email: missing SMTP credentials.")
-        return
-
-    msg = EmailMessage()
-    msg.set_content(body)
-    msg['Subject'] = str(subject)
-    msg['From'] = str(SMTP_USER)
-    msg['To'] = str(to_email)
-
-
     try:
+        msg = EmailMessage()
+        msg.set_content(body)
+        msg['Subject'] = str(subject)
+        msg['From'] = str(SMTP_USER)
+        msg['To'] = str(to_email)
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
-        print(f"Email sent to {to_email}")
+        print(f"Email successfully sent to {to_email}")
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        print(f"Email failed: {e}")
 
-# ---------------- MAIN PROCESSING ----------------
-async def process_all_incremental_resume():
-    df_out = pd.read_parquet(INTERMEDIATE_PARQUET) if os.path.exists(INTERMEDIATE_PARQUET) else df.copy()
-    semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
+# ---------------- MAIN PROCESS ----------------
+async def process_all(mock_mode=False):
+    if os.path.exists(OUTPUT_PARQUET):
+        df_out = pd.read_parquet(OUTPUT_PARQUET)
+        print(f"Loaded previous output: {OUTPUT_PARQUET}")
+    else:
+        df_out = df.copy()
+
     permanently_failed = []
-
-    normal_batches = []
-    i = 0
-    while i < len(df_out):
-        if pd.notna(df_out.at[i,"Actor of repression"]) and df_out.at[i,"Actor of repression"] != "":
-            i += 1
-            continue
-        batch_summaries = []
-        batch_start_idx = i
-        while i < len(df_out) and len(batch_summaries) < DEFAULT_BATCH_SIZE:
-            summary = str(df_out.at[i,"summary"])
-            batch_summaries.append(summary)
-            i += 1
-        if batch_summaries:
-            normal_batches.append([batch_start_idx, batch_summaries, 0])
+    semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
+    batches = [(idx, summ, 0) for idx, summ in build_batches(df_out)]
+    print(f"Total batches to process: {len(batches)}")
 
     async def process_batch(batch_start_idx, batch_summaries, retries):
         async with semaphore:
-            results, duration = await extract_batch(batch_summaries)
-            for j,res in enumerate(results):
-                idx = batch_start_idx+j
-                for key in ["Actor of repression","Subject of repression","Mechanism of repression","Type of event"]:
-                    df_out.at[idx,key] = res.get(key,"Unknown")
-            df_out.to_parquet(INTERMEDIATE_PARQUET,index=False,engine="pyarrow")
+            try:
+                results, _ = await extract_batch(batch_summaries, mock_mode)
+            except Exception as e:
+                if retries < MAX_RETRIES:
+                    return await process_batch(batch_start_idx, batch_summaries, retries+1)
+                permanently_failed.append({"start_idx": batch_start_idx, "error": str(e)})
+                results = [{"Actor of repression": "Error",
+                            "Subject of repression": "Error",
+                            "Mechanism of repression": "Error",
+                            "Type of event": "Error"} for _ in batch_summaries]
+            for j, res in enumerate(results):
+                idx = batch_start_idx + j
+                for key in ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]:
+                    df_out.at[idx, key] = res.get(key, "Unknown")
+            print(f"Processed batch starting at row {batch_start_idx}, {len(results)} rows")
 
-    tasks = [process_batch(*b, 0) for b in normal_batches]
-    await asyncio.gather(*tasks)
+    for i in range(0, len(batches), CONCURRENT_BATCHES):
+        tasks = [process_batch(*b) for b in batches[i:i+CONCURRENT_BATCHES]]
+        await asyncio.gather(*tasks)
+        if (i // CONCURRENT_BATCHES + 1) % SAVE_EVERY_N_BATCHES == 0:
+            df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
+            print(f"Intermediate save after batch group {i // CONCURRENT_BATCHES + 1}")
+
+    df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
+    df_out.to_csv(OUTPUT_CSV, index=False)
+    if permanently_failed:
+        with open(PERMANENTLY_FAILED_FILE, "w", encoding="utf-8") as f:
+            json.dump(permanently_failed, f, indent=2)
     return df_out
 
 # ---------------- RUN ----------------
-df_out = asyncio.run(process_all_incremental_resume())
-df_out.to_parquet(OUTPUT_PARQUET,index=False,engine="pyarrow")
-df_out.to_csv(OUTPUT_CSV,index=False)
+# Set mock_mode=True to simulate extraction
+mock_mode = True  # Change to False to use live GPT API
+df_out = asyncio.run(process_all(mock_mode=mock_mode))
 
-# ---------------- EMAIL SUMMARY ----------------
-summary_message = f"Processing complete! Mode: {'MOCK' if MOCK_MODE else 'LIVE'}\nOutput: {OUTPUT_PARQUET}, {OUTPUT_CSV}"
-if NOTIFY_EMAIL:
-    send_email_notification("WordPress Summary Extraction Completed", summary_message, NOTIFY_EMAIL)
-
+summary_message = f"Processing complete! Total rows: {len(df_out)} | Mock mode: {mock_mode}"
 print(summary_message)
+if NOTIFY_EMAIL:
+    send_email("Extraction Completed", summary_message, NOTIFY_EMAIL)
