@@ -50,7 +50,10 @@ langid>=1.1.6
 pymysql
 boto3
 
-
+google-auth                # Core Google authentication library (handles service accounts, OAuth tokens)
+google-auth-oauthlib       # OAuth 2.0 flow helpers for installed apps or web apps (used when not using service accounts)
+google-auth-httplib2       # HTTP transport layer used by google-api-python-client for authenticated requests
+google-api-python-client   # Main Google API client (used to upload files to Google Drive, interact with Drive API v3)
 
 dash   
 altair
