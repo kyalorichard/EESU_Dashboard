@@ -1,5 +1,6 @@
 name: Run Scheduled Scripts
 
+# Enable both scheduled and manual runs
 on:
   schedule:
     - cron: "*/2 * * * *"   # every 2 minutes
@@ -31,7 +32,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ---------------- Load environment variables ----------------
+      # ---------------- Load secrets into environment ----------------
       - name: Export secrets to environment
         run: |
           echo "SMTP_USER=${{ secrets.SMTP_USER }}"       >> $GITHUB_ENV
@@ -42,7 +43,7 @@ jobs:
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
           echo "RUN_LIVE=${{ secrets.RUN_LIVE }}"         >> $GITHUB_ENV
 
-      # ---------------- Create log file path ----------------
+      # ---------------- Prepare log file ----------------
       - name: Prepare log file
         run: |
           mkdir -p logs
@@ -96,7 +97,7 @@ Execution log file is attached."
             ATTACH="$LOG_FILE"
           fi
 
-          # Safe multiline environment export
+          # Export safely for multiline values
           {
             echo "EMAIL_SUBJECT<<EOF"
             echo "$SUBJECT"
@@ -125,7 +126,7 @@ Execution log file is attached."
           server_port: ${{ env.SMTP_PORT }}
           username: ${{ env.SMTP_USER }}
           password: ${{ env.SMTP_PASS }}
-          secure: false               # Required for STARTTLS / port 587
+          secure: false
           from: "GitHub Actions <${{ env.SMTP_USER }}>"
           to: ${{ env.NOTIFY_EMAIL }}
           subject: ${{ env.EMAIL_SUBJECT }}
