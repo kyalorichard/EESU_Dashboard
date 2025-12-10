@@ -1,6 +1,5 @@
 name: Scheduled Extraction to Google Drive
 
-# Run every 10 minutes + allow manual trigger
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -41,19 +40,22 @@ jobs:
           pip install -r requirements.txt
           pip install pyarrow tiktoken langdetect python-dotenv pydrive2 google-auth google-api-python-client
 
-      # ---------------- Ensure data folder ----------------
-      - name: Ensure data folder
+      # ---------------- Ensure data folder exists ----------------
+      - name: Ensure data folder exists
         run: mkdir -p data
+
+      # ---------------- Restore intermediate batch cache ----------------
+      - name: Restore intermediate outputs
+        uses: actions/cache@v4
+        with:
+          path: data/output_final2.parquet
+          key: intermediate-outputs-${{ runner.os }}-${{ hashFiles('data/output_final2.parquet') }}
+          restore-keys: |
+            intermediate-outputs-${{ runner.os }}-
 
       # ---------------- Add Google service account JSON ----------------
       - name: Add Google service account JSON
-        run: |
-          mkdir -p data
-          printf '%s' "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > data/service_account.json
-
-      # ---------------- Debug service account ----------------
-      - name: Debug service account file
-        run: ls -l data && head -n 5 data/service_account.json
+        run: echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > data/service_account.json
 
       # ---------------- Run extraction script ----------------
       - name: Run extraction
@@ -66,4 +68,16 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           GDRIVE_JSON: data/service_account.json
           GDRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        run: python data_preprocessing_google_drive.py
+        run: |
+          set -e  # fail immediately if the script fails
+          python data_preprocessing_google_drive.py
+
+      # ---------------- Cache intermediate outputs ----------------
+      - name: Cache intermediate outputs
+        if: success()
+        uses: actions/cache@v4
+        with:
+          path: data/output_final2.parquet
+          key: intermediate-outputs-${{ runner.os }}-${{ hashFiles('data/output_final2.parquet') }}
+          restore-keys: |
+            intermediate-outputs-${{ runner.os }}-
