@@ -26,7 +26,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
 INPUT_CSV = "data/raw_data.csv"
 OUTPUT_FOLDER = "data"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final.parquet")
+OUTPUT_PARQUET = os.path.join(OUTPUT_FOLDER, "output_final2.parquet")
 OUTPUT_CSV = os.path.join(OUTPUT_FOLDER, "output_final.csv")
 PERMANENTLY_FAILED_FILE = os.path.join(OUTPUT_FOLDER, "permanently_failed_batches.json")
 
