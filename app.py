@@ -360,10 +360,10 @@ with tab5:
                 zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
             else:
                 center = {"lat":10,"lon":0}
-                zoom = 3
+                zoom = 4
         else:
             center = {"lat":10,"lon":0}
-            zoom = 3
+            zoom = 4
 
         # ----- Add advanced hover stats -----
         stats = (
@@ -404,7 +404,7 @@ with tab5:
             mapbox_style="open-street-map",
             zoom=zoom,
             center=center,
-            opacity=0.65
+            opacity=0.8
         )
 
         # ----- Card-style hover tooltip -----
