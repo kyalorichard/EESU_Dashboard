@@ -331,66 +331,73 @@ with tab4:
 # ---------------- TAB 5 (MAP) ----------------
 with tab5:
     geo_file = Path.cwd() / "data" / "countriess.geojson"
-    if geo_file.exists():
-        with open(geo_file) as f: 
-            countries_gj = json.load(f)
-        
-        # Base map data
-        df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
-        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
-        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
+    if geo_file.exists():
+
+        # ----- Caching GeoJSON load -----
+        @st.cache_data
+        def load_geojson(path):
+            with open(path) as f:
+                return json.load(f)
+
+        countries_gj = load_geojson(geo_file)
+
+        # ----- Compute stats with caching -----
+        @st.cache_data
+        def compute_stats(df):
+            stats = (
+                df.groupby("alert-country")
+                .agg(
+                    total_alerts=("alert-impact", "size"),
+                    negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
+                    positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
+                )
+                .reset_index()
+            )
+            stats["perc_negative"] = ((stats["negative_alerts"] / stats["total_alerts"]) * 100).round(1)
+            return stats
+
+        stats = compute_stats(filtered_global)
+
+        # ----- Prepare map data -----
+        map_df = filtered_global.groupby(["alert-country", "iso_alpha3"]).size().reset_index(name="count")
+        map_df = map_df.merge(stats, on="alert-country", how="left")
+
+        # Filter only countries present in GeoJSON
+        geo_ids = [f['properties']['iso_a3'] for f in countries_gj['features']]
+        map_df = map_df[map_df['iso_alpha3'].isin(geo_ids)]
 
         # ----- Dynamic center & zoom -----
-        if not df_map.empty:
+        if not map_df.empty:
             coords = []
             for feature in countries_gj['features']:
-                if feature['properties']['name'] in df_map['alert-country'].values:
+                if feature['properties']['iso_a3'] in map_df['iso_alpha3'].values:
                     geometry = feature['geometry']
                     if geometry['type'] == "Polygon":
                         coords.extend(geometry['coordinates'][0])
                     elif geometry['type'] == "MultiPolygon":
                         for poly in geometry['coordinates']:
                             coords.extend(poly[0])
-
             if coords:
                 lons, lats = zip(*coords)
                 center = {"lat": np.mean(lats), "lon": np.mean(lons)}
                 zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
             else:
                 center = {"lat":10,"lon":0}
-                zoom = 1.5
+                zoom = 3
         else:
             center = {"lat":10,"lon":0}
-            zoom = 1.5
+            zoom = 3
 
-        # ----- Add advanced hover stats -----
-        stats = (
-            filtered_global
-            .groupby("alert-country")
-            .agg(
-                total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
-            )
-            .reset_index()
-        )
-
-        df_map = df_map.merge(stats, on="alert-country", how="left")
-
-        df_map["perc_negative"] = (
-            (df_map["negative_alerts"] / df_map["total_alerts"]) * 100
-        ).round(1)
+        # ----- Map height -----
+        map_height = min(max(400, len(map_df)*20), 1200)
 
         # ----- Main choropleth -----
-        map_height = max(400, len(df_map)*20)
-
         fig = px.choropleth_mapbox(
-            df_map,
+            map_df,
             geojson=countries_gj,
-            locations="alert-country",
-            featureidkey="properties.name",
+            locations="iso_alpha3",
+            featureidkey="properties.iso_a3",
             color="count",
             hover_name="alert-country",
             hover_data={
@@ -407,16 +414,23 @@ with tab5:
             opacity=0.65
         )
 
-        # ----- Card-style hover tooltip -----
+        # ----- Card-style hover tooltip with dynamic color -----
         fig.update_traces(
             hovertemplate=(
-                "<b>%{location}</b><br>"
+                "<b>%{hovertext}</b><br>"
                 "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
                 "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
                 "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "% Negative: %{customdata[3]}%<extra></extra>"
+                "<span style='color:%{customdata[4]}'>●</span> % Negative: %{customdata[3]}%<extra></extra>"
             ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
+            customdata=np.column_stack([
+                map_df["total_alerts"],
+                map_df["negative_alerts"],
+                map_df["positive_alerts"],
+                map_df["perc_negative"],
+                np.where(map_df["perc_negative"] > 50, "#FF0000", "#00FF00")  # red if >50%, green otherwise
+            ]),
+            hovertext=map_df["alert-country"],
             hoverlabel=dict(
                 bgcolor="#2D0055",
                 font_size=13,
@@ -428,17 +442,11 @@ with tab5:
             marker_line_color="black"
         )
 
-        # ----- Bubble density overlay -----
-        
-
         # ----- Final layout -----
         fig.update_layout(
             margin={"r":0,"t":0,"l":0,"b":0},
             height=map_height
         )
-
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
 
         st.plotly_chart(fig, use_container_width=True)
 
