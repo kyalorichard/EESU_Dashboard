@@ -364,14 +364,14 @@ with tab5:
         map_df = map_df.merge(stats, on="alert-country", how="left")
 
         # Filter only countries present in GeoJSON
-        geo_ids = [f['properties']['iso_a3'] for f in countries_gj['features']]
+        geo_ids = [f['properties']['name'] for f in countries_gj['features']]
         map_df = map_df[map_df['iso_alpha3'].isin(geo_ids)]
 
         # ----- Dynamic center & zoom -----
         if not map_df.empty:
             coords = []
             for feature in countries_gj['features']:
-                if feature['properties']['iso_a3'] in map_df['iso_alpha3'].values:
+                if feature['properties']['name'] in map_df['iso_alpha3'].values:
                     geometry = feature['geometry']
                     if geometry['type'] == "Polygon":
                         coords.extend(geometry['coordinates'][0])
