@@ -1,9 +1,9 @@
 name: Scheduled Extraction to Google Drive
 
-# Run every 5 minutes + allow manual trigger
+# Run every 10  minutes + allow manual trigger
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 concurrency:
