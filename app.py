@@ -360,18 +360,19 @@ with tab5:
         stats = compute_stats(filtered_global)
 
         # ----- Prepare map data -----
-        map_df = filtered_global.groupby(["alert-country", "iso_alpha3"]).size().reset_index(name="count")
-        map_df = map_df.merge(stats, on="alert-country", how="left")
+        
+        # Base map data
+        df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
+        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
-        # Filter only countries present in GeoJSON
-        geo_ids = [f['properties']['name'] for f in countries_gj['features']]
-        map_df = map_df[map_df['alert-country'].isin(geo_ids)]
+        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
+        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
 
         # ----- Dynamic center & zoom -----
-        if not map_df.empty:
+        if not df_map.empty:
             coords = []
             for feature in countries_gj['features']:
-                if feature['properties']['name'] in map_df['iso_alpha3'].values:
+                if feature['properties']['name'] in df_map['iso_alpha3'].values:
                     geometry = feature['geometry']
                     if geometry['type'] == "Polygon":
                         coords.extend(geometry['coordinates'][0])
