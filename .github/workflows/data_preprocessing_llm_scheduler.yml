@@ -1,6 +1,5 @@
 name: Scheduled Extraction to Google Drive
 
-# Run every 10  minutes + allow manual trigger
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -14,18 +13,33 @@ jobs:
   run-extraction:
     runs-on: ubuntu-latest
 
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+
+      # IMPORTANT: Your script expects this exact variable
+      GDRIVE_JSON: ${{ secrets.GDRIVE_JSON }}        # RAW SERVICE ACCOUNT JSON
+      GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+
+      INPUT_CSV: "data/raw_data.csv"
+      OUTPUT_FOLDER: "data"
+      THEMES_FILE: "data/themes.json"
+      MOCK_MODE: "true"      # Change to "false" for real OpenAI runs
+
     steps:
-      # ---------------- Checkout repo ----------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------------- Setup Python ----------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ---------------- Restore pip cache ----------------
       - name: Restore pip cache
         uses: actions/cache@v4
         with:
@@ -34,37 +48,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # ---------------- Install dependencies ----------------
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyarrow tiktoken langdetect python-dotenv pydrive2 google-auth google-api-python-client
+          pip install pyarrow tiktoken langdetect python-dotenv google-auth google-api-python-client
 
-      # ---------------- Ensure data folder ----------------
-      - name: Create data folder
+      - name: Ensure data folder exists
         run: mkdir -p data
 
-      # ---------------- Add Base64-encoded Google service account JSON ----------------
-      - name: Add Google service account JSON
+      - name: Debug — show repo state
         run: |
-          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}" > data/service_account.json.b64
+          echo "Contents of repo:"
+          ls -l
+          echo "Contents of data/:"
+          ls -l data
 
-      # ---------------- Decode Base64 into usable JSON ----------------
-      - name: Decode Google service account JSON
-        run: |
-          base64 --decode data/service_account.json.b64 > data/service_account.json
-
-      # ---------------- Run extraction script ----------------
       - name: Run extraction
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-          SERVICE_ACCOUNT_FILE: data/service_account.json
-          MOCK_MODE: "true"   # Change to "false" to run live GPT extraction
         run: python data_preprocessing_google_drive.py
+
+      - name: Debug — show output files
+        run: ls -l data
