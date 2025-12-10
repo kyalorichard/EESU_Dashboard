@@ -1,9 +1,9 @@
 name: Repression Extraction Workflow
 
-# Run every 2 minutes + allow manual trigger
+# Run every 5 minutes + allow manual trigger
 on:
   schedule:
-    - cron: '*/2 * * * *'  # every 2 minutes
+    - cron: '*/5 * * * *'  # every 5 minutes
   workflow_dispatch:        # manual trigger
 
 # Prevent overlapping runs
