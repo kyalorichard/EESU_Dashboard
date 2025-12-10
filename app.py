@@ -360,10 +360,10 @@ with tab5:
                 zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
             else:
                 center = {"lat":10,"lon":0}
-                zoom = 4
+                zoom = 2
         else:
             center = {"lat":10,"lon":0}
-            zoom = 4
+            zoom = 2
 
         # ----- Add advanced hover stats -----
         stats = (
