@@ -1,4 +1,4 @@
-name: Repression Extraction Workflow
+name: Scheduled Extraction to Google Drive
 
 # Run every 5 minutes + allow manual trigger
 on:
@@ -6,13 +6,12 @@ on:
     - cron: '*/5 * * * *'  # every 5 minutes
   workflow_dispatch:        # manual trigger
 
-# Prevent overlapping runs
 concurrency:
   group: extraction-job
   cancel-in-progress: true
 
 jobs:
-  extract:
+  run-extraction:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,18 +19,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------------- Set up Python ----------------
-      - name: Set up Python 3.11
+      # ---------------- Setup Python ----------------
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       # ---------------- Install dependencies ----------------
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pandas openai python-dotenv langdetect tiktoken pyarrow
+          pip install -r requirements.txt
+          pip install pyarrow tiktoken langdetect python-dotenv pydrive2 google-auth
+
+      # ---------------- Ensure data folder ----------------
+      - name: Create data folder
+        run: mkdir -p data
+
+      # ---------------- Add Google service account JSON ----------------
+      - name: Add Google service account JSON
+        run: echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > data/service_account.json
 
       # ---------------- Run extraction script ----------------
       - name: Run extraction
@@ -42,8 +49,6 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          MOCK_MODE: "true"         # change to "false" for live GPT calls
-          TEST_ROWS: "10"           # optional, set to a small number for testing
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
         run: |
           python data_preprocessing.py
-     
