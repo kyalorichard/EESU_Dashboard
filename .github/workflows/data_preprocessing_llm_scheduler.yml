@@ -1,9 +1,9 @@
 name: Scheduled Extraction to Google Drive
 
-# Run every 5 minutes + allow manual trigger
+# Run every 10 minutes + allow manual trigger
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -42,12 +42,18 @@ jobs:
           pip install pyarrow tiktoken langdetect python-dotenv pydrive2 google-auth google-api-python-client
 
       # ---------------- Ensure data folder ----------------
-      - name: Create data folder
+      - name: Ensure data folder
         run: mkdir -p data
 
       # ---------------- Add Google service account JSON ----------------
       - name: Add Google service account JSON
-        run: echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > data/service_account.json
+        run: |
+          mkdir -p data
+          printf '%s' "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > data/service_account.json
+
+      # ---------------- Debug service account ----------------
+      - name: Debug service account file
+        run: ls -l data && head -n 5 data/service_account.json
 
       # ---------------- Run extraction script ----------------
       - name: Run extraction
