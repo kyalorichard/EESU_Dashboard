@@ -51,4 +51,4 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
         run: |
-          python data_preprocessing.py
+          python data_preprocessing_google_drive.py
