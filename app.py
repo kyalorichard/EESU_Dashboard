@@ -365,7 +365,7 @@ with tab5:
 
         # Filter only countries present in GeoJSON
         geo_ids = [f['properties']['name'] for f in countries_gj['features']]
-        map_df = map_df[map_df['alert_country'].isin(geo_ids)]
+        map_df = map_df[map_df['alert-country'].isin(geo_ids)]
 
         # ----- Dynamic center & zoom -----
         if not map_df.empty:
