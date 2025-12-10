@@ -1,8 +1,8 @@
-name: WordPress Sync Every 2 Minutes
+name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: '*/2 * * * *'
+    - cron: '*/2 * * * *'   # every 2 minutes
   workflow_dispatch:
 
 jobs:
@@ -10,133 +10,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      # Checkout repo
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      # Set up Python
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
+      # Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pymysql boto3 pandas python-dotenv
 
-      - name: Create .env from GitHub Secrets
+      # Run WordPress sync
+      - name: Run incremental sync
+        env:
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          S3_PREFIX: ${{ secrets.S3_PREFIX }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          SES_EMAIL: ${{ secrets.SES_EMAIL }}
+          BATCH_SIZE: 500
+          MAX_RETRIES: 3
+          RETRY_DELAY: 2
+          METRIC_NAMESPACE: WordPressSyncMetrics
         run: |
-          echo "" > .env
-          for key in REGION LAMBDA_ROLE LAMBDA_NAME_STAGING LAMBDA_NAME_PROD \
-                     DB_HOST DB_USER DB_PASS DB_NAME S3_BUCKET_STAGING S3_BUCKET_PROD \
-                     CSV_KEY CHECKPOINT_KEY SES_FROM SES_TO NOTIFICATION_EMAIL \
-                     EC2_USER EC2_HOST_STAGING EC2_HOST_PROD EC2_KEY \
-                     DOCKER_IMAGE_TAG_STAGING DOCKER_IMAGE_TAG_PROD STREAMLIT_PORT \
-                     COUNTRY_META_FILE GEOJSON_FILE AUTORELOAD_INTERVAL CHECKPOINT_TTL \
-                     OPENAI_API_KEY NOTIFY_EMAIL SMTP_USER SMTP_PASS SMTP_HOST SMTP_PORT TEST_ROWS
-          do
-            echo "$key=${{ secrets[$key] }}" >> .env
-          done
-
-      - name: Run WordPress Sync
-        id: wp_sync
-        run: |
-          set -o pipefail
-          mkdir -p logs
-          LOG_FILE=logs/wp_sync.txt
-          SYNC_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-
-          echo "Starting WordPress sync at $SYNC_TIME" | tee -a $LOG_FILE
-          OUTPUT=$(python pull_data.py 2>&1 | tee -a $LOG_FILE)
-
-          echo "SYNC_OUTPUT=$OUTPUT" >> $GITHUB_ENV
-          echo "LOG_FILE=$LOG_FILE" >> $GITHUB_ENV
-          echo "SYNC_TIME=$SYNC_TIME" >> $GITHUB_ENV
-
-      - name: Prepare HTML email content with conditional coloring
-        id: prepare_email
-        shell: bash
-        run: |
-          python - <<'EOF'
-import os, json
-
-raw = os.environ.get("SYNC_OUTPUT", "{}")
-
-if raw.startswith("'") and raw.endswith("'"):
-    raw = raw[1:-1].replace("'\"'\"'", "'")
-
-try:
-    data = json.loads(raw)
-except:
-    data = {"status": "failed", "error": "Invalid JSON output", "execution_time": 0}
-
-status = data.get("status", "failed")
-new_posts = int(data.get("new_rows", 0) or 0)
-total_posts = int(data.get("total_rows", 0) or 0)
-batches = int(data.get("batches", 0) or 0)
-exec_time = float(data.get("execution_time", 0) or 0)
-sync_time = os.environ.get("SYNC_TIME", "Unknown time")
-
-repo = os.environ.get("GITHUB_REPOSITORY", "")
-run_id = os.environ.get("GITHUB_RUN_ID", "")
-artifact_page = f"https://github.com/{repo}/actions/runs/{run_id}"
-
-def color_icon(ok=True, color=None):
-    c = color if color else ('green' if ok else 'red')
-    icon = "✅" if ok else "❌"
-    return f"<span style='color:{c}; font-weight:bold;'>{icon}</span>"
-
-new_posts_color = 'green' if new_posts > 0 else 'gray'
-
-table = f"""
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:450px;">
-<tr style="background-color:#f2f2f2;"><th>Metric</th><th>Value</th><th>Status</th></tr>
-<tr><td>New Posts</td><td>{new_posts}</td><td>{color_icon(True, new_posts_color)}</td></tr>
-<tr><td>Total Posts</td><td>{total_posts}</td><td>{color_icon(True)}</td></tr>
-<tr><td>Batches</td><td>{batches}</td><td>{color_icon(True)}</td></tr>
-<tr><td>Execution Time</td><td>{exec_time:.2f} sec</td><td>{color_icon(True)}</td></tr>
-<tr><td>Last Sync</td><td>{sync_time}</td><td>{color_icon(status != 'failed')}</td></tr>
-</table>
-"""
-
-if status == "success":
-    subject = f"✅ WordPress Sync: {new_posts} New Posts ({sync_time})"
-    skip_email = False
-    body = f"<h3>✅ WordPress Sync Successful!</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
-elif status == "no_new_posts":
-    subject = f"✅ WordPress Sync: No New Posts ({sync_time})"
-    skip_email = True
-    body = f"<h3>✅ Sync Completed - No New Posts</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
-else:
-    subject = f"❌ WordPress Sync FAILED ({sync_time})"
-    skip_email = False
-    body = f"<h3>❌ WordPress Sync FAILED!</h3>{table}<p><a href='{artifact_page}'>View run logs</a></p>"
-
-with open(os.environ["GITHUB_ENV"], "a") as f:
-    f.write("EMAIL_BODY<<EOF\n")
-    f.write(body + "\n")
-    f.write("EOF\n")
-    f.write(f"EMAIL_SUBJECT={subject}\n")
-    f.write(f"SKIP_EMAIL={str(skip_email)}\n")
-EOF
-      - name: Send HTML Email Notification
-        if: ${{ env.SKIP_EMAIL != 'True' }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_HOST }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USER }}
-          password: ${{ secrets.SMTP_PASS }}
-          subject: ${{ env.EMAIL_SUBJECT }}
-          body: ${{ env.EMAIL_BODY }}
-          body_type: html
-          to: ${{ secrets.NOTIFY_EMAIL }}
-          from: ${{ secrets.SMTP_USER }}
-          secure: true
-
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wp-sync-log
-          path: ${{ env.LOG_FILE }}
-          if-no-files-found: warn
+          python pull_data.py
