@@ -3,8 +3,8 @@ name: Scheduled Extraction to Google Drive
 # Run every 5 minutes + allow manual trigger
 on:
   schedule:
-    - cron: '*/5 * * * *'  # every 5 minutes
-  workflow_dispatch:        # manual trigger
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 concurrency:
   group: extraction-job
@@ -21,16 +21,25 @@ jobs:
 
       # ---------------- Setup Python ----------------
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # ---------------- Restore pip cache ----------------
+      - name: Restore pip cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       # ---------------- Install dependencies ----------------
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyarrow tiktoken langdetect python-dotenv pydrive2 google-auth
+          pip install pyarrow tiktoken langdetect python-dotenv pydrive2 google-auth google-api-python-client
 
       # ---------------- Ensure data folder ----------------
       - name: Create data folder
@@ -49,6 +58,6 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        run: |
-          python data_preprocessing_google_drive.py
+          GDRIVE_JSON: data/service_account.json
+          GDRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: python data_preprocessing_google_drive.py
