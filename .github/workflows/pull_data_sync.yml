@@ -2,7 +2,7 @@ name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes
+    - cron: '*/60 * * * *'   # every 60 minutes
   workflow_dispatch:
 
 jobs:
