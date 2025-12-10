@@ -1,0 +1,41 @@
+name: Cleanup Old Runs and Artifacts
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # runs daily at midnight
+  workflow_dispatch:     # can also trigger manually
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+
+      # ---------------- Checkout repo ----------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---------------- Install GitHub CLI ----------------
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh
+          gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
+
+      # ---------------- Delete old workflow runs ----------------
+      - name: Delete workflow runs older than 30 days
+        run: |
+          DAYS=30
+          echo "Deleting workflow runs older than $DAYS days..."
+          gh run list --workflow "Run Scheduled Scripts" --limit 100 --json databaseId,createdAt,status \
+            | jq -r ".[] | select((.status == \"completed\") and ((now - ( .createdAt | fromdateiso8601 ))/86400 > $DAYS)) | .databaseId" \
+            | xargs -r -n 1 gh run delete --confirm
+
+      # ---------------- Delete old artifacts ----------------
+      - name: Delete artifacts older than 30 days
+        run: |
+          DAYS=30
+          echo "Deleting artifacts older than $DAYS days..."
+          gh api repos/${{ github.repository }}/actions/artifacts \
+            | jq -r ".artifacts[] | select((now - (.created_at | fromdateiso8601))/86400 > $DAYS) | .id" \
+            | xargs -r -n 1 gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/{}
+
