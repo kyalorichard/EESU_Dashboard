@@ -195,7 +195,13 @@ def render_summary_cards(df, bar_height=24):
             pos_pct = 100 - neg_pct
 
             col.markdown(f"""
-            <div style="padding:10px; border-radius:10px; overflow:hidden;">
+            <div style="
+                padding:10px; 
+                border-radius:10px; 
+                background:#f9f9f9; 
+                box-shadow:0 2px 5px rgba(0,0,0,0.1); 
+                overflow:hidden;  /* prevents bar overflow */
+            ">
                 <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
                 <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
                     <span style="color:#FF4C4C;">● {card['negative']}</span>
@@ -205,7 +211,7 @@ def render_summary_cards(df, bar_height=24):
                     display:flex; 
                     height:{bar_height}px; 
                     border-radius:{bar_height//2}px; 
-                    overflow:hidden; 
+                    overflow:hidden;
                     font-size:12px; 
                     font-weight:bold;
                     background:#ddd;
@@ -238,7 +244,12 @@ def render_summary_cards(df, bar_height=24):
 
         else:
             col.markdown(f"""
-            <div style="padding:10px; border-radius:10px;">
+            <div style="
+                padding:10px; 
+                border-radius:10px; 
+                background:#f9f9f9; 
+                box-shadow:0 2px 5px rgba(0,0,0,0.1);
+            ">
                 <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
                 <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
             </div>
