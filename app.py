@@ -222,73 +222,17 @@ def create_alerts_trend_chart(neg_trend, pos_trend, months):
     return fig
 
 # ---------------- SUMMARY CARD RENDERER ----------------
-def create_alerts_trend_chart(neg_trend, pos_trend, months):
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=months,
-        y=neg_trend,
-        name='Negative',
-        marker_color='rgba(255,76,76,0.8)',
-        hovertemplate='%{x}<br>Negative: %{y}<extra></extra>'
-    ))
-    fig.add_trace(go.Bar(
-        x=months,
-        y=pos_trend,
-        name='Positive',
-        marker_color='rgba(0,255,170,0.8)',
-        hovertemplate='%{x}<br>Positive: %{y}<extra></extra>'
-    ))
-    fig.update_layout(
-        barmode='stack',
-        margin=dict(l=20, r=20, t=20, b=20),
-        height=150,
-        width=300,
-        showlegend=False,
-        xaxis=dict(tickfont=dict(size=10)),
-        yaxis=dict(showticklabels=False)
-    )
-    return fig
-
 def render_summary_cards(df):
     total_countries = df['alert-country'].nunique()
     total_alerts = df.shape[0]
     negative_alerts = df[df['alert-impact']=="Negative"].shape[0]
     positive_alerts = df[df['alert-impact']=="Positive"].shape[0]
 
-    # Prepare trend data (last 6 months)
-    if 'creation_date' in df.columns:
-        trend_df = df.copy()
-        trend_df = trend_df[trend_df['alert-impact'].isin(["Negative", "Positive"])]
-        trend_df['month_year'] = trend_df['creation_date'].dt.to_period('M')
-        trend_summary = (
-            trend_df.groupby(['month_year', 'alert-impact'])
-            .size()
-            .unstack(fill_value=0)
-            .sort_index()
-        )
-        trend_summary = trend_summary.tail(6)
-        months = [str(m) for m in trend_summary.index]
-        neg_trend = trend_summary.get('Negative', pd.Series([0]*len(months)))
-        pos_trend = trend_summary.get('Positive', pd.Series([0]*len(months)))
-        max_count = max(neg_trend.max(), pos_trend.max(), 1)
-    else:
-        months = [""]*6
-        neg_trend = pos_trend = [0]*6
-        max_count = 1
-
     cards = [
         {"label": "Monitored Countries", "value": total_countries},
         {"label": "Total Alerts", "value": total_alerts},
-        {
-            "label": "Alerts Breakdown", 
-            "value": f"Negative: {negative_alerts} | Positive: {positive_alerts}", 
-            "negative": negative_alerts, 
-            "positive": positive_alerts,
-            "neg_trend": neg_trend,
-            "pos_trend": pos_trend,
-            "max_count": max_count,
-            "months": months
-        }
+        {"label": "Alerts Breakdown", "value": f"Negative: {negative_alerts} | Positive: {positive_alerts}", 
+         "negative": negative_alerts, "positive": positive_alerts}  # combined card
     ]
 
     num_cards = len(cards)
@@ -300,35 +244,16 @@ def render_summary_cards(df):
     for i, card in enumerate(cards):
         col = cols[i % col_count]
 
+        # Combined Alert Card with Sparkline
         if card.get("negative") is not None:
             total = card["negative"] + card["positive"]
             neg_pct = int((card["negative"]/total)*100) if total > 0 else 0
             pos_pct = 100 - neg_pct
 
-            # Gradient sparkline with tooltip
-            trend_html = ""
-            for month, n, p in zip(card["months"], card["neg_trend"], card["pos_trend"]):
-                n_height = int((n / card["max_count"]) * 20)
-                p_height = int((p / card["max_count"]) * 20)
-                n_opacity = max(0.2, n / card["max_count"])
-                p_opacity = max(0.2, p / card["max_count"])
-                trend_html += f"""
-                <div style="display:inline-block; width:18px; height:22px; margin-right:3px; vertical-align:bottom;" 
-                     title="{month}: Negative {n}, Positive {p}">
-                    <div style="height:{n_height}px; background:rgba(255,76,76,{n_opacity});"></div>
-                    <div style="height:{p_height}px; background:rgba(0,255,170,{p_opacity});"></div>
-                </div>
-                """
-
-            month_labels_html = "".join([f"<div style='display:inline-block; width:18px; text-align:center; font-size:9px;'>{m[-2:]}</div>" for m in card["months"]])
-
-            # Render main card
             col.markdown(
                 f"""
                 <div class="summary-card" style="padding:10px;">
                     <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                    <div style="margin:3px 0;">{trend_html}</div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:3px;">{month_labels_html}</div>
                     <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
                         <span style="color:#FF4C4C;">● {card['negative']}</span>
                         <span style="color:#00FFAA;">● {card['positive']}</span>
@@ -344,12 +269,6 @@ def render_summary_cards(df):
                 </div>
                 """, unsafe_allow_html=True
             )
-
-            # Add interactive mini chart below with expander
-            col.markdown("<small>Click to see detailed monthly trend</small>", unsafe_allow_html=True)
-            with col.expander("Monthly Trend"):
-                st.plotly_chart(create_alerts_trend_chart(card["neg_trend"], card["pos_trend"], card["months"]), use_container_width=True)
-
         else:
             # Normal card
             col.markdown(
