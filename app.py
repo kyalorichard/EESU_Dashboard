@@ -223,27 +223,16 @@ def create_alerts_trend_chart(neg_trend, pos_trend, months):
 
 # ---------------- SUMMARY CARD RENDERER ----------------
 def render_summary_cards(df, bar_height=24):
-    """
-    Renders summary cards in Streamlit including a combined Negative/Positive alert card
-    with labels and percentages displayed inside the bar.
-
-    Parameters:
-    - df: pd.DataFrame with columns 'alert-country' and 'alert-impact'
-    - bar_height: int, height of the sparkline-style bar in pixels
-    """
-
     total_countries = df['alert-country'].nunique()
     total_alerts = df.shape[0]
     negative_alerts = df[df['alert-impact'] == "Negative"].shape[0]
     positive_alerts = df[df['alert-impact'] == "Positive"].shape[0]
 
-    # Cards data
     cards = [
         {"label": "Monitored Countries", "value": total_countries},
         {"label": "Total Alerts", "value": total_alerts},
         {
             "label": "Alerts Breakdown",
-            "value": f"Negative: {negative_alerts} | Positive: {positive_alerts}",
             "negative": negative_alerts,
             "positive": positive_alerts
         }
@@ -258,18 +247,18 @@ def render_summary_cards(df, bar_height=24):
     for i, card in enumerate(cards):
         col = cols[i % col_count]
 
-        # Combined Alert Card with Sparkline and labels inside the bar
         if card.get("negative") is not None:
             total = card["negative"] + card["positive"]
             neg_pct = round((card["negative"] / total) * 100, 1) if total > 0 else 0
             pos_pct = 100 - neg_pct
 
             col.markdown(f"""
-            <div class="summary-card" style="
+            <div style="
                 padding:10px; 
                 border-radius:10px; 
                 background:#f9f9f9; 
-                box-shadow:0 2px 5px rgba(0,0,0,0.1);
+                box-shadow:0 2px 5px rgba(0,0,0,0.1); 
+                overflow:hidden;  /* prevents bar overflow */
             ">
                 <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
                 <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
@@ -277,13 +266,13 @@ def render_summary_cards(df, bar_height=24):
                     <span style="color:#00FFAA;">● {card['positive']}</span>
                 </div>
                 <div style="
-                    background:#ddd; 
-                    height:{bar_height}px; 
-                    border-radius:{bar_height//2}px; 
-                    overflow:hidden; 
                     display:flex; 
-                    font-size:12px; 
+                    height:30px; 
+                    border-radius:{bar_height//2}px; 
+                    overflow:hidden;
+                    font-size:30px; 
                     font-weight:bold;
+                    background:#ddd;
                 ">
                     <div style="
                         width:{neg_pct}%; 
@@ -292,6 +281,7 @@ def render_summary_cards(df, bar_height=24):
                         display:flex; 
                         justify-content:center; 
                         align-items:center;
+                        flex-shrink:0;
                     ">
                         {neg_pct}% Negative
                     </div>
@@ -302,6 +292,7 @@ def render_summary_cards(df, bar_height=24):
                         display:flex; 
                         justify-content:center; 
                         align-items:center;
+                        flex-shrink:0;
                     ">
                         {pos_pct}% Positive
                     </div>
@@ -310,9 +301,8 @@ def render_summary_cards(df, bar_height=24):
             """, unsafe_allow_html=True)
 
         else:
-            # Normal card
             col.markdown(f"""
-            <div class="summary-card" style="
+            <div style="
                 padding:10px; 
                 border-radius:10px; 
                 background:#f9f9f9; 
