@@ -256,13 +256,14 @@ def render_summary_cards(df, bar_height=24):
             <div class="summary-card" style="
                 padding:10px; 
                 border-radius:10px; 
-                background:#f9f9f9; 
+                background:background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);; 
                 box-shadow:0 2px 5px rgba(0,0,0,0.1);
             ">
                 <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
                 <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
             </div>
             """, unsafe_allow_html=True)
+            
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
