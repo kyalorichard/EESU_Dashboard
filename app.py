@@ -222,6 +222,33 @@ def create_alerts_trend_chart(neg_trend, pos_trend, months):
     return fig
 
 # ---------------- SUMMARY CARD RENDERER ----------------
+def create_alerts_trend_chart(neg_trend, pos_trend, months):
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=months,
+        y=neg_trend,
+        name='Negative',
+        marker_color='rgba(255,76,76,0.8)',
+        hovertemplate='%{x}<br>Negative: %{y}<extra></extra>'
+    ))
+    fig.add_trace(go.Bar(
+        x=months,
+        y=pos_trend,
+        name='Positive',
+        marker_color='rgba(0,255,170,0.8)',
+        hovertemplate='%{x}<br>Positive: %{y}<extra></extra>'
+    ))
+    fig.update_layout(
+        barmode='stack',
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=150,
+        width=300,
+        showlegend=False,
+        xaxis=dict(tickfont=dict(size=10)),
+        yaxis=dict(showticklabels=False)
+    )
+    return fig
+
 def render_summary_cards(df):
     total_countries = df['alert-country'].nunique()
     total_alerts = df.shape[0]
@@ -295,20 +322,11 @@ def render_summary_cards(df):
 
             month_labels_html = "".join([f"<div style='display:inline-block; width:18px; text-align:center; font-size:9px;'>{m[-2:]}</div>" for m in card["months"]])
 
-            # Legend HTML
-            legend_html = """
-            <div style="display:flex; justify-content:flex-end; gap:6px; margin-bottom:3px; font-size:10px;">
-                <span style="color:#FF4C4C;">● Negative</span>
-                <span style="color:#00FFAA;">● Positive</span>
-            </div>
-            """
-
-            # Render main card with legend
+            # Render main card
             col.markdown(
                 f"""
                 <div class="summary-card" style="padding:10px;">
                     <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                    {legend_html}
                     <div style="margin:3px 0;">{trend_html}</div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:3px;">{month_labels_html}</div>
                     <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
@@ -327,7 +345,7 @@ def render_summary_cards(df):
                 """, unsafe_allow_html=True
             )
 
-            # Interactive mini chart below with expander
+            # Add interactive mini chart below with expander
             col.markdown("<small>Click to see detailed monthly trend</small>", unsafe_allow_html=True)
             with col.expander("Monthly Trend"):
                 st.plotly_chart(create_alerts_trend_chart(card["neg_trend"], card["pos_trend"], card["months"]), use_container_width=True)
