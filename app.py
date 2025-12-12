@@ -164,6 +164,85 @@ def wrap_label_by_words(label, words_per_line=4):
 
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
+def render_summary_cards(df, bar_height=24):
+    total_countries = df['alert-country'].nunique()
+    total_alerts = df.shape[0]
+    negative_alerts = df[df['alert-impact'] == "Negative"].shape[0]
+    positive_alerts = df[df['alert-impact'] == "Positive"].shape[0]
+
+    cards = [
+        {"label": "Monitored Countries", "value": total_countries},
+        {"label": "Total Alerts", "value": total_alerts},
+        {
+            "label": "Alerts Breakdown",
+            "negative": negative_alerts,
+            "positive": positive_alerts
+        }
+    ]
+
+    num_cards = len(cards)
+    font_size_value = max(16, 24 - num_cards * 2)
+    font_size_label = max(10, 14 - num_cards)
+    col_count = min(num_cards, 4)
+    cols = st.columns(col_count)
+
+    for i, card in enumerate(cards):
+        col = cols[i % col_count]
+
+        if card.get("negative") is not None:
+            total = card["negative"] + card["positive"]
+            neg_pct = round((card["negative"] / total) * 100, 1) if total > 0 else 0
+            pos_pct = 100 - neg_pct
+
+            col.markdown(f"""
+            <div style="padding:10px; border-radius:10px; overflow:hidden;">
+                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
+                <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
+                    <span style="color:#FF4C4C;">● {card['negative']}</span>
+                    <span style="color:#00FFAA;">● {card['positive']}</span>
+                </div>
+                <div style="
+                    display:flex; 
+                    height:{bar_height}px; 
+                    border-radius:{bar_height//2}px; 
+                    overflow:hidden; 
+                    font-size:12px; 
+                    font-weight:bold;
+                    background:#ddd;
+                ">
+                    <div style="
+                        width:{neg_pct}%; 
+                        background:#FF4C4C; 
+                        color:white; 
+                        display:flex; 
+                        justify-content:center; 
+                        align-items:center;
+                        flex-shrink:0;
+                    ">
+                        {neg_pct}% Negative
+                    </div>
+                    <div style="
+                        width:{pos_pct}%; 
+                        background:#00FFAA; 
+                        color:white; 
+                        display:flex; 
+                        justify-content:center; 
+                        align-items:center;
+                        flex-shrink:0;
+                    ">
+                        {pos_pct}% Positive
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        else:
+            col.markdown(f"""
+            <div style="padding:10px; border-radius:10px;">
+                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
+                <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
+            </div>
+            """, unsafe_allow_html=True)
     
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
