@@ -228,7 +228,7 @@ def render_summary_cards(df, bar_height=24):
             <div style="
                 padding:10px; 
                 border-radius:10px; 
-                background:#f9f9f9; 
+                background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);; 
                 box-shadow:0 2px 5px rgba(0,0,0,0.1); 
                 overflow:hidden;  /* prevents bar overflow */
             ">
