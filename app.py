@@ -164,7 +164,7 @@ def wrap_label_by_words(label, words_per_line=4):
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df):
     cards = [
-        {"label": "Monitored Countries", "value":df[df['alert-country']=].nunique()},
+        {"label": "Monitored Countries", "value":df['alert-country'].nunique()},
         {"label": "Total Alerts", "value": df.shape[0]},
         {"label": "Negative Alerts", "value": df[df['alert-impact']=="Negative"].shape[0]},
         {"label": "Positive Alerts", "value": df[df['alert-impact']=="Positive"].shape[0]}
