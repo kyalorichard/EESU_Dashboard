@@ -164,10 +164,10 @@ def wrap_label_by_words(label, words_per_line=4):
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df):
     cards = [
+        {"label": "Monitored Countries", "value": df.shape[0]},
         {"label": "Total Alerts", "value": df.shape[0]},
         {"label": "Negative Alerts", "value": df[df['alert-impact']=="Negative"].shape[0]},
-        {"label": "Positive Alerts", "value": df[df['alert-impact']=="Positive"].shape[0]},
-        {"label": "Max Alerts", "value": df.shape[0]}
+        {"label": "Positive Alerts", "value": df[df['alert-impact']=="Positive"].shape[0]}
     ]
     num_cards = len(cards)
     font_size_value = max(16, 24 - num_cards*2)
@@ -250,7 +250,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     return fig
 
 # ---------------- TABS ----------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
+#tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
+#tab1, tab2, tab5 = st.tabs(["Overview","Negative Events","Visualization Map"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
