@@ -194,34 +194,6 @@ footer {visibility: hidden;}
 """, unsafe_allow_html=True)
 
 # ---------------- PLOTLY TREND CHART ----------------
-def create_alerts_trend_chart(neg_trend, pos_trend, months):
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=months,
-        y=neg_trend,
-        name='Negative',
-        marker_color='rgba(255,76,76,0.8)',
-        hovertemplate='%{x}<br>Negative: %{y}<extra></extra>'
-    ))
-    fig.add_trace(go.Bar(
-        x=months,
-        y=pos_trend,
-        name='Positive',
-        marker_color='rgba(0,255,170,0.8)',
-        hovertemplate='%{x}<br>Positive: %{y}<extra></extra>'
-    ))
-    fig.update_layout(
-        barmode='stack',
-        margin=dict(l=20, r=20, t=20, b=20),
-        height=150,
-        width=300,
-        showlegend=False,
-        xaxis=dict(tickfont=dict(size=10)),
-        yaxis=dict(showticklabels=False)
-    )
-    return fig
-
-# ---------------- SUMMARY CARD RENDERER ----------------
 def render_summary_cards(df, bar_height=24):
     total_countries = df['alert-country'].nunique()
     total_alerts = df.shape[0]
@@ -267,10 +239,10 @@ def render_summary_cards(df, bar_height=24):
                 </div>
                 <div style="
                     display:flex; 
-                    height:30px; 
+                    height:{bar_height}px; 
                     border-radius:{bar_height//2}px; 
                     overflow:hidden;
-                    font-size:35px; 
+                    font-size:12px; 
                     font-weight:bold;
                     background:#ddd;
                 ">
