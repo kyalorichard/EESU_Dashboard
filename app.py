@@ -162,7 +162,6 @@ def wrap_label_by_words(label, words_per_line=4):
     return "<br>".join(lines)
 
 
-
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, bar_height=24):
     total_countries = df['alert-country'].nunique()
@@ -194,65 +193,51 @@ def render_summary_cards(df, bar_height=24):
             neg_pct = round((card["negative"] / total) * 100, 1) if total > 0 else 0
             pos_pct = 100 - neg_pct
 
+            # Keep Streamlit card background, only customize the inner bar
             col.markdown(f"""
+            <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
+            <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
+                <span style="color:#FF4C4C;">● {card['negative']}</span>
+                <span style="color:#00FFAA;">● {card['positive']}</span>
+            </div>
             <div style="
-                padding:10px; 
-                border-radius:10px; 
-                background:#f9f9f9; 
-                box-shadow:0 2px 5px rgba(0,0,0,0.1); 
-                overflow:hidden;  /* prevents bar overflow */
+                display:flex; 
+                height:{bar_height}px; 
+                border-radius:{bar_height//2}px; 
+                overflow:hidden; 
+                font-size:12px; 
+                font-weight:bold;
+                background:#ddd;
             ">
-                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
-                    <span style="color:#FF4C4C;">● {card['negative']}</span>
-                    <span style="color:#00FFAA;">● {card['positive']}</span>
+                <div style="
+                    width:{neg_pct}%; 
+                    background:#FF4C4C; 
+                    color:white; 
+                    display:flex; 
+                    justify-content:center; 
+                    align-items:center;
+                ">
+                    {neg_pct}% Negative
                 </div>
                 <div style="
+                    width:{pos_pct}%; 
+                    background:#00FFAA; 
+                    color:white; 
                     display:flex; 
-                    height:{bar_height}px; 
-                    border-radius:{bar_height//2}px; 
-                    overflow:hidden;
-                    font-size:12px; 
-                    font-weight:bold;
-                    background:#ddd;
+                    justify-content:center; 
+                    align-items:center;
                 ">
-                    <div style="
-                        width:{neg_pct}%; 
-                        background:#FF4C4C; 
-                        color:white; 
-                        display:flex; 
-                        justify-content:center; 
-                        align-items:center;
-                        flex-shrink:0;
-                    ">
-                        {neg_pct}% Negative
-                    </div>
-                    <div style="
-                        width:{pos_pct}%; 
-                        background:#00FFAA; 
-                        color:white; 
-                        display:flex; 
-                        justify-content:center; 
-                        align-items:center;
-                        flex-shrink:0;
-                    ">
-                        {pos_pct}% Positive
-                    </div>
+                    {pos_pct}% Positive
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
         else:
+            # Normal card: just text, no div with background
             col.markdown(f"""
-            <div style="
-                padding:10px; 
-                border-radius:10px; 
-                background:#f9f9f9; 
-                box-shadow:0 2px 5px rgba(0,0,0,0.1);
-            ">
-                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
-            </div>
+            <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
+            <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
+            """, unsafe_allow_html=True)
             """, unsafe_allow_html=True)
     
 # ---------------- CUSTOM CSS ----------------
