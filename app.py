@@ -270,7 +270,7 @@ def render_summary_cards(df, bar_height=24):
                     height:30px; 
                     border-radius:{bar_height//2}px; 
                     overflow:hidden;
-                    font-size:30px; 
+                    font-size:35px; 
                     font-weight:bold;
                     background:#ddd;
                 ">
