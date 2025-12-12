@@ -250,8 +250,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     return fig
 
 # ---------------- TABS ----------------
-#tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
-tab1, tab2, tab5 = st.tabs(["Overview","Negative Events","Visualization Map"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
+#tab1, tab2, tab5 = st.tabs(["Overview","Negative Events","Visualization Map"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
