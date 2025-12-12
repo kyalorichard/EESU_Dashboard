@@ -218,7 +218,7 @@ def render_summary_cards(df, bar_height=24):
                     <span style="color:#00FFAA;">● {card['positive']}</span>
                 </div>
                 <div style="
-                    background:#ddd; 
+                    background:background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);; 
                     height:{bar_height}px; 
                     border-radius:{bar_height//2}px; 
                     overflow:hidden; 
