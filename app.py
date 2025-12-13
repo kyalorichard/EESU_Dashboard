@@ -19,7 +19,7 @@ USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 # ---------------- DASHBOARD TITLE ----------------
 st.markdown("""
 <h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px;'>
-    EU SEE Dashboard
+    EU SEE Dashboard 
 </h1>
 <hr style='margin:5px 0'>
 """, unsafe_allow_html=True)
@@ -251,7 +251,7 @@ def render_summary_cards(df, base_bar_height=25):
     with col1:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:35px;">Monitored Countries</p>
+<h1 style="margin:0;font-size:25px;">Monitored Countries</h1>
 <h2 style="margin:6px 0;font-size:35px">{total_countries}</h2>
 </div>
 """, unsafe_allow_html=True)
@@ -260,7 +260,7 @@ def render_summary_cards(df, base_bar_height=25):
     with col2:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:20px;">Total Alerts</p>
+<p style="margin:0;font-size:25px;">Total Alerts</p>
 <h2 style="margin:6px 0;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
