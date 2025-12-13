@@ -852,8 +852,14 @@ with tab4:
         st.download_button(
             "Download Executive Brief (PDF)",
             pdf_bytes,
-            file_name="U_SEE_Dashboard_Quick_Start_Executive.pdf",
+            file_name="EU_SEE_Dashboard_Quick_Start_Executive.pdf",
             mime="application/pdf"
+        )
+        st.subheader("Executive Brief")
+        
+        st.markdown(
+            "[Open Executive Brief PDF](DOCS/EU_SEE_Dashboard_Quick_Start_Executive.pdf) {target=_blank}",
+            unsafe_allow_html=True
         )
 
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
