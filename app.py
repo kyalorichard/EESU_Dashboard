@@ -244,8 +244,8 @@ def render_summary_cards(df, base_bar_height=25):
     with col1:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:20px;">Monitored Countries</p>
-<h2 style="margin:6px 0;">{total_countries}</h2>
+<p style="margin:0;font-size:35px;">Monitored Countries</p>
+<h2 style="margin:6px 0;font-size:35px">{total_countries}</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -478,17 +478,17 @@ def render_heatmaps(df, top_n=5):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (% of Actor Total)")
+        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (# of Actor Total)")
         fig1.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig1, use_container_width=True)
 
     with col2:
-        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (% of Subject Total)")
+        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (# of Subject Total)")
         fig2.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig2, use_container_width=True)
 
     with col3:
-        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (% of Actor Total)")
+        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor Total)")
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True)
 
@@ -594,7 +594,7 @@ def render_sankey(summary_df, top_n=None, width=900):
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="black"),   # ✅ CORRECT PLACE
+        font=dict(size=12, color="white"),   # ✅ CORRECT PLACE
         height=fig_height,
         width=width,
         margin=dict(l=40, r=40, t=60, b=40),
@@ -647,12 +647,12 @@ if "top_n_option" not in st.session_state:
 
 def update_top_n():
     option = st.session_state.top_n_option
-    st.session_state.top_n = {"Top 5":5, "Top 10":10, "All":None}[option]
+    st.session_state.top_n = {"Top 2":2,"Top 5":5, "Top 10":10, "All":None}[option]
 
 st.selectbox(
     "Select Top N for charts, heatmaps, and Sankey",
-    options=["Top 5", "Top 10", "All"],
-    index=["Top 5","Top 10","All"].index(st.session_state.top_n_option),
+    options=["Top 2","Top 5", "Top 10", "All"],
+    index=["Top 2","Top 5","Top 10","All"].index(st.session_state.top_n_option),
     key="top_n_option",
     on_change=update_top_n
 )
