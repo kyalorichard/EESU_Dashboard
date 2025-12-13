@@ -97,7 +97,6 @@ def load_data():
 
 data = load_data()
     
-
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
@@ -432,6 +431,7 @@ def render_heatmaps(df, top_n):
         st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
 # ---------------- TAB 2: Negative Events ----------------
+# ---------------- TAB 2: Negative Events ----------------
 with tab2:
     st.markdown("## Filters & Overview")
 
@@ -525,8 +525,18 @@ with tab2:
     r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
 
-    # --- Heatmaps ---
-    render_heatmaps(summary_data, st.session_state.top_n)
+    # --- Heatmaps (Top-N applied) ---
+    actor_mechanism_pivot = prepare_pivot(summary_data, 'Actor of repression', 'Mechanism of repression', st.session_state.top_n)
+    subject_mechanism_pivot = prepare_pivot(summary_data, 'Subject of repression', 'Mechanism of repression', st.session_state.top_n)
+    actor_subject_pivot = prepare_pivot(summary_data, 'Actor of repression', 'Subject of repression', st.session_state.top_n)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.plotly_chart(create_heatmap(actor_mechanism_pivot, "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
+    with col2:
+        st.plotly_chart(create_heatmap(subject_mechanism_pivot, "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
+    with col3:
+        st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
     # --- Sankey Diagram (after heatmaps) ---
     with st.expander("Show Flowchart (Sankey Diagram)"):
@@ -541,7 +551,6 @@ with tab2:
             st.plotly_chart(sankey_fig, use_container_width=True)
         else:
             st.plotly_chart(create_placeholder_chart("No data available for Sankey"), use_container_width=True)
-
             
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
