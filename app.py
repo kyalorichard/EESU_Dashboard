@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import json
 from pathlib import Path
+import base64
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -348,7 +349,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
-tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
+tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Events","Visualization Map","User Manual"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
@@ -824,7 +825,32 @@ with tab3:
         st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.warning("GeoJSON file not found for map visualization.")
+        st.warning("GeoJSON file not found for map visualization.") 
+
+# -------------------------------USER MANUAL TAB------------------------------------        
+with tab4
+    def display_pdf(pdf_path, height=900):
+    with open(pdf_path, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+
+    pdf_display = f"""
+    <iframe
+        src="data:application/pdf;base64,{base64_pdf}"
+        width="100%"
+        height="{height}"
+        style="border:none;"
+    ></iframe>
+    """
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
+    st.markdown("## 📘 EU SEE Dashboard – User Manual")
+
+    pdf_path = Path.cwd() / "docs" / "EU SEE Dashboard user manual.pdf"
+
+    if pdf_path.exists():
+        display_pdf(pdf_path, height=1000)
+    else:
+        st.warning("User Manual PDF not found.")
 
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
