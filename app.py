@@ -204,7 +204,7 @@ def render_summary_cards(df, base_bar_height=25):
     with col1:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:14px;">Monitored Countries</p>
+<p style="margin:0;font-size:20px;">Monitored Countries</p>
 <h2 style="margin:6px 0;">{total_countries}</h2>
 </div>
 """, unsafe_allow_html=True)
@@ -213,7 +213,7 @@ def render_summary_cards(df, base_bar_height=25):
     with col2:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:14px;">Total Alerts</p>
+<p style="margin:0;font-size:20px;">Total Alerts</p>
 <h2 style="margin:6px 0;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
@@ -222,12 +222,12 @@ def render_summary_cards(df, base_bar_height=25):
     with col3:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:14px;">Alerts Breakdown</p>
+<p style="margin:0;font-size:20px;">Alerts Breakdown</p>
 
 <!-- Top numbers -->
 <div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
-<span style="color:#FF4C4C;">● {negative}</span>
-<span style="color:#00FFAA;">● {positive}</span>
+<span style="color:#FF4C4C;">Positive ● {negative}</span>
+<span style="color:#00FFAA;">Negative ● {positive}</span>
 </div>
 
 <!-- Horizontal bar -->
