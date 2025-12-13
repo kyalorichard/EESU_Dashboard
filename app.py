@@ -701,11 +701,11 @@ r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), us
 r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True)
 
 # ---------------- RENDER HEATMAPS ----------------
-render_heatmaps(filtered_top_n_df, top_n=None)  # Already filtered by Top-N items
+render_heatmaps(filtered_top_n_df, top_n=top_n)  # Already filtered by Top-N items
 
 # ---------------- RENDER SANKEY ----------------
 with st.expander("Show Flowchart (Sankey Diagram)"):
-    st.plotly_chart(render_sankey(filtered_top_n_df, top_n=None), use_container_width=True)
+    st.plotly_chart(render_sankey(filtered_top_n_df, top_n=top_n), use_container_width=True)
 
       
       # ---------------- TAB 3 (MAP) ----------------
