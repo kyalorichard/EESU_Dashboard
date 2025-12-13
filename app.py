@@ -17,7 +17,6 @@ st.markdown("""
 <hr style='margin:5px 0'>
 """, unsafe_allow_html=True)
 
-
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
@@ -212,16 +211,7 @@ def render_summary_cards(df, bar_height=22):
                 <span style="color:#FF4C4C;">● {negative}</span>
                 <span style="color:#00FFAA;">● {positive}</span>
             </div>
-
-            <div style="
-                height:{bar_height}px;
-                background:rgba(255,255,255,0.25);
-                border-radius:{bar_height//2}px;
-                overflow:hidden;
-                display:flex;
-                font-size:11px;
-                font-weight:bold;
-            ">
+           
                 <div style="
                     width:{neg_pct}%;
                     background:#FF4C4C;
