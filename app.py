@@ -51,13 +51,14 @@ official_principles = [
 ]
 
 # ---------------- LOAD DATA ----------------
+# ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
     parquet_file = Path.cwd() / "data" / "output_final.parquet"
     if not parquet_file.exists():
         st.error(f"Parquet file not found: {parquet_file}")
         return pd.DataFrame()
-
+    
     df = pd.read_parquet(parquet_file)
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
     df = df[df['alert-country'] != "Jose"]
@@ -90,48 +91,50 @@ def load_data():
 
     df['region'] = df['continent'].apply(continent_to_region)
 
-    # Warn about missing ISO codes
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
     if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
-    # Process dates
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
         df['year'] = df['creation_date'].dt.year
         df['month_name'] = df['creation_date'].dt.strftime('%B')
     else:
         st.warning("No 'creation_date' column found in dataset.")
+        df['year'] = np.nan
+        df['month_name'] = np.nan
 
-    
+    # Standardize enabling principles
     alias_to_official = {
-    "open and responsive state": "State openness and responsiveness to civil society",
-    "supportive public culture and discourses on civil society": "Civic culture and public discourses on civil society",
+        "open and responsive state": "State openness and responsiveness to civil society",
+        "supportive public culture and discourses on civil society": "Civic culture and public discourses on civil society",
     }
-    
+
     def standardize_enabling_principle(cell):
         if pd.isna(cell) or cell.strip() == "":
             return {p: "No" for p in official_principles}, []
         items = [x.strip().lower() for x in cell.split(",")]
-        standardized = {}
+        standardized = {p: "No" for p in official_principles}
         unrecognized = []
-        for p in official_principles:
-            standardized[p] = "No"
         for item in items:
             if item in alias_to_official:
                 standardized[alias_to_official[item]] = "Yes"
             elif any(item == p.lower() for p in official_principles):
-                standardized[item.title()] = "Yes"
+                for p in official_principles:
+                    if item == p.lower():
+                        standardized[p] = "Yes"
             else:
                 unrecognized.append(item)
         return standardized, unrecognized
 
     unrecognized_entries = set()
     standardized_data = {p: [] for p in official_principles}
+    if 'enabling-principle' not in df.columns:
+        df['enabling-principle'] = ""
     for val in df["enabling-principle"]:
-        standard_dict, unrec = standardize_enabling_principle(val)
+        std_dict, unrec = standardize_enabling_principle(val)
         for p in official_principles:
-            standardized_data[p].append(standard_dict[p])
+            standardized_data[p].append(std_dict[p])
         unrecognized_entries.update(unrec)
     for p in official_principles:
         df[p] = standardized_data[p]
@@ -142,6 +145,7 @@ def load_data():
     return df
 
 data = load_data()
+
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
@@ -223,7 +227,7 @@ filtered_global = data[
     (data['region'].isin(selected_regions)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
-    #((data[[col for col in selected_enabling_principle if col in data.columns]].eq("Yes").any(axis=1)) if selected_enabling_principle else True) &
+    ((data[[col for col in selected_enabling_principle if col in data.columns]].eq("Yes").any(axis=1)) if selected_enabling_principle else True) &
     #(data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
     (data['alert-impact'].isin(selected_alert_impacts)) &
     (data['month_name'].isin(selected_months)) &
