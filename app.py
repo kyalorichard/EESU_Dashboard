@@ -209,85 +209,142 @@ def wrap_label_by_words(label, words_per_line=4):
 
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
-def render_summary_cards(df, base_bar_height=25):
+def render_summary_cards(df):
     """
-    Render three summary cards with gradient background:
-    1. Monitored Countries
-    2. Total Alerts
-    3. Alerts Breakdown (Negative vs Positive)
-    
-    Parameters:
-        df (DataFrame): Filtered data
-        base_bar_height (int): Base height of the horizontal bar
+    Render three professional summary cards with:
+    - Animated count-up for numeric values
+    - Animated bars for Alerts Breakdown
     """
+
+    # Compute values
     total_countries = df['alert-country'].nunique() if not df.empty else 0
     total_alerts = len(df) if not df.empty else 0
     negative = (df['alert-impact'] == "Negative").sum() if not df.empty else 0
     positive = (df['alert-impact'] == "Positive").sum() if not df.empty else 0
     total_np = negative + positive
-
-    # Percentages
     neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
     pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
 
-    # Adjust bar height and font size based on total alerts
-    bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
-    font_size = max(10, min(16, 14 - int(total_alerts/100)))
-
-    # Create columns
     col1, col2, col3 = st.columns(3)
 
-    card_style = f"""
+    # Card styling
+    card_style = """
         background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
         color: white;
-        border-radius: 12px;
-        padding: 12px;
+        border-radius: 15px;
+        padding: 20px;
         text-align: center;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        margin: 5px;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+        font-family: 'Arial', sans-serif;
     """
 
-    # --- Monitored Countries ---
+    # ---------------- Monitored Countries ----------------
     with col1:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:35px;">Monitored Countries</p>
-<h2 style="margin:6px 0;font-size:35px">{total_countries}</h2>
+<p style="margin:0;font-size:20px;font-weight:600;">Monitored Countries</p>
+<h2 style="margin:10px 0;font-size:42px;font-weight:700;" id="countries-count">0</h2>
 </div>
+
+<script>
+let countries = 0;
+let targetCountries = {total_countries};
+let intervalCountries = setInterval(() => {{
+    countries += Math.ceil(targetCountries/50);
+    if(countries >= targetCountries) {{
+        countries = targetCountries;
+        clearInterval(intervalCountries);
+    }}
+    document.getElementById("countries-count").innerText = countries;
+}}, 20);
+</script>
 """, unsafe_allow_html=True)
 
-    # --- Total Alerts ---
+    # ---------------- Total Alerts ----------------
     with col2:
         st.markdown(f"""
 <div style="{card_style}">
-<p style="margin:0;font-size:20px;">Total Alerts</p>
-<h2 style="margin:6px 0;">{total_alerts}</h2>
+<p style="margin:0;font-size:20px;font-weight:600;">Total Alerts</p>
+<h2 style="margin:10px 0;font-size:42px;font-weight:700;" id="alerts-count">0</h2>
 </div>
+
+<script>
+let alerts = 0;
+let targetAlerts = {total_alerts};
+let intervalAlerts = setInterval(() => {{
+    alerts += Math.ceil(targetAlerts/50);
+    if(alerts >= targetAlerts) {{
+        alerts = targetAlerts;
+        clearInterval(intervalAlerts);
+    }}
+    document.getElementById("alerts-count").innerText = alerts;
+}}, 20);
+</script>
 """, unsafe_allow_html=True)
 
-    # --- Alerts Breakdown ---
+    # ---------------- Alerts Breakdown (Animated Bars) ----------------
     with col3:
-        st.markdown(f"""
-<div style="{card_style}">
-<p style="margin:0;font-size:20px;">Alerts Breakdown</p>
-
-<!-- Top numbers -->
-<div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
-<span style="color:#FF4C4C;">Negative ● {negative}</span>
-<span style="color:#00FFAA;">Positive ● {positive}</span>
-</div>
-
-<!-- Horizontal bar -->
-<div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
-    <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
-        {neg_pct if neg_pct>5 else ''}%
-    </div>
-    <div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
-        {pos_pct if pos_pct>5 else ''}%
-    </div>
-</div>
-</div>
-""", unsafe_allow_html=True)
+                st.markdown(f"""
+        <div style="{card_style}">
+        <p style="margin:0;font-size:20px;font-weight:600;">Alerts Breakdown</p>
+        
+        <style>
+        @keyframes grow-bar {{
+            from {{ width: 0%; }}
+            to {{ width: var(--target-width); }}
+        }}
+        .animated-bar {{
+            animation: grow-bar 1.2s ease-out forwards;
+        }}
+        </style>
+        
+        <div style="margin-top:12px;">
+            <!-- Negative bar -->
+            <div style="background:#FFE5E5; border-radius:12px; height:30px; margin-bottom:8px; overflow:hidden; position:relative;">
+                <div class="animated-bar" style="
+                    --target-width: {neg_pct}%;
+                    width:0%;
+                    background: linear-gradient(90deg, #FF4C4C, #FF1A1A);
+                    height:100%;
+                    display:flex;
+                    align-items:center;
+                    justify-content:{'flex-end' if neg_pct>10 else 'flex-start'};
+                    padding-right:5px;
+                    color:white;
+                    font-weight:700;
+                    font-size:14px;
+                    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+                    border-radius:12px 0 0 12px;
+                ">
+                    {neg_pct if neg_pct>5 else ''}%
+                </div>
+                <span style="position:absolute; left:10px; top:5px; font-size:14px; color:#FF4C4C; font-weight:600;">Negative</span>
+            </div>
+        
+            <!-- Positive bar -->
+            <div style="background:#E5FFE5; border-radius:12px; height:30px; overflow:hidden; position:relative;">
+                <div class="animated-bar" style="
+                    --target-width: {pos_pct}%;
+                    width:0%;
+                    background: linear-gradient(90deg, #00FFAA, #00CC88);
+                    height:100%;
+                    display:flex;
+                    align-items:center;
+                    justify-content:{'flex-end' if pos_pct>10 else 'flex-start'};
+                    padding-right:5px;
+                    color:white;
+                    font-weight:700;
+                    font-size:14px;
+                    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+                    border-radius:12px 0 0 12px;
+                ">
+                    {pos_pct if pos_pct>5 else ''}%
+                </div>
+                <span style="position:absolute; left:10px; top:5px; font-size:14px; color:#00AA66; font-weight:600;">Positive</span>
+            </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
             
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, horizontal=False):
