@@ -13,7 +13,7 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 BASE_DIR = Path(__file__).resolve().parent
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
-USER_MANUAL_PATH = BASE_DIR / "docs" / "EEU SEE Dashboard user manual.pdf"
+USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
 # ---------------- DASHBOARD TITLE ----------------
 st.markdown("""
@@ -883,7 +883,7 @@ with tab4:
         st.download_button(
             "Download Full User Manual (PDF)",
             pdf_bytes,
-            file_name="EEU SEE Dashboard user manual.pdf",
+            file_name="EU SEE Dashboard user manual.pdf",
             mime="application/pdf"
         )
 
