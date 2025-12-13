@@ -180,7 +180,12 @@ selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type
 
 selected_enabling_principle = safe_multiselect(
     "Select enabling principle", 
-    data[['Transparency', 'Participation', 'Accountability', 'Rule of Law', 'Non-Discrimination', 'Sustainability', 'Equity']].columns,
+    data[['Respect and protection of fundamental freedoms',
+        'Supportive legal and regulatory framework',
+        'Accessible and sustainable resources',
+        'State openness and responsiveness to civil society',
+        'Civic culture and public discourses on civil society',
+        'Digital environment integrity and security']].columns,
     "selected_enabling_principle"
 )
 #selected_enabling_principle = safe_multiselect("Select enabling principle", 
