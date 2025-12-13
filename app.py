@@ -201,13 +201,13 @@ def render_summary_cards(df, bar_height=22):
 
     # --- Breakdown ---
     with col3:
-        st.markdown(f"""
+        st.markdown(
+        f"""
         <div class="summary-card">
             <p style="margin:0;font-size:14px;">Alerts Breakdown</p>
 
             <!-- Top numbers -->
-            <div style="display:flex;justify-content:space-between;
-                        font-size:16px;margin:6px 0;">
+            <div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
                 <span style="color:#FF4C4C;">● {negative}</span>
                 <span style="color:#00FFAA;">● {positive}</span>
             </div>
@@ -221,9 +221,10 @@ def render_summary_cards(df, bar_height=22):
                     {pos_pct}%
                 </div>
             </div>
-
         </div>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
             
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, horizontal=False):
