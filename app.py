@@ -431,10 +431,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     col1, col2 = st.columns(2)
     col2.plotly_chart(create_h_stacked_bar(a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True)
 
-
-
-
-
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
 tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
