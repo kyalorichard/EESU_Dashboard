@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import json
 from pathlib import Path
+import streamlit.components.v1 as components
 import base64
 
 
@@ -856,11 +857,8 @@ with tab4:
             mime="application/pdf"
         )
         st.subheader("Executive Brief")
-        
-       import streamlit.components.v1 as components
-
-        components.iframe("https://github.com/kyalorichard/EESU_Dashboard/blob/main/docs/EU_SEE_Dashboard_Quick_Start_Executive.pdf",
-                          width=900, height=600)
+              
+        components.iframe("https://github.com/kyalorichard/EESU_Dashboard/blob/main/docs/EU_SEE_Dashboard_Quick_Start_Executive.pdf", width=900, height=600)
 
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
