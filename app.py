@@ -858,8 +858,7 @@ with tab4:
         )
         st.subheader("Executive Brief")
               
-        components.iframe("https://github.com/kyalorichard/EESU_Dashboard/blob/main/docs/EU_SEE_Dashboard_Quick_Start_Executive.pdf", width=900, height=600)
-
+        
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
             f"""
