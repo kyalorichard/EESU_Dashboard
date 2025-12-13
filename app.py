@@ -40,16 +40,6 @@ footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- STANDARDIZE ENABLING PRINCIPLE ----------------
-official_principles = [
-    "Respect and protection of fundamental freedoms",
-    "Supportive legal and regulatory framework",
-    "Accessible and sustainable resources",
-    "State openness and responsiveness to civil society",
-    "Civic culture and public discourses on civil society",
-    "Digital environment integrity and security"
-]
-
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
@@ -57,7 +47,7 @@ def load_data():
     if not parquet_file.exists():
         st.error(f"Parquet file not found: {parquet_file}")
         return pd.DataFrame()
-    
+
     df = pd.read_parquet(parquet_file)
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
     df = df[df['alert-country'] != "Jose"]
@@ -90,61 +80,22 @@ def load_data():
 
     df['region'] = df['continent'].apply(continent_to_region)
 
+    # Warn about missing ISO codes
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
     if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
+    # Process dates
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
         df['year'] = df['creation_date'].dt.year
         df['month_name'] = df['creation_date'].dt.strftime('%B')
     else:
         st.warning("No 'creation_date' column found in dataset.")
-        df['year'] = np.nan
-        df['month_name'] = np.nan
-
-    # Standardize enabling principles
-    alias_to_official = {
-        "open and responsive state": "State openness and responsiveness to civil society",
-        "supportive public culture and discourses on civil society": "Civic culture and public discourses on civil society",
-    }
-
-    def standardize_enabling_principle(cell):
-        if pd.isna(cell) or cell.strip() == "":
-            return {p: "No" for p in official_principles}, []
-        items = [x.strip().lower() for x in cell.split(",")]
-        standardized = {p: "No" for p in official_principles}
-        unrecognized = []
-        for item in items:
-            if item in alias_to_official:
-                standardized[alias_to_official[item]] = "Yes"
-            elif any(item == p.lower() for p in official_principles):
-                for p in official_principles:
-                    if item == p.lower():
-                        standardized[p] = "Yes"
-            else:
-                unrecognized.append(item)
-        return standardized, unrecognized
-
-    unrecognized_entries = set()
-    standardized_data = {p: [] for p in official_principles}
-    if 'enabling-principle' not in df.columns:
-        df['enabling-principle'] = ""
-    for val in df["enabling-principle"]:
-        std_dict, unrec = standardize_enabling_principle(val)
-        for p in official_principles:
-            standardized_data[p].append(std_dict[p])
-        unrecognized_entries.update(unrec)
-    for p in official_principles:
-        df[p] = standardized_data[p]
-
-    if unrecognized_entries:
-        st.warning(f"Unrecognized enabling principle entries: {', '.join(unrecognized_entries)}")
 
     return df
 
 data = load_data()
-
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
@@ -179,16 +130,9 @@ filtered_countries = data[data['region'].isin(selected_regions)] if "Select All"
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
-
-# Use only columns that exist
-selected_enabling_principle = safe_multiselect(
-    "Select enabling principle",
-    [col for col in official_principles if col in data.columns],
-    "selected_enabling_principle"
-)
-#selected_enabling_principle = safe_multiselect("Select enabling principle", 
-                                               #data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
-                                               #"selected_enabling_principle")
+selected_enabling_principle = safe_multiselect("Select enabling principle", 
+                                               data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+                                               "selected_enabling_principle")
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
 # Filter available months based on selected years
@@ -226,8 +170,7 @@ filtered_global = data[
     (data['region'].isin(selected_regions)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
-    ((data[[col for col in selected_enabling_principle if col in data.columns]].eq("Yes").any(axis=1)) if selected_enabling_principle else True) &
-    #(data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
+    (data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
     (data['alert-impact'].isin(selected_alert_impacts)) &
     (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
@@ -401,20 +344,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    return fig 
-    
-    # ---------------- Enabling-principle stacked bar ----------------
-    def prepare_enabling_principle_df(df, official_principles):
-        rows = []
-        for principle in official_principles:
-            for impact in df['alert-impact'].unique():
-                count = df[(df[principle] == "Yes") & (df['alert-impact'] == impact)].shape[0]
-                rows.append({"enabling-principle": principle, "alert-impact": impact, "count": count})
-        return pd.DataFrame(rows)
+    return fig
 
-    a2 = prepare_enabling_principle_df(filtered_global, official_principles)
-    
-   
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
 tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
@@ -423,34 +354,14 @@ tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
 with tab1:
     render_summary_cards(filtered_global)
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    #df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    #df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-    #a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+    df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
-    
-    rows = []    
-    for principle in official_principles:
-        if principle not in filtered_global.columns:
-            continue
-    
-        impact_counts = (
-            filtered_global.loc[filtered_global[principle] == "Yes", "alert-impact"]
-            .value_counts()
-        )    
-        for impact, count in impact_counts.items():
-            rows.append({
-                "enabling-principle": principle,
-                "alert-impact": impact,
-                "count": int(count)
-            })
-
-    a2 = pd.DataFrame(rows)
-    
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
     r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
-    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="Principle",x="Count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
@@ -569,17 +480,17 @@ def render_heatmaps(df, top_n=5):
     with col1:
         fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (% of Actor Total)")
         fig1.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig1, use_container_width=True, key="heatmap_subject_actor")
+        st.plotly_chart(fig1, use_container_width=True)
 
     with col2:
         fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (% of Subject Total)")
         fig2.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mech")
+        st.plotly_chart(fig2, use_container_width=True)
 
     with col3:
         fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (% of Actor Total)")
         fig3.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig3, use_container_width=True, key="heatmap_subject_subj")
+        st.plotly_chart(fig3, use_container_width=True)
 
 # ---------------- SANKEY ----------------
 def render_sankey(summary_df, top_n=None, width=900):
@@ -730,71 +641,71 @@ with tab2:
     render_summary_cards(summary_data)
 
     # ---------------- TOP-N CONFIG ----------------
-    if "top_n_option" not in st.session_state:
-        st.session_state.top_n_option = "Top 5"
-        st.session_state.top_n = 5
-    
-    def update_top_n():
-        option = st.session_state.top_n_option
-        st.session_state.top_n = {"Top 5":5, "Top 10":10, "All":None}[option]
-    
-    st.selectbox(
-        "Select Top N for charts, heatmaps, and Sankey",
-        options=["Top 5", "Top 10", "All"],
-        index=["Top 5","Top 10","All"].index(st.session_state.top_n_option),
-        key="top_n_option",
-        on_change=update_top_n
-    )
-    
-    top_n = st.session_state.top_n
-    
-    # ---------------- COMPUTE TOP-N ITEMS ----------------
-    top_actors = get_top_n_items(summary_data, "Actor of repression", top_n)
-    top_subjects = get_top_n_items(summary_data, "Subject of repression", top_n)
-    top_mechanisms = get_top_n_items(summary_data, "Mechanism of repression", top_n)
-    top_event_types = get_top_n_items(summary_data, "Type of event", top_n)
-    top_alert_types = get_top_n_items(summary_data, "alert-type", top_n)
-    
-    # Filter data to only include Top-N items
-    filtered_top_n_df = summary_data[
-        summary_data['Actor of repression'].isin(top_actors) &
-        summary_data['Subject of repression'].isin(top_subjects) &
-        summary_data['Mechanism of repression'].isin(top_mechanisms) &
-        summary_data['Type of event'].isin(top_event_types) &
-        summary_data['alert-type'].isin(top_alert_types)
-    ].copy()
-    
-    # ---------------- RENDER BAR CHARTS ----------------
-    def top_n_bar(df, col):
-        grouped = df.groupby(col).size().reset_index(name="count").sort_values("count", ascending=False)
-        return grouped
-    
-    r1c1,r1c2,r1c3 = st.columns(3)
-    r2c1,r2c2,r2c3 = st.columns(3)
-    
-    t1 = top_n_bar(filtered_top_n_df, "Actor of repression")
-    t2 = top_n_bar(filtered_top_n_df, "Subject of repression")
-    t3 = top_n_bar(filtered_top_n_df, "Mechanism of repression")
-    t4 = top_n_bar(filtered_top_n_df, "Type of event")
-    t5 = top_n_bar(filtered_top_n_df, "alert-type")
-    
-    #df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    #df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-    #t6 = top_n_bar(df_clean, "enabling-principle")
-    
-    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True,  key="tab2_chart1")
-    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True,  key="tab2_chart2")
-    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True,  key="tab2_chart3")
-    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True, key="tab2_chart4")
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True, key="tab2_chart5")
-    #r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True,  key="tab2_chart6")
-    
-    # ---------------- RENDER HEATMAPS ----------------
-    render_heatmaps(filtered_top_n_df, top_n=top_n)  # Already filtered by Top-N items
-    
-    # ---------------- RENDER SANKEY ----------------
-    with st.expander("Show Flowchart (Sankey Diagram)"):
-        st.plotly_chart(render_sankey(filtered_top_n_df, top_n=top_n), use_container_width=True)
+if "top_n_option" not in st.session_state:
+    st.session_state.top_n_option = "Top 5"
+    st.session_state.top_n = 5
+
+def update_top_n():
+    option = st.session_state.top_n_option
+    st.session_state.top_n = {"Top 5":5, "Top 10":10, "All":None}[option]
+
+st.selectbox(
+    "Select Top N for charts, heatmaps, and Sankey",
+    options=["Top 5", "Top 10", "All"],
+    index=["Top 5","Top 10","All"].index(st.session_state.top_n_option),
+    key="top_n_option",
+    on_change=update_top_n
+)
+
+top_n = st.session_state.top_n
+
+# ---------------- COMPUTE TOP-N ITEMS ----------------
+top_actors = get_top_n_items(summary_data, "Actor of repression", top_n)
+top_subjects = get_top_n_items(summary_data, "Subject of repression", top_n)
+top_mechanisms = get_top_n_items(summary_data, "Mechanism of repression", top_n)
+top_event_types = get_top_n_items(summary_data, "Type of event", top_n)
+top_alert_types = get_top_n_items(summary_data, "alert-type", top_n)
+
+# Filter data to only include Top-N items
+filtered_top_n_df = summary_data[
+    summary_data['Actor of repression'].isin(top_actors) &
+    summary_data['Subject of repression'].isin(top_subjects) &
+    summary_data['Mechanism of repression'].isin(top_mechanisms) &
+    summary_data['Type of event'].isin(top_event_types) &
+    summary_data['alert-type'].isin(top_alert_types)
+].copy()
+
+# ---------------- RENDER BAR CHARTS ----------------
+def top_n_bar(df, col):
+    grouped = df.groupby(col).size().reset_index(name="count").sort_values("count", ascending=False)
+    return grouped
+
+r1c1,r1c2,r1c3 = st.columns(3)
+r2c1,r2c2,r2c3 = st.columns(3)
+
+t1 = top_n_bar(filtered_top_n_df, "Actor of repression")
+t2 = top_n_bar(filtered_top_n_df, "Subject of repression")
+t3 = top_n_bar(filtered_top_n_df, "Mechanism of repression")
+t4 = top_n_bar(filtered_top_n_df, "Type of event")
+t5 = top_n_bar(filtered_top_n_df, "alert-type")
+
+df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
+df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+t6 = top_n_bar(df_clean, "enabling-principle")
+
+r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True)
+r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True)
+r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True)
+r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True)
+r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True)
+r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True)
+
+# ---------------- RENDER HEATMAPS ----------------
+render_heatmaps(filtered_top_n_df, top_n=None)  # Already filtered by Top-N items
+
+# ---------------- RENDER SANKEY ----------------
+with st.expander("Show Flowchart (Sankey Diagram)"):
+    st.plotly_chart(render_sankey(filtered_top_n_df, top_n=None), use_container_width=True)
 
       
       # ---------------- TAB 3 (MAP) ----------------
@@ -849,10 +760,9 @@ with tab3:
 
         df_map = df_map.merge(stats, on="alert-country", how="left")
 
-        # Convert to numeric to avoid rounding error
-        df_map["negative_alerts"] = pd.to_numeric(df_map["negative_alerts"], errors="coerce")
-        df_map["total_alerts"] = pd.to_numeric(df_map["total_alerts"], errors="coerce")
-        df_map["perc_negative"] = ((df_map["negative_alerts"]/df_map["total_alerts"])*100).round(1)
+        df_map["perc_negative"] = (
+            (df_map["negative_alerts"] / df_map["total_alerts"]) * 100
+        ).round(1)
 
         # ----- Main choropleth -----
         map_height = max(400, len(df_map)*20)
