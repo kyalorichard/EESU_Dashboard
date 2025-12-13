@@ -139,10 +139,10 @@ def load_data():
     if unrecognized_entries:
         st.warning(f"Unrecognized enabling principle entries: {', '.join(unrecognized_entries)}")
 
-    return df
+    return df, official_principles
 
 
-data = load_data()
+data, official_principles = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
@@ -178,7 +178,7 @@ selected_countries = safe_multiselect("Select country", filtered_countries['aler
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
 
-selected_enabling_principle = safe_multiselect("Select enabling principle", data[official_principles].columns,"selected_enabling_principle")
+selected_enabling_principle = safe_multiselect("Select enabling principle", list([official_principles),"selected_enabling_principle")
 #selected_enabling_principle = safe_multiselect("Select enabling principle", 
                                                #data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
                                                #"selected_enabling_principle")
@@ -444,21 +444,12 @@ with tab1:
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
 
-    # Alerts by enabling principle
-    df_ep = filtered_global[["Respect and protection of fundamental freedoms",
-    "Supportive legal and regulatory framework",
-    "Accessible and sustainable resources",
-    "State openness and responsiveness to civil society",
-    "Civic culture and public discourses on civil society",
-    "Digital environment integrity and security"]].copy()
-    
-    df_ep['dummy'] = 1
-    df_ep = df_ep.melt(id_vars='dummy', var_name='Enabling Principle', value_name='Value')
-    df_ep = df_ep[df_ep['Value']=="Yes"]
-    df_bar = df_ep.groupby("Enabling Principle").size().reset_index(name="count")
-    fig_ep = px.bar(df_bar, x="Enabling Principle", y="count", color="Enabling Principle", text="count",
-                    color_discrete_sequence=px.colors.qualitative.Pastel)
-    fig_ep.update_layout(title="Alerts by Enabling Principle", showlegend=False, height=400)
+    ep_counts = pd.DataFrame({
+        "Principle": official_principles,
+        "Count": [ (filtered_global[principle]=="Yes").sum() for principle in official_principles]
+    })
+    fig_ep = px.bar(ep_counts, x="Principle", y="Count", text="Count", color="Principle",
+                    color_discrete_sequence=px.colors.qualitative.Vivid)
     #st.plotly_chart(fig_ep, use_container_width=True)
     
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
