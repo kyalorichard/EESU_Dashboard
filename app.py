@@ -430,43 +430,98 @@ def render_heatmaps(df, top_n):
     with col3:
         st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
-# ---------------- TAB 2: Negative Events ----------------
+# ---------------- SANKEY FUNCTION ----------------
+def render_sankey(summary_df, top_n=None, width=900, height=500):
+    """
+    Generates and returns a Plotly Sankey diagram for Negative Events.
+    """
+    if summary_df.empty:
+        return create_placeholder_chart("No data available for Sankey")
+
+    def get_top_nodes(df, col, n):
+        counts = df[col].value_counts()
+        if n is not None:
+            counts = counts.head(n)
+        return counts.index.tolist()
+
+    top_actors = get_top_nodes(summary_df, "Actor of repression", top_n)
+    top_mechanisms = get_top_nodes(summary_df, "Mechanism of repression", top_n)
+    top_subjects = get_top_nodes(summary_df, "Subject of repression", top_n)
+
+    nodes = top_actors + top_mechanisms + top_subjects
+    node_indices = {name: idx for idx, name in enumerate(nodes)}
+
+    links = []
+    # Actor → Mechanism
+    df_am = summary_df[summary_df["Actor of repression"].isin(top_actors) &
+                       summary_df["Mechanism of repression"].isin(top_mechanisms)]
+    am_grouped = df_am.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
+    for _, row in am_grouped.iterrows():
+        links.append({"source": node_indices[row["Actor of repression"]],
+                      "target": node_indices[row["Mechanism of repression"]],
+                      "value": row["value"]})
+
+    # Mechanism → Subject
+    df_ms = summary_df[summary_df["Mechanism of repression"].isin(top_mechanisms) &
+                       summary_df["Subject of repression"].isin(top_subjects)]
+    ms_grouped = df_ms.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
+    for _, row in ms_grouped.iterrows():
+        links.append({"source": node_indices[row["Mechanism of repression"]],
+                      "target": node_indices[row["Subject of repression"]],
+                      "value": row["value"]})
+
+    hover_text = [f"{nodes[s]} → {nodes[t]}: {v} alerts" for s, t, v in
+                  zip([l['source'] for l in links], [l['target'] for l in links], [l['value'] for l in links])]
+
+    fig = go.Figure(go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=nodes,
+            color="purple"
+        ),
+        link=dict(
+            source=[l['source'] for l in links],
+            target=[l['target'] for l in links],
+            value=[l['value'] for l in links],
+            hovertemplate=hover_text
+        )
+    ))
+
+    fig.update_layout(
+        title_text="Flow of Negative Events",
+        font_size=12,
+        width=width,
+        height=height,
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    return fig
+
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
     st.markdown("## Filters & Overview")
 
-    # --- Inline filters ---
+    # Inline filters
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        selected_actor_types = safe_multiselect(
-            "Actor Type",
-            reactive_df['Actor of repression'].dropna().unique(),
-            "selected_actor_types",
-            sidebar=False
-        )
+        selected_actor_types = safe_multiselect("Actor Type",
+                                               reactive_df['Actor of repression'].dropna().unique(),
+                                               "selected_actor_types", sidebar=False)
     with col2:
-        selected_subject_types = safe_multiselect(
-            "Subject Type",
-            reactive_df['Subject of repression'].dropna().unique(),
-            "selected_subject_types",
-            sidebar=False
-        )
+        selected_subject_types = safe_multiselect("Subject Type",
+                                                  reactive_df['Subject of repression'].dropna().unique(),
+                                                  "selected_subject_types", sidebar=False)
     with col3:
-        selected_mechanism_types = safe_multiselect(
-            "Mechanism Type",
-            reactive_df['Mechanism of repression'].dropna().unique(),
-            "selected_mechanism_types",
-            sidebar=False
-        )
+        selected_mechanism_types = safe_multiselect("Mechanism Type",
+                                                    reactive_df['Mechanism of repression'].dropna().unique(),
+                                                    "selected_mechanism_types", sidebar=False)
     with col4:
-        selected_event_types = safe_multiselect(
-            "Event Type",
-            reactive_df['Type of event'].dropna().unique(),
-            "selected_event_types",
-            sidebar=False
-        )
+        selected_event_types = safe_multiselect("Event Type",
+                                                reactive_df['Type of event'].dropna().unique(),
+                                                "selected_event_types", sidebar=False)
 
-    # --- Filter data based on selections ---
+    # Filter data
     summary_data = reactive_df.copy()
     if "Select All" not in selected_actor_types:
         summary_data = summary_data[summary_data['Actor of repression'].isin(selected_actor_types)]
@@ -477,10 +532,10 @@ with tab2:
     if "Select All" not in selected_event_types:
         summary_data = summary_data[summary_data['Type of event'].isin(selected_event_types)]
 
-    # --- Render summary cards ---
+    # Render summary cards
     render_summary_cards(summary_data)
 
-    # ---------------- REACTIVE TOP-N ----------------
+    # Top-N selection
     if "top_n_option" not in st.session_state:
         st.session_state.top_n_option = "Top 5"
         st.session_state.top_n = 5
@@ -497,7 +552,7 @@ with tab2:
         on_change=update_top_n
     )
 
-    # --- Individual bar charts (dynamic Top-N) ---
+    # Render individual Top-N bar charts
     st.markdown("## Individual Indicators")
     r1c1,r1c2,r1c3 = st.columns(3)
     r2c1,r2c2,r2c3 = st.columns(3)
@@ -525,32 +580,13 @@ with tab2:
     r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
 
-    # --- Heatmaps (Top-N applied) ---
-    actor_mechanism_pivot = prepare_pivot(summary_data, 'Actor of repression', 'Mechanism of repression', st.session_state.top_n)
-    subject_mechanism_pivot = prepare_pivot(summary_data, 'Subject of repression', 'Mechanism of repression', st.session_state.top_n)
-    actor_subject_pivot = prepare_pivot(summary_data, 'Actor of repression', 'Subject of repression', st.session_state.top_n)
+    # Render heatmaps
+    render_heatmaps(summary_data, st.session_state.top_n)
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.plotly_chart(create_heatmap(actor_mechanism_pivot, "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
-    with col2:
-        st.plotly_chart(create_heatmap(subject_mechanism_pivot, "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
-    with col3:
-        st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
-
-    # --- Sankey Diagram (after heatmaps) ---
+    # Render Sankey diagram
     with st.expander("Show Flowchart (Sankey Diagram)"):
-        if not summary_data.empty:
-            top_actors = get_top_n_nodes(summary_data, 'Actor of repression', st.session_state.top_n)
-            top_mechanisms = get_top_n_nodes(summary_data, 'Mechanism of repression', st.session_state.top_n)
-            top_subjects = get_top_n_nodes(summary_data, 'Subject of repression', st.session_state.top_n)
-
-            nodes, links = build_sankey_links(summary_data, top_actors, top_mechanisms, top_subjects)
-            sankey_legend()
-            sankey_fig = create_sankey_hover(nodes, top_actors, top_mechanisms, top_subjects, links)
-            st.plotly_chart(sankey_fig, use_container_width=True)
-        else:
-            st.plotly_chart(create_placeholder_chart("No data available for Sankey"), use_container_width=True)
+        sankey_fig = render_sankey(summary_data, st.session_state.top_n)
+        st.plotly_chart(sankey_fig, use_container_width=True)
             
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
