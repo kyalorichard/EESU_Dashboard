@@ -241,8 +241,8 @@ def render_summary_cards(df, base_bar_height=25):
         background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
         color: white;
         border-radius: 12px;
-        padding: 12px;
-        text-align: left;
+        padding: 10px;
+        text-align: center;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         margin: 2px;
     """
