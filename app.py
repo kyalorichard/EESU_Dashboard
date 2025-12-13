@@ -169,7 +169,6 @@ def render_summary_cards(df, bar_height=22):
     - Total Alerts
     - Combined Positive / Negative breakdown
     """
-
     total_countries = df['alert-country'].nunique()
     total_alerts = len(df)
 
@@ -358,6 +357,7 @@ with tab2:
     r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True),use_container_width=True,  key="tab2_chart5")
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True,  key="tab2_chart6")
 
+"""
 # ---------------- TAB 3 ----------------
 with tab3:
     positive_df = filtered_global[filtered_global['alert-impact']=="Positive"]
@@ -378,7 +378,7 @@ with tab4:
     r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True, key="tab4_chart1")
     r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True,  key="tab4_chart2")
-
+"""
 # ---------------- TAB 5 (MAP) ----------------
 with tab5:
     geo_file = Path.cwd() / "data" / "countriess.geojson"
