@@ -103,9 +103,7 @@ def load_data():
     else:
         st.warning("No 'creation_date' column found in dataset.")
 
-    return df
-
-
+    
     alias_to_official = {
     "open and responsive state": "State openness and responsiveness to civil society",
     "supportive public culture and discourses on civil society": "Civic culture and public discourses on civil society",
