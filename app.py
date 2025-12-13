@@ -95,6 +95,34 @@ def load_data():
 
     return df
 
+# ---------------- STANDARDIZE ENABLING PRINCIPLE ----------------
+    official_principles = [
+        "Respect and protection of fundamental freedoms",
+        "Supportive legal and regulatory framework",
+        "Accessible and sustainable resources",
+        "State openness and responsiveness to civil society",
+        "Civic culture and public discourses on civil society",
+        "Digital environment integrity and security",
+    ]
+    
+    for col in official_principles:
+        df[col] = "No"
+
+    unknown_entries = set()
+    for idx, val in df['enabling-principle'].dropna().items():
+        principles = [v.strip() for v in val.split(",")]
+        for p in principles:
+            p_norm = alias_to_official.get(p, p)
+            if p_norm in official_principles:
+                df.at[idx, p_norm] = "Yes"
+            else:
+                unknown_entries.add(p)
+    if unknown_entries:
+        st.warning(f"Unrecognized enabling principles found: {', '.join(sorted(unknown_entries))}")
+
+    return df
+
+
 data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
@@ -130,9 +158,10 @@ filtered_countries = data[data['region'].isin(selected_regions)] if "Select All"
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
-selected_enabling_principle = safe_multiselect("Select enabling principle", 
-                                               data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
-                                               "selected_enabling_principle")
+selected_enabling_principle = safe_multiselect("Select enabling principle", official_principles, "selected_enabling_principle")
+#selected_enabling_principle = safe_multiselect("Select enabling principle", 
+                                               #data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+                                               #"selected_enabling_principle")
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
 # Filter available months based on selected years
@@ -170,7 +199,8 @@ filtered_global = data[
     (data['region'].isin(selected_regions)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
-    (data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
+    (data['enabling-principle'].apply(lambda x: any(data.at[x.name, p] == "Yes" for p in selected_enabling_principle))) &
+    #(data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
     (data['alert-impact'].isin(selected_alert_impacts)) &
     (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
@@ -344,7 +374,41 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    return fig
+    return fig 
+    
+    # ---------------- Enabling-principle stacked bar ----------------
+    def prepare_enabling_principle_df(df, official_principles):
+        rows = []
+        for principle in official_principles:
+            for impact in df['alert-impact'].unique():
+                count = df[(df[principle] == "Yes") & (df['alert-impact'] == impact)].shape[0]
+                rows.append({"enabling-principle": principle, "alert-impact": impact, "count": count})
+        return pd.DataFrame(rows)
+
+    a2 = prepare_enabling_principle_df(filtered_global, official_principles)
+    def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=True):
+        categories = sorted(df[color_col].unique())
+        color_sequence = ['#FFDB58', '#660094']
+        fig = go.Figure()
+        for i, cat in enumerate(categories):
+            df_cat = df[df[color_col]==cat].copy()
+            fig.add_trace(go.Bar(
+                x=df_cat[y] if not horizontal else df_cat[x],
+                y=df_cat[x] if not horizontal else df_cat[y],
+                name=cat,
+                orientation='h' if horizontal else 'v',
+                marker_color=color_sequence[i % len(color_sequence)],
+                text=df_cat[x],
+                textposition='inside'
+            ))
+        fig.update_layout(barmode='stack', height=400)
+        return fig
+    col1, col2 = st.columns(2)
+    col2.plotly_chart(create_h_stacked_bar(a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True)
+
+
+
+
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
