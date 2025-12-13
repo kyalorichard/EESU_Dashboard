@@ -272,7 +272,7 @@ def render_summary_cards(df, base_bar_height=25):
 <h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
 
 <!-- Top numbers -->
-<div style="display:flex; justify-content:space-between; font-size:15px; margin:6px 0;">
+<div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
 <span style="color:#FF4C4C;font-weight:bold;">Negative ● {negative}</span>
 <span style="color:#00FFAA;font-weight:bold;">Positive ● {positive}</span>
 </div>
