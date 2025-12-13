@@ -7,8 +7,13 @@ import json
 from pathlib import Path
 import base64
 
+
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
+BASE_DIR = Path(__file__).resolve().parent
+
+EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Executive_Brief_1_Page.pdf"
+USER_MANUAL_PATH = BASE_DIR / "docs" / "EEU SEE Dashboard user manual .pdf"
 
 # ---------------- DASHBOARD TITLE ----------------
 st.markdown("""
@@ -830,36 +835,72 @@ with tab3:
 # -------------------------------USER MANUAL TAB------------------------------------       
      
 with tab4:
-    def display_pdf(pdf_path, height=900):
-        with open(pdf_path, "rb") as f:
-            base64_pdf = base64.b64encode(f.read()).decode("utf-8")
-    
-        pdf_display = f"""
-        <iframe
-            src="data:application/pdf;base64,{base64_pdf}"
-            width="100%"
-            height="{height}"
-            style="border:none;"
-        ></iframe>
-        """
-        st.markdown(pdf_display, unsafe_allow_html=True)
-    
-    st.markdown("## 📘 EU SEE Dashboard – User Manual")
+    st.header("EU SEE Dashboard – Quick Start")
 
-    pdf_path = Path.cwd() / "docs" / "EU SEE Dashboard user manual.pdf"
+    st.markdown("""
+    This section provides concise, decision-ready documentation for executives,
+    donors, and policy stakeholders.
+    """)
 
-    if pdf_path.exists():
-        display_pdf(pdf_path, height=1000)
-    else:
-        st.warning("User Manual PDF not found.")
-        
-    with open(pdf_path, "rb") as f:
+    # ---------------- EXECUTIVE BRIEF ----------------
+    st.subheader("Executive Brief (1 Page)")
+    st.caption("For senior leadership, donors, and policy reporting")
+
+    if EXEC_BRIEF_PATH.exists():
+        pdf_bytes = EXEC_BRIEF_PATH.read_bytes()
+
         st.download_button(
-            label="📥 Download User Manual (PDF)",
-            data=f,
+            "Download Executive Brief (PDF)",
+            pdf_bytes,
+            file_name="EU_SEE_Dashboard_Executive_Brief.pdf",
+            mime="application/pdf"
+        )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <iframe
+                src="data:application/pdf;base64,{pdf_base64}"
+                width="100%"
+                height="550px"
+                style="border:none;"
+            ></iframe>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("Executive Brief PDF not found.")
+
+    st.divider()
+
+    # ---------------- FULL USER MANUAL ----------------
+    st.subheader("Full User Manual")
+    st.caption("Detailed guidance for analysts and advanced users")
+
+    if USER_MANUAL_PATH.exists():
+        pdf_bytes = USER_MANUAL_PATH.read_bytes()
+
+        st.download_button(
+            "Download Full User Manual (PDF)",
+            pdf_bytes,
             file_name="EU_SEE_Dashboard_User_Manual.pdf",
             mime="application/pdf"
         )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <iframe
+                src="data:application/pdf;base64,{pdf_base64}"
+                width="100%"
+                height="700px"
+                style="border:none;"
+            ></iframe>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("User Manual PDF not found.")
 
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
