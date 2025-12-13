@@ -205,32 +205,23 @@ def render_summary_cards(df, bar_height=22):
         <div class="summary-card">
             <p style="margin:0;font-size:14px;">Alerts Breakdown</p>
 
+            <!-- Top numbers -->
             <div style="display:flex;justify-content:space-between;
                         font-size:16px;margin:6px 0;">
                 <span style="color:#FF4C4C;">● {negative}</span>
                 <span style="color:#00FFAA;">● {positive}</span>
             </div>
-           
-                <div style="
-                    width:{neg_pct}%;
-                    background:#FF4C4C;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                ">
+
+            <!-- Horizontal bar -->
+            <div style="display:flex; height:{bar_height}px; border-radius:5px; overflow:hidden;">
+                <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">
                     {neg_pct}%
                 </div>
-                <div style="
-                    width:{pos_pct}%;
-                    background:#00FFAA;
-                    color:#2D0055;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                ">
+                <div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold;">
                     {pos_pct}%
                 </div>
             </div>
+
         </div>
         """, unsafe_allow_html=True)
             
@@ -357,7 +348,7 @@ with tab2:
     r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True),use_container_width=True,  key="tab2_chart5")
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True,  key="tab2_chart6")
 
-"""
+
 # ---------------- TAB 3 ----------------
 with tab3:
     positive_df = filtered_global[filtered_global['alert-impact']=="Positive"]
@@ -378,7 +369,7 @@ with tab4:
     r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True, key="tab4_chart1")
     r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True,  key="tab4_chart2")
-"""
+
 # ---------------- TAB 5 (MAP) ----------------
 with tab5:
     geo_file = Path.cwd() / "data" / "countriess.geojson"
