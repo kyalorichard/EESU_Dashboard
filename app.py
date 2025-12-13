@@ -428,19 +428,29 @@ with tab1:
     #a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
+    
+    rows = []    
+    for principle in official_principles:
+        if principle not in filtered_global.columns:
+            continue
+    
+        impact_counts = (
+            filtered_global.loc[filtered_global[principle] == "Yes", "alert-impact"]
+            .value_counts()
+        )    
+        for impact, count in impact_counts.items():
+            rows.append({
+                "enabling-principle": principle,
+                "alert-impact": impact,
+                "count": int(count)
+            })
 
-    ep_counts = pd.DataFrame({
-        "Principle": official_principles,
-        "Count": [ (filtered_global[principle]=="Yes","alert-impact").sum() for principle in official_principles]
-    })
-    fig_ep = px.bar(ep_counts, x="Principle", y="Count", text="Count", color="Principle",
-                    color_discrete_sequence=px.colors.qualitative.Vivid)
-    #st.plotly_chart(fig_ep, use_container_width=True)
+a2 = pd.DataFrame(rows)
     
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
-    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r1c2.plotly_chart(create_h_stacked_bar(ep_counts,y="Principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
+    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
+    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="Principle",x="Count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
