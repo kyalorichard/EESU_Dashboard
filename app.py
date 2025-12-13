@@ -134,7 +134,7 @@ selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type
 selected_enabling_principle = safe_multiselect("Select enabling principle", 
                                                data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
                                                "selected_enabling_principle")
-selected_years = safe_multiselect("Select Year", sorted(data['year'].dropna().unique()), "selected_years")
+selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
 # Filter available months based on selected years
 if "Select All" in selected_years:
@@ -329,8 +329,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     return fig
 
 # ---------------- TABS ----------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
-#tab1, tab2, tab5 = st.tabs(["Overview","Negative Events","Visualization Map"])
+#tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
+tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
@@ -388,29 +388,9 @@ with tab2:
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True),use_container_width=True,  key="tab2_chart6")
 
 
-# ---------------- TAB 3 ----------------
+
+# ---------------- TAB 3 (MAP) ----------------
 with tab3:
-    positive_df = filtered_global[filtered_global['alert-impact']=="Positive"]
-    render_summary_cards(positive_df)
-    b1 = positive_df.groupby("alert-country").size().reset_index(name="count")
-    b2 = positive_df.groupby("alert-type").size().reset_index(name="count")
-    r1c1,r1c2 = st.columns(2)
-    r2c1,r2c2 = st.columns(2)
-    r1c1.plotly_chart(create_bar_chart(b1,"alert-country","count",horizontal=True), use_container_width=True,  key="tab3_chart1")
-    r1c2.plotly_chart(create_bar_chart(b2,"alert-type","count",horizontal=True), use_container_width=True,  key="tab3_chart2")
-
-# ---------------- TAB 4 ----------------
-with tab4:
-    render_summary_cards(filtered_global)
-    d1 = filtered_global.groupby("alert-country").size().reset_index(name="count")
-    d2 = filtered_global.groupby("alert-type").size().reset_index(name="count")
-    r1c1,r1c2 = st.columns(2)
-    r2c1,r2c2 = st.columns(2)
-    r1c1.plotly_chart(create_bar_chart(d1,"alert-country","count",horizontal=True), use_container_width=True, key="tab4_chart1")
-    r1c2.plotly_chart(create_bar_chart(d2,"alert-type","count",horizontal=True), use_container_width=True,  key="tab4_chart2")
-
-# ---------------- TAB 5 (MAP) ----------------
-with tab5:
     geo_file = Path.cwd() / "data" / "countriess.geojson"
     if geo_file.exists():
         with open(geo_file) as f: 
