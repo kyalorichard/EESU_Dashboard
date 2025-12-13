@@ -445,7 +445,7 @@ with tab1:
                 "count": int(count)
             })
 
-a2 = pd.DataFrame(rows)
+    a2 = pd.DataFrame(rows)
     
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
