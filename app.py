@@ -164,10 +164,10 @@ def wrap_label_by_words(label, words_per_line=4):
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, bar_height=22):
     """
-    Summary cards:
-    - Monitored Countries
-    - Total Alerts
-    - Combined Positive / Negative breakdown
+    Render three summary cards:
+    1. Monitored Countries
+    2. Total Alerts
+    3. Alerts Breakdown (Negative vs Positive)
     """
     total_countries = df['alert-country'].nunique()
     total_alerts = len(df)
@@ -179,52 +179,59 @@ def render_summary_cards(df, bar_height=22):
     neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
     pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
 
+    # Create three columns
     col1, col2, col3 = st.columns(3)
 
     # --- Countries ---
     with col1:
-        st.markdown(f"""
-        <div class="summary-card">
-            <p style="margin:0;font-size:14px;">Monitored Countries</p>
-            <h2 style="margin:6px 0;">{total_countries}</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="summary-card" style="border:1px solid #ccc; border-radius:8px; padding:10px; text-align:center;">
+                <p style="margin:0;font-size:14px;">Monitored Countries</p>
+                <h2 style="margin:6px 0;">{total_countries}</h2>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     # --- Alerts ---
     with col2:
-        st.markdown(f"""
-        <div class="summary-card">
-            <p style="margin:0;font-size:14px;">Total Alerts</p>
-            <h2 style="margin:6px 0;">{total_alerts}</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="summary-card" style="border:1px solid #ccc; border-radius:8px; padding:10px; text-align:center;">
+                <p style="margin:0;font-size:14px;">Total Alerts</p>
+                <h2 style="margin:6px 0;">{total_alerts}</h2>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    # --- Breakdown ---
+    # --- Alerts Breakdown ---
     with col3:
         st.markdown(
-        f"""
-        <div class="summary-card">
-            <p style="margin:0;font-size:14px;">Alerts Breakdown</p>
+            f"""
+            <div class="summary-card" style="border:1px solid #ccc; border-radius:8px; padding:10px;">
+                <p style="margin:0;font-size:14px;">Alerts Breakdown</p>
 
-            <!-- Top numbers -->
-            <div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
-                <span style="color:#FF4C4C;">● {negative}</span>
-                <span style="color:#00FFAA;">● {positive}</span>
-            </div>
+                <!-- Top numbers -->
+                <div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
+                    <span style="color:#FF4C4C;">● {negative}</span>
+                    <span style="color:#00FFAA;">● {positive}</span>
+                </div>
 
-            <!-- Horizontal bar -->
-            <div style="display:flex; height:{bar_height}px; border-radius:5px; overflow:hidden;">
-                <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">
-                    {neg_pct}%
-                </div>
-                <div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold;">
-                    {pos_pct}%
+                <!-- Horizontal bar -->
+                <div style="display:flex; height:{bar_height}px; border-radius:5px; overflow:hidden;">
+                    <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">
+                        {neg_pct}%
+                    </div>
+                    <div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                        {pos_pct}%
+                    </div>
                 </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            """,
+            unsafe_allow_html=True
+        )
             
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, horizontal=False):
