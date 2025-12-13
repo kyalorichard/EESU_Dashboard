@@ -226,7 +226,7 @@ filtered_global = data[
     (data['region'].isin(selected_regions)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
-    (data[selected_enabling_principle].eq("Yes").any(axis=1)) &
+    ((data[[col for col in selected_enabling_principle if col in data.columns]].eq("Yes").any(axis=1)) if selected_enabling_principle else True) &
     #(data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
     (data['alert-impact'].isin(selected_alert_impacts)) &
     (data['month_name'].isin(selected_months)) &
