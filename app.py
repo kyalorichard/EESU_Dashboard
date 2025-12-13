@@ -353,6 +353,21 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     return fig
 
+    #####
+    def chart_micro_guide(title, text):
+    st.markdown(f"""
+        <div style="
+            background:#f5f5f5;
+            padding:8px 12px;
+            border-left:4px solid #660094;
+            border-radius:6px;
+            font-size:14px;
+            margin-bottom:12px;">
+            <b>{title}:</b> {text}
+        </div>
+    """, unsafe_allow_html=True)
+
+
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
 tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Events","Visualization Map","User Manual"])
@@ -369,6 +384,9 @@ with tab1:
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
     r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
+    chart_micro_guide("How to interpret this chart",
+                  "Shows which enabling principles are associated with alerts. Colors differentiate Negative vs Positive impact.")
+
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
@@ -609,7 +627,7 @@ def render_sankey(summary_df, top_n=None, width=900):
     )
 
     return fig
-
+    
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
     st.markdown("## Filters & Overview")
