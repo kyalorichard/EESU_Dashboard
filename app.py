@@ -431,80 +431,79 @@ def render_heatmaps(df, top_n):
         st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
 # ---------------- SANKEY ----------------
-def render_sankey(summary_df, top_n=None):
+def render_sankey(summary_df, top_n=None, width=900):
     if summary_df.empty:
         st.warning("No data available for Sankey")
         return go.Figure()
 
-    # Determine top-N values per column
-    def top_vals(col):
-        v = summary_df[col].value_counts()
-        return v.head(top_n).index.tolist() if top_n else v.index.tolist()
+    def get_top_nodes(df, col, n):
+        counts = df[col].value_counts()
+        if n is not None:
+            counts = counts.head(n)
+        return counts.index.tolist()
 
-    actors = top_vals("Actor of repression")
-    mechs = top_vals("Mechanism of repression")
-    subs = top_vals("Subject of repression")
+    top_actors = get_top_nodes(summary_df, "Actor of repression", top_n)
+    top_mechanisms = get_top_nodes(summary_df, "Mechanism of repression", top_n)
+    top_subjects = get_top_nodes(summary_df, "Subject of repression", top_n)
 
-    # Short meaningful labels: first 8 characters of the actual names
-    actor_labels = [a[:8] for a in actors]
-    mech_labels = [m[:8] for m in mechs]
-    subj_labels = [s[:8] for s in subs]
+    def wrap_label(label, words_per_line=2):
+        words = str(label).split()
+        return "<br>".join(
+            [" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)]
+        )
 
-    labels = actor_labels + mech_labels + subj_labels
+    actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
+    mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
+    subject_nodes = [wrap_label(f"Subject: {s}") for s in top_subjects]
 
-    # Full labels for hover
-    full_labels = (
-        [f"Actor: {a}" for a in actors] +
-        [f"Mechanism: {m}" for m in mechs] +
-        [f"Subject: {s}" for s in subs]
+    nodes = actor_nodes + mechanism_nodes + subject_nodes
+    node_index = {name: i for i, name in enumerate(nodes)}
+
+    node_colors = (
+        ["#FF5733"] * len(actor_nodes) +
+        ["#33C1FF"] * len(mechanism_nodes) +
+        ["#33FF8A"] * len(subject_nodes)
     )
-
-    idx = {k: i for i, k in enumerate(labels)}
-
-    # Force node positions
-    x = ([0.05]*len(actor_labels) + [0.5]*len(mech_labels) + [0.95]*len(subj_labels))
-    y = np.linspace(0, 1, len(labels))
 
     links = []
 
-    # Actor → Mechanism
-    am = summary_df[
-        summary_df["Actor of repression"].isin(actors) &
-        summary_df["Mechanism of repression"].isin(mechs)
+    df_am = summary_df[
+        summary_df["Actor of repression"].isin(top_actors) &
+        summary_df["Mechanism of repression"].isin(top_mechanisms)
     ]
-    for _, r in am.groupby(["Actor of repression","Mechanism of repression"]).size().reset_index(name="v").iterrows():
+    for _, r in df_am.groupby(
+        ["Actor of repression", "Mechanism of repression"]
+    ).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=idx[actor_labels[actors.index(r[0])]],
-            target=idx[mech_labels[mechs.index(r[1])]],
-            value=r["v"]
+            source=node_index[wrap_label(f"Actor: {r['Actor of repression']}")],
+            target=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
+            value=r["value"]
         ))
 
-    # Mechanism → Subject
-    ms = summary_df[
-        summary_df["Mechanism of repression"].isin(mechs) &
-        summary_df["Subject of repression"].isin(subs)
+    df_ms = summary_df[
+        summary_df["Mechanism of repression"].isin(top_mechanisms) &
+        summary_df["Subject of repression"].isin(top_subjects)
     ]
-    for _, r in ms.groupby(["Mechanism of repression","Subject of repression"]).size().reset_index(name="v").iterrows():
+    for _, r in df_ms.groupby(
+        ["Mechanism of repression", "Subject of repression"]
+    ).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=idx[mech_labels[mechs.index(r[0])]],
-            target=idx[subj_labels[subs.index(r[1])]],
-            value=r["v"]
+            source=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
+            target=node_index[wrap_label(f"Subject: {r['Subject of repression']}")],
+            value=r["value"]
         ))
 
-    # Sankey figure
+    fig_height = max(500, len(nodes) * 40)
+
     fig = go.Figure(go.Sankey(
-        arrangement="fixed",
+        arrangement="snap",
         node=dict(
-            label=labels,
-            x=x,
-            y=y,
-            pad=40,
-            thickness=30,
-            color=(["#FF5733"]*len(actor_labels) +
-                   ["#33C1FF"]*len(mech_labels) +
-                   ["#33FF8A"]*len(subj_labels)),
-            hovertemplate="%{customdata}<extra></extra>",
-            customdata=full_labels
+            pad=30,
+            thickness=25,
+            line=dict(color="black", width=0.5),
+            label=nodes,
+            color=node_colors,
+            hovertemplate="%{label}<extra></extra>"
         ),
         link=dict(
             source=[l["source"] for l in links],
@@ -514,19 +513,30 @@ def render_sankey(summary_df, top_n=None):
         )
     ))
 
-    # Add headers above each node column
-    annotations = [
-        dict(x=0.05, y=1.02, text="ACTORS", showarrow=False, xref="paper", yref="paper", font=dict(size=14, color="black")),
-        dict(x=0.5, y=1.02, text="MECHANISMS", showarrow=False, xref="paper", yref="paper", font=dict(size=14, color="black")),
-        dict(x=0.95, y=1.02, text="SUBJECTS", showarrow=False, xref="paper", yref="paper", font=dict(size=14, color="black"))
-    ]
+    # Legend
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#FF5733"),
+        name="Actor of repression"
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#33C1FF"),
+        name="Mechanism of repression"
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#33FF8A"),
+        name="Subject of repression"
+    ))
 
     fig.update_layout(
-        height=max(600, len(labels)*45),
-        margin=dict(l=40, r=40, t=80, b=40),
-        font=dict(size=13),
         title="Flow of Negative Events",
-        annotations=annotations
+        font=dict(size=12, color="black"),   # ✅ CORRECT PLACE
+        height=fig_height,
+        width=width,
+        margin=dict(l=40, r=40, t=60, b=40),
+        showlegend=True
     )
 
     return fig
