@@ -176,6 +176,25 @@ filtered_global = data[
     (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
 ]
+
+# ---------------- TAB 2: Negative Events ----------------
+# Filter negative alerts
+reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+
+# Ensure all required columns exist
+required_columns = [
+    'Actor of repression',
+    'Subject of repression',
+    'Mechanism of repression',
+    'Type of event',
+    'alert-type',
+    'enabling-principle'
+]
+
+for col in required_columns:
+    if col not in reactive_df.columns:
+        reactive_df[col] = np.nan
+        st.warning(f"Column '{col}' was missing and has been added as empty.")
 # ---------------- LABEL WRAPPING ----------------
 def wrap_label_by_words(label, words_per_line=4):
     words = str(label).split()
