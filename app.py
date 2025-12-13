@@ -75,8 +75,25 @@ def load_data():
         st.warning("No 'creation_date' column found in dataset.")
 
     return df
+           
+    # ---------------- REGION MAPPING FROM CONTINENT ----------------
+    def continent_to_region(continent):
+        if continent in ["Africa"]:
+            return "Africa"
+        elif continent in ["Asia", "Oceania"]:
+            return "Asia and the Pacific"
+        elif continent in ["North America", "South America", "Central America", "Caribbean"]:
+            return "Americas and the Caribbean"
+        elif continent in ["Middle East", "Western Asia"]:
+            return "The Middle East"
+        else:
+            return "Other"
+
+    df['region'] = df['continent'].apply(continent_to_region)
+    return df
 
 data = load_data()
+    
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
@@ -99,25 +116,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     else:
         st.session_state[session_key] = selected
         return selected
-        
-    # ---------------- REGION MAPPING FROM CONTINENT ----------------
-    def continent_to_region(continent):
-        if continent in ["Africa"]:
-            return "Africa"
-        elif continent in ["Asia", "Oceania"]:
-            return "Asia and the Pacific"
-        elif continent in ["North America", "South America", "Central America", "Caribbean"]:
-            return "Americas and the Caribbean"
-        elif continent in ["Middle East", "Western Asia"]:
-            return "The Middle East"
-        else:
-            return "Other"
-
-    df['region'] = df['continent'].apply(continent_to_region)
-    return df
-
-data = load_data()
-
+ 
 
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
