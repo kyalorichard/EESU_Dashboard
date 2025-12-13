@@ -40,6 +40,16 @@ footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- STANDARDIZE ENABLING PRINCIPLE ----------------
+official_principles = [
+    "Respect and protection of fundamental freedoms",
+    "Supportive legal and regulatory framework",
+    "Accessible and sustainable resources",
+    "State openness and responsiveness to civil society",
+    "Civic culture and public discourses on civil society",
+    "Digital environment integrity and security"
+]
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
@@ -95,15 +105,7 @@ def load_data():
 
     return df
 
-# ---------------- STANDARDIZE ENABLING PRINCIPLE ----------------
-    official_principles = [
-        "Respect and protection of fundamental freedoms",
-        "Supportive legal and regulatory framework",
-        "Accessible and sustainable resources",
-        "State openness and responsiveness to civil society",
-        "Civic culture and public discourses on civil society",
-        "Digital environment integrity and security"
-    ]
+
     alias_to_official = {
     "open and responsive state": "State openness and responsiveness to civil society",
     "supportive public culture and discourses on civil society": "Civic culture and public discourses on civil society",
@@ -139,10 +141,10 @@ def load_data():
     if unrecognized_entries:
         st.warning(f"Unrecognized enabling principle entries: {', '.join(unrecognized_entries)}")
 
-    return df, official_principles
+    return df
 
 
-data, official_principles = load_data()
+data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
