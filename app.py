@@ -828,7 +828,7 @@ with tab3:
         st.warning("GeoJSON file not found for map visualization.") 
 
 # -------------------------------USER MANUAL TAB------------------------------------        
-with tab4
+with tab4:
     def display_pdf(pdf_path, height=900):
     with open(pdf_path, "rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode("utf-8")
