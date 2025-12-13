@@ -366,7 +366,32 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
-# ---------------- TAB 2 (Negative Events + Dynamic Top-N Charts + Sankey Expander) ----------------
+# ---------------- HELPER FUNCTION ----------------
+def filter_top_n(df, row_col, col_col, top_n=None):
+    """
+    Creates a pivot table of counts for heatmaps, keeping only top-N rows if specified.
+    """
+    pivot_df = (
+        df.groupby([row_col, col_col])
+        .size()
+        .reset_index(name='count')
+    )
+
+    if top_n is not None:
+        top_rows = (
+            pivot_df.groupby(row_col)['count']
+            .sum()
+            .sort_values(ascending=False)
+            .head(top_n)
+            .index
+        )
+        pivot_df = pivot_df[pivot_df[row_col].isin(top_rows)]
+
+    heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
+    return heatmap_df
+
+
+# ---------------- TAB 2 (Negative Events + Reactive Top-N Charts + Sankey) ----------------
 with tab2:
     st.markdown("## Filters & Overview")
 
@@ -415,18 +440,22 @@ with tab2:
     # --- Render summary cards ---
     render_summary_cards(summary_data)
 
-    # --- Top-N selection ---
-    if "top_n" not in st.session_state:
+    # ---------------- REACTIVE TOP-N ----------------
+    if "top_n_option" not in st.session_state:
         st.session_state.top_n_option = "Top 5"
         st.session_state.top_n = 5
 
-    top_n_option = st.selectbox(
+    def update_top_n():
+        option = st.session_state.top_n_option
+        st.session_state.top_n = {"Top 5":5, "Top 10":10, "All":None}[option]
+
+    st.selectbox(
         "Select Top N for charts, heatmaps, and Sankey",
         options=["Top 5", "Top 10", "All"],
-        index=["Top 5","Top 10","All"].index(st.session_state.top_n_option)
+        index=["Top 5","Top 10","All"].index(st.session_state.top_n_option),
+        key="top_n_option",
+        on_change=update_top_n
     )
-    st.session_state.top_n_option = top_n_option
-    st.session_state.top_n = {"Top 5":5,"Top 10":10,"All":None}[top_n_option]
 
     # --- Function to get Top-N for bar charts ---
     def top_n_bar(df, col, n):
