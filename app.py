@@ -51,7 +51,6 @@ official_principles = [
 ]
 
 # ---------------- LOAD DATA ----------------
-# ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
     parquet_file = Path.cwd() / "data" / "output_final.parquet"
@@ -414,26 +413,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
         return pd.DataFrame(rows)
 
     a2 = prepare_enabling_principle_df(filtered_global, official_principles)
-    def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=True):
-        categories = sorted(df[color_col].unique())
-        color_sequence = ['#FFDB58', '#660094']
-        fig = go.Figure()
-        for i, cat in enumerate(categories):
-            df_cat = df[df[color_col]==cat].copy()
-            fig.add_trace(go.Bar(
-                x=df_cat[y] if not horizontal else df_cat[x],
-                y=df_cat[x] if not horizontal else df_cat[y],
-                name=cat,
-                orientation='h' if horizontal else 'v',
-                marker_color=color_sequence[i % len(color_sequence)],
-                text=df_cat[x],
-                textposition='inside'
-            ))
-        fig.update_layout(barmode='stack', height=400)
-        return fig
-    col1, col2 = st.columns(2)
-    col2.plotly_chart(create_h_stacked_bar(a2, y="enabling-principle", x="count", color_col="alert-impact", horizontal=True), use_container_width=True)
-
+    
+   
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
 tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
@@ -450,7 +431,7 @@ with tab1:
 
     ep_counts = pd.DataFrame({
         "Principle": official_principles,
-        "Count": [ (filtered_global[principle]=="Yes").sum() for principle in official_principles]
+        "Count": [ (filtered_global[principle]=="Yes","alert-impact").sum() for principle in official_principles]
     })
     fig_ep = px.bar(ep_counts, x="Principle", y="Count", text="Count", color="Principle",
                     color_discrete_sequence=px.colors.qualitative.Vivid)
@@ -459,7 +440,7 @@ with tab1:
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r1c2.plotly_chart(fig_ep, use_container_width=True, key="tab1_chart2")
+    r1c2.plotly_chart(create_h_stacked_bar(ep_counts,y="Principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
