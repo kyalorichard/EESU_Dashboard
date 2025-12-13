@@ -571,10 +571,10 @@ with tab2:
 
     # Render Sankey diagram
     with st.expander("Show Flowchart (Sankey Diagram)"):
-        sankey_fig = render_sankey(summary_data, st.session_state.top_n)
-        st.plotly_chart(sankey_fig, use_container_width=True)
-            
-# ---------------- TAB 3 (MAP) ----------------
+        st.plotly_chart(render_sankey(reactive_df, st.session_state.top_n), use_container_width=True)
+
+      
+      # ---------------- TAB 3 (MAP) ----------------
 with tab3:
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
