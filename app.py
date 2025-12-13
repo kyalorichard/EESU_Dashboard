@@ -347,7 +347,7 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
-# ---------------- TAB 2 (Negative Events + Cross-Analysis with Top-N Heatmaps) ----------------
+# ---------------- TAB 2 (Negative Events + Cross-Analysis Heatmaps) ----------------
 with tab2:
     # Filter negative alerts
     reactive_df = filtered_global[filtered_global['alert-impact']=="Negative"]
@@ -384,7 +384,21 @@ with tab2:
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
     t6 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
 
-    # --- Top-N selection ---
+    # --- Layout: Individual Bar Charts ---
+    st.markdown("## Individual Indicators")
+    r1c1,r1c2,r1c3 = st.columns(3)
+    r2c1,r2c2,r2c3 = st.columns(3)
+
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False), use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False), use_container_width=True)
+    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False), use_container_width=True)
+
+    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True), use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
+    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
+
+    # --- Top-N selection for heatmaps ---
+    st.markdown("## Cross-Indicator Heatmaps (Row-Normalized)")
     top_n_option = st.selectbox(
         "Select Top N for Heatmaps",
         options=["Top 5", "Top 10", "All"],
@@ -407,8 +421,11 @@ with tab2:
     subject_mechanism_pivot = filter_top_n(summary_data, 'Subject of repression', 'Mechanism of repression', top_n)
     actor_subject_pivot = filter_top_n(summary_data, 'Actor of repression', 'Subject of repression', top_n)
 
-    # --- Heatmap function with formatted labels ---
-    def create_heatmap(df_pivot, title):
+    # --- Heatmap function with absolute + percentage hover ---
+    def create_heatmap(df_pivot, original_df, index_col, column_col, title):
+        abs_pivot = original_df.groupby([index_col, column_col]).size().reset_index(name='count')
+        abs_pivot = abs_pivot.pivot(index=index_col, columns=column_col, values='count').fillna(0)
+
         fig = px.imshow(
             df_pivot,
             text_auto=True,
@@ -416,7 +433,21 @@ with tab2:
             color_continuous_scale='RdPu',
             labels=dict(x="Category", y="Category", color="% of Total"),
         )
-        # Wrap x-axis labels
+
+        # Custom hover template with absolute counts
+        hover_text = []
+        for row in df_pivot.index:
+            hover_row = []
+            for col in df_pivot.columns:
+                abs_val = int(abs_pivot.loc[row, col]) if col in abs_pivot.columns and row in abs_pivot.index else 0
+                perc_val = df_pivot.loc[row, col]
+                hover_row.append(f"{col}<br>Count: {abs_val}<br>Percent: {perc_val:.1f}%")
+            hover_text.append(hover_row)
+
+        fig.data[0].hovertemplate = "%{text}<extra></extra>"
+        fig.data[0].text = hover_text
+
+        # Axis label formatting
         fig.update_xaxes(tickangle=-45, tickfont=dict(size=11))
         fig.update_yaxes(tickfont=dict(size=11))
         fig.update_layout(
@@ -426,29 +457,20 @@ with tab2:
         )
         return fig
 
-    # --- Layout: Individual Bar Charts ---
-    st.markdown("## Individual Indicators")
-    r1c1,r1c2,r1c3 = st.columns(3)
-    r2c1,r2c2,r2c3 = st.columns(3)
-
-    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False), use_container_width=True)
-    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False), use_container_width=True)
-    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False), use_container_width=True)
-
-    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True), use_container_width=True)
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
-    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
-
-    # --- Layout: Cross-Indicator Heatmaps on Same Row ---
-    st.markdown("## Cross-Indicator Heatmaps (Row-Normalized)")
-    col1, col2 = st.columns(2)
+    # --- Layout: Heatmaps on same row ---
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.plotly_chart(create_heatmap(actor_mechanism_pivot, "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
-        st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
+        st.plotly_chart(create_heatmap(actor_mechanism_pivot, summary_data, 'Actor of repression', 'Mechanism of repression', 
+                                       "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
 
     with col2:
-        st.plotly_chart(create_heatmap(subject_mechanism_pivot, "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
+        st.plotly_chart(create_heatmap(subject_mechanism_pivot, summary_data, 'Subject of repression', 'Mechanism of repression', 
+                                       "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
+
+    with col3:
+        st.plotly_chart(create_heatmap(actor_subject_pivot, summary_data, 'Actor of repression', 'Subject of repression', 
+                                       "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
