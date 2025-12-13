@@ -102,23 +102,42 @@ def load_data():
         "Accessible and sustainable resources",
         "State openness and responsiveness to civil society",
         "Civic culture and public discourses on civil society",
-        "Digital environment integrity and security",
+        "Digital environment integrity and security"
     ]
+    alias_to_official = {
+    "open and responsive state": "State openness and responsiveness to civil society",
+    "supportive public culture and discourses on civil society": "Civic culture and public discourses on civil society",
+    }
     
-    for col in official_principles:
-        df[col] = "No"
-
-    unknown_entries = set()
-    for idx, val in df['enabling-principle'].dropna().items():
-        principles = [v.strip() for v in val.split(",")]
-        for p in principles:
-            p_norm = alias_to_official.get(p, p)
-            if p_norm in official_principles:
-                df.at[idx, p_norm] = "Yes"
+    def standardize_enabling_principle(cell):
+        if pd.isna(cell) or cell.strip() == "":
+            return {p: "No" for p in official_principles}, []
+        items = [x.strip().lower() for x in cell.split(",")]
+        standardized = {}
+        unrecognized = []
+        for p in official_principles:
+            standardized[p] = "No"
+        for item in items:
+            if item in alias_to_official:
+                standardized[alias_to_official[item]] = "Yes"
+            elif any(item == p.lower() for p in official_principles):
+                standardized[item.title()] = "Yes"
             else:
-                unknown_entries.add(p)
-    if unknown_entries:
-        st.warning(f"Unrecognized enabling principles found: {', '.join(sorted(unknown_entries))}")
+                unrecognized.append(item)
+        return standardized, unrecognized
+
+    unrecognized_entries = set()
+    standardized_data = {p: [] for p in official_principles}
+    for val in df["enabling-principle"]:
+        standard_dict, unrec = standardize_enabling_principle(val)
+        for p in official_principles:
+            standardized_data[p].append(standard_dict[p])
+        unrecognized_entries.update(unrec)
+    for p in official_principles:
+        df[p] = standardized_data[p]
+
+    if unrecognized_entries:
+        st.warning(f"Unrecognized enabling principle entries: {', '.join(unrecognized_entries)}")
 
     return df
 
@@ -158,7 +177,12 @@ filtered_countries = data[data['region'].isin(selected_regions)] if "Select All"
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
-selected_enabling_principle = safe_multiselect("Select enabling principle", official_principles, "selected_enabling_principle")
+
+selected_enabling_principle = safe_multiselect(
+    "Select enabling principle", 
+    data[['Transparency', 'Participation', 'Accountability', 'Rule of Law', 'Non-Discrimination', 'Sustainability', 'Equity']].columns,
+    "selected_enabling_principle"
+)
 #selected_enabling_principle = safe_multiselect("Select enabling principle", 
                                                #data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
                                                #"selected_enabling_principle")
@@ -199,7 +223,7 @@ filtered_global = data[
     (data['region'].isin(selected_regions)) &
     (data['alert-country'].isin(selected_countries)) &
     (data['alert-type'].isin(selected_alert_types)) &
-    (data['enabling-principle'].apply(lambda x: any(data.at[x.name, p] == "Yes" for p in selected_enabling_principle))) &
+    (data[selected_enabling_principle].eq("Yes").any(axis=1)) &
     #(data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
     (data['alert-impact'].isin(selected_alert_impacts)) &
     (data['month_name'].isin(selected_months)) &
@@ -418,14 +442,33 @@ tab1, tab2, tab3 = st.tabs(["Overview","Negative Events","Visualization Map"])
 with tab1:
     render_summary_cards(filtered_global)
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+    #df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
+    #df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    #a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
+
+    # Alerts by enabling principle
+    df_ep = filtered_global[["Respect and protection of fundamental freedoms",
+    "Supportive legal and regulatory framework",
+    "Accessible and sustainable resources",
+    "State openness and responsiveness to civil society",
+    "Civic culture and public discourses on civil society",
+    "Digital environment integrity and security"]].copy()
+    
+    df_ep['dummy'] = 1
+    df_ep = df_ep.melt(id_vars='dummy', var_name='Enabling Principle', value_name='Value')
+    df_ep = df_ep[df_ep['Value']=="Yes"]
+    df_bar = df_ep.groupby("Enabling Principle").size().reset_index(name="count")
+    fig_ep = px.bar(df_bar, x="Enabling Principle", y="count", color="Enabling Principle", text="count",
+                    color_discrete_sequence=px.colors.qualitative.Pastel)
+    fig_ep.update_layout(title="Alerts by Enabling Principle", showlegend=False, height=400)
+    #st.plotly_chart(fig_ep, use_container_width=True)
+    
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart1")
-    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
+    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",horizontal=True),use_container_width=True,  key="tab1_chart2")
+    r1c2.st.plotly_chart(fig_ep, use_container_width=True)
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
