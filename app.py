@@ -242,17 +242,17 @@ def render_summary_cards(df, base_bar_height=25):
         color: white;
         border-radius: 12px;
         padding: 12px;
-        text-align: center;
+        text-align: left;
         box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        margin: 5px;
+        margin: 2px;
     """
 
     # --- Monitored Countries ---
     with col1:
         st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:35px;">Monitored Countries</h1>
-<h2 style="margin:2px 0;font-size:35px">{total_countries}</h2>
+<h1 style="margin:0;font-size:30px;font-weight:bold;">Monitored Countries</h1>
+<h2 style="margin:2px 0;font-size:35px;font-weight:bold;">{total_countries}</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -260,8 +260,8 @@ def render_summary_cards(df, base_bar_height=25):
     with col2:
         st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:35px;">Total Alerts</h2>
-<h2 style="margin:2px 0;">{total_alerts}</h2>
+<h1 style="margin:0;font-size:30px;font-weight:bold;">Total Alerts</h2>
+<h2 style="margin:2px 0;font-weight:bold;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -269,12 +269,12 @@ def render_summary_cards(df, base_bar_height=25):
     with col3:
         st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:35px;">Alerts Breakdown</h1>
+<h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
 
 <!-- Top numbers -->
-<div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
-<span style="color:#FF4C4C;">Negative ● {negative}</span>
-<span style="color:#00FFAA;">Positive ● {positive}</span>
+<div style="display:flex; justify-content:space-between; font-size:20px; margin:6px 0;">
+<span style="color:#FF4C4C;font-weight:bold;">Negative ● {negative}</span>
+<span style="color:#00FFAA;font-weight:bold;">Positive ● {positive}</span>
 </div>
 
 <!-- Horizontal bar -->
