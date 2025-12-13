@@ -641,71 +641,71 @@ with tab2:
     render_summary_cards(summary_data)
 
     # ---------------- TOP-N CONFIG ----------------
-if "top_n_option" not in st.session_state:
-    st.session_state.top_n_option = "Top 5"
-    st.session_state.top_n = 5
-
-def update_top_n():
-    option = st.session_state.top_n_option
-    st.session_state.top_n = {"Top 5":5, "Top 10":10, "All":None}[option]
-
-st.selectbox(
-    "Select Top N for charts, heatmaps, and Sankey",
-    options=["Top 5", "Top 10", "All"],
-    index=["Top 5","Top 10","All"].index(st.session_state.top_n_option),
-    key="top_n_option",
-    on_change=update_top_n
-)
-
-top_n = st.session_state.top_n
-
-# ---------------- COMPUTE TOP-N ITEMS ----------------
-top_actors = get_top_n_items(summary_data, "Actor of repression", top_n)
-top_subjects = get_top_n_items(summary_data, "Subject of repression", top_n)
-top_mechanisms = get_top_n_items(summary_data, "Mechanism of repression", top_n)
-top_event_types = get_top_n_items(summary_data, "Type of event", top_n)
-top_alert_types = get_top_n_items(summary_data, "alert-type", top_n)
-
-# Filter data to only include Top-N items
-filtered_top_n_df = summary_data[
-    summary_data['Actor of repression'].isin(top_actors) &
-    summary_data['Subject of repression'].isin(top_subjects) &
-    summary_data['Mechanism of repression'].isin(top_mechanisms) &
-    summary_data['Type of event'].isin(top_event_types) &
-    summary_data['alert-type'].isin(top_alert_types)
-].copy()
-
-# ---------------- RENDER BAR CHARTS ----------------
-def top_n_bar(df, col):
-    grouped = df.groupby(col).size().reset_index(name="count").sort_values("count", ascending=False)
-    return grouped
-
-r1c1,r1c2,r1c3 = st.columns(3)
-r2c1,r2c2,r2c3 = st.columns(3)
-
-t1 = top_n_bar(filtered_top_n_df, "Actor of repression")
-t2 = top_n_bar(filtered_top_n_df, "Subject of repression")
-t3 = top_n_bar(filtered_top_n_df, "Mechanism of repression")
-t4 = top_n_bar(filtered_top_n_df, "Type of event")
-t5 = top_n_bar(filtered_top_n_df, "alert-type")
-
-df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
-df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-t6 = top_n_bar(df_clean, "enabling-principle")
-
-r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True)
-r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True)
-r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True)
-r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True)
-r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True)
-r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True)
-
-# ---------------- RENDER HEATMAPS ----------------
-render_heatmaps(filtered_top_n_df, top_n=top_n)  # Already filtered by Top-N items
-
-# ---------------- RENDER SANKEY ----------------
-with st.expander("Show Flowchart (Sankey Diagram)"):
-    st.plotly_chart(render_sankey(filtered_top_n_df, top_n=top_n), use_container_width=True)
+    if "top_n_option" not in st.session_state:
+        st.session_state.top_n_option = "Top 5"
+        st.session_state.top_n = 5
+    
+    def update_top_n():
+        option = st.session_state.top_n_option
+        st.session_state.top_n = {"Top 5":5, "Top 10":10, "All":None}[option]
+    
+    st.selectbox(
+        "Select Top N for charts, heatmaps, and Sankey",
+        options=["Top 5", "Top 10", "All"],
+        index=["Top 5","Top 10","All"].index(st.session_state.top_n_option),
+        key="top_n_option",
+        on_change=update_top_n
+    )
+    
+    top_n = st.session_state.top_n
+    
+    # ---------------- COMPUTE TOP-N ITEMS ----------------
+    top_actors = get_top_n_items(summary_data, "Actor of repression", top_n)
+    top_subjects = get_top_n_items(summary_data, "Subject of repression", top_n)
+    top_mechanisms = get_top_n_items(summary_data, "Mechanism of repression", top_n)
+    top_event_types = get_top_n_items(summary_data, "Type of event", top_n)
+    top_alert_types = get_top_n_items(summary_data, "alert-type", top_n)
+    
+    # Filter data to only include Top-N items
+    filtered_top_n_df = summary_data[
+        summary_data['Actor of repression'].isin(top_actors) &
+        summary_data['Subject of repression'].isin(top_subjects) &
+        summary_data['Mechanism of repression'].isin(top_mechanisms) &
+        summary_data['Type of event'].isin(top_event_types) &
+        summary_data['alert-type'].isin(top_alert_types)
+    ].copy()
+    
+    # ---------------- RENDER BAR CHARTS ----------------
+    def top_n_bar(df, col):
+        grouped = df.groupby(col).size().reset_index(name="count").sort_values("count", ascending=False)
+        return grouped
+    
+    r1c1,r1c2,r1c3 = st.columns(3)
+    r2c1,r2c2,r2c3 = st.columns(3)
+    
+    t1 = top_n_bar(filtered_top_n_df, "Actor of repression")
+    t2 = top_n_bar(filtered_top_n_df, "Subject of repression")
+    t3 = top_n_bar(filtered_top_n_df, "Mechanism of repression")
+    t4 = top_n_bar(filtered_top_n_df, "Type of event")
+    t5 = top_n_bar(filtered_top_n_df, "alert-type")
+    
+    df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    t6 = top_n_bar(df_clean, "enabling-principle")
+    
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True)
+    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True)
+    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True)
+    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True)
+    
+    # ---------------- RENDER HEATMAPS ----------------
+    render_heatmaps(filtered_top_n_df, top_n=top_n)  # Already filtered by Top-N items
+    
+    # ---------------- RENDER SANKEY ----------------
+    with st.expander("Show Flowchart (Sankey Diagram)"):
+        st.plotly_chart(render_sankey(filtered_top_n_df, top_n=top_n), use_container_width=True)
 
       
       # ---------------- TAB 3 (MAP) ----------------
