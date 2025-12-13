@@ -126,14 +126,14 @@ st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
 st.sidebar.header("🌍 Global Filters")
 
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
-selected_regions = safe_multiselect("Select Region", regions_labels, "selected_regions")
+selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
 filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
-selected_countries = safe_multiselect("Select Country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
-selected_alert_types = safe_multiselect("Select Alert Type", data['alert-type'].dropna().unique(), "selected_alert_types")
-selected_enabling_principle = safe_multiselect("Select Enabling Principle", 
+selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
+selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_enabling_principle = safe_multiselect("Select enabling principle", 
                                                data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
                                                "selected_enabling_principle")
-selected_alert_impacts = safe_multiselect("Select Alert Impact", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_years = safe_multiselect("Select Year", sorted(data['year'].dropna().unique()), "selected_years")
 
 # Filter available months based on selected years
@@ -154,7 +154,7 @@ selected_months = safe_multiselect(
     available_months, 
     "selected_months"
 )
-#selected_months = safe_multiselect("Select Month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month), "selected_months")
+#selected_months = safe_multiselect("Select month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month), "selected_months")
 
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
