@@ -162,31 +162,48 @@ def wrap_label_by_words(label, words_per_line=4):
 
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
-def render_summary_cards(df, bar_height=22):
+def render_summary_cards(df, base_bar_height=25):
     """
-    Render three summary cards:
+    Render three summary cards with gradient background:
     1. Monitored Countries
     2. Total Alerts
     3. Alerts Breakdown (Negative vs Positive)
+    
+    Parameters:
+        df (DataFrame): Filtered data
+        base_bar_height (int): Base height of the horizontal bar
     """
-    # Compute summary metrics
-    total_countries = df['alert-country'].nunique()
-    total_alerts = len(df)
-    negative = (df['alert-impact'] == "Negative").sum()
-    positive = (df['alert-impact'] == "Positive").sum()
+    total_countries = df['alert-country'].nunique() if not df.empty else 0
+    total_alerts = len(df) if not df.empty else 0
+    negative = (df['alert-impact'] == "Negative").sum() if not df.empty else 0
+    positive = (df['alert-impact'] == "Positive").sum() if not df.empty else 0
     total_np = negative + positive
 
     # Percentages
     neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
     pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
 
-    # Columns for cards
+    # Adjust bar height and font size based on total alerts
+    bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
+    font_size = max(10, min(16, 14 - int(total_alerts/100)))
+
+    # Create columns
     col1, col2, col3 = st.columns(3)
+
+    card_style = f"""
+        background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        margin: 5px;
+    """
 
     # --- Monitored Countries ---
     with col1:
         st.markdown(f"""
-<div style="border:1px solid #ccc; border-radius:8px; padding:10px; text-align:center;">
+<div style="{card_style}">
 <p style="margin:0;font-size:14px;">Monitored Countries</p>
 <h2 style="margin:6px 0;">{total_countries}</h2>
 </div>
@@ -195,7 +212,7 @@ def render_summary_cards(df, bar_height=22):
     # --- Total Alerts ---
     with col2:
         st.markdown(f"""
-<div style="border:1px solid #ccc; border-radius:8px; padding:10px; text-align:center;">
+<div style="{card_style}">
 <p style="margin:0;font-size:14px;">Total Alerts</p>
 <h2 style="margin:6px 0;">{total_alerts}</h2>
 </div>
@@ -204,7 +221,7 @@ def render_summary_cards(df, bar_height=22):
     # --- Alerts Breakdown ---
     with col3:
         st.markdown(f"""
-<div style="border:1px solid #ccc; border-radius:8px; padding:10px;">
+<div style="{card_style}">
 <p style="margin:0;font-size:14px;">Alerts Breakdown</p>
 
 <!-- Top numbers -->
@@ -214,13 +231,13 @@ def render_summary_cards(df, bar_height=22):
 </div>
 
 <!-- Horizontal bar -->
-<div style="display:flex; height:{bar_height}px; border-radius:5px; overflow:hidden;">
-<div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">
-{neg_pct}%
-</div>
-<div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold;">
-{pos_pct}%
-</div>
+<div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
+    <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+        {neg_pct if neg_pct>5 else ''}%
+    </div>
+    <div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+        {pos_pct if pos_pct>5 else ''}%
+    </div>
 </div>
 </div>
 """, unsafe_allow_html=True)
