@@ -628,7 +628,7 @@ with tab2:
 
     # Render Sankey diagram
     with st.expander("Show Flowchart (Sankey Diagram)"):
-        st.plotly_chart(render_sankey(reactive_df, st.session_state.top_n), use_container_width=True)
+        st.plotly_chart(render_sankey(summary_data, st.session_state.top_n), use_container_width=True)
 
       
       # ---------------- TAB 3 (MAP) ----------------
