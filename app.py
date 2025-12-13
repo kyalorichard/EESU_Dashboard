@@ -421,17 +421,29 @@ with tab2:
     subject_mechanism_pivot = filter_top_n(summary_data, 'Subject of repression', 'Mechanism of repression', top_n)
     actor_subject_pivot = filter_top_n(summary_data, 'Actor of repression', 'Subject of repression', top_n)
 
-    # --- Heatmap function with absolute + percentage hover ---
-    def create_heatmap(df_pivot, original_df, index_col, column_col, title):
+    # --- Heatmap function with wrapped labels, no axis titles, absolute + percentage hover ---
+    def create_heatmap(df_pivot, original_df, index_col, column_col, title, max_words_per_line=3):
+        # Absolute counts pivot
         abs_pivot = original_df.groupby([index_col, column_col]).size().reset_index(name='count')
         abs_pivot = abs_pivot.pivot(index=index_col, columns=column_col, values='count').fillna(0)
+
+        # Wrap labels
+        def wrap_labels(labels):
+            wrapped = []
+            for label in labels:
+                words = str(label).split()
+                lines = [" ".join(words[i:i+max_words_per_line]) for i in range(0, len(words), max_words_per_line)]
+                wrapped.append("<br>".join(lines))
+            return wrapped
+
+        wrapped_x = wrap_labels(df_pivot.columns)
+        wrapped_y = wrap_labels(df_pivot.index)
 
         fig = px.imshow(
             df_pivot,
             text_auto=True,
             aspect="auto",
             color_continuous_scale='RdPu',
-            labels=dict(x="Category", y="Category", color="% of Total"),
         )
 
         # Custom hover template with absolute counts
@@ -447,31 +459,30 @@ with tab2:
         fig.data[0].hovertemplate = "%{text}<extra></extra>"
         fig.data[0].text = hover_text
 
-        # Axis label formatting
-        fig.update_xaxes(tickangle=-45, tickfont=dict(size=11))
-        fig.update_yaxes(tickfont=dict(size=11))
+        # Update axes with wrapped labels and remove axis titles
+        fig.update_xaxes(ticktext=wrapped_x, tickvals=list(range(len(df_pivot.columns))), title=None, showticklabels=True)
+        fig.update_yaxes(ticktext=wrapped_y, tickvals=list(range(len(df_pivot.index))), title=None, showticklabels=True)
+
         fig.update_layout(
             title=title,
             height=400 + len(df_pivot)*15,
-            margin=dict(l=80, r=20, t=40, b=120)
+            margin=dict(l=80, r=20, t=40, b=120),
+            xaxis_showgrid=False,
+            yaxis_showgrid=False
         )
         return fig
 
-    # --- Layout: Heatmaps on same row ---
+    # --- Layout: Heatmaps on the same row ---
     col1, col2, col3 = st.columns(3)
-
     with col1:
         st.plotly_chart(create_heatmap(actor_mechanism_pivot, summary_data, 'Actor of repression', 'Mechanism of repression', 
                                        "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
-
     with col2:
         st.plotly_chart(create_heatmap(subject_mechanism_pivot, summary_data, 'Subject of repression', 'Mechanism of repression', 
                                        "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
-
     with col3:
         st.plotly_chart(create_heatmap(actor_subject_pivot, summary_data, 'Actor of repression', 'Subject of repression', 
                                        "Actor → Subject (% of Actor Total)"), use_container_width=True)
-
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
     render_summary_cards(filtered_global)
