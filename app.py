@@ -431,70 +431,67 @@ def render_heatmaps(df, top_n):
         st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
 # ---------------- SANKEY ----------------
-def render_sankey(summary_df, top_n=5):
+def render_sankey(summary_df, top_n=None):
     if summary_df.empty:
         st.warning("No data available for Sankey")
         return go.Figure()
 
-    def top_with_other(col):
-        counts = summary_df[col].value_counts()
-        if top_n is not None and len(counts) > top_n:
-            top_items = counts.head(top_n).index.tolist()
-            # Replace low-frequency items with "Other"
-            df_col = summary_df[col].apply(lambda x: x if x in top_items else "Other")
-            return df_col, top_items + ["Other"]
-        else:
-            return summary_df[col], counts.index.tolist()
+    # Determine top-N values per column
+    def top_vals(col):
+        v = summary_df[col].value_counts()
+        return v.head(top_n).index.tolist() if top_n else v.index.tolist()
 
-    # Apply top-N + "Other" logic
-    summary_df["Actor_short"], actors = top_with_other("Actor of repression")
-    summary_df["Mechanism_short"], mechs = top_with_other("Mechanism of repression")
-    summary_df["Subject_short"], subs = top_with_other("Subject of repression")
+    actors = top_vals("Actor of repression")
+    mechs = top_vals("Mechanism of repression")
+    subs = top_vals("Subject of repression")
 
-    # Create labels for nodes
-    labels = actors + mechs + subs
+    # Short meaningful labels: first 8 characters of the actual names
+    actor_labels = [a[:8] for a in actors]
+    mech_labels = [m[:8] for m in mechs]
+    subj_labels = [s[:8] for s in subs]
 
-    # Full hover labels
+    labels = actor_labels + mech_labels + subj_labels
+
+    # Full labels for hover
     full_labels = (
         [f"Actor: {a}" for a in actors] +
         [f"Mechanism: {m}" for m in mechs] +
         [f"Subject: {s}" for s in subs]
     )
 
-    # Map label to index
-    idx = {name: i for i, name in enumerate(labels)}
+    idx = {k: i for i, k in enumerate(labels)}
 
-    # Node positions (columns)
-    x = ([0.05]*len(actors) + [0.5]*len(mechs) + [0.95]*len(subs))
+    # Force node positions
+    x = ([0.05]*len(actor_labels) + [0.5]*len(mech_labels) + [0.95]*len(subj_labels))
     y = np.linspace(0, 1, len(labels))
 
-    # Create links
     links = []
+
     # Actor → Mechanism
-    df_am = summary_df.groupby(["Actor_short","Mechanism_short"]).size().reset_index(name="v")
-    for _, r in df_am.iterrows():
+    am = summary_df[
+        summary_df["Actor of repression"].isin(actors) &
+        summary_df["Mechanism of repression"].isin(mechs)
+    ]
+    for _, r in am.groupby(["Actor of repression","Mechanism of repression"]).size().reset_index(name="v").iterrows():
         links.append(dict(
-            source=idx[r["Actor_short"]],
-            target=idx[r["Mechanism_short"]],
+            source=idx[actor_labels[actors.index(r[0])]],
+            target=idx[mech_labels[mechs.index(r[1])]],
             value=r["v"]
         ))
+
     # Mechanism → Subject
-    df_ms = summary_df.groupby(["Mechanism_short","Subject_short"]).size().reset_index(name="v")
-    for _, r in df_ms.iterrows():
+    ms = summary_df[
+        summary_df["Mechanism of repression"].isin(mechs) &
+        summary_df["Subject of repression"].isin(subs)
+    ]
+    for _, r in ms.groupby(["Mechanism of repression","Subject of repression"]).size().reset_index(name="v").iterrows():
         links.append(dict(
-            source=idx[r["Mechanism_short"]],
-            target=idx[r["Subject_short"]],
+            source=idx[mech_labels[mechs.index(r[0])]],
+            target=idx[subj_labels[subs.index(r[1])]],
             value=r["v"]
         ))
 
-    # Node colors
-    colors = (
-        ["#FF5733"]*len(actors) + 
-        ["#33C1FF"]*len(mechs) + 
-        ["#33FF8A"]*len(subs)
-    )
-
-    # Create figure
+    # Sankey figure
     fig = go.Figure(go.Sankey(
         arrangement="fixed",
         node=dict(
@@ -503,7 +500,9 @@ def render_sankey(summary_df, top_n=5):
             y=y,
             pad=40,
             thickness=30,
-            color=colors,
+            color=(["#FF5733"]*len(actor_labels) +
+                   ["#33C1FF"]*len(mech_labels) +
+                   ["#33FF8A"]*len(subj_labels)),
             hovertemplate="%{customdata}<extra></extra>",
             customdata=full_labels
         ),
@@ -515,7 +514,7 @@ def render_sankey(summary_df, top_n=5):
         )
     ))
 
-    # Add column headers using annotations
+    # Add headers above each node column
     annotations = [
         dict(x=0.05, y=1.02, text="ACTORS", showarrow=False, xref="paper", yref="paper", font=dict(size=14, color="black")),
         dict(x=0.5, y=1.02, text="MECHANISMS", showarrow=False, xref="paper", yref="paper", font=dict(size=14, color="black")),
@@ -523,10 +522,10 @@ def render_sankey(summary_df, top_n=5):
     ]
 
     fig.update_layout(
-        title="Flow of Negative Events",
         height=max(600, len(labels)*45),
-        margin=dict(l=40,r=40,t=80,b=40),
+        margin=dict(l=40, r=40, t=80, b=40),
         font=dict(size=13),
+        title="Flow of Negative Events",
         annotations=annotations
     )
 
