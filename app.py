@@ -788,16 +788,16 @@ with tab2:
     t4 = top_n_bar(filtered_top_n_df, "Type of event")
     t5 = top_n_bar(filtered_top_n_df, "alert-type")
     
-    df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-    t6 = top_n_bar(df_clean, "enabling-principle")
+    #df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
+    #df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    #t6 = top_n_bar(df_clean, "enabling-principle")
     
-    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True)
-    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True)
-    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True)
-    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True)
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True)
-    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True)
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True,  key="tab2_chart1")
+    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True,  key="tab2_chart2")
+    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True,  key="tab2_chart3")
+    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True,ke y="tab2_chart4")
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True, key="tab2_chart5")
+    #r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True,  key="tab2_chart6")
     
     # ---------------- RENDER HEATMAPS ----------------
     render_heatmaps(filtered_top_n_df, top_n=top_n)  # Already filtered by Top-N items
