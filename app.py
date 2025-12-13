@@ -579,17 +579,17 @@ def render_heatmaps(df, top_n=5):
     with col1:
         fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (% of Actor Total)")
         fig1.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, use_container_width=True, key="heatmap_subject_actor")
 
     with col2:
         fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (% of Subject Total)")
         fig2.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mech")
 
     with col3:
         fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (% of Actor Total)")
         fig3.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True, key="heatmap_subject_subj")
 
 # ---------------- SANKEY ----------------
 def render_sankey(summary_df, top_n=None, width=900):
