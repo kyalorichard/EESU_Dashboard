@@ -431,7 +431,7 @@ def render_heatmaps(df, top_n):
         st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
 # ---------------- SANKEY ----------------
-def render_sankey(summary_df, top_n=None, width=900) 
+def render_sankey(summary_df, top_n=None, width=900):
     required_cols = ["Actor of repression", "Mechanism of repression", "Subject of repression"]
     summary_df = summary_df.dropna(subset=required_cols)
        
