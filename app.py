@@ -355,17 +355,17 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
 
     #####
     def chart_micro_guide(title, text):
-    st.markdown(f"""
-        <div style="
-            background:#f5f5f5;
-            padding:8px 12px;
-            border-left:4px solid #660094;
-            border-radius:6px;
-            font-size:14px;
-            margin-bottom:12px;">
-            <b>{title}:</b> {text}
-        </div>
-    """, unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style="
+                background:#f5f5f5;
+                padding:8px 12px;
+                border-left:4px solid #660094;
+                border-radius:6px;
+                font-size:14px;
+                margin-bottom:12px;">
+                <b>{title}:</b> {text}
+            </div>
+        """, unsafe_allow_html=True)
 
 
 # ---------------- TABS ----------------
