@@ -12,7 +12,7 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 BASE_DIR = Path(__file__).resolve().parent
 
-EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Executive_Brief_1_Page.pdf"
+EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EEU SEE Dashboard user manual.pdf"
 
 # ---------------- DASHBOARD TITLE ----------------
