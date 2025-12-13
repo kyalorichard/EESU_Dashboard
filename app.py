@@ -366,7 +366,7 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
-# ---------------- TAB 2 (Negative Events + Cross-Analysis Heatmaps) ----------------
+ ---------------- TAB 2 (Negative Events + Cross-Analysis Heatmaps) ----------------
 with tab2:
     st.markdown("## Filters & Overview")
 
@@ -412,101 +412,145 @@ with tab2:
     if "Select All" not in selected_event_types:
         summary_data = summary_data[summary_data['Type of event'].isin(selected_event_types)]
 
-    # --- Check for empty dataset ---
+    # ---------------- HELPER FUNCTIONS ----------------
+    def create_placeholder_chart(message="No data available"):
+        fig = go.Figure()
+        fig.add_annotation(
+            x=0.5, y=0.5,
+            text=message,
+            showarrow=False,
+            font=dict(size=20, color="gray")
+        )
+        fig.update_layout(
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            height=300,
+            margin=dict(l=20,r=20,t=20,b=20),
+            plot_bgcolor="white"
+        )
+        return fig
+
+    def get_top_n_nodes(df, col, n=None):
+        counts = df[col].value_counts()
+        if n:
+            return counts.nlargest(n).index.tolist()
+        return counts.index.tolist()
+
+    def filter_top_n(df, row_col, col_col, top_n=None):
+        top_rows = get_top_n_nodes(df, row_col, top_n)
+        top_cols = get_top_n_nodes(df, col_col, top_n)
+        pivot = (
+            df[df[row_col].isin(top_rows) & df[col_col].isin(top_cols)]
+            .groupby([row_col, col_col])
+            .size()
+            .reset_index(name='count')
+            .pivot(index=row_col, columns=col_col, values='count')
+            .fillna(0)
+        )
+        return pivot
+
+    def build_sankey_links(df, top_actors, top_mechanisms, top_subjects):
+        nodes = list(set(top_actors + top_mechanisms + top_subjects))
+        node_indices = {n: i for i, n in enumerate(nodes)}
+        links = []
+
+        df_am = df[df['Actor of repression'].isin(top_actors) & df['Mechanism of repression'].isin(top_mechanisms)]
+        for _, row in df_am.groupby(['Actor of repression','Mechanism of repression']).size().reset_index(name='count').iterrows():
+            links.append({
+                'source': node_indices[row['Actor of repression']],
+                'target': node_indices[row['Mechanism of repression']],
+                'value': row['count']
+            })
+
+        df_ms = df[df['Mechanism of repression'].isin(top_mechanisms) & df['Subject of repression'].isin(top_subjects)]
+        for _, row in df_ms.groupby(['Mechanism of repression','Subject of repression']).size().reset_index(name='count').iterrows():
+            links.append({
+                'source': node_indices[row['Mechanism of repression']],
+                'target': node_indices[row['Subject of repression']],
+                'value': row['count']
+            })
+        return nodes, links
+
+    def create_sankey_hover(nodes, top_actors, top_mechanisms, top_subjects, links):
+        if not links:
+            return create_placeholder_chart("No data available for Sankey")
+        fig = go.Figure(go.Sankey(
+            node=dict(
+                pad=15,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=nodes,
+                color=["#660094" if n in top_actors else "#FFDB58" if n in top_mechanisms else "#00FFAA" for n in nodes]
+            ),
+            link=dict(
+                source=[l['source'] for l in links],
+                target=[l['target'] for l in links],
+                value=[l['value'] for l in links],
+                color="lightgray"
+            )
+        ))
+        fig.update_layout(height=500, margin=dict(l=20, r=20, t=20, b=20))
+        return fig
+
+    def sankey_legend():
+        st.markdown("""
+        <div style="display:flex; gap:15px; margin-bottom:10px;">
+            <span style="background:#660094; color:white; padding:3px 8px; border-radius:5px;">Actor</span>
+            <span style="background:#FFDB58; color:black; padding:3px 8px; border-radius:5px;">Mechanism</span>
+            <span style="background:#00FFAA; color:white; padding:3px 8px; border-radius:5px;">Subject</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    def create_heatmap(pivot_df, title):
+        if pivot_df.empty:
+            return create_placeholder_chart("No data available for heatmap")
+        fig = px.imshow(
+            pivot_df.values,
+            labels=dict(x=pivot_df.columns.name, y=pivot_df.index.name, color="Count"),
+            x=pivot_df.columns,
+            y=pivot_df.index,
+            text_auto=True,
+            color_continuous_scale='Purples'
+        )
+        fig.update_layout(title_text=title, height=400, margin=dict(l=100, r=20, t=40, b=40))
+        return fig
+
+    # --- Top-N selection ---
+    top_n_option = st.selectbox("Select Top N for visualizations", options=["Top 5", "Top 10", "All"], index=0)
+    top_n_map = {"Top 5": 5, "Top 10": 10, "All": None}
+    top_n = top_n_map[top_n_option]
+
+    # --- Render summary cards ---
+    render_summary_cards(summary_data)
+
+    # --- Individual bar charts ---
+    st.markdown("## Individual Indicators")
+    r1c1,r1c2,r1c3 = st.columns(3)
+    r2c1,r2c2,r2c3 = st.columns(3)
+
     if summary_data.empty:
-        st.warning("No data matches the selected filters. Please adjust your selections.")
+        # Placeholder charts
+        for col in [r1c1,r1c2,r1c3,r2c1,r2c2,r2c3]:
+            col.plotly_chart(create_placeholder_chart(), use_container_width=True)
     else:
-        # --- Render summary cards ---
-        render_summary_cards(summary_data)
+        t1 = summary_data.groupby("Actor of repression").size().reset_index(name="count")
+        t2 = summary_data.groupby("Subject of repression").size().reset_index(name="count")
+        t3 = summary_data.groupby("Mechanism of repression").size().reset_index(name="count")
+        t4 = summary_data.groupby("Type of event").size().reset_index(name="count")
+        t5 = summary_data.groupby("alert-type").size().reset_index(name="count")
+        df_clean = summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].str.split(",")}).explode("enabling-principle")
+        df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+        t6 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
 
-        # ---------------- HELPER FUNCTIONS ----------------
-        def get_top_n_nodes(df, col, n=None):
-            counts = df[col].value_counts()
-            if n:
-                return counts.nlargest(n).index.tolist()
-            return counts.index.tolist()
+        r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False), use_container_width=True)
+        r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False), use_container_width=True)
+        r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False), use_container_width=True)
+        r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True), use_container_width=True)
+        r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
+        r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
 
-        def filter_top_n(df, row_col, col_col, top_n=None):
-            top_rows = get_top_n_nodes(df, row_col, top_n)
-            top_cols = get_top_n_nodes(df, col_col, top_n)
-            pivot = (
-                df[df[row_col].isin(top_rows) & df[col_col].isin(top_cols)]
-                .groupby([row_col, col_col])
-                .size()
-                .reset_index(name='count')
-                .pivot(index=row_col, columns=col_col, values='count')
-                .fillna(0)
-            )
-            return pivot
-
-        def build_sankey_links(df, top_actors, top_mechanisms, top_subjects):
-            nodes = list(set(top_actors + top_mechanisms + top_subjects))
-            node_indices = {n: i for i, n in enumerate(nodes)}
-            links = []
-
-            df_am = df[df['Actor of repression'].isin(top_actors) & df['Mechanism of repression'].isin(top_mechanisms)]
-            for _, row in df_am.groupby(['Actor of repression','Mechanism of repression']).size().reset_index(name='count').iterrows():
-                links.append({
-                    'source': node_indices[row['Actor of repression']],
-                    'target': node_indices[row['Mechanism of repression']],
-                    'value': row['count']
-                })
-
-            df_ms = df[df['Mechanism of repression'].isin(top_mechanisms) & df['Subject of repression'].isin(top_subjects)]
-            for _, row in df_ms.groupby(['Mechanism of repression','Subject of repression']).size().reset_index(name='count').iterrows():
-                links.append({
-                    'source': node_indices[row['Mechanism of repression']],
-                    'target': node_indices[row['Subject of repression']],
-                    'value': row['count']
-                })
-            return nodes, links
-
-        def create_sankey_hover(nodes, top_actors, top_mechanisms, top_subjects, links):
-            fig = go.Figure(go.Sankey(
-                node=dict(
-                    pad=15,
-                    thickness=20,
-                    line=dict(color="black", width=0.5),
-                    label=nodes,
-                    color=["#660094" if n in top_actors else "#FFDB58" if n in top_mechanisms else "#00FFAA" for n in nodes]
-                ),
-                link=dict(
-                    source=[l['source'] for l in links],
-                    target=[l['target'] for l in links],
-                    value=[l['value'] for l in links],
-                    color="lightgray"
-                )
-            ))
-            fig.update_layout(height=500, margin=dict(l=20, r=20, t=20, b=20))
-            return fig
-
-        def sankey_legend():
-            st.markdown("""
-            <div style="display:flex; gap:15px; margin-bottom:10px;">
-                <span style="background:#660094; color:white; padding:3px 8px; border-radius:5px;">Actor</span>
-                <span style="background:#FFDB58; color:black; padding:3px 8px; border-radius:5px;">Mechanism</span>
-                <span style="background:#00FFAA; color:white; padding:3px 8px; border-radius:5px;">Subject</span>
-            </div>
-            """, unsafe_allow_html=True)
-
-        def create_heatmap(pivot_df, original_df, x_col, y_col, title):
-            fig = px.imshow(
-                pivot_df.values,
-                labels=dict(x=x_col, y=y_col, color="Count"),
-                x=pivot_df.columns,
-                y=pivot_df.index,
-                text_auto=True,
-                color_continuous_scale='Purples'
-            )
-            fig.update_layout(title_text=title, height=400, margin=dict(l=100, r=20, t=40, b=40))
-            return fig
-
-        # --- Top-N selection ---
-        top_n_option = st.selectbox("Select Top N for visualizations", options=["Top 5", "Top 10", "All"], index=0)
-        top_n_map = {"Top 5": 5, "Top 10": 10, "All": None}
-        top_n = top_n_map[top_n_option]
-
-        # --- Sankey Diagram ---
+    # --- Sankey Diagram ---
+    if not summary_data.empty:
         top_actors = get_top_n_nodes(summary_data, 'Actor of repression', top_n)
         top_mechanisms = get_top_n_nodes(summary_data, 'Mechanism of repression', top_n)
         top_subjects = get_top_n_nodes(summary_data, 'Subject of repression', top_n)
@@ -515,22 +559,21 @@ with tab2:
         sankey_legend()
         sankey_fig = create_sankey_hover(nodes, top_actors, top_mechanisms, top_subjects, links)
         st.plotly_chart(sankey_fig, use_container_width=True)
+    else:
+        st.plotly_chart(create_placeholder_chart("No data available for Sankey"), use_container_width=True)
 
-        # --- Heatmaps ---
-        actor_mechanism_pivot = filter_top_n(summary_data, 'Actor of repression', 'Mechanism of repression', top_n)
-        subject_mechanism_pivot = filter_top_n(summary_data, 'Subject of repression', 'Mechanism of repression', top_n)
-        actor_subject_pivot = filter_top_n(summary_data, 'Actor of repression', 'Subject of repression', top_n)
+    # --- Heatmaps ---
+    actor_mechanism_pivot = filter_top_n(summary_data, 'Actor of repression', 'Mechanism of repression', top_n)
+    subject_mechanism_pivot = filter_top_n(summary_data, 'Subject of repression', 'Mechanism of repression', top_n)
+    actor_subject_pivot = filter_top_n(summary_data, 'Actor of repression', 'Subject of repression', top_n)
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.plotly_chart(create_heatmap(actor_mechanism_pivot, summary_data, 'Actor of repression', 'Mechanism of repression', 
-                                           "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
-        with col2:
-            st.plotly_chart(create_heatmap(subject_mechanism_pivot, summary_data, 'Subject of repression', 'Mechanism of repression', 
-                                           "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
-        with col3:
-            st.plotly_chart(create_heatmap(actor_subject_pivot, summary_data, 'Actor of repression', 'Subject of repression', 
-                                           "Actor → Subject (% of Actor Total)"), use_container_width=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.plotly_chart(create_heatmap(actor_mechanism_pivot, "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
+    with col2:
+        st.plotly_chart(create_heatmap(subject_mechanism_pivot, "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
+    with col3:
+        st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
