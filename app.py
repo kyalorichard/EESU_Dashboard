@@ -354,26 +354,50 @@ with tab2:
     # --- Inline filters ---
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        selected_actor_types = safe_multiselect("Actor Type", reactive_df['Actor of repression'].dropna().unique(), "selected_actor_types", sidebar=False)
+        selected_actor_types = safe_multiselect(
+            "Actor Type",
+            reactive_df['Actor of repression'].dropna().unique(),
+            "selected_actor_types",
+            sidebar=False
+        )
     with col2:
-        selected_subject_types = safe_multiselect("Subject Type", reactive_df['Subject of repression'].dropna().unique(), "selected_subject_types", sidebar=False)
+        selected_subject_types = safe_multiselect(
+            "Subject Type",
+            reactive_df['Subject of repression'].dropna().unique(),
+            "selected_subject_types",
+            sidebar=False
+        )
     with col3:
-        selected_mechanism_types = safe_multiselect("Mechanism Type", reactive_df['Mechanism of repression'].dropna().unique(), "selected_mechanism_types", sidebar=False)
+        selected_mechanism_types = safe_multiselect(
+            "Mechanism Type",
+            reactive_df['Mechanism of repression'].dropna().unique(),
+            "selected_mechanism_types",
+            sidebar=False
+        )
     with col4:
-        selected_event_types = safe_multiselect("Event Type", reactive_df['Type of event'].dropna().unique(), "selected_event_types", sidebar=False)
+        selected_event_types = safe_multiselect(
+            "Event Type",
+            reactive_df['Type of event'].dropna().unique(),
+            "selected_event_types",
+            sidebar=False
+        )
 
     # --- Filter data ---
     summary_data = reactive_df[
-        (reactive_df['Actor of repression'].isin(selected_actor_types)) &
-        (reactive_df['Subject of repression'].isin(selected_subject_types)) &
-        (reactive_df['Mechanism of repression'].isin(selected_mechanism_types)) &
-        (reactive_df['Type of event'].isin(selected_event_types))
+        reactive_df['Actor of repression'].isin(selected_actor_types) &
+        reactive_df['Subject of repression'].isin(selected_subject_types) &
+        reactive_df['Mechanism of repression'].isin(selected_mechanism_types) &
+        reactive_df['Type of event'].isin(selected_event_types)
     ]
 
     # --- Summary cards ---
     render_summary_cards(summary_data)
 
     # --- Individual Indicator Bar Charts ---
+    st.markdown("## Individual Indicators")
+    r1c1,r1c2,r1c3 = st.columns(3)
+    r2c1,r2c2,r2c3 = st.columns(3)
+
     t1 = summary_data.groupby("Actor of repression").size().reset_index(name="count")
     t2 = summary_data.groupby("Subject of repression").size().reset_index(name="count")
     t3 = summary_data.groupby("Mechanism of repression").size().reset_index(name="count")
@@ -382,10 +406,6 @@ with tab2:
     df_clean = summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].str.split(",")}).explode("enabling-principle")
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
     t6 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
-
-    st.markdown("## Individual Indicators")
-    r1c1,r1c2,r1c3 = st.columns(3)
-    r2c1,r2c2,r2c3 = st.columns(3)
 
     r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False), use_container_width=True)
     r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False), use_container_width=True)
@@ -396,36 +416,26 @@ with tab2:
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
 
     # --- Top-N selection ---
-    st.markdown("## Cross-Indicator Heatmaps & Sankey")
-    top_n_option = st.selectbox(
-        "Select Top N for visualizations",
-        options=["Top 5", "Top 10", "All"],
-        index=0
-    )
+    top_n_option = st.selectbox("Select Top N for visualizations", options=["Top 5", "Top 10", "All"], index=0)
     top_n_map = {"Top 5": 5, "Top 10": 10, "All": None}
     top_n = top_n_map[top_n_option]
 
-    # --- Top-N nodes ---
+    # --- Prepare Top-N nodes for Sankey ---
     top_actors = get_top_n_nodes(summary_data, 'Actor of repression', top_n)
     top_mechanisms = get_top_n_nodes(summary_data, 'Mechanism of repression', top_n)
     top_subjects = get_top_n_nodes(summary_data, 'Subject of repression', top_n)
 
-    # --- Build Sankey links ---
+    # --- Sankey Diagram ---
     nodes, links = build_sankey_links(summary_data, top_actors, top_mechanisms, top_subjects)
-
-    # --- Render Sankey Legend ---
     sankey_legend()
-
-    # --- Render Interactive Sankey ---
     sankey_fig = create_sankey_hover(nodes, top_actors, top_mechanisms, top_subjects, links)
     st.plotly_chart(sankey_fig, use_container_width=True)
 
-    # --- Prepare Heatmaps using same Top-N ---
+    # --- Heatmaps ---
     actor_mechanism_pivot = filter_top_n(summary_data, 'Actor of repression', 'Mechanism of repression', top_n)
     subject_mechanism_pivot = filter_top_n(summary_data, 'Subject of repression', 'Mechanism of repression', top_n)
     actor_subject_pivot = filter_top_n(summary_data, 'Actor of repression', 'Subject of repression', top_n)
 
-    # --- Layout Heatmaps ---
     col1, col2, col3 = st.columns(3)
     with col1:
         st.plotly_chart(create_heatmap(actor_mechanism_pivot, summary_data, 'Actor of repression', 'Mechanism of repression', 
@@ -436,124 +446,6 @@ with tab2:
     with col3:
         st.plotly_chart(create_heatmap(actor_subject_pivot, summary_data, 'Actor of repression', 'Subject of repression', 
                                        "Actor → Subject (% of Actor Total)"), use_container_width=True)
-# ---------------- TAB 3 (MAP) ----------------
-with tab3:
-    render_summary_cards(filtered_global)
-    geo_file = Path.cwd() / "data" / "countriess.geojson"
-    if geo_file.exists():
-        with open(geo_file) as f: 
-            countries_gj = json.load(f)
-        
-        # Base map data
-        df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
-
-        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
-        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
-
-        # ----- Dynamic center & zoom -----
-        if not df_map.empty:
-            coords = []
-            for feature in countries_gj['features']:
-                if feature['properties']['name'] in df_map['alert-country'].values:
-                    geometry = feature['geometry']
-                    if geometry['type'] == "Polygon":
-                        coords.extend(geometry['coordinates'][0])
-                    elif geometry['type'] == "MultiPolygon":
-                        for poly in geometry['coordinates']:
-                            coords.extend(poly[0])
-
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
-            else:
-                center = {"lat":10,"lon":0}
-                zoom = 2
-        else:
-            center = {"lat":10,"lon":0}
-            zoom = 2
-
-        # ----- Add advanced hover stats -----
-        stats = (
-            filtered_global
-            .groupby("alert-country")
-            .agg(
-                total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
-            )
-            .reset_index()
-        )
-
-        df_map = df_map.merge(stats, on="alert-country", how="left")
-
-        df_map["perc_negative"] = (
-            (df_map["negative_alerts"] / df_map["total_alerts"]) * 100
-        ).round(1)
-
-        # ----- Main choropleth -----
-        map_height = max(400, len(df_map)*20)
-
-        fig = px.choropleth_mapbox(
-            df_map,
-            geojson=countries_gj,
-            locations="alert-country",
-            featureidkey="properties.name",
-            color="count",
-            hover_name="alert-country",
-            hover_data={
-                "count": False,
-                "total_alerts": False,
-                "negative_alerts": False,
-                "positive_alerts": False,
-                "perc_negative": False
-            },
-            color_continuous_scale="Greens",
-            mapbox_style="open-street-map",
-            zoom=zoom,
-            center=center,
-            opacity=0.8
-        )
-
-        # ----- Card-style hover tooltip -----
-        fig.update_traces(
-            hovertemplate=(
-                "<b>%{location}</b><br>"
-                "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
-                "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
-                "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "% Negative: %{customdata[3]}%<extra></extra>"
-            ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
-            hoverlabel=dict(
-                bgcolor="#2D0055",
-                font_size=13,
-                font_family="Arial",
-                font_color="white",
-                bordercolor="#ffffff"
-            ),
-            marker_line_width=1,
-            marker_line_color="black"
-        )
-
-        # ----- Bubble density overlay -----
-        
-
-        # ----- Final layout -----
-        fig.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=map_height
-        )
-
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
-
-        st.plotly_chart(fig, use_container_width=True)
-
-    else:
-        st.warning("GeoJSON file not found for map visualization.")
-
 
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
