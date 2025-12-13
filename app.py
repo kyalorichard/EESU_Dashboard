@@ -248,8 +248,8 @@ def render_summary_cards(df, base_bar_height=25):
 
 <!-- Top numbers -->
 <div style="display:flex; justify-content:space-between; font-size:16px; margin:6px 0;">
-<span style="color:#FF4C4C;">Positive ● {negative}</span>
-<span style="color:#00FFAA;">Negative ● {positive}</span>
+<span style="color:#FF4C4C;">Negative ● {negative}</span>
+<span style="color:#00FFAA;">Positive ● {positive}</span>
 </div>
 
 <!-- Horizontal bar -->
