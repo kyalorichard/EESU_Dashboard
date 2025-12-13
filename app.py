@@ -830,19 +830,19 @@ with tab3:
 # -------------------------------USER MANUAL TAB------------------------------------        
 with tab4:
     def display_pdf(pdf_path, height=900):
-    with open(pdf_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
-
-    pdf_display = f"""
-    <iframe
-        src="data:application/pdf;base64,{base64_pdf}"
-        width="100%"
-        height="{height}"
-        style="border:none;"
-    ></iframe>
-    """
-    st.markdown(pdf_display, unsafe_allow_html=True)
-
+        with open(pdf_path, "rb") as f:
+            base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+    
+        pdf_display = f"""
+        <iframe
+            src="data:application/pdf;base64,{base64_pdf}"
+            width="100%"
+            height="{height}"
+            style="border:none;"
+        ></iframe>
+        """
+        st.markdown(pdf_display, unsafe_allow_html=True)
+    
     st.markdown("## 📘 EU SEE Dashboard – User Manual")
 
     pdf_path = Path.cwd() / "docs" / "EU SEE Dashboard user manual.pdf"
@@ -851,6 +851,14 @@ with tab4:
         display_pdf(pdf_path, height=1000)
     else:
         st.warning("User Manual PDF not found.")
+        
+    with open(pdf_path, "rb") as f:
+        st.download_button(
+            label="📥 Download User Manual (PDF)",
+            data=f,
+            file_name="EU_SEE_Dashboard_User_Manual.pdf",
+            mime="application/pdf"
+        )
 
 # ---------------- FOOTER ----------------
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
