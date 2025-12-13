@@ -349,11 +349,10 @@ with tab1:
 
 # ---------------- TAB 2 (Negative Events + Cross-Analysis Heatmaps) ----------------
 with tab2:
-    # Filter negative alerts
-    reactive_df = filtered_global[filtered_global['alert-impact']=="Negative"]
-
+    st.markdown("## Filters & Overview")
+    
     # --- Inline filters ---
-    col1,col2,col3,col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         selected_actor_types = safe_multiselect("Actor Type", reactive_df['Actor of repression'].dropna().unique(), "selected_actor_types", sidebar=False)
     with col2:
@@ -371,10 +370,10 @@ with tab2:
         (reactive_df['Type of event'].isin(selected_event_types))
     ]
 
-    # --- Render summary cards ---
+    # --- Summary cards ---
     render_summary_cards(summary_data)
 
-    # --- Individual Indicator Aggregations ---
+    # --- Individual Indicator Bar Charts ---
     t1 = summary_data.groupby("Actor of repression").size().reset_index(name="count")
     t2 = summary_data.groupby("Subject of repression").size().reset_index(name="count")
     t3 = summary_data.groupby("Mechanism of repression").size().reset_index(name="count")
@@ -384,7 +383,6 @@ with tab2:
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
     t6 = df_clean.groupby("enabling-principle").size().reset_index(name="count")
 
-    # --- Layout: Individual Bar Charts ---
     st.markdown("## Individual Indicators")
     r1c1,r1c2,r1c3 = st.columns(3)
     r2c1,r2c2,r2c3 = st.columns(3)
@@ -397,82 +395,37 @@ with tab2:
     r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
     r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
 
-    # --- Top-N selection for heatmaps ---
-    st.markdown("## Cross-Indicator Heatmaps (Row-Normalized)")
+    # --- Top-N selection ---
+    st.markdown("## Cross-Indicator Heatmaps & Sankey")
     top_n_option = st.selectbox(
-        "Select Top N for Heatmaps",
+        "Select Top N for visualizations",
         options=["Top 5", "Top 10", "All"],
         index=0
     )
     top_n_map = {"Top 5": 5, "Top 10": 10, "All": None}
     top_n = top_n_map[top_n_option]
 
-    # --- Function for Top-N pivot + normalization ---
-    def filter_top_n(df, index_col, column_col, top_n=None):
-        grouped = df.groupby([index_col, column_col]).size().reset_index(name='count')
-        if top_n is not None:
-            grouped = grouped.sort_values([index_col, 'count'], ascending=[True, False])
-            grouped = grouped.groupby(index_col).head(top_n)
-        pivot = grouped.pivot(index=index_col, columns=column_col, values='count').fillna(0)
-        pivot_norm = pivot.div(pivot.sum(axis=1), axis=0) * 100
-        return pivot_norm.round(1)
+    # --- Top-N nodes ---
+    top_actors = get_top_n_nodes(summary_data, 'Actor of repression', top_n)
+    top_mechanisms = get_top_n_nodes(summary_data, 'Mechanism of repression', top_n)
+    top_subjects = get_top_n_nodes(summary_data, 'Subject of repression', top_n)
 
+    # --- Build Sankey links ---
+    nodes, links = build_sankey_links(summary_data, top_actors, top_mechanisms, top_subjects)
+
+    # --- Render Sankey Legend ---
+    sankey_legend()
+
+    # --- Render Interactive Sankey ---
+    sankey_fig = create_sankey_hover(nodes, top_actors, top_mechanisms, top_subjects, links)
+    st.plotly_chart(sankey_fig, use_container_width=True)
+
+    # --- Prepare Heatmaps using same Top-N ---
     actor_mechanism_pivot = filter_top_n(summary_data, 'Actor of repression', 'Mechanism of repression', top_n)
     subject_mechanism_pivot = filter_top_n(summary_data, 'Subject of repression', 'Mechanism of repression', top_n)
     actor_subject_pivot = filter_top_n(summary_data, 'Actor of repression', 'Subject of repression', top_n)
 
-    # --- Heatmap function with wrapped labels, no axis titles, absolute + percentage hover ---
-    def create_heatmap(df_pivot, original_df, index_col, column_col, title, max_words_per_line=3):
-        # Absolute counts pivot
-        abs_pivot = original_df.groupby([index_col, column_col]).size().reset_index(name='count')
-        abs_pivot = abs_pivot.pivot(index=index_col, columns=column_col, values='count').fillna(0)
-
-        # Wrap labels
-        def wrap_labels(labels):
-            wrapped = []
-            for label in labels:
-                words = str(label).split()
-                lines = [" ".join(words[i:i+max_words_per_line]) for i in range(0, len(words), max_words_per_line)]
-                wrapped.append("<br>".join(lines))
-            return wrapped
-
-        wrapped_x = wrap_labels(df_pivot.columns)
-        wrapped_y = wrap_labels(df_pivot.index)
-
-        fig = px.imshow(
-            df_pivot,
-            text_auto=True,
-            aspect="auto",
-            color_continuous_scale='RdPu',
-        )
-
-        # Custom hover template with absolute counts
-        hover_text = []
-        for row in df_pivot.index:
-            hover_row = []
-            for col in df_pivot.columns:
-                abs_val = int(abs_pivot.loc[row, col]) if col in abs_pivot.columns and row in abs_pivot.index else 0
-                perc_val = df_pivot.loc[row, col]
-                hover_row.append(f"{col}<br>Count: {abs_val}<br>Percent: {perc_val:.1f}%")
-            hover_text.append(hover_row)
-
-        fig.data[0].hovertemplate = "%{text}<extra></extra>"
-        fig.data[0].text = hover_text
-
-        # Update axes with wrapped labels and remove axis titles
-        fig.update_xaxes(ticktext=wrapped_x, tickvals=list(range(len(df_pivot.columns))), title=None, showticklabels=True)
-        fig.update_yaxes(ticktext=wrapped_y, tickvals=list(range(len(df_pivot.index))), title=None, showticklabels=True)
-
-        fig.update_layout(
-            title=title,
-            height=400 + len(df_pivot)*15,
-            margin=dict(l=80, r=20, t=40, b=120),
-            xaxis_showgrid=False,
-            yaxis_showgrid=False
-        )
-        return fig
-
-    # --- Layout: Heatmaps on the same row ---
+    # --- Layout Heatmaps ---
     col1, col2, col3 = st.columns(3)
     with col1:
         st.plotly_chart(create_heatmap(actor_mechanism_pivot, summary_data, 'Actor of repression', 'Mechanism of repression', 
