@@ -47,26 +47,45 @@ def load_data():
     if not parquet_file.exists():
         st.error(f"Parquet file not found: {parquet_file}")
         return pd.DataFrame()
-    df = pd.read_parquet(parquet_file)
 
+    df = pd.read_parquet(parquet_file)
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
     df = df[df['alert-country'] != "Jose"]
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     meta_file = Path.cwd() / "data" / "countries_metadata.json"
-    if not meta_file.exists():
+    country_meta = {}
+    if meta_file.exists():
+        with open(meta_file, encoding="utf-8") as f:
+            country_meta = json.load(f)
+    else:
         st.error(f"Countries metadata JSON not found: {meta_file}")
-        return df
-    with open(meta_file, encoding="utf-8") as f:
-        country_meta = json.load(f)
 
+    # ISO codes & continent
     df['iso_alpha3'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3", None))
     df['continent'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
 
+    # Map continent to region
+    def continent_to_region(continent):
+        if continent == "Africa":
+            return "Africa"
+        elif continent in ["Asia", "Oceania"]:
+            return "Asia and the Pacific"
+        elif continent in ["Europe", "Middle East"]:
+            return "The Middle East"
+        elif continent in ["Americas", "North America", "South America", "Caribbean"]:
+            return "Americas and the Caribbean"
+        else:
+            return "Unknown"
+
+    df['region'] = df['continent'].apply(continent_to_region)
+
+    # Warn about missing ISO codes
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
     if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
+    # Process dates
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
         df['year'] = df['creation_date'].dt.year
@@ -74,22 +93,6 @@ def load_data():
     else:
         st.warning("No 'creation_date' column found in dataset.")
 
-    return df
-           
-    # ---------------- REGION MAPPING FROM CONTINENT ----------------
-    def continent_to_region(continent):
-        if continent in ["Africa"]:
-            return "Africa"
-        elif continent in ["Asia", "Oceania"]:
-            return "Asia and the Pacific"
-        elif continent in ["North America", "South America", "Central America", "Caribbean"]:
-            return "Americas and the Caribbean"
-        elif continent in ["Middle East", "Western Asia"]:
-            return "The Middle East"
-        else:
-            return "Other"
-
-    df['region'] = df['continent'].apply(continent_to_region)
     return df
 
 data = load_data()
