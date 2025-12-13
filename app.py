@@ -245,34 +245,6 @@ def render_summary_cards(df, bar_height=22):
         </div>
         """, unsafe_allow_html=True)
             
-# ---------------- CUSTOM CSS ----------------
-st.markdown("""
-<style>
-/* Remove top spacing */
-.css-18e3th9 {padding-top: 0rem;}
-.css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
-
-/* Summary card styling */
-.summary-card {
-   background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
-   color: white;
-   padding: 5px;
-   border-radius: 12px;
-   text-align: center;
-   margin: 5px;
-   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-   transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.summary-card:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-    cursor: pointer;
-}
-.stTabs [role="tab"] button {font-size: 20px; font-weight: bold;}
-footer {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
-
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, horizontal=False):
     num_bars = df.shape[0]
