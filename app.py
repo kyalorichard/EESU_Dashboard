@@ -178,16 +178,7 @@ selected_countries = safe_multiselect("Select country", filtered_countries['aler
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
 
-selected_enabling_principle = safe_multiselect(
-    "Select enabling principle", 
-    data[['Respect and protection of fundamental freedoms',
-        'Supportive legal and regulatory framework',
-        'Accessible and sustainable resources',
-        'State openness and responsiveness to civil society',
-        'Civic culture and public discourses on civil society',
-        'Digital environment integrity and security']].columns,
-    "selected_enabling_principle"
-)
+selected_enabling_principle = safe_multiselect("Select enabling principle", data[official_principles].columns,"selected_enabling_principle")
 #selected_enabling_principle = safe_multiselect("Select enabling principle", 
                                                #data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
                                                #"selected_enabling_principle")
