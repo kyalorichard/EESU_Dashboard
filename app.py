@@ -163,106 +163,87 @@ def wrap_label_by_words(label, words_per_line=4):
 
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
-def render_summary_cards(df, bar_height=24):
+def render_summary_cards(df, bar_height=22):
     """
-    Renders summary cards in Streamlit including a combined Negative/Positive alert card
-    with labels and percentages displayed inside the bar.
-
-    Parameters:
-    - df: pd.DataFrame with columns 'alert-country' and 'alert-impact'
-    - bar_height: int, height of the sparkline-style bar in pixels
+    Summary cards:
+    - Monitored Countries
+    - Total Alerts
+    - Combined Positive / Negative breakdown
     """
 
     total_countries = df['alert-country'].nunique()
-    total_alerts = df.shape[0]
-    negative_alerts = df[df['alert-impact'] == "Negative"].shape[0]
-    positive_alerts = df[df['alert-impact'] == "Positive"].shape[0]
+    total_alerts = len(df)
 
-    # Cards data
-    cards = [
-        {"label": "Monitored Countries", "value": total_countries},
-        {"label": "Total Alerts", "value": total_alerts},
-        {
-            "label": "Alerts Breakdown",
-            "value": f"Negative: {negative_alerts} | Positive: {positive_alerts}",
-            "negative": negative_alerts,
-            "positive": positive_alerts
-        }
-    ]
+    negative = (df['alert-impact'] == "Negative").sum()
+    positive = (df['alert-impact'] == "Positive").sum()
+    total_np = negative + positive
 
-    num_cards = len(cards)
-    font_size_value = max(16, 24 - num_cards * 2)
-    font_size_label = max(10, 14 - num_cards)
-    col_count = min(num_cards, 4)
-    cols = st.columns(col_count)
+    neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
+    pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
 
-    for i, card in enumerate(cards):
-        col = cols[i % col_count]
+    col1, col2, col3 = st.columns(3)
 
-        # Combined Alert Card with Sparkline and labels inside the bar
-        if card.get("negative") is not None:
-            total = card["negative"] + card["positive"]
-            neg_pct = round((card["negative"] / total) * 100, 1) if total > 0 else 0
-            pos_pct = 100 - neg_pct
+    # --- Countries ---
+    with col1:
+        st.markdown(f"""
+        <div class="summary-card">
+            <p style="margin:0;font-size:14px;">Monitored Countries</p>
+            <h2 style="margin:6px 0;">{total_countries}</h2>
+        </div>
+        """, unsafe_allow_html=True)
 
-            col.markdown(f"""
-            <div class="summary-card" style="
-                padding:10px; 
-                border-radius:10px; 
-                background:#f9f9f9; 
-                box-shadow:0 2px 5px rgba(0,0,0,0.1);
+    # --- Alerts ---
+    with col2:
+        st.markdown(f"""
+        <div class="summary-card">
+            <p style="margin:0;font-size:14px;">Total Alerts</p>
+            <h2 style="margin:6px 0;">{total_alerts}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- Breakdown ---
+    with col3:
+        st.markdown(f"""
+        <div class="summary-card">
+            <p style="margin:0;font-size:14px;">Alerts Breakdown</p>
+
+            <div style="display:flex;justify-content:space-between;
+                        font-size:16px;margin:6px 0;">
+                <span style="color:#FF4C4C;">● {negative}</span>
+                <span style="color:#00FFAA;">● {positive}</span>
+            </div>
+
+            <div style="
+                height:{bar_height}px;
+                background:rgba(255,255,255,0.25);
+                border-radius:{bar_height//2}px;
+                overflow:hidden;
+                display:flex;
+                font-size:11px;
+                font-weight:bold;
             ">
-                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                <div style="display:flex; justify-content:space-between; margin:5px 0; font-size:{font_size_value}px;">
-                    <span style="color:#FF4C4C;">● {card['negative']}</span>
-                    <span style="color:#00FFAA;">● {card['positive']}</span>
+                <div style="
+                    width:{neg_pct}%;
+                    background:#FF4C4C;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                ">
+                    {neg_pct}%
                 </div>
                 <div style="
-                    background:background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);; 
-                    height:{bar_height}px; 
-                    border-radius:{bar_height//2}px; 
-                    overflow:hidden; 
-                    display:flex; 
-                    font-size:12px; 
-                    font-weight:bold;
+                    width:{pos_pct}%;
+                    background:#00FFAA;
+                    color:#2D0055;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
                 ">
-                    <div style="
-                        width:{neg_pct}%; 
-                        background:#FF4C4C; 
-                        color:white; 
-                        display:flex; 
-                        justify-content:center; 
-                        align-items:center;
-                    ">
-                        {neg_pct}% Negative
-                    </div>
-                    <div style="
-                        width:{pos_pct}%; 
-                        background:#00FFAA; 
-                        color:white; 
-                        display:flex; 
-                        justify-content:center; 
-                        align-items:center;
-                    ">
-                        {pos_pct}% Positive
-                    </div>
+                    {pos_pct}%
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-
-        else:
-            # Normal card
-            col.markdown(f"""
-            <div class="summary-card" style="
-                padding:10px; 
-                border-radius:10px; 
-                background:background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);; 
-                box-shadow:0 2px 5px rgba(0,0,0,0.1);
-            ">
-                <p style="font-size:{font_size_label}px; margin:0;">{card['label']}</p>
-                <h2 style="font-size:{font_size_value}px; margin:5px 0;">{card['value']}</h2>
-            </div>
-            """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
             
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
