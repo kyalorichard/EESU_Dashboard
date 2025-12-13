@@ -391,6 +391,7 @@ with tab2:
 
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
+    render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
     if geo_file.exists():
         with open(geo_file) as f: 
