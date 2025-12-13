@@ -366,7 +366,7 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
- ---------------- TAB 2 (Negative Events + Cross-Analysis Heatmaps) ----------------
+#---------------- TAB 2 (Negative Events + Cross-Analysis Heatmaps) ----------------
 with tab2:
     st.markdown("## Filters & Overview")
 
