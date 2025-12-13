@@ -366,10 +366,10 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
-# ---------------- HELPER FUNCTION ----------------
+# ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
-    Creates a pivot table of counts for heatmaps, keeping only top-N rows if specified.
+    Creates a pivot table for heatmaps, keeping only top-N rows if specified.
     """
     pivot_df = (
         df.groupby([row_col, col_col])
@@ -390,9 +390,35 @@ def filter_top_n(df, row_col, col_col, top_n=None):
     heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
     return heatmap_df
 
+def create_heatmap(pivot_df, title="Heatmap"):
+    """
+    Creates a Plotly heatmap from a pivot table.
+    """
+    if pivot_df.empty:
+        return create_placeholder_chart("No data available")
 
-# ---------------- RENDER HEATMAPS ----------------
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=pivot_df.values,
+            x=pivot_df.columns,
+            y=pivot_df.index,
+            colorscale='Viridis',
+            hoverongaps=False
+        )
+    )
+    fig.update_layout(
+        title=title,
+        xaxis_title="",
+        yaxis_title="",
+        margin=dict(l=80, r=20, t=40, b=80),
+        height=350
+    )
+    return fig
+
 def render_heatmaps(df, top_n):
+    """
+    Renders the three heatmaps for Negative Events tab.
+    """
     actor_mechanism_pivot = filter_top_n(df, 'Actor of repression', 'Mechanism of repression', top_n)
     subject_mechanism_pivot = filter_top_n(df, 'Subject of repression', 'Mechanism of repression', top_n)
     actor_subject_pivot = filter_top_n(df, 'Actor of repression', 'Subject of repression', top_n)
@@ -405,8 +431,7 @@ def render_heatmaps(df, top_n):
     with col3:
         st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
 
-
-# ---------------- TAB 2 (Negative Events + Reactive Top-N Charts + Sankey) ----------------
+# ---------------- TAB 2: Negative Events ----------------
 with tab2:
     st.markdown("## Filters & Overview")
 
@@ -441,7 +466,7 @@ with tab2:
             sidebar=False
         )
 
-    # --- Filter data ---
+    # --- Filter data based on selections ---
     summary_data = reactive_df.copy()
     if "Select All" not in selected_actor_types:
         summary_data = summary_data[summary_data['Actor of repression'].isin(selected_actor_types)]
@@ -472,43 +497,38 @@ with tab2:
         on_change=update_top_n
     )
 
-    # --- Function to get Top-N for bar charts ---
+    # --- Individual bar charts (dynamic Top-N) ---
+    st.markdown("## Individual Indicators")
+    r1c1,r1c2,r1c3 = st.columns(3)
+    r2c1,r2c2,r2c3 = st.columns(3)
+
     def top_n_bar(df, col, n):
         grouped = df.groupby(col).size().reset_index(name="count").sort_values("count", ascending=False)
         if n is not None:
             grouped = grouped.head(n)
         return grouped
 
-    # --- Individual bar charts (dynamic Top-N) ---
-    st.markdown("## Individual Indicators")
-    r1c1,r1c2,r1c3 = st.columns(3)
-    r2c1,r2c2,r2c3 = st.columns(3)
+    t1 = top_n_bar(summary_data, "Actor of repression", st.session_state.top_n)
+    t2 = top_n_bar(summary_data, "Subject of repression", st.session_state.top_n)
+    t3 = top_n_bar(summary_data, "Mechanism of repression", st.session_state.top_n)
+    t4 = top_n_bar(summary_data, "Type of event", st.session_state.top_n)
+    t5 = top_n_bar(summary_data, "alert-type", st.session_state.top_n)
 
-    if summary_data.empty:
-        for col in [r1c1,r1c2,r1c3,r2c1,r2c2,r2c3]:
-            col.plotly_chart(create_placeholder_chart(), use_container_width=True)
-    else:
-        t1 = top_n_bar(summary_data, "Actor of repression", st.session_state.top_n)
-        t2 = top_n_bar(summary_data, "Subject of repression", st.session_state.top_n)
-        t3 = top_n_bar(summary_data, "Mechanism of repression", st.session_state.top_n)
-        t4 = top_n_bar(summary_data, "Type of event", st.session_state.top_n)
-        t5 = top_n_bar(summary_data, "alert-type", st.session_state.top_n)
+    df_clean = summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].str.split(",")}).explode("enabling-principle")
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+    t6 = top_n_bar(df_clean, "enabling-principle", st.session_state.top_n)
 
-        df_clean = summary_data.assign(**{"enabling-principle": summary_data["enabling-principle"].str.split(",")}).explode("enabling-principle")
-        df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-        t6 = top_n_bar(df_clean, "enabling-principle", st.session_state.top_n)
+    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False), use_container_width=True)
+    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False), use_container_width=True)
+    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False), use_container_width=True)
+    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True), use_container_width=True)
+    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
+    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
 
-        r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count",horizontal=False), use_container_width=True)
-        r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count",horizontal=False), use_container_width=True)
-        r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count",horizontal=False), use_container_width=True)
-        r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count",horizontal=True), use_container_width=True)
-        r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count",horizontal=True), use_container_width=True)
-        r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count",horizontal=True), use_container_width=True)
-
-    # --- Heatmaps (dynamic Top-N) ---
+    # --- Heatmaps ---
     render_heatmaps(summary_data, st.session_state.top_n)
 
-    # --- Sankey Diagram inside expander (after heatmaps) ---
+    # --- Sankey Diagram (after heatmaps) ---
     with st.expander("Show Flowchart (Sankey Diagram)"):
         if not summary_data.empty:
             top_actors = get_top_n_nodes(summary_data, 'Actor of repression', st.session_state.top_n)
@@ -521,6 +541,7 @@ with tab2:
             st.plotly_chart(sankey_fig, use_container_width=True)
         else:
             st.plotly_chart(create_placeholder_chart("No data available for Sankey"), use_container_width=True)
+
             
 # ---------------- TAB 3 (MAP) ----------------
 with tab3:
