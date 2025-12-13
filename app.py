@@ -389,12 +389,21 @@ def filter_top_n(df, row_col, col_col, top_n=None):
     heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
     return heatmap_df
 
+# ---------------- FORMATTED HEATMAP ----------------
 def create_heatmap(pivot_df, title="Heatmap"):
     """
-    Creates a Plotly heatmap from a pivot table.
+    Creates a Plotly heatmap from a pivot table with formatted labels and hover info.
     """
     if pivot_df.empty:
-        return create_placeholder_chart("No data available")
+        # Placeholder chart if no data
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False, font=dict(size=16))
+        fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+        return fig
+
+    # Wrap labels for better readability
+    pivot_df.index = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.index]
+    pivot_df.columns = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.columns]
 
     fig = go.Figure(
         data=go.Heatmap(
@@ -402,16 +411,22 @@ def create_heatmap(pivot_df, title="Heatmap"):
             x=pivot_df.columns,
             y=pivot_df.index,
             colorscale='Viridis',
-            hoverongaps=False
+            hovertemplate="<b>%{y}</b> → <b>%{x}</b><br>Count: %{z}<extra></extra>",
+            colorbar=dict(title="Count", tickfont=dict(size=12))
         )
     )
+
     fig.update_layout(
         title=title,
+        title_font=dict(size=18, color="#660094"),
         xaxis_title="",
         yaxis_title="",
-        margin=dict(l=80, r=20, t=40, b=80),
-        height=350
+        xaxis_tickangle=-45,
+        yaxis=dict(tickfont=dict(size=12)),
+        margin=dict(l=80, r=20, t=50, b=120),
+        height=max(350, len(pivot_df)*35)
     )
+
     return fig
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
@@ -424,21 +439,58 @@ def get_top_n_items(df, col, top_n):
         counts = counts.head(top_n)
     return counts.index.tolist()
               
-def render_heatmaps(df, top_n):
+# ---------------- RENDER HEATMAPS WITH TOP-N AND CONSISTENT COLOR SCALE ----------------
+def render_heatmaps(df, top_n=5):
     """
-    Renders the three heatmaps for Negative Events tab.
+    Renders three heatmaps for Negative Events tab:
+    - Actor → Mechanism
+    - Subject → Mechanism
+    - Actor → Subject
+    
+    Automatically applies Top-N logic and ensures a consistent color scale across all heatmaps.
+    
+    Parameters:
+        df (DataFrame): Full filtered data (Negative Events)
+        top_n (int or None): Number of top items to show per axis. Use None for all.
     """
-    actor_mechanism_pivot = filter_top_n(df, 'Actor of repression', 'Mechanism of repression', top_n)
-    subject_mechanism_pivot = filter_top_n(df, 'Subject of repression', 'Mechanism of repression', top_n)
-    actor_subject_pivot = filter_top_n(df, 'Actor of repression', 'Subject of repression', top_n)
+    # Determine top items
+    top_actors = get_top_n_items(df, "Actor of repression", top_n)
+    top_subjects = get_top_n_items(df, "Subject of repression", top_n)
+    top_mechanisms = get_top_n_items(df, "Mechanism of repression", top_n)
 
+    # Filter df to only include Top-N items
+    df_top = df[
+        df['Actor of repression'].isin(top_actors) &
+        df['Subject of repression'].isin(top_subjects) &
+        df['Mechanism of repression'].isin(top_mechanisms)
+    ].copy()
+
+    # Create pivot tables
+    actor_mechanism_pivot = filter_top_n(df_top, 'Actor of repression', 'Mechanism of repression', None)
+    subject_mechanism_pivot = filter_top_n(df_top, 'Subject of repression', 'Mechanism of repression', None)
+    actor_subject_pivot = filter_top_n(df_top, 'Actor of repression', 'Subject of repression', None)
+
+    # Determine global max value for consistent color scale
+    all_values = pd.concat([actor_mechanism_pivot.stack(), subject_mechanism_pivot.stack(), actor_subject_pivot.stack()])
+    zmax = all_values.max() if not all_values.empty else 1  # Avoid division by zero
+
+    # Render heatmaps in columns
     col1, col2, col3 = st.columns(3)
+
     with col1:
-        st.plotly_chart(create_heatmap(actor_mechanism_pivot, "Actor → Mechanism (% of Actor Total)"), use_container_width=True)
+        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (% of Actor Total)")
+        fig1.update_traces(zmin=0, zmax=zmax)
+        st.plotly_chart(fig1, use_container_width=True)
+
     with col2:
-        st.plotly_chart(create_heatmap(subject_mechanism_pivot, "Subject → Mechanism (% of Subject Total)"), use_container_width=True)
+        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (% of Subject Total)")
+        fig2.update_traces(zmin=0, zmax=zmax)
+        st.plotly_chart(fig2, use_container_width=True)
+
     with col3:
-        st.plotly_chart(create_heatmap(actor_subject_pivot, "Actor → Subject (% of Actor Total)"), use_container_width=True)
+        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (% of Actor Total)")
+        fig3.update_traces(zmin=0, zmax=zmax)
+        st.plotly_chart(fig3, use_container_width=True)
 
 # ---------------- SANKEY ----------------
 def render_sankey(summary_df, top_n=None, width=900):
