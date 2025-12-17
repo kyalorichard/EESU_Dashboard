@@ -726,7 +726,7 @@ with tab2:
         def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
                 return df
-            return df[df[col].apply(lambda x: contains_any(x, selected_values))
+            return df[df[col].apply(lambda x: contains_any(x, selected_values))]
 
         filtered_df = df_exploded.copy()
         filtered_df = filter_exploded(filtered_df, "Actor of repression", selected_actor_types)
