@@ -741,8 +741,8 @@ with tab2:
 
         st.selectbox(
             "Select Top N for charts, heatmaps, and Sankey",
-            options=["Top 2", "Top 3", "Top 4", "Top 5" "All"],
-            index=["Top 2", "Top 3", "Top 4", "Top 5" "All"].index(st.session_state.top_n_option),
+            options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
+            index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
             key="top_n_option",
             on_change=update_top_n
         )
