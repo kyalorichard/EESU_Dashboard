@@ -619,19 +619,19 @@ with tab2:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         selected_actor_types = safe_multiselect("Actor Type",
-                                               reactive_df['Actor of repression'].dropna().unique(),
+                                               reactive_df['Actor of repression'].dropna().str.split(",").explode().str.strip().unique(),
                                                "selected_actor_types", sidebar=False)
     with col2:
         selected_subject_types = safe_multiselect("Subject Type",
-                                                  reactive_df['Subject of repression'].dropna().unique(),
+                                                  reactive_df['Subject of repression'].dropna().str.split(",").explode().str.strip().unique(),
                                                   "selected_subject_types", sidebar=False)
     with col3:
         selected_mechanism_types = safe_multiselect("Mechanism Type",
-                                                    reactive_df['Mechanism of repression'].dropna().unique(),
+                                                    reactive_df['Mechanism of repression'].dropna().str.split(",").explode().str.strip().unique(),
                                                     "selected_mechanism_types", sidebar=False)
     with col4:
         selected_event_types = safe_multiselect("Event Type",
-                                                reactive_df['Type of event'].dropna().unique(),
+                                                reactive_df['Type of event'].dropna().dropna().str.split(",").explode().str.strip().unique(),
                                                 "selected_event_types", sidebar=False)
 
     # Filter data
