@@ -640,6 +640,29 @@ def top_n_bar(df, col, top_n=None):
         counts = counts.head(top_n)
     
     return counts
+
+def explode_multi_valued_columns(df, cols):
+    """
+    Explodes comma-separated values in specified columns.
+    Each comma-separated value becomes a separate row.
+
+    Parameters:
+        df (DataFrame): Input DataFrame
+        cols (list): List of column names to explode
+
+    Returns:
+        DataFrame: Exploded DataFrame with whitespace-trimmed values
+    """
+    df_exploded = df.copy()
+    for col in cols:
+        if col in df_exploded.columns:
+            # Split comma-separated values into lists
+            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
+            # Explode each list into separate rows
+            df_exploded = df_exploded.explode(col)
+            # Strip leading/trailing whitespace
+            df_exploded[col] = df_exploded[col].str.strip()
+    return df_exploded
  
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
@@ -660,9 +683,6 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
-
-    
-# ---------------- TAB 2: Negative Events ----------------
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
     # Filter negative events
@@ -676,6 +696,8 @@ with tab2:
         
         # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
         cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
+        df_exploded = explode_multi_valued_columns(reactive_df, cols_to_explode)
+        
         df_exploded = reactive_df.copy()
         for col in cols_to_explode:
             df_exploded[col] = df_exploded[col].str.split(",")
@@ -721,13 +743,12 @@ with tab2:
         ]
         render_summary_cards(reactive_df_updated)
 
-                
         # ---------------- APPLY INLINE FILTERS ----------------
         def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
                 return df
             return df[df[col].apply(lambda x: contains_any(x, selected_values))]
-
+            
         filtered_df = df_exploded.copy()
         filtered_df = filter_exploded(filtered_df, "Actor of repression", selected_actor_types)
         filtered_df = filter_exploded(filtered_df, "Subject of repression", selected_subject_types)
