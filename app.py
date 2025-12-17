@@ -736,16 +736,7 @@ with tab2:
         def update_top_n():
             option = st.session_state.top_n_option
             st.session_state.top_n = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}[option]
-
-        st.selectbox(
-            "Select Top N for charts, heatmaps, and Sankey",
-            options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
-            index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
-            key="top_n_option",
-            on_change=update_top_n
-        )
-        top_n = st.session_state.top_n
-
+        
         # ---------------- SUMMARY CARDS ----------------
         render_summary_cards(df_clean)
 
@@ -772,6 +763,15 @@ with tab2:
         r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True, key="tab2_chart5")
         r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True, key="tab2_chart6")
+
+        st.selectbox(
+            "Select Top N for charts, heatmaps, and Sankey",
+            options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
+            index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
+            key="top_n_option",
+            on_change=update_top_n
+        )
+        top_n = st.session_state.top_n
 
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
