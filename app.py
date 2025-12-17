@@ -507,7 +507,6 @@ def render_heatmaps(df, top_n=5):
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
 
 # ---------------- UPDATED SANKEY FUNCTION ----------------
-# ---------------- SANKEY ----------------
 def render_sankey(summary_df, top_n=None, width=900):
     if summary_df.empty:
         st.warning("No data available for Sankey")
@@ -735,11 +734,15 @@ with tab2:
         filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
         filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
 
-        filtered_df= filtered_df[(filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (filtered_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (filtered_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (filtered_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
+        df_actor = filtered_df.assign(
+            **{"Actor of repression": filtered_df["Actor of repression"].str.split(",").strip()}
+        ).explode("Actor of repression")
+        df_subject = filtered_df.assign(
+            **{"Subject of repression": filtered_df["Subject of repression"].str.split(",").strip()}
+        ).explode("Subject of repression")
+       
+
+        
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
@@ -764,8 +767,8 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c1.plotly_chart(create_bar_chart(top_n_bar(df_actor, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(top_n_bar(df_subject, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
