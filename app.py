@@ -674,8 +674,7 @@ with tab2:
     else:
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
-        render_summary_cards(reactive_df)
-
+        
         # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
         cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
         df_exploded = reactive_df.copy()
@@ -716,6 +715,14 @@ with tab2:
                 "selected_event_types", sidebar=False
             )
 
+        reactive_df_updated= reactive_df([reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+        render_summary_cards(reactive_df_updated)
+
+                
         # ---------------- APPLY INLINE FILTERS ----------------
         def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
