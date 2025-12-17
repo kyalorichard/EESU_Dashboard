@@ -736,7 +736,7 @@ with tab2:
             
         filtered_df = df_exploded.copy()
         
-        filtered_df = filtered_df[
+        filtered_df2 = filtered_df[
             (filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (filtered_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
             (filtered_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
@@ -744,16 +744,16 @@ with tab2:
         ]
 
 
-        actor_counts = (filtered_df["Actor of repression"].value_counts().reset_index()
+        actor_counts = (filtered_df2["Actor of repression"].value_counts().reset_index()
                         .rename(columns={"index": "Actor of repression", "Actor of repression": "count"})
                        )
-        subject_counts = (filtered_df["Subject of repression"].value_counts().reset_index()
+        subject_counts = (filtered_df2["Subject of repression"].value_counts().reset_index()
                           .rename(columns={"index": "Subject of repression", "Subject of repression": "count"})
                          )
-        mechanism_counts = (filtered_df["Mechanism of repression"].value_counts().reset_index()
+        mechanism_counts = (filtered_df2["Mechanism of repression"].value_counts().reset_index()
                             .rename(columns={"index": "Mechanism of repression", "Mechanism of repression": "count"})
                            )
-        event_counts = (filtered_df["Type of event"].value_counts().reset_index()
+        event_counts = (filtered_df2["Type of event"].value_counts().reset_index()
                         .rename(columns={"index": "Type of event", "Type of event": "count"})
                        )
 
