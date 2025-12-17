@@ -735,12 +735,11 @@ with tab2:
         filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
 
         df_actor = filtered_df.assign(
-            **{"Actor of repression": filtered_df["Actor of repression"].str.split(",").strip()}
-        ).explode("Actor of repression")
+            **{"Actor of repression": filtered_df["Actor of repression"]}
+        )
         df_subject = filtered_df.assign(
-            **{"Subject of repression": filtered_df["Subject of repression"].str.split(",").strip()}
-        ).explode("Subject of repression")
-       
+            **{"Subject of repression": filtered_df["Subject of repression"]}
+        )
 
         
 
