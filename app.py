@@ -743,24 +743,25 @@ with tab2:
             (filtered_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
             
-        filtered_df = filtered_df.assign(**{"Actor of repression": filtered_df["Actor of repression"]})
-        df_clean["Actor of repression"] = filtered_df["Actor of repression"].size().reset_index(name='count')
+        actor_counts = filtered_df["Actor of repression"].value_counts().reset_index()
+        actor_counts.columns = ["Actor of repression", "count"]
 
-        filtered_df = filtered_df.assign(**{"Subject of repression": filtered_df["Subject of repression"]})
-        df_clean["Subject of repression"] = filtered_df["Subject of repression"].size().reset_index(name='count')
-       
-        filtered_df = filtered_df.assign(**{"Mechanism of repression": filtered_df["Mechanism of repression"]})
-        df_clean["Mechanism of repression"] = filtered_df["Mechanism of repression"].size().reset_index(name='count')
+        subject_counts = filtered_df["Subject of repression"].value_counts().reset_index()
+        subject_counts.columns = ["Subject of repression", "count"]
+        
+        mechanism_counts = filtered_df["Mechanism of repression"].value_counts().reset_index()
+        mechanism_counts.columns = ["Mechanism of repression", "count"]
+        
+        event_counts = filtered_df["Type of event"].value_counts().reset_index()
+        event_counts.columns = ["Type of event", "count"]
 
-        filtered_df = filtered_df.assign(**{"Type of event": filtered_df["Type of event"]})
-        df_clean["Type of event"] = filtered_df["Type of event"].size().reset_index(name='count')
+        event_type = filtered_df["alert-type"].value_counts().reset_index()
+        event_type.columns = ["alert-type", "count"]
 
-        filtered_df = filtered_df.assign(**{"alert-type": filtered_df["alert-type"]})
-        df_clean["alert-type"] = filtered_df["alert-type"].size().reset_index(name='count')
-
-        filtered_df = filtered_df.assign(**{"enabling-principle": filtered_df["enabling-principle"]})
-        df_clean["enabling-principle"] = filtered_df["enabling-principle"].size().reset_index(name='count')
-          
+        enabling_principle = filtered_df["enabling_principle"].value_counts().reset_index()
+        enabling_principle.columns = ["enabling_principle", "count"]
+        
+                 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
@@ -784,12 +785,12 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
-        r2c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
+        r1c1.plotly_chart(create_bar_chart(top_n_bar(actor_counts, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(top_n_bar(subject_counts, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(top_n_bar(mechanism_counts, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(top_n_bar(event_type, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(top_n_bar(event_type, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(top_n_bar(enabling_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
             render_heatmaps(filtered_df, top_n=top_n)
