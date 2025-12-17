@@ -730,7 +730,7 @@ with tab2:
         ]
         render_summary_cards(reactive_df_updated)
 
-       def filter_exploded(df, col, selected_values):
+        def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
                 return df
             return df[df[col].apply(lambda x: contains_any(x, selected_values))]
