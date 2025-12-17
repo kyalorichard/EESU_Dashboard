@@ -637,6 +637,13 @@ def top_n_bar(df, col, top_n=None):
     
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
+
+st.write("Reactive DF shape:", reactive_df.shape)
+st.write("Top 5 rows:", reactive_df.head())
+st.write("Unique Actor of repression:", reactive_df['Actor of repression'].unique())
+st.write("Unique Subject of repression:", reactive_df['Subject of repression'].unique())
+st.write("Unique Mechanism of repression:", reactive_df['Mechanism of repression'].unique())
+st.write("Unique Type of event:", reactive_df['Type of event'].unique())
     st.header("Negative Events Analysis")
 
     if reactive_df.empty:
