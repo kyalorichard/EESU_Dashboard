@@ -766,7 +766,6 @@ with tab2:
         #enabling_principle = filtered_df["enabling_principle"].value_counts().reset_index()
         #enabling_principle.columns = ["enabling_principle", "count"]
 
-        st.write(filtered_df.columns.tolist())
         
                  
         # ---------------- TOP-N CONFIG ----------------
