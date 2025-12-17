@@ -693,9 +693,7 @@ with tab2:
             df_exploded[col] = df_exploded[col].str.split(",")
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
-
         
-
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -737,17 +735,32 @@ with tab2:
 
             
         filtered_df = df_exploded.copy()
-        filtered_df = filter_exploded(filtered_df, "Actor of repression", selected_actor_types)
-        filtered_df = filter_exploded(filtered_df, "Subject of repression", selected_subject_types)
-        filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
-        filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
-
-        df_principle = filtered_df.assign(
-            **{"enabling-principle": filtered_df["enabling-principle"].str.split(",")}
-        ).explode("enabling-principle")
-        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
         
+        filtered_df = filtered_df[
+            (filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (filtered_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (filtered_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (filtered_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+            
+        filtered_df = filtered_df.assign(**{"Actor of repression": filtered_df["Actor of repression"].str.split(",")}).explode("Actor of repression").str.strip()
+        df_clean["Actor of repression"] = df_clean["Actor of repression"].str.strip()
 
+        filtered_df = filtered_df.assign(**{"Subject of repression": filtered_df["Subject of repression"].str.split(",")}).explode("Subject of repression").str.strip()
+        df_clean["Subject of repression"] = df_clean["ASubject of repression"].str.strip()
+       
+        filtered_df = filtered_df.assign(**{"Mechanism of repression": filtered_df["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression").str.strip()
+        df_clean["Mechanism of repression"] = df_clean["Mechanism of repression"].str.strip()
+
+        filtered_df = filtered_df.assign(**{"Type of event": filtered_df["Type of event"].str.split(",")}).explode("Type of event").str.strip()
+        df_clean["Type of event"] = df_clean["Type of event"].str.strip()
+
+        filtered_df = filtered_df.assign(**{"alert-type": filtered_df["alert-type"].str.split(",")}).explode("alert-type").str.strip()
+        df_clean["alert-type"] = df_clean["alert-type"].str.strip()
+
+        filtered_df = filtered_df.assign(**{"enabling-principle": filtered_df["enabling-principle"].str.split(",")}).explode("enabling-principle").str.strip()
+        df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
+          
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
@@ -776,7 +789,7 @@ with tab2:
         r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
-        r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
+        r2c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
             render_heatmaps(filtered_df, top_n=top_n)
