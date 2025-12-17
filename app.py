@@ -505,6 +505,34 @@ def render_heatmaps(df, top_n=5):
         fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor Total)")
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
+        
+    # ---------------- INLINE FILTER FUNCTION ----------------
+def apply_inline_filter(df, filters, explode_cols=None):
+    """
+    Apply inline filters to a DataFrame.
+
+    Parameters:
+        df (DataFrame): Original DataFrame
+        filters (dict): Keys = column names, Values = list of selected values (including "Select All")
+        explode_cols (list or None): Columns to explode after filtering. If None, returns filtered df as is.
+
+    Returns:
+        DataFrame: Filtered (and optionally exploded) DataFrame
+    """
+    filtered = df.copy()
+
+    for col, selected in filters.items():
+        if "Select All" not in selected:
+            filtered = filtered[filtered[col].notna() & filtered[col].isin(selected)]
+
+    if explode_cols:
+        for col in explode_cols:
+            if col in filtered.columns:
+                filtered[col] = filtered[col].fillna("").astype(str).str.split(",")
+                filtered = filtered.explode(col)
+                filtered[col] = filtered[col].str.strip()
+
+    return filtered
 
 # ---------------- UPDATED SANKEY FUNCTION ----------------
 # ---------------- SANKEY ----------------
