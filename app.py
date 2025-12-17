@@ -613,113 +613,107 @@ def render_sankey(summary_df, top_n=None, width=900):
     
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
-    st.markdown("## Filters & Overview")
+    st.header("Negative Events Analysis")
 
-    # Inline filters
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        selected_actor_types = safe_multiselect("Actor Type",
-                                               reactive_df['Actor of repression'].dropna().str.split(",").explode().str.strip().unique(),
-                                               "selected_actor_types", sidebar=False)
-    with col2:
-        selected_subject_types = safe_multiselect("Subject Type",
-                                                  reactive_df['Subject of repression'].dropna().str.split(",").explode().str.strip().unique(),
-                                                  "selected_subject_types", sidebar=False)
-    with col3:
-        selected_mechanism_types = safe_multiselect("Mechanism Type",
-                                                    reactive_df['Mechanism of repression'].dropna().str.split(",").explode().str.strip().unique(),
-                                                    "selected_mechanism_types", sidebar=False)
-    with col4:
-        selected_event_types = safe_multiselect("Event Type",
-                                                reactive_df['Type of event'].dropna().dropna().str.split(",").explode().str.strip().unique(),
-                                                "selected_event_types", sidebar=False)
-    # ---------------- EXPLODE MULTI-VALUE COLUMNS ----------------
-    cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event", "enabling-principle"]
-    df_clean = reactive_df.copy()
-    for col in cols_to_explode:
-        if col in df_clean.columns:
-            df_clean[col] = df_clean[col].fillna("").str.split(",")
+    if reactive_df.empty:
+        st.warning("No negative events available for the selected filters.")
+    else:
+        # ---------------- INLINE FILTERS ----------------
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            selected_actor_types = safe_multiselect(
+                "Actor Type",
+                reactive_df['Actor of repression'].dropna().str.split(",").explode().str.strip().unique(),
+                "selected_actor_types", sidebar=False
+            )
+        with col2:
+            selected_subject_types = safe_multiselect(
+                "Subject Type",
+                reactive_df['Subject of repression'].dropna().str.split(",").explode().str.strip().unique(),
+                "selected_subject_types", sidebar=False
+            )
+        with col3:
+            selected_mechanism_types = safe_multiselect(
+                "Mechanism Type",
+                reactive_df['Mechanism of repression'].dropna().str.split(",").explode().str.strip().unique(),
+                "selected_mechanism_types", sidebar=False
+            )
+        with col4:
+            selected_event_types = safe_multiselect(
+                "Event Type",
+                reactive_df['Type of event'].dropna().str.split(",").explode().str.strip().unique(),
+                "selected_event_types", sidebar=False
+            )
+
+        # ---------------- FILTER DATA BASED ON INLINE SELECTION ----------------
+        filtered_top_n_df = reactive_df.copy()
+        if "Select All" not in selected_actor_types:
+            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Actor of repression'].isin(selected_actor_types)]
+        if "Select All" not in selected_subject_types:
+            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Subject of repression'].isin(selected_subject_types)]
+        if "Select All" not in selected_mechanism_types:
+            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Mechanism of repression'].isin(selected_mechanism_types)]
+        if "Select All" not in selected_event_types:
+            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Type of event'].isin(selected_event_types)]
+
+        # ---------------- TOP-N CONFIG ----------------
+        if "top_n_option" not in st.session_state:
+            st.session_state.top_n_option = "Top 5"
+            st.session_state.top_n = 5
+
+        def update_top_n():
+            option = st.session_state.top_n_option
+            st.session_state.top_n = {"Top 2": 2, "Top 5": 5, "Top 10": 10, "All": None}[option]
+
+        st.selectbox(
+            "Select Top N for charts, heatmaps, and Sankey",
+            options=["Top 2", "Top 5", "Top 10", "All"],
+            index=["Top 2","Top 5","Top 10","All"].index(st.session_state.top_n_option),
+            key="top_n_option",
+            on_change=update_top_n
+        )
+        top_n = st.session_state.top_n
+
+        # ---------------- EXPLODE COLUMNS FOR MULTI-VALUED FIELDS ----------------
+        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
+        df_clean = filtered_top_n_df.copy()
+        for col in cols_to_explode:
+            df_clean[col] = df_clean[col].str.split(",")
             df_clean = df_clean.explode(col)
-            df_clean[col] = df_clean[col].str.strip()                                            
+            df_clean[col] = df_clean[col].str.strip()
 
-    # Filter data
-    summary_data = reactive_df.copy()
-    if "Select All" not in selected_actor_types:
-        summary_data = summary_data[summary_data['Actor of repression'].isin(selected_actor_types)]
-    if "Select All" not in selected_subject_types:
-        summary_data = summary_data[summary_data['Subject of repression'].isin(selected_subject_types)]
-    if "Select All" not in selected_mechanism_types:
-        summary_data = summary_data[summary_data['Mechanism of repression'].isin(selected_mechanism_types)]
-    if "Select All" not in selected_event_types:
-        summary_data = summary_data[summary_data['Type of event'].isin(selected_event_types)]
+        # Explode enabling-principle separately
+        df_principle = filtered_top_n_df.assign(
+            **{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}
+        ).explode("enabling-principle")
+        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
 
-    # Render summary cards
-    render_summary_cards(summary_data)
+        # ---------------- TOP-N BAR CHARTS ----------------
+        r1c1, r1c2, r1c3 = st.columns(3)
+        r2c1, r2c2, r2c3 = st.columns(3)
 
-    # ---------------- TOP-N CONFIG ----------------
-    if "top_n_option" not in st.session_state:
-        st.session_state.top_n_option = "Top 5"
-        st.session_state.top_n = 5
-    
-    def update_top_n():
-        option = st.session_state.top_n_option
-        st.session_state.top_n = {"Top 2":2,"Top 5":5, "Top 10":10, "All":None}[option]
-    
-    st.selectbox(
-        "Select Top N for charts, heatmaps, and Sankey",
-        options=["Top 2","Top 5", "Top 10", "All"],
-        index=["Top 2","Top 5","Top 10","All"].index(st.session_state.top_n_option),
-        key="top_n_option",
-        on_change=update_top_n
-    )
-    
-    top_n = st.session_state.top_n
-    
-    # ---------------- COMPUTE TOP-N ITEMS ----------------
-    top_actors = get_top_n_items(summary_data, "Actor of repression", top_n)
-    top_subjects = get_top_n_items(summary_data, "Subject of repression", top_n)
-    top_mechanisms = get_top_n_items(summary_data, "Mechanism of repression", top_n)
-    top_event_types = get_top_n_items(summary_data, "Type of event", top_n)
-    top_alert_types = get_top_n_items(summary_data, "alert-type", top_n)
-    
-    # Filter data to only include Top-N items
-    filtered_top_n_df = summary_data[
-        summary_data['Actor of repression'].isin(top_actors) &
-        summary_data['Subject of repression'].isin(top_subjects) &
-        summary_data['Mechanism of repression'].isin(top_mechanisms) &
-        summary_data['Type of event'].isin(top_event_types) &
-        summary_data['alert-type'].isin(top_alert_types)
-    ].copy()
-    
-    # ---------------- RENDER BAR CHARTS ----------------
-    def top_n_bar(df, col):
-        grouped = df.groupby(col).size().reset_index(name="count").sort_values("count", ascending=False)
-        return grouped
-    
-    r1c1,r1c2,r1c3 = st.columns(3)
-    r2c1,r2c2,r2c3 = st.columns(3)
-    
-    t1 = top_n_bar(df_clean, "Actor of repression")
-    t2 = top_n_bar(df_clean, "Subject of repression")
-    t3 = top_n_bar(df_clean, "Mechanism of repression")
-    t4 = top_n_bar(df_clean, "Type of event")
-    t5 = top_n_bar(df_clean, "alert-type") if "alert-type" in df_clean.columns else pd.DataFrame(columns=["alert-type","count"])
-    t6 = top_n_bar(df_clean, "enabling-principle") if "enabling-principle" in df_clean.columns else pd.DataFrame(columns=["enabling-principle","count"])
-    
-    r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True, key="tab2_chart1")
-    r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True, key="tab2_chart2")
-    r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True, key="tab2_chart3")
-    r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True, key="tab2_chart4")
-    r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True, key="tab2_chart5")
-    r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True, key="tab2_chart6")
-    
-    # ---------------- RENDER HEATMAPS ----------------
-    render_heatmaps(filtered_top_n_df, top_n=top_n)  # Already filtered by Top-N items
-    
-    # ---------------- RENDER SANKEY ----------------
-    with st.expander("Show Flowchart (Sankey Diagram)"):
-        st.plotly_chart(render_sankey(filtered_top_n_df, top_n=top_n), use_container_width=True)
+        t1 = top_n_bar(df_clean, "Actor of repression")
+        t2 = top_n_bar(df_clean, "Subject of repression")
+        t3 = top_n_bar(df_clean, "Mechanism of repression")
+        t4 = top_n_bar(df_clean, "Type of event")
+        t5 = top_n_bar(df_clean, "alert-type")
+        t6 = top_n_bar(df_principle, "enabling-principle")
 
+        r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(t3,"Mechanism of repression","count"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(t4,"Type of event","count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True, key="tab2_chart6")
+
+        # ---------------- HEATMAPS ----------------
+        render_heatmaps(filtered_top_n_df, top_n=top_n)  # Uses your existing render_heatmaps function
+
+        # ---------------- SANKEY DIAGRAM ----------------
+        with st.expander("Show Flowchart (Sankey Diagram)"):
+            st.plotly_chart(render_sankey(filtered_top_n_df, top_n=top_n), use_container_width=True)
+
+            
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
