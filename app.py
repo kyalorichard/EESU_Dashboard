@@ -671,6 +671,8 @@ def top_n_bar(df, col, top_n=None):
         counts = counts.head(top_n)
     
     return counts
+
+    
     
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
@@ -704,31 +706,27 @@ with tab2:
                 reactive_df['Type of event'].dropna().str.split(",").explode().str.strip().unique(),
                 "selected_event_types", sidebar=False
             )
-        render_summary_cards(reactive_df)
-        
-        # ---------------- FILTER DATA BASED ON INLINE SELECTION ----------------
-        filtered_top_n_df = reactive_df.copy()
+
+        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
+        df_exploded = reactive_df.copy()
+        for col in cols_to_explode:
+            df_exploded[col] = df_exploded[col].str.split(",")
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].str.strip()
+
+        # ---------------- APPLY INLINE FILTERS ----------------
         if "Select All" not in selected_actor_types:
-            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Actor of repression'].isin(selected_actor_types)]
+            df_exploded = df_exploded[df_exploded["Actor of repression"].isin(selected_actor_types)]
         if "Select All" not in selected_subject_types:
-            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Subject of repression'].isin(selected_subject_types)]
+            df_exploded = df_exploded[df_exploded["Subject of repression"].isin(selected_subject_types)]
         if "Select All" not in selected_mechanism_types:
-            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Mechanism of repression'].isin(selected_mechanism_types)]
+            df_exploded = df_exploded[df_exploded["Mechanism of repression"].isin(selected_mechanism_types)]
         if "Select All" not in selected_event_types:
-            filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Type of event'].isin(selected_event_types)]
+            df_exploded = df_exploded[df_exploded["Type of event"].isin(selected_event_types)]
 
-         # ---------------- FILTER FUNCTION ----------------
-        def filter_multi_valued_column(df, col, selected_values):
-            if "Select All" in selected_values:
-                return df
-            return df[df[col].str.split(",").apply(lambda x: any(item.strip() in selected_values for item in x))]
-
-        # Apply filters
-        filtered_top_n_df = reactive_df.copy()
-        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Actor of repression", selected_actor_types)
-        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Subject of repression", selected_subject_types)
-        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Mechanism of repression", selected_mechanism_types)
-        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Type of event", selected_event_types)
+        filtered_top_n_df = df_exploded.copy()  # For heatmaps & Sankey
+        df_clean = df_exploded.copy()           # For bar charts
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
@@ -748,30 +746,25 @@ with tab2:
         )
         top_n = st.session_state.top_n
 
-        # ---------------- EXPLODE COLUMNS FOR MULTI-VALUED FIELDS ----------------
-        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
-        df_clean = filtered_top_n_df.copy()
-        for col in cols_to_explode:
-            df_clean[col] = df_clean[col].str.split(",")
-            df_clean = df_clean.explode(col)
-            df_clean[col] = df_clean[col].str.strip()
-
-        # Explode enabling-principle separately
-        df_principle = filtered_top_n_df.assign(
-            **{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}
-        ).explode("enabling-principle")
-        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
+        # ---------------- SUMMARY CARDS ----------------
+        render_summary_cards(df_clean)
 
         # ---------------- TOP-N BAR CHARTS ----------------
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        t1 = top_n_bar(df_clean, "Actor of repression")
-        t2 = top_n_bar(df_clean, "Subject of repression")
-        t3 = top_n_bar(df_clean, "Mechanism of repression")
-        t4 = top_n_bar(df_clean, "Type of event")
-        t5 = top_n_bar(df_clean, "alert-type")
-        t6 = top_n_bar(df_principle, "enabling-principle")
+        # Explode enabling-principle separately for charts
+        df_principle = filtered_top_n_df.assign(
+            **{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}
+        ).explode("enabling-principle")
+        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
+
+        t1 = top_n_bar(df_clean, "Actor of repression", top_n)
+        t2 = top_n_bar(df_clean, "Subject of repression", top_n)
+        t3 = top_n_bar(df_clean, "Mechanism of repression", top_n)
+        t4 = top_n_bar(df_clean, "Type of event", top_n)
+        t5 = top_n_bar(df_clean, "alert-type", top_n)
+        t6 = top_n_bar(df_principle, "enabling-principle", top_n)
 
         r1c1.plotly_chart(create_bar_chart(t1,"Actor of repression","count"), use_container_width=True, key="tab2_chart1")
         r1c2.plotly_chart(create_bar_chart(t2,"Subject of repression","count"), use_container_width=True, key="tab2_chart2")
@@ -782,7 +775,7 @@ with tab2:
 
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_top_n_df, top_n=top_n)  # Uses your existing render_heatmaps function
+            render_heatmaps(filtered_top_n_df, top_n=top_n)
 
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
