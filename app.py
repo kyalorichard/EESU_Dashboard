@@ -530,8 +530,8 @@ def render_heatmaps(df, top_n=5):
 # ---------------- UPDATED SANKEY FUNCTION ----------------
 def render_sankey(df, top_n=None, width=900):
     """
-    Renders a Sankey diagram for Negative Events, handling multi-valued fields.
-    
+    Renders a Sankey diagram for Negative Events, handling multi-valued fields and Top-N filtering.
+
     Parameters:
         df (DataFrame): Filtered data (Negative Events)
         top_n (int or None): Number of top items to show per node type
@@ -541,32 +541,35 @@ def render_sankey(df, top_n=None, width=900):
         st.warning("No data available for Sankey diagram.")
         return go.Figure()
 
-    # Explode multi-valued columns
-    df_exploded = explode_multi_valued_columns(df, [
-        "Actor of repression",
-        "Subject of repression",
-        "Mechanism of repression"
-    ])
+    # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+    cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression"]
+    df_exploded = df.copy()
+    for col in cols_to_explode:
+        if col in df_exploded.columns:
+            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].str.strip()
 
-    # Determine Top-N nodes
-    def get_top_nodes(df, col, n):
-        counts = df[col].value_counts()
-        if n is not None:
-            counts = counts.head(n)
-        return counts.index.tolist()
+    # ---------------- TOP-N SELECTION ----------------
+    def top_items(series, n):
+        counts = series.value_counts()
+        return counts.head(n).index.tolist() if n is not None else counts.index.tolist()
 
-    top_actors = get_top_nodes(df_exploded, "Actor of repression", top_n)
-    top_mechanisms = get_top_nodes(df_exploded, "Mechanism of repression", top_n)
-    top_subjects = get_top_nodes(df_exploded, "Subject of repression", top_n)
+    top_actors = top_items(df_exploded["Actor of repression"], top_n)
+    top_mechanisms = top_items(df_exploded["Mechanism of repression"], top_n)
+    top_subjects = top_items(df_exploded["Subject of repression"], top_n)
 
-    # Filter to Top-N items
     df_top = df_exploded[
-        df_exploded['Actor of repression'].isin(top_actors) &
-        df_exploded['Mechanism of repression'].isin(top_mechanisms) &
-        df_exploded['Subject of repression'].isin(top_subjects)
+        df_exploded["Actor of repression"].isin(top_actors) &
+        df_exploded["Mechanism of repression"].isin(top_mechanisms) &
+        df_exploded["Subject of repression"].isin(top_subjects)
     ].copy()
 
-    # Helper for wrapping labels
+    if df_top.empty:
+        st.warning("No data available after applying Top-N filters.")
+        return go.Figure()
+
+    # ---------------- WRAP LABELS ----------------
     def wrap_label(label, words_per_line=2):
         words = str(label).split()
         return "<br>".join([" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)])
@@ -578,6 +581,7 @@ def render_sankey(df, top_n=None, width=900):
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
 
+    # ---------------- NODE COLORS ----------------
     node_colors = (
         ["#FF5733"] * len(actor_nodes) +
         ["#33C1FF"] * len(mechanism_nodes) +
@@ -590,22 +594,22 @@ def render_sankey(df, top_n=None, width=900):
     # Actor -> Mechanism
     df_am = df_top.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
     for _, row in df_am.iterrows():
-        links.append(dict(
-            source=node_index[wrap_label(f"Actor: {row['Actor of repression']}")],
-            target=node_index[wrap_label(f"Mechanism: {row['Mechanism of repression']}")],
-            value=row["value"]
-        ))
+        src = node_index.get(wrap_label(f"Actor: {row['Actor of repression']}"))
+        tgt = node_index.get(wrap_label(f"Mechanism: {row['Mechanism of repression']}"))
+        if src is not None and tgt is not None:
+            links.append(dict(source=src, target=tgt, value=row["value"]))
 
     # Mechanism -> Subject
     df_ms = df_top.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
     for _, row in df_ms.iterrows():
-        links.append(dict(
-            source=node_index[wrap_label(f"Mechanism: {row['Mechanism of repression']}")],
-            target=node_index[wrap_label(f"Subject: {row['Subject of repression']}")],
-            value=row["value"]
-        ))
+        src = node_index.get(wrap_label(f"Mechanism: {row['Mechanism of repression']}"))
+        tgt = node_index.get(wrap_label(f"Subject: {row['Subject of repression']}"))
+        if src is not None and tgt is not None:
+            links.append(dict(source=src, target=tgt, value=row["value"]))
 
-    fig_height = max(500, len(nodes) * 40)
+    if not links:
+        st.warning("No links available for Sankey diagram after filtering.")
+        return go.Figure()
 
     # ---------------- CREATE FIGURE ----------------
     fig = go.Figure(go.Sankey(
@@ -616,6 +620,7 @@ def render_sankey(df, top_n=None, width=900):
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
+            font=dict(color=["black"] * len(nodes), size=12),
             hovertemplate="%{label}<extra></extra>"
         ),
         link=dict(
@@ -626,24 +631,13 @@ def render_sankey(df, top_n=None, width=900):
         )
     ))
 
-    # Optional legend (colors)
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#FF5733"), name="Actor of repression"
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#33C1FF"), name="Mechanism of repression"
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#33FF8A"), name="Subject of repression"
-    ))
-
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="white"),
-        height=fig_height,
+        font=dict(size=12),
+        height=max(500, len(nodes) * 40),
         width=width,
         margin=dict(l=40, r=40, t=60, b=40),
-        showlegend=True
+        showlegend=False
     )
 
     return fig
@@ -755,12 +749,12 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True)
-        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True)
-        r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True)
-        r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True)
-        r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True)
-        r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True)
+        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
