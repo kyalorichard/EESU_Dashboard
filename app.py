@@ -667,7 +667,8 @@ with tab2:
                 reactive_df['Type of event'].dropna().str.split(",").explode().str.strip().unique(),
                 "selected_event_types", sidebar=False
             )
-
+        render_summary_cards(reactive_df)
+        
         # ---------------- FILTER DATA BASED ON INLINE SELECTION ----------------
         filtered_top_n_df = reactive_df.copy()
         if "Select All" not in selected_actor_types:
