@@ -666,22 +666,42 @@ with tab1:
 # ---------------- TAB 2: Negative Events ----------------
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
+    # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
 
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
     else:
         # ---------------- INLINE FILTERS ----------------
+        # Columns to filter
+        inline_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            selected_actor_types = safe_multiselect("Actor Type", reactive_df['Actor of repression'].dropna().unique(), "selected_actor_types", sidebar=False)
+            selected_actor_types = safe_multiselect(
+                "Actor Type",
+                reactive_df['Actor of repression'].dropna().unique(),
+                "selected_actor_types", sidebar=False
+            )
         with col2:
-            selected_subject_types = safe_multiselect("Subject Type", reactive_df['Subject of repression'].dropna().unique(), "selected_subject_types", sidebar=False)
+            selected_subject_types = safe_multiselect(
+                "Subject Type",
+                reactive_df['Subject of repression'].dropna().unique(),
+                "selected_subject_types", sidebar=False
+            )
         with col3:
-            selected_mechanism_types = safe_multiselect("Mechanism Type", reactive_df['Mechanism of repression'].dropna().unique(), "selected_mechanism_types", sidebar=False)
+            selected_mechanism_types = safe_multiselect(
+                "Mechanism Type",
+                reactive_df['Mechanism of repression'].dropna().unique(),
+                "selected_mechanism_types", sidebar=False
+            )
         with col4:
-            selected_event_types = safe_multiselect("Event Type", reactive_df['Type of event'].dropna().unique(), "selected_event_types", sidebar=False)
+            selected_event_types = safe_multiselect(
+                "Event Type",
+                reactive_df['Type of event'].dropna().unique(),
+                "selected_event_types", sidebar=False
+            )
 
+        # Build filters dict
         filters = {
             "Actor of repression": selected_actor_types,
             "Subject of repression": selected_subject_types,
@@ -690,18 +710,13 @@ with tab2:
         }
 
         # ---------------- SUMMARY CARDS ----------------
+        # Apply inline filters WITHOUT exploding multi-valued columns
         filtered_for_summary = apply_inline_filter(reactive_df, filters, explode_cols=None)
         render_summary_cards(filtered_for_summary)
 
-        # ---------------- CHARTS / HEATMAPS / SANKEY ----------------
+        # ---------------- EXPLODE FOR CHARTS ----------------
         explode_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
         filtered_df = apply_inline_filter(reactive_df, filters, explode_cols=explode_cols)
-
-        # Explode enabling principle separately
-        df_principle = filtered_df.assign(
-            **{"enabling-principle": filtered_df["enabling-principle"].str.split(",")}
-        ).explode("enabling-principle")
-        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
@@ -731,6 +746,9 @@ with tab2:
         r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True)
         r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True)
         r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True)
+
+        df_principle = filtered_df.assign(**{"enabling-principle": filtered_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
+        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
         r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True)
 
         # ---------------- HEATMAPS ----------------
