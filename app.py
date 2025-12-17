@@ -678,7 +678,11 @@ with tab2:
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
     else:
-        # ---------------- EXPLODE MULTI-VALUED COLUMNS FIRST ----------------
+        # ---------------- SUMMARY CARDS ----------------
+        # Render summary cards using the negative events dataframe BEFORE explosion
+        render_summary_cards(reactive_df)
+
+        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
         cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
         df_exploded = reactive_df.copy()
         for col in cols_to_explode:
@@ -730,9 +734,6 @@ with tab2:
         filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
         filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
 
-        # ---------------- SUMMARY CARDS ----------------
-        render_summary_cards(reactive_df)
-
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
@@ -760,7 +761,7 @@ with tab2:
         r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5"
+        r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
         r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- HEATMAPS ----------------
