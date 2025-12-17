@@ -735,6 +735,12 @@ with tab2:
         filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
         filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
 
+        filtered_df= filtered_df[(filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (filtered_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (filtered_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (filtered_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
