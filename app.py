@@ -528,48 +528,27 @@ def render_heatmaps(df, top_n=5):
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
 
 # ---------------- UPDATED SANKEY FUNCTION ----------------
-def render_sankey(df, top_n=None, width=900):
-    """
-    Renders a Sankey diagram for Negative Events, handling multi-valued fields.
-    
-    Parameters:
-        df (DataFrame): Filtered data (Negative Events)
-        top_n (int or None): Number of top items to show per node type
-        width (int): Figure width
-    """
-    if df.empty:
-        st.warning("No data available for Sankey diagram.")
+# ---------------- SANKEY ----------------
+def render_sankey(summary_df, top_n=None, width=900):
+    if summary_df.empty:
+        st.warning("No data available for Sankey")
         return go.Figure()
 
-    # Explode multi-valued columns
-    df_exploded = explode_multi_valued_columns(df, [
-        "Actor of repression",
-        "Subject of repression",
-        "Mechanism of repression"
-    ])
-
-    # Determine Top-N nodes
     def get_top_nodes(df, col, n):
         counts = df[col].value_counts()
         if n is not None:
             counts = counts.head(n)
         return counts.index.tolist()
 
-    top_actors = get_top_nodes(df_exploded, "Actor of repression", top_n)
-    top_mechanisms = get_top_nodes(df_exploded, "Mechanism of repression", top_n)
-    top_subjects = get_top_nodes(df_exploded, "Subject of repression", top_n)
+    top_actors = get_top_nodes(summary_df, "Actor of repression", top_n)
+    top_mechanisms = get_top_nodes(summary_df, "Mechanism of repression", top_n)
+    top_subjects = get_top_nodes(summary_df, "Subject of repression", top_n)
 
-    # Filter to Top-N items
-    df_top = df_exploded[
-        df_exploded['Actor of repression'].isin(top_actors) &
-        df_exploded['Mechanism of repression'].isin(top_mechanisms) &
-        df_exploded['Subject of repression'].isin(top_subjects)
-    ].copy()
-
-    # Helper for wrapping labels
     def wrap_label(label, words_per_line=2):
         words = str(label).split()
-        return "<br>".join([" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)])
+        return "<br>".join(
+            [" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)]
+        )
 
     actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
     mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
@@ -584,30 +563,36 @@ def render_sankey(df, top_n=None, width=900):
         ["#33FF8A"] * len(subject_nodes)
     )
 
-    # ---------------- CREATE LINKS ----------------
     links = []
 
-    # Actor -> Mechanism
-    df_am = df_top.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
-    for _, row in df_am.iterrows():
+    df_am = summary_df[
+        summary_df["Actor of repression"].isin(top_actors) &
+        summary_df["Mechanism of repression"].isin(top_mechanisms)
+    ]
+    for _, r in df_am.groupby(
+        ["Actor of repression", "Mechanism of repression"]
+    ).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=node_index[wrap_label(f"Actor: {row['Actor of repression']}")],
-            target=node_index[wrap_label(f"Mechanism: {row['Mechanism of repression']}")],
-            value=row["value"]
+            source=node_index[wrap_label(f"Actor: {r['Actor of repression']}")],
+            target=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
+            value=r["value"]
         ))
 
-    # Mechanism -> Subject
-    df_ms = df_top.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
-    for _, row in df_ms.iterrows():
+    df_ms = summary_df[
+        summary_df["Mechanism of repression"].isin(top_mechanisms) &
+        summary_df["Subject of repression"].isin(top_subjects)
+    ]
+    for _, r in df_ms.groupby(
+        ["Mechanism of repression", "Subject of repression"]
+    ).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=node_index[wrap_label(f"Mechanism: {row['Mechanism of repression']}")],
-            target=node_index[wrap_label(f"Subject: {row['Subject of repression']}")],
-            value=row["value"]
+            source=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
+            target=node_index[wrap_label(f"Subject: {r['Subject of repression']}")],
+            value=r["value"]
         ))
 
     fig_height = max(500, len(nodes) * 40)
 
-    # ---------------- CREATE FIGURE ----------------
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
@@ -626,20 +611,26 @@ def render_sankey(df, top_n=None, width=900):
         )
     ))
 
-    # Optional legend (colors)
+    # Legend
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#FF5733"), name="Actor of repression"
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#FF5733"),
+        name="Actor of repression"
     ))
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#33C1FF"), name="Mechanism of repression"
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#33C1FF"),
+        name="Mechanism of repression"
     ))
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#33FF8A"), name="Subject of repression"
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#33FF8A"),
+        name="Subject of repression"
     ))
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="white"),
+        font=dict(size=12, color="white"),   # ✅ CORRECT PLACE
         height=fig_height,
         width=width,
         margin=dict(l=40, r=40, t=60, b=40),
@@ -647,7 +638,6 @@ def render_sankey(df, top_n=None, width=900):
     )
 
     return fig
-
 
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
@@ -771,72 +761,10 @@ with tab2:
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
             render_heatmaps(filtered_df, top_n=top_n)
-
+        
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
-            # Updated safe Sankey rendering
-            def safe_render_sankey(df, top_n):
-                df_expl = explode_multi_valued_columns(df, ["Actor of repression", "Subject of repression", "Mechanism of repression"])
-                
-                top_actors = get_top_n_items(df_expl, "Actor of repression", top_n)
-                top_mechanisms = get_top_n_items(df_expl, "Mechanism of repression", top_n)
-                top_subjects = get_top_n_items(df_expl, "Subject of repression", top_n)
-
-                if not top_actors or not top_mechanisms or not top_subjects:
-                    st.warning("No data available for Sankey diagram with current Top-N / filters.")
-                    return go.Figure()
-
-                # Node labels
-                def wrap_label(label, words_per_line=2):
-                    words = str(label).split()
-                    return "<br>".join([" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)])
-
-                actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
-                mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
-                subject_nodes = [wrap_label(f"Subject: {s}") for s in top_subjects]
-
-                nodes = actor_nodes + mechanism_nodes + subject_nodes
-                node_index = {name: i for i, name in enumerate(nodes)}
-
-                links = []
-                # Actor -> Mechanism
-                df_am = df_expl[df_expl['Actor of repression'].isin(top_actors) & df_expl['Mechanism of repression'].isin(top_mechanisms)]
-                for _, row in df_am.groupby(['Actor of repression', 'Mechanism of repression']).size().reset_index(name="value").iterrows():
-                    s = wrap_label(f"Actor: {row['Actor of repression']}")
-                    t = wrap_label(f"Mechanism: {row['Mechanism of repression']}")
-                    if s in node_index and t in node_index:
-                        links.append(dict(source=node_index[s], target=node_index[t], value=row["value"]))
-
-                # Mechanism -> Subject
-                df_ms = df_expl[df_expl['Mechanism of repression'].isin(top_mechanisms) & df_expl['Subject of repression'].isin(top_subjects)]
-                for _, row in df_ms.groupby(['Mechanism of repression', 'Subject of repression']).size().reset_index(name="value").iterrows():
-                    s = wrap_label(f"Mechanism: {row['Mechanism of repression']}")
-                    t = wrap_label(f"Subject: {row['Subject of repression']}")
-                    if s in node_index and t in node_index:
-                        links.append(dict(source=node_index[s], target=node_index[t], value=row["value"]))
-
-                if not links:
-                    st.warning("No data available for Sankey diagram after Top-N filtering.")
-                    return go.Figure()
-
-                fig = go.Figure(go.Sankey(
-                    arrangement="snap",
-                    node=dict(
-                        pad=30, thickness=25, line=dict(color="black", width=0.5),
-                        label=nodes,
-                        color=["#FF5733"]*len(actor_nodes) + ["#33C1FF"]*len(mechanism_nodes) + ["#33FF8A"]*len(subject_nodes)
-                    ),
-                    link=dict(
-                        source=[l['source'] for l in links],
-                        target=[l['target'] for l in links],
-                        value=[l['value'] for l in links]
-                    )
-                ))
-                fig.update_layout(height=max(500, len(nodes)*40), margin=dict(l=40, r=40, t=60, b=40))
-                return fig
-
-            st.plotly_chart(safe_render_sankey(filtered_df, top_n=top_n), use_container_width=True)
-            
+            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
