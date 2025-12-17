@@ -742,24 +742,31 @@ with tab2:
             (filtered_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (filtered_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-            
-        actor_counts = filtered_df["Actor of repression"].value_counts().reset_index()
-        actor_counts.columns = ["Actor of repression", "count"]
 
-        subject_counts = filtered_df["Subject of repression"].value_counts().reset_index()
-        subject_counts.columns = ["Subject of repression", "count"]
-        
-        mechanism_counts = filtered_df["Mechanism of repression"].value_counts().reset_index()
-        mechanism_counts.columns = ["Mechanism of repression", "count"]
-        
-        event_counts = filtered_df["Type of event"].value_counts().reset_index()
-        event_counts.columns = ["Type of event", "count"]
 
+        actor_counts = (filtered_df["Actor of repression"].value_counts().reset_index()
+                        .rename(columns={"index": "Actor of repression", "Actor of repression": "count"})
+                       )
+        subject_counts = (filtered_df["Subject of repression"].value_counts().reset_index()
+                          .rename(columns={"index": "Subject of repression", "Subject of repression": "count"})
+                         )
+        mechanism_counts = (filtered_df["Mechanism of repression"].value_counts().reset_index()
+                            .rename(columns={"index": "Mechanism of repression", "Mechanism of repression": "count"})
+                           )
+        event_counts = (filtered_df["Type of event"].value_counts().reset_index()
+                        .rename(columns={"index": "Type of event", "Type of event": "count"})
+                       )
+
+
+       
+        
         #event_type = filtered_df["alert-type"].value_counts().reset_index()
         #event_type.columns = ["alert-type", "count"]
 
         #enabling_principle = filtered_df["enabling_principle"].value_counts().reset_index()
         #enabling_principle.columns = ["enabling_principle", "count"]
+
+        st.write(filtered_df.columns.tolist())
         
                  
         # ---------------- TOP-N CONFIG ----------------
