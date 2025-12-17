@@ -700,7 +700,7 @@ with tab2:
 
         def update_top_n():
             option = st.session_state.top_n_option
-            st.session_state.top_n = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5 "All": None}[option]
+            st.session_state.top_n = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}[option]
 
         st.selectbox(
             "Select Top N for charts, heatmaps, and Sankey",
