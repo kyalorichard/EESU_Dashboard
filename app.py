@@ -506,36 +506,39 @@ def render_heatmaps(df, top_n=5):
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
         
-    # ---------------- INLINE FILTER FUNCTION ----------------
-def apply_inline_filter(df, filters, explode_cols=None):
+# ---------------- INLINE FILTER FUNCTION ----------------
+@st.cache_data(ttl=300)
+def apply_inline_filter(df, filters, multi_valued_cols=None, explode_for_charts=False):
     """
-    Apply inline filters to a DataFrame.
-
+    Applies inline filters to a DataFrame, supporting multi-valued columns.
+    
     Parameters:
-        df (DataFrame): Original DataFrame
-        filters (dict): Keys = column names, Values = list of selected values (including "Select All")
-        explode_cols (list or None): Columns to explode after filtering. If None, returns filtered df as is.
-
+        df (pd.DataFrame): Input DataFrame.
+        filters (dict): Keys = column names, Values = list of selected items.
+        multi_valued_cols (list): Columns that may contain comma-separated values.
+        explode_for_charts (bool): If True, explode multi-valued columns for charts/heatmaps.
+        
     Returns:
-        DataFrame: Filtered (and optionally exploded) DataFrame
+        pd.DataFrame: Filtered DataFrame.
     """
-    filtered = df.copy()
-
-    for col, selected in filters.items():
-        if "Select All" not in selected:
-            filtered = filtered[filtered[col].notna() & filtered[col].isin(selected)]
-
-    if explode_cols:
-        for col in explode_cols:
-            if col in filtered.columns:
-                filtered[col] = filtered[col].fillna("").astype(str).str.split(",")
-                filtered = filtered.explode(col)
-                filtered[col] = filtered[col].str.strip()
-
-    return filtered
+    filtered_df = df.copy()
+    
+    for col, selected_values in filters.items():
+        if "Select All" in selected_values or col not in filtered_df.columns:
+            continue
+        
+        if multi_valued_cols and col in multi_valued_cols and not explode_for_charts:
+            # Check if any of the selected values appear in the comma-separated string
+            filtered_df = filtered_df[filtered_df[col].apply(
+                lambda x: any(sel.strip() in str(x).split(",") for sel in selected_values)
+            )]
+        else:
+            # Standard filter (or exploded for charts)
+            filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
+    
+    return filtered_df
 
 # ---------------- UPDATED SANKEY FUNCTION ----------------
-# ---------------- SANKEY ----------------
 def render_sankey(summary_df, top_n=None, width=900):
     if summary_df.empty:
         st.warning("No data available for Sankey")
@@ -694,15 +697,13 @@ with tab1:
 # ---------------- TAB 2: Negative Events ----------------
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
-    # Filter negative events
+    # Filter negative events first
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
 
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
     else:
         # ---------------- INLINE FILTERS ----------------
-        # Columns to filter
-        inline_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             selected_actor_types = safe_multiselect(
@@ -729,7 +730,7 @@ with tab2:
                 "selected_event_types", sidebar=False
             )
 
-        # Build filters dict
+        # ---------------- PREP FILTER DICT ----------------
         filters = {
             "Actor of repression": selected_actor_types,
             "Subject of repression": selected_subject_types,
@@ -738,13 +739,33 @@ with tab2:
         }
 
         # ---------------- SUMMARY CARDS ----------------
-        # Apply inline filters WITHOUT exploding multi-valued columns
-        filtered_for_summary = apply_inline_filter(reactive_df, filters, explode_cols=None)
+        filtered_for_summary = apply_inline_filter(
+            reactive_df,
+            filters,
+            multi_valued_cols=["Actor of repression", "Subject of repression", "Mechanism of repression"],
+            explode_for_charts=False
+        )
         render_summary_cards(filtered_for_summary)
 
         # ---------------- EXPLODE FOR CHARTS ----------------
-        explode_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
-        filtered_df = apply_inline_filter(reactive_df, filters, explode_cols=explode_cols)
+        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
+        df_exploded = reactive_df.copy()
+        for col in cols_to_explode:
+            df_exploded[col] = df_exploded[col].str.split(",")
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].str.strip()
+
+        df_principle = reactive_df.assign(
+            **{"enabling-principle": reactive_df["enabling-principle"].str.split(",")}
+        ).explode("enabling-principle")
+        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
+
+        # ---------------- APPLY INLINE FILTER FOR CHARTS ----------------
+        filtered_df = apply_inline_filter(
+            df_exploded,
+            filters,
+            explode_for_charts=True
+        )
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
@@ -769,15 +790,12 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True)
-        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True)
-        r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True)
-        r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True)
-        r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True)
-
-        df_principle = filtered_df.assign(**{"enabling-principle": filtered_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
-        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
-        r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True)
+        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(top_n_bar(df_exploded, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
