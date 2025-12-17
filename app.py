@@ -700,7 +700,7 @@ with tab2:
 
         def update_top_n():
             option = st.session_state.top_n_option
-            st.session_state.top_n = {"Top 2": 2, "Top 5": 5, "Top 10": 10, "All": None}[option]
+            st.session_state.top_n = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5 "All": None}[option]
 
         st.selectbox(
             "Select Top N for charts, heatmaps, and Sankey",
@@ -744,7 +744,8 @@ with tab2:
         r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- HEATMAPS ----------------
-        render_heatmaps(filtered_top_n_df, top_n=top_n)  # Uses your existing render_heatmaps function
+        with st.expander("Show Heatmaps"):
+            render_heatmaps(filtered_top_n_df, top_n=top_n)  # Uses your existing render_heatmaps function
 
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
