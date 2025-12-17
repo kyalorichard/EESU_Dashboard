@@ -726,21 +726,15 @@ with tab2:
         def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
                 return df
-            return df[df[col].isin(selected_values)]
+            return df[df[col].apply(lambda x: contains_any(x, selected_values))
 
         filtered_df = df_exploded.copy()
-        filtered_df = filter_exploded(df_exploded, "Actor of repression", selected_actor_types)
-        filtered_df = filter_exploded(df_exploded, "Subject of repression", selected_subject_types)
-        filtered_df = filter_exploded(df_exploded, "Mechanism of repression", selected_mechanism_types)
-        filtered_df = filter_exploded(df_exploded, "Type of event", selected_event_types)
+        filtered_df = filter_exploded(filtered_df, "Actor of repression", selected_actor_types)
+        filtered_df = filter_exploded(filtered_df, "Subject of repression", selected_subject_types)
+        filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
+        filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
 
-        df_actor = filtered_df.assign(
-            **{"Actor of repression": filtered_df["Actor of repression"]}
-        )
-        df_subject = filtered_df.assign(
-            **{"Subject of repression": filtered_df["Subject of repression"]}
-        )
-
+       
         
 
         # ---------------- TOP-N CONFIG ----------------
