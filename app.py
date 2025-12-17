@@ -760,9 +760,9 @@ with tab2:
 
         st.write("Raw:", df.shape)
         st.write("After explode:", exploded_df.shape)
-        st.write("After inline filters:", filtered.shape)
+        st.write("After inline filters:", filtered_df2.shape)
         st.write("Value counts:", counts.head())
-        st.write(filtered.head())
+        st.write(filtered_df2.head())
         
         #event_type = filtered_df["alert-type"].value_counts().reset_index()
         #event_type.columns = ["alert-type", "count"]
