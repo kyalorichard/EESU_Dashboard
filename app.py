@@ -447,42 +447,69 @@ def get_top_n_items(df, col, top_n):
         counts = counts.head(top_n)
     return counts.index.tolist()
               
-# ---------------- RENDER HEATMAPS WITH TOP-N AND CONSISTENT COLOR SCALE ----------------
+# ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+def explode_multi_valued_columns(df, cols):
+    """
+    Explodes comma-separated values in specified columns.
+    Each comma-separated value becomes a separate row.
+    """
+    df_exploded = df.copy()
+    for col in cols:
+        if col in df_exploded.columns:
+            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].str.strip()
+    return df_exploded
+
+# ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
 def render_heatmaps(df, top_n=5):
     """
-    Renders three heatmaps for Negative Events tab:
+    Renders three heatmaps for Negative Events tab, handling multi-valued fields:
     - Actor → Mechanism
     - Subject → Mechanism
     - Actor → Subject
-    
-    Automatically applies Top-N logic and ensures a consistent color scale across all heatmaps.
-    
+
     Parameters:
-        df (DataFrame): Full filtered data (Negative Events)
+        df (DataFrame): Filtered data (Negative Events)
         top_n (int or None): Number of top items to show per axis. Use None for all.
     """
-    # Determine top items
-    top_actors = get_top_n_items(df, "Actor of repression", top_n)
-    top_subjects = get_top_n_items(df, "Subject of repression", top_n)
-    top_mechanisms = get_top_n_items(df, "Mechanism of repression", top_n)
+    if df.empty:
+        st.warning("No data available for heatmaps.")
+        return
 
-    # Filter df to only include Top-N items
-    df_top = df[
-        df['Actor of repression'].isin(top_actors) &
-        df['Subject of repression'].isin(top_subjects) &
-        df['Mechanism of repression'].isin(top_mechanisms)
+    # Explode multi-valued columns
+    df_exploded = explode_multi_valued_columns(df, [
+        "Actor of repression",
+        "Subject of repression",
+        "Mechanism of repression"
+    ])
+
+    # Determine Top-N items
+    top_actors = get_top_n_items(df_exploded, "Actor of repression", top_n)
+    top_subjects = get_top_n_items(df_exploded, "Subject of repression", top_n)
+    top_mechanisms = get_top_n_items(df_exploded, "Mechanism of repression", top_n)
+
+    # Filter to Top-N items
+    df_top = df_exploded[
+        df_exploded['Actor of repression'].isin(top_actors) &
+        df_exploded['Subject of repression'].isin(top_subjects) &
+        df_exploded['Mechanism of repression'].isin(top_mechanisms)
     ].copy()
 
     # Create pivot tables
-    actor_mechanism_pivot = filter_top_n(df_top, 'Actor of repression', 'Mechanism of repression', None)
-    subject_mechanism_pivot = filter_top_n(df_top, 'Subject of repression', 'Mechanism of repression', None)
-    actor_subject_pivot = filter_top_n(df_top, 'Actor of repression', 'Subject of repression', None)
+    actor_mechanism_pivot = filter_top_n(df_top, 'Actor of repression', 'Mechanism of repression', top_n)
+    subject_mechanism_pivot = filter_top_n(df_top, 'Subject of repression', 'Mechanism of repression', top_n)
+    actor_subject_pivot = filter_top_n(df_top, 'Actor of repression', 'Subject of repression', top_n)
 
-    # Determine global max value for consistent color scale
-    all_values = pd.concat([actor_mechanism_pivot.stack(), subject_mechanism_pivot.stack(), actor_subject_pivot.stack()])
-    zmax = all_values.max() if not all_values.empty else 1  # Avoid division by zero
+    # Consistent color scale
+    all_values = pd.concat([
+        actor_mechanism_pivot.stack(),
+        subject_mechanism_pivot.stack(),
+        actor_subject_pivot.stack()
+    ])
+    zmax = all_values.max() if not all_values.empty else 1
 
-    # Render heatmaps in columns
+    # Render heatmaps in 3 columns
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -500,27 +527,49 @@ def render_heatmaps(df, top_n=5):
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
 
-# ---------------- SANKEY ----------------
-def render_sankey(summary_df, top_n=None, width=900):
-    if summary_df.empty:
-        st.warning("No data available for Sankey")
+# ---------------- UPDATED SANKEY FUNCTION ----------------
+def render_sankey(df, top_n=None, width=900):
+    """
+    Renders a Sankey diagram for Negative Events, handling multi-valued fields.
+    
+    Parameters:
+        df (DataFrame): Filtered data (Negative Events)
+        top_n (int or None): Number of top items to show per node type
+        width (int): Figure width
+    """
+    if df.empty:
+        st.warning("No data available for Sankey diagram.")
         return go.Figure()
 
+    # Explode multi-valued columns
+    df_exploded = explode_multi_valued_columns(df, [
+        "Actor of repression",
+        "Subject of repression",
+        "Mechanism of repression"
+    ])
+
+    # Determine Top-N nodes
     def get_top_nodes(df, col, n):
         counts = df[col].value_counts()
         if n is not None:
             counts = counts.head(n)
         return counts.index.tolist()
 
-    top_actors = get_top_nodes(summary_df, "Actor of repression", top_n)
-    top_mechanisms = get_top_nodes(summary_df, "Mechanism of repression", top_n)
-    top_subjects = get_top_nodes(summary_df, "Subject of repression", top_n)
+    top_actors = get_top_nodes(df_exploded, "Actor of repression", top_n)
+    top_mechanisms = get_top_nodes(df_exploded, "Mechanism of repression", top_n)
+    top_subjects = get_top_nodes(df_exploded, "Subject of repression", top_n)
 
+    # Filter to Top-N items
+    df_top = df_exploded[
+        df_exploded['Actor of repression'].isin(top_actors) &
+        df_exploded['Mechanism of repression'].isin(top_mechanisms) &
+        df_exploded['Subject of repression'].isin(top_subjects)
+    ].copy()
+
+    # Helper for wrapping labels
     def wrap_label(label, words_per_line=2):
         words = str(label).split()
-        return "<br>".join(
-            [" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)]
-        )
+        return "<br>".join([" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)])
 
     actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
     mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
@@ -535,36 +584,30 @@ def render_sankey(summary_df, top_n=None, width=900):
         ["#33FF8A"] * len(subject_nodes)
     )
 
+    # ---------------- CREATE LINKS ----------------
     links = []
 
-    df_am = summary_df[
-        summary_df["Actor of repression"].isin(top_actors) &
-        summary_df["Mechanism of repression"].isin(top_mechanisms)
-    ]
-    for _, r in df_am.groupby(
-        ["Actor of repression", "Mechanism of repression"]
-    ).size().reset_index(name="value").iterrows():
+    # Actor -> Mechanism
+    df_am = df_top.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
+    for _, row in df_am.iterrows():
         links.append(dict(
-            source=node_index[wrap_label(f"Actor: {r['Actor of repression']}")],
-            target=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
-            value=r["value"]
+            source=node_index[wrap_label(f"Actor: {row['Actor of repression']}")],
+            target=node_index[wrap_label(f"Mechanism: {row['Mechanism of repression']}")],
+            value=row["value"]
         ))
 
-    df_ms = summary_df[
-        summary_df["Mechanism of repression"].isin(top_mechanisms) &
-        summary_df["Subject of repression"].isin(top_subjects)
-    ]
-    for _, r in df_ms.groupby(
-        ["Mechanism of repression", "Subject of repression"]
-    ).size().reset_index(name="value").iterrows():
+    # Mechanism -> Subject
+    df_ms = df_top.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
+    for _, row in df_ms.iterrows():
         links.append(dict(
-            source=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
-            target=node_index[wrap_label(f"Subject: {r['Subject of repression']}")],
-            value=r["value"]
+            source=node_index[wrap_label(f"Mechanism: {row['Mechanism of repression']}")],
+            target=node_index[wrap_label(f"Subject: {row['Subject of repression']}")],
+            value=row["value"]
         ))
 
     fig_height = max(500, len(nodes) * 40)
 
+    # ---------------- CREATE FIGURE ----------------
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
@@ -583,26 +626,20 @@ def render_sankey(summary_df, top_n=None, width=900):
         )
     ))
 
-    # Legend
+    # Optional legend (colors)
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#FF5733"),
-        name="Actor of repression"
+        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#FF5733"), name="Actor of repression"
     ))
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33C1FF"),
-        name="Mechanism of repression"
+        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#33C1FF"), name="Mechanism of repression"
     ))
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33FF8A"),
-        name="Subject of repression"
+        x=[None], y=[None], mode="markers", marker=dict(size=10, color="#33FF8A"), name="Subject of repression"
     ))
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="white"),   # ✅ CORRECT PLACE
+        font=dict(size=12, color="white"),
         height=fig_height,
         width=width,
         margin=dict(l=40, r=40, t=60, b=40),
@@ -704,8 +741,8 @@ with tab2:
 
         st.selectbox(
             "Select Top N for charts, heatmaps, and Sankey",
-            options=["Top 2", "Top 5", "Top 10", "All"],
-            index=["Top 2","Top 5","Top 10","All"].index(st.session_state.top_n_option),
+            options=["Top 2", "Top 3", "Top 4", "Top 5" "All"],
+            index=["Top 2", "Top 3", "Top 4", "Top 5" "All"].index(st.session_state.top_n_option),
             key="top_n_option",
             on_change=update_top_n
         )
