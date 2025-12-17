@@ -729,10 +729,10 @@ with tab2:
             return df[df[col].isin(selected_values)]
 
         filtered_df = df_exploded.copy()
-        filtered_df = filter_exploded(filtered_df, "Actor of repression", selected_actor_types)
-        filtered_df = filter_exploded(filtered_df, "Subject of repression", selected_subject_types)
-        filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
-        filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
+        filtered_df = filter_exploded(df_exploded, "Actor of repression", selected_actor_types)
+        filtered_df = filter_exploded(df_exploded, "Subject of repression", selected_subject_types)
+        filtered_df = filter_exploded(df_exploded, "Mechanism of repression", selected_mechanism_types)
+        filtered_df = filter_exploded(df_exploded, "Type of event", selected_event_types)
 
         df_actor = filtered_df.assign(
             **{"Actor of repression": filtered_df["Actor of repression"]}
@@ -766,8 +766,8 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(top_n_bar(df_actor, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(top_n_bar(df_subject, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
