@@ -744,22 +744,22 @@ with tab2:
         ]
             
         filtered_df = filtered_df.assign(**{"Actor of repression": filtered_df["Actor of repression"]})
-        df_clean["Actor of repression"] = df_clean["Actor of repression"].size().reset_index(name='count')
+        df_clean["Actor of repression"] = filtered_df["Actor of repression"].size().reset_index(name='count')
 
         filtered_df = filtered_df.assign(**{"Subject of repression": filtered_df["Subject of repression"]})
-        df_clean["Subject of repression"] = df_clean["Subject of repression"].size().reset_index(name='count')
+        df_clean["Subject of repression"] = filtered_df["Subject of repression"].size().reset_index(name='count')
        
         filtered_df = filtered_df.assign(**{"Mechanism of repression": filtered_df["Mechanism of repression"]})
-        df_clean["Mechanism of repression"] = df_clean["Mechanism of repression"].size().reset_index(name='count')
+        df_clean["Mechanism of repression"] = filtered_df["Mechanism of repression"].size().reset_index(name='count')
 
         filtered_df = filtered_df.assign(**{"Type of event": filtered_df["Type of event"]})
-        df_clean["Type of event"] = df_clean["Type of event"].size().reset_index(name='count')
+        df_clean["Type of event"] = filtered_df["Type of event"].size().reset_index(name='count')
 
         filtered_df = filtered_df.assign(**{"alert-type": filtered_df["alert-type"]})
-        df_clean["alert-type"] = df_clean["alert-type"].size().reset_index(name='count')
+        df_clean["alert-type"] = filtered_df["alert-type"].size().reset_index(name='count')
 
         filtered_df = filtered_df.assign(**{"enabling-principle": filtered_df["enabling-principle"]})
-        df_clean["enabling-principle"] = df_clean["enabling-principle"].size().reset_index(name='count')
+        df_clean["enabling-principle"] = filtered_df["enabling-principle"].size().reset_index(name='count')
           
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
