@@ -694,10 +694,7 @@ with tab2:
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
 
-        df_principle = reactive_df.assign(
-            **{"enabling-principle": reactive_df["enabling-principle"].str.split(",")}
-        ).explode("enabling-principle")
-        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
+        
 
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
@@ -725,7 +722,7 @@ with tab2:
                 df_exploded['Type of event'].dropna().unique(),
                 "selected_event_types", sidebar=False
             )
-
+       ##### -------- Tab 2 Summary card totals--------------------------
         reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
             (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
@@ -733,11 +730,11 @@ with tab2:
         ]
         render_summary_cards(reactive_df_updated)
 
-        # ---------------- APPLY INLINE FILTERS ----------------
-        def filter_exploded(df, col, selected_values):
+       def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
-                return df.apply(lambda x: contains_any(x, selected_values))
+                return df
             return df[df[col].apply(lambda x: contains_any(x, selected_values))]
+
             
         filtered_df = df_exploded.copy()
         filtered_df = filter_exploded(filtered_df, "Actor of repression", selected_actor_types)
@@ -745,7 +742,10 @@ with tab2:
         filtered_df = filter_exploded(filtered_df, "Mechanism of repression", selected_mechanism_types)
         filtered_df = filter_exploded(filtered_df, "Type of event", selected_event_types)
 
-       
+        df_principle = filtered_df.assign(
+            **{"enabling-principle": filtered_df["enabling-principle"].str.split(",")}
+        ).explode("enabling-principle")
+        df_principle["enabling-principle"] = df_principle["enabling-principle"].str.strip()
         
 
         # ---------------- TOP-N CONFIG ----------------
