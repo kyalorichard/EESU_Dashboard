@@ -746,7 +746,7 @@ with tab2:
         # ---------------- APPLY INLINE FILTERS ----------------
         def filter_exploded(df, col, selected_values):
             if "Select All" in selected_values:
-                return df
+                return df.apply(lambda x: contains_any(x, selected_values))
             return df[df[col].apply(lambda x: contains_any(x, selected_values))]
             
         filtered_df = df_exploded.copy()
@@ -781,14 +781,12 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        #r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c1.plotly_chart(create_bar_chart(top_n_bar(df_exploded.assign(**{"Actor of repression": df_exploded["Actor of repression"].str.split(",")}).explode("Actor of repression").assign(**{"Actor of repression": lambda x: x["Actor of repression"].str.strip()}), "Actor of repression"), "eActor of repression", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
+        r1c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Actor of repression"), "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
         r1c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Subject of repression"), "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Mechanism of repression"), "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "Type of event"), "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(top_n_bar(filtered_df, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
         r2c3.plotly_chart(create_bar_chart(top_n_bar(df_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
-        r2c3.plotly_chart(create_bar_chart(top_n_bar(df_exploded.assign(**{"enabling-principle": df_exploded["enabling-principle"].str.split(",")}).explode("enabling-principle").assign(**{"enabling-principle": lambda x: x["enabling-principle"].str.strip()}), "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
             render_heatmaps(filtered_df, top_n=top_n)
