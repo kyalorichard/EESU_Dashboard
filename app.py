@@ -610,6 +610,30 @@ def render_sankey(summary_df, top_n=None, width=900):
     )
 
     return fig
+
+# ---------------- TOP-N BAR HELPER ----------------
+def top_n_bar(df, col, top_n=None):
+    """
+    Returns a DataFrame with counts of top-N items in the specified column.
+
+    Parameters:
+        df (DataFrame): Input DataFrame
+        col (str): Column name to summarize
+        top_n (int or None): Number of top items. None returns all
+
+    Returns:
+        DataFrame: Columns = [col, 'count']
+    """
+    if df.empty or col not in df.columns:
+        return pd.DataFrame(columns=[col, 'count'])
+    
+    counts = df[col].value_counts().reset_index()
+    counts.columns = [col, 'count']
+    
+    if top_n is not None:
+        counts = counts.head(top_n)
+    
+    return counts
     
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
