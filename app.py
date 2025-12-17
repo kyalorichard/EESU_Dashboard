@@ -509,13 +509,7 @@ def render_heatmaps(df, top_n=5):
 # ---------------- INLINE FILTER FUNCTION ----------------
 def apply_inline_filter(df, filters, multi_valued_cols=None):
     """
-    filters example:
-    {
-        "Actor of repression": ["Police", "Military"],
-        "Mechanism of repression": ["Surveillance"]
-    }
-
-    multi_valued_cols: list of columns where values can contain comma‐separated elements
+    Apply UI filters safely, including comma-separated multi-valued columns.
     """
 
     if multi_valued_cols is None:
@@ -525,7 +519,11 @@ def apply_inline_filter(df, filters, multi_valued_cols=None):
 
     for col, selected_values in filters.items():
 
-        # skip filter if no selection or "Select All"
+        # skip columns that do not exist (prevents KeyErrors)
+        if col not in filtered_df.columns:
+            continue
+
+        # skip filter if no selection or Select All
         if not selected_values or "Select All" in selected_values:
             continue
 
@@ -533,19 +531,20 @@ def apply_inline_filter(df, filters, multi_valued_cols=None):
 
         if col in multi_valued_cols:
 
-            # safe processing of comma-separated strings
             def match_multi(cell):
                 if pd.isna(cell):
                     return False
                 return any(
-                    token.strip() in selected_clean
-                    for token in str(cell).split(',')
+                    tok.strip() in selected_clean
+                    for tok in str(cell).split(",")
                 )
 
             filtered_df = filtered_df[filtered_df[col].apply(match_multi)]
 
         else:
-            filtered_df = filtered_df[filtered_df[col].isin(selected_clean)]
+            filtered_df = filtered_df[
+                filtered_df[col].isin(selected_clean)
+            ]
 
     return filtered_df
 
