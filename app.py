@@ -728,14 +728,6 @@ with tab2:
         filtered_top_n_df = df_exploded.copy()  # For heatmaps & Sankey
         df_clean = df_exploded.copy()           # For bar charts
 
-        # ---------------- TOP-N CONFIG ----------------
-        if "top_n_option" not in st.session_state:
-            st.session_state.top_n_option = "Top 5"
-            st.session_state.top_n = 5
-
-        def update_top_n():
-            option = st.session_state.top_n_option
-            st.session_state.top_n = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}[option]
         
         # ---------------- SUMMARY CARDS ----------------
         render_summary_cards(df_clean)
@@ -764,6 +756,21 @@ with tab2:
         r2c2.plotly_chart(create_bar_chart(t5,"alert-type","count", horizontal=True), use_container_width=True, key="tab2_chart5")
         r2c3.plotly_chart(create_bar_chart(t6,"enabling-principle","count", horizontal=True), use_container_width=True, key="tab2_chart6")
 
+         # ---------------- TOP-N CONFIG ----------------
+        if "top_n_option" not in st.session_state:
+            st.session_state.top_n_option = "Top 5"
+            st.session_state.top_n = 5
+
+        def update_top_n():
+            option = st.session_state.top_n_option
+            st.session_state.top_n = {
+                "Top 2": 2,
+                "Top 3": 3,
+                "Top 4": 4,
+                "Top 5": 5,
+                "All": None
+            }[option]
+
         st.selectbox(
             "Select Top N for charts, heatmaps, and Sankey",
             options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
@@ -771,6 +778,7 @@ with tab2:
             key="top_n_option",
             on_change=update_top_n
         )
+        update_top_n()
         top_n = st.session_state.top_n
 
         # ---------------- HEATMAPS ----------------
