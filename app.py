@@ -637,15 +637,7 @@ def top_n_bar(df, col, top_n=None):
     
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
-
-    st.write("Reactive DF shape:", reactive_df.shape)
-    st.write("Top 5 rows:", reactive_df.head())
-    st.write("Unique Actor of repression:", reactive_df['Actor of repression'].unique())
-    st.write("Unique Subject of repression:", reactive_df['Subject of repression'].unique())
-    st.write("Unique Mechanism of repression:", reactive_df['Mechanism of repression'].unique())
-    st.write("Unique Type of event:", reactive_df['Type of event'].unique())
-    st.header("Negative Events Analysis")
-
+    
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
     else:
@@ -686,6 +678,19 @@ with tab2:
             filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Mechanism of repression'].isin(selected_mechanism_types)]
         if "Select All" not in selected_event_types:
             filtered_top_n_df = filtered_top_n_df[filtered_top_n_df['Type of event'].isin(selected_event_types)]
+
+         # ---------------- FILTER FUNCTION ----------------
+        def filter_multi_valued_column(df, col, selected_values):
+            if "Select All" in selected_values:
+                return df
+            return df[df[col].str.split(",").apply(lambda x: any(item.strip() in selected_values for item in x))]
+
+        # Apply filters
+        filtered_top_n_df = reactive_df.copy()
+        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Actor of repression", selected_actor_types)
+        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Subject of repression", selected_subject_types)
+        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Mechanism of repression", selected_mechanism_types)
+        filtered_top_n_df = filter_multi_valued_column(filtered_top_n_df, "Type of event", selected_event_types)
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
