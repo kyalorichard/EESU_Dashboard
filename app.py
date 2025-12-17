@@ -672,9 +672,12 @@ def top_n_bar(df, col, top_n=None):
     
     return counts
     
- 
+# ---------------- TAB 2: Negative Events ----------------
+with tab2:
+    
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
+  
     else:
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
