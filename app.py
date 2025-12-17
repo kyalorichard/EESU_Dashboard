@@ -691,11 +691,32 @@ with tab2:
     r1c1,r1c2,r1c3 = st.columns(3)
     r2c1,r2c2,r2c3 = st.columns(3)
     
-    t1 = top_n_bar(filtered_top_n_df, "Actor of repression")
-    t2 = top_n_bar(filtered_top_n_df, "Subject of repression")
-    t3 = top_n_bar(filtered_top_n_df, "Mechanism of repression")
-    t4 = top_n_bar(filtered_top_n_df, "Type of event")
-    t5 = top_n_bar(filtered_top_n_df, "alert-type")
+    #t1 = top_n_bar(filtered_top_n_df, "Actor of repression")
+    #t2 = top_n_bar(filtered_top_n_df, "Subject of repression")
+    #t3 = top_n_bar(filtered_top_n_df, "Mechanism of repression")
+    #t4 = top_n_bar(filtered_top_n_df, "Type of event")
+    #t5 = top_n_bar(filtered_top_n_df, "alert-type")
+
+    cols_to_expand = ["Actor of repression", 
+                      "Subject of repression", 
+                      "Mechanism of repression", 
+                      "Type of event"
+                     ]
+
+    df_clean = filtered_top_n_df.copy()
+    
+    for col in cols_to_expand:
+        df_clean[col] =  filtered_top_n_df[col].str.split(",")
+        df_clean = df_clean.explode(col)
+        df_clean[col] = df_clean[col].str.strip()
+
+
+    
+    t1 = top_n_bar(df_clean, "Actor of repression")
+    t2 = top_n_bar(df_clean, "Subject of repression")
+    t3 = top_n_bar(df_clean, "Mechanism of repression")
+    t4 = top_n_bar(df_clean, "Type of event")
+    t5 = top_n_bar(df_clean, "Actor of repression")
     
     df_clean = filtered_top_n_df.assign(**{"enabling-principle": filtered_top_n_df["enabling-principle"].str.split(",")}).explode("enabling-principle")
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
