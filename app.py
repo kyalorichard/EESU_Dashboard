@@ -788,11 +788,11 @@ with tab2:
         #r2c3.plotly_chart(create_bar_chart(top_n_bar(enabling_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_df, top_n=top_n)
+            render_heatmaps(filtered_df2, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
-            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
+            st.plotly_chart(render_sankey(filtered_df2, top_n=top_n), use_container_width=True)
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
