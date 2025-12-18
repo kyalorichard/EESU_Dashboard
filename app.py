@@ -752,7 +752,8 @@ with tab2:
         mechanism_counts = build_counts(filtered_df2, "Mechanism of repression")
         event_counts = build_counts(filtered_df2, "Type of event")
       
-        st.write(df_exp)  
+        st.write(filtered_df2)  
+        
         #event_type = filtered_df["alert-type"].value_counts().reset_index()
         #event_type.columns = ["alert-type", "count"]
 
