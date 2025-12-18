@@ -756,7 +756,8 @@ with tab2:
         event_counts = (filtered_df2["Type of event"].value_counts().reset_index()
                         .rename(columns={"index": "Type of event", "Type of event": "count"})
                        )
-
+        print(actor_counts.columns)
+        print(actor_counts.head())
 
       
                
