@@ -758,11 +758,17 @@ with tab2:
         tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
         m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
         
-    
-      
-        st.write(reactive_df_updated)         
-        
-                       
+        # ---------------- BAR CHARTS ----------------
+        r1c1, r1c2, r1c3 = st.columns(3)
+        r2c1, r2c2, r2c3 = st.columns(3)
+
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
+
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
@@ -781,17 +787,6 @@ with tab2:
             on_change=update_top_n
         )
         top_n = st.session_state.top_n
-
-        # ---------------- BAR CHARTS ----------------
-        r1c1, r1c2, r1c3 = st.columns(3)
-        r2c1, r2c2, r2c3 = st.columns(3)
-
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
-        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
             render_heatmaps(filtered_df, top_n=top_n)
@@ -799,6 +794,10 @@ with tab2:
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
             st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
+            
+        # ---------------- Tab two data preview ----------------
+        with st.expander("Summary Data preview"):
+            st.write(reactive_df_updated)     
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
