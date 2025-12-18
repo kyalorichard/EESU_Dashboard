@@ -745,17 +745,7 @@ with tab2:
 
         
 
-        def build_counts(df, col):
-            vc = df[col].value_counts(dropna=False)
-            return pd.DataFrame({
-                col: vc.index,
-                "count": vc.values
-            })
-
-        actor_counts = build_counts(filtered_df2, "Actor of repression")
-        subject_counts = build_counts(filtered_df2, "Subject of repression")
-        mechanism_counts = build_counts(filtered_df2, "Mechanism of repression")
-        event_counts = build_counts(filtered_df2, "Type of event")
+       
       
         st.write(filtered_df2)  
         
