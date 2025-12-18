@@ -608,7 +608,7 @@ def render_sankey(summary_df, top_n=None, width=900):
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="white"),   # ✅ CORRECT PLACE
+        font=dict(size=12, color="black"),   # ✅ CORRECT PLACE
         height=fig_height,
         width=width,
         margin=dict(l=40, r=40, t=60, b=40),
@@ -728,13 +728,9 @@ with tab2:
         ]
         render_summary_cards(reactive_df_updated)
 
-        def filter_exploded(df, col, selected_values):
-            if "Select All" in selected_values:
-                return df
-            return df[df[col].apply(lambda x: contains_any(x, selected_values))]
-
-            
-        filtered_df = df_exploded.copy()
+      
+        #filtered_df = df_exploded.copy()
+        filtered_df = reactive_df_updated.copy()
         
         filtered_df2 = filtered_df[
             (filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
@@ -756,7 +752,7 @@ with tab2:
         mechanism_counts = build_counts(filtered_df2, "Mechanism of repression")
         event_counts = build_counts(filtered_df2, "Type of event")
       
-               
+        st.write(df_exp)  
         #event_type = filtered_df["alert-type"].value_counts().reset_index()
         #event_type.columns = ["alert-type", "count"]
 
