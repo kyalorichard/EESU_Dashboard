@@ -738,7 +738,7 @@ with tab2:
         tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
         m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
 
-        tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["2ubject of repression"].str.split(",")}).explode("Subject of repression")
+        tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
         tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
         m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
 
