@@ -735,12 +735,12 @@ with tab2:
         #filtered_df = reactive_df_updated.copy()
         
         tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-            tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-            m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
+        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
         
         tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
-            tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
-            m2 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+        tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
+        m2 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
         
 
         
