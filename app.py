@@ -8,7 +8,6 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import base64
 
-
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -625,6 +624,20 @@ def top_n_bar(df, col, top_n=None):
     if top_n is not None:
         counts = counts.head(top_n)    
     return counts
+# ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+def explode_multi_valued_columns(df, cols):
+    """
+    Explodes comma-separated values in specified columns.
+    Each comma-separated value becomes a separate row.
+    """
+    df_exploded = df.copy()
+    for col in cols:
+        if col in df_exploded.columns:
+            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].str.strip()
+    return df_exploded
+    
  
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
