@@ -506,30 +506,35 @@ def render_heatmaps(df, top_n=5):
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
 
 # ---------------- UPDATED SANKEY FUNCTION ----------------
-def render_sankey(summary_df, top_n=None, width=900):
-    if summary_df.empty:
+def render_sankey(df, top_n=None, width=900):
+    """
+    Render a Sankey diagram for Negative Events:
+    Actor → Mechanism → Subject
+    """
+    if df.empty:
         st.warning("No data available for Sankey")
         return go.Figure()
 
-    def get_top_nodes(df, col, n):
+    # Helper: truncate long labels
+    def truncate_label(label, max_chars=25):
+        label = str(label)
+        return label if len(label) <= max_chars else label[:max_chars-3] + "..."
+
+    # Get top-N nodes
+    def get_top_nodes(col):
         counts = df[col].value_counts()
-        if n is not None:
-            counts = counts.head(n)
+        if top_n is not None:
+            counts = counts.head(top_n)
         return counts.index.tolist()
 
-    top_actors = get_top_nodes(summary_df, "Actor of repression", top_n)
-    top_mechanisms = get_top_nodes(summary_df, "Mechanism of repression", top_n)
-    top_subjects = get_top_nodes(summary_df, "Subject of repression", top_n)
+    top_actors = get_top_nodes("Actor of repression")
+    top_mechanisms = get_top_nodes("Mechanism of repression")
+    top_subjects = get_top_nodes("Subject of repression")
 
-    def wrap_label(label, words_per_line=2):
-        words = str(label).split()
-        return "<br>".join(
-            [" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)]
-        )
-
-    actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
-    mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
-    subject_nodes = [wrap_label(f"Subject: {s}") for s in top_subjects]
+    # Build node labels
+    actor_nodes = [truncate_label(f"Actor: {a}") for a in top_actors]
+    mechanism_nodes = [truncate_label(f"Mechanism: {m}") for m in top_mechanisms]
+    subject_nodes = [truncate_label(f"Subject: {s}") for s in top_subjects]
 
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
@@ -542,39 +547,34 @@ def render_sankey(summary_df, top_n=None, width=900):
 
     links = []
 
-    df_am = summary_df[
-        summary_df["Actor of repression"].isin(top_actors) &
-        summary_df["Mechanism of repression"].isin(top_mechanisms)
-    ]
-    for _, r in df_am.groupby(
-        ["Actor of repression", "Mechanism of repression"]
-    ).size().reset_index(name="value").iterrows():
+    # Actor → Mechanism
+    df_am = df[df["Actor of repression"].isin(top_actors) &
+               df["Mechanism of repression"].isin(top_mechanisms)]
+    for _, r in df_am.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=node_index[wrap_label(f"Actor: {r['Actor of repression']}")],
-            target=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
+            source=node_index[truncate_label(f"Actor: {r['Actor of repression']}")],
+            target=node_index[truncate_label(f"Mechanism: {r['Mechanism of repression']}")],
             value=r["value"]
         ))
 
-    df_ms = summary_df[
-        summary_df["Mechanism of repression"].isin(top_mechanisms) &
-        summary_df["Subject of repression"].isin(top_subjects)
-    ]
-    for _, r in df_ms.groupby(
-        ["Mechanism of repression", "Subject of repression"]
-    ).size().reset_index(name="value").iterrows():
+    # Mechanism → Subject
+    df_ms = df[df["Mechanism of repression"].isin(top_mechanisms) &
+               df["Subject of repression"].isin(top_subjects)]
+    for _, r in df_ms.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
-            target=node_index[wrap_label(f"Subject: {r['Subject of repression']}")],
+            source=node_index[truncate_label(f"Mechanism: {r['Mechanism of repression']}")],
+            target=node_index[truncate_label(f"Subject: {r['Subject of repression']}")],
             value=r["value"]
         ))
 
+    # Figure height scales with number of nodes
     fig_height = max(500, len(nodes) * 40)
 
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=30,
-            thickness=25,
+            pad=40,             # spacing between nodes
+            thickness=35,       # node thickness
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
@@ -588,7 +588,7 @@ def render_sankey(summary_df, top_n=None, width=900):
         )
     ))
 
-    # Legend
+    # Optional legend as scatter
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
         marker=dict(size=10, color="#FF5733"),
@@ -607,10 +607,10 @@ def render_sankey(summary_df, top_n=None, width=900):
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="black"),   # ✅ CORRECT PLACE
+        font=dict(size=12, color="black"),
         height=fig_height,
         width=width,
-        margin=dict(l=40, r=40, t=60, b=40),
+        margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
     )
 
