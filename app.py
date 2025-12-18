@@ -201,6 +201,8 @@ for col in required_columns:
     if col not in reactive_df.columns:
         reactive_df[col] = np.nan
         st.warning(f"Column '{col}' was missing and has been added as empty.")
+
+
 # ---------------- LABEL WRAPPING ----------------
 def wrap_label_by_words(label, words_per_line=4):
     words = str(label).split()
@@ -629,7 +631,7 @@ def top_n_bar(df, col, top_n=None):
         counts = counts.head(top_n)
     
     return counts
-    
+   
 
 def explode_multi_valued_columns(df, cols):
     """
