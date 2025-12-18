@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -737,10 +737,22 @@ with tab2:
         tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
         tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
         m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+
+        tab2_subj = reactive_df_updated.assign(**{"subject of repression": reactive_df_updated["subject of repression"].str.split(",")}).explode("subject of repression")
+        tab2_subj["subject of repression"] = tab2_subj["subject of repression"].str.strip()
+        m2 = tab2_subj.groupby(["subject of repression","alert-impact"]).size().reset_index(name='count')
+
+        tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
+        tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
+        m3 = tab2_mech.groupby(["subject of repression","alert-impact"]).size().reset_index(name='count')
+
+        tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
+        tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
+        m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
         
         tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
         tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
-        m2 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
         
     
       
@@ -771,9 +783,9 @@ with tab2:
         r2c1, r2c2, r2c3 = st.columns(3)
 
         r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        #r1c2.plotly_chart(create_bar_chart(subject_counts, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
-        #r1c3.plotly_chart(create_bar_chart(mechanism_counts, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
-        #r2c1.plotly_chart(create_bar_chart(event_counts, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
         #r2c2.plotly_chart(create_bar_chart(top_n_bar(event_type, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
         #r2c3.plotly_chart(create_bar_chart(top_n_bar(enabling_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
