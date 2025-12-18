@@ -576,7 +576,7 @@ def render_sankey(df, top_n=None, width=900):
             pad=40,             # spacing between nodes
             thickness=35,       # node thickness
             line=dict(color="black", width=0.5),
-            font=dict(color="white", size=14)  # label font color
+            font=dict(color="white", size=14),  # label font color
             label=nodes,
             color=node_colors,
             hovertemplate="%{label}<extra></extra>"
