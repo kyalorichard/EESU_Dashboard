@@ -742,16 +742,11 @@ with tab2:
         tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
         m2 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
         
-
-        
-
-       
+    
       
-        st.write(filtered_df2)  
+        st.write(reactive_df_updated)         
         
-        
-        
-                 
+                       
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
