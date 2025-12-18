@@ -578,6 +578,13 @@ def render_sankey(df, top_n=None, width=900):
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
+            font=dict(
+                size=12,
+                color=[  # pick readable font colors per node
+                    "white" if c in ["#FF5733", "#33C1FF"] else "black"
+                    for c in node_colors
+                ]
+            ),
             hovertemplate="%{label}<extra></extra>"
         ),
         link=dict(
