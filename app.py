@@ -790,8 +790,8 @@ with tab2:
         r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
-        #r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
-        #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
             render_heatmaps(filtered_df, top_n=top_n)
