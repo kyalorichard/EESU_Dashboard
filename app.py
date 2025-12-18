@@ -744,21 +744,17 @@ with tab2:
         ]
 
 
-        actor_counts = (filtered_df2["Actor of repression"].value_counts().reset_index()
-                        .rename(columns={"index": "Actor of repression", "Actor of repression": "count"})
-                       )
-        subject_counts = (filtered_df2["Subject of repression"].value_counts().reset_index()
-                          .rename(columns={"index": "Subject of repression", "Subject of repression": "count"})
-                         )
-        mechanism_counts = (filtered_df2["Mechanism of repression"].value_counts().reset_index()
-                            .rename(columns={"index": "Mechanism of repression", "Mechanism of repression": "count"})
-                           )
-        event_counts = (filtered_df2["Type of event"].value_counts().reset_index()
-                        .rename(columns={"index": "Type of event", "Type of event": "count"})
-                       )
-        print(actor_counts.columns)
-        print(actor_counts.head())
+        def build_counts(df, col):
+            vc = df[col].value_counts(dropna=False)
+            return pd.DataFrame({
+                col: vc.index,
+                "count": vc.values
+            })
 
+        actor_counts = build_counts(filtered_df2, "Actor of repression")
+        subject_counts = build_counts(filtered_df2, "Subject of repression")
+        mechanism_counts = build_counts(filtered_df2, "Mechanism of repression")
+        event_counts = build_counts(filtered_df2, "Type of event")
       
                
         #event_type = filtered_df["alert-type"].value_counts().reset_index()
