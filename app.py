@@ -729,8 +729,8 @@ with tab2:
         render_summary_cards(reactive_df_updated)
 
       
-        #filtered_df = df_exploded.copy()
-        filtered_df = reactive_df_updated.copy()
+        filtered_df = df_exploded.copy()
+        #filtered_df = reactive_df_updated.copy()
         
         filtered_df2 = filtered_df[
             (filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
@@ -754,12 +754,7 @@ with tab2:
       
         st.write(filtered_df2)  
         
-        #event_type = filtered_df["alert-type"].value_counts().reset_index()
-        #event_type.columns = ["alert-type", "count"]
-
-        #enabling_principle = filtered_df["enabling_principle"].value_counts().reset_index()
-        #enabling_principle.columns = ["enabling_principle", "count"]
-
+        
         
                  
         # ---------------- TOP-N CONFIG ----------------
