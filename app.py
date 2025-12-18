@@ -230,7 +230,7 @@ def render_summary_cards(df, base_bar_height=25):
 
     # Adjust bar height and font size based on total alerts
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
-    font_size = max(10, min(16, 14 - int(total_alerts/100)))
+    font_size = max(12, min(16, 14 - int(total_alerts/100)))
 
     # Create columns
     col1, col2, col3 = st.columns(3)
