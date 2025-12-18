@@ -734,13 +734,16 @@ with tab2:
         filtered_df = df_exploded.copy()
         #filtered_df = reactive_df_updated.copy()
         
-        filtered_df2 = filtered_df[
-            (filtered_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (filtered_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (filtered_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (filtered_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
+        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+            tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
+            m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+        
+        tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
+            tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
+            m2 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+        
 
+        
 
         def build_counts(df, col):
             vc = df[col].value_counts(dropna=False)
@@ -782,19 +785,19 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(actor_counts, "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(subject_counts, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(mechanism_counts, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(event_counts, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
+        #r1c2.plotly_chart(create_bar_chart(subject_counts, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
+        #r1c3.plotly_chart(create_bar_chart(mechanism_counts, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
+        #r2c1.plotly_chart(create_bar_chart(event_counts, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
         #r2c2.plotly_chart(create_bar_chart(top_n_bar(event_type, "alert-type"), "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
         #r2c3.plotly_chart(create_bar_chart(top_n_bar(enabling_principle, "enabling-principle"), "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_df2, top_n=top_n)
+            render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
-            st.plotly_chart(render_sankey(filtered_df2, top_n=top_n), use_container_width=True)
+            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
