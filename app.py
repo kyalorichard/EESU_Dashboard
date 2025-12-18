@@ -493,8 +493,8 @@ def render_heatmaps(df, top_n=5):
 # ---------------- UPDATED SANKEY FUNCTION ----------------
 def render_sankey(df, top_n=None, width=900):
     """
-    Render a Sankey diagram for Negative Events: Actor → Mechanism → Subject
-    Fully validated for Plotly: safe node labels, colors, and links.
+    Render a Sankey diagram for Negative Events:
+    Actor → Mechanism → Subject
     """
     if df.empty:
         st.warning("No data available for Sankey")
@@ -502,10 +502,10 @@ def render_sankey(df, top_n=None, width=900):
 
     # Helper: truncate long labels
     def truncate_label(label, max_chars=25):
-        label = str(label) if label is not None else "Unknown"
+        label = str(label)
         return label if len(label) <= max_chars else label[:max_chars-3] + "..."
 
-    # Helper: get top-N nodes for a column
+    # Get top-N nodes
     def get_top_nodes(col):
         counts = df[col].value_counts()
         if top_n is not None:
@@ -522,59 +522,47 @@ def render_sankey(df, top_n=None, width=900):
     subject_nodes = [truncate_label(f"Subject: {s}") for s in top_subjects]
 
     nodes = actor_nodes + mechanism_nodes + subject_nodes
-
-    # Ensure no None labels
-    nodes = [n if n else "Unknown" for n in nodes]
-
     node_index = {name: i for i, name in enumerate(nodes)}
 
-    # Node colors (length must match nodes)
     node_colors = (
         ["#FF5733"] * len(actor_nodes) +
         ["#33C1FF"] * len(mechanism_nodes) +
         ["#33FF8A"] * len(subject_nodes)
     )
-    node_colors = [c if c else "#888888" for c in node_colors]  # fallback color
-
-    assert len(nodes) == len(node_colors), f"nodes={len(nodes)}, colors={len(node_colors)}"
-
+    
     links = []
 
     # Actor → Mechanism
     df_am = df[df["Actor of repression"].isin(top_actors) &
                df["Mechanism of repression"].isin(top_mechanisms)]
     for _, r in df_am.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value").iterrows():
-        src = node_index.get(truncate_label(f"Actor: {r['Actor of repression']}"))
-        tgt = node_index.get(truncate_label(f"Mechanism: {r['Mechanism of repression']}"))
-        if src is not None and tgt is not None:
-            links.append(dict(source=src, target=tgt, value=r["value"]))
+        links.append(dict(
+            source=node_index[truncate_label(f"Actor: {r['Actor of repression']}")],
+            target=node_index[truncate_label(f"Mechanism: {r['Mechanism of repression']}")],
+            value=r["value"]
+        ))
 
     # Mechanism → Subject
     df_ms = df[df["Mechanism of repression"].isin(top_mechanisms) &
                df["Subject of repression"].isin(top_subjects)]
     for _, r in df_ms.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value").iterrows():
-        src = node_index.get(truncate_label(f"Mechanism: {r['Mechanism of repression']}"))
-        tgt = node_index.get(truncate_label(f"Subject: {r['Subject of repression']}"))
-        if src is not None and tgt is not None:
-            links.append(dict(source=src, target=tgt, value=r["value"]))
-
-    # Validate link indices
-    num_nodes = len(nodes)
-    links = [l for l in links if 0 <= l["source"] < num_nodes and 0 <= l["target"] < num_nodes]
+        links.append(dict(
+            source=node_index[truncate_label(f"Mechanism: {r['Mechanism of repression']}")],
+            target=node_index[truncate_label(f"Subject: {r['Subject of repression']}")],
+            value=r["value"]
+        ))
 
     # Figure height scales with number of nodes
     fig_height = max(500, len(nodes) * 40)
 
-    # Build Sankey figure
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=40,
-            thickness=35,
+            pad=40,             # spacing between nodes
+            thickness=35,       # node thickness
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
-            font=dict(size=12, color="white"),  # single contrasting color
             hovertemplate="%{label}<extra></extra>"
         ),
         link=dict(
