@@ -160,7 +160,6 @@ selected_months = safe_multiselect(
     available_months, 
     "selected_months"
 )
-#selected_months = safe_multiselect("Select month", sorted(data['month_name'].dropna().unique(), key=lambda m: pd.to_datetime(m, format='%B').month), "selected_months")
 
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
@@ -202,13 +201,11 @@ for col in required_columns:
         reactive_df[col] = np.nan
         st.warning(f"Column '{col}' was missing and has been added as empty.")
 
-
 # ---------------- LABEL WRAPPING ----------------
 def wrap_label_by_words(label, words_per_line=4):
     words = str(label).split()
     lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
     return "<br>".join(lines)
-
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, base_bar_height=25):
@@ -631,30 +628,6 @@ def top_n_bar(df, col, top_n=None):
         counts = counts.head(top_n)
     
     return counts
-   
-
-def explode_multi_valued_columns(df, cols):
-    """
-    Explodes comma-separated values in specified columns.
-    Each comma-separated value becomes a separate row.
-
-    Parameters:
-        df (DataFrame): Input DataFrame
-        cols (list): List of column names to explode
-
-    Returns:
-        DataFrame: Exploded DataFrame with whitespace-trimmed values
-    """
-    df_exploded = df.copy()
-    for col in cols:
-        if col in df_exploded.columns:
-            # Split comma-separated values into lists
-            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
-            # Explode each list into separate rows
-            df_exploded = df_exploded.explode(col)
-            # Strip leading/trailing whitespace
-            df_exploded[col] = df_exploded[col].str.strip()
-    return df_exploded
  
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
