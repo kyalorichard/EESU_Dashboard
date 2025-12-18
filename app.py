@@ -576,6 +576,7 @@ def render_sankey(df, top_n=None, width=900):
             pad=40,             # spacing between nodes
             thickness=35,       # node thickness
             line=dict(color="black", width=0.5),
+            font=dict(color="white", size=14)  # label font color
             label=nodes,
             color=node_colors,
             hovertemplate="%{label}<extra></extra>"
@@ -625,8 +626,7 @@ def top_n_bar(df, col, top_n=None):
     counts.columns = [col, "count"]
     
     if top_n is not None:
-        counts = counts.head(top_n)
-    
+        counts = counts.head(top_n)    
     return counts
  
 # ---------------- TABS ----------------
