@@ -544,6 +544,11 @@ def render_sankey(df, top_n=None, width=900):
         ["#33C1FF"] * len(mechanism_nodes) +
         ["#33FF8A"] * len(subject_nodes)
     )
+    # Set contrasting font colors
+    node_font_colors = [
+        "white" if c in ["#FF5733", "#33C1FF"] else "black"
+        for c in node_colors
+    ]
 
     links = []
 
