@@ -386,6 +386,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
     return fig
+
+
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
@@ -409,6 +411,56 @@ def filter_top_n(df, row_col, col_col, top_n=None):
 
     heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
     return heatmap_df
+
+# ---------------- FORMATTED HEATMAP ----------------
+def create_heatmap(pivot_df, title="Heatmap"):
+    """
+    Creates a Plotly heatmap from a pivot table with formatted labels and hover info.
+    """
+    if pivot_df.empty:
+        # Placeholder chart if no data
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False, font=dict(size=16))
+        fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+        return fig
+
+    # Wrap labels for better readability
+    pivot_df.index = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.index]
+    pivot_df.columns = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.columns]
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=pivot_df.values,
+            x=pivot_df.columns,
+            y=pivot_df.index,
+            colorscale='Viridis',
+            hovertemplate="<b>%{y}</b> → <b>%{x}</b><br>Count: %{z}<extra></extra>",
+            colorbar=dict(title="Count", tickfont=dict(size=12))
+        )
+    )
+
+    fig.update_layout(
+        title=title,
+        title_font=dict(size=18, color="#660094"),
+        xaxis_title="",
+        yaxis_title="",
+        xaxis_tickangle=-45,
+        yaxis=dict(tickfont=dict(size=12)),
+        margin=dict(l=80, r=20, t=50, b=120),
+        height=max(350, len(pivot_df)*35)
+    )
+
+    return fig
+# ---------------- HELPER: Get Top-N Items ----------------
+def get_top_n_items(df, col, top_n):
+    """
+    Returns a list of top-N items in a column based on frequency.
+    If top_n is None, returns all items.
+    """
+    counts = df[col].value_counts()
+    if top_n is not None:
+        counts = counts.head(top_n)
+    return counts.index.tolist()
 
 # ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
 def render_heatmaps(df, top_n=5):
@@ -475,7 +527,7 @@ def render_heatmaps(df, top_n=5):
         fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor Total)")
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
-
+        
 # ---------------- UPDATED SANKEY FUNCTION ----------------
 def render_sankey(df, top_n=None, width=900):
     """
