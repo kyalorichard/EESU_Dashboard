@@ -825,8 +825,8 @@ with tab2:
         render_summary_cards(reactive_df_updated,show_breakdown=False)
 
       
-        filtered_df = df_exploded.copy()
-        #filtered_df = reactive_df_updated.copy()
+        #filtered_df = df_exploded.copy()
+        filtered_df = reactive_df_updated.copy()
         
         tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
         tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
