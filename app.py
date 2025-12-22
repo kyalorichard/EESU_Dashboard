@@ -111,14 +111,14 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     # Dropdown list: "Select All" first
     options_with_all = ["Select All"] + options
 
-    # Internal session state: all options selected by default
+    # Initialize internal session state: all options selected by default
     if session_key not in st.session_state:
         st.session_state[session_key] = options.copy()
 
-    # On load, show nothing selected visually
+    # Default display: nothing selected
     default_display = []
 
-    # Render multiselect
+    # Render multiselect widget
     if sidebar:
         selected_display = st.sidebar.multiselect(
             label,
