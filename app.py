@@ -831,7 +831,7 @@ with tab2:
         ]
 
       
-        #filtered_df = df_exploded.copy()
+        filtered_df1 = df_exploded.copy()
         #filtered_df = reactive_df_updated.copy()
         
         tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
@@ -893,7 +893,7 @@ with tab2:
         
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
-            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
+            st.plotly_chart(render_sankey(filtered_df1, top_n=top_n), use_container_width=True)
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
