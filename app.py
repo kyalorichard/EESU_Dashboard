@@ -105,15 +105,17 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    # Sort + deduplicate options
+    # Sort options alphabetically
     options = sorted(set(options))
+    
+    # Prepare dropdown: "Select All" first
     options_with_all = ["Select All"] + options
 
     # Initialize session state if not exists
     if session_key not in st.session_state:
         st.session_state[session_key] = ["Select All"]
 
-    # Determine default for the widget
+    # Determine default selection for widget
     default_selection = st.session_state[session_key]
 
     # Render the widget
@@ -122,7 +124,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     else:
         selected = st.multiselect(label, options_with_all, default=default_selection, key=session_key)
 
-    # Return actual options if "Select All" is selected or nothing is selected
+    # If "Select All" is selected or nothing selected, return all real options
     if "Select All" in selected or len(selected) == 0:
         return options
     else:
