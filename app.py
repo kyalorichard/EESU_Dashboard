@@ -283,19 +283,18 @@ def render_summary_cards(df, base_bar_height=25):
 </div>
 """, unsafe_allow_html=True)
 
-    # --- Alerts Breakdown ---
-    with col3:
-        st.markdown(f"""
+   # --- Alerts Breakdown (conditional) ---
+    if show_breakdown:
+        with col3:
+            st.markdown(f"""
 <div style="{card_style}">
 <h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
 
-<!-- Top numbers -->
 <div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
 <span style="color:#FF4C4C;font-weight:bold;">Negative ● {negative}</span>
 <span style="color:#00FFAA;font-weight:bold;">Positive ● {positive}</span>
 </div>
 
-<!-- Horizontal bar -->
 <div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
     <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
         {neg_pct if neg_pct>5 else ''}%
@@ -306,6 +305,7 @@ def render_summary_cards(df, base_bar_height=25):
 </div>
 </div>
 """, unsafe_allow_html=True)
+
 
 def normalize_label(label: str) -> str:
     """
@@ -736,7 +736,7 @@ with tab2:
             (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-        render_summary_cards(reactive_df_updated)
+        render_summary_cards(reactive_df_updated,show_breakdown=False)
 
       
         filtered_df = df_exploded.copy()
