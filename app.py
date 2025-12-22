@@ -889,7 +889,7 @@ with tab2:
         top_n = st.session_state.top_n
         # ---------------- HEATMAPS ----------------
         with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_df, top_n=top_n)
+            #render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
