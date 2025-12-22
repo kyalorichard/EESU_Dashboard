@@ -105,43 +105,29 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    """
-    Custom multiselect that:
-    - Shows "Select option" placeholder on load
-    - Pre-selects all options internally
-    - Allows user to select/deselect
-    """
-    options = sorted(list(options))
-    placeholder = "Select option"
+    options = sorted([str(opt).capitalize() for opt in options])  # Capitalize labels
+    options_with_all = ["Select All"] + options  # "Select All" first in dropdown
 
-    # Initialize session state
+    # Initialize session state only if key doesn't exist
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # pre-select all internally
+        st.session_state[session_key] = options.copy()  # Select all by default
 
-    # Show dropdown
     try:
         if sidebar:
             selected = st.sidebar.multiselect(
-                label,
-                options,
-                default=[],
-                key=session_key,
-                format_func=lambda x: x if x in st.session_state[session_key] else placeholder
+                label, options_with_all, default=st.session_state[session_key]
             )
         else:
             selected = st.multiselect(
-                label,
-                options,
-                default=[],
-                key=session_key,
-                format_func=lambda x: x if x in st.session_state[session_key] else placeholder
+                label, options_with_all, default=st.session_state[session_key]
             )
     except Exception:
-        selected = []
+        selected = options.copy()
 
-    # If nothing is selected, use all options internally
-    if len(selected) == 0:
-        return st.session_state[session_key]
+    # If "Select All" is selected or nothing is selected, return all options
+    if "Select All" in selected or len(selected) == 0:
+        st.session_state[session_key] = options.copy()
+        return options
     else:
         st.session_state[session_key] = selected
         return selected
