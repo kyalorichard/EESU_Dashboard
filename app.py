@@ -227,7 +227,7 @@ def wrap_label_by_words(label, words_per_line=4):
     return "<br>".join(lines)
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
-def render_summary_cards(df, base_bar_height=25):
+def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """
     Render three summary cards with gradient background:
     1. Monitored Countries
@@ -669,7 +669,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Events","Visualization Ma
 
 # ---------------- TAB 1 ----------------
 with tab1:
-    render_summary_cards(filtered_global)
+    render_summary_cards(filtered_global,show_breakdown)
+    
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
