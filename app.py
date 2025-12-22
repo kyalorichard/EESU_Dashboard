@@ -945,7 +945,7 @@ with tab2:
         
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
-            st.plotly_chart(render_sankey(filtered_df1, top_n=top_n), use_container_width=True)
+            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
