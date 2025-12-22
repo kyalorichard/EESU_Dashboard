@@ -105,21 +105,22 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    # Sort options and format labels
+    # Capitalize options and sort
     options = [str(opt).capitalize() for opt in sorted(list(options))]
 
     # Dropdown list: "Select All" first
     options_with_all = ["Select All"] + options
 
-    # Initialize internal session state (all selected)
+    # Internal session state: all options selected by default
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # internally all selected
+        st.session_state[session_key] = options.copy()
 
-    # Multiselect shows nothing selected visually on load
+    # Separate display key for visual selection (initially nothing selected)
     display_key = f"display_{session_key}"
     if display_key not in st.session_state:
         st.session_state[display_key] = []
 
+    # Render multiselect
     try:
         if sidebar:
             selected_display = st.sidebar.multiselect(
@@ -138,9 +139,10 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     except Exception:
         selected_display = []
 
-    # Determine actual selection to return
+    # Determine actual selection
     if not selected_display or "Select All" in selected_display:
-        # Return all options internally
+        # All options selected internally
+        st.session_state[session_key] = options.copy()
         return options
     else:
         # Update session state with user's selection
