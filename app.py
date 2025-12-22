@@ -931,7 +931,7 @@ with tab2:
             }[st.session_state.top_n_option]
 
         st.selectbox(
-            "Select Top N from the drop down list to filter top entries for actors, \n subject and mechanism for the Heatmaps and Sankey Diagram",
+            "Select Top N from the drop down list to filter top entries for actors,subject and mechanism of repression for the Heatmaps and Sankey Diagram",
             options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
             index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
             key="top_n_option",
@@ -939,12 +939,12 @@ with tab2:
         )
         top_n = st.session_state.top_n
         # ---------------- HEATMAPS ----------------
-        with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_df, top_n=top_n)
+        #with st.expander("Show Heatmaps"):
+        render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
-        with st.expander("Show Flowchart (Sankey Diagram)"):
-            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
+        #with st.expander("Show Flowchart (Sankey Diagram)"):
+        st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
