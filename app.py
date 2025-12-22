@@ -111,41 +111,37 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     # Dropdown list with "Select All" first
     options_with_all = ["Select All"] + options
 
-    # Initialize session state if not present (internally select all)
+    # Initialize session state to store actual selected options
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()
+        st.session_state[session_key] = options.copy()  # internally "all selected"
 
-    # Default displayed selection: empty placeholder
-    default_display = []
-
-    # Display the multiselect with placeholder text
+    # Display multiselect with empty default (nothing selected visually)
     try:
         if sidebar:
-            selected = st.sidebar.multiselect(
+            selected_display = st.sidebar.multiselect(
                 label,
                 options_with_all,
-                default=default_display,
-                key=session_key,
-                help="Select options or leave empty to use all",
+                default=[],  # show nothing visually
+                key=f"display_{session_key}",
             )
         else:
-            selected = st.multiselect(
+            selected_display = st.multiselect(
                 label,
                 options_with_all,
-                default=default_display,
-                key=session_key,
-                help="Select options or leave empty to use all",
+                default=[],  # show nothing visually
+                key=f"display_{session_key}",
             )
     except Exception:
-        selected = []
+        selected_display = []
 
-    # If nothing selected or "Select All" chosen, return all options
-    if not selected or "Select All" in selected:
+    # Determine what to return
+    if not selected_display or "Select All" in selected_display:
+        # User left empty or clicked "Select All" -> return all options
         return options
     else:
         # Update session state with user's selection
-        st.session_state[session_key] = selected
-        return selected
+        st.session_state[session_key] = selected_display
+        return selected_display
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
