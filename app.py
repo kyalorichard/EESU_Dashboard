@@ -411,41 +411,179 @@ def filter_top_n(df, row_col, col_col, top_n=None):
     return heatmap_df
 
 # ---------------- FORMATTED HEATMAP ----------------
-def create_heatmap(pivot_df, title="Heatmap"):
+# ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
+def render_heatmaps(df, top_n=5):
     """
-    Creates a Plotly heatmap from a pivot table with formatted labels and hover info.
+    Renders three heatmaps for Negative Events tab, handling multi-valued fields:
+    - Actor → Mechanism
+    - Subject → Mechanism
+    - Actor → Subject
+
+    Parameters:
+        df (DataFrame): Filtered data (Negative Events)
+        top_n (int or None): Number of top items to show per axis. Use None for all.
     """
-    if pivot_df.empty:
-        # Placeholder chart if no data
-        fig = go.Figure()
-        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False, font=dict(size=16))
-        fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
-        return fig
-        
-    # Wrap labels for better readability
-    pivot_df.index = [wrap_label_by_words(normalize_label(str(i)), words_per_line=3) for i in pivot_df.index]
-    pivot_df.columns = [wrap_label_by_words(normalize_label(str(i)), words_per_line=3) for i in pivot_df.columns]
-  
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=pivot_df.values,
-            x=pivot_df.columns,
-            y=pivot_df.index,
-            colorscale='Viridis',
-            hovertemplate="<b>%{y}</b> → <b>%{x}</b><br>Count: %{z}<extra></extra>",
-            colorbar=dict(title="Count", tickfont=dict(size=12))
-        )
+    if df.empty:
+        st.warning("No data available for heatmaps.")
+        return
+
+    # Explode multi-valued columns
+    df_exploded = explode_multi_valued_columns(df, [
+        "Actor of repression",
+        "Subject of repression",
+        "Mechanism of repression"
+    ])
+
+    # Determine Top-N items
+    top_actors = get_top_n_items(df_exploded, "Actor of repression", top_n)
+    top_subjects = get_top_n_items(df_exploded, "Subject of repression", top_n)
+    top_mechanisms = get_top_n_items(df_exploded, "Mechanism of repression", top_n)
+
+    # Filter to Top-N items
+    df_top = df_exploded[
+        df_exploded['Actor of repression'].isin(top_actors) &
+        df_exploded['Subject of repression'].isin(top_subjects) &
+        df_exploded['Mechanism of repression'].isin(top_mechanisms)
+    ].copy()
+
+    # Create pivot tables
+    actor_mechanism_pivot = filter_top_n(df_top, 'Actor of repression', 'Mechanism of repression', top_n)
+    subject_mechanism_pivot = filter_top_n(df_top, 'Subject of repression', 'Mechanism of repression', top_n)
+    actor_subject_pivot = filter_top_n(df_top, 'Actor of repression', 'Subject of repression', top_n)
+
+    # Consistent color scale
+    all_values = pd.concat([
+        actor_mechanism_pivot.stack(),
+        subject_mechanism_pivot.stack(),
+        actor_subject_pivot.stack()
+    ])
+    zmax = all_values.max() if not all_values.empty else 1
+
+    # Render heatmaps in 3 columns
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (# of Actor Total)")
+        fig1.update_traces(zmin=0, zmax=zmax)
+        st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
+
+    with col2:
+        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (# of Subject Total)")
+        fig2.update_traces(zmin=0, zmax=zmax)
+        st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
+
+    with col3:
+        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor Total)")
+        fig3.update_traces(zmin=0, zmax=zmax)
+        st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
+
+# ---------------- UPDATED SANKEY FUNCTION ----------------
+def render_sankey(df, top_n=None, width=900):
+    """
+    Render a Sankey diagram for Negative Events:
+    Actor → Mechanism → Subject
+    """
+    if df.empty:
+        st.warning("No data available for Sankey")
+        return go.Figure()
+
+    # Helper: truncate long labels
+    def truncate_label(label, max_chars=25):
+        label = str(label)
+        return label if len(label) <= max_chars else label[:max_chars-3] + "..."
+
+    # Get top-N nodes
+    def get_top_nodes(col):
+        counts = df[col].value_counts()
+        if top_n is not None:
+            counts = counts.head(top_n)
+        return counts.index.tolist()
+
+    top_actors = get_top_nodes("Actor of repression")
+    top_mechanisms = get_top_nodes("Mechanism of repression")
+    top_subjects = get_top_nodes("Subject of repression")
+
+    # Build node labels
+    actor_nodes = [truncate_label(f"Actor: {a}") for a in top_actors]
+    mechanism_nodes = [truncate_label(f"Mechanism: {m}") for m in top_mechanisms]
+    subject_nodes = [truncate_label(f"Subject: {s}") for s in top_subjects]
+
+    nodes = actor_nodes + mechanism_nodes + subject_nodes
+    node_index = {name: i for i, name in enumerate(nodes)}
+
+    node_colors = (
+        ["#FF5733"] * len(actor_nodes) +
+        ["#33C1FF"] * len(mechanism_nodes) +
+        ["#33FF8A"] * len(subject_nodes)
     )
+    
+    links = []
+
+    # Actor → Mechanism
+    df_am = df[df["Actor of repression"].isin(top_actors) &
+               df["Mechanism of repression"].isin(top_mechanisms)]
+    for _, r in df_am.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value").iterrows():
+        links.append(dict(
+            source=node_index[truncate_label(f"Actor: {r['Actor of repression']}")],
+            target=node_index[truncate_label(f"Mechanism: {r['Mechanism of repression']}")],
+            value=r["value"]
+        ))
+
+    # Mechanism → Subject
+    df_ms = df[df["Mechanism of repression"].isin(top_mechanisms) &
+               df["Subject of repression"].isin(top_subjects)]
+    for _, r in df_ms.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value").iterrows():
+        links.append(dict(
+            source=node_index[truncate_label(f"Mechanism: {r['Mechanism of repression']}")],
+            target=node_index[truncate_label(f"Subject: {r['Subject of repression']}")],
+            value=r["value"]
+        ))
+
+    # Figure height scales with number of nodes
+    fig_height = max(500, len(nodes) * 40)
+
+    fig = go.Figure(go.Sankey(
+        arrangement="snap",
+        node=dict(
+            pad=40,             # spacing between nodes
+            thickness=35,       # node thickness
+            line=dict(color="black", width=0.5),
+            label=nodes,
+            color=node_colors,
+            hovertemplate="%{label}<extra></extra>"
+        ),
+        link=dict(
+            source=[l["source"] for l in links],
+            target=[l["target"] for l in links],
+            value=[l["value"] for l in links],
+            hovertemplate="%{value} alerts<extra></extra>"
+        )
+    ))
+
+    # Optional legend as scatter
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#FF5733"),
+        name="Actor of repression"
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#33C1FF"),
+        name="Mechanism of repression"
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers",
+        marker=dict(size=10, color="#33FF8A"),
+        name="Subject of repression"
+    ))
 
     fig.update_layout(
-        title=title,
-        title_font=dict(size=18, color="#660094"),
-        xaxis_title="",
-        yaxis_title="",
-        xaxis_tickangle=-45,
-        yaxis=dict(tickfont=dict(size=12)),
-        margin=dict(l=80, r=20, t=50, b=120),
-        height=max(350, len(pivot_df)*35)
+        title="Flow of Negative Events",
+        font=dict(size=12, color="black"),
+        height=fig_height,
+        width=width,
+        margin=dict(l=50, r=50, t=50, b=50),
+        showlegend=True
     )
 
     return fig
