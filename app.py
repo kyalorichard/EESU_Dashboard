@@ -351,7 +351,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_layout(title=title,title_x=0.5, margin=dict(l=10, r=10, t=40, b=10))
-    )
     return fig
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
