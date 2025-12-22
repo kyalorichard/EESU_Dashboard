@@ -106,38 +106,44 @@ data = load_data()
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     """
-    Multi-select with 'Select All' in dropdown but not selected by default.
-    Default: all real options selected on load.
+    Custom multiselect that:
+    - Shows "Select option" placeholder on load
+    - Pre-selects all options internally
+    - Allows user to select/deselect
     """
-    options = sorted(set(options))
+    options = sorted(list(options))
+    placeholder = "Select option"
 
-    # Dropdown list shows "Select All" first (but not selected)
-    options_with_all = ["Select All"] + options
-
-    # Initialize session state only if not exists
+    # Initialize session state
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # all real options selected on load
+        st.session_state[session_key] = options.copy()  # pre-select all internally
 
-    # Render widget
-    if sidebar:
-        selected = st.sidebar.multiselect(
-            label,
-            options_with_all,
-            default=st.session_state[session_key],
-            key=session_key
-        )
-    else:
-        selected = st.multiselect(
-            label,
-            options_with_all,
-            default=st.session_state[session_key],
-            key=session_key
-        )
+    # Show dropdown
+    try:
+        if sidebar:
+            selected = st.sidebar.multiselect(
+                label,
+                options,
+                default=[],
+                key=session_key,
+                format_func=lambda x: x if x in st.session_state[session_key] else placeholder
+            )
+        else:
+            selected = st.multiselect(
+                label,
+                options,
+                default=[],
+                key=session_key,
+                format_func=lambda x: x if x in st.session_state[session_key] else placeholder
+            )
+    except Exception:
+        selected = []
 
-    # If user selects "Select All" or nothing, return all real options
-    if "Select All" in selected or len(selected) == 0:
-        return options
+    # If nothing is selected, use all options internally
+    if len(selected) == 0:
+        return st.session_state[session_key]
     else:
+        st.session_state[session_key] = selected
         return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
