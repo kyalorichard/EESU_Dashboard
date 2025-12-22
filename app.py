@@ -168,8 +168,10 @@ selected_enabling_principle = safe_multiselect(
 # Year selection
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
-# Automatically filter months based on selected years
+# Month selection (dependent on year)
+# -----------------------------
 if "Select All" in selected_years:
+    # Show all months internally, regardless of display
     available_months = sorted(
         data['month_name'].dropna().unique(),
         key=lambda m: pd.to_datetime(m, format='%B').month
@@ -180,9 +182,12 @@ else:
         key=lambda m: pd.to_datetime(m, format='%B').month
     )
 
-# Month selection
-selected_months = safe_multiselect("Select Month", available_months, "selected_months")
-
+# Force display of dropdown without preselecting all
+selected_months = safe_multiselect(
+    "Select Month",
+    available_months,
+    "selected_months"
+)
 
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
