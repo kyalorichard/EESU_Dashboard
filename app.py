@@ -824,9 +824,15 @@ with tab2:
         ]
         render_summary_cards(reactive_df_updated,show_breakdown=False)
 
+        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+
       
         #filtered_df = df_exploded.copy()
-        filtered_df = reactive_df_updated.copy()
+        #filtered_df = reactive_df_updated.copy()
         
         tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
         tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
