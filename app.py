@@ -105,38 +105,42 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    # Sort options and capitalize first letters
+    # Sort options and format labels
     options = [str(opt).capitalize() for opt in sorted(list(options))]
 
-    # Dropdown list with "Select All" first
+    # Dropdown list: "Select All" first
     options_with_all = ["Select All"] + options
 
-    # Initialize session state to store actual selected options
+    # Initialize internal session state (all selected)
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # internally "all selected"
+        st.session_state[session_key] = options.copy()  # internally all selected
 
-    # Display multiselect with empty default (nothing selected visually)
+    # Multiselect shows nothing selected visually on load
+    display_key = f"display_{session_key}"
+    if display_key not in st.session_state:
+        st.session_state[display_key] = []
+
     try:
         if sidebar:
             selected_display = st.sidebar.multiselect(
                 label,
                 options_with_all,
-                default=[],  # show nothing visually
-                key=f"display_{session_key}",
+                default=st.session_state[display_key],
+                key=display_key
             )
         else:
             selected_display = st.multiselect(
                 label,
                 options_with_all,
-                default=[],  # show nothing visually
-                key=f"display_{session_key}",
+                default=st.session_state[display_key],
+                key=display_key
             )
     except Exception:
         selected_display = []
 
-    # Determine what to return
+    # Determine actual selection to return
     if not selected_display or "Select All" in selected_display:
-        # User left empty or clicked "Select All" -> return all options
+        # Return all options internally
         return options
     else:
         # Update session state with user's selection
