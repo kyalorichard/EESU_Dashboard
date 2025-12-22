@@ -105,42 +105,40 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    # Capitalize options and sort
-    options = [str(opt).capitalize() for opt in sorted(list(options))]
-
-    # Dropdown list: "Select All" first
+    # Capitalize and sort options
+    options = [str(opt).capitalize() for opt in sorted(options)]
     options_with_all = ["Select All"] + options
 
-    # Initialize internal session state: all options selected by default
+    # Initialize internal session state (all options selected by default)
     if session_key not in st.session_state:
         st.session_state[session_key] = options.copy()
 
-    # Default display: nothing selected
-    default_display = []
+    # Display widget with nothing selected visually
+    widget_key = f"display_{session_key}"
+    if widget_key not in st.session_state:
+        st.session_state[widget_key] = []
 
-    # Render multiselect widget
     if sidebar:
         selected_display = st.sidebar.multiselect(
             label,
             options_with_all,
-            default=default_display,
-            key=f"display_{session_key}"
+            default=st.session_state[widget_key],
+            key=widget_key
         )
     else:
         selected_display = st.multiselect(
             label,
             options_with_all,
-            default=default_display,
-            key=f"display_{session_key}"
+            default=st.session_state[widget_key],
+            key=widget_key
         )
 
     # Determine actual selection
     if not selected_display or "Select All" in selected_display:
-        # All options selected internally
+        # Return all options internally
         st.session_state[session_key] = options.copy()
         return options
     else:
-        # Update session state with user's selection
         st.session_state[session_key] = selected_display
         return selected_display
         
