@@ -669,7 +669,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Events","Visualization Ma
 
 # ---------------- TAB 1 ----------------
 with tab1:
-    render_summary_cards(filtered_global,show_breakdown)
+    render_summary_cards(filtered_global)
     
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
