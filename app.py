@@ -286,13 +286,26 @@ def render_summary_cards(df, base_bar_height=25):
 </div>
 </div>
 """, unsafe_allow_html=True)
+
+def normalize_label(label: str) -> str:
+    """
+    Capitalize first character only, lowercase remaining characters.
+    Safe for None/NaN.
+    """
+    if pd.isna(label):
+        return ""
+    label = str(label).strip()
+    if len(label) == 0:
+        return ""
+    return label[0].upper() + label[1:].lower()
             
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y,title=None,horizontal=False):
     num_bars = df.shape[0]
     height = 350
     df = df.copy()
-    df[x] = df[x].apply(lambda l: wrap_label_by_words(l, words_per_line=3))
+    df[x] = df[x].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=3))
+   
     fig = px.bar(
         df,
         x=x if not horizontal else y,
@@ -326,7 +339,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     fig = go.Figure()
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
-        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(l, words_per_line=4))
+        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+        
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else df_cat[x],
             y=df_cat[x] if not horizontal else df_cat[y],
@@ -387,11 +401,11 @@ def create_heatmap(pivot_df, title="Heatmap"):
         fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False, font=dict(size=16))
         fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
         return fig
-
+        
     # Wrap labels for better readability
-    pivot_df.index = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.index]
-    pivot_df.columns = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.columns]
-
+    pivot_df.index = [wrap_label_by_words(normalize_label(str(i)), words_per_line=3) for i in pivot_df.index]
+    pivot_df.columns = [wrap_label_by_words(normalize_label(str(i)), words_per_line=3) for i in pivot_df.columns]
+  
     fig = go.Figure(
         data=go.Heatmap(
             z=pivot_df.values,
@@ -478,17 +492,17 @@ def render_heatmaps(df, top_n=5):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (# of Actor Total)")
+        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (# of Actor)")
         fig1.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
 
     with col2:
-        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (# of Subject Total)")
+        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (# of Subject)")
         fig2.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
 
     with col3:
-        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor Total)")
+        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor)")
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
 
@@ -736,12 +750,12 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count"), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count", horizontal=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count", horizontal=True), use_container_width=True, key="tab2_chart5")
-        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count", horizontal=True), use_container_width=True, key="tab2_chart6")
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Negative actor of repression distribution"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Negative subject of repression distribution"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Negative mechanism of repression distribution"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Negative type of event distribution", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Negative alert type distribution", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative enabling principle distribution", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
