@@ -109,16 +109,16 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     options = [str(opt).capitalize() for opt in sorted(options)]
     options_with_all = ["Select All"] + options
 
-    # Internal session state: stores actual selection
+    # Internal session state: actual selected values
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # all options selected internally
+        st.session_state[session_key] = options.copy()  # default: all selected internally
 
-    # Widget display key: shows nothing selected visually
+    # Widget display key: what the user sees
     widget_key = f"display_{session_key}"
     if widget_key not in st.session_state:
-        st.session_state[widget_key] = []  # nothing selected on UI
+        st.session_state[widget_key] = []  # start with nothing selected visually
 
-    # Show multiselect
+    # Display the multiselect widget
     if sidebar:
         selected_display = st.sidebar.multiselect(
             label,
@@ -134,9 +134,9 @@ def safe_multiselect(label, options, session_key, sidebar=True):
             key=widget_key
         )
 
-    # Determine actual selection
+    # Update internal selection
     if not selected_display or "Select All" in selected_display:
-        st.session_state[session_key] = options.copy()  # all internally selected
+        st.session_state[session_key] = options.copy()
         return options
     else:
         st.session_state[session_key] = selected_display
@@ -146,18 +146,29 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
 st.sidebar.header("🌍 Global Filters")
 
+# -----------------------------
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
+
+# Region selection
 selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
-filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
-selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
+
+# Automatically filter countries based on regions
+available_countries = data[data['region'].isin(selected_regions)]['alert-country'].dropna().unique()
+selected_countries = safe_multiselect("Select country", available_countries, "selected_countries")
+
+# Alert types, impacts, and enabling principles
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
 selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
-selected_enabling_principle = safe_multiselect("Select enabling principle", 
-                                               data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
-                                               "selected_enabling_principle")
+selected_enabling_principle = safe_multiselect(
+    "Select enabling principle", 
+    data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+    "selected_enabling_principle"
+)
+
+# Year selection
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
-# Filter available months based on selected years
+# Automatically filter months based on selected years
 if "Select All" in selected_years:
     available_months = sorted(
         data['month_name'].dropna().unique(),
@@ -170,11 +181,8 @@ else:
     )
 
 # Month selection
-selected_months = safe_multiselect(
-    "Select Month", 
-    available_months, 
-    "selected_months"
-)
+selected_months = safe_multiselect("Select Month", available_months, "selected_months")
+
 
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
