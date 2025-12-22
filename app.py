@@ -105,31 +105,30 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    options = sorted([str(opt).capitalize() for opt in options])  # Capitalize labels
-    options_with_all = ["Select All"] + options  # "Select All" first in dropdown
+    # Sort options alphabetically
+    options = sorted(set(options))
+    
+    # Dropdown list shows "Select All" first
+    options_with_all = ["Select All"] + options
 
-    # Initialize session state only if key doesn't exist
+    # Initialize session state only if not exists
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # Select all by default
+        st.session_state[session_key] = options.copy()  # All real options selected on load
 
-    try:
-        if sidebar:
-            selected = st.sidebar.multiselect(
-                label, options_with_all, default=st.session_state[session_key]
-            )
-        else:
-            selected = st.multiselect(
-                label, options_with_all, default=st.session_state[session_key]
-            )
-    except Exception:
-        selected = options.copy()
+    # Render the widget
+    if sidebar:
+        selected = st.sidebar.multiselect(
+            label, options_with_all, default=st.session_state[session_key], key=session_key
+        )
+    else:
+        selected = st.multiselect(
+            label, options_with_all, default=st.session_state[session_key], key=session_key
+        )
 
-    # If "Select All" is selected or nothing is selected, return all options
+    # Return all options if "Select All" is chosen or nothing selected
     if "Select All" in selected or len(selected) == 0:
-        st.session_state[session_key] = options.copy()
         return options
     else:
-        st.session_state[session_key] = selected
         return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
