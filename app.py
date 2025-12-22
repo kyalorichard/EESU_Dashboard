@@ -108,45 +108,39 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     # Capitalize first letter of each option
     options = [str(opt).capitalize() for opt in sorted(options)]
 
-    # Dropdown shows "Select All" first
+    # Add "Select All" to dropdown but not selected by default
     options_with_all = ["Select All"] + options
 
-    # Initialize session state if not already set
+    # Initialize session state if not set
     if session_key not in st.session_state:
         # Internally select all options
         st.session_state[session_key] = options.copy()
-        # But display nothing by default so placeholder shows
-        display_default = []
+
+    # Placeholder on load: show empty selection but internally all selected
+    default_display = []
+
+    # Create multiselect with placeholder
+    if sidebar:
+        selected = st.sidebar.multiselect(
+            label,
+            options_with_all,
+            default=default_display,
+            key=session_key,
+            help="Select options or leave empty to use all"
+        )
     else:
-        # Only show options that exist in options_with_all
-        display_default = [opt for opt in st.session_state[session_key] if opt in options_with_all]
+        selected = st.multiselect(
+            label,
+            options_with_all,
+            default=default_display,
+            key=session_key,
+            help="Select options or leave empty to use all"
+        )
 
-    try:
-        if sidebar:
-            selected = st.sidebar.multiselect(
-                label,
-                options_with_all,
-                default=display_default,
-                key=session_key,
-                help="Select options or leave empty to use all"
-            )
-        else:
-            selected = st.multiselect(
-                label,
-                options_with_all,
-                default=display_default,
-                key=session_key,
-                help="Select options or leave empty to use all"
-            )
-    except Exception:
-        selected = options.copy()
-
-    # If nothing selected or "Select All" chosen, return all options
-    if "Select All" in selected or len(selected) == 0:
-        st.session_state[session_key] = options.copy()
+    # If nothing selected or "Select All" chosen, treat as all options
+    if not selected or "Select All" in selected:
         return options
     else:
-        st.session_state[session_key] = selected
         return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
