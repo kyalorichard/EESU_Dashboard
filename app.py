@@ -410,7 +410,6 @@ def filter_top_n(df, row_col, col_col, top_n=None):
     heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
     return heatmap_df
 
-# ---------------- FORMATTED HEATMAP ----------------
 # ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
 def render_heatmaps(df, top_n=5):
     """
@@ -883,8 +882,8 @@ with tab2:
         )
         top_n = st.session_state.top_n
         # ---------------- HEATMAPS ----------------
-        with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_df, top_n=top_n)
+        #with st.expander("Show Heatmaps"):
+           # render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
         with st.expander("Show Flowchart (Sankey Diagram)"):
