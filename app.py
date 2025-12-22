@@ -115,29 +115,24 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     if session_key not in st.session_state:
         st.session_state[session_key] = options.copy()
 
-    # Separate display key for visual selection (initially nothing selected)
-    display_key = f"display_{session_key}"
-    if display_key not in st.session_state:
-        st.session_state[display_key] = []
+    # On load, show nothing selected visually
+    default_display = []
 
     # Render multiselect
-    try:
-        if sidebar:
-            selected_display = st.sidebar.multiselect(
-                label,
-                options_with_all,
-                default=st.session_state[display_key],
-                key=display_key
-            )
-        else:
-            selected_display = st.multiselect(
-                label,
-                options_with_all,
-                default=st.session_state[display_key],
-                key=display_key
-            )
-    except Exception:
-        selected_display = []
+    if sidebar:
+        selected_display = st.sidebar.multiselect(
+            label,
+            options_with_all,
+            default=default_display,
+            key=f"display_{session_key}"
+        )
+    else:
+        selected_display = st.multiselect(
+            label,
+            options_with_all,
+            default=default_display,
+            key=f"display_{session_key}"
+        )
 
     # Determine actual selection
     if not selected_display or "Select All" in selected_display:
