@@ -113,7 +113,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 
     # Initialize session state if not exists
     if session_key not in st.session_state:
-        st.session_state[session_key] = ["Select All"]
+        st.session_state[session_key] = []
 
     # Determine default selection for widget
     default_selection = st.session_state[session_key]
@@ -129,7 +129,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         return options
     else:
         return selected
-
+        
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
 st.sidebar.header("🌍 Global Filters")
