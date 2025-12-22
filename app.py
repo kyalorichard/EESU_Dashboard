@@ -288,7 +288,7 @@ def render_summary_cards(df, base_bar_height=25):
 """, unsafe_allow_html=True)
             
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, horizontal=False):
+def create_bar_chart(df, x, y,title=None,horizontal=False):
     num_bars = df.shape[0]
     height = 350
     df = df.copy()
@@ -320,7 +320,7 @@ def create_bar_chart(df, x, y, horizontal=False):
     return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
     categories = sorted(df[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
