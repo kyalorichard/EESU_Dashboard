@@ -106,7 +106,7 @@ data = load_data()
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
-    options_with_all = ["Select All"] + options
+    options_with_all = ""+ ["Select All"] + options
     if session_key not in st.session_state:
         st.session_state[session_key] = ["Select All"]
 
