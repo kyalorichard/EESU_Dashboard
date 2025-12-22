@@ -881,7 +881,6 @@ with tab2:
             (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-
       
         filtered_df1 = df_exploded.copy()
         #filtered_df = reactive_df_updated.copy()
@@ -932,7 +931,7 @@ with tab2:
             }[st.session_state.top_n_option]
 
         st.selectbox(
-            "Select Top N for Heatmaps and Sankey Diagram",
+            "Select Top N from the drop down list to filter top entries for actors, \n subject and mechanism for the Heatmaps and Sankey Diagram",
             options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
             index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
             key="top_n_option",
