@@ -859,10 +859,16 @@ with tab3:
 
         df_map = df_map.merge(stats, on="alert-country", how="left")
 
-        df_map["perc_negative"] = (
-            (df_map["negative_alerts"] / df_map["total_alerts"]) * 100
-        ).round(1)
-
+        # Ensure numeric
+        df_map["negative_alerts"] = pd.to_numeric(df_map["negative_alerts"], errors="coerce")
+        df_map["total_alerts"] = pd.to_numeric(df_map["total_alerts"], errors="coerce")
+        
+        # Compute percentage safely
+        df_map["perc_negative"] = ((df_map["negative_alerts"] / df_map["total_alerts"]) * 100).round(1)
+        
+        # Optional: handle NaN values if total_alerts was 0
+        df_map["perc_negative"] = df_map["perc_negative"].fillna(0)
+              
         # ----- Main choropleth -----
         map_height = max(400, len(df_map)*20)
 
