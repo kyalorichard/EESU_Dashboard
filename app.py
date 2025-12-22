@@ -105,73 +105,55 @@ data = load_data()
     
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
-    # Capitalize and sort options
-    options = [str(opt).capitalize() for opt in sorted(options)]
+    options = sorted(list(options))
+    
+    # Always keep "Select All" as first dropdown option
     options_with_all = ["Select All"] + options
 
-    # Internal session state: actual selected values
+    # Initialize session_state if not present
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # default: all selected internally
+        st.session_state[session_key] = options.copy()  # internally select all
 
-    # Widget display key: what the user sees
-    widget_key = f"display_{session_key}"
-    if widget_key not in st.session_state:
-        st.session_state[widget_key] = []  # start with nothing selected visually
+    # Determine what to display in the widget
+    displayed_default = []  # show nothing selected in the dropdown
+    try:
+        if sidebar:
+            selected = st.sidebar.multiselect(label, options_with_all, default=displayed_default)
+        else:
+            selected = st.multiselect(label, options_with_all, default=displayed_default)
+    except Exception:
+        selected = []
 
-    # Display the multiselect widget
-    if sidebar:
-        selected_display = st.sidebar.multiselect(
-            label,
-            options_with_all,
-            default=st.session_state[widget_key],
-            key=widget_key
-        )
-    else:
-        selected_display = st.multiselect(
-            label,
-            options_with_all,
-            default=st.session_state[widget_key],
-            key=widget_key
-        )
-
-    # Update internal selection
-    if not selected_display or "Select All" in selected_display:
+    # If user selects "Select All" or nothing, internally select all options
+    if "Select All" in selected or len(selected) == 0:
         st.session_state[session_key] = options.copy()
         return options
     else:
-        st.session_state[session_key] = selected_display
-        return selected_display
+        st.session_state[session_key] = selected
+        return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
 st.sidebar.header("🌍 Global Filters")
 
 # -----------------------------
+# Regions
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
-
-# Region selection
 selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
 
-# Automatically filter countries based on regions
-available_countries = data[data['region'].isin(selected_regions)]['alert-country'].dropna().unique()
-selected_countries = safe_multiselect("Select country", available_countries, "selected_countries")
-
-# Alert types, impacts, and enabling principles
-selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
-selected_enabling_principle = safe_multiselect(
-    "Select enabling principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
-    "selected_enabling_principle"
+# Countries (filtered based on regions)
+filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
+selected_countries = safe_multiselect(
+    "Select country",
+    filtered_countries['alert-country'].dropna().unique(),
+    "selected_countries"
 )
 
-# Year selection
+# Years
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
-# Month selection (dependent on year)
-# -----------------------------
+# Months (filtered based on years)
 if "Select All" in selected_years:
-    # Show all months internally, regardless of display
     available_months = sorted(
         data['month_name'].dropna().unique(),
         key=lambda m: pd.to_datetime(m, format='%B').month
@@ -182,13 +164,11 @@ else:
         key=lambda m: pd.to_datetime(m, format='%B').month
     )
 
-# Force display of dropdown without preselecting all
 selected_months = safe_multiselect(
     "Select Month",
     available_months,
     "selected_months"
 )
-
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
     for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
