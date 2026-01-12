@@ -12,7 +12,7 @@ import streamlit as st
 from auth.session import enforce_session
 
 if "authenticated" not in st.session_state:
-st.session_state.authenticated = False
+    st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
     st.switch_page("pages/login.py")
