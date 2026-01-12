@@ -51,8 +51,8 @@ google-api-python-client   # For Google Drive upload / Drive API interaction
 flake8>=6.1.0
 pytest>=8.2.0
 
-bcrypt
-sqlite3
+#bcrypt
+#sqlite3
 
 # ----------------------------------------
 # OPTIONAL HEAVY UI FRAMEWORKS
