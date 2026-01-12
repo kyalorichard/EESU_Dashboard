@@ -8,6 +8,28 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import base64
 
+import streamlit as st
+from auth.session import enforce_session
+
+if "authenticated" not in st.session_state:
+st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+st.switch_page("pages/login.py")
+
+enforce_session()
+
+ROLE_TABS = {
+"admin": ["Overview", "Negative Events", "Map", "User Manual"],
+"analyst": ["Overview", "Negative Events", "Map"],
+"viewer": ["Overview", "Map"],
+}
+
+allowed_tabs = ROLE_TABS[st.session_state.user_role]
+
+tabs = st.tabs(allowed_tabs)
+
+
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 BASE_DIR = Path(__file__).resolve().parent
