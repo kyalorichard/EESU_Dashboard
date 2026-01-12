@@ -15,14 +15,14 @@ if "authenticated" not in st.session_state:
 st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-st.switch_page("pages/login.py")
+    st.switch_page("pages/login.py")
 
 enforce_session()
 
-ROLE_TABS = {
-"admin": ["Overview", "Negative Events", "Map", "User Manual"],
-"analyst": ["Overview", "Negative Events", "Map"],
-"viewer": ["Overview", "Map"],
+ROLE_TABS = { 
+    "admin": ["Overview","Negative Events","Visualization Map","User Manual"],
+    "analyst": ["Overview","Negative Events","User Manual"],
+    "viewer": ["Overview", "Map"],
 }
 
 allowed_tabs = ROLE_TABS[st.session_state.user_role]
