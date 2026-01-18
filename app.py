@@ -321,7 +321,7 @@ def normalize_label(label: str) -> str:
     return label[0].upper() + label[1:].lower()
             
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y,title=None,horizontal=False):
+def create_bar_chart(df, x, y,title=None,horizontal=False, disclaimer=none):
     num_bars = df.shape[0]
     height = 350
     df = df.copy()
@@ -351,6 +351,18 @@ def create_bar_chart(df, x, y,title=None,horizontal=False):
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_layout(height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_layout(title=dict(text=title,x=0.5,xanchor='center'),height=height,margin=dict(l=10, r=10, t=40, b=10))
+
+    # Add disclaimer as invisible annotation that appears on hover
+    if disclaimer:
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None],
+            mode="markers",
+            marker=dict(size=1, color='rgba(0,0,0,0)'),
+            hovertext=disclaimer,
+            hoverinfo='text',
+            showlegend=False
+        ))
+
     return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
@@ -802,7 +814,7 @@ def explode_multi_valued_columns(df, cols):
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
-    
+
  
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
@@ -937,9 +949,17 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
+        disclaimer_text = (
+            "Disclaimer:\n"
+            "These charts reflect only the data selected by the filters above.\n"
+            "Excluded countries, actors, or event types are not included.\n"
+            "Values do not include data outside your selections."
+        )
+
+
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors",disclaimer=disclaimer_text), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected",disclaimer=disclaimer_text), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms",disclaimer=disclaimer_text), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
         r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
