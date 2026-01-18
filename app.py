@@ -839,7 +839,7 @@ with tab1:
         filtered_global
         .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
         .rename(columns=cols_rename_map)
-    
+    )
 
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
