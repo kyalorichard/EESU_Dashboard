@@ -970,7 +970,7 @@ with tab2:
         #with st.expander("Show Flowchart (Sankey Diagram)"):
         st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
 
-        cols_to_keep1 = {
+        cols_to_keep = {
             "post_title": "Title of post",
             "summary": "Event summary",
             "creation_date": "Date of submission",
@@ -986,8 +986,8 @@ with tab2:
         # keep only existing columns, then rename
         reactive_df_updated_prev = (
             reactive_df_updated
-            .loc[:, reactive_df_updated.columns.intersection(cols_rename_map.keys())]
-            .rename(columns=cols_rename_map)
+            .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
+            .rename(columns=cols_to_keep)
         )
             
         # ---------------- Tab two data preview ----------------
