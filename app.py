@@ -954,6 +954,18 @@ with tab2:
                 "Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None
             }[st.session_state.top_n_option]
 
+        st.markdown(
+            """
+            <style>
+            #top-n-select div[data-baseweb="select"] > div {
+                font-size: 18px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )  
+        
+        st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
         st.selectbox(
             "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression in the heatmaps and Sankey diagram",
             options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
@@ -961,6 +973,8 @@ with tab2:
             key="top_n_option",
             on_change=update_top_n
         )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
         top_n = st.session_state.top_n
         # ---------------- HEATMAPS ----------------
         #with st.expander("Show Heatmaps"):
