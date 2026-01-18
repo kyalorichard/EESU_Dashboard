@@ -958,7 +958,7 @@ with tab2:
             """
             <style>
             #top-n-select div[data-baseweb="select"] > div {
-                font-size: 24px;
+                font-size: 30px;
                 font-weight: bold;
             }
             </style>
