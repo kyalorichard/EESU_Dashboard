@@ -826,7 +826,7 @@ with tab1:
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
     cols_to_keep = [
-        "post-title",
+        "post_title",
         "summary",
         "creation_date",
         "alert-country",
@@ -839,7 +839,7 @@ with tab1:
 
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
-        st.write(filtered_global)     
+        st.write(filtered_global_prev)     
 
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
@@ -967,7 +967,7 @@ with tab2:
         st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
 
         cols_to_keep1 = [
-            "post-title",
+            "post_title",
             "summary",
             "creation_date",
             "alert-country",
@@ -983,7 +983,7 @@ with tab2:
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
-            st.write(reactive_df_updated)     
+            st.write(reactive_df_updated_prev)     
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
