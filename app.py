@@ -770,6 +770,9 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
         font=dict(size=12, color="black"),
         height=fig_height,
         width=width,
+        xaxis=dict(showgrid=False, zeroline=False, visible=False),
+        yaxis=dict(showgrid=False, zeroline=False, visible=False),
+        # margin=dict(l=20, r=20, t=40, b=20)
         margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
     )
@@ -851,25 +854,25 @@ with tab2:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             selected_actor_types = safe_multiselect(
-                "Actor Type",
+                "Types of restrictive actors",
                 df_exploded['Actor of repression'].dropna().unique(),
                 "selected_actor_types", sidebar=False
             )
         with col2:
             selected_subject_types = safe_multiselect(
-                "Subject Type",
+                "Types of civil society actors affected",
                 df_exploded['Subject of repression'].dropna().unique(),
                 "selected_subject_types", sidebar=False
             )
         with col3:
             selected_mechanism_types = safe_multiselect(
-                "Mechanism Type",
+                "Types of restrictive mechanisms",
                 df_exploded['Mechanism of repression'].dropna().unique(),
                 "selected_mechanism_types", sidebar=False
             )
         with col4:
             selected_event_types = safe_multiselect(
-                "Event Type",
+                "Types of negative events",
                 df_exploded['Type of event'].dropna().unique(),
                 "selected_event_types", sidebar=False
             )
