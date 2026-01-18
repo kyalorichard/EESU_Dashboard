@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
+import plotly.graph_objects as go
+
 
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
@@ -321,7 +323,7 @@ def normalize_label(label: str) -> str:
     return label[0].upper() + label[1:].lower()
             
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y,title=None,horizontal=False, disclaimer=None):
+def create_bar_chart(df, x, y,title=None,horizontal=False):
     num_bars = df.shape[0]
     height = 350
     df = df.copy()
@@ -352,22 +354,7 @@ def create_bar_chart(df, x, y,title=None,horizontal=False, disclaimer=None):
     fig.update_layout(height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_layout(title=dict(text=title,x=0.5,xanchor='center'),height=height,margin=dict(l=10, r=10, t=40, b=10))
 
-    # Add disclaimer as invisible annotation that appears on hover
-    # ---------------- ADD DISCLAIMER AS AN ANNOTATION ----------------
-    if disclaimer:
-        fig.add_annotation(
-            text=disclaimer,
-            xref="paper", yref="paper",
-            x=0.5, y=1.05,   # above the chart
-            showarrow=False,
-            font=dict(size=12, color="black"),
-            align="center",
-            bordercolor="#660094",
-            borderwidth=1,
-            borderpad=4,
-            bgcolor="white",
-            opacity=0.9
-        )
+    
     return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
@@ -819,6 +806,34 @@ def explode_multi_valued_columns(df, cols):
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
+    
+def add_full_hover_overlay(fig, disclaimer_text):
+    """
+    Adds a hover-only overlay that covers the entire chart area.
+    Disclaimer text appears when the user hovers anywhere on the chart.
+    """
+    # Determine the axis ranges (fallbacks if not set)
+    x_range = fig.layout.xaxis.range or [0, 1]
+    y_range = fig.layout.yaxis.range or [0, 1]
+
+    # Add a fully transparent scatter trace spanning the full axis ranges
+    fig.add_trace(
+        go.Scatter(
+            x=[x_range[0], x_range[1], x_range[1], x_range[0]],
+            y=[y_range[0], y_range[0], y_range[1], y_range[1]],
+            mode='lines',
+            line=dict(color='rgba(0,0,0,0)'),  # invisible border
+            fill='toself',
+            fillcolor='rgba(0,0,0,0)',          # fully transparent
+            hoverinfo='text',
+            hovertext=disclaimer_text.replace("\n", "<br>"),
+            showlegend=False
+        )
+    )
+
+    # Ensure hover mode includes the new trace
+    fig.update_layout(hovermode="closest")
+    return fig
 
  
 # ---------------- TABS ----------------
@@ -961,10 +976,10 @@ with tab2:
             "Values do not include data outside your selections."
         )
 
-
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors",disclaimer=disclaimer_text), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected",disclaimer=disclaimer_text), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms",disclaimer=disclaimer_text), use_container_width=True, key="tab2_chart3")
+      
+        r1c1.plotly_chart(add_full_hover_overlay(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), disclaimer_text), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
         r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
