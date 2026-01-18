@@ -321,7 +321,7 @@ def normalize_label(label: str) -> str:
     return label[0].upper() + label[1:].lower()
             
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y,title=None,horizontal=False, disclaimer=none):
+def create_bar_chart(df, x, y,title=None,horizontal=False, disclaimer=None):
     num_bars = df.shape[0]
     height = 350
     df = df.copy()
