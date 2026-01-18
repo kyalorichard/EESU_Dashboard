@@ -353,16 +353,21 @@ def create_bar_chart(df, x, y,title=None,horizontal=False, disclaimer=None):
     fig.update_layout(title=dict(text=title,x=0.5,xanchor='center'),height=height,margin=dict(l=10, r=10, t=40, b=10))
 
     # Add disclaimer as invisible annotation that appears on hover
+    # ---------------- ADD DISCLAIMER AS AN ANNOTATION ----------------
     if disclaimer:
-        fig.add_trace(go.Scatter(
-            x=[None], y=[None],
-            mode="markers",
-            marker=dict(size=1, color='rgba(0,0,0,0)'),
-            hovertext=disclaimer,
-            hoverinfo='text',
-            showlegend=False
-        ))
-
+        fig.add_annotation(
+            text=disclaimer,
+            xref="paper", yref="paper",
+            x=0.5, y=1.05,   # above the chart
+            showarrow=False,
+            font=dict(size=12, color="black"),
+            align="center",
+            bordercolor="#660094",
+            borderwidth=1,
+            borderpad=4,
+            bgcolor="white",
+            opacity=0.9
+        )
     return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
