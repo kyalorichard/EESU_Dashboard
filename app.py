@@ -822,6 +822,10 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
+    # ---------------- Tab two data preview ----------------
+    with st.expander("Summary Data preview"):
+        st.write(filtered_global)     
+
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
     # Filter negative events
