@@ -8,27 +8,6 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import base64
 
-#import streamlit as st
-#from auth.session import enforce_session
-
-#if "authenticated" not in st.session_state:
- #   st.session_state.authenticated = False
-
-#if not st.session_state.authenticated:
- #   st.switch_page("pages/login.py")
-
-#enforce_session()
-
-#ROLE_TABS = { 
-#   "admin": ["Overview","Negative Events","Visualization Map","User Manual"],
-#    "analyst": ["Overview","Negative Events","User Manual"],
-#    "viewer": ["Overview", "Map"],
-#}
-
-#allowed_tabs = ROLE_TABS[st.session_state.user_role]
-
-#tabs = st.tabs(allowed_tabs)
-
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -839,9 +818,9 @@ with tab1:
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
-    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Enabling principles distribution", horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Region distribution", horizontal=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Countries distribution", horizontal=False),use_container_width=True,  key="tab1_chart4")
+    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
@@ -935,12 +914,12 @@ with tab2:
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Negative actor of repression distribution"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Negative subject of repression distribution"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Negative mechanism of repression distribution"), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Negative type of event distribution", horizontal=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Negative alert type distribution", horizontal=True), use_container_width=True, key="tab2_chart5")
-        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative enabling principle distribution", horizontal=True), use_container_width=True, key="tab2_chart6")
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
