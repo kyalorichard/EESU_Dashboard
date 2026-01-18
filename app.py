@@ -152,7 +152,7 @@ selected_countries = safe_multiselect(
 
 # Alert impacts and types
 selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select Type of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_alert_types = safe_multiselect("Select Impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
 
 # Enabling principles
 selected_enabling_principle = safe_multiselect(
@@ -515,17 +515,17 @@ def render_heatmaps(df, top_n=5):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism (# of Actor Total)")
+        fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used by restrictive actors?")
         fig1.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
 
     with col2:
-        fig2 = create_heatmap(subject_mechanism_pivot, title="Subject → Mechanism (# of Subject Total)")
+        fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms affecting civil society actors?")
         fig2.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
 
     with col3:
-        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Subject (# of Actor Total)")
+        fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting civil society?")
         fig3.update_traces(zmin=0, zmax=zmax)
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
         
@@ -932,7 +932,7 @@ with tab2:
             }[st.session_state.top_n_option]
 
         st.selectbox(
-            "Select Top N from the drop down list to filter top entries for actors,subject and mechanism of repression for the Heatmaps and Sankey Diagram",
+            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression in the heatmaps and Sankey diagram",
             options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
             index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
             key="top_n_option",
