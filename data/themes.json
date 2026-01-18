@@ -31,7 +31,7 @@
 
   "SUBJECT_THEMES": {
     "en": [
-      {"label": "All civil society", "definition": "General civil society groups affected indiscriminately."},
+      {"label": "All civil society (indiscriminate)", "definition": "General civil society groups affected indiscriminately."},
       {"label": "Civic & Political Rights", "definition": "Individuals or groups defending civic and political rights."},
       {"label": "Environment Justice", "definition": "Groups or individuals advocating for environmental justice."},
       {"label": "Minority Groups and their rights", "definition": "Minority groups and defenders of their rights."},
@@ -39,7 +39,7 @@
       {"label": "Other", "definition": "Any subject not included in the above categories."}
     ],
     "es": [
-      {"label": "Toda la sociedad civil", "definition": "Grupos de la sociedad civil afectados de manera indiscriminada."},
+      {"label": "Toda la sociedad civil (de manera indiscriminada)", "definition": "Grupos de la sociedad civil afectados de manera indiscriminada."},
       {"label": "Derechos cívicos y políticos", "definition": "Individuos o grupos defendiendo derechos cívicos y políticos."},
       {"label": "Justicia ambiental", "definition": "Grupos o individuos que abogan por la justicia ambiental."},
       {"label": "Grupos minoritarios y sus derechos", "definition": "Grupos minoritarios y defensores de sus derechos."},
@@ -47,7 +47,7 @@
       {"label": "Otro", "definition": "Cualquier sujeto no incluido en las categorías anteriores."}
     ],
     "fr": [
-      {"label": "Toute la société civile", "definition": "Groupes de la société civile affectés de manière indiscriminée."},
+      {"label": "Toute la société civile (sans distinction)", "definition": "Groupes de la société civile affectés de manière indiscriminée."},
       {"label": "Droits civiques et politiques", "definition": "Individus ou groupes défendant les droits civiques et politiques."},
       {"label": "Justice environnementale", "definition": "Groupes ou individus défendant la justice environnementale."},
       {"label": "Groupes minoritaires et leurs droits", "definition": "Groupes minoritaires et défenseurs de leurs droits."},
