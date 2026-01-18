@@ -825,17 +825,21 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
-    cols_to_keep = [
-        "post_title",
-        "summary",
-        "creation_date",
-        "alert-country",
-        "enabling-principle",
-        "alert-impact",
-        "alert-type"
-    ]
-    filtered_global_prev = filtered_global[cols_to_keep]
-
+    cols_rename_map  = {
+        "post_title": "Title of post",
+        "summary": "Event summary".
+        "creation_date": "Date of submission",
+        "alert-country": "Country",
+        "enabling-principle": "Enabling principles",
+        "alert-impact": "Impact of alert",
+        "alert-type": "Type of alert"
+    }
+    # keep only existing columns, then rename
+    filtered_global_prev = (
+        filtered_global
+        .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+        .rename(columns=cols_rename_map)
+    
 
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
@@ -967,19 +971,24 @@ with tab2:
         st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
 
         cols_to_keep1 = [
-            "post_title",
-            "summary",
-            "creation_date",
-            "alert-country",
-            "enabling-principle",
-            "alert-impact",
-            "alert-type",
-            "Actor of repression",
-            "Subject of repression",
-            "Mechanism of repression",
-            "Type of event"            
+            "post_title": "Title of post",
+            "summary": "Event summary".
+            "creation_date": "Date of submission",
+            "alert-country": "Country",
+            "enabling-principle": "Enabling principles",
+            "alert-impact": "Impact of alert",
+            "alert-type": "Type of alert",
+            "Actor of repression": "Types of restrictive actors",
+            "Subject of repression": "Types of civil society actors affected",
+            "Mechanism of repression": "Types of restrictive mechanisms",
+            "Type of event": "Types of negative events"           
         ]
-        reactive_df_updated_prev = reactive_df_updated[cols_to_keep1]
+        # keep only existing columns, then rename
+        reactive_df_updated_prev = (
+            reactive_df_updated
+            .loc[:, reactive_df_updated.columns.intersection(cols_rename_map.keys())]
+            .rename(columns=cols_rename_map)
+        )
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
