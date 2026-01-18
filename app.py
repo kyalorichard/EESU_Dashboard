@@ -807,34 +807,23 @@ def explode_multi_valued_columns(df, cols):
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
     
-def add_full_hover_overlay(fig, disclaimer_text):
+def add_hover_disclaimer(fig, disclaimer_text):
     """
-    Adds a hover-only overlay that covers the entire chart area.
-    Disclaimer text appears when the user hovers anywhere on the chart.
+    Adds a hover-only disclaimer overlay to the entire chart.
+    The disclaimer shows when hovering anywhere on the chart.
     """
-    # Determine the axis ranges (fallbacks if not set)
-    x_range = fig.layout.xaxis.range or [0, 1]
-    y_range = fig.layout.yaxis.range or [0, 1]
-
-    # Add a fully transparent scatter trace spanning the full axis ranges
+    # Add invisible scatter trace covering the whole chart
     fig.add_trace(
         go.Scatter(
-            x=[x_range[0], x_range[1], x_range[1], x_range[0]],
-            y=[y_range[0], y_range[0], y_range[1], y_range[1]],
-            mode='lines',
-            line=dict(color='rgba(0,0,0,0)'),  # invisible border
-            fill='toself',
-            fillcolor='rgba(0,0,0,0)',          # fully transparent
-            hoverinfo='text',
-            hovertext=disclaimer_text.replace("\n", "<br>"),
+            x=[None], y=[None],
+            mode="markers",
+            marker=dict(opacity=0),
+            hoverinfo="text",
+            hovertext=disclaimer_text,
             showlegend=False
         )
     )
-
-    # Ensure hover mode includes the new trace
-    fig.update_layout(hovermode="closest")
     return fig
-
  
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
