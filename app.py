@@ -975,7 +975,7 @@ with tab2:
             "alert-impact",
             "alert-type",
             "Actor of repression",
-            "Subjectof repression",
+            "Subject of repression",
             "Mechanism of repression",
             "Type of event"            
         ]
