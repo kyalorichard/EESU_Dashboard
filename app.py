@@ -827,7 +827,7 @@ with tab1:
 
     cols_rename_map  = {
         "post_title": "Title of post",
-        "summary": "Event summary".
+        "summary": "Event summary",
         "creation_date": "Date of submission",
         "alert-country": "Country",
         "enabling-principle": "Enabling principles",
@@ -972,7 +972,7 @@ with tab2:
 
         cols_to_keep1 = [
             "post_title": "Title of post",
-            "summary": "Event summary".
+            "summary": "Event summary",
             "creation_date": "Date of submission",
             "alert-country": "Country",
             "enabling-principle": "Enabling principles",
