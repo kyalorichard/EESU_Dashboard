@@ -825,9 +825,21 @@ with tab1:
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
+    cols_to_keep = [
+        "post-title",
+        "summary",
+        "creation_date",
+        "alert-country",
+        "enabling-principle",
+        "alert-impact",
+        "alert-type"
+    ]
+    filtered_global_prev = filtered_global[cols_to_keep]
+
+
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
-        st.write(filtered_global)     
+        st.write(filtered_global_prev)     
 
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
@@ -953,10 +965,25 @@ with tab2:
         # ---------------- SANKEY DIAGRAM ----------------
         #with st.expander("Show Flowchart (Sankey Diagram)"):
         st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
+
+        cols_to_keep1 = [
+            "post-title",
+            "summary",
+            "creation_date",
+            "alert-country",
+            "enabling-principle",
+            "alert-impact",
+            "alert-type",
+            "Actor of repression",
+            "Subjectof repression",
+            "Mechanism of repression",
+            "Type of event"            
+        ]
+        reactive_df_updated_prev = reactive_df_updated[cols_to_keep1]
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
-            st.write(reactive_df_updated)     
+            st.write(reactive_df_updated_prev)     
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
