@@ -839,7 +839,7 @@ with tab1:
 
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
-        st.write(filtered_global_prev)     
+        st.write(filtered_global)     
 
 # ---------------- TAB 2: Negative Events ----------------
 with tab2:
@@ -983,7 +983,7 @@ with tab2:
             
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
-            st.write(reactive_df_updated_prev)     
+            st.write(reactive_df_updated)     
       
       # ---------------- TAB 3 (MAP) ----------------
 with tab3:
