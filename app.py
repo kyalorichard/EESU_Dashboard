@@ -7,9 +7,7 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-import plotly.graph_objects as go
-
-
+#import plotly.graph_objects as go
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -807,24 +805,7 @@ def explode_multi_valued_columns(df, cols):
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
     
-def add_hover_disclaimer(fig, disclaimer_text):
-    """
-    Adds a hover-only disclaimer overlay to the entire chart.
-    The disclaimer shows when hovering anywhere on the chart.
-    """
-    # Add invisible scatter trace covering the whole chart
-    fig.add_trace(
-        go.Scatter(
-            x=[None], y=[None],
-            mode="markers",
-            marker=dict(opacity=0),
-            hoverinfo="text",
-            hovertext=disclaimer_text,
-            showlegend=False
-        )
-    )
-    return fig
- 
+
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
 tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Events","Visualization Map","User Manual"])
@@ -966,8 +947,8 @@ with tab2:
         )
 
       
-        r1c1.plotly_chart(add_hover_disclaimer(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), disclaimer_text), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
+        #r1c1.plotly_chart(add_hover_disclaimer(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), disclaimer_text), use_container_width=True, key="tab2_chart1")
+        #r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
