@@ -946,7 +946,6 @@ with tab2:
             "Values do not include data outside your selections."
         )
 
-      
         r1c1.plotly_chart(add_hover_disclaimer(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors") ), use_container_width=True, key="tab2_chart1")
         r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
