@@ -8,7 +8,7 @@ HOST = "83.149.119.154"
 USERNAME = "events-eusee.hivos.o_iwfvvmfr82h@83.149.119.154"
 PASSWORD = "~Po7Rpdi9&oY3wkr"
 REMOTE_DIR = "/exports"
-LOCAL_DIR = "downloads"
+LOCAL_DIR = "data"
 LOG_DIR = "logs"
 
 # ---------- SETUP ----------
