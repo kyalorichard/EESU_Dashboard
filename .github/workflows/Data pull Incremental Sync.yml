@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repo
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -26,8 +26,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install paramiko
 
-      # 4️⃣ Run SFTP CSV incremental sync
+      # 4️⃣ Run SFTP CSV sync
       - name: Run SFTP CSV sync
+        id: sftp_sync
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
@@ -37,27 +38,21 @@ jobs:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASS }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
         run: |
-          python export_data.py
+          NEW_FILES=$(python export_data.py | tee /dev/tty | grep NEW_FILES_DOWNLOADED | awk -F= '{print $2}')
+          echo "NEW_FILES=$NEW_FILES" >> $GITHUB_ENV
 
-      # 5️⃣ Debug: show staged CSV files
-      - name: Show staged CSV files
-        run: |
-          echo "Files in data/ folder:"
-          ls -la data/
-          echo "Git sees these files for commit:"
-          git status
-
-      # 6️⃣ Commit & push updated CSV files
-      - name: Commit and push updates
+      # 5️⃣ Commit & push only if new files exist
+      - name: Commit & push updated CSV files
+        if: env.NEW_FILES != '0'
         env:
           GITHUB_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add -A data/
+          git add -A data/          # ✅ Add all new & updated files
           git diff-index --quiet HEAD || git commit -m "Update CSV files [skip ci]"
-          git diff-index --cached --quiet HEAD || git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
+          git diff-index --quiet HEAD || git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
