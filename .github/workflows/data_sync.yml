@@ -1,0 +1,96 @@
+name: Update Raw Data
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  update_csv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install paramiko pandas
+
+      - name: Run SFTP update script
+        run: |
+          python pull_data.py
+
+      # 🔎 CHECK IF FILE CHANGED
+      - name: Detect data change
+        id: detect_changes
+        run: |
+          if git status --porcelain data/raw_data.csv | grep .; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 💾 COMMIT ONLY IF CHANGED
+      - name: Commit and push changes
+        if: steps.detect_changes.outputs.changed == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw_data.csv
+          git commit -m "Update raw_data.csv from SFTP"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
+
+      # ✅ SUCCESS EMAIL (ONLY IF DATA CHANGED)
+      - name: Send success email (SMTP)
+        if: steps.detect_changes.outputs.changed == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          secure: true
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "✅ EU SEE data updated successfully"
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "GitHub Actions <${{ secrets.SMTP_USER }}>"
+          body: |
+            The EU SEE raw data has been successfully updated.
+
+            File: data/raw_data.csv
+            Repository: ${{ github.repository }}
+            Workflow: ${{ github.workflow }}
+            Commit: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+
+            Run logs:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      # ❌ FAILURE EMAIL
+      - name: Send failure email (SMTP)
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          secure: true
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "❌ EU SEE data update FAILED"
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "GitHub Actions <${{ secrets.SMTP_USER }}>"
+          body: |
+            The EU SEE data update workflow FAILED.
+
+            Repository: ${{ github.repository }}
+            Workflow: ${{ github.workflow }}
+
+            Logs:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
