@@ -59,13 +59,7 @@ class FileLock:
 # EMAIL FUNCTIONS
 # ==========================================================
 def notify_failure(error_msg):
-    if not all([
-        SMTP_HOST,
-        SMTP_USER,
-        SMTP_PASSWORD,
-        ALERT_EMAIL_FROM,
-        ALERT_EMAIL_TO
-    ]):
+    if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL_FROM, ALERT_EMAIL_TO]):
         return
 
     msg = EmailMessage()
@@ -74,28 +68,23 @@ def notify_failure(error_msg):
     msg["Subject"] = "SFTP CSV Incremental Sync FAILED"
     msg.set_content(error_msg)
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        print("Failed to send failure email:", e)
 
 
 def notify_success_summary(file_count):
-    # Suppress success email if no files changed
     if file_count == 0:
         return
 
-    # Only once per day
     if os.path.exists(SUCCESS_MARKER):
         return
 
-    if not all([
-        SMTP_HOST,
-        SMTP_USER,
-        SMTP_PASSWORD,
-        ALERT_EMAIL_FROM,
-        ALERT_EMAIL_TO
-    ]):
+    if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL_FROM, ALERT_EMAIL_TO]):
         return
 
     msg = EmailMessage()
@@ -108,12 +97,14 @@ def notify_success_summary(file_count):
         f"Date: {date.today().isoformat()}"
     )
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
-
-    open(SUCCESS_MARKER, "w").close()
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        open(SUCCESS_MARKER, "w").close()
+    except Exception as e:
+        print("Failed to send success email:", e)
 
 # ==========================================================
 # CORE SYNC LOGIC
@@ -123,34 +114,60 @@ def download_csv_files():
     downloaded = 0
 
     transport = paramiko.Transport((SFTP_HOST, 22))
-    transport.connect(
-        username=SFTP_USERNAME,
-        password=SFTP_PASSWORD
-    )
+    transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
     sftp = paramiko.SFTPClient.from_transport(transport)
 
     try:
-        sftp.chdir(SFTP_REMOTE_DIR)
+        # 1️⃣ Try to access the target folder
+        folder_checked = False
+        try:
+            print(f"Trying to access remote folder: {SFTP_REMOTE_DIR}")
+            sftp.chdir(SFTP_REMOTE_DIR)
+            folder_checked = True
+        except IOError:
+            print(f"Folder '{SFTP_REMOTE_DIR}' not found. Using home directory instead.")
 
-        for filename in sftp.listdir():
+        # 2️⃣ Fallback to home directory
+        if not folder_checked:
+            sftp.chdir(".")
+            print("Available files/folders in home directory:", sftp.listdir())
+
+        # 3️⃣ List remote files
+        remote_files = sftp.listdir()
+        if not remote_files:
+            print("No files found in current remote folder.")
+            return 0
+
+        # 4️⃣ Download CSV files
+        for filename in remote_files:
             if not filename.lower().endswith(".csv"):
                 continue
 
-            remote_path = f"{SFTP_REMOTE_DIR}/{filename}"
+            remote_path = f"{sftp.getcwd()}/{filename}"
+
+            # Skip non-regular files
+            try:
+                attr = sftp.stat(remote_path)
+                if not paramiko.sftp_attr.S_ISREG(attr.st_mode):
+                    print(f"Skipping {filename} (not a regular file)")
+                    continue
+            except IOError:
+                print(f"Skipping {filename} (cannot stat)")
+                continue
+
             local_path = os.path.join(LOCAL_DIR, filename)
             temp_path = local_path + ".tmp"
 
-            remote_stat = sftp.stat(remote_path)
-
-            # Incremental check
+            # Skip if same size
             if os.path.exists(local_path):
-                if os.path.getsize(local_path) == remote_stat.st_size:
+                if os.path.getsize(local_path) == attr.st_size:
                     continue
 
             # Atomic download
             sftp.get(remote_path, temp_path)
             os.replace(temp_path, local_path)
             downloaded += 1
+            print(f"Downloaded: {filename}")
 
     finally:
         sftp.close()
@@ -175,6 +192,7 @@ def main():
 
     finally:
         lock.release()
+
 
 if __name__ == "__main__":
     main()
