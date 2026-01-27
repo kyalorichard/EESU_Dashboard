@@ -14,7 +14,7 @@ from datetime import date
 SFTP_HOST = os.getenv("SFTP_HOST")
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
-SFTP_REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR", "/exports")
+SFTP_REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR", "exports")
 LOCAL_DIR = os.getenv("LOCAL_DIR", "data")
 
 SMTP_HOST = os.getenv("SMTP_HOST")
