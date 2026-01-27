@@ -32,6 +32,7 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
           SFTP_REMOTE_DIR: exports
           LOCAL_DIR: data
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
