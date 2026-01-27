@@ -27,12 +27,7 @@ ALERT_EMAIL_TO = os.getenv("NOTIFY_EMAIL")
 LOCK_FILE = "/tmp/sftp_csv_download.lock"
 SUCCESS_MARKER = f"/tmp/sftp_success_email_{date.today().isoformat()}"
 
-# ----------------- VALIDATION -----------------
-if not all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]):
-    print("Missing required SFTP environment variables")
-    sys.exit(1)
-
-# ----------------- LOCK -----------------
+# ---------------- LOCK CLASS ----------------
 class FileLock:
     def __init__(self, path):
         self.path = path
@@ -51,29 +46,13 @@ class FileLock:
             fcntl.flock(self.fp, fcntl.LOCK_UN)
             self.fp.close()
 
-# ----------------- EMAIL -----------------
-def notify_failure(error_msg):
-    if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL_FROM, ALERT_EMAIL_TO]):
-        return
-    msg = EmailMessage()
-    msg["From"] = ALERT_EMAIL_FROM
-    msg["To"] = ALERT_EMAIL_TO
-    msg["Subject"] = "SFTP CSV Incremental Sync FAILED"
-    msg.set_content(error_msg)
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-    except Exception as e:
-        print("Failed to send failure email:", e)
-
-
-def notify_success_summary(file_count):
+# ---------------- EMAIL ----------------
+def send_success_email(file_count):
     if file_count == 0 or os.path.exists(SUCCESS_MARKER):
         return
     if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL_FROM, ALERT_EMAIL_TO]):
         return
+
     msg = EmailMessage()
     msg["From"] = ALERT_EMAIL_FROM
     msg["To"] = ALERT_EMAIL_TO
@@ -83,6 +62,7 @@ def notify_success_summary(file_count):
         f"New/updated CSV files downloaded: {file_count}\n"
         f"Date: {date.today().isoformat()}"
     )
+
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.starttls()
@@ -92,7 +72,7 @@ def notify_success_summary(file_count):
     except Exception as e:
         print("Failed to send success email:", e)
 
-# ----------------- DOWNLOAD -----------------
+# ---------------- DOWNLOAD ----------------
 def download_csv_files():
     os.makedirs(LOCAL_DIR, exist_ok=True)
     downloaded = 0
@@ -102,43 +82,36 @@ def download_csv_files():
     sftp = paramiko.SFTPClient.from_transport(transport)
 
     try:
-        # 1️⃣ Try target folder
         try:
-            print(f"Trying to access remote folder: '{SFTP_REMOTE_DIR}'")
-            sftp.chdir(SFTP_REMOTE_DIR)
+            sftp.chdir(REMOTE_DIR)
         except IOError:
-            print(f"Folder '{SFTP_REMOTE_DIR}' not found. Using home directory instead.")
+            print(f"Folder '{REMOTE_DIR}' not found. Using home directory instead.")
             sftp.chdir(".")
-        print("Current remote folder:", sftp.getcwd())
-        print("Remote files/folders:", sftp.listdir())
+        print("Remote folder:", sftp.getcwd())
+        print("Files:", sftp.listdir())
 
-        # 2️⃣ Download CSVs
         for filename in sftp.listdir():
             if not filename.lower().endswith(".csv"):
                 continue
 
             remote_path = os.path.join(sftp.getcwd(), filename)
-            print("Processing file:", remote_path)
+            local_path = os.path.join(LOCAL_DIR, filename)
+            temp_path = local_path + ".tmp"
 
             try:
                 attr = sftp.stat(remote_path)
                 if not paramiko.sftp_attr.S_ISREG(attr.st_mode):
-                    print(f"Skipping {filename} (not a regular file)")
                     continue
-            except IOError:
-                print(f"Skipping {filename} (cannot stat)")
-                continue
 
-            local_path = os.path.join(LOCAL_DIR, filename)
-            temp_path = local_path + ".tmp"
+                if os.path.exists(local_path) and os.path.getsize(local_path) == attr.st_size:
+                    continue
 
-            if os.path.exists(local_path) and os.path.getsize(local_path) == attr.st_size:
-                continue
-
-            sftp.get(remote_path, temp_path)
-            os.replace(temp_path, local_path)
-            downloaded += 1
-            print("Downloaded:", filename)
+                sftp.get(remote_path, temp_path)
+                os.replace(temp_path, local_path)
+                downloaded += 1
+                print(f"Downloaded/Updated: {filename}")
+            except Exception as e:
+                print(f"Failed {filename}: {e}")
 
     finally:
         sftp.close()
@@ -146,15 +119,15 @@ def download_csv_files():
 
     return downloaded
 
-# ----------------- MAIN -----------------
+# ---------------- MAIN ----------------
 def main():
     lock = FileLock(LOCK_FILE)
     lock.acquire()
     try:
         file_count = download_csv_files()
-        notify_success_summary(file_count)
+        send_success_email(file_count)
     except Exception as e:
-        notify_failure(str(e))
+        print("Error during sync:", e)
         raise
     finally:
         lock.release()
