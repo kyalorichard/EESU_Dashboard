@@ -105,7 +105,7 @@ def download_csv_files():
             try:
                 attr = sftp.stat(remote_path)
 
-                # Check if it's a regular file
+                # ✅ Correct: Check if it's a regular file using built-in stat module
                 if not stat.S_ISREG(attr.st_mode):
                     print(f"Skipping {filename} (not a regular file)")
                     continue
@@ -114,7 +114,7 @@ def download_csv_files():
                 if os.path.exists(local_path) and os.path.getsize(local_path) == attr.st_size:
                     continue
 
-                # Download to temp file first
+                # Download to temp file first (atomic update)
                 sftp.get(remote_path, temp_path)
                 os.replace(temp_path, local_path)
                 downloaded += 1
