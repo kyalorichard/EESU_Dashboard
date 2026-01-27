@@ -51,7 +51,7 @@ google-api-python-client   # For Google Drive upload / Drive API interaction
 flake8>=6.1.0
 pytest>=8.2.0
 
-paramiko
+paramiko>=3.1.0
 logging
 
 #bcrypt
