@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 import paramiko
-import fcntl
 import smtplib
+import fcntl
 import stat
 from email.message import EmailMessage
 from datetime import date
+import sys
 
 # ==========================================================
 # CONFIG (ENVIRONMENT VARIABLES)
