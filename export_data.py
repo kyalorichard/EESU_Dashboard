@@ -15,14 +15,14 @@ SFTP_HOST = os.getenv("SFTP_HOST")
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 SFTP_REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR", "/exports")
-LOCAL_DIR = os.getenv("LOCAL_DIR", "downloads")
+LOCAL_DIR = os.getenv("LOCAL_DIR", "data")
 
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASSWORD")
-NOTIFY_EMAIL = os.getenv("ALERT_EMAIL_FROM")
-NOTIFY_EMAIL = os.getenv("ALERT_EMAIL_TO")
+SMTP_PASSWORD = os.getenv("SMTP_PASS")
+ALERT_EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")
+ALERT_EMAIL_TO = os.getenv("NOTIFY_EMAIL")
 
 LOCK_FILE = "/tmp/sftp_csv_download.lock"
 SUCCESS_MARKER = f"/tmp/sftp_success_email_{date.today().isoformat()}"
