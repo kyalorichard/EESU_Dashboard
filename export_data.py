@@ -15,9 +15,12 @@ import sys
 SFTP_HOST = os.getenv("SFTP_HOST")
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
-REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR", "exports")
-LOCAL_DIR = os.getenv("LOCAL_DIR", "data")
+# Ensure REMOTE_DIR is always defined
+REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR")
+if not REMOTE_DIR:
+    REMOTE_DIR = "exports"  # fallback default
 
+LOCAL_DIR = os.getenv("LOCAL_DIR", "data")
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER")
