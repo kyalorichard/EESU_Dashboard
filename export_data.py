@@ -5,6 +5,7 @@ import sys
 import paramiko
 import fcntl
 import smtplib
+import stat
 from email.message import EmailMessage
 from datetime import date
 
@@ -82,14 +83,17 @@ def download_csv_files():
     sftp = paramiko.SFTPClient.from_transport(transport)
 
     try:
+        # Access remote folder
         try:
+            print(f"Trying to access remote folder: '{REMOTE_DIR}'")
             sftp.chdir(REMOTE_DIR)
         except IOError:
             print(f"Folder '{REMOTE_DIR}' not found. Using home directory instead.")
             sftp.chdir(".")
-        print("Remote folder:", sftp.getcwd())
-        print("Files:", sftp.listdir())
+        print("Current remote folder:", sftp.getcwd())
+        print("Remote files/folders:", sftp.listdir())
 
+        # Download CSVs
         for filename in sftp.listdir():
             if not filename.lower().endswith(".csv"):
                 continue
@@ -100,12 +104,17 @@ def download_csv_files():
 
             try:
                 attr = sftp.stat(remote_path)
-                if not paramiko.sftp_attr.S_ISREG(attr.st_mode):
+
+                # Check if it's a regular file
+                if not stat.S_ISREG(attr.st_mode):
+                    print(f"Skipping {filename} (not a regular file)")
                     continue
 
+                # Skip if unchanged
                 if os.path.exists(local_path) and os.path.getsize(local_path) == attr.st_size:
                     continue
 
+                # Download to temp file first
                 sftp.get(remote_path, temp_path)
                 os.replace(temp_path, local_path)
                 downloaded += 1
