@@ -20,7 +20,7 @@ LOCAL_DIR = os.getenv("LOCAL_DIR", "downloads")
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSW = os.getenv("SMTP_PASSWORD")
+SMTP_PASS = os.getenv("SMTP_PASSWORD")
 NOTIFY_EMAIL = os.getenv("ALERT_EMAIL_FROM")
 NOTIFY_EMAIL = os.getenv("ALERT_EMAIL_TO")
 
