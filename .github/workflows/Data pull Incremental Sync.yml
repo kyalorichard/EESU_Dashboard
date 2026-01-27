@@ -33,13 +33,13 @@ jobs:
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_REMOTE_DIR: /exports
-          LOCAL_DIR: downloads
+          LOCAL_DIR: data
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASS }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
-          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          ALERT_EMAIL_TO:: ${{ secrets.NOTIFY_EMAIL }}
         run: |
           python export_data.py
 
