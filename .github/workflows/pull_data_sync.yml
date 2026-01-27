@@ -2,7 +2,7 @@ name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # every day at 2:00 AM
+    - cron: '*/5 * * * *'  
   workflow_dispatch:
 
 jobs:
@@ -39,4 +39,4 @@ jobs:
           RETRY_DELAY: 2
           METRIC_NAMESPACE: WordPressSyncMetrics
         run: |
-          python pull_data.py
+          python export_data.py
