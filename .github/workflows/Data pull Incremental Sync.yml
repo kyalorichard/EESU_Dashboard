@@ -40,7 +40,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
-          GITHUB_ENV: ${{ github.env }}  # Environment file for outputs
+          GITHUB_ENV: ${{ github.env }}   # Environment file for outputs
         run: |
           set -e
           python export_data.py
@@ -69,7 +69,7 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          # Push using PAT embedded in URL (no GIT_ASKPASS needed)
+          # ✅ Push using PAT embedded in URL
           git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
           # Expose branch name for PR creation
