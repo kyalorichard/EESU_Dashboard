@@ -46,8 +46,8 @@ jobs:
           NEW_FILES_DOWNLOADED=$(python export_data.py | grep NEW_FILES_DOWNLOADED | awk -F= '{print $2}')
           echo "NEW_FILES_DOWNLOADED=$NEW_FILES_DOWNLOADED" >> $GITHUB_ENV
 
-      # 5️⃣ Commit & push updates to a temp branch if new files exist
-      - name: Commit & push updated CSV files
+      # 5️⃣ Commit & push updated CSV files to a timestamped branch
+      - name: Commit & push to temp branch
         if: env.NEW_FILES_DOWNLOADED == '1'
         env:
           GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
@@ -55,25 +55,26 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          # Create a temporary branch with timestamp
           BRANCH_NAME="csv-update-$(date +%s)"
           git checkout -b $BRANCH_NAME
 
           git add -A data/
-
           git commit -m "Update CSV files [skip ci]"
 
           echo "Pushing to temporary branch $BRANCH_NAME..."
           git push https://x-access-token:${GIT_TOKEN_CUSTOM}@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
-      # 6️⃣ Create Pull Request using GitHub CLI
+          # Expose branch name as output for PR creation
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      # 6️⃣ Create Pull Request to main
       - name: Create Pull Request to main
         if: env.NEW_FILES_DOWNLOADED == '1'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GIT_TOKEN_CUSTOM }}
           commit-message: "Update CSV files [skip ci]"
-          branch: ${{ steps.sftp_sync.outputs.branch_name || 'csv-update-temp' }}
+          branch: ${{ steps.commit_push.outputs.branch_name }}
           base: main
           title: "Automated CSV update"
           body: "This PR updates raw_data.csv with the latest CSV from SFTP."
