@@ -10,9 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # 1️⃣ Checkout repository
+      - uses: actions/checkout@v4
 
       # 2️⃣ Set up Python
       - name: Set up Python
@@ -43,13 +42,11 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
         run: |
           set -e
-          # Run your Python sync script
-          NEW_FILES_DOWNLOADED=$(python export_data.py | grep NEW_FILES_DOWNLOADED | awk -F= '{print $2}')
-          echo "NEW_FILES_DOWNLOADED=$NEW_FILES_DOWNLOADED" >> $GITHUB_ENV
+          python export_data.py
 
       # 5️⃣ Commit & push updates using PAT to a temporary branch
       - name: Commit & push to temp branch
-        if: env.NEW_FILES_DOWNLOADED == '1'
+        if: steps.sftp_sync.outputs.NEW_FILES_DOWNLOADED == '1'
         env:
           GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
         run: |
@@ -79,7 +76,7 @@ jobs:
 
       # 6️⃣ Create Pull Request to main
       - name: Create Pull Request
-        if: env.NEW_FILES_DOWNLOADED == '1'
+        if: steps.sftp_sync.outputs.NEW_FILES_DOWNLOADED == '1'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GIT_TOKEN_CUSTOM }}
