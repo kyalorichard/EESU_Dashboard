@@ -43,10 +43,11 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
         run: |
           set -e
+          # Run your Python sync script
           NEW_FILES_DOWNLOADED=$(python export_data.py | grep NEW_FILES_DOWNLOADED | awk -F= '{print $2}')
           echo "NEW_FILES_DOWNLOADED=$NEW_FILES_DOWNLOADED" >> $GITHUB_ENV
 
-      # 5️⃣ Commit & push updated CSV files to a timestamped branch
+      # 5️⃣ Commit & push updated CSV files to a temporary branch
       - name: Commit & push to temp branch
         if: env.NEW_FILES_DOWNLOADED == '1'
         env:
@@ -61,10 +62,10 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          echo "Pushing to temporary branch $BRANCH_NAME..."
+          echo "Pushing branch $BRANCH_NAME using PAT..."
           git push https://x-access-token:${GIT_TOKEN_CUSTOM}@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
-          # Expose branch name as output for PR creation
+          # Output branch name for PR creation
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       # 6️⃣ Create Pull Request to main
@@ -73,9 +74,9 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GIT_TOKEN_CUSTOM }}
-          commit-message: "Update CSV files [skip ci]"
           branch: ${{ steps.commit_push.outputs.branch_name }}
           base: main
           title: "Automated CSV update"
           body: "This PR updates raw_data.csv with the latest CSV from SFTP."
           labels: automated
+          commit-message: "Update CSV files [skip ci]"
