@@ -40,7 +40,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
-          GITHUB_ENV: ${{ github.env }}   # Environment file for outputs
+          GITHUB_ENV: ${{ github.env }}
         run: |
           set -e
           python export_data.py
@@ -58,10 +58,17 @@ jobs:
         env:
           GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
         run: |
+          set -e
+
+          # Clear old cached credentials
+          git credential-cache exit || true
+          git config --global --unset credential.helper || true
+
+          # Configure Git user
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          # Create temporary branch
+          # Create a temporary branch
           BRANCH_NAME="csv-update-$(date +%s)"
           git checkout -b $BRANCH_NAME
 
@@ -69,8 +76,11 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          # ✅ Push using PAT embedded in URL
-          git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
+          # Set remote URL with PAT
+          git remote set-url origin https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }}
+
+          # Push temporary branch to origin
+          git push origin HEAD:$BRANCH_NAME
 
           # Expose branch name for PR creation
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
