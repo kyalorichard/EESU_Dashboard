@@ -54,9 +54,9 @@ class FileLock:
             self.fp.close()
 
 # ==========================================================
-# EMAIL CORE
+# EMAIL CORE (HTML + TEXT)
 # ==========================================================
-def _send_email(subject, body):
+def _send_email(subject, text_body, html_body):
     missing = [
         k for k, v in {
             "SMTP_HOST": SMTP_HOST,
@@ -75,68 +75,113 @@ def _send_email(subject, body):
     msg["From"] = ALERT_EMAIL_FROM
     msg["To"] = ALERT_EMAIL_TO
     msg["Subject"] = subject
-    msg.set_content(body)
 
-    # ---- STARTTLS ----
+    msg.set_content(text_body)
+    msg.add_alternative(html_body, subtype="html")
+
     try:
-        print(f"Attempting SMTP STARTTLS on {SMTP_HOST}:{SMTP_PORT}")
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-            server.set_debuglevel(1)
             server.ehlo()
             server.starttls()
             server.ehlo()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
-        print("Email sent via STARTTLS")
         return True
     except Exception as e:
         print("STARTTLS failed:", e)
 
-    # ---- SSL fallback ----
     try:
-        print("Attempting SMTP SSL on port 465")
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=20) as server:
-            server.set_debuglevel(1)
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
-        print("Email sent via SSL")
         return True
     except Exception as e:
         print("SSL failed:", e)
 
     return False
 
-
+# ==========================================================
+# SUCCESS EMAIL
+# ==========================================================
 def send_success_email(file_name):
-    if not file_name:
-        print("Success email skipped: no file.")
-        return
-    if os.path.exists(SUCCESS_MARKER):
-        print("Success email already sent today.")
+    if not file_name or os.path.exists(SUCCESS_MARKER):
         return
 
-    sent = _send_email(
-        subject="SFTP CSV Sync – Success",
-        body=(
-            "SFTP CSV incremental sync completed successfully.\n\n"
-            f"Downloaded file: {file_name}\n"
-            f"Date: {date.today().isoformat()}"
-        )
-    )
+    text_body = f"""
+SFTP Data Sync – SUCCESS
 
-    if sent:
+File downloaded: {file_name}
+Stored as: data/raw_data.csv
+Date: {date.today().isoformat()}
+"""
+
+    html_body = f"""
+<html>
+<body style="font-family:Arial,sans-serif;color:#333;">
+  <h2 style="color:#2e7d32;">✅ SFTP Data Sync Successful</h2>
+  <p>The scheduled SFTP data synchronization completed successfully.</p>
+
+  <table cellpadding="6" cellspacing="0">
+    <tr><td><b>Status</b></td><td style="color:#2e7d32;">SUCCESS</td></tr>
+    <tr><td><b>Downloaded file</b></td><td>{file_name}</td></tr>
+    <tr><td><b>Saved as</b></td><td><code>data/raw_data.csv</code></td></tr>
+    <tr><td><b>Date</b></td><td>{date.today().isoformat()}</td></tr>
+  </table>
+
+  <p>No action is required.</p>
+  <hr>
+  <p style="font-size:12px;color:#777;">Automated notification – Data Pipeline</p>
+</body>
+</html>
+"""
+
+    if _send_email(
+        "SFTP Data Sync – Completed Successfully",
+        text_body.strip(),
+        html_body,
+    ):
         open(SUCCESS_MARKER, "w").close()
 
-
+# ==========================================================
+# FAILURE EMAIL
+# ==========================================================
 def send_failure_email(error_msg):
+    text_body = f"""
+SFTP Data Sync – FAILURE
+
+Error:
+{error_msg}
+
+Date: {date.today().isoformat()}
+"""
+
+    html_body = f"""
+<html>
+<body style="font-family:Arial,sans-serif;color:#333;">
+  <h2 style="color:#c62828;">❌ SFTP Data Sync Failed</h2>
+  <p>The scheduled SFTP data synchronization did not complete successfully.</p>
+
+  <pre style="background:#f8f8f8;padding:10px;border:1px solid #ddd;">
+{error_msg}
+  </pre>
+
+  <ul>
+    <li>Check SFTP credentials</li>
+    <li>Verify SMTP configuration</li>
+    <li>Review GitHub Actions logs</li>
+  </ul>
+
+  <hr>
+  <p style="font-size:12px;color:#777;">Automated alert – Data Pipeline</p>
+</body>
+</html>
+"""
+
     _send_email(
-        subject="SFTP CSV Sync – FAILURE",
-        body=(
-            "SFTP CSV incremental sync FAILED.\n\n"
-            f"Error:\n{error_msg}\n\n"
-            f"Date: {date.today().isoformat()}"
-        )
+        "ALERT: SFTP Data Sync Failed",
+        text_body.strip(),
+        html_body,
     )
 
 # ==========================================================
@@ -155,10 +200,7 @@ def download_latest_csv():
         try:
             sftp.chdir(REMOTE_DIR)
         except IOError:
-            print(f"Remote folder '{REMOTE_DIR}' not found. Using home.")
             sftp.chdir(".")
-
-        print("Current remote folder:", sftp.getcwd())
 
         csv_files = [f for f in sftp.listdir() if f.lower().endswith(".csv")]
         date_pattern = re.compile(r".*?(\d{4}_\d{2}_\d{2}).*\.csv$")
@@ -173,7 +215,6 @@ def download_latest_csv():
                     latest_file = f
 
         if not latest_file:
-            print("No dated CSV files found.")
             return 0, None
 
         remote_path = os.path.join(sftp.getcwd(), latest_file)
@@ -185,9 +226,6 @@ def download_latest_csv():
             sftp.get(remote_path, temp_path)
             os.replace(temp_path, local_path)
             downloaded = 1
-            print(f"Downloaded latest file: {latest_file}")
-        else:
-            print(f"Latest file already exists locally: {latest_file}")
 
     except Exception as e:
         raise RuntimeError(f"SFTP download failed: {e}")
@@ -214,15 +252,11 @@ def main():
         downloaded, latest_file = download_latest_csv()
         if downloaded:
             send_success_email(latest_file)
-        else:
-            print("No new CSV downloaded.")
     except Exception as e:
-        print("Error during sync:", e)
         send_failure_email(str(e))
     finally:
         lock.release()
 
-    # GitHub Actions output
     if GITHUB_ENV:
         with open(GITHUB_ENV, "a") as f:
             f.write(f"NEW_FILES_DOWNLOADED={downloaded}\n")
