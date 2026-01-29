@@ -60,6 +60,14 @@ def load_data():
     df = df[df['alert-country'] != "Jose"]
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
+    # Clean country field
+    df['alert-country'] = (
+        df['alert-country']
+        .astype(str)
+        .str.strip()
+        .replace("Lebanon NAR", "Lebanon")
+    )
+
     meta_file = Path.cwd() / "data" / "countries_metadata.json"
     country_meta = {}
     if meta_file.exists():
