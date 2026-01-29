@@ -110,16 +110,17 @@ def extract_date(filename):
         match = re.search(pattern, filename)
         if match:
             try:
-                value = match.group(1)
-                if "-" in value:
-                    return datetime.strptime(value, "%Y-%m-%d")
-                elif "_" in value:
-                    return datetime.strptime(value, "%Y_%m_%d")
-                return datetime.strptime(value, "%Y%m%d")
+                value = match.group(1)  # e.g., "2026_01_26"
+                # Remove any trailing non-digit characters
+                value_clean = re.match(r"\d{4}[_-]\d{2}[_-]\d{2}", value).group(0)
+                if "-" in value_clean:
+                    return datetime.strptime(value_clean, "%Y-%m-%d")
+                elif "_" in value_clean:
+                    return datetime.strptime(value_clean, "%Y_%m_%d")
+                return datetime.strptime(value_clean, "%Y%m%d")
             except ValueError:
                 pass
     return None
-
 # ==========================================================
 # DOWNLOAD LATEST CSV ONLY
 # ==========================================================
