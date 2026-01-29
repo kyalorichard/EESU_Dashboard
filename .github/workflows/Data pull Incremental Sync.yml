@@ -63,7 +63,7 @@ jobs:
         run: |
           set -e
 
-          # Clear any cached credentials
+          # Clear old cached credentials
           git credential-cache exit || true
           git config --global --unset credential.helper || true
 
@@ -79,11 +79,11 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          # Push temporary branch using the PAT
+          # Push temporary branch using PAT
           git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
-          # Expose branch name for PR creation
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+          # ✅ Export branch name as output for PR creation
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       # 7️⃣ Create Pull Request to main
       - name: Create Pull Request
