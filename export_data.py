@@ -100,8 +100,9 @@ def send_failure_email(error):
 # DATE EXTRACTION
 # ==========================================================
 DATE_PATTERNS = [
-    r"(\d{4}-\d{2}-\d{2})",  # YYYY-MM-DD
-    r"(\d{8})"              # YYYYMMDD
+    r"(\d{4}-\d{2}-\d{2})",     # YYYY-MM-DD
+    r"(\d{8})",                  # YYYYMMDD
+    r"(\d{4}_\d{2}_\d{2})"      # YYYY_MM_DD (new)
 ]
 
 def extract_date(filename):
@@ -112,6 +113,8 @@ def extract_date(filename):
                 value = match.group(1)
                 if "-" in value:
                     return datetime.strptime(value, "%Y-%m-%d")
+                elif "_" in value:
+                    return datetime.strptime(value, "%Y_%m_%d")
                 return datetime.strptime(value, "%Y%m%d")
             except ValueError:
                 pass
