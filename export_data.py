@@ -97,7 +97,7 @@ def send_failure_email(error):
     )
 
 # ==========================================================
-# DATE EXTRACTION (robust for your filenames)
+# DATE EXTRACTION
 # ==========================================================
 def extract_date(filename):
     """
@@ -105,7 +105,6 @@ def extract_date(filename):
     EventsExports_2026_01_26_1.csv
     """
     filename = str(filename).strip()  # ensure string, strip whitespace
-    # Match YYYY_MM_DD optionally followed by _suffix before extension
     match = re.search(r"(\d{4}_\d{2}_\d{2})(?:_[^.]*)?", filename)
     if match:
         date_str = match.group(1)
@@ -116,7 +115,7 @@ def extract_date(filename):
     return None
 
 # ==========================================================
-# DOWNLOAD LATEST CSV ONLY (with debug)
+# DOWNLOAD LATEST CSV ONLY
 # ==========================================================
 def download_latest_csv():
     os.makedirs(LOCAL_DIR, exist_ok=True)
@@ -133,7 +132,10 @@ def download_latest_csv():
             sftp.chdir(".")
 
         remote_files = sftp.listdir()
-        print("=== DEBUG: Raw remote files ===")
+        # Decode bytes if necessary
+        remote_files = [f.decode() if isinstance(f, bytes) else str(f) for f in remote_files]
+
+        print("=== DEBUG: Remote directory listing ===")
         for f in remote_files:
             print(repr(f))
         print("=== END DEBUG ===")
@@ -142,7 +144,7 @@ def download_latest_csv():
         latest_date = None
 
         for filename in remote_files:
-            filename_str = str(filename).strip()
+            filename_str = filename.strip()
             if not filename_str.lower().endswith(".csv"):
                 continue
 
