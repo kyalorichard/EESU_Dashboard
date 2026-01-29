@@ -43,6 +43,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           GITHUB_ENV: ${{ github.env }}
         run: |
           set -e
