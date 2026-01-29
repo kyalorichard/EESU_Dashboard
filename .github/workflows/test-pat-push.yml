@@ -1,18 +1,35 @@
+name: Test PAT Push
+
+on:
+  workflow_dispatch:   # manual trigger
+
 jobs:
   test-push:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout repo
       - uses: actions/checkout@v4
-      - name: Test push using PAT
-        env:
-          GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
+
+      # 2️⃣ Configure Git user
+      - name: Configure Git
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+
+      # 3️⃣ Create a test branch, add dummy file, commit
+      - name: Commit dummy file
+        run: |
           git checkout -b test-pat
-          touch test.txt
+          echo "test" > test.txt
           git add test.txt
           git commit -m "Test push using PAT [skip ci]"
+
+      # 4️⃣ Push using PAT via GIT_ASKPASS
+      - name: Push branch using PAT
+        env:
+          GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
+        run: |
           export GIT_ASKPASS=$(mktemp)
           echo "echo $GIT_TOKEN_CUSTOM" > $GIT_ASKPASS
           chmod +x $GIT_ASKPASS
