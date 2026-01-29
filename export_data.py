@@ -104,7 +104,7 @@ def extract_date(filename):
     Extracts YYYY_MM_DD from filenames like:
     EventsExports_2026_01_26_1.csv
     """
-    filename = str(filename).strip()  # ensure string, strip whitespace
+    filename = str(filename).strip()  # ensure string and strip whitespace/newlines
     match = re.search(r"(\d{4}_\d{2}_\d{2})(?:_[^.]*)?", filename)
     if match:
         date_str = match.group(1)
@@ -131,31 +131,36 @@ def download_latest_csv():
         except IOError:
             sftp.chdir(".")
 
-        remote_files = sftp.listdir()
-        # Decode bytes if necessary
-        remote_files = [f.decode() if isinstance(f, bytes) else str(f) for f in remote_files]
+        # DEBUG: show current remote working directory
+        print("=== DEBUG: Remote working directory ===")
+        print(repr(sftp.getcwd()))
+        print("=== END DEBUG ===")
 
-        print("=== DEBUG: Remote directory listing ===")
+        remote_files = sftp.listdir()
+        # Decode bytes and strip whitespace/newlines
+        remote_files = [f.decode().strip() if isinstance(f, bytes) else str(f).strip() for f in remote_files]
+
+        # DEBUG: print all remote files with length
+        print("=== DEBUG: Remote files ===")
         for f in remote_files:
-            print(repr(f))
+            print(repr(f), len(f))
         print("=== END DEBUG ===")
 
         latest_file = None
         latest_date = None
 
         for filename in remote_files:
-            filename_str = filename.strip()
-            if not filename_str.lower().endswith(".csv"):
+            if not filename.lower().endswith(".csv"):
                 continue
 
-            file_date = extract_date(filename_str)
+            file_date = extract_date(filename)
             if not file_date:
-                print(f"Skipping file (no date match): {filename_str}")
+                print(f"Skipping file (no date match): {repr(filename)}")
                 continue
 
             if not latest_date or file_date > latest_date:
                 latest_date = file_date
-                latest_file = filename_str
+                latest_file = filename
 
         if not latest_file:
             print("No dated CSV files found.")
