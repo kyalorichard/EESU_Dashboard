@@ -10,8 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
-      - uses: actions/checkout@v4
+      # 1️⃣ Checkout repository using PAT
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GIT_TOKEN_CUSTOM }}
 
       # 2️⃣ Set up Python
       - name: Set up Python
@@ -52,7 +55,7 @@ jobs:
           echo "No new CSV file detected. Exiting workflow."
           exit 0
 
-      # 6️⃣ Commit & push updates using PAT
+      # 6️⃣ Commit & push updates to temporary branch using PAT
       - name: Commit & push to temp branch
         id: commit_push
         env:
@@ -60,7 +63,7 @@ jobs:
         run: |
           set -e
 
-          # Clear old cached credentials
+          # Clear any cached credentials
           git credential-cache exit || true
           git config --global --unset credential.helper || true
 
@@ -76,11 +79,8 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          # Set remote URL with PAT
-          git remote set-url origin https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }}
-
-          # Push temporary branch to origin
-          git push origin HEAD:$BRANCH_NAME
+          # Push temporary branch using the PAT
+          git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
           # Expose branch name for PR creation
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
