@@ -85,7 +85,7 @@ def send_success_email(file_updated):
 
 def send_failure_email(error):
     send_email(
-        subject="❌ SFTP CSV Sync – FAILED",
+        subject="SFTP CSV Sync – FAILED",
         body=(
             "The SFTP CSV incremental sync has FAILED.\n\n"
             f"Timestamp (UTC): {datetime.utcnow().isoformat()}\n\n"
