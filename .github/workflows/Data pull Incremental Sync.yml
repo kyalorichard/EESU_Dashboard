@@ -2,7 +2,7 @@ name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # check every 5 minutes
+    - cron: '*/5 * * * *'  # every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -40,18 +40,19 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
+          GITHUB_ENV: ${{ github.env }}  # Environment file for outputs
         run: |
           set -e
           python export_data.py
 
       # 5️⃣ Exit early if no new CSV
       - name: Exit if no new CSV
-        if: steps.sftp_sync.outputs.NEW_FILES_DOWNLOADED == '0'
+        if: env.NEW_FILES_DOWNLOADED == '0'
         run: |
           echo "No new CSV file detected. Exiting workflow."
           exit 0
 
-      # 6️⃣ Commit & push updates using PAT (fixed)
+      # 6️⃣ Commit & push updates using PAT
       - name: Commit & push to temp branch
         id: commit_push
         env:
@@ -68,11 +69,11 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          # ✅ Push using PAT embedded in URL
+          # Push using PAT embedded in URL (no GIT_ASKPASS needed)
           git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
           # Expose branch name for PR creation
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
 
       # 7️⃣ Create Pull Request to main
       - name: Create Pull Request
