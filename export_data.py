@@ -102,7 +102,7 @@ def send_failure_email(error):
 DATE_PATTERNS = [
     r"(\d{4}-\d{2}-\d{2})",     # YYYY-MM-DD
     r"(\d{8})",                  # YYYYMMDD
-    r"(\d{4}_\d{2}_\d{2})"      # YYYY_MM_DD (new)
+    r"(\d{4}_\d{2}_\d{2})"      # YYYY_MM_DD
 ]
 
 def extract_date(filename):
