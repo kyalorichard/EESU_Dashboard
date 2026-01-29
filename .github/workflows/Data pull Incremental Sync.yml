@@ -2,7 +2,7 @@ name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes
+    - cron: '*/5 * * * *'  # every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -43,11 +43,10 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
         run: |
           set -e
-          # Run your Python sync script
           NEW_FILES_DOWNLOADED=$(python export_data.py | grep NEW_FILES_DOWNLOADED | awk -F= '{print $2}')
           echo "NEW_FILES_DOWNLOADED=$NEW_FILES_DOWNLOADED" >> $GITHUB_ENV
 
-      # 5️⃣ Commit & push updated CSV files to a temporary branch
+      # 5️⃣ Commit & push updated CSV files using PAT
       - name: Commit & push to temp branch
         if: env.NEW_FILES_DOWNLOADED == '1'
         env:
@@ -62,11 +61,18 @@ jobs:
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
 
-          echo "Pushing branch $BRANCH_NAME using PAT..."
-          git push https://x-access-token:${GIT_TOKEN_CUSTOM}@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
+          # Use GIT_ASKPASS to force Git to use PAT
+          export GIT_ASKPASS=$(mktemp)
+          echo "echo ${GIT_TOKEN_CUSTOM}" > $GIT_ASKPASS
+          chmod +x $GIT_ASKPASS
 
-          # Output branch name for PR creation
+          echo "Pushing branch $BRANCH_NAME using PAT..."
+          git push https://github.com/${{ github.repository }} HEAD:$BRANCH_NAME
+
+          # Expose branch name for PR creation
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          rm -f $GIT_ASKPASS
 
       # 6️⃣ Create Pull Request to main
       - name: Create Pull Request to main
