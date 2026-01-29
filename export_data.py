@@ -104,7 +104,9 @@ def extract_date(filename):
     Extracts YYYY_MM_DD from filenames like:
     EventsExports_2026_01_26_1.csv
     """
-    match = re.search(r"(\d{4}_\d{2}_\d{2})", filename)
+    filename = str(filename).strip()  # ensure string, strip whitespace
+    # Match YYYY_MM_DD optionally followed by _suffix before extension
+    match = re.search(r"(\d{4}_\d{2}_\d{2})(?:_[^.]*)?", filename)
     if match:
         date_str = match.group(1)
         try:
@@ -130,31 +132,34 @@ def download_latest_csv():
         except IOError:
             sftp.chdir(".")
 
-        # ================= DEBUG: list all remote files =================
         remote_files = sftp.listdir()
-        print("=== DEBUG: Remote directory listing ===")
+        print("=== DEBUG: Raw remote files ===")
         for f in remote_files:
-            print(f)
+            print(repr(f))
         print("=== END DEBUG ===")
 
-        # pick latest dated CSV
         latest_file = None
         latest_date = None
+
         for filename in remote_files:
-            if not filename.lower().endswith(".csv"):
+            filename_str = str(filename).strip()
+            if not filename_str.lower().endswith(".csv"):
                 continue
-            file_date = extract_date(filename)
+
+            file_date = extract_date(filename_str)
             if not file_date:
+                print(f"Skipping file (no date match): {filename_str}")
                 continue
+
             if not latest_date or file_date > latest_date:
                 latest_date = file_date
-                latest_file = filename
+                latest_file = filename_str
 
         if not latest_file:
             print("No dated CSV files found.")
             return False
 
-        print(f"Latest remote file: {latest_file}")
+        print(f"Latest remote file selected: {latest_file}")
 
         remote_path = f"{sftp.getcwd()}/{latest_file}"
         temp_path = LOCAL_FILE + ".tmp"
@@ -190,7 +195,7 @@ def main():
         updated = download_latest_csv()
         send_success_email(updated)
 
-        # Required for GitHub Actions
+        # GitHub Actions ENV variable
         print(f"NEW_FILES_DOWNLOADED={1 if updated else 0}")
         print("Local file path:", os.path.abspath(LOCAL_FILE))
 
