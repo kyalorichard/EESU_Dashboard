@@ -2,7 +2,6 @@
 
 import os
 import sys
-import re
 import stat
 import fcntl
 import paramiko
@@ -97,30 +96,23 @@ def send_failure_email(error):
     )
 
 # ==========================================================
-# DATE EXTRACTION
+# DATE EXTRACTION (robust for your filenames)
 # ==========================================================
-DATE_PATTERNS = [
-    r"(\d{4}-\d{2}-\d{2})",     # YYYY-MM-DD
-    r"(\d{8})",                  # YYYYMMDD
-    r"(\d{4}_\d{2}_\d{2})"      # YYYY_MM_DD
-]
-
 def extract_date(filename):
-    for pattern in DATE_PATTERNS:
-        match = re.search(pattern, filename)
-        if match:
-            try:
-                value = match.group(1)  # e.g., "2026_01_26"
-                # Remove any trailing non-digit characters
-                value_clean = re.match(r"\d{4}[_-]\d{2}[_-]\d{2}", value).group(0)
-                if "-" in value_clean:
-                    return datetime.strptime(value_clean, "%Y-%m-%d")
-                elif "_" in value_clean:
-                    return datetime.strptime(value_clean, "%Y_%m_%d")
-                return datetime.strptime(value_clean, "%Y%m%d")
-            except ValueError:
-                pass
+    """
+    Extracts YYYY_MM_DD from filenames like:
+    EventsExports_2026_01_26_1.csv
+    """
+    import re
+    match = re.search(r"(\d{4}_\d{2}_\d{2})", filename)
+    if match:
+        date_str = match.group(1)
+        try:
+            return datetime.strptime(date_str, "%Y_%m_%d")
+        except ValueError:
+            return None
     return None
+
 # ==========================================================
 # DOWNLOAD LATEST CSV ONLY
 # ==========================================================
@@ -141,6 +133,7 @@ def download_latest_csv():
         latest_file = None
         latest_date = None
 
+        # Scan all CSVs and pick the latest by embedded date
         for filename in sftp.listdir():
             if not filename.lower().endswith(".csv"):
                 continue
@@ -166,6 +159,7 @@ def download_latest_csv():
         if not stat.S_ISREG(attr.st_mode):
             raise RuntimeError("Latest remote file is not a regular file")
 
+        # Only update if size differs
         if os.path.exists(LOCAL_FILE):
             if os.path.getsize(LOCAL_FILE) == attr.st_size:
                 print("raw_data.csv already up to date.")
