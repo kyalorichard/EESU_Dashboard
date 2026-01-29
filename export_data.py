@@ -9,6 +9,7 @@ import smtplib
 import traceback
 from email.message import EmailMessage
 from datetime import date, datetime
+import re
 
 # ==========================================================
 # CONFIG (ENV VARS)
@@ -103,7 +104,6 @@ def extract_date(filename):
     Extracts YYYY_MM_DD from filenames like:
     EventsExports_2026_01_26_1.csv
     """
-    import re
     match = re.search(r"(\d{4}_\d{2}_\d{2})", filename)
     if match:
         date_str = match.group(1)
@@ -114,7 +114,7 @@ def extract_date(filename):
     return None
 
 # ==========================================================
-# DOWNLOAD LATEST CSV ONLY
+# DOWNLOAD LATEST CSV ONLY (with debug)
 # ==========================================================
 def download_latest_csv():
     os.makedirs(LOCAL_DIR, exist_ok=True)
@@ -130,18 +130,22 @@ def download_latest_csv():
         except IOError:
             sftp.chdir(".")
 
+        # ================= DEBUG: list all remote files =================
+        remote_files = sftp.listdir()
+        print("=== DEBUG: Remote directory listing ===")
+        for f in remote_files:
+            print(f)
+        print("=== END DEBUG ===")
+
+        # pick latest dated CSV
         latest_file = None
         latest_date = None
-
-        # Scan all CSVs and pick the latest by embedded date
-        for filename in sftp.listdir():
+        for filename in remote_files:
             if not filename.lower().endswith(".csv"):
                 continue
-
             file_date = extract_date(filename)
             if not file_date:
                 continue
-
             if not latest_date or file_date > latest_date:
                 latest_date = file_date
                 latest_file = filename
@@ -159,7 +163,6 @@ def download_latest_csv():
         if not stat.S_ISREG(attr.st_mode):
             raise RuntimeError("Latest remote file is not a regular file")
 
-        # Only update if size differs
         if os.path.exists(LOCAL_FILE):
             if os.path.getsize(LOCAL_FILE) == attr.st_size:
                 print("raw_data.csv already up to date.")
