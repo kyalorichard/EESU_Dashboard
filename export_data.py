@@ -18,6 +18,7 @@ SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
 LOCAL_DIR = os.getenv("LOCAL_DIR", "data")
+LAST_FILE_RECORD = os.path.join(LOCAL_DIR, "last_downloaded.txt")  # tracks last file
 
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -30,7 +31,6 @@ ALERT_EMAIL_TO = os.getenv("NOTIFY_EMAIL")
 GITHUB_ENV = os.getenv("GITHUB_ENV")
 
 LOCK_FILE = "/tmp/sftp_csv_download.lock"
-SUCCESS_MARKER = f"/tmp/sftp_success_email_{date.today().isoformat()}"
 
 # ==========================================================
 # FILE LOCK
@@ -54,7 +54,7 @@ class FileLock:
             self.fp.close()
 
 # ==========================================================
-# EMAIL CORE (HTML + TEXT)
+# EMAIL CORE
 # ==========================================================
 def _send_email(subject, text_body, html_body):
     missing = [
@@ -66,7 +66,6 @@ def _send_email(subject, text_body, html_body):
             "NOTIFY_EMAIL": ALERT_EMAIL_TO,
         }.items() if not v
     ]
-
     if missing:
         print("Email skipped. Missing env vars:", ", ".join(missing))
         return False
@@ -75,7 +74,6 @@ def _send_email(subject, text_body, html_body):
     msg["From"] = ALERT_EMAIL_FROM
     msg["To"] = ALERT_EMAIL_TO
     msg["Subject"] = subject
-
     msg.set_content(text_body)
     msg.add_alternative(html_body, subtype="html")
 
@@ -102,101 +100,45 @@ def _send_email(subject, text_body, html_body):
     return False
 
 # ==========================================================
-# SUCCESS EMAIL
+# SUCCESS / FAILURE EMAIL
 # ==========================================================
 def send_success_email(file_name):
-    if not file_name or os.path.exists(SUCCESS_MARKER):
-        return
-
-    text_body = f"""
-SFTP Data Sync – SUCCESS
-
-File downloaded: {file_name}
-Stored as: data/raw_data.csv
-Date: {date.today().isoformat()}
-"""
-
+    text_body = f"SFTP Data Sync – SUCCESS\n\nFile downloaded: {file_name}\nSaved as: data/raw_data.csv\nDate: {date.today().isoformat()}"
     html_body = f"""
 <html>
 <body style="font-family:Arial,sans-serif;color:#333;">
-  <h2 style="color:#2e7d32;">✅ SFTP Data Sync Successful</h2>
-  <p>The scheduled SFTP data synchronization completed successfully.</p>
-
-  <table cellpadding="6" cellspacing="0">
-    <tr><td><b>Status</b></td><td style="color:#2e7d32;">SUCCESS</td></tr>
-    <tr><td><b>Downloaded file</b></td><td>{file_name}</td></tr>
-    <tr><td><b>Saved as</b></td><td><code>data/raw_data.csv</code></td></tr>
-    <tr><td><b>Date</b></td><td>{date.today().isoformat()}</td></tr>
-  </table>
-
-  <p>No action is required.</p>
-  <hr>
-  <p style="font-size:12px;color:#777;">Automated notification – Data Pipeline</p>
+<h2 style="color:#2e7d32;">✅ SFTP Data Sync Successful</h2>
+<p>File downloaded: {file_name}</p>
+<p>Saved as: <code>data/raw_data.csv</code></p>
+<p>Date: {date.today().isoformat()}</p>
 </body>
 </html>
 """
+    _send_email("SFTP Data Sync – Completed Successfully", text_body, html_body)
 
-    if _send_email(
-        "SFTP Data Sync – Completed Successfully",
-        text_body.strip(),
-        html_body,
-    ):
-        open(SUCCESS_MARKER, "w").close()
-
-# ==========================================================
-# FAILURE EMAIL
-# ==========================================================
 def send_failure_email(error_msg):
-    text_body = f"""
-SFTP Data Sync – FAILURE
-
-Error:
-{error_msg}
-
-Date: {date.today().isoformat()}
-"""
-
+    text_body = f"SFTP Data Sync – FAILURE\n\nError:\n{error_msg}\nDate: {date.today().isoformat()}"
     html_body = f"""
 <html>
 <body style="font-family:Arial,sans-serif;color:#333;">
-  <h2 style="color:#c62828;">❌ SFTP Data Sync Failed</h2>
-  <p>The scheduled SFTP data synchronization did not complete successfully.</p>
-
-  <pre style="background:#f8f8f8;padding:10px;border:1px solid #ddd;">
-{error_msg}
-  </pre>
-
-  <ul>
-    <li>Check SFTP credentials</li>
-    <li>Verify SMTP configuration</li>
-    <li>Review GitHub Actions logs</li>
-  </ul>
-
-  <hr>
-  <p style="font-size:12px;color:#777;">Automated alert – Data Pipeline</p>
+<h2 style="color:#c62828;">❌ SFTP Data Sync Failed</h2>
+<pre>{error_msg}</pre>
 </body>
 </html>
 """
-
-    _send_email(
-        "ALERT: SFTP Data Sync Failed",
-        text_body.strip(),
-        html_body,
-    )
+    _send_email("ALERT: SFTP Data Sync Failed", text_body, html_body)
 
 # ==========================================================
-# DOWNLOAD LOGIC
+# DOWNLOAD LOGIC (only if new)
 # ==========================================================
 def download_latest_csv():
     os.makedirs(LOCAL_DIR, exist_ok=True)
     latest_file = None
-    downloaded = 0
 
     try:
         transport = paramiko.Transport((SFTP_HOST, 22))
         transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
-
         try:
             sftp.chdir(REMOTE_DIR)
         except IOError:
@@ -217,15 +159,28 @@ def download_latest_csv():
         if not latest_file:
             return 0, None
 
+        # Check if latest_file is same as last downloaded
+        last_file = None
+        if os.path.exists(LAST_FILE_RECORD):
+            with open(LAST_FILE_RECORD) as f:
+                last_file = f.read().strip()
+
+        if latest_file == last_file:
+            print(f"No new file. Latest file '{latest_file}' already downloaded.")
+            return 0, latest_file
+
+        # Download file
         remote_path = os.path.join(sftp.getcwd(), latest_file)
         local_path = os.path.join(LOCAL_DIR, "raw_data.csv")
         temp_path = local_path + ".tmp"
+        sftp.get(remote_path, temp_path)
+        os.replace(temp_path, local_path)
 
-        attr = sftp.stat(remote_path)
-        if not os.path.exists(local_path) or os.path.getsize(local_path) != attr.st_size:
-            sftp.get(remote_path, temp_path)
-            os.replace(temp_path, local_path)
-            downloaded = 1
+        # Save latest filename
+        with open(LAST_FILE_RECORD, "w") as f:
+            f.write(latest_file)
+
+        return 1, latest_file
 
     except Exception as e:
         raise RuntimeError(f"SFTP download failed: {e}")
@@ -235,8 +190,6 @@ def download_latest_csv():
             transport.close()
         except Exception:
             pass
-
-    return downloaded, latest_file
 
 # ==========================================================
 # MAIN
