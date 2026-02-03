@@ -25,13 +25,12 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASS")
 
 ALERT_EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")
-ALERT_EMAIL_TO = os.getenv("ALERT_EMAIL_TO")
+ALERT_EMAIL_TO = os.getenv("NOTIFY_EMAIL")
 
-GITHUB_OUTPUT = os.getenv("GITHUB_OUTPUT")  # GitHub Actions output
+GITHUB_ENV = os.getenv("GITHUB_ENV")
 
 LOCK_FILE = "/tmp/sftp_csv_download.lock"
 SUCCESS_MARKER = f"/tmp/sftp_success_email_{date.today().isoformat()}"
-
 
 # ==========================================================
 # FILE LOCK
@@ -54,9 +53,8 @@ class FileLock:
             fcntl.flock(self.fp, fcntl.LOCK_UN)
             self.fp.close()
 
-
 # ==========================================================
-# EMAIL FUNCTIONS
+# EMAIL CORE (HTML + TEXT)
 # ==========================================================
 def _send_email(subject, text_body, html_body):
     missing = [
@@ -65,7 +63,7 @@ def _send_email(subject, text_body, html_body):
             "SMTP_USER": SMTP_USER,
             "SMTP_PASS": SMTP_PASSWORD,
             "ALERT_EMAIL_FROM": ALERT_EMAIL_FROM,
-            "ALERT_EMAIL_TO": ALERT_EMAIL_TO,
+            "NOTIFY_EMAIL": ALERT_EMAIL_TO,
         }.items() if not v
     ]
 
@@ -83,12 +81,14 @@ def _send_email(subject, text_body, html_body):
 
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+            server.ehlo()
             server.starttls()
+            server.ehlo()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
         return True
     except Exception as e:
-        print("SMTP STARTTLS failed:", e)
+        print("STARTTLS failed:", e)
 
     try:
         context = ssl.create_default_context()
@@ -97,20 +97,22 @@ def _send_email(subject, text_body, html_body):
             server.send_message(msg)
         return True
     except Exception as e:
-        print("SMTP SSL failed:", e)
+        print("SSL failed:", e)
 
     return False
 
-
-def send_success_email(file_name):
-    if not file_name or os.path.exists(SUCCESS_MARKER):
+# ==========================================================
+# SUCCESS EMAIL
+# ==========================================================
+def send_success_email(file_path):
+    if not file_path or os.path.exists(SUCCESS_MARKER):
         return
 
     text_body = f"""
 SFTP Data Sync – SUCCESS
 
-File downloaded: {file_name}
-Stored as: {os.path.join(LOCAL_DIR, "raw_data.csv")}
+File downloaded: {os.path.basename(file_path)}
+Stored as: {file_path}
 Date: {date.today().isoformat()}
 """
 
@@ -119,50 +121,94 @@ Date: {date.today().isoformat()}
 <body style="font-family:Arial,sans-serif;color:#333;">
   <h2 style="color:#2e7d32;">✅ SFTP Data Sync Successful</h2>
   <p>The scheduled SFTP data synchronization completed successfully.</p>
+
   <table cellpadding="6" cellspacing="0">
     <tr><td><b>Status</b></td><td style="color:#2e7d32;">SUCCESS</td></tr>
-    <tr><td><b>Downloaded file</b></td><td>{file_name}</td></tr>
-    <tr><td><b>Saved as</b></td><td><code>{os.path.join(LOCAL_DIR, "raw_data.csv")}</code></td></tr>
+    <tr><td><b>Downloaded file</b></td><td>{os.path.basename(file_path)}</td></tr>
+    <tr><td><b>Saved as</b></td><td><code>{file_path}</code></td></tr>
     <tr><td><b>Date</b></td><td>{date.today().isoformat()}</td></tr>
   </table>
+
+  <p>No action is required.</p>
+  <hr>
+  <p style="font-size:12px;color:#777;">Automated notification – Data Pipeline</p>
 </body>
 </html>
 """
-    if _send_email("SFTP Data Sync – Completed Successfully", text_body.strip(), html_body):
+
+    if _send_email(
+        "SFTP Data Sync – Completed Successfully",
+        text_body.strip(),
+        html_body,
+    ):
         open(SUCCESS_MARKER, "w").close()
 
-
+# ==========================================================
+# FAILURE EMAIL
+# ==========================================================
 def send_failure_email(error_msg):
-    text_body = f"SFTP Data Sync – FAILURE\n\nError:\n{error_msg}\nDate: {date.today().isoformat()}"
+    text_body = f"""
+SFTP Data Sync – FAILURE
+
+Error:
+{error_msg}
+
+Date: {date.today().isoformat()}
+"""
+
     html_body = f"""
 <html>
 <body style="font-family:Arial,sans-serif;color:#333;">
   <h2 style="color:#c62828;">❌ SFTP Data Sync Failed</h2>
-  <pre style="background:#f8f8f8;padding:10px;border:1px solid #ddd;">{error_msg}</pre>
+  <p>The scheduled SFTP data synchronization did not complete successfully.</p>
+
+  <pre style="background:#f8f8f8;padding:10px;border:1px solid #ddd;">
+{error_msg}
+  </pre>
+
+  <ul>
+    <li>Check SFTP credentials</li>
+    <li>Verify SMTP configuration</li>
+    <li>Review GitHub Actions logs</li>
+  </ul>
+
+  <hr>
+  <p style="font-size:12px;color:#777;">Automated alert – Data Pipeline</p>
 </body>
 </html>
 """
-    _send_email("ALERT: SFTP Data Sync Failed", text_body, html_body)
 
+    _send_email(
+        "ALERT: SFTP Data Sync Failed",
+        text_body.strip(),
+        html_body,
+    )
 
 # ==========================================================
-# DOWNLOAD LOGIC
+# DOWNLOAD LOGIC (WITH HISTORY AND CLEANUP)
 # ==========================================================
-def download_latest_csv():
+def download_latest_csv(retain_last=4):
+    """
+    Connects to SFTP, finds the latest CSV by date in filename,
+    downloads it if missing, keeps historical files, and removes old ones.
+    """
     os.makedirs(LOCAL_DIR, exist_ok=True)
     latest_file = None
     downloaded = 0
+    local_path = None
 
     try:
         transport = paramiko.Transport((SFTP_HOST, 22))
         transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
 
+        # Navigate to remote directory
         try:
             sftp.chdir(REMOTE_DIR)
         except IOError:
             sftp.chdir(".")
 
+        # List CSVs
         csv_files = [f for f in sftp.listdir() if f.lower().endswith(".csv")]
         date_pattern = re.compile(r".*?(\d{4}_\d{2}_\d{2}).*\.csv$")
 
@@ -176,17 +222,34 @@ def download_latest_csv():
                     latest_file = f
 
         if not latest_file:
-            return 0, None
+            return 0, None, None
 
+        # Local filename with date
+        local_path = os.path.join(LOCAL_DIR, f"raw_data_{latest_date}.csv")
         remote_path = os.path.join(sftp.getcwd(), latest_file)
-        local_path = os.path.join(LOCAL_DIR, "raw_data.csv")
-        temp_path = local_path + ".tmp"
 
-        attr = sftp.stat(remote_path)
-        if not os.path.exists(local_path) or os.path.getsize(local_path) != attr.st_size:
+        # Download only if missing
+        if not os.path.exists(local_path):
+            temp_path = local_path + ".tmp"
             sftp.get(remote_path, temp_path)
             os.replace(temp_path, local_path)
+            remote_mtime = sftp.stat(remote_path).st_mtime
+            os.utime(local_path, (remote_mtime, remote_mtime))
             downloaded = 1
+        else:
+            downloaded = 0
+
+        # ---------- Cleanup old files ----------
+        all_local_csvs = sorted(
+            [f for f in os.listdir(LOCAL_DIR) if f.lower().endswith(".csv")],
+            reverse=True
+        )
+        for old_file in all_local_csvs[retain_last:]:
+            try:
+                os.remove(os.path.join(LOCAL_DIR, old_file))
+                print(f"Removed old CSV: {old_file}")
+            except Exception as e:
+                print(f"Failed to remove {old_file}: {e}")
 
     except Exception as e:
         raise RuntimeError(f"SFTP download failed: {e}")
@@ -197,8 +260,7 @@ def download_latest_csv():
         except Exception:
             pass
 
-    return downloaded, latest_file
-
+    return downloaded, latest_file, local_path
 
 # ==========================================================
 # MAIN
@@ -206,23 +268,32 @@ def download_latest_csv():
 def main():
     lock = FileLock(LOCK_FILE)
     lock.acquire()
+
     downloaded = 0
     latest_file = None
+    local_path = None
 
     try:
-        downloaded, latest_file = download_latest_csv()
+        downloaded, latest_file, local_path = download_latest_csv(retain_last=2)
+
         if downloaded:
-            send_success_email(latest_file)
+            send_success_email(local_path)
+        else:
+            print("No new CSV file detected. Exiting workflow.")
+            if GITHUB_ENV:
+                with open(GITHUB_ENV, "a") as f:
+                    f.write("NEW_FILES_DOWNLOADED=0\n")
+            sys.exit(0)
+
     except Exception as e:
         send_failure_email(str(e))
+        sys.exit(1)
     finally:
         lock.release()
 
-    # Export to GitHub Actions output
-    if GITHUB_OUTPUT:
-        with open(GITHUB_OUTPUT, "a") as f:
+    if GITHUB_ENV:
+        with open(GITHUB_ENV, "a") as f:
             f.write(f"NEW_FILES_DOWNLOADED={downloaded}\n")
-
 
 if __name__ == "__main__":
     main()
