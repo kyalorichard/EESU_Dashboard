@@ -1,8 +1,8 @@
-name: Data pull Incremental Sync
+name: Data Pull Incremental Sync
 
 on:
   schedule:
-    - cron: '0 1 * * *'  
+    - cron: '0 1 * * *'  # Runs every day at 1:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -44,14 +44,16 @@ jobs:
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
-          GITHUB_ENV: ${{ github.env }}
+          GITHUB_OUTPUT: ${{ github.env }}
         run: |
           set -e
           python export_data.py
+          # Export output for GitHub Actions
+          echo "NEW_FILES_DOWNLOADED=$NEW_FILES_DOWNLOADED" >> $GITHUB_OUTPUT
 
       # 5️⃣ Exit early if no new CSV
       - name: Exit if no new CSV
-        if: env.NEW_FILES_DOWNLOADED == '0'
+        if: steps.sftp_sync.outputs.NEW_FILES_DOWNLOADED == '0'
         run: |
           echo "No new CSV file detected. Exiting workflow."
           exit 0
@@ -63,10 +65,6 @@ jobs:
           GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
         run: |
           set -e
-
-          # Clear old cached credentials
-          git credential-cache exit || true
-          git config --global --unset credential.helper || true
 
           # Configure Git user
           git config user.name "github-actions"
@@ -83,7 +81,7 @@ jobs:
           # Push temporary branch using PAT
           git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
 
-          # ✅ Export branch name as output for PR creation
+          # Export branch name for PR creation
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       # 7️⃣ Create Pull Request to main
