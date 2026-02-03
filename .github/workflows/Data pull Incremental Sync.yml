@@ -1,8 +1,8 @@
-name: Data Pull Incremental Sync
+name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # Runs every day at 1:00 UTC
+    - cron: '0 1 * * *'  # Daily at 1 AM
   workflow_dispatch:
 
 jobs:
@@ -10,25 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository using PAT
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GIT_TOKEN_CUSTOM }}
 
-      # 2️⃣ Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install paramiko
 
-      # 4️⃣ Run SFTP CSV sync
       - name: Run SFTP CSV sync
         id: sftp_sync
         env:
@@ -45,47 +41,30 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           GITHUB_OUTPUT: ${{ github.env }}
-        run: |
-          set -e
-          python export_data.py
-          # Export output for GitHub Actions
-          echo "NEW_FILES_DOWNLOADED=$NEW_FILES_DOWNLOADED" >> $GITHUB_OUTPUT
+        run: python export_data.py
 
-      # 5️⃣ Exit early if no new CSV
       - name: Exit if no new CSV
-        if: steps.sftp_sync.outputs.NEW_FILES_DOWNLOADED == '0'
+        if: env.NEW_FILES_DOWNLOADED == '0'
         run: |
           echo "No new CSV file detected. Exiting workflow."
           exit 0
 
-      # 6️⃣ Commit & push updates to temporary branch using PAT
       - name: Commit & push to temp branch
         id: commit_push
         env:
           GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
         run: |
-          set -e
-
-          # Configure Git user
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-
-          # Create a temporary branch
           BRANCH_NAME="csv-update-$(date +%s)"
           git checkout -b $BRANCH_NAME
-
-          # Add and commit changes
           git add -A data/
           git commit -m "Update CSV files [skip ci]"
-
-          # Push temporary branch using PAT
           git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
-
-          # Export branch name for PR creation
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      # 7️⃣ Create Pull Request to main
       - name: Create Pull Request
+        id: pr
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GIT_TOKEN_CUSTOM }}
@@ -95,3 +74,11 @@ jobs:
           body: "This PR updates raw_data.csv with the latest CSV from SFTP."
           labels: automated
           commit-message: "Update CSV files [skip ci]"
+
+      - name: Auto merge PR
+        if: steps.pr.outputs.pull-request-number != ''
+        uses: "pascalgn/automerge-action@v0.15.0"
+        with:
+          github_token: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          merge_method: squash
+          pull_request_number: ${{ steps.pr.outputs.pull-request-number }}
