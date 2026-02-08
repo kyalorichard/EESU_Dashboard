@@ -299,7 +299,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 st.markdown(f"""
 <div style="{card_style}">
 <h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
-    <div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
+<div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
         <span>Negative ● {negative}</span>
         <span>Positive ● {positive}</span>
     </div>
