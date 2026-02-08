@@ -11,8 +11,7 @@ import base64
 #from auth import inject_auth_css, top_right_auth, handle_google_redirect, is_privileged
 from auth import inject_auth_css, top_right_auth, is_privileged
 
-inject_auth_css()
-top_right_auth()
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
