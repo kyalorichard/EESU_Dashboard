@@ -405,10 +405,12 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     
     # Track cumulative sums for stacked bars
     cumulative = {label: 0 for label in df[y].unique()}
+    max_val = df.groupby(y)[x].sum().max()  # for relative sizing
     
     for cat in categories:
         df_cat = df[df[color_col] == cat]
         numeric_values = df_cat[x]
+        bar_color = COLOR_MAPPING.get(cat.lower(), "#888888")
         
         if horizontal:
             bar_x = numeric_values
@@ -422,26 +424,44 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
             y=bar_y,
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=COLOR_MAPPING.get(cat.lower(), "#888888"),
+            marker_color=bar_color,
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
         
         # Add annotations for each bar
         for i, label in enumerate(df_cat[y]):
             value = numeric_values.iloc[i]
-            if horizontal:
-                x_pos = cumulative[label] + value / 2 if value > 5 else cumulative[label] + value + 2
-                y_pos = label
+            rel_size = value / max_val  # relative to largest bar
+            
+            # Determine text position and color
+            if rel_size > 0.15:
+                # inside bar
+                if bar_color.lower() in ['#660094', '#000000', '#333333']:  # dark colors
+                    text_color = 'white'
+                else:
+                    text_color = 'black'
+                if horizontal:
+                    x_pos = cumulative[label] + value / 2
+                    y_pos = label
+                else:
+                    x_pos = label
+                    y_pos = cumulative[label] + value / 2
             else:
-                x_pos = label
-                y_pos = cumulative[label] + value / 2 if value > 5 else cumulative[label] + value + 0.5
+                # outside bar
+                text_color = 'black'
+                if horizontal:
+                    x_pos = cumulative[label] + value + max_val * 0.01
+                    y_pos = label
+                else:
+                    x_pos = label
+                    y_pos = cumulative[label] + value + max_val * 0.01
             
             fig.add_annotation(
                 x=x_pos if horizontal else x_pos,
                 y=y_pos if horizontal else y_pos,
                 text=str(int(value)),
                 showarrow=False,
-                font=dict(color='black' if cat.lower() == 'negative' else 'white', size=text_size, family='Arial Black'),
+                font=dict(color=text_color, size=text_size, family='Arial Black'),
                 xanchor='center',
                 yanchor='middle'
             )
