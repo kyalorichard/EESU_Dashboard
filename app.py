@@ -344,7 +344,8 @@ def wrap_label_by_words(label, words_per_line=3):
     lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
     return '<br>'.join(lines)
 
-            
+source_text = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
+
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
    
@@ -390,6 +391,16 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center')
+        annotations=[
+            dict(
+                text=source_text,        # your global source_text variable
+                x=0.5, y=-0.15,
+                xref="paper", yref="paper",
+                showarrow=False,
+                font=dict(size=10, color="gray"),
+                align="center"
+            )
+        ]
     )
 
     return fig
@@ -485,6 +496,16 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center') if title else None
+        annotations=[
+            dict(
+                text=source_text,        # your global source_text variable
+                x=0.5, y=-0.15,
+                xref="paper", yref="paper",
+                showarrow=False,
+                font=dict(size=10, color="gray"),
+                align="center"
+            )
+        ]
     )
     
     return fig
@@ -552,6 +573,16 @@ def create_heatmap(pivot_df, title="Heatmap"):
         yaxis=dict(tickfont=dict(size=12)),
         margin=dict(l=80, r=20, t=50, b=120),
         height=max(350, len(pivot_df)*35)
+        annotations=[
+            dict(
+                text=source_text,        # your global source_text variable
+                x=0.5, y=-0.15,
+                xref="paper", yref="paper",
+                showarrow=False,
+                font=dict(size=10, color="gray"),
+                align="center"
+            )
+        ]
     )
 
     return fig
