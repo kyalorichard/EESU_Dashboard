@@ -1517,9 +1517,9 @@ components.html(f"""
     padding: 10px 0;
     background-color:'white';
     z-index: 9999;
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    #box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 ">
-    <hr style="margin:0 20px; border: 1px solid #ccc;">
+    #<hr style="margin:0 20px; border: 1px solid #ccc;">
     <img src="data:image/png;base64,{b64}" width="900">
 </div>
 """, height=200)
