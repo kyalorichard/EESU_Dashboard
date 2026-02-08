@@ -388,52 +388,41 @@ COLOR_MAPPING = {
     "negative": "yellow"
 }
 
-def create_h_stacked_bar(
-    df,
-    y,              # category column (e.g., alert-type)
-    x,              # value column (e.g., count)
-    color_col,      # column defining the stack colors (e.g., alert-impact)
-    title="",
-    horizontal=True,
-    text_size=12
-):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350, text_size=13):
+    categories = sorted(df[color_col].unique())
     fig = go.Figure()
 
-    # Ensure numeric values for x or y, depending on orientation
-    df = df.copy()
-    df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
+    for i, cat in enumerate(categories):
+        df_cat = df[df[color_col] == cat]
+        
+        # Ensure numeric values for comparison
+        df_cat[x] = pd.to_numeric(df_cat[x], errors='coerce').fillna(0)
+        values = df_cat[x]
 
-    # Unique categories in color column
-    color_types = df[color_col].unique()
-
-    for c in color_types:
-        df_c = df[df[color_col] == c]
-
-        # Values for comparison
-        values = df_c[x] if not horizontal else df_c[x]
+        # Adjust text position: inside if value > 5, else outside
         text_positions = ["inside" if val > 5 else "outside" for val in values]
 
         fig.add_trace(go.Bar(
-            x=values if not horizontal else df_c[y],
-            y=df_c[y] if not horizontal else values,
-            name=c,
+            x=df_cat[y] if not horizontal else values,
+            y=values if not horizontal else df_cat[y],
+            name=cat,
+            orientation='h' if horizontal else 'v',
+            marker_color=COLOR_MAPPING.get(cat.lower(), "#888888"),
             text=values,
             textposition=text_positions,
-            textfont=dict(size=text_size, color='black', family="Arial Black"),
-            marker_color=COLOR_MAPPING.get(c.lower(), "#888888"),
-            orientation='h' if horizontal else 'v'
+            insidetextanchor='end',
+            textfont=dict(color='black' if cat.lower() == "negative" else 'white', size=text_size, family="Arial Black"),
+            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
 
-    fig.update_layout(
-        barmode='stack',
-        title=title,
-        xaxis_title=x if not horizontal else y,
-        yaxis_title=y if not horizontal else x,
-        legend_title=color_col,
-        template="plotly_white",
-        uniformtext_minsize=text_size,
-        uniformtext_mode='hide'
-    )
+    # Axis styling
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_layout(barmode='stack', height=height, margin=dict(l=120, r=20, t=20, b=20))
 
     return fig
 
