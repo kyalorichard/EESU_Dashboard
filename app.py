@@ -452,7 +452,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 # ---------------- HORIZONTAL STACKED BAR ----------------
 
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
-                         horizontal=False, height=350, text_size=12, title=None):
+                         horizontal=False, height=350, text_size=12, title=None, title_tooltip=None):
     import plotly.graph_objects as go
     
     df = df.copy()
@@ -543,6 +543,20 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center') if title else None
     )
+
+    # Add tooltip annotation if provided
+    if title_tooltip:
+        fig.add_annotation(
+            x=0.5,
+            y=1.05,
+            xref='paper',
+            yref='paper',
+            text='❓',
+            showarrow=False,
+            font=dict(size=16),
+            hovertext=title_tooltip,
+            hoverlabel=dict(bgcolor='lightyellow', font_size=12, font_family='Arial')
+        )
         
     return fig
 
@@ -1060,15 +1074,14 @@ with tab1:
         show_chart(fig3, key="tab1_chart3")
 
     with r2c2:
-        enabling_principles_text = ("Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.")
-        st.markdown(f"**Alert distribution across enabling principles** {info_tooltip(enabling_principles_text)}",
-        unsafe_allow_html=True)
+        tooltip_text = ("Alerts may be classified under more than one enabling principle ""and can therefore be counted in multiple principles.")
         fig4 = create_h_stacked_bar(        
             a4,
             y="alert-country",
             x="count",
             color_col="alert-impact",
             title="Alert distribution across countries",
+            title_tooltip=tooltip_text,
             horizontal=False
         )
         show_chart(fig4, key="tab1_chart4")
