@@ -345,7 +345,45 @@ def wrap_label_by_words(label, words_per_line=3):
     return '<br>'.join(lines)
 
 source_text = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
+PLOTLY_DOWNLOAD_CONFIG = {
+    "displaylogo": False,
+    "toImageButtonOptions": {
+        "format": "png",
+        "filename": "eu_see_dashboard_chart",
+        "scale": 2
+    }
+}
 
+def add_source_for_export(fig):
+    fig = fig.to_dict()              # clone safely
+    fig = go.Figure(fig)
+
+    fig.update_layout(
+        margin=dict(b=90),           # space for source
+        annotations=[
+            dict(
+                text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
+                x=0.5,
+                y=-0.25,             # BELOW plot area
+                xref="paper",
+                yref="paper",
+                showarrow=False,
+                font=dict(size=12, color="gray"),
+                align="center"
+            )
+        ]
+    )
+    return fig
+    
+def show_chart(fig, key):
+    fig = add_source_for_export(fig)
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=key,
+        config=PLOTLY_DOWNLOAD_CONFIG
+    ) 
+    
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
    
@@ -392,18 +430,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center')
     )
-    # ---------------- ADD SOURCE ANNOTATION ----------------
-    fig.add_annotation(
-        x=0.5,
-        y=-0.05,  # slightly below the figure
-        xref="paper",
-        yref="paper",
-        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
-        showarrow=False,
-        font=dict(size=12, color="gray"),
-        align="center"
-    )
-
+   
     return fig
 
 
@@ -498,18 +525,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center') if title else None
     )
-    # ---------------- ADD SOURCE ANNOTATION ----------------
-    fig.add_annotation(
-        x=0.5,
-        y=-0.05,  # slightly below the figure
-        xref="paper",
-        yref="paper",
-        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
-        showarrow=False,
-        font=dict(size=12, color="gray"),
-        align="center"
-    )
-    
+        
     return fig
 
 
@@ -576,18 +592,7 @@ def create_heatmap(pivot_df, title="Heatmap"):
         margin=dict(l=80, r=20, t=50, b=120),
         height=max(350, len(pivot_df)*35)
     )
-    # ---------------- ADD SOURCE ANNOTATION ----------------
-    fig.add_annotation(
-        x=0.5,
-        y=-0.15,  # slightly below the figure
-        xref="paper",
-        yref="paper",
-        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
-        showarrow=False,
-        font=dict(size=12, color="gray"),
-        align="center"
-    )
-
+   
     return fig
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
@@ -786,18 +791,7 @@ def render_sankey(df, top_n=None, width=900):
         margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
     )
-    # ---------------- ADD SOURCE ANNOTATION ----------------
-    fig.add_annotation(
-        x=0.5,
-        y=-0.05,  # slightly below the figure
-        xref="paper",
-        yref="paper",
-        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
-        showarrow=False,
-        font=dict(size=10, color="gray"),
-        align="center"
-    )
-
+    
     return fig
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
@@ -1005,10 +999,10 @@ with tab1:
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
     
-    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
-    r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
+    r1c1.show_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
+    r1c2.show_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
+    r2c1.show_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
+    r2c2.show_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
 
     cols_rename_map  = {
         "post_title": "Title of post",
