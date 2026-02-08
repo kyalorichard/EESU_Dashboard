@@ -1105,12 +1105,7 @@ with tab1:
             title="Alert distribution across countries",
             horizontal=False
         )
-        n_countries = a4["alert-country"].nunique()
-        fig4.update_layout(
-            height=max(100, n_countries * 25),
-            yaxis=dict(categoryorder="total ascending")
-        )
-        
+                
         show_chart(fig4, key="tab1_chart4")
      
    
