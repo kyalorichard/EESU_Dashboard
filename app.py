@@ -396,16 +396,17 @@ import pandas as pd
 
 # Define a consistent color mapping for your dashboard
 COLOR_MAPPING = {
-    "positive": "purple",
-    "negative": "yellow"
+    "positive": "#FFDB58",
+    "negative": "#660094"
 }
 
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350, text_size=13,title=None):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350, text_size=12,title=None):
     categories = sorted(df[color_col].unique())
     fig = go.Figure()
 
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col] == cat]
+        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
         
         # Ensure numeric values for comparison
         df_cat[x] = pd.to_numeric(df_cat[x], errors='coerce').fillna(0)
