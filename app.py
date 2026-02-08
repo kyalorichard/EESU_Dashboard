@@ -529,8 +529,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     return fig
 
 
-
-
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
@@ -1054,9 +1052,8 @@ with tab1:
         )
         show_chart(fig4, key="tab1_chart4")
 
-        
+     
    
-
     cols_rename_map  = {
         "post_title": "Title of post",
         "summary": "Event summary",
@@ -1084,7 +1081,13 @@ with tab2:
 
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
+        
     else:
+         # Initialize Top-N selection in session state
+        if "neg_top_n" not in st.session_state:
+            st.session_state["neg_top_n"] = 5  # default Top 5
+
+            
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
         
@@ -1188,7 +1191,7 @@ with tab2:
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
             st.session_state.top_n = 5
-
+            
         def update_top_n():
             st.session_state.top_n = {
                 "Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None
@@ -1217,6 +1220,7 @@ with tab2:
         st.markdown('</div>', unsafe_allow_html=True)
         
         top_n = st.session_state.top_n
+        
         # ---------------- HEATMAPS ----------------
         #with st.expander("Show Heatmaps"):
         render_heatmaps(filtered_df, top_n=top_n)
