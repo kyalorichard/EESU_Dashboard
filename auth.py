@@ -103,7 +103,6 @@ def handle_google_redirect():
         st.experimental_set_query_params()
         return
 
-    # Domain restriction
     if get_email_domain(email) not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
         st.experimental_set_query_params()
@@ -120,99 +119,32 @@ def handle_google_redirect():
     st.experimental_rerun()
 
 # ----------------------------
-# CSS for centered modal popup
+# CSS
 # ----------------------------
 def inject_auth_css():
     st.markdown("""
     <style>
-    .auth-container {
-        position: fixed;
-        top: 1rem;
-        left: 1rem;
-        z-index: 9999;
-    }
-    .avatar-button {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: #1a73e8;
-        color: white;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 18px;
-        user-select: none;
-    }
-    .avatar-img {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        object-fit: cover;
-        cursor: pointer;
-    }
-    /* Full-screen modal overlay */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0,0,0,0.5);
-        z-index: 10000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
+    .auth-container { position: fixed; top: 1rem; left: 1rem; z-index: 9999; }
+    .avatar-button { width:50px; height:50px; border-radius:50%; background:#1a73e8; color:white; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
+    .avatar-img { width:50px; height:50px; border-radius:50%; object-fit:cover; cursor:pointer; }
+
+    /* Modal overlay */
+    .modal-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10000; display:flex; justify-content:center; align-items:center; }
+
     .floating-auth-box {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        width: 400px;
-        max-width: 90%;
-        box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-        animation: fadeIn 0.25s ease-out;
-        font-family: "Google Sans", sans-serif;
+        background:white; border-radius:12px; padding:2rem; width:400px; max-width:90%; box-shadow:0 12px 32px rgba(0,0,0,0.4);
+        font-family:"Google Sans", sans-serif; animation:fadeIn 0.25s ease-out;
     }
-    .floating-auth-box h3 {
-        margin-top: 0;
-        margin-bottom: 1rem;
-        font-size: 20px;
-        color: #202124;
-    }
-    .floating-auth-box button {
-        padding: 0.6rem 0;
-        margin-top: 0.6rem;
-        border-radius: 4px;
-        border: none;
-        background-color: #1a73e8;
-        color: white;
-        cursor: pointer;
-        font-weight: 600;
-        width: 100%;
-    }
-    .floating-auth-box button:hover {
-        background-color: #1558b0;
-    }
-    .floating-auth-box input {
-        width: 100%;
-        padding: 0.55rem;
-        margin-top: 0.5rem;
-        margin-bottom: 0.5rem;
-        border-radius: 4px;
-        border: 1px solid #dadce0;
-        font-size: 14px;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-15px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+    .floating-auth-box h3 { margin-top:0; margin-bottom:1rem; font-size:20px; color:#202124; }
+    .floating-auth-box input { width:100%; padding:0.55rem; margin:0.5rem 0; border-radius:4px; border:1px solid #dadce0; font-size:14px; }
+    .floating-auth-box button { padding:0.6rem 0; margin-top:0.6rem; border:none; border-radius:4px; background:#1a73e8; color:white; cursor:pointer; font-weight:600; width:100%; }
+    .floating-auth-box button:hover { background:#1558b0; }
+    @keyframes fadeIn { from {opacity:0; transform:translateY(-15px);} to {opacity:1; transform:translateY(0);} }
     </style>
     """, unsafe_allow_html=True)
 
 # ----------------------------
-# Floating avatar + login popup
+# Floating avatar + modal login
 # ----------------------------
 def top_right_auth():
     handle_google_redirect()
@@ -222,36 +154,23 @@ def top_right_auth():
 
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
-    # Render avatar using markdown (clickable)
+    # Avatar
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
-    avatar_html = (
-        f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
-    )
-
-    # Use markdown with a clickable toggle
-    toggle_js = """
-    <script>
-    const el = window.parent.document.querySelector('.auth-container');
-    el.addEventListener('click', function() {
-        window.parent.streamlitDebugMessage && window.parent.streamlitDebugMessage("toggle_auth");
-    });
-    </script>
-    """
+    avatar_html = f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
     if st.button("Toggle Login Popup (temporary)"):
         st.session_state.auth_open = not st.session_state.auth_open
-
     st.markdown(avatar_html, unsafe_allow_html=True)
 
-    # Floating login box
-    if st.session_state.auth_open:
+    # Modal popup
+    if st.session_state.get("auth_open", False):
+        st.markdown('<div class="modal-overlay">', unsafe_allow_html=True)
         st.markdown('<div class="floating-auth-box">', unsafe_allow_html=True)
 
         if "user" not in st.session_state:
             st.markdown("<h3>Sign in</h3>", unsafe_allow_html=True)
             # Google login
             st.markdown(f'<a href="{get_google_auth_url()}"><button>🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
-
             # Email login
             if firebase_auth:
                 st.divider()
@@ -264,7 +183,7 @@ def top_right_auth():
                             user = firebase_auth.sign_in_with_email_and_password(email_input, password_input)
                             domain = get_email_domain(email_input)
                             if domain not in PRIVILEGED_DOMAINS:
-                                st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
+                                st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} allowed.")
                             else:
                                 st.session_state.user = user
                                 st.session_state.email = email_input
@@ -277,7 +196,7 @@ def top_right_auth():
                             try:
                                 err = json.loads(e.args[1])
                                 st.error(err['error']['message'])
-                            except Exception:
+                            except:
                                 st.error("Firebase login failed")
         else:
             # Logged in
@@ -292,10 +211,10 @@ def top_right_auth():
                 st.session_state.clear()
                 st.experimental_rerun()
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Small welcome message above dashboard
+    # Small welcome note
     if "user" in st.session_state:
         st.markdown(f"👋 Welcome, **{st.session_state.get('name', 'User')}**!", unsafe_allow_html=True)
