@@ -393,8 +393,10 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     font_size = max(10, 20 - int(num_bars / 5))  # Dynamic font size
 
     # Optional: wrap labels (assuming wrap_label_by_words exists)
-    df[x] = df[x].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=3))
-
+    
+    df[x] = df[x].apply(lambda l: wrap_label_by_words(
+        normalize_label(l) if x not in ["alert-country", "region"] else str(l), words_per_line=3)
+        )
     # Create bar chart
     fig = px.bar(
         df,
@@ -441,7 +443,10 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     import plotly.graph_objects as go
     
     df = df.copy()
-    df[y] = df[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+    df[x] = df[x].apply(lambda l: wrap_label_by_words(
+        normalize_label(l) if x not in ["alert-country", "region"] else str(l), words_per_line=4)
+        )
+    
     df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
     
     categories = sorted(df[color_col].unique())
