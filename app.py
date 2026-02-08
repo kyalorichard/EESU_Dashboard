@@ -1519,7 +1519,7 @@ components.html(f"""
     z-index: 9999;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 ">
-    <img src="data:image/png;base64,{b64}" width="120">
+    <img src="data:image/png;base64,{b64}" width="900">
 </div>
 """, height=60)
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
