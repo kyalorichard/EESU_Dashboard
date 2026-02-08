@@ -390,17 +390,18 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     fig.update_layout(
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center'),
-        annotations=[
-            dict(
-                text=source_text,        # your global source_text variable
-                x=0.5, y=-0.15,
-                xref="paper", yref="paper",
-                showarrow=False,
-                font=dict(size=10, color="gray"),
-                align="center"
-            )
-        ]
+        title=dict(text=title, x=0.5, xanchor='center')
+    )
+    # ---------------- ADD SOURCE ANNOTATION ----------------
+    fig.add_annotation(
+        x=0.5,
+        y=-0.05,  # slightly below the figure
+        xref="paper",
+        yref="paper",
+        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        align="center"
     )
 
     return fig
@@ -495,17 +496,18 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
         barmode='stack',
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center') if title else None,
-        annotations=[
-            dict(
-                text=source_text,        # your global source_text variable
-                x=0.5, y=-0.15,
-                xref="paper", yref="paper",
-                showarrow=False,
-                font=dict(size=10, color="gray"),
-                align="center"
-            )
-        ]
+        title=dict(text=title, x=0.5, xanchor='center') if title else None
+    )
+    # ---------------- ADD SOURCE ANNOTATION ----------------
+    fig.add_annotation(
+        x=0.5,
+        y=-0.05,  # slightly below the figure
+        xref="paper",
+        yref="paper",
+        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        align="center"
     )
     
     return fig
@@ -572,17 +574,18 @@ def create_heatmap(pivot_df, title="Heatmap"):
         xaxis_tickangle=-45,
         yaxis=dict(tickfont=dict(size=12)),
         margin=dict(l=80, r=20, t=50, b=120),
-        height=max(350, len(pivot_df)*35),
-        annotations=[
-            dict(
-                text=source_text,        # your global source_text variable
-                x=0.5, y=-0.15,
-                xref="paper", yref="paper",
-                showarrow=False,
-                font=dict(size=10, color="gray"),
-                align="center"
-            )
-        ]
+        height=max(350, len(pivot_df)*35)
+    )
+    # ---------------- ADD SOURCE ANNOTATION ----------------
+    fig.add_annotation(
+        x=0.5,
+        y=-0.05,  # slightly below the figure
+        xref="paper",
+        yref="paper",
+        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        align="center"
     )
 
     return fig
@@ -782,6 +785,17 @@ def render_sankey(df, top_n=None, width=900):
         width=width,
         margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
+    )
+    # ---------------- ADD SOURCE ANNOTATION ----------------
+    fig.add_annotation(
+        x=0.5,
+        y=-0.05,  # slightly below the figure
+        xref="paper",
+        yref="paper",
+        text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        align="center"
     )
 
     return fig
