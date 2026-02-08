@@ -7,14 +7,15 @@ import urllib.parse
 import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
+import json
 
 # ----------------------------
 # Firebase Admin Init
 # ----------------------------
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
     try:
-        cred = credentials.Certificate(st.secrets["firebase_admin"])
-        firebase_admin.initialize_app(cred)
+        cred = st.secrets["firebase_admin"]
+        firebase_admin.initialize_app(credentials.Certificate(cred))
     except Exception as e:
         st.error(f"Firebase Admin initialization failed: {e}")
 
@@ -119,7 +120,6 @@ def handle_google_redirect():
 def handle_email_login(email, password):
     try:
         user = firebase_auth.sign_in_with_email_and_password(email, password)
-        info = firebase_auth.get_account_info(user['idToken'])
         st.session_state.user = "email"
         st.session_state.email = email
         st.session_state.name = email.split("@")[0].title()
@@ -170,13 +170,13 @@ def top_left_auth():
     import streamlit.components.v1 as components
 
     if st.session_state.get("auth_open", False):
-        email_form_html = f"""
-        <form method="post" id="emailForm">
-            <input type="text" name="email" placeholder="Email" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-            <input type="password" name="password" placeholder="Password" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-            <button type="submit" style="width:100%;">Sign in with Email</button>
-        </form>
-        """
+        # Email login via Streamlit inputs
+        email_input = st.text_input("Email", key="email_input")
+        password_input = st.text_input("Password", type="password", key="password_input")
+        if st.button("Sign in with Email"):
+            handle_email_login(email_input, password_input)
+
+        # Modal with Google login / Logout
         modal_html = f"""
         <div style="
             position: fixed; top:0; left:0; width:100vw; height:100vh;
@@ -185,29 +185,11 @@ def top_left_auth():
                 background:white; border-radius:12px; padding:2rem; width:400px; max-width:90%; text-align:center;">
                 {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name','User')}</strong>!"}
                 {f'<a href="{get_google_auth_url()}"><button style="width:100%; margin-top:1rem;">🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
-                {email_form_html if "user" not in st.session_state else ""}
                 {f'<br><button onclick="window.parent.postMessage({{func:\'logout\'}}, \'*\')" style="width:100%; margin-top:1rem;">Logout</button>' if "user" in st.session_state else ""}
             </div>
         </div>
-        <script>
-        window.addEventListener('message', (event) => {{
-            if(event.data.func === 'logout') {{
-                window.location.reload();
-            }}
-        }});
-        </script>
         """
         components.html(modal_html, height=700)
 
-    # Display welcome
     if "user" in st.session_state:
         st.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!", unsafe_allow_html=True)
-
-# ----------------------------
-# Email Form Handling
-# ----------------------------
-if st.session_state.get("auth_open") and st.experimental_get_query_params().get("form_submitted") is None:
-    if st.session_state.get("email_form_submitted"):
-        email = st.session_state.get("email_input")
-        password = st.session_state.get("password_input")
-        handle_email_login(email, password)
