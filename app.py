@@ -1021,7 +1021,7 @@ with tab1:
         )
         show_chart(fig2, key="tab1_chart2")
     with r2c1:
-        fig2 = create_h_stacked_bar(
+        fig3 = create_h_stacked_bar(
             a3,
             y="region",
             x="count",
@@ -1029,10 +1029,10 @@ with tab1:
             title="Alert distribution across regions",
             horizontal=False
         )
-        show_chart(fig2, key="tab1_chart3")
+        show_chart(fig3, key="tab1_chart3")
 
     with r2c2:
-        fig2 = create_h_stacked_bar(
+        fig4 = create_h_stacked_bar(
             a4,
             y="country",
             x="count",
@@ -1040,7 +1040,7 @@ with tab1:
             title="Alert distribution across countries",
             horizontal=False
         )
-        show_chart(fig2, key="tab1_chart4")
+        show_chart(fig4, key="tab1_chart4")
 
         
    
