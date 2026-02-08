@@ -301,17 +301,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
    # --- Alerts Breakdown (conditional) ---
     if show_breakdown:
         with col3:
-            card_style = f"""
-    border: 3px solid #008CAA;  /* thick blue border */
-    border-radius: 12px;
-    padding: 10px;
-    text-align: center;
-    color: #008CAA;  /* text color same as border */
-    background: none;  /* no fill */
-    margin: 2px;
-"""
-
-st.markdown(f"""
+            st.markdown(f"""
 <div style="{card_style}">
     <h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
     <div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
