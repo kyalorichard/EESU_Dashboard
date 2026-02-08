@@ -120,7 +120,7 @@ def handle_google_redirect():
     st.experimental_rerun()
 
 # ----------------------------
-# CSS for floating avatar + popup
+# CSS for centered modal popup
 # ----------------------------
 def inject_auth_css():
     st.markdown("""
@@ -132,8 +132,8 @@ def inject_auth_css():
         z-index: 9999;
     }
     .avatar-button {
-        width: 45px;
-        height: 45px;
+        width: 50px;
+        height: 50px;
         border-radius: 50%;
         background: #1a73e8;
         color: white;
@@ -142,41 +142,47 @@ def inject_auth_css():
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 18px;
         user-select: none;
     }
     .avatar-img {
-        width: 45px;
-        height: 45px;
+        width: 50px;
+        height: 50px;
         border-radius: 50%;
         object-fit: cover;
         cursor: pointer;
     }
-    .floating-auth-box {
+    /* Full-screen modal overlay */
+    .modal-overlay {
         position: fixed;
-        top: 70px;
-        left: 20px;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .floating-auth-box {
         background: white;
         border-radius: 12px;
-        padding: 1.2rem;
-        width: 300px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-        z-index: 10000;
-        animation: fadeIn 0.2s ease-out;
+        padding: 2rem;
+        width: 400px;
+        max-width: 90%;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+        animation: fadeIn 0.25s ease-out;
         font-family: "Google Sans", sans-serif;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
     }
     .floating-auth-box h3 {
         margin-top: 0;
-        margin-bottom: 0.8rem;
-        font-size: 18px;
+        margin-bottom: 1rem;
+        font-size: 20px;
         color: #202124;
     }
     .floating-auth-box button {
-        padding: 0.55rem 0;
+        padding: 0.6rem 0;
         margin-top: 0.6rem;
         border-radius: 4px;
         border: none;
@@ -191,11 +197,16 @@ def inject_auth_css():
     }
     .floating-auth-box input {
         width: 100%;
-        padding: 0.5rem;
-        margin-top: 0.4rem;
-        margin-bottom: 0.4rem;
+        padding: 0.55rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
         border-radius: 4px;
         border: 1px solid #dadce0;
+        font-size: 14px;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-15px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     </style>
     """, unsafe_allow_html=True)
