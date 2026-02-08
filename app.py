@@ -617,24 +617,33 @@ def render_heatmaps(df, top_n=5):
     # Render heatmaps in 3 columns
     col1, col2, col3 = st.columns(3)
 
-    with col1:
-        fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used <br> by restrictive actors?")
+  with col1:
+        fig1 = create_heatmap(
+            actor_mechanism_pivot,
+            title="<div style='text-align:center'>What are the mechanisms used<br>by restrictive actors?</div>"
+        )
         fig1.update_traces(zmin=0, zmax=zmax)
         fig1.update_layout(title_x=0.5, title_font=dict(size=12, family="Arial"))
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
-
+    
     with col2:
-        fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms <br> affecting civil society actors?")
+        fig2 = create_heatmap(
+            subject_mechanism_pivot,
+            title="<div style='text-align:center'>What are the restrictive mechanisms<br>affecting civil society actors?</div>"
+        )
         fig2.update_traces(zmin=0, zmax=zmax)
         fig2.update_layout(title_x=0.5, title_font=dict(size=12, family="Arial"))
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
-
+    
     with col3:
-        fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting <br> civil society?")
+        fig3 = create_heatmap(
+            actor_subject_pivot,
+            title="<div style='text-align:center'>Who are the actors restricting<br>civil society?</div>"
+        )
         fig3.update_traces(zmin=0, zmax=zmax)
         fig3.update_layout(title_x=0.5, title_font=dict(size=12, family="Arial"))
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
-        
+            
 # ---------------- UPDATED SANKEY FUNCTION ----------------
 def render_sankey(df, top_n=None, width=900):
     """
