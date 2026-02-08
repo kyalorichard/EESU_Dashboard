@@ -103,7 +103,6 @@ def handle_google_redirect():
         st.experimental_set_query_params()
         return
 
-    # Domain restriction
     if get_email_domain(email) not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
         st.experimental_set_query_params()
@@ -116,12 +115,11 @@ def handle_google_redirect():
     st.session_state.photo = picture
     st.session_state.user_role = "privileged"
 
-    # Clear query params and rerun
     st.experimental_set_query_params()
     st.experimental_rerun()
 
 # ----------------------------
-# CSS
+# CSS for floating avatar + Gmail-like popup
 # ----------------------------
 def inject_auth_css():
     st.markdown("""
@@ -155,32 +153,48 @@ def inject_auth_css():
     }
     .floating-auth-box {
         position: fixed;
-        top: 60px;
-        left: 0;
+        top: 70px;
+        left: 20px;
         background: white;
-        border-radius: 10px;
-        padding: 1rem;
-        width: 280px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+        border-radius: 12px;
+        padding: 1.2rem;
+        width: 300px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
         z-index: 10000;
         animation: fadeIn 0.2s ease-out;
+        font-family: "Google Sans", sans-serif;
     }
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(-10px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    .floating-auth-box h3 {
+        margin-top: 0;
+        margin-bottom: 0.8rem;
+        font-size: 18px;
+        color: #202124;
+    }
     .floating-auth-box button {
-        padding: 0.5rem 0;
-        margin-top: 0.4rem;
-        border-radius: 6px;
+        padding: 0.55rem 0;
+        margin-top: 0.6rem;
+        border-radius: 4px;
         border: none;
         background-color: #1a73e8;
         color: white;
         cursor: pointer;
         font-weight: 600;
+        width: 100%;
     }
     .floating-auth-box button:hover {
         background-color: #1558b0;
+    }
+    .floating-auth-box input {
+        width: 100%;
+        padding: 0.5rem;
+        margin-top: 0.4rem;
+        margin-bottom: 0.4rem;
+        border-radius: 4px;
+        border: 1px solid #dadce0;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -196,7 +210,7 @@ def top_right_auth():
 
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
-    # Avatar display
+    # Avatar
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
     if photo:
@@ -204,7 +218,7 @@ def top_right_auth():
     else:
         st.markdown(f'<div class="avatar-button">{avatar_initials(email)}</div>', unsafe_allow_html=True)
 
-    # Hidden checkbox to toggle login box
+    # Checkbox toggle for popup
     if st.checkbox("", key="avatar_toggle", value=st.session_state.auth_open):
         st.session_state.auth_open = True
     else:
@@ -215,8 +229,10 @@ def top_right_auth():
         st.markdown('<div class="floating-auth-box">', unsafe_allow_html=True)
 
         if "user" not in st.session_state:
+            st.markdown("<h3>Sign in</h3>", unsafe_allow_html=True)
+
             # Google login
-            st.markdown(f'<a href="{get_google_auth_url()}"><button style="width:100%">🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="{get_google_auth_url()}"><button>🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
 
             # Email login
             if firebase_auth:
@@ -248,6 +264,7 @@ def top_right_auth():
         else:
             # Logged in
             name = st.session_state.get("name", "User")
+            email = st.session_state.get("email")
             role = st.session_state.get("user_role", "public")
             st.markdown(f"**👋 Welcome, {name}!**")
             st.caption(email)
