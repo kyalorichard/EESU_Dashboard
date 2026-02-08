@@ -614,9 +614,9 @@ def create_heatmap(pivot_df, title="Heatmap"):
 
     # Define traffic-light colorscale
     colorscale=[
-        [0, "lightyellow"],
-        [0.5, "gold"],
-        [1, "orange"]
+        [0, "green"],
+        [0.5, "yellow"],
+        [1, "red"]
     ]
 
     # Normalize data between 0 and 1 for the colorscale
@@ -1494,4 +1494,13 @@ with tab4:
         st.warning("User Manual PDF not found.")
 
 # ---------------- FOOTER ----------------
+# Footer image
+st.markdown(
+    """
+    <div style='position: fixed; bottom: 0; width: 100%; text-align: center; padding: 10px; background-color: #f5f5f5;'>
+        <img src='assets/footer_logo.png' width='120'>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
