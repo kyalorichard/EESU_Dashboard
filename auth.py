@@ -7,22 +7,23 @@ import urllib.parse
 import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
+import json
 
 # ----------------------------
 # Firebase Admin Init
 # ----------------------------
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
     try:
-        cred = st.secrets["firebase_admin"]
-        firebase_admin.initialize_app(credentials.Certificate(cred))
+        cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
+        firebase_admin.initialize_app(cred)
     except Exception as e:
         st.error(f"Firebase Admin initialization failed: {e}")
 
 # ----------------------------
-# Pyrebase Init
+# Pyrebase Init (Email login)
 # ----------------------------
 firebase_auth = None
-firebase_cfg = st.secrets.get("firebase", {})
+firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
     try:
         firebase = pyrebase.initialize_app(firebase_cfg)
@@ -68,12 +69,13 @@ def handle_google_redirect():
     try:
         params = st.experimental_get_query_params()
     except Exception:
-        return  # Safe fallback if Streamlit not ready
+        params = {}
 
     if "code" not in params:
         return
 
     code = params["code"][0]
+
     try:
         token_resp = requests.post(
             "https://oauth2.googleapis.com/token",
@@ -96,20 +98,15 @@ def handle_google_redirect():
         email = idinfo.get("email")
         name = idinfo.get("name") or email.split("@")[0].title()
         picture = idinfo.get("picture")
-    except Exception as e:
-        st.error(f"Google login failed: {e}")
-        try:
-            st.experimental_set_query_params()
-        except:
-            pass
+    except Exception:
+        st.error("Google login failed or token invalid.")
+        st.experimental_set_query_params()
         return
 
-    if PRIVILEGED_DOMAINS and get_email_domain(email) not in PRIVILEGED_DOMAINS:
+    # Domain restriction
+    if get_email_domain(email) not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} allowed.")
-        try:
-            st.experimental_set_query_params()
-        except:
-            pass
+        st.experimental_set_query_params()
         return
 
     st.session_state.user = "google"
@@ -118,33 +115,7 @@ def handle_google_redirect():
     st.session_state.photo = picture
     st.session_state.user_role = "privileged"
 
-    try:
-        st.experimental_set_query_params()
-    except:
-        pass
-    st.experimental_rerun()
-
-# ----------------------------
-# Email/Password login
-# ----------------------------
-def handle_email_login(email, password):
-    try:
-        user = firebase_auth.sign_in_with_email_and_password(email, password)
-        st.session_state.user = "email"
-        st.session_state.email = email
-        st.session_state.name = email.split("@")[0].title()
-        st.session_state.user_role = "privileged"
-        st.experimental_rerun()
-    except Exception as e:
-        st.error(f"Email login failed: {e}")
-
-# ----------------------------
-# Logout
-# ----------------------------
-def logout():
-    for key in ["user", "email", "name", "photo", "user_role"]:
-        st.session_state.pop(key, None)
-    st.session_state.auth_open = False
+    st.experimental_set_query_params()
     st.experimental_rerun()
 
 # ----------------------------
@@ -153,21 +124,21 @@ def logout():
 def inject_auth_css():
     st.markdown("""
     <style>
+    .auth-container { position: fixed; top: 1rem; left: 1rem; z-index: 9999; }
     .avatar-button { width:50px; height:50px; border-radius:50%; background:#1a73e8; color:white; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
     .avatar-img { width:50px; height:50px; border-radius:50%; object-fit:cover; cursor:pointer; }
     </style>
     """, unsafe_allow_html=True)
 
 # ----------------------------
-# Auth UI
+# Top-left avatar + centered modal login
 # ----------------------------
-def top_left_auth():
+def top_right_auth():
     handle_google_redirect()
-
     if "auth_open" not in st.session_state:
         st.session_state.auth_open = False
 
-    inject_auth_css()
+    import streamlit.components.v1 as components
 
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
@@ -177,29 +148,45 @@ def top_left_auth():
         st.session_state.auth_open = not st.session_state.auth_open
     st.markdown(avatar_html, unsafe_allow_html=True)
 
-    import streamlit.components.v1 as components
-
     if st.session_state.get("auth_open", False):
-        # Streamlit email login inputs
-        email_input = st.text_input("Email", key="email_input")
-        password_input = st.text_input("Password", type="password", key="password_input")
-        if st.button("Sign in with Email"):
-            handle_email_login(email_input, password_input)
-
-        # Modal for Google login / logout
+        # Modal HTML
         modal_html = f"""
         <div style="
-            position: fixed; top:0; left:0; width:100vw; height:100vh;
-            background: rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:9999;">
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); z-index: 99999;
+            display: flex; justify-content: center; align-items: center;
+        " id="authModal">
             <div style="
-                background:white; border-radius:12px; padding:2rem; width:400px; max-width:90%; text-align:center;">
+                background: white; border-radius: 12px; padding: 2rem;
+                width: 400px; max-width: 90%; box-shadow:0 12px 32px rgba(0,0,0,0.4);
+                text-align: center; font-family: 'Google Sans', sans-serif;
+            ">
                 {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name','User')}</strong>!"}
                 {f'<a href="{get_google_auth_url()}"><button style="width:100%; margin-top:1rem;">🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
-                {f'<br><button onclick="window.parent.postMessage({{func:\'logout\'}}, \'*\')" style="width:100%; margin-top:1rem;">Logout</button>' if "user" in st.session_state else ""}
+                {"" if "user" in st.session_state else '''
+                <hr style="margin:1rem 0;">
+                <form>
+                    <input type="text" placeholder="Email" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
+                    <input type="password" placeholder="Password" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
+                    <button type="button" style="width:100%;">Sign in with Email</button>
+                </form>
+                '''}
+                {f'<br><button style="width:100%; margin-top:1rem;" onclick="alert(\'Logout handled in backend\')">Logout</button>' if "user" in st.session_state else ""}
             </div>
         </div>
+
+        <script>
+        const modal = document.getElementById('authModal');
+        modal.addEventListener('click', function(e) {{
+            if(e.target === modal) {{
+                window.parent.postMessage({{func:"closeAuthModal"}}, "*");
+            }}
+        }});
+        </script>
         """
         components.html(modal_html, height=700)
 
+    # Welcome note on dashboard
     if "user" in st.session_state:
         st.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!", unsafe_allow_html=True)
