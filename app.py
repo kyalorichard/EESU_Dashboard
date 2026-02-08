@@ -24,7 +24,7 @@ st.markdown("""
 <hr style='margin:5px 0'>
 """, unsafe_allow_html=True)
 st.markdown("""
-<div style="font-size:16px; color:#333333; margin-bottom:20px;">
+<div style="font-size:14px; color:#333333; margin-bottom:20px;">
 This dashboard is an interactive tool designed to explore and analyse information produced by the EU SEE project. 
 It brings together data reported by Network Members across 86 countries to document trends in the enabling environment for civil society.
 </div>
@@ -313,23 +313,22 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
 st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
-<div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
-    <span>Negative \u25CF {negative}</span>
-    <span>Positive \u25CF {positive}</span>
-</div>
+    <h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
+    <div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
+        <span>Negative \u25CF {negative}</span>
+        <span>Positive \u25CF {positive}</span>
+    </div>
 
-<div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
-    <div style="width:{neg_pct}%; border:2px solid #008CAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
-        {neg_pct if neg_pct>5 else ''}%
+    <div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
+        <div style="width:{neg_pct}%; border:2px solid #008CAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+            {neg_pct if neg_pct>5 else ''}%
+        </div>
+        <div style="width:{pos_pct}%; border:2px solid #008CAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+            {pos_pct if pos_pct>5 else ''}%
+        </div>
     </div>
-    <div style="width:{pos_pct}%; border:2px solid #008CAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
-        {pos_pct if pos_pct>5 else ''}%
-    </div>
-</div>
 </div>
 """, unsafe_allow_html=True)
-
 
 def normalize_label(label: str) -> str:
     """
