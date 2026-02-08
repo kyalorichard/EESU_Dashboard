@@ -344,45 +344,32 @@ def wrap_label_by_words(label, words_per_line=3):
     lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
     return '<br>'.join(lines)
 
-source_text = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
-PLOTLY_DOWNLOAD_CONFIG = {
-    "displaylogo": False,
-    "toImageButtonOptions": {
-        "format": "png",
-        "filename": "eu_see_dashboard_chart",
-        "scale": 2
-    }
-}
-
-def add_source_for_export(fig):
-    fig = fig.to_dict()              # clone safely
-    fig = go.Figure(fig)
-
-    fig.update_layout(
-        margin=dict(b=90),           # space for source
-        annotations=[
-            dict(
-                text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
-                x=0.5,
-                y=-0.25,             # BELOW plot area
-                xref="paper",
-                yref="paper",
-                showarrow=False,
-                font=dict(size=12, color="gray"),
-                align="center"
-            )
-        ]
+# ---------- Helper to add source ONLY for export ----------
+def add_source_for_export(fig, source_text="Source: EU SEE Dashboard. Data compiled by EU SEE Network."):
+    fig_export = fig.to_dict()
+    fig_export["layout"].setdefault("annotations", [])
+    fig_export["layout"]["annotations"].append(
+        dict(
+            text=source_text,
+            x=0,
+            y=-0.18,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            font=dict(size=10, color="#444"),
+            align="left"
+        )
     )
-    return fig
-    
-def show_chart(fig, key):
-    fig = add_source_for_export(fig)
+    return fig_export
+
+# ---------- Helper to render chart ----------
+def show_chart(fig, key=None):
+    fig_dict = add_source_for_export(fig)
     st.plotly_chart(
-        fig,
+        fig_dict,
         use_container_width=True,
-        key=key,
-        config=PLOTLY_DOWNLOAD_CONFIG
-    ) 
+        key=key
+    )
     
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
