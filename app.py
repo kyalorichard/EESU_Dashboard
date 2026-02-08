@@ -410,6 +410,12 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     df[x] = df[x].apply(lambda l: wrap_label_by_words(
         normalize_label(l) if x not in ["alert-country", "region"] else str(l), words_per_line=3)
         )
+        
+    # Move "Other" category to the end if present
+    if "Other" in df[x].values:
+        df_other = df[df[x] == "Other"]
+        df_main = df[df[x] != "Other"]
+        df = pd.concat([df_main, df_other], ignore_index=True)
     # Create bar chart
     fig = px.bar(
         df,
