@@ -1036,7 +1036,7 @@ with tab1:
             a4,
             y="alert-country",
             x="count",
-            color_col="alert-country",
+            color_col="alert-impact",
             title="Alert distribution across countries",
             horizontal=False
         )
