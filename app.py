@@ -291,8 +291,8 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
     # --- Total Alerts ---
     with col2:
-        st.markdown(f"""
-    <div style="{card_style}">
+    st.markdown(f"""
+    <div style="position: relative; display: inline-block; text-align: center;">
         <h1 style="margin:0;font-size:30px;font-weight:bold;">Total Alerts</h1>
         <h2 style="margin:0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
         <span style="position: absolute; top: 0; right: -20px; font-size: 20px; cursor: pointer;" title="Higher numbers of alerts across countries do not necessarily indicate a more concerning enabling environment. They may reflect more active reporting by Network Members, and thresholds for what constitutes a serious deterioration vary across countries and contexts.">?</span>
