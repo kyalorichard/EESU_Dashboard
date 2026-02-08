@@ -396,8 +396,8 @@ import pandas as pd
 
 # Define a consistent color mapping for your dashboard
 COLOR_MAPPING = {
-    "positive": "#FFDB58",
-    "negative": "#660094"
+    "positive": "#660094",
+    "negative": "#FFDB58"
 }
 
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350, text_size=12,title=None):
