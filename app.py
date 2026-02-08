@@ -15,7 +15,7 @@ from auth import (
     handle_google_redirect,
     is_privileged
 )
- MUST be first
+
 handle_google_redirect()
 inject_auth_css()
 top_right_auth()
