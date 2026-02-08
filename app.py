@@ -74,6 +74,13 @@ def load_data():
         .replace("Lebanon NAR", "Lebanon")
     )
 
+    df['Actor of repression'] = (
+        df['Actor of repression']
+        .astype(str)
+        .str.strip()
+        .replace("VNSAs", "Violent Non-State Actors")
+    )
+
     meta_file = Path.cwd() / "data" / "countries_metadata.json"
     country_meta = {}
     if meta_file.exists():
@@ -1036,8 +1043,7 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 }
 
 # ---------------- TABS ----------------
-#tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
-tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Events","Visualization Map","User Manual"])
+tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
 
 # ---------------- TAB 1 ----------------
 with tab1:
