@@ -617,7 +617,7 @@ def render_heatmaps(df, top_n=5):
     # Render heatmaps in 3 columns
     col1, col2, col3 = st.columns(3)
 
-  with col1:
+    with col1:
         fig1 = create_heatmap(
             actor_mechanism_pivot,
             title="<div style='text-align:center'>What are the mechanisms used<br>by restrictive actors?</div>"
