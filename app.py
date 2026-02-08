@@ -1073,12 +1073,14 @@ with tab1:
         )
         show_chart(fig1, key="tab1_chart1")
     with r1c2:
+        tooltip_text = ("Alerts may be classified under more than one enabling principle ""and can therefore be counted in multiple principles.")
         fig2 = create_h_stacked_bar(
             a2,
             y="enabling-principle",
             x="count",
             color_col="alert-impact",
-            title="Alert distribution across enabling principles",
+            title="Alert distribution across enabling principles",            
+            title_tooltip=tooltip_text,
             horizontal=True
         )
         show_chart(fig2, key="tab1_chart2")
@@ -1094,16 +1096,21 @@ with tab1:
         show_chart(fig3, key="tab1_chart3")
 
     with r2c2:
-        tooltip_text = ("Alerts may be classified under more than one enabling principle ""and can therefore be counted in multiple principles.")
+        
         fig4 = create_h_stacked_bar(        
             a4,
             y="alert-country",
             x="count",
             color_col="alert-impact",
             title="Alert distribution across countries",
-            title_tooltip=tooltip_text,
             horizontal=False
         )
+        n_countries = a4["alert-country"].nunique()
+        fig4.update_layout(
+            height=max(400, n_countries * 25),
+            yaxis=dict(categoryorder="total ascending")
+        )
+        
         show_chart(fig4, key="tab1_chart4")
      
    
