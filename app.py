@@ -8,8 +8,6 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import base64
 
-#from auth import inject_auth_css, top_right_auth, handle_google_redirect, is_privileged
-from auth import inject_auth_css, top_right_auth, is_privileged
 
 
 
