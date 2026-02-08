@@ -327,6 +327,19 @@ def normalize_label(label: str) -> str:
     if len(label) == 0:
         return ""
     return label[0].upper() + label[1:].lower()
+
+    # Unified colors
+COLOR_MAPPING = {
+    "Negative": "#FFDB58",  # Yellow
+    "Positive": "#660094"   # Purple
+}
+
+def wrap_label_by_words(label, words_per_line=3):
+    """Wrap long labels for better display"""
+    words = label.split()
+    lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+    return '<br>'.join(lines)
+
             
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y,title=None,horizontal=False):
@@ -335,17 +348,19 @@ def create_bar_chart(df, x, y,title=None,horizontal=False):
     df = df.copy()
     df[x] = df[x].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=3))
    
+    # Create bar chart
     fig = px.bar(
         df,
         x=x if not horizontal else y,
         y=y if not horizontal else x,
         orientation='h' if horizontal else 'v',
-        color_discrete_sequence=['#660094'],
+        color=color_col,
+        color_discrete_map=COLOR_MAPPING if color_col else None,
         text=y
     )
     font_size = max(10, 20 - int(num_bars/5))
     fig.update_traces(
-        textposition='inside',
+        textposition=['inside' if val > 5 else 'outside' for val in df_cat[x]],
         insidetextanchor='end',
         textfont=dict(size=12, color='white', family="Arial Black")
     )
@@ -365,24 +380,27 @@ def create_bar_chart(df, x, y,title=None,horizontal=False):
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
-    categories = sorted(df[color_col].unique())
-    color_sequence = ['#FFDB58', '#660094']
+    categories = df[x].unique()
+    color_types = df[color_col].unique()
     fig = go.Figure()
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
         df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
         
+        # Add each color category as a separate bar
+    for c in color_types:
+        df_c = df[df[color_col] == c]
+        # Determine text position for each segment
+        text_positions = ["inside" if val > 5 else "outside" for val in df_c[y]]
+        
         fig.add_trace(go.Bar(
-            x=df_cat[y] if not horizontal else df_cat[x],
-            y=df_cat[x] if not horizontal else df_cat[y],
-            name=cat,
-            orientation='h' if horizontal else 'v',
-            marker_color=color_sequence[i % len(color_sequence)],
-            text=df_cat[x],
-            textposition='inside',
-            insidetextanchor='end',
-            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial Black"),
-            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+            x=df_c[x],
+            y=df_c[y],
+            name=c,
+            text=df_c[y],
+            textposition=text_positions,
+            textfont=dict(size=12, color='black', family="Arial Black"),
+            marker_color=COLOR_MAPPING.get(c, "#888888")
         ))
     num_bars = df.shape[0]
     height = 350
