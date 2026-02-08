@@ -1515,11 +1515,12 @@ components.html(f"""
     width: 100%;
     text-align: center;
     padding: 10px 0;
-    background-color: #f5f5f5;
+    background-color:'white';
     z-index: 9999;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 ">
+    <hr style="margin:0 20px; border: 1px solid #ccc;">
     <img src="data:image/png;base64,{b64}" width="900">
 </div>
-""", height=150)
-st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
+""", height=200)
+st.markdown("<div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
