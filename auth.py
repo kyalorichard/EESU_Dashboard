@@ -127,27 +127,18 @@ def inject_auth_css():
     .auth-container { position: fixed; top: 1rem; left: 1rem; z-index: 9999; }
     .avatar-button { width:50px; height:50px; border-radius:50%; background:#1a73e8; color:white; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
     .avatar-img { width:50px; height:50px; border-radius:50%; object-fit:cover; cursor:pointer; }
-
-    /* Modal overlay */
-    .modal-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10000; display:flex; justify-content:center; align-items:center; }
-    .floating-auth-box { background:white; border-radius:12px; padding:2rem; width:400px; max-width:90%; box-shadow:0 12px 32px rgba(0,0,0,0.4); font-family:"Google Sans", sans-serif; animation:fadeIn 0.25s ease-out; }
-    .floating-auth-box h3 { margin-top:0; margin-bottom:1rem; font-size:20px; color:#202124; }
-    .floating-auth-box input { width:100%; padding:0.55rem; margin:0.5rem 0; border-radius:4px; border:1px solid #dadce0; font-size:14px; }
-    .floating-auth-box button { padding:0.6rem 0; margin-top:0.6rem; border:none; border-radius:4px; background:#1a73e8; color:white; cursor:pointer; font-weight:600; width:100%; }
-    .floating-auth-box button:hover { background:#1558b0; }
-    @keyframes fadeIn { from {opacity:0; transform:translateY(-15px);} to {opacity:1; transform:translateY(0);} }
     </style>
     """, unsafe_allow_html=True)
 
 # ----------------------------
-# Top-left avatar + modal login
+# Top-left avatar + centered modal login
 # ----------------------------
 def top_right_auth():
     handle_google_redirect()
     if "auth_open" not in st.session_state:
         st.session_state.auth_open = False
 
-    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+    import streamlit.components.v1 as components
 
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
@@ -157,27 +148,34 @@ def top_right_auth():
         st.session_state.auth_open = not st.session_state.auth_open
     st.markdown(avatar_html, unsafe_allow_html=True)
 
-    # Modal popup
     if st.session_state.get("auth_open", False):
-        import streamlit.components.v1 as components
-
-        # Modal HTML with click-outside-to-close
+        # Modal HTML
         modal_html = f"""
-        <div class="modal-overlay" id="authModal">
-            <div class="floating-auth-box">
-                {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name', 'User')}</strong>!"}
-                {f'<a href="{get_google_auth_url()}"><button>🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
+        <div style="
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); z-index: 99999;
+            display: flex; justify-content: center; align-items: center;
+        " id="authModal">
+            <div style="
+                background: white; border-radius: 12px; padding: 2rem;
+                width: 400px; max-width: 90%; box-shadow:0 12px 32px rgba(0,0,0,0.4);
+                text-align: center; font-family: 'Google Sans', sans-serif;
+            ">
+                {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name','User')}</strong>!"}
+                {f'<a href="{get_google_auth_url()}"><button style="width:100%; margin-top:1rem;">🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
                 {"" if "user" in st.session_state else '''
-                <hr>
-                <form id="email_login_form">
-                    <input type="text" placeholder="Email" id="email_input"/>
-                    <input type="password" placeholder="Password" id="password_input"/>
-                    <button type="button" onclick="alert('Handled in backend')">Sign in with Email</button>
+                <hr style="margin:1rem 0;">
+                <form>
+                    <input type="text" placeholder="Email" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
+                    <input type="password" placeholder="Password" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
+                    <button type="button" style="width:100%;">Sign in with Email</button>
                 </form>
                 '''}
-                {f'<br><button onclick="alert(\'Logout handled in backend\')">Logout</button>' if "user" in st.session_state else ""}
+                {f'<br><button style="width:100%; margin-top:1rem;" onclick="alert(\'Logout handled in backend\')">Logout</button>' if "user" in st.session_state else ""}
             </div>
         </div>
+
         <script>
         const modal = document.getElementById('authModal');
         modal.addEventListener('click', function(e) {{
@@ -187,10 +185,8 @@ def top_right_auth():
         }});
         </script>
         """
-        components.html(modal_html, height=600)
+        components.html(modal_html, height=700)
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Welcome note
+    # Welcome note on dashboard
     if "user" in st.session_state:
-        st.markdown(f"👋 Welcome, **{st.session_state.get('name', 'User')}**!", unsafe_allow_html=True)
+        st.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!", unsafe_allow_html=True)
