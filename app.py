@@ -155,7 +155,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
-st.sidebar.image("assets/eu-see-logo-rgb-wide.svg", width=500)
+st.sidebar.image("assets/eu-see-logo.png", width=500)
 st.sidebar.header("🌍 Global Filters")
 
 # -----------------------------
