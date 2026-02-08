@@ -812,7 +812,29 @@ def explode_multi_valued_columns(df, cols):
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
-    
+
+#### --------prepare enabling principles to be ordered-------------------------------------------
+"1. Respect and protection of fundamental freedoms",
+    "2. Supportive legal and regulatory framework",
+    "3. Accessible and sustainable resources",
+    "4. Open and responsive State",
+    "5. Supportive public culture and discourses on civil society",
+    "6. Access to a secure digital environment"
+
+ENABLING_PRINCIPLE_LABEL_MAP = {
+    "Respect and protection of fundamental freedoms":
+        "1. Respect and protection of fundamental freedoms",
+    "Supportive legal and regulatory framework":
+        "2. Supportive legal and regulatory framework",
+    "Accessible and sustainable resources":
+        "3. Accessible and sustainable resources",
+    "Open and responsive State":
+        "4. Open and responsive State",
+    "Supportive public culture and discourses on civil society":
+        "5. Supportive public culture and discourses on civil society",
+    "Access to a secure digital environment":
+        "6. Access to a secure digital environment",
+}
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview","Negative Events","Positive Events","Others","Visualization Map"])
@@ -824,8 +846,9 @@ with tab1:
     
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip()
-    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+    df_clean["enabling_principle"] = pd.Categorical(df_clean["enabling_principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
+    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling_principle")
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
@@ -940,8 +963,10 @@ with tab2:
         m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
         
         tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
-        tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip()
-        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count')
+        tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+        tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling_principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
+        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling_principle")
+)
         
         # ---------------- BAR CHARTS ----------------
         r1c1, r1c2, r1c3 = st.columns(3)
