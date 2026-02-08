@@ -1521,5 +1521,5 @@ components.html(f"""
 ">
     <img src="data:image/png;base64,{b64}" width="900">
 </div>
-""", height=60)
+""", height=150)
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
