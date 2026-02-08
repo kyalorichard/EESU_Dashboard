@@ -328,10 +328,10 @@ def normalize_label(label: str) -> str:
         return ""
     return label[0].upper() + label[1:].lower()
 
-    # Unified colors
+# Define a consistent color mapping for your dashboard
 COLOR_MAPPING = {
-    "Negative": "#FFDB58",  # Yellow
-    "Positive": "#660094"   # Purple
+    "positive": "#660094",
+    "negative": "#FFDB58"
 }
 
 def wrap_label_by_words(label, words_per_line=3):
@@ -391,14 +391,6 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-import plotly.graph_objects as go
-import pandas as pd
-
-# Define a consistent color mapping for your dashboard
-COLOR_MAPPING = {
-    "positive": "#660094",
-    "negative": "#FFDB58"
-}
 
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350, text_size=12,title=None):
     categories = sorted(df[color_col].unique())
@@ -435,7 +427,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_layout(barmode='stack', height=height, margin=dict(l=120, r=20, t=20, b=20))
+        fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
         fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
    
     return fig
