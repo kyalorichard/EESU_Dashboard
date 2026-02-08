@@ -968,7 +968,6 @@ with tab2:
         tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
         tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling_principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
         m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling_principle")
-)
         
         # ---------------- BAR CHARTS ----------------
         r1c1, r1c2, r1c3 = st.columns(3)
