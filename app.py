@@ -1501,25 +1501,25 @@ with tab4:
 
 # ---------------- FOOTER ----------------
 # Footer image
-# Add some padding at the bottom so content doesn't overlap the footer
-st.markdown("<div style='padding-bottom:100px;'></div>", unsafe_allow_html=True)
+# --- Load image and convert to base64 ---
+footer_image_path = "assets/footer_logo.png"
+with open(footer_image_path, "rb") as f:
+    data = f.read()
+b64 = base64.b64encode(data).decode()
 
-# ----- Footer with image -----
-st.markdown(
-    """
-    <div style='
-        position: fixed; 
-        bottom: 0; 
-        width: 100%; 
-        text-align: center; 
-        padding: 10px; 
-        background-color: #f5f5f5; 
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-        z-index: 1000;
-    '>
-        <img src='assets/footer_logo.png' style='width:10%; max-width:120px; height:auto;'>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# --- Render fixed footer using components.html ---
+components.html(f"""
+<div style="
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    padding: 10px 0;
+    background-color: #f5f5f5;
+    z-index: 9999;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+">
+    <img src="data:image/png;base64,{b64}" width="120">
+</div>
+""", height=60)
 st.markdown("<hr><div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
