@@ -297,7 +297,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     Total Alerts 
     <span style="font-size:16px; cursor:pointer;" 
           title="Higher numbers of alerts across countries do not necessarily indicate a more concerning enabling environment. They may reflect more active reporting by Network Members, and thresholds for what constitutes a serious deterioration vary across countries and contexts.">
-          ℹ️
+         ❓
     </span>
 </h1>
 <h2 style="margin:0 0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
@@ -1053,6 +1053,8 @@ with tab1:
         show_chart(fig3, key="tab1_chart3")
 
     with r2c2:
+        st.markdown("### Alert distribution across enabling principles ❓")
+        info_tooltip("Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.")
         fig4 = create_h_stacked_bar(
             a4,
             y="alert-country",
@@ -1062,7 +1064,6 @@ with tab1:
             horizontal=False
         )
         show_chart(fig4, key="tab1_chart4")
-
      
    
     cols_rename_map  = {
