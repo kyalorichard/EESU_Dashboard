@@ -1034,7 +1034,7 @@ with tab1:
     with r2c2:
         fig4 = create_h_stacked_bar(
             a4,
-            y="country",
+            y="alert-country",
             x="count",
             color_col="alert-country",
             title="Alert distribution across countries",
