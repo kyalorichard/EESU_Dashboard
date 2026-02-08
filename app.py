@@ -342,12 +342,16 @@ def wrap_label_by_words(label, words_per_line=3):
 
             
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y,title=None,horizontal=False):
-    num_bars = df.shape[0]
-    height = 350
-    df = df.copy()
-    df[x] = df[x].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=3))
+def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
    
+    df = df.copy()
+    num_bars = df.shape[0]
+    height = max(350, num_bars * 25)  # Auto height based on number of bars
+    font_size = max(10, 20 - int(num_bars / 5))  # Dynamic font size
+
+    # Optional: wrap labels (assuming wrap_label_by_words exists)
+    df[x] = df[x].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=3))
+
     # Create bar chart
     fig = px.bar(
         df,
@@ -358,25 +362,33 @@ def create_bar_chart(df, x, y,title=None,horizontal=False):
         color_discrete_map=COLOR_MAPPING if color_col else None,
         text=y
     )
-    font_size = max(10, 20 - int(num_bars/5))
+
+    # Text positions (inside if large enough, otherwise outside)
     fig.update_traces(
-        textposition=['inside' if val > 5 else 'outside' for val in df_cat[x]],
+        textposition=['inside' if val > 5 else 'outside' for val in df[y]],
         insidetextanchor='end',
-        textfont=dict(size=12, color='white', family="Arial Black")
+        textfont=dict(size=font_size, color='white', family="Arial Black")
     )
-    # Bold axis line
+
+    # Bold axis lines
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')           
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-       
+
+    # Grid and axis
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
-    fig.update_layout(title=dict(text=title,x=0.5,xanchor='center'),height=height,margin=dict(l=10, r=10, t=40, b=10))
 
-    
+    # Layout
+    fig.update_layout(
+        height=height,
+        margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
+        title=dict(text=title, x=0.5, xanchor='center')
+    )
+
     return fig
+
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 import plotly.graph_objects as go
