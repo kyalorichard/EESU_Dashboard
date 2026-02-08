@@ -23,6 +23,12 @@ st.markdown("""
 </h1>
 <hr style='margin:5px 0'>
 """, unsafe_allow_html=True)
+st.markdown("""
+<div style="font-size:16px; color:#333333; margin-bottom:20px;">
+This dashboard is an interactive tool designed to explore and analyse information produced by the EU SEE project. 
+It brings together data reported by Network Members across 86 countries to document trends in the enabling environment for civil society.
+</div>
+""", unsafe_allow_html=True)
 
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
