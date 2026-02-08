@@ -54,6 +54,9 @@ pytest>=8.2.0
 paramiko>=3.1.0
 logging
 
+firebase-admin
+pyrebase4
+
 #bcrypt
 #sqlite3
 
