@@ -1063,7 +1063,7 @@ with tab1:
         enabling_principles_text = ("Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.")
         st.markdown(f"**Alert distribution across enabling principles** {info_tooltip(enabling_principles_text)}",
         unsafe_allow_html=True)
-        
+        fig4 = create_h_stacked_bar(        
             a4,
             y="alert-country",
             x="count",
