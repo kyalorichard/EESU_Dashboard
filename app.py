@@ -613,7 +613,7 @@ def create_heatmap(pivot_df, title="Heatmap"):
     pivot_df.columns = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.columns]
 
     # Define traffic-light colorscale
-    color_continuous_scale=[
+    color_scale=[
         [0, "lightyellow"],
         [0.5, "gold"],
         [1, "orange"]
