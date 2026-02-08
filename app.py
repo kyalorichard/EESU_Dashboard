@@ -301,7 +301,16 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
    # --- Alerts Breakdown (conditional) ---
     if show_breakdown:
         with col3:
-            st.markdown(f"""
+            card_style = f"""
+    border: 3px solid #008CAA;  /* thick blue border */
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    color: #008CAA;  /* text color same as border */
+    background: none;  /* no fill */
+    margin: 2px;
+"""
+
 st.markdown(f"""
 <div style="{card_style}">
 <h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
@@ -309,10 +318,12 @@ st.markdown(f"""
     <span>Negative \u25CF {negative}</span>
     <span>Positive \u25CF {positive}</span>
 </div>
-    <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+
+<div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
+    <div style="width:{neg_pct}%; border:2px solid #008CAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
         {neg_pct if neg_pct>5 else ''}%
     </div>
-    <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+    <div style="width:{pos_pct}%; border:2px solid #008CAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
         {pos_pct if pos_pct>5 else ''}%
     </div>
 </div>
