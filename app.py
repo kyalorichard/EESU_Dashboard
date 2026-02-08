@@ -403,14 +403,13 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     categories = sorted(df[color_col].unique())
     fig = go.Figure()
     
+    # Track cumulative sums for stacked bars
+    cumulative = {label: 0 for label in df[y].unique()}
+    
     for cat in categories:
         df_cat = df[df[color_col] == cat]
         numeric_values = df_cat[x]
         
-        # Determine text position (inside for large bars, outside for small)
-        text_positions = ['inside' if val > 5 else 'outside' for val in numeric_values]
-        
-        # Set x and y depending on orientation
         if horizontal:
             bar_x = numeric_values
             bar_y = df_cat[y]
@@ -424,19 +423,31 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
             name=cat,
             orientation='h' if horizontal else 'v',
             marker_color=COLOR_MAPPING.get(cat.lower(), "#888888"),
-            text=numeric_values,
-            textposition=text_positions,
-            insidetextanchor='middle',
-            textfont=dict(
-                color='black' if cat.lower() == "negative" else 'white',
-                size=text_size,
-                family="Arial Black"
-            ),
-            cliponaxis=False,  # ensures text outside is always visible
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
+        
+        # Add annotations for each bar
+        for i, label in enumerate(df_cat[y]):
+            value = numeric_values.iloc[i]
+            if horizontal:
+                x_pos = cumulative[label] + value / 2 if value > 5 else cumulative[label] + value + 2
+                y_pos = label
+            else:
+                x_pos = label
+                y_pos = cumulative[label] + value / 2 if value > 5 else cumulative[label] + value + 0.5
+            
+            fig.add_annotation(
+                x=x_pos if horizontal else x_pos,
+                y=y_pos if horizontal else y_pos,
+                text=str(int(value)),
+                showarrow=False,
+                font=dict(color='black' if cat.lower() == 'negative' else 'white', size=text_size, family='Arial Black'),
+                xanchor='center',
+                yanchor='middle'
+            )
+            cumulative[label] += value  # update cumulative for stacking
     
-    # Layout updates
+    # Layout
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
@@ -452,6 +463,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     )
     
     return fig
+
 
 
 
