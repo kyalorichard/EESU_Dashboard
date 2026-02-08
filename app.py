@@ -291,7 +291,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
     # --- Total Alerts ---
     with col2:
-    st.markdown(f"""
+        st.markdown(f"""
 <div style="{card_style}">
 <h1 style="margin:0;font-size:30px;font-weight:bold;">
     Total Alerts 
@@ -303,6 +303,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 <h2 style="margin:0 0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
+
    # --- Alerts Breakdown (conditional) ---
     if show_breakdown:
         with col3:
