@@ -342,7 +342,7 @@ def wrap_label_by_words(label, words_per_line=3):
 
             
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=color_col):
+def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
    
     df = df.copy()
     num_bars = df.shape[0]
