@@ -1020,7 +1020,7 @@ with tab1:
             horizontal=True
         )
         show_chart(fig2, key="tab1_chart2")
-    with r2c21:
+    with r2c1:
         fig2 = create_h_stacked_bar(
             a3,
             y="region",
@@ -1031,7 +1031,7 @@ with tab1:
         )
         show_chart(fig2, key="tab1_chart3")
 
-    with r2c22:
+    with r2c2:
         fig2 = create_h_stacked_bar(
             a4,
             y="country",
