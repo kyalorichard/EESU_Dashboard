@@ -8,6 +8,7 @@ import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 import json
+import os
 
 # ===============================
 # Firebase Admin Init
@@ -16,21 +17,20 @@ if "firebase_admin" in st.secrets and not firebase_admin._apps:
     try:
         cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
         firebase_admin.initialize_app(cred)
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(f"Firebase Admin initialization failed: {e}")
 
 # ===============================
-# Pyrebase Init (Firebase Email Login)
+# Pyrebase Init (Email login)
 # ===============================
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
-    firebase_cfg.setdefault("databaseURL", "https://dummy.firebaseio.com/")
     try:
         firebase = pyrebase.initialize_app(firebase_cfg)
         firebase_auth = firebase.auth()
-    except Exception:
-        firebase_auth = None
+    except Exception as e:
+        st.error(f"Firebase initialization failed: {e}")
 
 # ===============================
 # Config
@@ -56,7 +56,7 @@ def is_privileged() -> bool:
 # ===============================
 # Google OAuth
 # ===============================
-def get_google_auth_url() -> str:
+def get_google_auth_url():
     params = {
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
@@ -67,12 +67,14 @@ def get_google_auth_url() -> str:
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
-    params = st.query_params
-    if "code" not in params:
+    if "code" not in st.experimental_get_query_params():
         return
 
-    code = params["code"]
+    params = st.experimental_get_query_params()
+    code = params["code"][0]
+
     try:
+        # Exchange code for tokens
         token_resp = requests.post(
             "https://oauth2.googleapis.com/token",
             data={
@@ -86,41 +88,38 @@ def handle_google_redirect():
         )
         token_resp.raise_for_status()
         tokens = token_resp.json()
+        # Verify id_token
         idinfo = id_token.verify_oauth2_token(
             tokens["id_token"], grequests.Request(), GOOGLE_CLIENT_ID
         )
-        email = idinfo.get("email")
-        name = idinfo.get("name")
-        picture = idinfo.get("picture")
-    except Exception:
-        st.error("Google login failed or token invalid")
-        st.query_params.clear()
-        return
 
-    if not email:
-        st.error("Google login failed: no email returned")
-        st.query_params.clear()
+        email = idinfo.get("email")
+        name = idinfo.get("name") or email.split("@")[0].title()
+        picture = idinfo.get("picture")
+    except Exception as e:
+        st.error("Google login failed or token invalid. Check your client ID / redirect URI.")
+        st.experimental_set_query_params()
         return
 
     # Domain check
     domain = get_email_domain(email)
     if domain not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
-        st.query_params.clear()
+        st.experimental_set_query_params()
         return
 
     # Save session
     st.session_state.user = "google"
     st.session_state.email = email
-    st.session_state.name = name or email.split("@")[0].title()
+    st.session_state.name = name
     st.session_state.photo = picture
     st.session_state.user_role = "privileged"
 
-    st.query_params.clear()
-    st.rerun()
+    st.experimental_set_query_params()
+    st.experimental_rerun()
 
 # ===============================
-# CSS for floating avatar/login box
+# CSS for floating avatar/login
 # ===============================
 def inject_auth_css():
     st.markdown("""
@@ -185,7 +184,7 @@ def inject_auth_css():
     """, unsafe_allow_html=True)
 
 # ===============================
-# Top-left floating auth UI
+# Floating avatar login UI
 # ===============================
 def top_right_auth():
     handle_google_redirect()
@@ -232,7 +231,7 @@ def top_right_auth():
                                 st.session_state.email = email_input
                                 st.session_state.user_role = "privileged"
                                 st.session_state.auth_open = False
-                                st.rerun()
+                                st.experimental_rerun()
                         except Exception as e:
                             try:
                                 err = json.loads(e.args[1])
@@ -251,7 +250,7 @@ def top_right_auth():
             st.divider()
             if st.button("Logout", use_container_width=True):
                 st.session_state.clear()
-                st.rerun()
+                st.experimental_rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
