@@ -14,15 +14,6 @@ from auth import inject_auth_css, top_right_auth, handle_google_redirect, is_pri
 handle_google_redirect()
 top_right_auth()
 
-st.title("Welcome to My App")
-
-if is_privileged():
-    st.success("You have privileged access! 🎉")
-    st.write("Here is some sensitive content for privileged users.")
-else:
-    st.info("You are viewing public content. Log in for more access.")
-
-
 BASE_DIR = Path(__file__).resolve().parent
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
