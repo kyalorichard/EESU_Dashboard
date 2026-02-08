@@ -103,6 +103,7 @@ def handle_google_redirect():
         st.experimental_set_query_params()
         return
 
+    # Domain restriction
     if get_email_domain(email) not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
         st.experimental_set_query_params()
@@ -213,16 +214,12 @@ def top_right_auth():
     # Avatar
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
-    if photo:
-        st.markdown(f'<img src="{photo}" class="avatar-img">', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="avatar-button">{avatar_initials(email)}</div>', unsafe_allow_html=True)
+    avatar_html = (
+        f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
+    )
 
-    # Checkbox toggle for popup
-    if st.checkbox("", key="avatar_toggle", value=st.session_state.auth_open):
-        st.session_state.auth_open = True
-    else:
-        st.session_state.auth_open = False
+    if st.button("", key="avatar_toggle"):
+        st.session_state.auth_open = not st.session_state.auth_open
 
     # Floating login box
     if st.session_state.auth_open:
@@ -230,20 +227,19 @@ def top_right_auth():
 
         if "user" not in st.session_state:
             st.markdown("<h3>Sign in</h3>", unsafe_allow_html=True)
-
             # Google login
             st.markdown(f'<a href="{get_google_auth_url()}"><button>🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
 
             # Email login
             if firebase_auth:
                 st.divider()
-                with st.form("email_login"):
+                with st.form("email_login_form"):
                     email_input = st.text_input("Email")
-                    password = st.text_input("Password", type="password")
+                    password_input = st.text_input("Password", type="password")
                     submit = st.form_submit_button("Sign in with Email")
                     if submit:
                         try:
-                            user = firebase_auth.sign_in_with_email_and_password(email_input, password)
+                            user = firebase_auth.sign_in_with_email_and_password(email_input, password_input)
                             domain = get_email_domain(email_input)
                             if domain not in PRIVILEGED_DOMAINS:
                                 st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
@@ -277,3 +273,7 @@ def top_right_auth():
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # Show small welcome message on dashboard even if popup closed
+    if "user" in st.session_state:
+        st.markdown(f"👋 Welcome, **{st.session_state.get('name', 'User')}**!", unsafe_allow_html=True)
