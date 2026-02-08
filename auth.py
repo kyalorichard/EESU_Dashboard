@@ -20,7 +20,7 @@ if "firebase_admin" in st.secrets and not firebase_admin._apps:
         st.error(f"Firebase Admin initialization failed: {e}")
 
 # ----------------------------
-# Pyrebase Init
+# Pyrebase Init (Email login)
 # ----------------------------
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
@@ -66,6 +66,7 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
+    # safe retrieval of query params
     try:
         params = st.experimental_get_query_params()
     except Exception:
@@ -77,6 +78,7 @@ def handle_google_redirect():
     code = params["code"][0]
 
     try:
+        # Exchange code for tokens
         token_resp = requests.post(
             "https://oauth2.googleapis.com/token",
             data={
@@ -91,6 +93,7 @@ def handle_google_redirect():
         token_resp.raise_for_status()
         tokens = token_resp.json()
 
+        # Verify ID token
         idinfo = id_token.verify_oauth2_token(
             tokens["id_token"], grequests.Request(), GOOGLE_CLIENT_ID
         )
@@ -100,7 +103,7 @@ def handle_google_redirect():
         picture = idinfo.get("picture")
 
     except Exception:
-        st.error("Google login failed or token invalid.")
+        st.error("Google login failed or token invalid. Check your client ID / redirect URI.")
         st.experimental_set_query_params()
         return
 
@@ -116,13 +119,13 @@ def handle_google_redirect():
     st.session_state.name = name
     st.session_state.photo = picture
     st.session_state.user_role = "privileged"
-    st.session_state.auth_open = False
 
+    # Clear query params
     st.experimental_set_query_params()
     st.experimental_rerun()
 
 # ----------------------------
-# CSS
+# CSS for floating avatar/login
 # ----------------------------
 def inject_auth_css():
     st.markdown("""
@@ -133,22 +136,23 @@ def inject_auth_css():
         left: 1rem;
         z-index: 9999;
     }
-    .avatar {
-        width: 45px;
-        height: 45px;
+    .avatar-button {
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         background: #1a73e8;
         color: white;
         font-weight: 600;
-        font-size: 16px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
+        font-size: 16px;
+        user-select: none;
     }
     .avatar-img {
-        width: 45px;
-        height: 45px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         object-fit: cover;
         cursor: pointer;
@@ -156,7 +160,7 @@ def inject_auth_css():
     .floating-auth-box {
         position: fixed;
         top: 60px;
-        left: 10px;
+        left: 0;
         background: white;
         border-radius: 10px;
         padding: 1rem;
@@ -170,9 +174,8 @@ def inject_auth_css():
         to { opacity: 1; transform: translateY(0); }
     }
     .floating-auth-box button {
-        width: 100%;
         padding: 0.5rem 0;
-        margin-top: 0.5rem;
+        margin-top: 0.4rem;
         border-radius: 6px;
         border: none;
         background-color: #1a73e8;
@@ -197,44 +200,26 @@ def top_right_auth():
 
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
-    email = st.session_state.get("email", "?")
+    # Avatar
     photo = st.session_state.get("photo")
-    name = st.session_state.get("name", "User")
+    email = st.session_state.get("email", "?")
+    avatar_html = (
+        f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
+    )
 
-    # Avatar HTML
-    if photo:
-        avatar_html = f'<img src="{photo}" class="avatar-img" onclick="toggleAuth()">'
-    else:
-        avatar_html = f'<div class="avatar" onclick="toggleAuth()">{avatar_initials(email)}</div>'
-
-    # JS for click toggle
-    st.markdown(f"""
-        {avatar_html}
-        <script>
-        function toggleAuth() {{
-            const checkbox = document.getElementById('auth_state');
-            checkbox.click();
-        }}
-        </script>
-        <input type="checkbox" id="auth_state" style="display:none" onchange="window.parent.postMessage({{type:'toggle-auth'}}, '*')">
-    """, unsafe_allow_html=True)
-
-    # Toggle session_state
-    if "avatar_clicked" not in st.session_state:
-        st.session_state.avatar_clicked = False
-
-    if st.session_state.get("auth_open") is None:
-        st.session_state.auth_open = False
+    if st.button(avatar_html, key="avatar"):
+        st.session_state.auth_open = not st.session_state.auth_open
 
     # Floating login box
-    if st.session_state.auth_open or "user" in st.session_state:
+    if st.session_state.auth_open:
         st.markdown('<div class="floating-auth-box">', unsafe_allow_html=True)
 
+        # Not logged in
         if "user" not in st.session_state:
             # Google login
-            st.markdown(f'<a href="{get_google_auth_url()}"><button>🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="{get_google_auth_url()}"><button style="width:100%">🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
 
-            # Email login
+            # Firebase email login
             if firebase_auth:
                 st.divider()
                 with st.form("email_login"):
@@ -250,25 +235,29 @@ def top_right_auth():
                             else:
                                 st.session_state.user = user
                                 st.session_state.email = email_input
-                                st.session_state.name = email_input.split("@")[0].title()
                                 st.session_state.user_role = "privileged"
                                 st.session_state.auth_open = False
-                                st.success(f"✅ Welcome, {st.session_state.name}!")
                                 st.experimental_rerun()
                         except Exception as e:
-                            st.error("Firebase login failed")
+                            try:
+                                err = json.loads(e.args[1])
+                                st.error(err['error']['message'])
+                            except Exception:
+                                st.error("Firebase login failed")
 
+        # Logged in
         else:
-            # Logged in
-            st.markdown(f"**👋 Welcome, {name}!**")
+            name = st.session_state.get("name", "User")
+            role = st.session_state.get("user_role", "public")
+            st.markdown(f"**{name}**")
             st.caption(email)
-            st.caption(st.session_state.get("user_role", "public").capitalize())
+            st.caption(role.capitalize())
 
             st.divider()
-            if st.button("Logout"):
+            if st.button("Logout", use_container_width=True):
                 st.session_state.clear()
                 st.experimental_rerun()
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
