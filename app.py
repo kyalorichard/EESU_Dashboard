@@ -416,6 +416,10 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
         df_other = df[df[x] == "Other"]
         df_main = df[df[x] != "Other"]
         df = pd.concat([df_main, df_other], ignore_index=True)
+        
+    # For horizontal charts, reverse order so "Other" is at bottom
+        if horizontal:
+            df = df[::-1].reset_index(drop=True)
     # Create bar chart
     fig = px.bar(
         df,
