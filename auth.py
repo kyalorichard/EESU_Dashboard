@@ -7,19 +7,40 @@ import urllib.parse
 import requests
 
 # ----------------------------
-# Firebase Setup
+# Safe Firebase Admin Init
 # ----------------------------
-if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
-    firebase_admin.initialize_app(cred)
+if "firebase_admin" in st.secrets:
+    if not firebase_admin._apps:
+        try:
+            cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            st.error(f"Firebase Admin initialization failed: {e}")
+else:
+    st.warning("⚠️ 'firebase_admin' secrets not found. Admin features disabled.")
 
-firebase = pyrebase.initialize_app(dict(st.secrets["firebase"]))
-firebase_auth = firebase.auth()
+# ----------------------------
+# Safe Pyrebase Init
+# ----------------------------
+firebase_config = dict(st.secrets.get("firebase", {}))
+if "databaseURL" not in firebase_config:
+    # Pyrebase requires databaseURL, use dummy if missing
+    firebase_config["databaseURL"] = "https://dummy.firebaseio.com/"
 
-PRIVILEGED_DOMAINS = set(st.secrets["access"]["privileged_domains"])
-GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
-GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
-REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
+try:
+    firebase = pyrebase.initialize_app(firebase_config)
+    firebase_auth = firebase.auth()
+except Exception as e:
+    st.error(f"Pyrebase initialization failed: {e}")
+    firebase_auth = None
+
+# ----------------------------
+# Config
+# ----------------------------
+PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
+GOOGLE_CLIENT_ID = st.secrets.get("oauth", {}).get("client_id", "")
+GOOGLE_CLIENT_SECRET = st.secrets.get("oauth", {}).get("client_secret", "")
+REDIRECT_URI = st.secrets.get("oauth", {}).get("redirect_uri", "")
 
 # ----------------------------
 # Helpers
@@ -39,6 +60,8 @@ def is_privileged() -> bool:
 # Google OAuth
 # ----------------------------
 def get_google_auth_url():
+    if not GOOGLE_CLIENT_ID or not REDIRECT_URI:
+        return "#"
     params = {
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
@@ -63,15 +86,19 @@ def exchange_code_for_token(code: str):
     return resp.json()  # contains id_token
 
 def handle_google_redirect():
-    params = st.experimental_get_query_params()
+    try:
+        params = st.experimental_get_query_params()
+    except Exception:
+        params = {}
+
     if "code" in params:
         code = params["code"][0]
-        token_data = exchange_code_for_token(code)
-        id_token = token_data["id_token"]
         try:
+            token_data = exchange_code_for_token(code)
+            id_token = token_data["id_token"]
             decoded = auth.verify_id_token(id_token)
         except Exception:
-            st.error("Login failed. Invalid or expired token.")
+            st.error("Google login failed. Invalid or expired token.")
             st.session_state.clear()
             st.experimental_set_query_params()
             st.rerun()
@@ -138,7 +165,7 @@ def top_right_auth():
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
     # Public user
-    if "user" not in st.session_state:
+    if "user" not in st.session_state or firebase_auth is None:
         google_url = get_google_auth_url()
         st.markdown(
             f"""
@@ -154,21 +181,22 @@ def top_right_auth():
         )
 
         # Email/password login
-        with st.form("email_login"):
-            email = st.text_input("Email", label_visibility="collapsed")
-            password = st.text_input("Password", type="password", label_visibility="collapsed")
-            if st.form_submit_button("Sign in"):
-                try:
-                    user = firebase_auth.sign_in_with_email_and_password(email, password)
-                    st.session_state.user = user
-                    st.session_state.email = email
-                    st.session_state.photo = None
-                    st.session_state.user_role = (
-                        "privileged" if get_email_domain(email) in PRIVILEGED_DOMAINS else "public"
-                    )
-                    st.experimental_rerun()
-                except Exception:
-                    st.error("Invalid email or password.")
+        if firebase_auth is not None:
+            with st.form("email_login"):
+                email = st.text_input("Email", label_visibility="collapsed")
+                password = st.text_input("Password", type="password", label_visibility="collapsed")
+                if st.form_submit_button("Sign in"):
+                    try:
+                        user = firebase_auth.sign_in_with_email_and_password(email, password)
+                        st.session_state.user = user
+                        st.session_state.email = email
+                        st.session_state.photo = None
+                        st.session_state.user_role = (
+                            "privileged" if get_email_domain(email) in PRIVILEGED_DOMAINS else "public"
+                        )
+                        st.experimental_rerun()
+                    except Exception:
+                        st.error("Invalid email or password.")
 
         st.markdown("</div></details>", unsafe_allow_html=True)
 
