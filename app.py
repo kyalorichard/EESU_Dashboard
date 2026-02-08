@@ -81,6 +81,9 @@ def load_data():
         .replace("VNSAs", "Violent Non-State Actors")
     )
 
+    # Ensure the replacement happens after stripping spaces
+    df['Actor of repression'] = df['Actor of repression'].str.replace("VNSAs", "Violent Non-State Actors")
+
     meta_file = Path.cwd() / "data" / "countries_metadata.json"
     country_meta = {}
     if meta_file.exists():
@@ -1136,8 +1139,10 @@ with tab2:
          # Initialize Top-N selection in session state
         if "neg_top_n" not in st.session_state:
             st.session_state["neg_top_n"] = 5  # default Top 5
-
             
+        # ---------------- SPELL OUT "VNSAs" ----------------
+        reactive_df['Actor of repression'] = reactive_df['Actor of repression'].replace("VNSAs", "Violent Non-State Actors")
+           
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
         
