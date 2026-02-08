@@ -379,42 +379,64 @@ def create_bar_chart(df, x, y,title=None,horizontal=False):
     return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
-    categories = df[x].unique()
-    color_types = df[color_col].unique()
+import plotly.graph_objects as go
+import pandas as pd
+
+# Define a consistent color mapping for your dashboard
+COLOR_MAPPING = {
+    "positive": "purple",
+    "negative": "yellow"
+}
+
+def create_h_stacked_bar(
+    df,
+    y,              # category column (e.g., alert-type)
+    x,              # value column (e.g., count)
+    color_col,      # column defining the stack colors (e.g., alert-impact)
+    title="",
+    horizontal=True,
+    text_size=12
+):
     fig = go.Figure()
-    for i, cat in enumerate(categories):
-        df_cat = df[df[color_col]==cat].copy()
-        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
-        
-        # Add each color category as a separate bar
+
+    # Ensure numeric values for x or y, depending on orientation
+    df = df.copy()
+    df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
+
+    # Unique categories in color column
+    color_types = df[color_col].unique()
+
     for c in color_types:
         df_c = df[df[color_col] == c]
-        # Determine text position for each segment
-        text_positions = ["inside" if val > 5 else "outside" for val in df_c[y]]
-        
+
+        # Values for comparison
+        values = df_c[x] if not horizontal else df_c[x]
+        text_positions = ["inside" if val > 5 else "outside" for val in values]
+
         fig.add_trace(go.Bar(
-            x=df_c[x],
-            y=df_c[y],
+            x=values if not horizontal else df_c[y],
+            y=df_c[y] if not horizontal else values,
             name=c,
-            text=df_c[y],
+            text=values,
             textposition=text_positions,
-            textfont=dict(size=12, color='black', family="Arial Black"),
-            marker_color=COLOR_MAPPING.get(c, "#888888")
+            textfont=dict(size=text_size, color='black', family="Arial Black"),
+            marker_color=COLOR_MAPPING.get(c.lower(), "#888888"),
+            orientation='h' if horizontal else 'v'
         ))
-    num_bars = df.shape[0]
-    height = 350
-    # Bold axis line
-    if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
-    else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-              
-    fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
-    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
+
+    fig.update_layout(
+        barmode='stack',
+        title=title,
+        xaxis_title=x if not horizontal else y,
+        yaxis_title=y if not horizontal else x,
+        legend_title=color_col,
+        template="plotly_white",
+        uniformtext_minsize=text_size,
+        uniformtext_mode='hide'
+    )
+
     return fig
+
 
 
 # ---------------- HELPER FUNCTIONS ----------------
