@@ -304,10 +304,10 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 </div>
 
 <div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
-    <div style="width:{neg_pct}%; background:#FF4C4C; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+    <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
         {neg_pct if neg_pct>5 else ''}%
     </div>
-    <div style="width:{pos_pct}%; background:#00FFAA; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
+    <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
         {pos_pct if pos_pct>5 else ''}%
     </div>
 </div>
