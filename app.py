@@ -7,25 +7,21 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-#import plotly.graph_objects as go
 
-from auth import (
-    inject_auth_css,
-    top_right_auth,
-    handle_google_redirect,
-    is_privileged
-)
+from auth import inject_auth_css, top_right_auth, handle_google_redirect, is_privileged
 
+# Handle redirect and show auth UI
 handle_google_redirect()
-inject_auth_css()
 top_right_auth()
 
-st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+st.title("Welcome to My App")
 
 if is_privileged():
-    st.success("Privileged content visible")
+    st.success("You have privileged access! 🎉")
+    st.write("Here is some sensitive content for privileged users.")
 else:
-    st.info("Public view")
+    st.info("You are viewing public content. Log in for more access.")
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
