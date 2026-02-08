@@ -120,7 +120,7 @@ def handle_google_redirect():
     st.experimental_rerun()
 
 # ----------------------------
-# CSS for floating avatar + Gmail-like popup
+# CSS for floating avatar + popup
 # ----------------------------
 def inject_auth_css():
     st.markdown("""
@@ -201,7 +201,7 @@ def inject_auth_css():
     """, unsafe_allow_html=True)
 
 # ----------------------------
-# Floating Avatar Login UI
+# Floating avatar + login popup
 # ----------------------------
 def top_right_auth():
     handle_google_redirect()
@@ -211,15 +211,26 @@ def top_right_auth():
 
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
-    # Avatar
+    # Render avatar using markdown (clickable)
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
     avatar_html = (
         f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
     )
 
-    if st.button("", key="avatar_toggle"):
+    # Use markdown with a clickable toggle
+    toggle_js = """
+    <script>
+    const el = window.parent.document.querySelector('.auth-container');
+    el.addEventListener('click', function() {
+        window.parent.streamlitDebugMessage && window.parent.streamlitDebugMessage("toggle_auth");
+    });
+    </script>
+    """
+    if st.button("Toggle Login Popup (temporary)"):
         st.session_state.auth_open = not st.session_state.auth_open
+
+    st.markdown(avatar_html, unsafe_allow_html=True)
 
     # Floating login box
     if st.session_state.auth_open:
@@ -274,6 +285,6 @@ def top_right_auth():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Show small welcome message on dashboard even if popup closed
+    # Small welcome message above dashboard
     if "user" in st.session_state:
         st.markdown(f"👋 Welcome, **{st.session_state.get('name', 'User')}**!", unsafe_allow_html=True)
