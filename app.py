@@ -392,57 +392,82 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=False, height=350, text_size=12,title=None):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
+                         horizontal=False, height=350, text_size=12, title=None):
+    import plotly.graph_objects as go
+    
+    # Copy df to avoid modifying original
+    df = df.copy()
+    
+    # Wrap labels for readability
+    df[y] = df[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+    
+    # Ensure numeric values
+    df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
+    
+    # Get categories for stacking
     categories = sorted(df[color_col].unique())
+    
     fig = go.Figure()
-
-    for i, cat in enumerate(categories):
+    
+    for cat in categories:
         df_cat = df[df[color_col] == cat]
-        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+        numeric_values = df_cat[x]
         
-        # Ensure numeric values for comparison
-        df_cat[x] = pd.to_numeric(df_cat[x], errors='coerce').fillna(0)
-        #values = df_cat[x]
-        numeric_values = df_cat[x]  # bar lengths
-
-
-        text_positions = ["inside" if val > 5 else "outside" for val in numeric_values]
-
-        # Correct x and y depending on orientation
+        # Determine text position and dynamic font size
+        text_positions = []
+        text_sizes = []
+        for val in numeric_values:
+            if val < 5:
+                text_positions.append('outside')  # outside for small bars
+                text_sizes.append(max(10, text_size - 2))  # slightly smaller
+            else:
+                text_positions.append('inside')
+                # Scale font down if there are many bars
+                text_sizes.append(text_size)
+        
+        # Set correct x and y based on orientation
         if horizontal:
             bar_x = numeric_values
             bar_y = df_cat[y]
         else:
             bar_x = df_cat[y]
             bar_y = numeric_values
-
+        
         fig.add_trace(go.Bar(
-            x=df_cat[y] if not horizontal else values,
-            y=values if not horizontal else df_cat[y],
+            x=bar_x,
+            y=bar_y,
             name=cat,
             orientation='h' if horizontal else 'v',
             marker_color=COLOR_MAPPING.get(cat.lower(), "#888888"),
-            text=values,
+            text=numeric_values,
             textposition=text_positions,
-            insidetextanchor='end',
-            textfont=dict(color='black' if cat.lower() == "negative" else 'white', size=text_size, family="Arial Black"),
+            insidetextanchor='middle',
+            textfont=dict(
+                color='black' if cat.lower() == "negative" else 'white',
+                size=text_size,
+                family="Arial Black"
+            ),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
-
-        num_bars = df.shape[0]
-        height = 350
-        # Bold axis line
-        if horizontal:
-            fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
-        else:
-            fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-                  
-        fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
-        fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
-         
+    
+    # Layout updates (done once after all traces)
+    if horizontal:
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    else:
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    
+    fig.update_layout(
+        barmode='stack',
+        height=height,
+        margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
+        title=dict(text=title, x=0.5, xanchor='center') if title else None
+    )
+    
     return fig
+
 
 
 
