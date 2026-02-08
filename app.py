@@ -9,7 +9,23 @@ import streamlit.components.v1 as components
 import base64
 #import plotly.graph_objects as go
 
+from auth import (
+    inject_auth_css,
+    top_right_auth,
+    handle_google_redirect,
+    is_privileged
+)
+ MUST be first
+handle_google_redirect()
+inject_auth_css()
+top_right_auth()
+
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+
+if is_privileged():
+    st.success("Privileged content visible")
+else:
+    st.info("Public view")
 
 BASE_DIR = Path(__file__).resolve().parent
 
