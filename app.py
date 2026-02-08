@@ -541,22 +541,26 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
         barmode='stack',
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center') if title else None
+        # Combine title with tooltip icon using HTML
+    if title:
+        if title_tooltip:
+            fig.update_layout(
+                title=dict(
+                    text=f"{title} <span title='{title_tooltip}'>❓</span>",
+                    x=0.5,
+                    xanchor='center'
+                )
+            )
+        else:
+            fig.update_layout(
+                title=dict(text=title, x=0.5, xanchor='center')
+            )
+    
+    fig.update_layout(
+        barmode='stack',
+        height=height,
+        margin=dict(l=120 if horizontal else 20, r=20, t=60, b=20)
     )
-
-    # Add tooltip annotation if provided
-    if title_tooltip:
-        fig.add_annotation(
-            x=0.5,
-            y=1.05,
-            xref='paper',
-            yref='paper',
-            text='❓',
-            showarrow=False,
-            font=dict(size=16),
-            hovertext=title_tooltip,
-            hoverlabel=dict(bgcolor='lightyellow', font_size=12, font_family='Arial')
-        )
         
     return fig
 
