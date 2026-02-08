@@ -7,7 +7,6 @@ import urllib.parse
 import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
-import json
 
 # ----------------------------
 # Firebase Admin Init
@@ -20,7 +19,7 @@ if "firebase_admin" in st.secrets and not firebase_admin._apps:
         st.error(f"Firebase Admin initialization failed: {e}")
 
 # ----------------------------
-# Pyrebase Init (Email/Password login)
+# Pyrebase Init
 # ----------------------------
 firebase_auth = None
 firebase_cfg = st.secrets.get("firebase", {})
@@ -66,7 +65,11 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
-    params = st.experimental_get_query_params()
+    try:
+        params = st.experimental_get_query_params()
+    except Exception:
+        return  # Safe fallback if Streamlit not ready
+
     if "code" not in params:
         return
 
@@ -95,23 +98,30 @@ def handle_google_redirect():
         picture = idinfo.get("picture")
     except Exception as e:
         st.error(f"Google login failed: {e}")
-        st.experimental_set_query_params()
+        try:
+            st.experimental_set_query_params()
+        except:
+            pass
         return
 
-    # Domain restriction
     if PRIVILEGED_DOMAINS and get_email_domain(email) not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} allowed.")
-        st.experimental_set_query_params()
+        try:
+            st.experimental_set_query_params()
+        except:
+            pass
         return
 
-    # Save session
     st.session_state.user = "google"
     st.session_state.email = email
     st.session_state.name = name
     st.session_state.photo = picture
     st.session_state.user_role = "privileged"
 
-    st.experimental_set_query_params()
+    try:
+        st.experimental_set_query_params()
+    except:
+        pass
     st.experimental_rerun()
 
 # ----------------------------
@@ -133,8 +143,7 @@ def handle_email_login(email, password):
 # ----------------------------
 def logout():
     for key in ["user", "email", "name", "photo", "user_role"]:
-        if key in st.session_state:
-            del st.session_state[key]
+        st.session_state.pop(key, None)
     st.session_state.auth_open = False
     st.experimental_rerun()
 
@@ -154,6 +163,7 @@ def inject_auth_css():
 # ----------------------------
 def top_left_auth():
     handle_google_redirect()
+
     if "auth_open" not in st.session_state:
         st.session_state.auth_open = False
 
@@ -170,13 +180,13 @@ def top_left_auth():
     import streamlit.components.v1 as components
 
     if st.session_state.get("auth_open", False):
-        # Email login via Streamlit inputs
+        # Streamlit email login inputs
         email_input = st.text_input("Email", key="email_input")
         password_input = st.text_input("Password", type="password", key="password_input")
         if st.button("Sign in with Email"):
             handle_email_login(email_input, password_input)
 
-        # Modal with Google login / Logout
+        # Modal for Google login / logout
         modal_html = f"""
         <div style="
             position: fixed; top:0; left:0; width:100vw; height:100vh;
