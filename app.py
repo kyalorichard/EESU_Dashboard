@@ -265,15 +265,15 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     col1, col2, col3 = st.columns(3)
 
     card_style = f"""
-        background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
-        color: white;
+    background: none;  /* no fill */
+        color: #008CAA;    /* text color */
+        border: 3px solid #008CAA;  /* thick blue border */
         border-radius: 12px;
         padding: 10px;
         text-align: center;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        box-shadow: none;  /* optional: remove shadow for cleaner look */
         margin: 2px;
     """
-
     # --- Monitored Countries ---
     with col1:
         st.markdown(f"""
