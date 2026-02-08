@@ -99,16 +99,16 @@ def handle_google_redirect():
         name = idinfo.get("name") or email.split("@")[0].title()
         picture = idinfo.get("picture")
     except Exception:
-        st.error("Google login failed or token invalid. Check your client ID / redirect URI.")
+        st.error("Google login failed or token invalid.")
         st.experimental_set_query_params()
         return
 
+    # Domain restriction
     if get_email_domain(email) not in PRIVILEGED_DOMAINS:
-        st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
+        st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} allowed.")
         st.experimental_set_query_params()
         return
 
-    # Save session
     st.session_state.user = "google"
     st.session_state.email = email
     st.session_state.name = name
@@ -130,11 +130,7 @@ def inject_auth_css():
 
     /* Modal overlay */
     .modal-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10000; display:flex; justify-content:center; align-items:center; }
-
-    .floating-auth-box {
-        background:white; border-radius:12px; padding:2rem; width:400px; max-width:90%; box-shadow:0 12px 32px rgba(0,0,0,0.4);
-        font-family:"Google Sans", sans-serif; animation:fadeIn 0.25s ease-out;
-    }
+    .floating-auth-box { background:white; border-radius:12px; padding:2rem; width:400px; max-width:90%; box-shadow:0 12px 32px rgba(0,0,0,0.4); font-family:"Google Sans", sans-serif; animation:fadeIn 0.25s ease-out; }
     .floating-auth-box h3 { margin-top:0; margin-bottom:1rem; font-size:20px; color:#202124; }
     .floating-auth-box input { width:100%; padding:0.55rem; margin:0.5rem 0; border-radius:4px; border:1px solid #dadce0; font-size:14px; }
     .floating-auth-box button { padding:0.6rem 0; margin-top:0.6rem; border:none; border-radius:4px; background:#1a73e8; color:white; cursor:pointer; font-weight:600; width:100%; }
@@ -144,29 +140,28 @@ def inject_auth_css():
     """, unsafe_allow_html=True)
 
 # ----------------------------
-# Floating avatar + modal login
+# Top-left avatar + modal login
 # ----------------------------
 def top_right_auth():
     handle_google_redirect()
-
     if "auth_open" not in st.session_state:
         st.session_state.auth_open = False
 
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
-    # Avatar
     photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
     avatar_html = f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
     
-    # Avatar click toggles modal
-    if st.button("Toggle Login Popup"):
+    if st.button("Toggle Login"):
         st.session_state.auth_open = not st.session_state.auth_open
-
     st.markdown(avatar_html, unsafe_allow_html=True)
 
-    # Modal popup with outside-click close
+    # Modal popup
     if st.session_state.get("auth_open", False):
+        import streamlit.components.v1 as components
+
+        # Modal HTML with click-outside-to-close
         modal_html = f"""
         <div class="modal-overlay" id="authModal">
             <div class="floating-auth-box">
@@ -177,42 +172,25 @@ def top_right_auth():
                 <form id="email_login_form">
                     <input type="text" placeholder="Email" id="email_input"/>
                     <input type="password" placeholder="Password" id="password_input"/>
-                    <button type="button" onclick="loginEmail()">Sign in with Email</button>
+                    <button type="button" onclick="alert('Handled in backend')">Sign in with Email</button>
                 </form>
                 '''}
-                {f'<br><button onclick="logoutUser()">Logout</button>' if "user" in st.session_state else ""}
+                {f'<br><button onclick="alert(\'Logout handled in backend\')">Logout</button>' if "user" in st.session_state else ""}
             </div>
         </div>
         <script>
         const modal = document.getElementById('authModal');
-        // Close modal if clicking outside
         modal.addEventListener('click', function(e) {{
             if(e.target === modal) {{
                 window.parent.postMessage({{func:"closeAuthModal"}}, "*");
             }}
         }});
-        // Dummy functions for Streamlit
-        function loginEmail() {{
-            alert("Email login handled in Streamlit backend");
-        }}
-        function logoutUser() {{
-            alert("Logout handled in Streamlit backend");
-        }}
         </script>
         """
-        import streamlit.components.v1 as components
         components.html(modal_html, height=600)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------------------
-# Streamlit message listener to close modal
-# ----------------------------
-def close_auth_modal_listener():
-    import streamlit as st
-    if st.experimental_get_query_params().get("close_modal") == ["true"]:
-        st.session_state.auth_open = False
-
-    # Small welcome note
+    # Welcome note
     if "user" in st.session_state:
         st.markdown(f"👋 Welcome, **{st.session_state.get('name', 'User')}**!", unsafe_allow_html=True)
