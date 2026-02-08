@@ -402,13 +402,17 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
         
         # Ensure numeric values for comparison
         df_cat[x] = pd.to_numeric(df_cat[x], errors='coerce').fillna(0)
-        #values = df_cat[x]
+        values = df_cat[x]
 
-        # Use appropriate values for text positioning
-        values = df_cat[x] if horizontal else df_cat[x]  # bar length vs height
-        # Actually check the bar value along the main axis
-        main_values = df_cat[x] if horizontal else df_cat[y]
         text_positions = ["inside" if val > 5 else "outside" for val in main_values]
+
+        # Correct x and y depending on orientation
+        if horizontal:
+            bar_x = numeric_values
+            bar_y = df_cat[y]
+        else:
+            bar_x = df_cat[y]
+            bar_y = numeric_values
 
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else values,
