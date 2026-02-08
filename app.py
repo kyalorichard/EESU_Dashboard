@@ -998,11 +998,51 @@ with tab1:
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
     r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
-    
-    r1c1.show_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
-    r1c2.show_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r2c1.show_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.show_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
+
+    with r1c1:
+        fig1 = create_h_stacked_bar(
+            a1,
+            y="alert-type",
+            x="count",
+            color_col="alert-impact",
+            title="Alert type distribution",
+            horizontal=True
+        )
+        show_chart(fig1, key="tab1_chart1")
+    with r1c2:
+        fig2 = create_h_stacked_bar(
+            a2,
+            y="enabling-principle",
+            x="count",
+            color_col="alert-impact",
+            title="Alert distribution across enabling principles",
+            horizontal=True
+        )
+        show_chart(fig2, key="tab1_chart2")
+    with r2c21
+        fig2 = create_h_stacked_bar(
+            a3,
+            y="region",
+            x="count",
+            color_col="alert-impact",
+            title="Alert distribution across regions",
+            horizontal=False
+        )
+        show_chart(fig2, key="tab1_chart3")
+
+    with r2c22
+        fig2 = create_h_stacked_bar(
+            a4,
+            y="country",
+            x="count",
+            color_col="alert-country",
+            title="Alert distribution across countries",
+            horizontal=False
+        )
+        show_chart(fig2, key="tab1_chart4")
+
+        
+   
 
     cols_rename_map  = {
         "post_title": "Title of post",
