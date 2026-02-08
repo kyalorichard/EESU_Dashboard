@@ -15,6 +15,13 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 inject_auth_css()
 top_right_auth()
 
+# Conditional content based on role
+if is_privileged():
+    st.success("🔒 You have privileged access and can see additional metrics here.")
+    st.bar_chart(df["Score"] * 1.1)
+else:
+    st.info("ℹ️ You have public access. Login with a privileged domain to see more data.")
+
 BASE_DIR = Path(__file__).resolve().parent
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
