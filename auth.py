@@ -1,3 +1,4 @@
+# auth.py
 import streamlit as st
 import pyrebase
 import firebase_admin
@@ -47,6 +48,9 @@ def get_email_domain(email: str) -> str:
 def avatar_initials(email: str) -> str:
     parts = email.split("@")[0].replace(".", " ").split()
     return "".join(p[0].upper() for p in parts[:2])
+
+def is_privileged() -> bool:
+    return st.session_state.get("user_role") == "privileged"
 
 # ----------------------------
 # Google OAuth
@@ -100,17 +104,20 @@ def handle_google_redirect():
         st.experimental_set_query_params()
         return
 
+    # Domain restriction
     if get_email_domain(email) not in PRIVILEGED_DOMAINS:
         st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
         st.experimental_set_query_params()
         return
 
+    # Save session
     st.session_state.user = "google"
     st.session_state.email = email
     st.session_state.name = name
     st.session_state.photo = picture
     st.session_state.user_role = "privileged"
     st.session_state.auth_open = False
+
     st.experimental_set_query_params()
     st.experimental_rerun()
 
@@ -156,6 +163,11 @@ def inject_auth_css():
         width: 280px;
         box-shadow: 0 6px 20px rgba(0,0,0,0.25);
         z-index: 10000;
+        animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     .floating-auth-box button {
         width: 100%;
@@ -175,10 +187,11 @@ def inject_auth_css():
     """, unsafe_allow_html=True)
 
 # ----------------------------
-# Clickable floating avatar login
+# Floating avatar login UI
 # ----------------------------
 def top_right_auth():
     handle_google_redirect()
+
     if "auth_open" not in st.session_state:
         st.session_state.auth_open = False
 
@@ -188,24 +201,40 @@ def top_right_auth():
     photo = st.session_state.get("photo")
     name = st.session_state.get("name", "User")
 
-    # Streamlit checkbox hack to toggle login box
-    if st.checkbox("", key="avatar_toggle", value=st.session_state.auth_open):
-        st.session_state.auth_open = True
+    # Avatar HTML
+    if photo:
+        avatar_html = f'<img src="{photo}" class="avatar-img" onclick="toggleAuth()">'
     else:
+        avatar_html = f'<div class="avatar" onclick="toggleAuth()">{avatar_initials(email)}</div>'
+
+    # JS for click toggle
+    st.markdown(f"""
+        {avatar_html}
+        <script>
+        function toggleAuth() {{
+            const checkbox = document.getElementById('auth_state');
+            checkbox.click();
+        }}
+        </script>
+        <input type="checkbox" id="auth_state" style="display:none" onchange="window.parent.postMessage({{type:'toggle-auth'}}, '*')">
+    """, unsafe_allow_html=True)
+
+    # Toggle session_state
+    if "avatar_clicked" not in st.session_state:
+        st.session_state.avatar_clicked = False
+
+    if st.session_state.get("auth_open") is None:
         st.session_state.auth_open = False
 
-    # Show avatar using st.markdown
-    if photo:
-        st.markdown(f'<img src="{photo}" class="avatar-img">', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="avatar">{avatar_initials(email)}</div>', unsafe_allow_html=True)
-
     # Floating login box
-    if st.session_state.auth_open:
+    if st.session_state.auth_open or "user" in st.session_state:
         st.markdown('<div class="floating-auth-box">', unsafe_allow_html=True)
 
         if "user" not in st.session_state:
+            # Google login
             st.markdown(f'<a href="{get_google_auth_url()}"><button>🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
+
+            # Email login
             if firebase_auth:
                 st.divider()
                 with st.form("email_login"):
@@ -226,16 +255,20 @@ def top_right_auth():
                                 st.session_state.auth_open = False
                                 st.success(f"✅ Welcome, {st.session_state.name}!")
                                 st.experimental_rerun()
-                        except Exception:
+                        except Exception as e:
                             st.error("Firebase login failed")
+
         else:
+            # Logged in
             st.markdown(f"**👋 Welcome, {name}!**")
             st.caption(email)
             st.caption(st.session_state.get("user_role", "public").capitalize())
+
             st.divider()
             if st.button("Logout"):
                 st.session_state.clear()
                 st.experimental_rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown('</div>', unsafe_allow_html=True)
