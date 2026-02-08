@@ -62,55 +62,64 @@ def handle_google_redirect():
 def inject_auth_css():
     st.markdown("""
     <style>
+    /* Push main content down slightly so it never overlaps auth */
+    .block-container {
+        padding-top: 4.5rem;
+    }
+
+    /* Auth container fixed top-left */
     .auth-container {
         position: fixed;
         top: 0.75rem;
-        right: 1.5rem;
+        left: 1.25rem;
         z-index: 9999;
     }
+
+    /* Avatar style */
     .avatar {
-        width: 38px;
-        height: 38px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
+        background: #1a73e8;
+        color: white;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 600;
-        color: white;
         cursor: pointer;
-        transition: transform 0.2s ease;
+        overflow: hidden;
     }
-    .avatar:hover { transform: scale(1.08); }
 
-    details summary { list-style: none; }
-    details summary::-webkit-details-marker { display: none; }
+    .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
 
-    .dropdown {
+    details summary {
+        list-style: none;
+    }
+
+    details summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .dropdown-panel {
         margin-top: 0.4rem;
         background: white;
-        border-radius: 12px;
-        padding: 0.8rem;
-        width: 250px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        opacity: 0;
-        transform: translateY(-10px);
-        transition: all 0.25s ease;
-        pointer-events: none;
+        border-radius: 10px;
+        padding: 0.75rem;
+        width: 240px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+        animation: slideDown 0.25s ease-out;
     }
 
-    details[open] .dropdown {
-        opacity: 1;
-        transform: translateY(0);
-        pointer-events: auto;
-    }
-
-    .dropdown button {
-        width: 100%;
-        margin-top: 0.4rem;
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     </style>
     """, unsafe_allow_html=True)
-
 
 # -------------------------------------------------
 # MAIN AUTH UI (TOP RIGHT)
