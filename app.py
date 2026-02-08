@@ -997,7 +997,8 @@ with tab1:
     a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
-    r1c1,r1c2 = st.columns(2); r2c1,r2c2 = st.columns(2)
+    r1c1,r1c2 = st.columns(2)
+    r2c1,r2c2 = st.columns(2)
 
     with r1c1:
         fig1 = create_h_stacked_bar(
