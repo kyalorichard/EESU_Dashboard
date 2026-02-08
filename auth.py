@@ -7,10 +7,11 @@ import urllib.parse
 import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
+import json
 
-# =================================================
-# Firebase Admin (safe init)
-# =================================================
+# ===============================
+# Firebase Admin Init
+# ===============================
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
     try:
         cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
@@ -18,9 +19,9 @@ if "firebase_admin" in st.secrets and not firebase_admin._apps:
     except Exception:
         pass
 
-# =================================================
-# Pyrebase (safe init)
-# =================================================
+# ===============================
+# Pyrebase Init (Firebase Email Login)
+# ===============================
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
@@ -31,20 +32,17 @@ if firebase_cfg:
     except Exception:
         firebase_auth = None
 
-# =================================================
+# ===============================
 # Config
-# =================================================
-PRIVILEGED_DOMAINS = set(
-    st.secrets.get("access", {}).get("privileged_domains", [])
-)
-
+# ===============================
+PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
 GOOGLE_CLIENT_ID = st.secrets.get("oauth", {}).get("client_id")
 GOOGLE_CLIENT_SECRET = st.secrets.get("oauth", {}).get("client_secret")
 REDIRECT_URI = st.secrets.get("oauth", {}).get("redirect_uri")
 
-# =================================================
+# ===============================
 # Helpers
-# =================================================
+# ===============================
 def get_email_domain(email: str) -> str:
     return email.split("@")[-1].lower()
 
@@ -55,9 +53,9 @@ def avatar_initials(email: str) -> str:
 def is_privileged() -> bool:
     return st.session_state.get("user_role") == "privileged"
 
-# =================================================
-# Google OAuth URL
-# =================================================
+# ===============================
+# Google OAuth
+# ===============================
 def get_google_auth_url() -> str:
     params = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -68,91 +66,127 @@ def get_google_auth_url() -> str:
     }
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
-# =================================================
-# REAL Google OAuth handler
-# =================================================
 def handle_google_redirect():
     params = st.query_params
-
     if "code" not in params:
         return
 
     code = params["code"]
-
-    # ---- Exchange code for tokens ----
-    token_resp = requests.post(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "code": code,
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": REDIRECT_URI,
-            "grant_type": "authorization_code",
-        },
-        timeout=10,
-    )
-
-    if token_resp.status_code != 200:
-        st.error("Google authentication failed")
+    try:
+        token_resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        token_resp.raise_for_status()
+        tokens = token_resp.json()
+        idinfo = id_token.verify_oauth2_token(
+            tokens["id_token"], grequests.Request(), GOOGLE_CLIENT_ID
+        )
+        email = idinfo.get("email")
+        name = idinfo.get("name")
+        picture = idinfo.get("picture")
+    except Exception:
+        st.error("Google login failed or token invalid")
         st.query_params.clear()
         return
 
-    tokens = token_resp.json()
-    idinfo = id_token.verify_oauth2_token(
-        tokens["id_token"],
-        grequests.Request(),
-        GOOGLE_CLIENT_ID,
-    )
-
-    email = idinfo.get("email")
-    name = idinfo.get("name")
-    picture = idinfo.get("picture")
-
     if not email:
-        st.error("Google login failed: no email")
+        st.error("Google login failed: no email returned")
+        st.query_params.clear()
         return
 
-    # ---- Store session ----
+    # Domain check
+    domain = get_email_domain(email)
+    if domain not in PRIVILEGED_DOMAINS:
+        st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
+        st.query_params.clear()
+        return
+
+    # Save session
     st.session_state.user = "google"
     st.session_state.email = email
-    st.session_state.name = name
+    st.session_state.name = name or email.split("@")[0].title()
     st.session_state.photo = picture
-    st.session_state.user_role = (
-        "privileged"
-        if get_email_domain(email) in PRIVILEGED_DOMAINS
-        else "public"
-    )
+    st.session_state.user_role = "privileged"
 
-    # ---- Clean URL and rerun ----
     st.query_params.clear()
     st.rerun()
 
-# =================================================
-# CSS – top-left avatar
-# =================================================
+# ===============================
+# CSS for floating avatar/login box
+# ===============================
 def inject_auth_css():
     st.markdown("""
     <style>
-    .block-container { padding-top: 4.2rem; }
     .auth-container {
         position: fixed;
-        top: 0.8rem;
-        left: 1.2rem;
+        top: 1rem;
+        left: 1rem;
         z-index: 9999;
     }
-    .auth-panel {
+    .avatar-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #1a73e8;
+        color: white;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        user-select: none;
+    }
+    .avatar-img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        cursor: pointer;
+    }
+    .floating-auth-box {
+        position: fixed;
+        top: 60px;
+        left: 0;
         background: white;
         border-radius: 10px;
-        padding: 0.8rem;
-        width: 260px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        padding: 1rem;
+        width: 280px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+        z-index: 10000;
+        animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .floating-auth-box button {
+        padding: 0.5rem 0;
+        margin-top: 0.4rem;
+        border-radius: 6px;
+        border: none;
+        background-color: #1a73e8;
+        color: white;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .floating-auth-box button:hover {
+        background-color: #1558b0;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# =================================================
-# Top-left avatar auth UI
-# =================================================
+# ===============================
+# Top-left floating auth UI
+# ===============================
 def top_right_auth():
     handle_google_redirect()
 
@@ -161,45 +195,58 @@ def top_right_auth():
 
     st.markdown('<div class="auth-container">', unsafe_allow_html=True)
 
-    avatar = (
-        avatar_initials(st.session_state["email"])
-        if "email" in st.session_state
-        else "?"
+    # Avatar
+    photo = st.session_state.get("photo")
+    email = st.session_state.get("email", "?")
+    avatar_html = (
+        f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
     )
 
-    if st.button(avatar, key="avatar"):
+    if st.button(avatar_html, key="avatar"):
         st.session_state.auth_open = not st.session_state.auth_open
 
+    # Floating login box
     if st.session_state.auth_open:
-        st.markdown('<div class="auth-panel">', unsafe_allow_html=True)
+        st.markdown('<div class="floating-auth-box">', unsafe_allow_html=True)
 
+        # Not logged in
         if "user" not in st.session_state:
-            st.link_button(
-                "🔵 Sign in with Google",
-                get_google_auth_url(),
-                use_container_width=True,
-            )
+            # Google login
+            st.markdown(f'<a href="{get_google_auth_url()}"><button style="width:100%">🔵 Sign in with Google</button></a>', unsafe_allow_html=True)
 
+            # Firebase email login
             if firebase_auth:
                 st.divider()
                 with st.form("email_login"):
-                    email = st.text_input("Email")
+                    email_input = st.text_input("Email")
                     password = st.text_input("Password", type="password")
-                    if st.form_submit_button("Sign in with Email"):
-                        user = firebase_auth.sign_in_with_email_and_password(email, password)
-                        st.session_state.user = user
-                        st.session_state.email = email
-                        st.session_state.user_role = (
-                            "privileged"
-                            if get_email_domain(email) in PRIVILEGED_DOMAINS
-                            else "public"
-                        )
-                        st.rerun()
+                    submit = st.form_submit_button("Sign in with Email")
+                    if submit:
+                        try:
+                            user = firebase_auth.sign_in_with_email_and_password(email_input, password)
+                            domain = get_email_domain(email_input)
+                            if domain not in PRIVILEGED_DOMAINS:
+                                st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} are allowed.")
+                            else:
+                                st.session_state.user = user
+                                st.session_state.email = email_input
+                                st.session_state.user_role = "privileged"
+                                st.session_state.auth_open = False
+                                st.rerun()
+                        except Exception as e:
+                            try:
+                                err = json.loads(e.args[1])
+                                st.error(err['error']['message'])
+                            except Exception:
+                                st.error("Firebase login failed")
 
+        # Logged in
         else:
-            st.markdown(f"**{st.session_state.get('name')}**")
-            st.caption(st.session_state.get("email"))
-            st.caption(st.session_state.get("user_role").capitalize())
+            name = st.session_state.get("name", "User")
+            role = st.session_state.get("user_role", "public")
+            st.markdown(f"**{name}**")
+            st.caption(email)
+            st.caption(role.capitalize())
 
             st.divider()
             if st.button("Logout", use_container_width=True):
@@ -207,5 +254,19 @@ def top_right_auth():
                 st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # JS to close login box when clicking outside
+        st.markdown("""
+        <script>
+        const authBox = window.parent.document.querySelector('.floating-auth-box');
+        const avatar = window.parent.document.querySelector('.avatar-img, .avatar-button');
+        document.addEventListener('click', function(event) {
+            if(authBox && !authBox.contains(event.target) && !avatar.contains(event.target)){
+                const btn = window.parent.document.querySelector('button[k="avatar"]');
+                if(btn){ btn.click(); }
+            }
+        });
+        </script>
+        """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
