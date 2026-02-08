@@ -11,6 +11,10 @@ import base64
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
+from auth import inject_auth_css, top_right_auth, is_privileged
+inject_auth_css()
+top_right_auth()
+
 BASE_DIR = Path(__file__).resolve().parent
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
