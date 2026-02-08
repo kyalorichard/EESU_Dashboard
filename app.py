@@ -390,7 +390,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     fig.update_layout(
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center')
+        title=dict(text=title, x=0.5, xanchor='center'),
         annotations=[
             dict(
                 text=source_text,        # your global source_text variable
@@ -495,7 +495,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
         barmode='stack',
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center') if title else None
+        title=dict(text=title, x=0.5, xanchor='center') if title else None,
         annotations=[
             dict(
                 text=source_text,        # your global source_text variable
@@ -572,7 +572,7 @@ def create_heatmap(pivot_df, title="Heatmap"):
         xaxis_tickangle=-45,
         yaxis=dict(tickfont=dict(size=12)),
         margin=dict(l=80, r=20, t=50, b=120),
-        height=max(350, len(pivot_df)*35)
+        height=max(350, len(pivot_df)*35),
         annotations=[
             dict(
                 text=source_text,        # your global source_text variable
