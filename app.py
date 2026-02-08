@@ -296,13 +296,12 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     if show_breakdown:
         with col3:
             st.markdown(f"""
-<div style="{card_style}">
-<h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
-<div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
-<span style="color:#FFDB58;font-weight:bold;">Negative ● {negative}</span>
-<span style="color:#660094;font-weight:bold;">Positive ● {positive}</span>
-</div>
-
+<div style="border:3px solid #008CAA; border-radius:12px; padding:16px; margin-bottom:20px; text-align:center;">
+    <h2 style="margin:0; font-size:24px; font-weight:bold; color:#008CAA;">Alerts Breakdown</h2>
+    <div style="display:flex; justify-content:space-around; font-size:16px; margin-top:10px; color:#008CAA; font-weight:bold;">
+        <span>Negative ● {negative}</span>
+        <span>Positive ● {positive}</span>
+    </div>
 <div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
     <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
         {neg_pct if neg_pct>5 else ''}%
