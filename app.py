@@ -241,6 +241,13 @@ def wrap_label_by_words(label, words_per_line=4):
     lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
     return "<br>".join(lines)
 
+def info_tooltip(message: str) -> str:
+    """
+    Returns a question mark HTML with tooltip.
+    Use with st.markdown(..., unsafe_allow_html=True)
+    """
+    return f'<span style="font-weight:bold; cursor: help; color: #660094;" title="{message}">❓</span>'
+
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """
@@ -1053,9 +1060,10 @@ with tab1:
         show_chart(fig3, key="tab1_chart3")
 
     with r2c2:
-        st.markdown("### Alert distribution across enabling principles ❓")
-        info_tooltip("Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.")
-        fig4 = create_h_stacked_bar(
+        enabling_principles_text = ("Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.")
+        st.markdown(f"**Alert distribution across enabling principles** {info_tooltip(enabling_principles_text)}",
+        unsafe_allow_html=True)
+        
             a4,
             y="alert-country",
             x="count",
