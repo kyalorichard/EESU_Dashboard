@@ -1107,7 +1107,7 @@ with tab1:
         )
         n_countries = a4["alert-country"].nunique()
         fig4.update_layout(
-            height=max(400, n_countries * 25),
+            height=max(300, n_countries * 25),
             yaxis=dict(categoryorder="total ascending")
         )
         
