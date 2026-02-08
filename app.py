@@ -395,12 +395,12 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     # ---------------- ADD SOURCE ANNOTATION ----------------
     fig.add_annotation(
         x=0.5,
-        y=-0.05,  # slightly below the figure
+        y=-0.15,  # slightly below the figure
         xref="paper",
         yref="paper",
         text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
         showarrow=False,
-        font=dict(size=10, color="gray"),
+        font=dict(size=12, color="gray"),
         align="center"
     )
 
@@ -501,12 +501,12 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     # ---------------- ADD SOURCE ANNOTATION ----------------
     fig.add_annotation(
         x=0.5,
-        y=-0.05,  # slightly below the figure
+        y=-0.15,  # slightly below the figure
         xref="paper",
         yref="paper",
         text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
         showarrow=False,
-        font=dict(size=10, color="gray"),
+        font=dict(size=12, color="gray"),
         align="center"
     )
     
@@ -579,12 +579,12 @@ def create_heatmap(pivot_df, title="Heatmap"):
     # ---------------- ADD SOURCE ANNOTATION ----------------
     fig.add_annotation(
         x=0.5,
-        y=-0.05,  # slightly below the figure
+        y=-0.15,  # slightly below the figure
         xref="paper",
         yref="paper",
         text="Source: EU SEE Dashboard. Data compiled by EU SEE Network.",
         showarrow=False,
-        font=dict(size=10, color="gray"),
+        font=dict(size=12, color="gray"),
         align="center"
     )
 
