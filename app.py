@@ -420,16 +420,19 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", horizontal=
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
 
-    # Axis styling
-    if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        num_bars = df.shape[0]
+        height = 350
+        # Bold axis line
+        if horizontal:
+            fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
+        else:
+            fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+                  
         fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
+        fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
         fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
-   
+         
     return fig
 
 
