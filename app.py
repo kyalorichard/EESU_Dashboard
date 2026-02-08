@@ -396,37 +396,21 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
                          horizontal=False, height=350, text_size=12, title=None):
     import plotly.graph_objects as go
     
-    # Copy df to avoid modifying original
     df = df.copy()
-    
-    # Wrap labels for readability
     df[y] = df[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
-    
-    # Ensure numeric values
     df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
     
-    # Get categories for stacking
     categories = sorted(df[color_col].unique())
-    
     fig = go.Figure()
     
     for cat in categories:
         df_cat = df[df[color_col] == cat]
         numeric_values = df_cat[x]
         
-        # Determine text position and dynamic font size
-        text_positions = []
-        text_sizes = []
-        for val in numeric_values:
-            if val < 5:
-                text_positions.append('outside')  # outside for small bars
-                text_sizes.append(max(10, text_size - 2))  # slightly smaller
-            else:
-                text_positions.append('inside')
-                # Scale font down if there are many bars
-                text_sizes.append(text_size)
+        # Determine text position (inside for large bars, outside for small)
+        text_positions = ['inside' if val > 5 else 'outside' for val in numeric_values]
         
-        # Set correct x and y based on orientation
+        # Set x and y depending on orientation
         if horizontal:
             bar_x = numeric_values
             bar_y = df_cat[y]
@@ -448,10 +432,11 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
                 size=text_size,
                 family="Arial Black"
             ),
+            cliponaxis=False,  # ensures text outside is always visible
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     
-    # Layout updates (done once after all traces)
+    # Layout updates
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
@@ -467,7 +452,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
     )
     
     return fig
-
 
 
 
