@@ -363,13 +363,26 @@ def add_source_for_export(fig, source_text="Source: EU SEE Dashboard. Data compi
     return fig_export
 
 # ---------- Helper to render chart ----------
-def show_chart(fig, key=None):
-    fig_dict = add_source_for_export(fig)
-    st.plotly_chart(
-        fig_dict,
-        use_container_width=True,
-        key=key
-    )
+# --- Helper function to show chart ---
+def show_chart(fig, key=None, add_source=False, source_text="Source: EU SEE Dashboard. Data compiled by EU SEE Network."):
+    """
+    Show a Plotly figure in Streamlit.
+    If add_source=True, returns a copy with source annotation for download.
+    """
+    if add_source:
+        fig_export = copy.deepcopy(fig)
+        fig_export.add_annotation(
+            text=source_text,
+            x=0, y=-0.18,
+            xref="paper", yref="paper",
+            showarrow=False,
+            font=dict(size=10, color="#444"),
+            align="left"
+        )
+        return fig_export
+    else:
+        st.plotly_chart(fig, use_container_width=True, key=key)
+        return fig  # Return figure if needed for download
     
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
@@ -558,12 +571,24 @@ def create_heatmap(pivot_df, title="Heatmap"):
     pivot_df.index = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.index]
     pivot_df.columns = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.columns]
 
+    # Define traffic-light colorscale
+    colorscale = [
+        [0.0, "green"],   # low values
+        [0.5, "yellow"],  # medium values
+        [1.0, "red"]      # high values
+    ]
+
+    # Normalize data between 0 and 1 for the colorscale
+    z_values = pivot_df.values.astype(float)
+    z_min, z_max = z_values.min(), z_values.max()
+    z_norm = (z_values - z_min) / (z_max - z_min + 1e-6)  # avoid division by zero
+
     fig = go.Figure(
         data=go.Heatmap(
             z=pivot_df.values,
             x=pivot_df.columns,
             y=pivot_df.index,
-            colorscale='Viridis',
+            colorscale=colorscale,
             hovertemplate="<b>%{y}</b> → <b>%{x}</b><br>Count: %{z}<extra></extra>",
             colorbar=dict(title="Count", tickfont=dict(size=12))
         )
