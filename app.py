@@ -1124,9 +1124,10 @@ tab_buttons_html += "<div class='tab-underline'></div></div>"
 
 st.markdown(tab_buttons_html, unsafe_allow_html=True)
 
-            
+active_tab = st.session_state.active_tab
+           
 # ---------------- TAB 1 ----------------
-def render_tab_content(tab_name):
+
     if tab_name=="Overview":
         st.subheader("Overview Metrics")
         render_summary_cards(filtered_global)
@@ -1598,7 +1599,6 @@ def render_tab_content(tab_name):
             st.warning("User Manual PDF not found.")
 
 # ---------------- RENDER ----------------
-render_tab_content(st.session_state.active_tab)
 
 # ---------------- FOOTER ----------------
 # Footer image
