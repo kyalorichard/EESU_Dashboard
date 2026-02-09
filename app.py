@@ -1052,6 +1052,13 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+
+# -------------------- CONFIG --------------------
+tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
+
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = tabs[0]
+
 # -------------------- TAB-STYLE RADIO --------------------
 st.markdown("""
 <style>
