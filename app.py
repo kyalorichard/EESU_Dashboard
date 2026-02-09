@@ -481,116 +481,41 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
-                         horizontal=False, height=350, text_size=12, title=None, title_tooltip=None):
-    import plotly.graph_objects as go
-    
-    df = df.copy()
-    df[x] = df[x].apply(lambda l: wrap_label_by_words(
-        normalize_label(l) if x not in ["alert-country", "region"] else str(l), words_per_line=4)
-        )
-    
-    df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
-    
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
     categories = sorted(df[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
-    
-    # Track cumulative sums for stacked bars
-    cumulative = {label: 0 for label in df[y].unique()}
-    max_val = df.groupby(y)[x].sum().max()  # for relative sizing
-    
-    for cat in categories:
-        df_cat = df[df[color_col] == cat]
-        numeric_values = df_cat[x]
-        bar_color = COLOR_MAPPING.get(cat.lower(), "#888888")
-        
-        if horizontal:
-            bar_x = numeric_values
-            bar_y = df_cat[y]
-        else:
-            bar_x = df_cat[y]
-            bar_y = numeric_values
+    for i, cat in enumerate(categories):
+        df_cat = df[df[color_col]==cat].copy()
+        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
         
         fig.add_trace(go.Bar(
-            x=bar_x,
-            y=bar_y,
+            x=df_cat[y] if not horizontal else df_cat[x],
+            y=df_cat[x] if not horizontal else df_cat[y],
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=bar_color,
+            marker_color=color_sequence[i % len(color_sequence)],
+            text=df_cat[x],
+            textposition='inside',
+            insidetextanchor='end',
+            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial Black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
-        
-        # Add annotations for each bar
-        for i, label in enumerate(df_cat[y]):
-            value = numeric_values.iloc[i]
-            rel_size = value / max_val  # relative to largest bar
-            
-            # Determine text position and color
-            if rel_size > 0.15:
-                # inside bar
-                if bar_color.lower() in ['#660094', '#000000', '#333333']:  # dark colors
-                    text_color = 'white'
-                else:
-                    text_color = 'black'
-                if horizontal:
-                    x_pos = cumulative[label] + value / 2
-                    y_pos = label
-                else:
-                    x_pos = label
-                    y_pos = cumulative[label] + value / 2
-            else:
-                # outside bar
-                text_color = 'black'
-                if horizontal:
-                    x_pos = cumulative[label] + value + max_val * 0.01
-                    y_pos = label
-                else:
-                    x_pos = label
-                    y_pos = cumulative[label] + value + max_val * 0.01
-            
-            fig.add_annotation(
-                x=x_pos if horizontal else x_pos,
-                y=y_pos if horizontal else y_pos,
-                text=str(int(value)),
-                showarrow=False,
-                font=dict(color=text_color, size=text_size, family='Arial Black'),
-                xanchor='center',
-                yanchor='middle'
-            )
-            cumulative[label] += value  # update cumulative for stacking
-    
-    # Layout
+    num_bars = df.shape[0]
+    height = 350
+    # Bold axis line
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
     else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    
-    # Combine title with tooltip icon using HTML
-    if title:
-        if title_tooltip:
-            fig.update_layout(
-                title=dict(
-                    text=f"{title} <span title='{title_tooltip}'>❓</span>",
-                    x=0.5,
-                    xanchor='center'
-                )
-            )
-        else:
-            fig.update_layout(
-                title=dict(text=title, x=0.5, xanchor='center')
-            )
-    
-    fig.update_layout(
-        barmode='stack',
-        height=height,
-        margin=dict(l=120 if horizontal else 20, r=20, t=60, b=20)
-    )
- 
-        
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+              
+    fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
+    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
     return fig
+
+
 
 
 # ---------------- HELPER FUNCTIONS ----------------
