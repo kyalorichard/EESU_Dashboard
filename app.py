@@ -1082,6 +1082,8 @@ st.markdown("""
     color: #444;
     transition: 0.2s ease;
     font-size: 16px;
+    min-width: 120px;
+    user-select: none;
 }
 .tab-button.active {
     font-weight: bold;
@@ -1102,14 +1104,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs as Streamlit buttons
+# Render tabs as clickable HTML divs
 # -----------------------------
 tab_cols = st.columns(len(tabs))
+
 for i, tab_name in enumerate(tabs):
     is_active = st.session_state.active_tab == tab_name
-    # Empty button to handle click
+
+    # Use an invisible button to handle click
     if tab_cols[i].button("", key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
+
     # Render the styled tab label
     tab_cols[i].markdown(
         f"<div class='tab-button {'active' if is_active else ''}'>{tab_name}</div>",
