@@ -1077,9 +1077,9 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
     "Respect and protection of fundamental freedoms":"1. Respect and protection of fundamental freedoms",
     "Supportive legal and regulatory framework":"2. Supportive legal and regulatory framework",
     "Accessible and sustainable resources":"3. Accessible and sustainable resources",
-    "State openness and responsiveee to civil society":"4. Open and responsive State",
-    "Civic culture and public discourses on civil society":"5. Supportive public culture and discourses on civil society",
-    "Access and sustainable resources":"6. Access to a secure digital environment",
+    "State openness and responsiveness to civil society":"4. Open and responsive State",
+    "Civic Culture and Public Discourses on Civil Society":"5. Supportive public culture and discourses on civil society",
+    "Accessible and sustainable resources":"6. Access to a secure digital environment",
 }
 
 SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
