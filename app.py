@@ -391,14 +391,10 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     position: relative;
     display: inline-block;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     color: black;                /* icon color */
     border: 2px solid black;     /* round border */
     border-radius: 50%;          /* makes it circular */
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
-    text-align: center;
 }}
 .tooltip-box .tooltiptext {{
     visibility: hidden;
@@ -437,6 +433,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     <h2 style="margin:0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
+
 
    # --- Alerts Breakdown (conditional) ---
     if show_breakdown:
