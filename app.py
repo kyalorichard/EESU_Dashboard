@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-#from auth import inject_auth_css, top_right_auth, is_privileged
-from auth import inject_auth_css, top_right_auth, is_privileged
+from auth import sidebar_auth
+
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -228,26 +228,18 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=500)
 st.sidebar.markdown("## 🔐 Login / Access")
-inject_auth_css()  # keeps styling consistent
+st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-# Initialize login state
-if "user_logged_in" not in st.session_state:
-    st.session_state.user_logged_in = False
+# Call the sidebar login
+sidebar_auth()
 
-# Login button
-if not st.session_state.user_logged_in:
-    login_success = top_right_auth()  # reuse your existing auth function
-    if login_success:
-        st.session_state.user_logged_in = True
-        st.success(f"Logged in as {st.session_state.get('user_email', 'User')}")
+# Now you can add the rest of your dashboard
+if "user" in st.session_state:
+    st.title("Dashboard")
+    st.write(f"Welcome {st.session_state.get('name')}!")
+    # ... rest of your app
 else:
-    st.info(f"Logged in as {st.session_state.get('user_email', 'User')}")
-
-# Show privileged access in sidebar
-if is_privileged():
-    st.sidebar.success("🔒 Privileged access granted!")
-else:
-    st.sidebar.info("ℹ️ Public access. Login to see more data.")
+    st.write("Please sign in to access the dashboard.")
 
 
 
