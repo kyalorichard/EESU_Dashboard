@@ -1077,9 +1077,9 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
     "Respect and protection of fundamental freedoms":"1. Respect and protection of fundamental freedoms",
     "Supportive legal and regulatory framework":"2. Supportive legal and regulatory framework",
     "Accessible and sustainable resources":"3. Accessible and sustainable resources",
-    "Open and responsive State":"4. Open and responsive State",
-    "Supportive public culture and discourses on civil society":"5. Supportive public culture and discourses on civil society",
-    "Access to a secure digital environment":"6. Access to a secure digital environment",
+    "State openness and responsiveee to civil society":"4. Open and responsive State",
+    "Civic culture and public discourses on civil society":"5. Supportive public culture and discourses on civil society",
+    "Access and sustainable resources":"6. Access to a secure digital environment",
 }
 
 SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
@@ -1190,7 +1190,7 @@ if tab_name=="Overview":
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
-    print(df_clean["enabling-principle"].unique())
+    
     
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
     
