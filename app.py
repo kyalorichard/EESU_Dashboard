@@ -981,11 +981,18 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
         "6. Access to a secure digital environment",
 }
 
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "Overview"
+
 # ---------------- TABS ----------------
-tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+#tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
+tab_objects = st.tabs(tabs)
+tab_map = dict(zip(tabs, tab_objects))
 
 # ---------------- TAB 1 ----------------
-with tab1:
+with tab_map["Overview"]:
+    st.session_state.active_tab = "Overview"
     render_summary_cards(filtered_global)
     
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
@@ -1066,7 +1073,9 @@ with tab1:
         st.write(filtered_global_prev)     
 
 # ---------------- TAB 2: Negative Events ----------------
-with tab2:
+with tab_map["Negative Alerts"]:
+
+    st.session_state.active_tab = "Negative Alerts"
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
 
@@ -1203,13 +1212,22 @@ with tab2:
         )  
         
         st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
-        st.selectbox(
-            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression in the heatmaps and Sankey diagram",
-            options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
-            index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
-            key="top_n_option",
-            on_change=update_top_n
+        top_n_map = {
+            "Top 2": 2,
+            "Top 3": 3,
+            "Top 4": 4,
+            "Top 5": 5,
+            "All": None
+        }
+        
+        selected = st.selectbox(
+            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression",
+            options=list(top_n_map.keys()),
+            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
         )
+        
+        st.session_state.top_n_option = selected
+        st.session_state.top_n = top_n_map[selected]
         st.markdown('</div>', unsafe_allow_html=True)
         
         top_n = st.session_state.top_n
@@ -1247,7 +1265,8 @@ with tab2:
             st.write(reactive_df_updated_prev)     
       
       # ---------------- TAB 3 (MAP) ----------------
-with tab3:
+with tab_map["Visualization Map"]:
+    st.session_state.active_tab = "Visualization Map"
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
     if geo_file.exists():
@@ -1372,7 +1391,8 @@ with tab3:
 
 # -------------------------------USER MANUAL TAB------------------------------------       
      
-with tab4:
+with tab_map["User Manual"]:
+    st.session_state.active_tab = "User Manual"
     st.header("EU SEE Dashboard – Quick Start")
 
     st.markdown("""
