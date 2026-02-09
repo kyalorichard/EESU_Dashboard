@@ -581,7 +581,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     fig.update_layout(
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center')
+        title=dict(text=title, x=0.5, xanchor='center',font=dict(family="Arial, sans-serif", size=14))
     )
    
     return fig
@@ -619,7 +619,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
+    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'), font=dict(family="Arial, sans-serif", size=16),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
     return fig
 
 
