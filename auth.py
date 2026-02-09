@@ -137,16 +137,17 @@ def sidebar_auth():
 
     if "user" not in st.session_state:
         st.sidebar.markdown("## Sign in")
-        login_url = get_google_auth_url()
 
-        # Material-style Google button
+        # Google login section
+        st.sidebar.markdown("**Sign in with Google**")
+        login_url = get_google_auth_url()
         st.sidebar.markdown(f"""
         <a href="{login_url}" style="text-decoration:none;">
             <div style="
                 display:flex; align-items:center; justify-content:center;
                 background-color:#1a73e8; color:white; font-weight:600;
                 border-radius:8px; padding:0.5rem; font-size:16px;
-                width:100%; margin-top:0.5rem; cursor:pointer;
+                width:100%; margin-top:0.25rem; cursor:pointer;
                 transition: background-color 0.2s ease-in-out;
             " onmouseover="this.style.backgroundColor='#1669c1';" onmouseout="this.style.backgroundColor='#1a73e8';">
                 🔵 Sign in with Google
@@ -154,6 +155,34 @@ def sidebar_auth():
         </a>
         """, unsafe_allow_html=True)
 
+        st.sidebar.markdown("---")
+
+        # Email/Password login section
+        st.sidebar.markdown("**Sign in with Email**")
+        with st.sidebar.form("email_login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign in")
+
+            if submitted:
+                if not firebase_auth:
+                    st.error("Firebase email login not initialized.")
+                elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} allowed.")
+                else:
+                    try:
+                        user = firebase_auth.sign_in_with_email_and_password(email, password)
+                        st.session_state.user = "email"
+                        st.session_state.email = email
+                        st.session_state.name = email.split("@")[0].title()
+                        st.session_state.user_role = "privileged"
+                        st.success(f"Signed in as {st.session_state.name}")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Login failed: {e}")
+
     else:
+        # Logged-in view
         st.sidebar.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!")
         st.sidebar.button("Logout", on_click=logout_user)
+
