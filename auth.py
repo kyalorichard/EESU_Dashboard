@@ -182,57 +182,80 @@ def auth_ui():
         return
 
     login_url = get_google_auth_url()
-
     email = st.session_state.email_input
     password = st.session_state.password_input
     login_error = st.session_state.login_error
 
+    # Use a container to simulate overlay
+    with st.container() as drawer:
+        # Transparent full-screen "click-outside" area
+        st.markdown("""
+        <div style="
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.45);
+            z-index: 9998;
+        ">
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Drawer card
+        st.markdown(f"""
+        <div style="
+            position: fixed;
+            top:0; right:0;
+            width:350px;
+            height:100%;
+            background:#fff;
+            padding:1.5rem;
+            box-shadow:-10px 0 30px rgba(0,0,0,.3);
+            z-index: 9999;
+            display:flex;
+            flex-direction:column;
+        ">
+            <h3>Sign in</h3>
+
+            {"<a href='" + login_url + "' style='text-decoration:none'><button style='background:#1a73e8;color:white;padding:.6rem;width:100%;border-radius:6px;margin-bottom:.5rem;'>🔵 Sign in with Google</button></a>" if oauth_enabled else "<p>Google login disabled</p>"}
+
+            <hr>
+
+            <form method="post">
+                <input placeholder='Email' value='{email}' name='email' style='width:100%;padding:.5rem;margin-bottom:.5rem;border-radius:6px;border:1px solid #ccc;'>
+                <input type='password' placeholder='Password' value='{password}' name='password' style='width:100%;padding:.5rem;margin-bottom:.5rem;border-radius:6px;border:1px solid #ccc;'>
+            </form>
+
+            <button style='width:100%;padding:.6rem;border-radius:6px;background:#ccc;margin-top:.3rem;' onclick="window.parent.postMessage({{func:'closeLogin'}}, '*')">Cancel</button>
+
+            <p style="color:red;text-align:center;">{login_error}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- Handle Email Login via Streamlit form below the drawer ---
     with st.form("email_login_form"):
-        st.markdown('<div class="drawer-overlay">', unsafe_allow_html=True)
-        st.markdown(f'<div class="drawer-card show">', unsafe_allow_html=True)
-
-        st.markdown("<h3>Sign in</h3>", unsafe_allow_html=True)
-
-        # Google login button (if available)
-        if oauth_enabled:
-            st.markdown(f"""
-            <a href="{login_url}" style="text-decoration:none">
-                <button class="google-btn">🔵 Sign in with Google</button>
-            </a>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("Google login disabled. Missing OAuth credentials.")
-
-        st.markdown("<hr>", unsafe_allow_html=True)
-
-        # Email login
-        email = st.text_input("Email", value=email)
-        password = st.text_input("Password", type="password", value=password)
+        email_input = st.text_input("Email", value=email)
+        password_input = st.text_input("Password", type="password", value=password)
         submitted = st.form_submit_button("Sign in with Email")
 
         if submitted:
-            st.session_state.email_input = email
-            st.session_state.password_input = password
+            st.session_state.email_input = email_input
+            st.session_state.password_input = password_input
             if not firebase_auth:
                 st.session_state.login_error = "Firebase not initialized."
-            elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
+            elif get_email_domain(email_input) not in PRIVILEGED_DOMAINS:
                 st.session_state.login_error = "Access denied for domain."
             else:
                 try:
-                    firebase_auth.sign_in_with_email_and_password(email, password)
+                    firebase_auth.sign_in_with_email_and_password(email_input, password_input)
                     st.session_state.user = "email"
-                    st.session_state.email = email
-                    st.session_state.name = email.split("@")[0].title()
+                    st.session_state.email = email_input
+                    st.session_state.name = email_input.split("@")[0].title()
                     st.session_state.user_role = "privileged"
                     st.session_state.show_login = False
                     st.session_state.login_error = ""
                 except Exception as e:
                     st.session_state.login_error = f"Login failed: {e}"
 
-        if login_error:
-            st.error(login_error)
+    # --- Close drawer if user clicks on overlay ---
+    if st.button("Close Login"):
+        st.session_state.show_login = False
 
-        if st.button("Cancel"):
-            st.session_state.show_login = False
-
-        st.markdown('</div></div>', unsafe_allow_html=True)
