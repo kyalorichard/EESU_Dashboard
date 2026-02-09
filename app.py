@@ -1059,7 +1059,7 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -----------------------------
-# Modern CSS for tabs
+# CSS for tabs
 # -----------------------------
 st.markdown("""
 <style>
@@ -1068,6 +1068,7 @@ st.markdown("""
     position: relative;
     border-bottom: 2px solid #e0e0e0;
     margin-bottom: 20px;
+    font-family: "Segoe UI", sans-serif;
 }
 .tab-button {
     flex: 1;
@@ -1075,58 +1076,46 @@ st.markdown("""
     padding: 12px 0;
     font-weight: 500;
     cursor: pointer;
-    background: none;
-    border: none;
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-bottom: none;
     outline: none;
     color: #555;
-    transition: color 0.3s ease, transform 0.2s ease;
-    position: relative;
-    z-index: 1;
-    font-family: "Segoe UI", sans-serif;
+    transition: color 0.3s ease, background 0.3s ease;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-right: 2px;
+}
+.tab-button:last-child {
+    margin-right: 0;
 }
 .tab-button:hover {
     color: #660094;
-    transform: scale(1.05);
+    background: #f0f0f0;
 }
 .tab-button.active {
     font-weight: bold;
     color: #660094;
-    text-shadow: 0px 0px 2px rgba(102,0,148,0.8);
+    background: #ffffff;
+    border-bottom: 2px solid #ffffff;
 }
-.tab-underline {
-    position: absolute;
-    bottom: -2px;
-    height: 4px;
-    background-color: #660094;
-    border-radius: 2px;
-    left: 0;
-    width: 0;
-    transition: transform 0.3s ease, width 0.3s ease;
-    z-index: 0;
+.tab-content {
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #ffffff;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Streamlit tab buttons
+# Render tabs
 # -----------------------------
 tab_cols = st.columns(len(tabs))
 for i, tab_name in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab_name
     if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
-
-# -----------------------------
-# Sliding underline
-# -----------------------------
-active_index = tabs.index(st.session_state.active_tab)
-underline_width = 100 / len(tabs)
-
-st.markdown(f"""
-<div class='tabs-row'>
-    <div class='tab-underline' style='width: {underline_width}%; transform: translateX({active_index * 100}%);'></div>
-</div>
-""", unsafe_allow_html=True)
-
 
 # ---------------- TAB 1 ----------------
 
