@@ -233,15 +233,9 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # Call the sidebar login
 sidebar_auth()
 
-# Now you can add the rest of your dashboard
-if "user" in st.session_state:
-    st.title("Dashboard")
-    st.write(f"Welcome {st.session_state.get('name')}!")
-    # ... rest of your app
-else:
-    st.write("Please sign in to access the dashboard.")
-
-
+if "user" not in st.session_state:
+    st.info("Please sign in to continue.")
+    st.stop()
 
 st.sidebar.header("🌍 Global Filters")
 
