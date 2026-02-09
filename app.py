@@ -1117,12 +1117,16 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # CSS to style Streamlit buttons as flush tabs
+# CSS for fully connected tabs
 st.markdown(
     """
     <style>
+    /* Remove column spacing */
     .stColumns [class*="stColumn"] {
-        padding: 0px;  /* remove spacing between columns */
+        padding: 0px;
     }
+
+    /* Style all buttons as tabs */
     div.stButton > button {
         padding: 10px 15px;
         font-weight: 500;
@@ -1135,18 +1139,35 @@ st.markdown(
         font-size: 16px;
         transition: 0.2s;
         width: 100%;
-        margin: 0; /* remove any extra margin */
+        margin: 0;
+        border-left: none;  /* remove default left border */
     }
+
+    /* First tab: add left border */
+    div.stButton > button:first-child {
+        border-left: 1px solid #e0e0e0;
+        border-radius: 6px 0 0 0;
+    }
+
+    /* Last tab: round right corners */
+    div.stButton > button:last-child {
+        border-radius: 0 6px 0 0;
+    }
+
     div.stButton > button:hover {
         color: #660094;
         background-color: #eeeeee;
     }
+
+    /* Active tab style */
     div.stButton > button.active {
         background-color: #ffffff;
         font-weight: bold;
         color: #660094;
-        border-bottom: 3px solid #660094;
+        border-bottom: 3px solid #ffffff; /* connects to content */
     }
+
+    /* Tab content styling */
     .tab-content {
         border: 1px solid #e0e0e0;
         border-radius: 0 6px 6px 6px;
@@ -1158,7 +1179,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # Create tabs as columns
 cols = st.columns(len(tabs))
 for i, tab in enumerate(tabs):
