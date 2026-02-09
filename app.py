@@ -233,9 +233,9 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # Call the sidebar login
 sidebar_auth()
 
-if "user" not in st.session_state:
-    st.info("Please sign in to continue.")
-    st.stop()
+#if "user" not in st.session_state:
+    #st.info("Please sign in to continue.")
+    #st.stop()
 
 st.sidebar.header("🌍 Global Filters")
 
