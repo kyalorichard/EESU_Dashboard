@@ -1052,11 +1052,18 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
+
 # -----------------------------
-# Initialize active tab
+# Initialize active tab (compatible with older Streamlit)
 # -----------------------------
-query_params = st.experimental_get_query_params()
-default_tab = query_params.get("tab", [tabs[0]])[0]  # use URL param if present
+try:
+    query_params = st.experimental_get_query_params()
+    default_tab = query_params.get("tab", [tabs[0]])[0]
+except (AttributeError, NameError):
+    # If older Streamlit, ignore query params
+    default_tab = tabs[0]
+
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = default_tab
 
@@ -1105,20 +1112,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs as clickable HTML divs
+# Render tabs as clickable divs
 # -----------------------------
 tab_cols = st.columns(len(tabs))
 
 for i, tab_name in enumerate(tabs):
     is_active = st.session_state.active_tab == tab_name
 
-    # Hidden button to handle click
+    # Invisible button to handle clicks
     if tab_cols[i].button("", key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
 
-        # Update URL without reloading the page
-        new_params = urlencode({"tab": tab_name})
-        st.experimental_set_query_params(tab=tab_name)
+        # Update URL if Streamlit supports it
+        try:
+            st.experimental_set_query_params(tab=tab_name)
+        except (AttributeError, NameError):
+            pass
 
     # Render the styled tab label
     tab_cols[i].markdown(
