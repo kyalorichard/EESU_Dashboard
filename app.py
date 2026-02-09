@@ -986,12 +986,21 @@ if "active_tab" not in st.session_state:
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
-tab_objects = st.tabs(tabs)
-tab_map = dict(zip(tabs, tab_objects))
+TAB_NAMES = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "Overview"
+
+selected_tab = st.radio(
+    "",
+    TAB_NAMES,
+    index=TAB_NAMES.index(st.session_state.active_tab),
+    horizontal=True
+)
+
+st.session_state.active_tab = selected_tab
 # ---------------- TAB 1 ----------------
-with tab_map["Overview"]:
+if st.session_state.active_tab == "Overview":
     st.session_state.active_tab = "Overview"
     render_summary_cards(filtered_global)
     
@@ -1073,8 +1082,7 @@ with tab_map["Overview"]:
         st.write(filtered_global_prev)     
 
 # ---------------- TAB 2: Negative Events ----------------
-with tab_map["Negative Alerts"]:
-
+if st.session_state.active_tab == "Negative Alerts":
     st.session_state.active_tab = "Negative Alerts"
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -1265,7 +1273,7 @@ with tab_map["Negative Alerts"]:
             st.write(reactive_df_updated_prev)     
       
       # ---------------- TAB 3 (MAP) ----------------
-with tab_map["Visualization Map"]:
+if st.session_state.active_tab == "Visualization Map":
     st.session_state.active_tab = "Visualization Map"
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
@@ -1391,7 +1399,7 @@ with tab_map["Visualization Map"]:
 
 # -------------------------------USER MANUAL TAB------------------------------------       
      
-with tab_map["User Manual"]:
+if st.session_state.active_tab =="User Manual":
     st.session_state.active_tab = "User Manual"
     st.header("EU SEE Dashboard – Quick Start")
 
