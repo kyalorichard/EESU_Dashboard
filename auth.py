@@ -108,41 +108,43 @@ def logout_user():
     st.session_state.show_login = False
 
 # ---------------------------
-# CSS (Floating Card)
+# CSS (Sliding Drawer)
 # ---------------------------
 def inject_css():
     st.markdown("""
     <style>
-    .login-overlay {
+    .drawer-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,.45);
+        background: rgba(0,0,0,.4);
         z-index: 9999;
         display:flex;
-        align-items:center;
-        justify-content:center;
+        justify-content:flex-end;
+        transition: opacity 0.3s ease;
     }
-    .login-card {
+    .drawer-card {
         background:#fff;
-        width:380px;
+        width:350px;
+        height:100%;
         padding:1.5rem;
-        border-radius:14px;
-        box-shadow:0 25px 60px rgba(0,0,0,.35);
-        animation: pop .25s ease-out;
+        box-shadow:-10px 0 30px rgba(0,0,0,.3);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        display:flex;
+        flex-direction:column;
     }
-    @keyframes pop {
-        from {opacity:0; transform:scale(.9)}
-        to   {opacity:1; transform:scale(1)}
+    .drawer-card.show {
+        transform: translateX(0);
     }
-    .login-card input { padding:.5rem; margin-bottom:.5rem; width:100%; border-radius:6px; border:1px solid #ccc; }
-    .login-card button { padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; cursor:pointer; }
-    .google-btn { background:#1a73e8; color:white; margin-bottom:.5rem; }
-    .cancel-btn { background:#ccc; margin-top:.3rem; }
+    .drawer-card input { padding:.5rem; margin-bottom:.5rem; width:100%; border-radius:6px; border:1px solid #ccc; }
+    .drawer-card button { padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; cursor:pointer; margin-bottom:.3rem; }
+    .google-btn { background:#1a73e8; color:white; }
+    .cancel-btn { background:#ccc; }
     </style>
     """, unsafe_allow_html=True)
 
 # ---------------------------
-# AUTH UI (Floating Card)
+# AUTH UI (Sliding Drawer)
 # ---------------------------
 def auth_ui():
     init_state()
@@ -165,14 +167,18 @@ def auth_ui():
 
     login_url = get_google_auth_url()
 
-    # --- Floating Card ---
+    # --- Drawer ---
+    email = st.session_state.email_input
+    password = st.session_state.password_input
+    login_error = st.session_state.login_error
+
     with st.form("email_login_form"):
-        st.markdown('<div class="login-overlay">', unsafe_allow_html=True)
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.markdown('<div class="drawer-overlay">', unsafe_allow_html=True)
+        st.markdown(f'<div class="drawer-card show">', unsafe_allow_html=True)
 
         st.markdown("<h3>Sign in</h3>", unsafe_allow_html=True)
 
-        # Google button
+        # Google login
         st.markdown(f"""
         <a href="{login_url}" style="text-decoration:none">
             <button class="google-btn">🔵 Sign in with Google</button>
@@ -182,14 +188,13 @@ def auth_ui():
         st.markdown("<hr>", unsafe_allow_html=True)
 
         # Email login inputs
-        email = st.text_input("Email", value=st.session_state.email_input)
-        password = st.text_input("Password", type="password", value=st.session_state.password_input)
+        email = st.text_input("Email", value=email)
+        password = st.text_input("Password", type="password", value=password)
         submitted = st.form_submit_button("Sign in with Email")
 
         if submitted:
             st.session_state.email_input = email
             st.session_state.password_input = password
-
             if not firebase_auth:
                 st.session_state.login_error = "Firebase not initialized."
             elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
@@ -206,8 +211,8 @@ def auth_ui():
                 except Exception as e:
                     st.session_state.login_error = f"Login failed: {e}"
 
-        if st.session_state.login_error:
-            st.error(st.session_state.login_error)
+        if login_error:
+            st.error(login_error)
 
         # Cancel button
         if st.button("Cancel"):
