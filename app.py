@@ -1150,7 +1150,7 @@ if tab_name=="Overview":
 
     # Include a small "?" icon in the title using HTML
     title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
-    fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True)
+    fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
     # Update the title to include the tooltip
     fig.update_layout(
