@@ -1146,28 +1146,27 @@ if tab_name=="Overview":
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
     
     # Disclaimer tooltip
-        tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
+    tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
 
-        # Include a small "?" icon in the title using HTML
-        title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
-        fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True)
+    # Include a small "?" icon in the title using HTML
+    title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
+    fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True)
 
-        # Update the title to include the tooltip
-        fig.update_layout(
-            title=dict(
-                text=title_html,
-                x=0.5,        # center
-                xanchor='center',
-                yanchor='top',
-                font=dict(size=16)
-            )
+    # Update the title to include the tooltip
+    fig.update_layout(
+        title=dict(
+            text=title_html,
+            x=0.5,        # center
+            xanchor='center',
+            yanchor='top',
+            font=dict(size=16)
         )
+    )
 
-        # Render the chart
-        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
-    
-    
-    
+    # Render the chart
+    r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
+
+  
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
     r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
