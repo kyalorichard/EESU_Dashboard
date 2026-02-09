@@ -9,9 +9,9 @@ import streamlit.components.v1 as components
 import base64
 from auth import auth_ui
 
-
-st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 auth_ui()
+st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
