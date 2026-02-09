@@ -1053,15 +1053,17 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
 # ---------------- MATERIAL-STYLE TABS ----------------
-tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
+tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 
-# Initialize active tab in session_state
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
-# Inject CSS for sliding underline tabs
+# -----------------------------
+# CSS for tabs & sliding underline
+# -----------------------------
 st.markdown("""
 <style>
+/* Container for tabs */
 .tabs-container {
     display: flex;
     position: relative;
@@ -1069,7 +1071,8 @@ st.markdown("""
     margin-bottom: 20px;
 }
 
-.tab {
+/* Each tab */
+.tab-button {
     flex: 1;
     text-align: center;
     padding: 12px 0;
@@ -1077,14 +1080,18 @@ st.markdown("""
     font-weight: 500;
     color: #555;
     transition: color 0.3s;
-    position: relative;
+    background-color: transparent;
+    border: none;
+    outline: none;
 }
 
-.tab.active {
+/* Active tab text */
+.tab-button.active {
     color: #660094;
     font-weight: bold;
 }
 
+/* Sliding underline */
 .tab-underline {
     position: absolute;
     bottom: 0;
@@ -1092,40 +1099,38 @@ st.markdown("""
     background-color: #660094;
     width: 0;
     left: 0;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, width 0.3s ease;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Render tabs and calculate underline
+# -----------------------------
+# Render tabs with st.columns
+# -----------------------------
 tab_cols = st.columns(len(tabs))
+
 for i, tab_name in enumerate(tabs):
-    if tab_cols[i].button(tab_name, key=f"tab_{i}"):
+    is_active = st.session_state.active_tab == tab_name
+    if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
 
-# Calculate underline position and width
+# -----------------------------
+# Sliding underline
+# -----------------------------
 active_index = tabs.index(st.session_state.active_tab)
-underline_style = f"""
-<style>
-.tabs-container .tab-underline {{
-    width: {100 / len(tabs)}%;
-    transform: translateX({active_index * 100}%);
-}}
-</style>
-"""
-st.markdown(underline_style, unsafe_allow_html=True)
+underline_width = 100 / len(tabs)
 
-# Render the tabs container
-tab_buttons_html = "<div class='tabs-container'>"
-for i, tab_name in enumerate(tabs):
-    active_class = "active" if st.session_state.active_tab == tab_name else ""
-    tab_buttons_html += f"<div class='tab {active_class}'>{tab_name}</div>"
-tab_buttons_html += "<div class='tab-underline'></div></div>"
+st.markdown(f"""
+<div class='tabs-container'>
+    <div class='tab-underline' style='width: {underline_width}%; transform: translateX({active_index * 100}%);'></div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown(tab_buttons_html, unsafe_allow_html=True)
-
+# -----------------------------
+# Render content for active tab
+# -----------------------------
 active_tab = st.session_state.active_tab
-           
+
 # ---------------- TAB 1 ----------------
 
 if tab_name=="Overview":
