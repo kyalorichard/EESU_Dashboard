@@ -1124,6 +1124,7 @@ st.markdown(
         background-color: #f5f5f5;
         color: #444;
         font-size: 16px;
+        font-family: Arial, sans-serif !important;
         transition: 0.2s;
         width: 200;
     }
@@ -1179,7 +1180,7 @@ tab_name = st.session_state.active_tab
 # ---------------- TAB 1 ----------------
 
 if tab_name=="Overview":
-    st.subheader("Overview Metrics")
+    #st.subheader("Overview Metrics")
     render_summary_cards(filtered_global)
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
@@ -1252,7 +1253,7 @@ if tab_name=="Overview":
     
 # ---------------- TAB 2: Negative Events ----------------
 elif tab_name=="Negative Alerts":
-    st.subheader("Negative Alerts")
+    #st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
     
@@ -1460,7 +1461,7 @@ elif tab_name=="Negative Alerts":
         
         # ---------------- TAB 3 (MAP) ----------------
 elif tab_name=="Visualization Map":
-    st.subheader("Visualization Map")
+    #st.subheader("Visualization Map")
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
     if geo_file.exists():
@@ -1586,7 +1587,7 @@ elif tab_name=="Visualization Map":
 # -------------------------------USER MANUAL TAB------------------------------------       
         
 elif tab_name=="User Manual":
-    st.subheader("User Manual")
+    #st.subheader("User Manual")
     st.header("EU SEE Dashboard – Quick Start")
 
     st.markdown("""
