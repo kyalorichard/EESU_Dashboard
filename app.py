@@ -1052,68 +1052,86 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-# -----------------------------
-# Safe session_state initialization
-# -----------------------------
+tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
+
 if "active_tab" not in st.session_state:
-    st.session_state["active_tab"] = tabs[0]
+    st.session_state.active_tab = tabs[0]
 
 # -----------------------------
-# CSS for tabs
+# CSS for tabs & sliding underline
 # -----------------------------
 st.markdown("""
 <style>
-.tabs-row {
+/* Container for tabs */
+.tabs-container {
     display: flex;
-    gap: 2px;
-    margin-bottom: 0;
+    position: relative;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 20px;
 }
+
+/* Each tab button */
 .tab-button {
     flex: 1;
     text-align: center;
-    padding: 10px 0;
-    font-weight: 500;
+    padding: 12px 0;
     cursor: pointer;
-    border-radius: 6px 6px 0 0;
-    border: 1px solid #e0e0e0;
-    border-bottom: none;
-    background-color: #f5f5f5;
-    color: #444;
-    transition: 0.2s ease;
-    font-size: 16px;
-    min-width: 100px;
+    font-weight: 500;
+    color: #555;
+    transition: color 0.3s;
+    background-color: transparent;
+    border: none;
+    outline: none;
+    position: relative;
+    z-index: 1; /* Make text appear above underline */
 }
+
+/* Active tab text */
 .tab-button.active {
+    color: #660094;
     font-weight: bold;
-    color: #660094;
-    background-color: #ffffff;
-    border-bottom: 3px solid #660094;
 }
-.tab-button:hover {
-    color: #660094;
-}
-.tab-content {
-    border: 1px solid #e0e0e0;
-    padding: 20px;
-    border-radius: 0 6px 6px 6px;
-    background-color: #ffffff;
+
+/* Sliding underline */
+.tab-underline {
+    position: absolute;
+    bottom: 0;
+    height: 4px;
+    background-color: #660094;
+    left: 0;
+    transition: transform 0.3s ease, width 0.3s ease;
+    z-index: 0; /* Under the text */
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Horizontal tabs using st.radio
+# Render tabs with st.columns
 # -----------------------------
-selected_tab = st.radio(
-    "",
-    options=tabs,
-    index=tabs.index(st.session_state.active_tab),
-    horizontal=True
-)
-st.session_state.active_tab = selected_tab
-tab_name = selected_tab  # alias for readability
+tab_cols = st.columns(len(tabs))
 
-st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
+for i, tab_name in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab_name
+    # Use markdown for bold effect, but keep it clickable
+    if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
+        st.session_state.active_tab = tab_name
+
+# -----------------------------
+# Sliding underline behind active tab
+# -----------------------------
+active_index = tabs.index(st.session_state.active_tab)
+underline_width = 100 / len(tabs)
+
+st.markdown(f"""
+<div class='tabs-container'>
+    <div class='tab-underline' style='width: {underline_width}%; transform: translateX({active_index * 100}%);'></div>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# Render content for active tab
+# -----------------------------
+active_tab = st.session_state.active_tab
 
 # ---------------- TAB 1 ----------------
 
