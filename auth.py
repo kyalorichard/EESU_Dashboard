@@ -6,7 +6,6 @@ import urllib.parse
 import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
-import streamlit.components.v1 as components
 
 # ---------------------------
 # Firebase Admin Init
@@ -50,7 +49,6 @@ def get_email_domain(email: str) -> str:
     return email.split("@")[-1].lower()
 
 def init_state():
-    st.session_state.setdefault("show_login", False)
     st.session_state.setdefault("email_input", "")
     st.session_state.setdefault("password_input", "")
     st.session_state.setdefault("login_error", "")
@@ -103,7 +101,6 @@ def handle_google_redirect():
         st.session_state.email = email
         st.session_state.name = name
         st.session_state.user_role = "privileged"
-        st.session_state.show_login = False
         st.query_params.clear()
         st.experimental_rerun()
 
@@ -116,11 +113,10 @@ def handle_google_redirect():
 def logout_user():
     for k in ["user", "email", "name", "user_role"]:
         st.session_state.pop(k, None)
-    st.session_state.show_login = False
     st.experimental_rerun()
 
 # ---------------------------
-# AUTH UI (Sliding Drawer)
+# AUTH UI (Sidebar)
 # ---------------------------
 def auth_ui():
     init_state()
@@ -134,97 +130,45 @@ def auth_ui():
 
     # --- LOGGED OUT ---
     st.sidebar.markdown("## Account")
-    if st.sidebar.button("🔐 Sign in"):
-        st.session_state.show_login = True
 
-    if not st.session_state.show_login:
-        return
+    # Google login
+    login_url = get_google_auth_url()
+    if oauth_enabled:
+        st.sidebar.markdown(
+            f"<a href='{login_url}'><button style='background:#1a73e8;color:white;padding:.6rem;width:100%;border-radius:6px;border:none;'>🔵 Sign in with Google</button></a>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.sidebar.write("Google login disabled")
 
-    # --- CSS for overlay + drawer ---
-    st.markdown("""
-    <style>
-    .overlay {
-        position: fixed;
-        inset:0;
-        background: rgba(0,0,0,.45);
-        z-index:9998;
-    }
-    .drawer {
-        position: fixed;
-        top:0; right:0;
-        width:350px; height:100%;
-        background:#fff;
-        z-index:9999;
-        padding:1.5rem;
-        box-shadow:-10px 0 30px rgba(0,0,0,.3);
-        display:flex; flex-direction:column;
-        transition: transform 0.3s ease;
-        transform: translateX(0);
-    }
-    .drawer input {
-        margin-bottom:.5rem; padding:.5rem; border-radius:6px; border:1px solid #ccc; width:100%;
-    }
-    .drawer button {
-        padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; margin-bottom:.3rem; cursor:pointer;
-    }
-    .google-btn { background:#1a73e8; color:white; }
-    .cancel-btn { background:#ccc; }
-    </style>
-    """, unsafe_allow_html=True)
+    st.sidebar.markdown("---")
 
-    # --- Container for drawer + overlay ---
-    with st.container():
-        # Overlay: clicking closes the drawer
-        if st.button(" ", key="overlay_close"):
-            st.session_state.show_login = False
-            st.experimental_rerun()
-        st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
+    # Email login inputs
+    email_input = st.sidebar.text_input("Email", value=st.session_state.email_input)
+    password_input = st.sidebar.text_input("Password", value=st.session_state.password_input, type="password")
+    login_clicked = st.sidebar.button("Sign in with Email")
 
-        # Drawer content
-        st.markdown('<div class="drawer">', unsafe_allow_html=True)
-        st.markdown("### Sign in")
-
-        # Google login
-        login_url = get_google_auth_url()
-        if oauth_enabled:
-            st.markdown(f"<a href='{login_url}'><button class='google-btn'>🔵 Sign in with Google</button></a>", unsafe_allow_html=True)
+    if login_clicked:
+        st.session_state.email_input = email_input
+        st.session_state.password_input = password_input
+        if not firebase_auth:
+            st.session_state.login_error = "Firebase not initialized."
+        elif get_email_domain(email_input) not in PRIVILEGED_DOMAINS:
+            st.session_state.login_error = "Access denied for domain."
         else:
-            st.markdown("<p>Google login disabled</p>", unsafe_allow_html=True)
+            try:
+                firebase_auth.sign_in_with_email_and_password(email_input, password_input)
+                st.session_state.user = "email"
+                st.session_state.email = email_input
+                st.session_state.name = email_input.split("@")[0].title()
+                st.session_state.user_role = "privileged"
+                st.session_state.login_error = ""
+                st.experimental_rerun()
+            except Exception as e:
+                st.session_state.login_error = f"Login failed: {e}"
 
-        st.markdown("<hr>", unsafe_allow_html=True)
+    # Display login error
+    if st.session_state.login_error:
+        st.sidebar.markdown(f"<p style='color:red'>{st.session_state.login_error}</p>", unsafe_allow_html=True)
 
-        # Email login inputs
-        email_input = st.text_input("Email", value=st.session_state.email_input, key="email_input")
-        password_input = st.text_input("Password", value=st.session_state.password_input, type="password", key="password_input")
 
-        # Sign in with email
-        if st.button("Sign in with Email"):
-            st.session_state.email_input = email_input
-            st.session_state.password_input = password_input
-            if not firebase_auth:
-                st.session_state.login_error = "Firebase not initialized."
-            elif get_email_domain(email_input) not in PRIVILEGED_DOMAINS:
-                st.session_state.login_error = "Access denied for domain."
-            else:
-                try:
-                    firebase_auth.sign_in_with_email_and_password(email_input, password_input)
-                    st.session_state.user = "email"
-                    st.session_state.email = email_input
-                    st.session_state.name = email_input.split("@")[0].title()
-                    st.session_state.user_role = "privileged"
-                    st.session_state.show_login = False
-                    st.session_state.login_error = ""
-                    st.experimental_rerun()
-                except Exception as e:
-                    st.session_state.login_error = f"Login failed: {e}"
-
-        # Cancel button
-        if st.button("Cancel"):
-            st.session_state.show_login = False
-            st.experimental_rerun()
-
-        # Error message
-        if st.session_state.login_error:
-            st.markdown(f"<p style='color:red;text-align:center;'>{st.session_state.login_error}</p>", unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
