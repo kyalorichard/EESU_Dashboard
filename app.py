@@ -1062,18 +1062,15 @@ if "active_tab" not in st.session_state:
 # -------------------- TAB-STYLE RADIO --------------------
 
 # -------------------- TAB STYLING --------------------
-# -------------------- CSS for tab-style buttons --------------------
+# CSS for tabs
 st.markdown("""
 <style>
-/* Container for tabs */
-div.tab-container {
+.tab-container {
     display: flex;
     gap: 2px;
     margin-bottom: 0;
 }
-
-/* Individual tabs */
-div.tab-btn {
+.tab-btn {
     flex: 1;
     text-align: center;
     padding: 10px 15px;
@@ -1084,26 +1081,16 @@ div.tab-btn {
     border-bottom: none;
     background-color: #f5f5f5;
     color: #444;
-    transition: 0.2s ease;
     font-size: 16px;
 }
-
-/* Hover effect */
-div.tab-btn:hover {
-    color: #660094;
-    background-color: #eeeeee;
-}
-
-/* Active tab */
-div.tab-btn.active {
+.tab-btn:hover { color: #660094; background-color: #eeeeee; }
+.tab-btn.active {
     background-color: #ffffff;
     font-weight: bold;
     color: #660094;
     border-bottom: 3px solid #660094;
 }
-
-/* Optional: content area below tabs */
-div.tab-content {
+.tab-content {
     border: 1px solid #e0e0e0;
     border-radius: 0 6px 6px 6px;
     padding: 20px;
@@ -1112,19 +1099,24 @@ div.tab-content {
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- Render tabs --------------------
-cols = st.columns(len(tabs))
-for i, tab in enumerate(tabs):
-    btn_class = "active" if st.session_state.active_tab == tab else ""
-    # Use markdown to render styled tab inside each column
-    if cols[i].button(tab, key=f"tab_{i}"):
-        st.session_state.active_tab = tab
-    # Add the class to mimic active styling via HTML + CSS
-    cols[i].markdown(f'<div class="tab-btn {btn_class}">{tab}</div>', unsafe_allow_html=True)
+# Render tabs as clickable divs using markdown + javascript
+tabs_html = ""
+for tab in tabs:
+    active_class = "active" if st.session_state.active_tab == tab else ""
+    tabs_html += f"""
+    <div class="tab-btn {active_class}" 
+         onclick="window.parent.postMessage({{'tab':'{tab}'}}, '*')">{tab}</div>
+    """
 
-# -------------------- Active Tab Content --------------------
-tab_name = st.session_state.active_tab
-st.markdown(f'<div class="tab-content"><h3>{tab_name}</h3></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="tab-container">{tabs_html}</div>', unsafe_allow_html=True)
+
+# Listen for tab change via query parameters
+query_params = st.experimental_get_query_params()
+if "tab" in query_params:
+    st.session_state.active_tab = query_params["tab"][0]
+
+# Show active tab content
+st.markdown(f'<div class="tab-content"><h3>{st.session_state.active_tab}</h3></div>', unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
 
