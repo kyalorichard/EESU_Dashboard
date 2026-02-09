@@ -1104,21 +1104,23 @@ div.tab-label:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- RENDER TABS --------------------
-# Use radio for Streamlit internal state (hidden)
-selected_tab = st.radio("", tabs, index=tabs.index(st.session_state.active_tab), horizontal=True)
-st.session_state.active_tab = selected_tab
+# Render tabs as buttons
+cols = st.columns(len(tabs))
+for i, tab in enumerate(tabs):
+    if cols[i].button(tab, key=f"tab_{i}"):
+        st.session_state.active_tab = tab
 
-# Render styled tabs
-tabs_html = "".join([
-    f'<div class="tab-label {"active" if t == st.session_state.active_tab else ""}" onclick="document.querySelectorAll(\'input[name=\\\"{selected_tab}\\"]\')[0].value = \'{t}\'; document.querySelectorAll(\'input[name=\\\"{selected_tab}\\"]\')[0].dispatchEvent(new Event(\'change\'));">{t}</div>'
+# Display tabs visually
+tab_html = "".join([
+    f'<div class="tab-btn {"active" if t==st.session_state.active_tab else ""}">{t}</div>'
     for t in tabs
 ])
-
-st.markdown(f'<div class="tab-labels">{tabs_html}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="tab-container">{tab_html}</div>', unsafe_allow_html=True)
 st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
+# -------------------- TAB CONTENT --------------------
 tab_name = st.session_state.active_tab
+
 
 # ---------------- TAB 1 ----------------
 
