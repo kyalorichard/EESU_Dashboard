@@ -1052,12 +1052,13 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-# ---------------- MATERIAL-STYLE TABS ----------------
-tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
-
-# Initialize active tab in session_state
+# -----------------------------
+# Initialize active tab
+# -----------------------------
+query_params = st.experimental_get_query_params()
+default_tab = query_params.get("tab", [tabs[0]])[0]  # use URL param if present
 if "active_tab" not in st.session_state:
-    st.session_state.active_tab = tabs[0]
+    st.session_state.active_tab = default_tab
 
 # -----------------------------
 # CSS for tabs
@@ -1111,9 +1112,13 @@ tab_cols = st.columns(len(tabs))
 for i, tab_name in enumerate(tabs):
     is_active = st.session_state.active_tab == tab_name
 
-    # Use an invisible button to handle click
+    # Hidden button to handle click
     if tab_cols[i].button("", key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
+
+        # Update URL without reloading the page
+        new_params = urlencode({"tab": tab_name})
+        st.experimental_set_query_params(tab=tab_name)
 
     # Render the styled tab label
     tab_cols[i].markdown(
@@ -1124,481 +1129,476 @@ for i, tab_name in enumerate(tabs):
 # Optional divider
 st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
-            
 # ---------------- TAB 1 ----------------
-def render_tab_content(tab_name):
-    if tab_name=="Overview":
-        st.subheader("Overview Metrics")
-        render_summary_cards(filtered_global)
-        
-        a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-        df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-        df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-        df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-        a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-        a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-        a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
-        r1c1,r1c2 = st.columns(2)
-        r2c1,r2c2 = st.columns(2)
+
+if tab_name=="Overview":
+    st.subheader("Overview Metrics")
+    render_summary_cards(filtered_global)
+    a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
+    df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
+    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+    df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
+    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
+    a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
+    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
+    r1c1,r1c2 = st.columns(2)
+    r2c1,r2c2 = st.columns(2)
     
-        with r1c1:
-            fig1 = create_h_stacked_bar(
-                a1,
-                y="alert-type",
-                x="count",
-                color_col="alert-impact",
-                title="Alert type distribution",
-                horizontal=True
-            )
-            show_chart(fig1, key="tab1_chart1")
-        with r1c2:
-            tooltip_text = ("Alerts may be classified under more than one enabling principle ""and can therefore be counted in multiple principles.")
-            fig2 = create_h_stacked_bar(
-                a2,
-                y="enabling-principle",
-                x="count",
-                color_col="alert-impact",
-                title="Alert distribution across enabling principles",            
-                title_tooltip=tooltip_text,
-                horizontal=True
-            )
-            show_chart(fig2, key="tab1_chart2")
-        with r2c1:
-            fig3 = create_h_stacked_bar(
-                a3,
-                y="region",
-                x="count",
-                color_col="alert-impact",
-                title="Alert distribution across regions",
-                horizontal=False
-            )
-            show_chart(fig3, key="tab1_chart3")
+    with r1c1:
+        fig1 = create_h_stacked_bar(
+            a1,
+            y="alert-type",
+            x="count",
+            color_col="alert-impact",
+            title="Alert type distribution",
+            horizontal=True
+        )
+        show_chart(fig1, key="tab1_chart1")
+    with r1c2:
+        tooltip_text = ("Alerts may be classified under more than one enabling principle ""and can therefore be counted in multiple principles.")
+        fig2 = create_h_stacked_bar(
+            a2,
+            y="enabling-principle",
+            x="count",
+            color_col="alert-impact",
+            title="Alert distribution across enabling principles",            
+            title_tooltip=tooltip_text,
+            horizontal=True
+        )
+        show_chart(fig2, key="tab1_chart2")
+    with r2c1:
+        fig3 = create_h_stacked_bar(
+            a3,
+            y="region",
+            x="count",
+            color_col="alert-impact",
+            title="Alert distribution across regions",
+            horizontal=False
+        )
+        show_chart(fig3, key="tab1_chart3")
     
-        with r2c2:
-            
-            fig4 = create_h_stacked_bar(        
-                a4,
-                y="alert-country",
-                x="count",
-                color_col="alert-impact",
-                title="Alert distribution across countries",
-                horizontal=False
-            )
-                    
-            show_chart(fig4, key="tab1_chart4")
+    with r2c2:        
+        fig4 = create_h_stacked_bar(        
+            a4,
+            y="alert-country",
+            x="count",
+            color_col="alert-impact",
+            title="Alert distribution across countries",
+            horizontal=False
+        )                    
+        show_chart(fig4, key="tab1_chart4")
          
        
-        cols_rename_map  = {
+    cols_rename_map  = {
+         "post_title": "Title of post",
+         "summary": "Event summary",
+         "creation_date": "Date of submission",
+         "alert-country": "Country",
+         "enabling-principle": "Enabling principles",
+        "alert-impact": "Impact of alert",
+        "alert-type": "Type of alert"
+    }
+    # keep only existing columns, then rename
+    filtered_global_prev = (
+        filtered_global
+        .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+        .rename(columns=cols_rename_map)
+    )
+    
+    # ---------------- Tab two data preview ----------------
+    with st.expander("Summary Data preview"):
+        st.write(filtered_global_prev)     
+        
+       
+# ---------------- TAB 2: Negative Events ----------------
+elif tab_name=="Negative Alerts":
+    st.subheader("Negative Alerts")
+    # Filter negative events
+    reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+    
+    if reactive_df.empty:
+        st.warning("No negative events available for the selected filters.")
+            
+    else:
+        # Initialize Top-N selection in session state
+        if "neg_top_n" not in st.session_state:
+            st.session_state["neg_top_n"] = 5  # default Top 5
+                
+        # ---------------- SPELL OUT "VNSAs" ----------------
+        reactive_df['Actor of repression'] = reactive_df['Actor of repression'].replace("VNSAs", "Violent Non-State Actors")
+               
+        # ---------------- SUMMARY CARDS ----------------
+        # Show totals BEFORE exploding multi-valued columns
+            
+        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
+        df_exploded = explode_multi_valued_columns(reactive_df, cols_to_explode)
+            
+        df_exploded = reactive_df.copy()
+        for col in cols_to_explode:
+            df_exploded[col] = df_exploded[col].str.split(",")
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].str.strip()
+            
+        # ---------------- INLINE FILTERS ----------------
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            selected_actor_types = safe_multiselect(
+                "Types of restrictive actors",
+                df_exploded['Actor of repression'].dropna().unique(),
+                "selected_actor_types", sidebar=False
+            )
+        with col2:
+            selected_subject_types = safe_multiselect(
+                "Types of civil society actors affected",
+                df_exploded['Subject of repression'].dropna().unique(),
+                "selected_subject_types", sidebar=False
+            )
+        with col3:
+            selected_mechanism_types = safe_multiselect(
+                "Types of restrictive mechanisms",
+                df_exploded['Mechanism of repression'].dropna().unique(),
+                "selected_mechanism_types", sidebar=False
+            )
+        with col4:
+            selected_event_types = safe_multiselect(
+                "Types of negative events",
+                df_exploded['Type of event'].dropna().unique(),
+                "selected_event_types", sidebar=False
+            )
+        ##### -------- Tab 2 Summary card totals--------------------------
+        reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+        render_summary_cards(reactive_df_updated,show_breakdown=False)
+
+        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+        
+        filtered_df1 = df_exploded.copy()
+        #filtered_df = reactive_df_updated.copy()
+        
+        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
+        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+
+        tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
+        tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
+        m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
+
+        tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
+        tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
+        m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
+
+        tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
+        tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
+        m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
+
+        tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
+        tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
+        m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
+        
+        tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
+        tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+        tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
+        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
+        
+        # ---------------- BAR CHARTS ----------------
+        r1c1, r1c2, r1c3 = st.columns(3)
+        r2c1, r2c2, r2c3 = st.columns(3)
+
+        disclaimer_text = (
+            "Disclaimer:\n"
+            "These charts reflect only the data selected by the filters above.\n"
+            "Excluded countries, actors, or event types are not included.\n"
+            "Values do not include data outside your selections."
+        )
+
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
+
+        # ---------------- TOP-N CONFIG ----------------
+        if "top_n_option" not in st.session_state:
+            st.session_state.top_n_option = "Top 5"
+            st.session_state.top_n = 5
+            
+        def update_top_n():
+            st.session_state.top_n = {
+                "Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None
+            }[st.session_state.top_n_option]
+
+        st.markdown(
+            """
+            <style>
+            #top-n-select div[data-baseweb="select"] > div {
+                font-size: 30px;
+                font-weight: bold;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )  
+        
+        st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
+        top_n_map = {
+            "Top 2": 2,
+            "Top 3": 3,
+            "Top 4": 4,
+            "Top 5": 5,
+            "All": None
+        }
+        
+        selected = st.selectbox(
+            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression",
+            options=list(top_n_map.keys()),
+            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
+        )
+        
+        st.session_state.top_n_option = selected
+        st.session_state.top_n = top_n_map[selected]
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        top_n = st.session_state.top_n
+        
+        # ---------------- HEATMAPS ----------------
+        #with st.expander("Show Heatmaps"):
+        render_heatmaps(filtered_df, top_n=top_n)
+        
+        # ---------------- SANKEY DIAGRAM ----------------
+        #with st.expander("Show Flowchart (Sankey Diagram)"):
+        st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
+
+        cols_to_keep = {
             "post_title": "Title of post",
             "summary": "Event summary",
             "creation_date": "Date of submission",
             "alert-country": "Country",
             "enabling-principle": "Enabling principles",
             "alert-impact": "Impact of alert",
-            "alert-type": "Type of alert"
+            "alert-type": "Type of alert",
+            "Actor of repression": "Types of restrictive actors",
+            "Subject of repression": "Types of civil society actors affected",
+            "Mechanism of repression": "Types of restrictive mechanisms",
+            "Type of event": "Types of negative events"           
         }
         # keep only existing columns, then rename
-        filtered_global_prev = (
-            filtered_global
-            .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
-            .rename(columns=cols_rename_map)
+        reactive_df_updated_prev = (
+            reactive_df_updated
+            .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
+            .rename(columns=cols_to_keep)
         )
-    
+            
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
-            st.write(filtered_global_prev)     
+            st.write(reactive_df_updated_prev)     
+        
+        # ---------------- TAB 3 (MAP) ----------------
+elif tab_name=="Visualization Map":
+    st.subheader("Visualization Map")
+    render_summary_cards(filtered_global)
+    geo_file = Path.cwd() / "data" / "countriess.geojson"
+    if geo_file.exists():
+        with open(geo_file) as f: 
+            countries_gj = json.load(f)
+        
+        # Base map data
+        df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
+        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
-    # ---------------- TAB 2: Negative Events ----------------
-    elif tab_name=="Negative Alerts":
-        st.subheader("Negative Alerts")
-        # Filter negative events
-        reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
-    
-        if reactive_df.empty:
-            st.warning("No negative events available for the selected filters.")
-            
-        else:
-             # Initialize Top-N selection in session state
-            if "neg_top_n" not in st.session_state:
-                st.session_state["neg_top_n"] = 5  # default Top 5
-                
-            # ---------------- SPELL OUT "VNSAs" ----------------
-            reactive_df['Actor of repression'] = reactive_df['Actor of repression'].replace("VNSAs", "Violent Non-State Actors")
-               
-            # ---------------- SUMMARY CARDS ----------------
-            # Show totals BEFORE exploding multi-valued columns
-            
-            # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
-            cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
-            df_exploded = explode_multi_valued_columns(reactive_df, cols_to_explode)
-            
-            df_exploded = reactive_df.copy()
-            for col in cols_to_explode:
-                df_exploded[col] = df_exploded[col].str.split(",")
-                df_exploded = df_exploded.explode(col)
-                df_exploded[col] = df_exploded[col].str.strip()
-            
-            # ---------------- INLINE FILTERS ----------------
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                selected_actor_types = safe_multiselect(
-                    "Types of restrictive actors",
-                    df_exploded['Actor of repression'].dropna().unique(),
-                    "selected_actor_types", sidebar=False
-                )
-            with col2:
-                selected_subject_types = safe_multiselect(
-                    "Types of civil society actors affected",
-                    df_exploded['Subject of repression'].dropna().unique(),
-                    "selected_subject_types", sidebar=False
-                )
-            with col3:
-                selected_mechanism_types = safe_multiselect(
-                    "Types of restrictive mechanisms",
-                    df_exploded['Mechanism of repression'].dropna().unique(),
-                    "selected_mechanism_types", sidebar=False
-                )
-            with col4:
-                selected_event_types = safe_multiselect(
-                    "Types of negative events",
-                    df_exploded['Type of event'].dropna().unique(),
-                    "selected_event_types", sidebar=False
-                )
-           ##### -------- Tab 2 Summary card totals--------------------------
-            reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-                (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-                (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-                (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-            ]
-            render_summary_cards(reactive_df_updated,show_breakdown=False)
-    
-            filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-                (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-                (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-                (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-            ]
-          
-            filtered_df1 = df_exploded.copy()
-            #filtered_df = reactive_df_updated.copy()
-            
-            tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-            tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-            m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
-    
-            tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-            tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
-            m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
-    
-            tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
-            tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
-            m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
-    
-            tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
-            tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
-            m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
-    
-            tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
-            tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
-            m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-            
-            tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
-            tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-            tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-            m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-            
-            # ---------------- BAR CHARTS ----------------
-            r1c1, r1c2, r1c3 = st.columns(3)
-            r2c1, r2c2, r2c3 = st.columns(3)
-    
-            disclaimer_text = (
-                "Disclaimer:\n"
-                "These charts reflect only the data selected by the filters above.\n"
-                "Excluded countries, actors, or event types are not included.\n"
-                "Values do not include data outside your selections."
-            )
-    
-            r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), use_container_width=True, key="tab2_chart1")
-            r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
-            r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
-            r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
-            r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
-            r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
-    
-            # ---------------- TOP-N CONFIG ----------------
-            if "top_n_option" not in st.session_state:
-                st.session_state.top_n_option = "Top 5"
-                st.session_state.top_n = 5
-                
-            def update_top_n():
-                st.session_state.top_n = {
-                    "Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None
-                }[st.session_state.top_n_option]
-    
-            st.markdown(
-                """
-                <style>
-                #top-n-select div[data-baseweb="select"] > div {
-                    font-size: 30px;
-                    font-weight: bold;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )  
-            
-            st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
-            top_n_map = {
-                "Top 2": 2,
-                "Top 3": 3,
-                "Top 4": 4,
-                "Top 5": 5,
-                "All": None
-            }
-            
-            selected = st.selectbox(
-                "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression",
-                options=list(top_n_map.keys()),
-                index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
-            )
-            
-            st.session_state.top_n_option = selected
-            st.session_state.top_n = top_n_map[selected]
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            top_n = st.session_state.top_n
-            
-            # ---------------- HEATMAPS ----------------
-            #with st.expander("Show Heatmaps"):
-            render_heatmaps(filtered_df, top_n=top_n)
-            
-            # ---------------- SANKEY DIAGRAM ----------------
-            #with st.expander("Show Flowchart (Sankey Diagram)"):
-            st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
-    
-            cols_to_keep = {
-                "post_title": "Title of post",
-                "summary": "Event summary",
-                "creation_date": "Date of submission",
-                "alert-country": "Country",
-                "enabling-principle": "Enabling principles",
-                "alert-impact": "Impact of alert",
-                "alert-type": "Type of alert",
-                "Actor of repression": "Types of restrictive actors",
-                "Subject of repression": "Types of civil society actors affected",
-                "Mechanism of repression": "Types of restrictive mechanisms",
-                "Type of event": "Types of negative events"           
-            }
-            # keep only existing columns, then rename
-            reactive_df_updated_prev = (
-                reactive_df_updated
-                .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
-                .rename(columns=cols_to_keep)
-            )
-                
-            # ---------------- Tab two data preview ----------------
-            with st.expander("Summary Data preview"):
-                st.write(reactive_df_updated_prev)     
-          
-          # ---------------- TAB 3 (MAP) ----------------
-    elif tab_name=="Visualization Map":
-        st.subheader("Visualization Map")
-        render_summary_cards(filtered_global)
-        geo_file = Path.cwd() / "data" / "countriess.geojson"
-        if geo_file.exists():
-            with open(geo_file) as f: 
-                countries_gj = json.load(f)
-            
-            # Base map data
-            df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-            map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
-    
-            geo_countries = [f['properties']['name'] for f in countries_gj['features']]
-            df_map = df_map[df_map['alert-country'].isin(geo_countries)]
-    
-            # ----- Dynamic center & zoom -----
-            if not df_map.empty:
-                coords = []
-                for feature in countries_gj['features']:
-                    if feature['properties']['name'] in df_map['alert-country'].values:
-                        geometry = feature['geometry']
-                        if geometry['type'] == "Polygon":
-                            coords.extend(geometry['coordinates'][0])
-                        elif geometry['type'] == "MultiPolygon":
-                            for poly in geometry['coordinates']:
-                                coords.extend(poly[0])
-    
-                if coords:
-                    lons, lats = zip(*coords)
-                    center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-                    zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
-                else:
-                    center = {"lat":10,"lon":0}
-                    zoom = 2
+        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
+        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
+
+        # ----- Dynamic center & zoom -----
+        if not df_map.empty:
+            coords = []
+            for feature in countries_gj['features']:
+                if feature['properties']['name'] in df_map['alert-country'].values:
+                    geometry = feature['geometry']
+                    if geometry['type'] == "Polygon":
+                        coords.extend(geometry['coordinates'][0])
+                    elif geometry['type'] == "MultiPolygon":
+                        for poly in geometry['coordinates']:
+                            coords.extend(poly[0])
+
+            if coords:
+                lons, lats = zip(*coords)
+                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
+                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
             else:
                 center = {"lat":10,"lon":0}
                 zoom = 2
-    
-            # ----- Add advanced hover stats -----
-            stats = (
-                filtered_global
-                .groupby("alert-country")
-                .agg(
-                    total_alerts=("alert-impact", "size"),
-                    negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                    positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
-                )
-                .reset_index()
-            )
-    
-            df_map = df_map.merge(stats, on="alert-country", how="left")
-    
-            # Ensure numeric
-            df_map["negative_alerts"] = pd.to_numeric(df_map["negative_alerts"], errors="coerce")
-            df_map["total_alerts"] = pd.to_numeric(df_map["total_alerts"], errors="coerce")
-            
-            # Compute percentage safely
-            df_map["perc_negative"] = ((df_map["negative_alerts"] / df_map["total_alerts"]) * 100).round(1)
-            
-            # Optional: handle NaN values if total_alerts was 0
-            df_map["perc_negative"] = df_map["perc_negative"].fillna(0)
-                  
-            # ----- Main choropleth -----
-            map_height = max(400, len(df_map)*20)
-    
-            fig = px.choropleth_mapbox(
-                df_map,
-                geojson=countries_gj,
-                locations="alert-country",
-                featureidkey="properties.name",
-                color="count",
-                hover_name="alert-country",
-                hover_data={
-                    "count": False,
-                    "total_alerts": False,
-                    "negative_alerts": False,
-                    "positive_alerts": False,
-                    "perc_negative": False
-                },
-                color_continuous_scale="YlOrBr",
-                mapbox_style="open-street-map",
-                zoom=zoom,
-                center=center,
-                opacity=0.8
-            )
-    
-            # ----- Card-style hover tooltip -----
-            fig.update_traces(
-                hovertemplate=(
-                    "<b>%{location}</b><br>"
-                    "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
-                    "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
-                    "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                    "% Negative: %{customdata[3]}%<extra></extra>"
-                ),
-                customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
-                hoverlabel=dict(
-                    bgcolor="#2D0055",
-                    font_size=13,
-                    font_family="Arial",
-                    font_color="white",
-                    bordercolor="#ffffff"
-                ),
-                marker_line_width=1,
-                marker_line_color="black"
-            )
-    
-            # ----- Bubble density overlay -----
-            
-    
-            # ----- Final layout -----
-            fig.update_layout(
-                margin={"r":0,"t":0,"l":0,"b":0},
-                height=map_height
-            )
-    
-            fig.update_xaxes(visible=False)
-            fig.update_yaxes(visible=False)
-    
-            st.plotly_chart(fig, use_container_width=True)
-    
         else:
-            st.warning("GeoJSON file not found for map visualization.") 
-    
-    # -------------------------------USER MANUAL TAB------------------------------------       
-         
-    elif tab_name=="User Manual":
-        st.subheader("User Manual")
-        st.header("EU SEE Dashboard – Quick Start")
-    
-        st.markdown("""
-        This section provides concise, decision-ready documentation for executives,
-        donors, and policy stakeholders.
-        """)
-    
-        # ---------------- EXECUTIVE BRIEF ----------------
-        st.subheader("Executive Brief (1 Page)")
-        st.caption("For senior leadership, donors, and policy reporting")
-    
-        if EXEC_BRIEF_PATH.exists():
-            pdf_bytes = EXEC_BRIEF_PATH.read_bytes()
-    
-            st.download_button(
-                "Download Executive Brief (PDF)",
-                pdf_bytes,
-                file_name="EU_SEE_Dashboard_Quick_Start_Executive.pdf",
-                mime="application/pdf"
-            )
-            st.subheader("Executive Brief")
-                  
-            
-            pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
-            st.markdown(
-                f"""
-                <iframe
-                    src="data:application/pdf;base64,{pdf_base64}"
-                    width="100%"
-                    height="550px"
-                    style="border:none;"
-                ></iframe>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            st.warning("Executive Brief PDF not found.")
-    
-        st.divider()
-    
-        # ---------------- FULL USER MANUAL ----------------
-        st.subheader("Full User Manual")
-        st.caption("Detailed guidance for analysts and advanced users")
-    
-        if USER_MANUAL_PATH.exists():
-            pdf_bytes = USER_MANUAL_PATH.read_bytes()
-    
-            st.download_button(
-                "Download Full User Manual (PDF)",
-                pdf_bytes,
-                file_name="EU SEE Dashboard user manual.pdf",
-                mime="application/pdf"
-            )
-    
-            pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
-            st.markdown(
-                f"""
-                <iframe
-                    src="data:application/pdf;base64,{pdf_base64}"
-                    width="100%"
-                    height="700px"
-                    style="border:none;"
-                ></iframe>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            st.warning("User Manual PDF not found.")
+            center = {"lat":10,"lon":0}
+            zoom = 2
 
-# ---------------- RENDER ----------------
-render_tab_content(st.session_state.active_tab)
+        # ----- Add advanced hover stats -----
+        stats = (
+            filtered_global
+            .groupby("alert-country")
+            .agg(
+                total_alerts=("alert-impact", "size"),
+                negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
+                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
+            )
+            .reset_index()
+        )
+
+        df_map = df_map.merge(stats, on="alert-country", how="left")
+
+        # Ensure numeric
+        df_map["negative_alerts"] = pd.to_numeric(df_map["negative_alerts"], errors="coerce")
+        df_map["total_alerts"] = pd.to_numeric(df_map["total_alerts"], errors="coerce")
+        
+        # Compute percentage safely
+        df_map["perc_negative"] = ((df_map["negative_alerts"] / df_map["total_alerts"]) * 100).round(1)
+        
+        # Optional: handle NaN values if total_alerts was 0
+        df_map["perc_negative"] = df_map["perc_negative"].fillna(0)
+                
+        # ----- Main choropleth -----
+        map_height = max(400, len(df_map)*20)
+
+        fig = px.choropleth_mapbox(
+            df_map,
+            geojson=countries_gj,
+            locations="alert-country",
+            featureidkey="properties.name",
+            color="count",
+            hover_name="alert-country",
+            hover_data={
+                "count": False,
+                "total_alerts": False,
+                "negative_alerts": False,
+                "positive_alerts": False,
+                "perc_negative": False
+            },
+            color_continuous_scale="YlOrBr",
+            mapbox_style="open-street-map",
+            zoom=zoom,
+            center=center,
+            opacity=0.8
+        )
+
+        # ----- Card-style hover tooltip -----
+        fig.update_traces(
+            hovertemplate=(
+                "<b>%{location}</b><br>"
+                "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
+                "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
+                "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
+                "% Negative: %{customdata[3]}%<extra></extra>"
+            ),
+            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
+            hoverlabel=dict(
+                bgcolor="#2D0055",
+                font_size=13,
+                font_family="Arial",
+                font_color="white",
+                bordercolor="#ffffff"
+            ),
+            marker_line_width=1,
+            marker_line_color="black"
+        )
+
+        # ----- Bubble density overlay -----
+        
+
+        # ----- Final layout -----
+        fig.update_layout(
+            margin={"r":0,"t":0,"l":0,"b":0},
+            height=map_height
+        )
+
+        fig.update_xaxes(visible=False)
+        fig.update_yaxes(visible=False)
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    else:
+        st.warning("GeoJSON file not found for map visualization.") 
+
+# -------------------------------USER MANUAL TAB------------------------------------       
+        
+elif tab_name=="User Manual":
+    st.subheader("User Manual")
+    st.header("EU SEE Dashboard – Quick Start")
+
+    st.markdown("""
+    This section provides concise, decision-ready documentation for executives,
+    donors, and policy stakeholders.
+    """)
+
+    # ---------------- EXECUTIVE BRIEF ----------------
+    st.subheader("Executive Brief (1 Page)")
+    st.caption("For senior leadership, donors, and policy reporting")
+
+    if EXEC_BRIEF_PATH.exists():
+        pdf_bytes = EXEC_BRIEF_PATH.read_bytes()
+
+        st.download_button(
+            "Download Executive Brief (PDF)",
+            pdf_bytes,
+            file_name="EU_SEE_Dashboard_Quick_Start_Executive.pdf",
+            mime="application/pdf"
+        )
+        st.subheader("Executive Brief")
+                
+        
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <iframe
+                src="data:application/pdf;base64,{pdf_base64}"
+                width="100%"
+                height="550px"
+                style="border:none;"
+            ></iframe>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("Executive Brief PDF not found.")
+
+    st.divider()
+
+    # ---------------- FULL USER MANUAL ----------------
+    st.subheader("Full User Manual")
+    st.caption("Detailed guidance for analysts and advanced users")
+
+    if USER_MANUAL_PATH.exists():
+        pdf_bytes = USER_MANUAL_PATH.read_bytes()
+
+        st.download_button(
+            "Download Full User Manual (PDF)",
+            pdf_bytes,
+            file_name="EU SEE Dashboard user manual.pdf",
+            mime="application/pdf"
+        )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <iframe
+                src="data:application/pdf;base64,{pdf_base64}"
+                width="100%"
+                height="700px"
+                style="border:none;"
+            ></iframe>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("User Manual PDF not found.")
+
 
 # ---------------- FOOTER ----------------
 # Footer image
