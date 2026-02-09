@@ -11,7 +11,7 @@ from auth import auth_ui
 
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
-
+auth_ui()
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -231,7 +231,7 @@ st.sidebar.markdown("## 🔐 Login / Access")
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # Call the sidebar login
-auth_ui()   # ← place near the top
+#auth_ui()   # ← place near the top
 
 
 #if "user" not in st.session_state:
