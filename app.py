@@ -1087,8 +1087,24 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
         "6. Access to a secure digital environment",
 }
 
-#if "active_tab" not in st.session_state:
-   # st.session_state.active_tab = "Overview"
+SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
+def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
+    """
+    Adds a source line below the chart.
+    - y_offset: vertical position (negative values go below the plot)
+    """
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=y_offset,
+        showarrow=False,
+        text=SOURCE_TEXT,
+        font=dict(size=font_size, color=font_color),
+        xanchor="center",
+        yanchor="top"
+    )
+    return fig
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
@@ -1208,6 +1224,7 @@ if tab_name=="Overview":
         hovertext="Alerts may be classified under more than one enabling principle <br> and can therefore be counted in multiple principles.",
         hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
     )
+    fig12 = add_source_line(fig12)
 
 
     # Render the chart
