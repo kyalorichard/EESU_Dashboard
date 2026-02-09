@@ -39,6 +39,9 @@ def get_email_domain(email: str) -> str:
 
 def init_state():
     st.session_state.setdefault("show_login", False)
+    st.session_state.setdefault("email_input", "")
+    st.session_state.setdefault("password_input", "")
+    st.session_state.setdefault("login_error", "")
 
 # ---------------------------
 # Google OAuth
@@ -131,6 +134,10 @@ def inject_css():
         from {opacity:0; transform:scale(.9)}
         to   {opacity:1; transform:scale(1)}
     }
+    .login-card input { padding:.5rem; margin-bottom:.5rem; width:100%; border-radius:6px; border:1px solid #ccc; }
+    .login-card button { padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; cursor:pointer; }
+    .google-btn { background:#1a73e8; color:white; margin-bottom:.5rem; }
+    .cancel-btn { background:#ccc; margin-top:.3rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -158,7 +165,30 @@ def auth_ui():
 
     login_url = get_google_auth_url()
 
-    # Floating login card (Google + Email)
+    # Handle email login
+    email = st.session_state.email_input
+    password = st.session_state.password_input
+    login_error = st.session_state.login_error
+
+    if st.session_state.get("email_form_submitted", False):
+        if not firebase_auth:
+            st.session_state.login_error = "Firebase not initialized."
+        elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
+            st.session_state.login_error = f"Access denied for domain."
+        else:
+            try:
+                firebase_auth.sign_in_with_email_and_password(email, password)
+                st.session_state.user = "email"
+                st.session_state.email = email
+                st.session_state.name = email.split("@")[0].title()
+                st.session_state.user_role = "privileged"
+                st.session_state.show_login = False
+                st.session_state.login_error = ""
+            except Exception as e:
+                st.session_state.login_error = f"Login failed: {e}"
+        st.session_state.email_form_submitted = False
+
+    # Floating card
     st.markdown(f"""
     <div class="login-overlay" id="loginOverlay">
       <div class="login-card" onclick="event.stopPropagation()">
@@ -166,31 +196,23 @@ def auth_ui():
 
         <!-- Google Login -->
         <a href="{login_url}" style="text-decoration:none">
-          <div style="
-            background:#1a73e8;color:white;
-            padding:.6rem;border-radius:8px;
-            text-align:center;font-weight:600;">
-            🔵 Sign in with Google
-          </div>
+          <button class="google-btn">🔵 Sign in with Google</button>
         </a>
 
         <hr>
 
-        <!-- Email/Password Login -->
-        <form method="post" id="emailForm">
-          <input name="email" placeholder="Email" style="width:100%;margin-bottom:.5rem">
-          <input type="password" name="password" placeholder="Password" style="width:100%;margin-bottom:.5rem">
-          <button type="submit" style="width:100%; margin-top:.3rem;">Sign in</button>
-        </form>
+        <!-- Email Login -->
+        <input type="text" placeholder="Email" value="{email}" id="email_input">
+        <input type="password" placeholder="Password" value="{password}" id="password_input">
+        <button id="email_login_btn">Sign in with Email</button>
 
-        <button style="width:100%; margin-top:.5rem;" onclick="window.parent.postMessage({{func:'closeLogin'}}, '*')">
-          Cancel
-        </button>
+        <p style="color:red; text-align:center;">{login_error}</p>
+
+        <button class="cancel-btn" onclick="window.parent.postMessage({{func:'closeLogin'}}, '*')">Cancel</button>
       </div>
     </div>
 
     <script>
-    // Close overlay when clicking outside
     const overlay = document.getElementById('loginOverlay');
     overlay.addEventListener('click', () => {{
         window.parent.postMessage({{func:'closeLoginState'}}, '*');
@@ -198,29 +220,19 @@ def auth_ui():
 
     const card = document.querySelector('.login-card');
     card.addEventListener('click', e => e.stopPropagation());
+
+    document.getElementById('email_login_btn').addEventListener('click', () => {{
+        const email = document.getElementById('email_input').value;
+        const password = document.getElementById('password_input').value;
+        const streamlitEvent = new CustomEvent('emailLogin', {{detail: {{email,password}}}});
+        document.dispatchEvent(streamlitEvent);
+    }});
     </script>
     """, unsafe_allow_html=True)
 
-    # Streamlit side: handle closing overlay
+    # Listen for closing overlay
     if "_close_login_state" not in st.session_state:
         st.session_state["_close_login_state"] = False
-
     if st.session_state["_close_login_state"]:
         st.session_state.show_login = False
         st.session_state["_close_login_state"] = False
-
-    # --- Email login backend ---
-    if "email" in st.experimental_get_query_params() and firebase_auth:
-        form_data = st.experimental_get_query_params()
-        email = form_data.get("email", [""])[0]
-        password = form_data.get("password", [""])[0]
-        if email and password:
-            try:
-                user = firebase_auth.sign_in_with_email_and_password(email, password)
-                st.session_state.user = "email"
-                st.session_state.email = email
-                st.session_state.name = email.split("@")[0].title()
-                st.session_state.user_role = "privileged"
-                st.session_state.show_login = False
-            except Exception as e:
-                st.error(f"Email login failed: {e}")
