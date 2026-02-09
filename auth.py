@@ -109,6 +109,7 @@ def handle_google_redirect():
         st.experimental_set_query_params()
         return
 
+    # Set session state
     st.session_state.user = "google"
     st.session_state.email = email
     st.session_state.name = name
@@ -119,91 +120,28 @@ def handle_google_redirect():
     st.experimental_rerun()
 
 # ----------------------------
-# CSS
+# Logout
 # ----------------------------
-def inject_auth_css():
-    st.markdown("""
-    <style>
-    .auth-container { position: fixed; top: 1rem; left: 1rem; z-index: 9999; }
-    .avatar-button { width:50px; height:50px; border-radius:50%; background:#1a73e8; color:white; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
-    .avatar-img { width:50px; height:50px; border-radius:50%; object-fit:cover; cursor:pointer; }
-    </style>
-    """, unsafe_allow_html=True)
+def logout_user():
+    keys_to_clear = ["user", "email", "name", "photo", "user_role"]
+    for k in keys_to_clear:
+        if k in st.session_state:
+            del st.session_state[k]
+    st.experimental_rerun()
 
 # ----------------------------
-# Top-left avatar + centered modal login
+# Sidebar Login
 # ----------------------------
-def top_right_auth():
+def sidebar_auth():
     handle_google_redirect()
 
-    # Initialize modal state
-    if "auth_open" not in st.session_state:
-        st.session_state.auth_open = False
-
-    import streamlit.components.v1 as components
-
-    email = st.session_state.get("email", "?")
-    photo = st.session_state.get("photo")
-
-    # Avatar HTML (clickable)
-    avatar_html = f"""
-    <div id="avatar" style="
-        width:50px; height:50px; border-radius:50%;
-        display:flex; align-items:center; justify-content:center;
-        cursor:pointer; font-weight:600; font-size:18px;
-        background:#1a73e8; color:white;
-    ">
-        {avatar_initials(email) if not photo else f'<img src="{photo}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'}
-    </div>
-
-    <script>
-    const avatar = window.parent.document.getElementById("avatar");
-    avatar && avatar.addEventListener('click', () => {{
-        window.parent.postMessage({{func:"toggleAuthModal"}}, "*");
-    }});
-    </script>
-    """
-
-    # Render avatar
-    components.html(avatar_html, height=60, scrolling=False)
-
-    # Handle messages from JS
-    if "_auth_msg_handler" not in st.session_state:
-        def handle_message(msg):
-            if msg.get("func") == "toggleAuthModal":
-                st.session_state.auth_open = not st.session_state.auth_open
-                st.experimental_rerun()
-        st.session_state["_auth_msg_handler"] = handle_message
-
-    # Show modal if open
-    if st.session_state.get("auth_open", False):
-        modal_html = f"""
-        <div id="authModal" style="
-            position: fixed; top:0; left:0; width:100vw; height:100vh;
-            background: rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center;
-            z-index:99999;
-        ">
-            <div style="
-                background:white; border-radius:12px; padding:2rem; 
-                max-width:400px; width:90%; text-align:center; box-shadow:0 12px 32px rgba(0,0,0,0.4);
-            ">
-                {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name','User')}</strong>!"}
-                {f'<a href="{get_google_auth_url()}"><button style="width:100%; margin-top:1rem;">🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
-            </div>
-        </div>
-
-        <script>
-        const modal = document.getElementById('authModal');
-        modal.addEventListener('click', function(e) {{
-            if(e.target === modal) {{
-                window.parent.postMessage({{func:"toggleAuthModal"}}, "*");
-            }}
-        }});
-        </script>
-        """
-        components.html(modal_html, height=800)
-
-
-    # Welcome note on dashboard
-    if "user" in st.session_state:
-        st.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!", unsafe_allow_html=True)
+    if "user" not in st.session_state:
+        st.sidebar.markdown("## Sign in")
+        login_url = get_google_auth_url()
+        st.sidebar.markdown(
+            f'<a href="{login_url}"><button style="width:100%; padding:0.5rem; font-size:16px;">🔵 Sign in with Google</button></a>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.sidebar.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!")
+        st.sidebar.button("Logout", on_click=logout_user)
