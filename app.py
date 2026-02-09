@@ -1158,14 +1158,14 @@ if tab_name=="Overview":
         y=1.05, # slightly above the chart title
         text='?',  # the "?" icon
         showarrow=False,
-        font=dict(color="#660094", size=16, family="Arial", weight="bold"),
+        font=dict(color="black", size=16, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
         borderwidth=1,
         borderpad=2,
         bgcolor="white",
         opacity=0.9,
-        hovertext="Alerts may be classified under more than one enabling principle <br? and can therefore be counted in multiple principles.",
+        hovertext="Alerts may be classified under more than one enabling principle <br> and can therefore be counted in multiple principles.",
         hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
     )
 
