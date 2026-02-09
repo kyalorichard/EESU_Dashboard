@@ -1052,7 +1052,6 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-# ---------------- MATERIAL-STYLE TABS ----------------
 tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 
 if "active_tab" not in st.session_state:
@@ -1071,7 +1070,7 @@ st.markdown("""
     margin-bottom: 20px;
 }
 
-/* Each tab */
+/* Each tab button */
 .tab-button {
     flex: 1;
     text-align: center;
@@ -1083,6 +1082,8 @@ st.markdown("""
     background-color: transparent;
     border: none;
     outline: none;
+    position: relative;
+    z-index: 1; /* Make text appear above underline */
 }
 
 /* Active tab text */
@@ -1097,9 +1098,9 @@ st.markdown("""
     bottom: 0;
     height: 4px;
     background-color: #660094;
-    width: 0;
     left: 0;
     transition: transform 0.3s ease, width 0.3s ease;
+    z-index: 0; /* Under the text */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1111,11 +1112,12 @@ tab_cols = st.columns(len(tabs))
 
 for i, tab_name in enumerate(tabs):
     is_active = st.session_state.active_tab == tab_name
+    # Use markdown for bold effect, but keep it clickable
     if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
 
 # -----------------------------
-# Sliding underline
+# Sliding underline behind active tab
 # -----------------------------
 active_index = tabs.index(st.session_state.active_tab)
 underline_width = 100 / len(tabs)
