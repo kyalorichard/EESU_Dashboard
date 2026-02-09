@@ -391,7 +391,9 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     position: relative;
     display: inline-block;
     cursor: pointer;
-    font=dict(color="black", size=14, family="Arial", weight="bold")
+    font-size: 12px;
+    font-family: Arial;
+    
 }}
 .tooltip-box .tooltiptext {{
     visibility: hidden;
@@ -409,6 +411,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     opacity: 0;
     transition: opacity 0.3s;
     font-size: 12px;
+    font-family: Arial;
 }}
 .tooltip-box:hover .tooltiptext {{
     visibility: visible;
