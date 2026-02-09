@@ -1152,16 +1152,23 @@ if tab_name=="Overview":
     title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
     fig12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
-    # Update the title to include the tooltip
-    fig12.update_layout(
-        title=dict(
-            text=title_html,
-            x=0.5,        # center
-            xanchor='center',
-            yanchor='top',
-            font=dict(size=16)
-        )
+    fig12.add_annotation(
+        xref='paper', yref='paper',
+        x=1.0,  # position on x-axis (right side)
+        y=1.05, # slightly above the chart title
+        text='?',  # the "?" icon
+        showarrow=False,
+        font=dict(color="#660094", size=16, family="Arial", weight="bold"),
+        align="center",
+        bordercolor="#660094",
+        borderwidth=1,
+        borderpad=2,
+        bgcolor="white",
+        opacity=0.9,
+        hovertext="Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.",
+        hoverlabel=dict(bgcolor="#660094", font_color="white", font_size=12)
     )
+
 
     # Render the chart
     r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
