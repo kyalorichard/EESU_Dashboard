@@ -1052,45 +1052,34 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+# ---------------- MATERIAL-STYLE TABS ----------------
 tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
-if "active_tab" not in st.session_state: st.session_state.active_tab = tabs[0]
 
-# Render tabs HTML
-tab_html = '<div class="tabs-container">'
-for i, t in enumerate(tabs):
-    checked = 'checked' if st.session_state.active_tab==t else ''
-    tab_html += f'<input type="radio" id="tab{i}" name="tab-radio" {checked} />'
-    tab_html += f'<label for="tab{i}" onclick="window.dispatchEvent(new CustomEvent(\'setActiveTab\', {{detail:\'{t}\'}}))">{t}</label>'
-tab_html += '<div class="underline"></div></div>'
-st.markdown(tab_html, unsafe_allow_html=True)
+# Initialize active tab in session_state
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = tabs[0]
 
-# ---------------- JS FOR DYNAMIC TAB SWITCH ----------------
-st.markdown("""
-<script>
-const labels = document.querySelectorAll('.tabs-container label');
-const underline = document.querySelector('.tabs-container .underline');
-function updateUnderline(label){
-    underline.style.width = label.offsetWidth + "px";
-    underline.style.left = label.offsetLeft + "px";
-}
-labels.forEach(label => { label.addEventListener('click', () => updateUnderline(label)); });
-window.addEventListener('load', () => { updateUnderline(labels[0]); });
-window.addEventListener('resize', () => { 
-    const activeLabel = document.querySelector('.tabs-container input:checked + label'); 
-    updateUnderline(activeLabel);
-});
-// Trigger Streamlit rerun on tab change
-window.addEventListener('setActiveTab', e => {
-    const tabName = e.detail;
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'active_tab';
-    input.value = tabName;
-    document.forms[0].appendChild(input);
-    document.forms[0].submit();
-});
-</script>
-""", unsafe_allow_html=True)
+# Render tabs as styled buttons
+tab_cols = st.columns(len(tabs))
+for i, tab_name in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab_name
+    style = f"""
+        border: none;
+        padding: 10px 20px;
+        border-bottom: 4px solid {"#660094" if is_active else "transparent"};
+        background-color: {"#f5f5f5" if is_active else "#ffffff"};
+        font-weight: {"bold" if is_active else "normal"};
+        font-size: 16px;
+        color: {"#660094" if is_active else "#444"};
+        cursor: pointer;
+        border-radius: 4px 4px 0 0;
+        transition: 0.2s;
+    """
+    if tab_cols[i].button(tab_name, key=f"tab_{i}", help=tab_name):
+        st.session_state.active_tab = tab_name
+
+# Optional divider below tabs
+st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
             
 # ---------------- TAB 1 ----------------
