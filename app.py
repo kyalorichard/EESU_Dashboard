@@ -547,7 +547,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, title_tooltip=None, horizontal=False):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
     categories = sorted(df[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
@@ -1154,14 +1154,30 @@ if tab_name=="Overview":
         )
         show_chart(fig1, key="tab1_chart1")
     with r1c2:
-        tooltip_text = ("Alerts may be classified under more than one enabling principle ""and can therefore be counted in multiple principles.")
+        tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
+
+        st.markdown(f"""
+        <h4 style="display:inline-block; margin-right:5px;">Alert distribution across enabling principles</h4>
+        <span title="{tooltip_text}" style="
+            display:inline-block;
+            width:18px;
+            height:18px;
+            line-height:18px;
+            border-radius:50%;
+            background:#660094;
+            color:white;
+            text-align:center;
+            cursor:help;
+            font-weight:bold;
+            font-size:14px;
+        ">?</span>
+        """, unsafe_allow_html=True)
         fig2 = create_h_stacked_bar(
             a2,
             y="enabling-principle",
             x="count",
             color_col="alert-impact",
-            title="Alert distribution across enabling principles",            
-            title_tooltip=tooltip_text,
+            title="Alert distribution across enabling principles", 
             horizontal=True
         )
         show_chart(fig2, key="tab1_chart2")
