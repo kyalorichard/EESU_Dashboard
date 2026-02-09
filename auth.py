@@ -127,22 +127,28 @@ def inject_css():
     """, unsafe_allow_html=True)
 
 # --- AUTH UI ---
-def auth_ui():
-    init_state()
-    inject_css()
-    handle_google_redirect()
+# --- inside auth.py ---
 
-    # -------------------------
-    # LOGGED IN
-    # -------------------------
+def auth_ui():
+    # initialize session state safely
+    init_state()
+    
+    # inject CSS
+    inject_css()
+
+    # --- handle Google redirect safely ---
+    try:
+        handle_google_redirect()
+    except Exception as e:
+        st.warning(f"Google redirect handling skipped: {e}")
+
+    # --- LOGGED IN ---
     if "user" in st.session_state:
         st.sidebar.success(f"👋 {st.session_state['name']}")
         st.sidebar.button("Logout", on_click=logout_user)
         return
 
-    # -------------------------
-    # LOGGED OUT
-    # -------------------------
+    # --- LOGGED OUT ---
     st.sidebar.markdown("## Account")
     if st.sidebar.button("🔐 Sign in"):
         st.session_state.show_login = True
@@ -152,13 +158,12 @@ def auth_ui():
 
     login_url = get_google_auth_url()
 
-    # --- Popup Card ---
-    st.markdown("""
+    st.markdown(f"""
     <div class="login-overlay">
       <div class="login-card">
         <h3 style="margin-top:0;">Sign in</h3>
 
-        <a href="{}" style="text-decoration:none">
+        <a href="{login_url}" style="text-decoration:none">
           <div style="
             background:#1a73e8;color:white;
             padding:.6rem;border-radius:8px;
@@ -166,9 +171,9 @@ def auth_ui():
             🔵 Sign in with Google
           </div>
         </a>
-    """.format(login_url), unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    # Streamlit native input for email/password
+    # Streamlit email/password login
     email = st.text_input("Email", value=st.session_state.email_input)
     password = st.text_input("Password", value=st.session_state.password_input, type="password")
     if st.button("Sign in with Email"):
