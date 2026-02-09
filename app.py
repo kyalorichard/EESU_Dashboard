@@ -1117,47 +1117,63 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # CSS to style Streamlit buttons as flush tabs
-st.markdown(
-    """
-    <style>
-    .stColumns [class*="stColumn"] {
-        padding: 0px;  /* remove spacing between columns */
-    }
-    div.stButton > button {
-        padding: 10px 15px;
-        font-weight: 500;
-        cursor: pointer;
-        border-radius: 6px 6px 0 0;
-        border: 1px solid #e0e0e0;
-        border-bottom: none;
-        background-color: #f5f5f5;
-        color: #444;
-        font-size: 16px;
-        transition: 0.2s;
-        width: 100%;
-        margin: 0; /* remove any extra margin */
-    }
-    div.stButton > button:hover {
-        color: #660094;
-        background-color: #eeeeee;
-    }
-    div.stButton > button.active {
-        background-color: #ffffff;
-        font-weight: bold;
-        color: #660094;
-        border-bottom: 3px solid #660094;
-    }
-    .tab-content {
-        border: 1px solid #e0e0e0;
-        border-radius: 0 6px 6px 6px;
-        padding: 20px;
-        background-color: #ffffff;
-        margin-top: -1px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+ CSS for flush, professional tabs
+st.markdown("""
+<style>
+/* Remove column spacing */
+.stColumns [class*="stColumn"] {
+    padding: 0px;
+}
+
+/* Style all buttons as tabs */
+div.stButton > button {
+    padding: 10px 16px;
+    font-weight: 500;
+    font-size: 15px;
+    border-radius: 0; /* no rounded corners on buttons themselves */
+    border: none; /* remove default borders */
+    background-color: #f0f0f0;
+    color: #555;
+    width: 100%;
+    margin: 0; /* remove margin */
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+/* Active tab */
+div.stButton > button.active {
+    background-color: #ffffff;
+    color: #660094;
+    font-weight: 600;
+}
+
+/* Active tab underline */
+div.stButton > button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: #660094;
+}
+
+/* Hover effect */
+div.stButton > button:hover {
+    background-color: #e8e8e8;
+    color: #660094;
+}
+
+/* Tab content styling */
+.tab-content {
+    border: 1px solid #e0e0e0;
+    border-radius: 0 6px 6px 6px;
+    padding: 20px;
+    background-color: #ffffff;
+    margin-top: -1px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Create tabs as columns
 cols = st.columns(len(tabs))
@@ -1168,16 +1184,13 @@ for i, tab in enumerate(tabs):
     if cols[i].button(tab, key=tab):
         st.session_state.active_tab = tab
     
-    # Apply active class styling
-    st.markdown(
-        f"""
-        <script>
-        const btn = window.parent.document.querySelectorAll('div.stButton button')[{i}];
-        if(btn) btn.className = '{btn_class}';
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
+    # Apply active class styling via JS
+    st.markdown(f"""
+    <script>
+    const btn = window.parent.document.querySelectorAll('div.stButton button')[{i}];
+    if(btn) btn.className = '{btn_class}';
+    </script>
+    """, unsafe_allow_html=True)
 
 # Current tab content
 tab_name = st.session_state.active_tab
