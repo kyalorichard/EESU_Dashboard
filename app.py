@@ -1052,62 +1052,37 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-# Define your tabs
-# -----------------------------
-tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
-
-# -----------------------------
-# Safe session_state initialization
-# -----------------------------
-if "active_tab" not in st.session_state:
-    st.session_state["active_tab"] = tabs[0]
-
-# -----------------------------
-# CSS for tabs
-# -----------------------------
+# -------------------- TAB-STYLE RADIO --------------------
 st.markdown("""
 <style>
-.tabs-row {
-    display: flex;
-    gap: 2px;
-    margin-bottom: 0;
-}
-.tab-button {
-    flex: 1;
-    text-align: center;
-    padding: 10px 0;
-    font-weight: 500;
+/* Make radio buttons look like tabs */
+div.stRadio > div[role='radiogroup'] > label {
+    display: inline-block;
+    width: auto !important;
+    margin-right: 2px;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
-    border: 1px solid #e0e0e0;
-    border-bottom: none;
+    padding: 10px 20px;
     background-color: #f5f5f5;
     color: #444;
+    font-weight: 500;
+    border: 1px solid #e0e0e0;
+    border-bottom: none;
     transition: 0.2s ease;
-    font-size: 16px;
-    min-width: 100px;
 }
-.tab-button.active {
+div.stRadio > div[role='radiogroup'] > label:hover {
+    color: #660094;
+}
+div.stRadio > div[role='radiogroup'] > label[data-selected="true"] {
+    background-color: #ffffff;
     font-weight: bold;
     color: #660094;
-    background-color: #ffffff;
     border-bottom: 3px solid #660094;
-}
-.tab-button:hover {
-    color: #660094;
-}
-.tab-content {
-    border: 1px solid #e0e0e0;
-    padding: 20px;
-    border-radius: 0 6px 6px 6px;
-    background-color: #ffffff;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# Horizontal tabs using st.radio
-# -----------------------------
+# Render horizontal "tabs" using radio
 selected_tab = st.radio(
     "",
     options=tabs,
@@ -1115,7 +1090,6 @@ selected_tab = st.radio(
     horizontal=True
 )
 st.session_state.active_tab = selected_tab
-tab_name = selected_tab  # alias for readability
 
 st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
