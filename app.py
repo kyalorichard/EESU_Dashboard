@@ -385,16 +385,49 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
     # --- Total Alerts ---
     with col2:
-        st.markdown(f"""
+       st.markdown(f"""
+<style>
+.tooltip-box {{
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    font-size: 16px;
+}}
+.tooltip-box .tooltiptext {{
+    visibility: hidden;
+    width: 300px;
+    background-color: #660094;
+    color: #fff;
+    text-align: left;
+    border-radius: 5px;
+    padding: 8px 10px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%; /* show above icon */
+    left: 50%;
+    margin-left: -150px; /* center tooltip */
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+}}
+.tooltip-box:hover .tooltiptext {{
+    visibility: visible;
+    opacity: 1;
+}}
+</style>
+
 <div style="{card_style}">
-<h1 style="margin:0;font-size:30px;font-weight:bold;">
-    Total Alerts 
-    <span style="font-size:16px; cursor:pointer;" 
-          title="Higher numbers of alerts across countries do not necessarily indicate a more concerning enabling environment. They may reflect more active reporting by Network Members, and thresholds for what constitutes a serious deterioration vary across countries and contexts.">
-         ❓
-    </span>
-</h1>
-<h2 style="margin:0 0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
+    <h1 style="margin:0;font-size:30px;font-weight:bold;">
+        Total Alerts 
+        <span class="tooltip-box">❓
+            <span class="tooltiptext">
+                Higher numbers of alerts across countries do not necessarily indicate a more concerning enabling environment. 
+                They may reflect more active reporting by Network Members, and thresholds for what constitutes a serious 
+                deterioration vary across countries and contexts.
+            </span>
+        </span>
+    </h1>
+    <h2 style="margin:0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
 
