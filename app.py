@@ -1052,20 +1052,9 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
-
-# -----------------------------
-# Initialize active tab (compatible with older Streamlit)
-# -----------------------------
-try:
-    query_params = st.experimental_get_query_params()
-    default_tab = query_params.get("tab", [tabs[0]])[0]
-except (AttributeError, NameError):
-    # If older Streamlit, ignore query params
-    default_tab = tabs[0]
-
+# Initialize active tab in session_state
 if "active_tab" not in st.session_state:
-    st.session_state.active_tab = default_tab
+    st.session_state.active_tab = tabs[0]
 
 # -----------------------------
 # CSS for tabs
@@ -1090,8 +1079,7 @@ st.markdown("""
     color: #444;
     transition: 0.2s ease;
     font-size: 16px;
-    min-width: 120px;
-    user-select: none;
+    min-width: 100px;
 }
 .tab-button.active {
     font-weight: bold;
@@ -1112,31 +1100,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs as clickable divs
+# Render tabs using st.radio
 # -----------------------------
-tab_cols = st.columns(len(tabs))
-
-for i, tab_name in enumerate(tabs):
-    is_active = st.session_state.active_tab == tab_name
-
-    # Invisible button to handle clicks
-    if tab_cols[i].button("", key=f"tab_btn_{i}"):
-        st.session_state.active_tab = tab_name
-
-        # Update URL if Streamlit supports it
-        try:
-            st.experimental_set_query_params(tab=tab_name)
-        except (AttributeError, NameError):
-            pass
-
-    # Render the styled tab label
-    tab_cols[i].markdown(
-        f"<div class='tab-button {'active' if is_active else ''}'>{tab_name}</div>",
-        unsafe_allow_html=True
-    )
+selected_tab = st.radio(
+    "",
+    options=tabs,
+    index=tabs.index(st.session_state.active_tab),
+    horizontal=True
+)
+st.session_state.active_tab = selected_tab
 
 # Optional divider
 st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
+
 
 # ---------------- TAB 1 ----------------
 
