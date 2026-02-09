@@ -1058,12 +1058,12 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -----------------------------
-# CSS for tabs & sliding underline
+# CSS for dashboard-style tabs
 # -----------------------------
 st.markdown("""
 <style>
 /* Container for tabs */
-.tabs-container {
+.tabs-row {
     display: flex;
     position: relative;
     border-bottom: 2px solid #e0e0e0;
@@ -1077,19 +1077,19 @@ st.markdown("""
     padding: 12px 0;
     cursor: pointer;
     font-weight: 500;
-    color: #555;
-    transition: color 0.3s;
-    background-color: transparent;
+    background: none;
     border: none;
     outline: none;
+    color: #555;
+    transition: color 0.3s;
     position: relative;
-    z-index: 1; /* Make text appear above underline */
+    z-index: 1; /* Make text above underline */
 }
 
 /* Active tab text */
 .tab-button.active {
-    color: #660094;
     font-weight: bold;
+    color: #660094;
 }
 
 /* Sliding underline */
@@ -1099,31 +1099,29 @@ st.markdown("""
     height: 4px;
     background-color: #660094;
     left: 0;
+    width: 0;
     transition: transform 0.3s ease, width 0.3s ease;
-    z-index: 0; /* Under the text */
+    z-index: 0; /* Behind the text */
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs with st.columns
+# Render tab buttons (clickable)
 # -----------------------------
 tab_cols = st.columns(len(tabs))
-
 for i, tab_name in enumerate(tabs):
-    is_active = st.session_state.active_tab == tab_name
-    # Use markdown for bold effect, but keep it clickable
     if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
 
 # -----------------------------
-# Sliding underline behind active tab
+# Render sliding underline
 # -----------------------------
 active_index = tabs.index(st.session_state.active_tab)
 underline_width = 100 / len(tabs)
 
 st.markdown(f"""
-<div class='tabs-container'>
+<div class='tabs-row'>
     <div class='tab-underline' style='width: {underline_width}%; transform: translateX({active_index * 100}%);'></div>
 </div>
 """, unsafe_allow_html=True)
