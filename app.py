@@ -1116,10 +1116,13 @@ tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
-# CSS to style Streamlit buttons as tabs
+# CSS to style Streamlit buttons as flush tabs
 st.markdown(
     """
     <style>
+    .stColumns [class*="stColumn"] {
+        padding: 0px;  /* remove spacing between columns */
+    }
     div.stButton > button {
         padding: 10px 15px;
         font-weight: 500;
@@ -1132,6 +1135,7 @@ st.markdown(
         font-size: 16px;
         transition: 0.2s;
         width: 100%;
+        margin: 0; /* remove any extra margin */
     }
     div.stButton > button:hover {
         color: #660094;
@@ -1155,20 +1159,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Create tabs as columns with styled buttons
+# Create tabs as columns
 cols = st.columns(len(tabs))
 for i, tab in enumerate(tabs):
     is_active = st.session_state.active_tab == tab
-    if is_active:
-        btn_class = "active"
-    else:
-        btn_class = ""
+    btn_class = "active" if is_active else ""
     
-    # Add a class to make active tab look selected
     if cols[i].button(tab, key=tab):
         st.session_state.active_tab = tab
     
-    # Apply class via JS hack (only affects appearance)
+    # Apply active class styling
     st.markdown(
         f"""
         <script>
@@ -1181,7 +1181,6 @@ for i, tab in enumerate(tabs):
 
 # Current tab content
 tab_name = st.session_state.active_tab
-st.markdown(f"<div class='tab-content'>", unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
 
