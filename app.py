@@ -1156,21 +1156,24 @@ if tab_name=="Overview":
     with r1c2:
         tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
 
+        # Render chart title + "?" on the same line
         st.markdown(f"""
-        <h4 style="display:inline-block; margin-right:5px;">Alert distribution across enabling principles</h4>
-        <span title="{tooltip_text}" style="
-            display:inline-block;
-            width:18px;
-            height:18px;
-            line-height:18px;
-            border-radius:50%;
-            background:#660094;
-            color:white;
-            text-align:center;
-            cursor:help;
-            font-weight:bold;
-            font-size:14px;
-        ">?</span>
+        <div style="display:flex; align-items:center; margin-bottom:5px;">
+            <h4 style="margin:0; margin-right:5px;">Alert distribution across enabling principles</h4>
+            <span title="{tooltip_text}" style="
+                display:inline-block;
+                width:18px;
+                height:18px;
+                line-height:18px;
+                border-radius:50%;
+                background:#660094;
+                color:white;
+                text-align:center;
+                cursor:help;
+                font-weight:bold;
+                font-size:14px;
+            ">?</span>
+        </div>
         """, unsafe_allow_html=True)
         fig2 = create_h_stacked_bar(
             a2,
