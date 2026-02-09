@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-from auth import auth_ui
+from auth import sidebar_auth
 
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
@@ -231,7 +231,7 @@ st.sidebar.markdown("## 🔐 Login / Access")
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # Call the sidebar login
-auth_ui()
+sidebar_auth()
 
 #if "user" not in st.session_state:
     #st.info("Please sign in to continue.")
