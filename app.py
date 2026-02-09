@@ -1058,11 +1058,11 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -----------------------------
-# CSS for dashboard-style tabs
+# CSS for modern tabs with sliding underline
 # -----------------------------
 st.markdown("""
 <style>
-/* Container for tabs */
+/* Tabs container */
 .tabs-row {
     display: flex;
     position: relative;
@@ -1075,15 +1075,20 @@ st.markdown("""
     flex: 1;
     text-align: center;
     padding: 12px 0;
-    cursor: pointer;
     font-weight: 500;
+    cursor: pointer;
     background: none;
     border: none;
     outline: none;
     color: #555;
-    transition: color 0.3s;
+    transition: color 0.2s ease;
     position: relative;
-    z-index: 1; /* Make text above underline */
+    z-index: 1;
+}
+
+/* Hover effect */
+.tab-button:hover {
+    color: #660094;
 }
 
 /* Active tab text */
@@ -1101,21 +1106,22 @@ st.markdown("""
     left: 0;
     width: 0;
     transition: transform 0.3s ease, width 0.3s ease;
-    z-index: 0; /* Behind the text */
+    z-index: 0; /* Under text */
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tab buttons (clickable)
+# Render tab buttons (Streamlit buttons = functional)
 # -----------------------------
 tab_cols = st.columns(len(tabs))
 for i, tab_name in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab_name
     if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
         st.session_state.active_tab = tab_name
 
 # -----------------------------
-# Render sliding underline
+# Sliding underline
 # -----------------------------
 active_index = tabs.index(st.session_state.active_tab)
 underline_width = 100 / len(tabs)
