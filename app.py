@@ -7,25 +7,20 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-#import plotly.graph_objects as go
-
-from auth import (
-    inject_auth_css,
-    top_right_auth,
-    handle_google_redirect,
-    is_privileged
-)
-
-handle_google_redirect()
-inject_auth_css()
-top_right_auth()
+#from auth import inject_auth_css, top_right_auth, is_privileged
+from auth import inject_auth_css, top_right_auth, is_privileged
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
+inject_auth_css()
+top_right_auth()
+
+# Conditional content based on role
 if is_privileged():
-    st.success("Privileged content visible")
+    st.success("🔒 You have privileged access and can see additional metrics here.")
+    st.bar_chart(df["Score"] * 1.1)
 else:
-    st.info("Public view")
+    st.info("ℹ️ You have public access. Login with a privileged domain to see more data.")
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -69,6 +64,71 @@ footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
+# ----------------- Inject Material Tabs CSS -----------------
+st.markdown("""
+<style>
+/* Container & labels for Material tabs */
+div[role="radiogroup"] {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: relative;
+    padding-bottom: 6px;
+}
+
+div[role="radiogroup"] input[type="radio"] {
+    display: none;
+}
+
+div[role="radiogroup"] label {
+    cursor: pointer;
+    padding: 8px 20px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666666;
+    position: relative;
+    transition: color 0.25s ease;
+    border-radius: 4px;
+}
+
+/* Active tab styling */
+div[role="radiogroup"] input[type="radio"]:checked + label {
+    color: #6200ee;
+    font-weight: 600;
+}
+
+/* Animated underline */
+div[role="radiogroup"] label::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0%;
+    height: 3px;
+    background-color: #6200ee;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+div[role="radiogroup"] input[type="radio"]:checked + label::after {
+    width: 100%;
+}
+
+/* Hover effect */
+div[role="radiogroup"] label:hover {
+    color: #3700b3;
+}
+
+/* Responsive stacking */
+@media (max-width: 600px) {
+    div[role="radiogroup"] {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
@@ -97,6 +157,7 @@ def load_data():
         .replace("VNSAs", "Violent Non-State Actors")
     )
 
+    
     # Ensure the replacement happens after stripping spaces
     df['Actor of repression'] = df['Actor of repression'].str.replace("VNSAs", "Violent Non-State Actors")
 
@@ -486,116 +547,41 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
-                         horizontal=False, height=350, text_size=12, title=None, title_tooltip=None):
-    import plotly.graph_objects as go
-    
-    df = df.copy()
-    df[x] = df[x].apply(lambda l: wrap_label_by_words(
-        normalize_label(l) if x not in ["alert-country", "region"] else str(l), words_per_line=4)
-        )
-    
-    df[x] = pd.to_numeric(df[x], errors='coerce').fillna(0)
-    
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, title_tooltip=None, horizontal=False):
     categories = sorted(df[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
-    
-    # Track cumulative sums for stacked bars
-    cumulative = {label: 0 for label in df[y].unique()}
-    max_val = df.groupby(y)[x].sum().max()  # for relative sizing
-    
-    for cat in categories:
-        df_cat = df[df[color_col] == cat]
-        numeric_values = df_cat[x]
-        bar_color = COLOR_MAPPING.get(cat.lower(), "#888888")
-        
-        if horizontal:
-            bar_x = numeric_values
-            bar_y = df_cat[y]
-        else:
-            bar_x = df_cat[y]
-            bar_y = numeric_values
+    for i, cat in enumerate(categories):
+        df_cat = df[df[color_col]==cat].copy()
+        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
         
         fig.add_trace(go.Bar(
-            x=bar_x,
-            y=bar_y,
+            x=df_cat[y] if not horizontal else df_cat[x],
+            y=df_cat[x] if not horizontal else df_cat[y],
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=bar_color,
+            marker_color=color_sequence[i % len(color_sequence)],
+            text=df_cat[x],
+            textposition='inside',
+            insidetextanchor='end',
+            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial Black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
-        
-        # Add annotations for each bar
-        for i, label in enumerate(df_cat[y]):
-            value = numeric_values.iloc[i]
-            rel_size = value / max_val  # relative to largest bar
-            
-            # Determine text position and color
-            if rel_size > 0.15:
-                # inside bar
-                if bar_color.lower() in ['#660094', '#000000', '#333333']:  # dark colors
-                    text_color = 'white'
-                else:
-                    text_color = 'black'
-                if horizontal:
-                    x_pos = cumulative[label] + value / 2
-                    y_pos = label
-                else:
-                    x_pos = label
-                    y_pos = cumulative[label] + value / 2
-            else:
-                # outside bar
-                text_color = 'black'
-                if horizontal:
-                    x_pos = cumulative[label] + value + max_val * 0.01
-                    y_pos = label
-                else:
-                    x_pos = label
-                    y_pos = cumulative[label] + value + max_val * 0.01
-            
-            fig.add_annotation(
-                x=x_pos if horizontal else x_pos,
-                y=y_pos if horizontal else y_pos,
-                text=str(int(value)),
-                showarrow=False,
-                font=dict(color=text_color, size=text_size, family='Arial Black'),
-                xanchor='center',
-                yanchor='middle'
-            )
-            cumulative[label] += value  # update cumulative for stacking
-    
-    # Layout
+    num_bars = df.shape[0]
+    height = 350
+    # Bold axis line
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
     else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black', showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-    
-    # Combine title with tooltip icon using HTML
-    if title:
-        if title_tooltip:
-            fig.update_layout(
-                title=dict(
-                    text=f"{title} <span title='{title_tooltip}'>❓</span>",
-                    x=0.5,
-                    xanchor='center'
-                )
-            )
-        else:
-            fig.update_layout(
-                title=dict(text=title, x=0.5, xanchor='center')
-            )
-    
-    fig.update_layout(
-        barmode='stack',
-        height=height,
-        margin=dict(l=120 if horizontal else 20, r=20, t=60, b=20)
-    )
- 
-        
+        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+              
+    fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
+    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
     return fig
+
+
 
 
 # ---------------- HELPER FUNCTIONS ----------------
@@ -1061,13 +1047,90 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
         "6. Access to a secure digital environment",
 }
 
-# ---------------- TABS ----------------
-tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+#if "active_tab" not in st.session_state:
+   # st.session_state.active_tab = "Overview"
 
+# ---------------- TABS ----------------
+#tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
+# ---------------- MATERIAL-STYLE TABS ----------------
+tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
+
+# Initialize active tab in session_state
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = tabs[0]
+
+# Inject CSS for sliding underline tabs
+st.markdown("""
+<style>
+.tabs-container {
+    display: flex;
+    position: relative;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    cursor: pointer;
+    font-weight: 500;
+    color: #555;
+    transition: color 0.3s;
+    position: relative;
+}
+
+.tab.active {
+    color: #660094;
+    font-weight: bold;
+}
+
+.tab-underline {
+    position: absolute;
+    bottom: 0;
+    height: 4px;
+    background-color: #660094;
+    width: 0;
+    left: 0;
+    transition: all 0.3s ease;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Render tabs and calculate underline
+tab_cols = st.columns(len(tabs))
+for i, tab_name in enumerate(tabs):
+    if tab_cols[i].button(tab_name, key=f"tab_{i}"):
+        st.session_state.active_tab = tab_name
+
+# Calculate underline position and width
+active_index = tabs.index(st.session_state.active_tab)
+underline_style = f"""
+<style>
+.tabs-container .tab-underline {{
+    width: {100 / len(tabs)}%;
+    transform: translateX({active_index * 100}%);
+}}
+</style>
+"""
+st.markdown(underline_style, unsafe_allow_html=True)
+
+# Render the tabs container
+tab_buttons_html = "<div class='tabs-container'>"
+for i, tab_name in enumerate(tabs):
+    active_class = "active" if st.session_state.active_tab == tab_name else ""
+    tab_buttons_html += f"<div class='tab {active_class}'>{tab_name}</div>"
+tab_buttons_html += "<div class='tab-underline'></div></div>"
+
+st.markdown(tab_buttons_html, unsafe_allow_html=True)
+
+active_tab = st.session_state.active_tab
+           
 # ---------------- TAB 1 ----------------
-with tab1:
+
+if tab_name=="Overview":
+    st.subheader("Overview Metrics")
     render_summary_cards(filtered_global)
-    
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
@@ -1077,7 +1140,7 @@ with tab1:
     a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
-
+    
     with r1c1:
         fig1 = create_h_stacked_bar(
             a1,
@@ -1110,9 +1173,8 @@ with tab1:
             horizontal=False
         )
         show_chart(fig3, key="tab1_chart3")
-
-    with r2c2:
-        
+    
+    with r2c2:        
         fig4 = create_h_stacked_bar(        
             a4,
             y="alert-country",
@@ -1120,17 +1182,16 @@ with tab1:
             color_col="alert-impact",
             title="Alert distribution across countries",
             horizontal=False
-        )
-                
+        )                    
         show_chart(fig4, key="tab1_chart4")
-     
-   
+         
+       
     cols_rename_map  = {
-        "post_title": "Title of post",
-        "summary": "Event summary",
-        "creation_date": "Date of submission",
-        "alert-country": "Country",
-        "enabling-principle": "Enabling principles",
+         "post_title": "Title of post",
+         "summary": "Event summary",
+         "creation_date": "Date of submission",
+         "alert-country": "Country",
+         "enabling-principle": "Enabling principles",
         "alert-impact": "Impact of alert",
         "alert-type": "Type of alert"
     }
@@ -1140,40 +1201,42 @@ with tab1:
         .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
         .rename(columns=cols_rename_map)
     )
-
+    
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
         st.write(filtered_global_prev)     
-
+        
+       
 # ---------------- TAB 2: Negative Events ----------------
-with tab2:
+elif tab_name=="Negative Alerts":
+    st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
-
+    
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
-        
+            
     else:
-         # Initialize Top-N selection in session state
+        # Initialize Top-N selection in session state
         if "neg_top_n" not in st.session_state:
             st.session_state["neg_top_n"] = 5  # default Top 5
-            
+                
         # ---------------- SPELL OUT "VNSAs" ----------------
         reactive_df['Actor of repression'] = reactive_df['Actor of repression'].replace("VNSAs", "Violent Non-State Actors")
-           
+               
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
-        
+            
         # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
         cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
         df_exploded = explode_multi_valued_columns(reactive_df, cols_to_explode)
-        
+            
         df_exploded = reactive_df.copy()
         for col in cols_to_explode:
             df_exploded[col] = df_exploded[col].str.split(",")
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
-        
+            
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -1200,7 +1263,7 @@ with tab2:
                 df_exploded['Type of event'].dropna().unique(),
                 "selected_event_types", sidebar=False
             )
-       ##### -------- Tab 2 Summary card totals--------------------------
+        ##### -------- Tab 2 Summary card totals--------------------------
         reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
             (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
@@ -1213,7 +1276,7 @@ with tab2:
             (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-      
+        
         filtered_df1 = df_exploded.copy()
         #filtered_df = reactive_df_updated.copy()
         
@@ -1283,13 +1346,22 @@ with tab2:
         )  
         
         st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
-        st.selectbox(
-            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression in the heatmaps and Sankey diagram",
-            options=["Top 2", "Top 3", "Top 4", "Top 5", "All"],
-            index=["Top 2", "Top 3", "Top 4", "Top 5", "All"].index(st.session_state.top_n_option),
-            key="top_n_option",
-            on_change=update_top_n
+        top_n_map = {
+            "Top 2": 2,
+            "Top 3": 3,
+            "Top 4": 4,
+            "Top 5": 5,
+            "All": None
+        }
+        
+        selected = st.selectbox(
+            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression",
+            options=list(top_n_map.keys()),
+            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
         )
+        
+        st.session_state.top_n_option = selected
+        st.session_state.top_n = top_n_map[selected]
         st.markdown('</div>', unsafe_allow_html=True)
         
         top_n = st.session_state.top_n
@@ -1325,9 +1397,10 @@ with tab2:
         # ---------------- Tab two data preview ----------------
         with st.expander("Summary Data preview"):
             st.write(reactive_df_updated_prev)     
-      
-      # ---------------- TAB 3 (MAP) ----------------
-with tab3:
+        
+        # ---------------- TAB 3 (MAP) ----------------
+elif tab_name=="Visualization Map":
+    st.subheader("Visualization Map")
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
     if geo_file.exists():
@@ -1387,7 +1460,7 @@ with tab3:
         
         # Optional: handle NaN values if total_alerts was 0
         df_map["perc_negative"] = df_map["perc_negative"].fillna(0)
-              
+                
         # ----- Main choropleth -----
         map_height = max(400, len(df_map)*20)
 
@@ -1451,8 +1524,9 @@ with tab3:
         st.warning("GeoJSON file not found for map visualization.") 
 
 # -------------------------------USER MANUAL TAB------------------------------------       
-     
-with tab4:
+        
+elif tab_name=="User Manual":
+    st.subheader("User Manual")
     st.header("EU SEE Dashboard – Quick Start")
 
     st.markdown("""
@@ -1474,7 +1548,7 @@ with tab4:
             mime="application/pdf"
         )
         st.subheader("Executive Brief")
-              
+                
         
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
@@ -1521,6 +1595,7 @@ with tab4:
         )
     else:
         st.warning("User Manual PDF not found.")
+
 
 # ---------------- FOOTER ----------------
 # Footer image
