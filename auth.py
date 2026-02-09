@@ -140,16 +140,18 @@ def auth_ui():
     if not st.session_state.show_login:
         return
 
-    # --- Drawer CSS ---
+    # --- CSS for overlay + drawer ---
     st.markdown("""
     <style>
     .overlay {
-        position: fixed; inset:0;
+        position: fixed;
+        inset:0;
         background: rgba(0,0,0,.45);
         z-index:9998;
     }
     .drawer {
-        position: fixed; top:0; right:0;
+        position: fixed;
+        top:0; right:0;
         width:350px; height:100%;
         background:#fff;
         z-index:9999;
@@ -170,23 +172,19 @@ def auth_ui():
     </style>
     """, unsafe_allow_html=True)
 
-    # --- Drawer + Overlay ---
-    overlay_clicked = st.button(" ")  # Dummy button to detect overlay click
-
+    # --- Container for drawer + overlay ---
     with st.container():
-        # Overlay (clicking this closes drawer)
-        if st.button("Close", key="overlay_button"):
+        # Overlay: clicking closes the drawer
+        if st.button(" ", key="overlay_close"):
             st.session_state.show_login = False
             st.experimental_rerun()
-
         st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
 
         # Drawer content
         st.markdown('<div class="drawer">', unsafe_allow_html=True)
-
         st.markdown("### Sign in")
 
-        # Google login button
+        # Google login
         login_url = get_google_auth_url()
         if oauth_enabled:
             st.markdown(f"<a href='{login_url}'><button class='google-btn'>🔵 Sign in with Google</button></a>", unsafe_allow_html=True)
@@ -199,7 +197,7 @@ def auth_ui():
         email_input = st.text_input("Email", value=st.session_state.email_input, key="email_input")
         password_input = st.text_input("Password", value=st.session_state.password_input, type="password", key="password_input")
 
-        # Sign in button
+        # Sign in with email
         if st.button("Sign in with Email"):
             st.session_state.email_input = email_input
             st.session_state.password_input = password_input
@@ -226,6 +224,7 @@ def auth_ui():
             st.experimental_rerun()
 
         # Error message
-        st.markdown(f"<p style='color:red;text-align:center;'>{st.session_state.login_error}</p>", unsafe_allow_html=True)
+        if st.session_state.login_error:
+            st.markdown(f"<p style='color:red;text-align:center;'>{st.session_state.login_error}</p>", unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
