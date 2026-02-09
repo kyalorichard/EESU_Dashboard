@@ -1062,29 +1062,41 @@ if "active_tab" not in st.session_state:
 # -------------------- TAB-STYLE RADIO --------------------
 st.markdown("""
 <style>
-/* Make radio buttons look like tabs */
+/* Base tab styling */
 div.stRadio > div[role='radiogroup'] > label {
     display: inline-block;
-    width: auto !important;
-    margin-right: 2px;
+    min-width: 120px;        /* Ensure uniform width */
+    margin-right: 3px;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
-    padding: 10px 20px;
+    padding: 12px 25px;      /* Slightly bigger padding */
     background-color: #f5f5f5;
     color: #444;
     font-weight: 500;
+    font-size: 16px;
     border: 1px solid #e0e0e0;
     border-bottom: none;
-    transition: 0.2s ease;
+    text-align: center;
+    transition: all 0.2s ease-in-out;
 }
+
+/* Hover effect */
 div.stRadio > div[role='radiogroup'] > label:hover {
+    background-color: #f0e6ff;
     color: #660094;
 }
+
+/* Active tab */
 div.stRadio > div[role='radiogroup'] > label[data-selected="true"] {
     background-color: #ffffff;
     font-weight: bold;
     color: #660094;
     border-bottom: 3px solid #660094;
+}
+
+/* Adjust spacing under tabs */
+div.stRadio {
+    margin-bottom: -10px;  /* Pull up content slightly */
 }
 </style>
 """, unsafe_allow_html=True)
