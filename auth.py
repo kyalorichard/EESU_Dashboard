@@ -138,10 +138,22 @@ def sidebar_auth():
     if "user" not in st.session_state:
         st.sidebar.markdown("## Sign in")
         login_url = get_google_auth_url()
-        st.sidebar.markdown(
-            f'<a href="{login_url}"><button style="width:100%; padding:0.5rem; font-size:16px;">🔵 Sign in with Google</button></a>',
-            unsafe_allow_html=True
-        )
+
+        # Material-style Google button
+        st.sidebar.markdown(f"""
+        <a href="{login_url}" style="text-decoration:none;">
+            <div style="
+                display:flex; align-items:center; justify-content:center;
+                background-color:#1a73e8; color:white; font-weight:600;
+                border-radius:8px; padding:0.5rem; font-size:16px;
+                width:100%; margin-top:0.5rem; cursor:pointer;
+                transition: background-color 0.2s ease-in-out;
+            " onmouseover="this.style.backgroundColor='#1669c1';" onmouseout="this.style.backgroundColor='#1a73e8';">
+                🔵 Sign in with Google
+            </div>
+        </a>
+        """, unsafe_allow_html=True)
+
     else:
         st.sidebar.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!")
         st.sidebar.button("Logout", on_click=logout_user)
