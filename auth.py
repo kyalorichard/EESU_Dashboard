@@ -7,42 +7,42 @@ import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 
-# =====================================================
+# ---------------------------
 # Firebase Admin Init
-# =====================================================
+# ---------------------------
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
     firebase_admin.initialize_app(cred)
 
-# =====================================================
-# Pyrebase Init
-# =====================================================
+# ---------------------------
+# Pyrebase Init (Email login)
+# ---------------------------
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
     firebase = pyrebase.initialize_app(firebase_cfg)
     firebase_auth = firebase.auth()
 
-# =====================================================
+# ---------------------------
 # Config
-# =====================================================
+# ---------------------------
 PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
 GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
 GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
 REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
 
-# =====================================================
+# ---------------------------
 # Helpers
-# =====================================================
+# ---------------------------
 def get_email_domain(email: str) -> str:
     return email.split("@")[-1].lower()
 
 def init_state():
     st.session_state.setdefault("show_login", False)
 
-# =====================================================
+# ---------------------------
 # Google OAuth
-# =====================================================
+# ---------------------------
 def get_google_auth_url():
     params = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -96,17 +96,17 @@ def handle_google_redirect():
     except Exception:
         st.error("Google login failed")
 
-# =====================================================
+# ---------------------------
 # Logout
-# =====================================================
+# ---------------------------
 def logout_user():
     for k in ["user", "email", "name", "user_role"]:
         st.session_state.pop(k, None)
     st.session_state.show_login = False
 
-# =====================================================
+# ---------------------------
 # CSS (Floating Card)
-# =====================================================
+# ---------------------------
 def inject_css():
     st.markdown("""
     <style>
@@ -134,27 +134,22 @@ def inject_css():
     </style>
     """, unsafe_allow_html=True)
 
-# =====================================================
-# AUTH UI
-# =====================================================
+# ---------------------------
+# AUTH UI (Floating Card with Google + Email)
+# ---------------------------
 def auth_ui():
     init_state()
     inject_css()
     handle_google_redirect()
 
-    # -------------------------
-    # LOGGED IN
-    # -------------------------
+    # --- LOGGED IN ---
     if "user" in st.session_state:
         st.sidebar.success(f"👋 {st.session_state['name']}")
         st.sidebar.button("Logout", on_click=logout_user)
         return
 
-    # -------------------------
-    # LOGGED OUT
-    # -------------------------
+    # --- LOGGED OUT ---
     st.sidebar.markdown("## Account")
-
     if st.sidebar.button("🔐 Sign in"):
         st.session_state.show_login = True
 
@@ -163,11 +158,13 @@ def auth_ui():
 
     login_url = get_google_auth_url()
 
+    # Floating login card (Google + Email)
     st.markdown(f"""
-    <div class="login-overlay" onclick="window.parent.postMessage('close','*')">
+    <div class="login-overlay" id="loginOverlay">
       <div class="login-card" onclick="event.stopPropagation()">
         <h3>Sign in</h3>
 
+        <!-- Google Login -->
         <a href="{login_url}" style="text-decoration:none">
           <div style="
             background:#1a73e8;color:white;
@@ -179,18 +176,51 @@ def auth_ui():
 
         <hr>
 
-        <form method="post">
+        <!-- Email/Password Login -->
+        <form method="post" id="emailForm">
           <input name="email" placeholder="Email" style="width:100%;margin-bottom:.5rem">
           <input type="password" name="password" placeholder="Password" style="width:100%;margin-bottom:.5rem">
+          <button type="submit" style="width:100%; margin-top:.3rem;">Sign in</button>
         </form>
 
-        <p style="text-align:center;color:#888;font-size:13px">
-          Email login handled in sidebar
-        </p>
-
-        <button style="width:100%" onclick="window.parent.postMessage('close','*')">
+        <button style="width:100%; margin-top:.5rem;" onclick="window.parent.postMessage({{func:'closeLogin'}}, '*')">
           Cancel
         </button>
       </div>
     </div>
+
+    <script>
+    // Close overlay when clicking outside
+    const overlay = document.getElementById('loginOverlay');
+    overlay.addEventListener('click', () => {{
+        window.parent.postMessage({{func:'closeLoginState'}}, '*');
+    }});
+
+    const card = document.querySelector('.login-card');
+    card.addEventListener('click', e => e.stopPropagation());
+    </script>
     """, unsafe_allow_html=True)
+
+    # Streamlit side: handle closing overlay
+    if "_close_login_state" not in st.session_state:
+        st.session_state["_close_login_state"] = False
+
+    if st.session_state["_close_login_state"]:
+        st.session_state.show_login = False
+        st.session_state["_close_login_state"] = False
+
+    # --- Email login backend ---
+    if "email" in st.experimental_get_query_params() and firebase_auth:
+        form_data = st.experimental_get_query_params()
+        email = form_data.get("email", [""])[0]
+        password = form_data.get("password", [""])[0]
+        if email and password:
+            try:
+                user = firebase_auth.sign_in_with_email_and_password(email, password)
+                st.session_state.user = "email"
+                st.session_state.email = email
+                st.session_state.name = email.split("@")[0].title()
+                st.session_state.user_role = "privileged"
+                st.session_state.show_login = False
+            except Exception as e:
+                st.error(f"Email login failed: {e}")
