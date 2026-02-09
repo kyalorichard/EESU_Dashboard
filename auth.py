@@ -46,9 +46,11 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
-    code_list = st.experimental_get_query_params().get("code")
+    query_params = st.experimental_get_query_params()
+    code_list = query_params.get("code", [])
+
     if not code_list:
-        return
+        return  # no code in URL, nothing to do
 
     code = code_list[0]
 
@@ -86,8 +88,9 @@ def handle_google_redirect():
         st.session_state.show_login = False
         st.experimental_set_query_params()  # clear code
 
-    except Exception:
-        st.error("Google login failed")
+    except Exception as e:
+        st.error(f"Google login failed: {e}")
+        st.experimental_set_query_params()  # clear code
 
 # --- Logout ---
 def logout_user():
