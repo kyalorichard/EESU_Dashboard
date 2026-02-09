@@ -394,7 +394,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     font-size: 12px;
     font-family: Arial;
     color: black;                /* icon color */
-    border: 2px solid black;     /* round border */
+    border: 1px solid black;     /* round border */
     border-radius: 50%;          /* makes it circular */
     
 }}
@@ -425,7 +425,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 <div style="{card_style}">
     <h1 style="margin:0;font-size:30px;font-weight:bold;">
         Total Alerts 
-        <span class="tooltip-box">❓
+        <span class="tooltip-box">'?'
             <span class="tooltiptext">
                 Higher numbers of alerts across countries do not necessarily indicate a more concerning enabling environment. 
                 They may reflect more active reporting by Network Members, and thresholds for what constitutes a serious 
