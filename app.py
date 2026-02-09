@@ -1060,76 +1060,62 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -------------------- TAB-STYLE RADIO --------------------
-# -------------------- DASHBOARD-STYLE TABS CSS --------------------
+
+# -------------------- TAB STYLING --------------------
 st.markdown("""
 <style>
-/* Hide actual radio buttons */
-div.stRadio > div[role='radiogroup'] > input {
-    display: none;
+/* Hide original radio buttons */
+div.stRadio { display: none; }
+
+/* Tab labels container */
+div.tab-labels {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 0;
 }
 
-/* Tab labels */
-div.stRadio > div[role='radiogroup'] > label {
-    display: inline-block;
-    min-width: 140px;
-    margin-right: 0px;  /* no spacing between tabs */
+/* Individual tabs */
+div.tab-label {
+    flex: 1;
+    text-align: center;
+    padding: 10px 20px;
+    font-weight: 500;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
-    padding: 12px 25px;
-    background-color: #f5f5f5;
-    color: #444;
-    font-weight: 500;
-    font-size: 16px;
     border: 1px solid #e0e0e0;
     border-bottom: none;
-    text-align: center;
-    position: relative;
-    transition: all 0.3s ease-in-out;
-}
-
-/* Hover effect */
-div.stRadio > div[role='radiogroup'] > label:hover {
-    background-color: #f0e6ff;
-    color: #660094;
+    background-color: #f5f5f5;
+    color: #444;
+    transition: 0.2s ease;
 }
 
 /* Active tab styling */
-div.stRadio > div[role='radiogroup'] > label[data-selected="true"] {
+div.tab-label.active {
     background-color: #ffffff;
     font-weight: bold;
     color: #660094;
     border-bottom: 3px solid #660094;
 }
 
-/* Optional: add smooth underline animation */
-div.stRadio > div[role='radiogroup'] > label::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 10%;
-    width: 80%;
-    height: 3px;
-    background-color: #660094;
-    border-radius: 3px;
-    transform: scaleX(0);
-    transition: transform 0.3s ease-in-out;
-}
-
-div.stRadio > div[role='radiogroup'] > label[data-selected="true"]::after {
-    transform: scaleX(1);
+/* Hover effect */
+div.tab-label:hover {
+    color: #660094;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Render horizontal "tabs" using radio
-selected_tab = st.radio(
-    "",
-    options=tabs,
-    index=tabs.index(st.session_state.active_tab),
-    horizontal=True
-)
+# -------------------- RENDER TABS --------------------
+# Use radio for Streamlit internal state (hidden)
+selected_tab = st.radio("", tabs, index=tabs.index(st.session_state.active_tab), horizontal=True)
 st.session_state.active_tab = selected_tab
 
+# Render styled tabs
+tabs_html = "".join([
+    f'<div class="tab-label {"active" if t == st.session_state.active_tab else ""}" onclick="document.querySelectorAll(\'input[name=\\\"{selected_tab}\\"]\')[0].value = \'{t}\'; document.querySelectorAll(\'input[name=\\\"{selected_tab}\\"]\')[0].dispatchEvent(new Event(\'change\'));">{t}</div>'
+    for t in tabs
+])
+
+st.markdown(f'<div class="tab-labels">{tabs_html}</div>', unsafe_allow_html=True)
 st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
