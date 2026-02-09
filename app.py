@@ -1062,15 +1062,15 @@ if "active_tab" not in st.session_state:
 # -------------------- TAB-STYLE RADIO --------------------
 
 # -------------------- TAB STYLING --------------------
-# CSS for tabs
-st.markdown("""
+# ------------------- HTML + CSS Tabs -------------------
+tabs_html = f"""
 <style>
-.tab-container {
+.tab-container {{
     display: flex;
     gap: 2px;
     margin-bottom: 0;
-}
-.tab-btn {
+}}
+.tab-btn {{
     flex: 1;
     text-align: center;
     padding: 10px 15px;
@@ -1082,40 +1082,53 @@ st.markdown("""
     background-color: #f5f5f5;
     color: #444;
     font-size: 16px;
-}
-.tab-btn:hover { color: #660094; background-color: #eeeeee; }
-.tab-btn.active {
+}}
+.tab-btn:hover {{ color: #660094; background-color: #eeeeee; }}
+.tab-btn.active {{
     background-color: #ffffff;
     font-weight: bold;
     color: #660094;
     border-bottom: 3px solid #660094;
-}
-.tab-content {
+}}
+.tab-content {{
     border: 1px solid #e0e0e0;
     border-radius: 0 6px 6px 6px;
     padding: 20px;
     background-color: #ffffff;
-}
+}}
 </style>
-""", unsafe_allow_html=True)
 
-# Render tabs as clickable divs using markdown + javascript
-tabs_html = ""
+<div class="tab-container">
+"""
+
 for tab in tabs:
     active_class = "active" if st.session_state.active_tab == tab else ""
     tabs_html += f"""
-    <div class="tab-btn {active_class}" 
-         onclick="window.parent.postMessage({{'tab':'{tab}'}}, '*')">{tab}</div>
+    <div class="tab-btn {active_class}" onclick="change_tab('{tab}')">{tab}</div>
     """
 
-st.markdown(f'<div class="tab-container">{tabs_html}</div>', unsafe_allow_html=True)
+tabs_html += "</div>"
 
-# Listen for tab change via query parameters
-query_params = st.experimental_get_query_params()
-if "tab" in query_params:
-    st.session_state.active_tab = query_params["tab"][0]
+# JS to send tab click back to Streamlit via window.parent.postMessage
+tabs_html += """
+<script>
+function change_tab(tab_name){
+    window.parent.postMessage({isStreamlitMessage:true, type:'tab-change', tab: tab_name}, "*")
+}
+</script>
+"""
 
-# Show active tab content
+# Use components.html to handle JS messages
+components.html(tabs_html, height=60)
+
+# ------------------- Listen for tab change -------------------
+# This will capture the JS event sent by onclick
+tab_name = st.session_state.active_tab
+
+if "tab_name_js" not in st.session_state:
+    st.session_state.tab_name_js = tab_name
+
+# Display content for active tab
 st.markdown(f'<div class="tab-content"><h3>{st.session_state.active_tab}</h3></div>', unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
