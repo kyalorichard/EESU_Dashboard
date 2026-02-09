@@ -1062,23 +1062,21 @@ if "active_tab" not in st.session_state:
 # -------------------- TAB-STYLE RADIO --------------------
 
 # -------------------- TAB STYLING --------------------
+# -------------------- CSS for tab-style buttons --------------------
 st.markdown("""
 <style>
-/* Hide original radio buttons */
-div.stRadio { display: none; }
-
-/* Tab labels container */
-div.tab-labels {
+/* Container for tabs */
+div.tab-container {
     display: flex;
     gap: 2px;
     margin-bottom: 0;
 }
 
 /* Individual tabs */
-div.tab-label {
+div.tab-btn {
     flex: 1;
     text-align: center;
-    padding: 10px 20px;
+    padding: 10px 15px;
     font-weight: 500;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
@@ -1087,31 +1085,46 @@ div.tab-label {
     background-color: #f5f5f5;
     color: #444;
     transition: 0.2s ease;
+    font-size: 16px;
 }
 
-/* Active tab styling */
-div.tab-label.active {
+/* Hover effect */
+div.tab-btn:hover {
+    color: #660094;
+    background-color: #eeeeee;
+}
+
+/* Active tab */
+div.tab-btn.active {
     background-color: #ffffff;
     font-weight: bold;
     color: #660094;
     border-bottom: 3px solid #660094;
 }
 
-/* Hover effect */
-div.tab-label:hover {
-    color: #660094;
+/* Optional: content area below tabs */
+div.tab-content {
+    border: 1px solid #e0e0e0;
+    border-radius: 0 6px 6px 6px;
+    padding: 20px;
+    background-color: #ffffff;
 }
 </style>
 """, unsafe_allow_html=True)
 
+# -------------------- Render tabs --------------------
 cols = st.columns(len(tabs))
 for i, tab in enumerate(tabs):
+    btn_class = "active" if st.session_state.active_tab == tab else ""
+    # Use markdown to render styled tab inside each column
     if cols[i].button(tab, key=f"tab_{i}"):
         st.session_state.active_tab = tab
+    # Add the class to mimic active styling via HTML + CSS
+    cols[i].markdown(f'<div class="tab-btn {btn_class}">{tab}</div>', unsafe_allow_html=True)
 
-# Display which tab is active
+# -------------------- Active Tab Content --------------------
 tab_name = st.session_state.active_tab
-st.markdown(f"### Active Tab: {tab_name}")
+st.markdown(f'<div class="tab-content"><h3>{tab_name}</h3></div>', unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
 
