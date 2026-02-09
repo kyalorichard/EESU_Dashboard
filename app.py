@@ -1102,26 +1102,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs as clickable HTML forms
+# Render tabs as Streamlit buttons
 # -----------------------------
-tab_html = "<div class='tabs-row'>"
-for tab in tabs:
-    active_class = "active" if st.session_state.active_tab == tab else ""
-    tab_html += f"""
-    <form action="" method="get" style="margin:0; padding:0;">
-        <button class="tab-button {active_class}" name="tab" value="{tab}">{tab}</button>
-    </form>
-    """
-tab_html += "</div>"
+tab_cols = st.columns(len(tabs))
+for i, tab_name in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab_name
+    # Empty button to handle click
+    if tab_cols[i].button("", key=f"tab_btn_{i}"):
+        st.session_state.active_tab = tab_name
+    # Render the styled tab label
+    tab_cols[i].markdown(
+        f"<div class='tab-button {'active' if is_active else ''}'>{tab_name}</div>",
+        unsafe_allow_html=True
+    )
 
-# -----------------------------
-# Detect which tab was clicked
-# -----------------------------
-query_params = st.experimental_get_query_params()
-if "tab" in query_params:
-    st.session_state.active_tab = query_params["tab"][0]
-
-st.markdown(tab_html, unsafe_allow_html=True)
+# Optional divider
+st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
             
 # ---------------- TAB 1 ----------------
