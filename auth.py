@@ -1,4 +1,3 @@
-# auth.py
 import streamlit as st
 import pyrebase
 import firebase_admin
@@ -8,33 +7,25 @@ import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 
-# ==============================
-# Firebase Admin Init
-# ==============================
+# --- Firebase Admin Init ---
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
     firebase_admin.initialize_app(cred)
 
-# ==============================
-# Pyrebase Init
-# ==============================
+# --- Pyrebase Init ---
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
     firebase = pyrebase.initialize_app(firebase_cfg)
     firebase_auth = firebase.auth()
 
-# ==============================
-# Config
-# ==============================
+# --- Config ---
 PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
 GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
 GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
 REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
 
-# ==============================
-# Helpers
-# ==============================
+# --- Helpers ---
 def get_email_domain(email: str) -> str:
     return email.split("@")[-1].lower()
 
@@ -42,11 +33,8 @@ def init_state():
     st.session_state.setdefault("show_login", False)
     st.session_state.setdefault("email_input", "")
     st.session_state.setdefault("password_input", "")
-    st.session_state.setdefault("login_error", "")
 
-# ==============================
-# Google OAuth
-# ==============================
+# --- Google OAuth ---
 def get_google_auth_url():
     params = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -58,10 +46,12 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
+    # Skip if no code
     if "code" not in st.query_params:
         return
 
     code_param = st.query_params["code"]
+    # st.query_params can be dict of lists
     code = code_param[0] if isinstance(code_param, list) else code_param
 
     try:
@@ -88,31 +78,33 @@ def handle_google_redirect():
 
         if get_email_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Access denied")
-            st.query_params = {}
+            st.query_params = {}  # Clear query params
             return
 
+        # Store login info in session state
         st.session_state.user = "google"
         st.session_state.email = email
         st.session_state.name = name
         st.session_state.user_role = "privileged"
         st.session_state.show_login = False
+
+        # Clear query params
         st.query_params = {}
 
     except Exception:
         st.error("Google login failed")
         st.query_params = {}
 
-# ==============================
-# Logout
-# ==============================
+
+
+
+# --- Logout ---
 def logout_user():
     for k in ["user", "email", "name", "user_role"]:
         st.session_state.pop(k, None)
     st.session_state.show_login = False
 
-# ==============================
-# CSS for floating drawer
-# ==============================
+# --- CSS ---
 def inject_css():
     st.markdown("""
     <style>
@@ -120,47 +112,49 @@ def inject_css():
         position: fixed;
         inset: 0;
         background: rgba(0,0,0,.45);
-        z-index: 9998;
-    }
-    .login-card {
-        position: fixed;
-        top:0; right:0;
-        width:350px;
-        height:100%;
-        background:#fff;
-        padding:1.5rem;
-        box-shadow:-10px 0 30px rgba(0,0,0,.3);
         z-index: 9999;
         display:flex;
-        flex-direction:column;
-        animation: slidein .3s ease-out;
+        align-items:center;
+        justify-content:center;
     }
-    @keyframes slidein {
-        from { transform: translateX(100%); }
-        to { transform: translateX(0); }
+    .login-card {
+        background:#fff;
+        width:380px;
+        padding:1.5rem;
+        border-radius:14px;
+        box-shadow:0 25px 60px rgba(0,0,0,.35);
+        animation: pop .25s ease-out;
     }
-    .login-card input { padding:.5rem; margin-bottom:.5rem; width:100%; border-radius:6px; border:1px solid #ccc; }
-    .login-card button { padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; cursor:pointer; margin-bottom:.5rem; }
-    .google-btn { background:#1a73e8; color:white; }
-    .cancel-btn { background:#ccc; }
+    @keyframes pop {
+        from {opacity:0; transform:scale(.9)}
+        to   {opacity:1; transform:scale(1)}
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# ==============================
-# AUTH UI
-# ==============================
-def auth_ui():
-    init_state()
-    inject_css()
-    handle_google_redirect()
+# --- AUTH UI ---
+# --- inside auth.py ---
 
-    # Logged in view
+def auth_ui():
+    # initialize session state safely
+    init_state()
+    
+    # inject CSS
+    inject_css()
+
+    # --- handle Google redirect safely ---
+    try:
+        handle_google_redirect()
+    except Exception as e:
+        st.warning(f"Google redirect handling skipped: {e}")
+
+    # --- LOGGED IN ---
     if "user" in st.session_state:
         st.sidebar.success(f"👋 {st.session_state['name']}")
         st.sidebar.button("Logout", on_click=logout_user)
         return
 
-    # Logged out sidebar
+    # --- LOGGED OUT ---
     st.sidebar.markdown("## Account")
     if st.sidebar.button("🔐 Sign in"):
         st.session_state.show_login = True
@@ -237,3 +231,14 @@ def auth_ui():
     if st.session_state["_close_login_state"]:
         st.session_state.show_login = False
         st.session_state["_close_login_state"] = False
+        
+
+    st.markdown("""
+        <hr>
+        <button style="width:100%;padding:.5rem;margin-top:1rem;" onclick="window.parent.postMessage('close','*')">
+          Cancel
+        </button>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
