@@ -7,42 +7,34 @@ import requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
 
-# =====================================================
-# Firebase Admin Init
-# =====================================================
+# --- Firebase Admin Init ---
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
     firebase_admin.initialize_app(cred)
 
-# =====================================================
-# Pyrebase Init
-# =====================================================
+# --- Pyrebase Init ---
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
     firebase = pyrebase.initialize_app(firebase_cfg)
     firebase_auth = firebase.auth()
 
-# =====================================================
-# Config
-# =====================================================
+# --- Config ---
 PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
 GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
 GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
 REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
 
-# =====================================================
-# Helpers
-# =====================================================
+# --- Helpers ---
 def get_email_domain(email: str) -> str:
     return email.split("@")[-1].lower()
 
 def init_state():
     st.session_state.setdefault("show_login", False)
+    st.session_state.setdefault("email_input", "")
+    st.session_state.setdefault("password_input", "")
 
-# =====================================================
-# Google OAuth
-# =====================================================
+# --- Google OAuth ---
 def get_google_auth_url():
     params = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -54,10 +46,11 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
-    if "code" not in st.query_params:
+    code_list = st.experimental_get_query_params().get("code")
+    if not code_list:
         return
 
-    code = st.query_params["code"]
+    code = code_list[0]
 
     try:
         token_resp = requests.post(
@@ -83,7 +76,7 @@ def handle_google_redirect():
 
         if get_email_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Access denied")
-            st.query_params.clear()
+            st.experimental_set_query_params()  # clear code
             return
 
         st.session_state.user = "google"
@@ -91,22 +84,18 @@ def handle_google_redirect():
         st.session_state.name = name
         st.session_state.user_role = "privileged"
         st.session_state.show_login = False
-        st.query_params.clear()
+        st.experimental_set_query_params()  # clear code
 
     except Exception:
         st.error("Google login failed")
 
-# =====================================================
-# Logout
-# =====================================================
+# --- Logout ---
 def logout_user():
     for k in ["user", "email", "name", "user_role"]:
         st.session_state.pop(k, None)
     st.session_state.show_login = False
 
-# =====================================================
-# CSS (Floating Card)
-# =====================================================
+# --- CSS ---
 def inject_css():
     st.markdown("""
     <style>
@@ -134,9 +123,7 @@ def inject_css():
     </style>
     """, unsafe_allow_html=True)
 
-# =====================================================
-# AUTH UI
-# =====================================================
+# --- AUTH UI ---
 def auth_ui():
     init_state()
     inject_css()
@@ -154,7 +141,6 @@ def auth_ui():
     # LOGGED OUT
     # -------------------------
     st.sidebar.markdown("## Account")
-
     if st.sidebar.button("🔐 Sign in"):
         st.session_state.show_login = True
 
@@ -163,34 +149,45 @@ def auth_ui():
 
     login_url = get_google_auth_url()
 
-    st.markdown(f"""
-    <div class="login-overlay" onclick="window.parent.postMessage('close','*')">
-      <div class="login-card" onclick="event.stopPropagation()">
-        <h3>Sign in</h3>
+    # --- Popup Card ---
+    st.markdown("""
+    <div class="login-overlay">
+      <div class="login-card">
+        <h3 style="margin-top:0;">Sign in</h3>
 
-        <a href="{login_url}" style="text-decoration:none">
+        <a href="{}" style="text-decoration:none">
           <div style="
             background:#1a73e8;color:white;
             padding:.6rem;border-radius:8px;
-            text-align:center;font-weight:600;">
+            text-align:center;font-weight:600;margin-bottom:1rem;">
             🔵 Sign in with Google
           </div>
         </a>
+    """.format(login_url), unsafe_allow_html=True)
 
+    # Streamlit native input for email/password
+    email = st.text_input("Email", value=st.session_state.email_input)
+    password = st.text_input("Password", value=st.session_state.password_input, type="password")
+    if st.button("Sign in with Email"):
+        st.session_state.email_input = email
+        st.session_state.password_input = password
+        try:
+            user = firebase_auth.sign_in_with_email_and_password(email, password)
+            st.session_state.user = "firebase"
+            st.session_state.email = email
+            st.session_state.name = email.split("@")[0].title()
+            st.session_state.user_role = "privileged" if get_email_domain(email) in PRIVILEGED_DOMAINS else "user"
+            st.session_state.show_login = False
+            st.success(f"Welcome, {st.session_state.name}!")
+        except Exception as e:
+            st.error(f"Email login failed: {e}")
+
+    st.markdown("""
         <hr>
-
-        <form method="post">
-          <input name="email" placeholder="Email" style="width:100%;margin-bottom:.5rem">
-          <input type="password" name="password" placeholder="Password" style="width:100%;margin-bottom:.5rem">
-        </form>
-
-        <p style="text-align:center;color:#888;font-size:13px">
-          Email login handled in sidebar
-        </p>
-
-        <button style="width:100%" onclick="window.parent.postMessage('close','*')">
+        <button style="width:100%;padding:.5rem;margin-top:1rem;" onclick="window.parent.postMessage('close','*')">
           Cancel
         </button>
       </div>
     </div>
     """, unsafe_allow_html=True)
+
