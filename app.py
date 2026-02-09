@@ -1059,27 +1059,68 @@ tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
-# Render tabs as styled buttons
-tab_cols = st.columns(len(tabs))
-for i, tab_name in enumerate(tabs):
-    is_active = st.session_state.active_tab == tab_name
-    style = f"""
-        border: none;
-        padding: 10px 20px;
-        border-bottom: 4px solid {"#660094" if is_active else "transparent"};
-        background-color: {"#f5f5f5" if is_active else "#ffffff"};
-        font-weight: {"bold" if is_active else "normal"};
-        font-size: 16px;
-        color: {"#660094" if is_active else "#444"};
-        cursor: pointer;
-        border-radius: 4px 4px 0 0;
-        transition: 0.2s;
-    """
-    if tab_cols[i].button(tab_name, key=f"tab_{i}", help=tab_name):
-        st.session_state.active_tab = tab_name
+# -----------------------------
+# CSS for styled tabs
+# -----------------------------
+st.markdown("""
+<style>
+.tabs-row {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 0;
+}
+.tab-button {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid #e0e0e0;
+    border-bottom: none;
+    background-color: #f5f5f5;
+    color: #444;
+    transition: 0.2s ease;
+    font-size: 16px;
+}
+.tab-button.active {
+    font-weight: bold;
+    color: #660094;
+    background-color: #ffffff;
+    border-bottom: 3px solid #660094;
+}
+.tab-button:hover {
+    color: #660094;
+}
+.tab-content {
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 0 6px 6px 6px;
+    background-color: #ffffff;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# Optional divider below tabs
-st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
+# -----------------------------
+# Render tabs as HTML buttons
+# -----------------------------
+tab_html = "<div class='tabs-row'>"
+for tab in tabs:
+    active_class = "active" if st.session_state.active_tab == tab else ""
+    tab_html += f"""
+    <form action="/" method="get" style="margin:0; padding:0;">
+        <button class="tab-button {active_class}" name="tab" value="{tab}">{tab}</button>
+    </form>
+    """
+tab_html += "</div>"
+
+# Capture clicks
+query_params = st.experimental_get_query_params()
+clicked_tab = query_params.get("tab", [st.session_state.active_tab])[0]
+st.session_state.active_tab = clicked_tab
+
+st.markdown(tab_html, unsafe_allow_html=True)
+
 
             
 # ---------------- TAB 1 ----------------
