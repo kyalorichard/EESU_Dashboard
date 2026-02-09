@@ -163,75 +163,38 @@ def auth_ui():
         return
 
     login_url = get_google_auth_url()
-    email = st.session_state.email_input
-    password = st.session_state.password_input
-    login_error = st.session_state.login_error
 
-    # Drawer overlay + card
     st.markdown(f"""
-    <div class="login-overlay"></div>
-    <div class="login-card">
-        <h3>Sign in</h3>
+    <div class="login-overlay">
+      <div class="login-card">
+        <h3 style="margin-top:0;">Sign in</h3>
 
-        <!-- Google -->
         <a href="{login_url}" style="text-decoration:none">
-            <button class="google-btn">🔵 Sign in with Google</button>
+          <div style="
+            background:#1a73e8;color:white;
+            padding:.6rem;border-radius:8px;
+            text-align:center;font-weight:600;margin-bottom:1rem;">
+            🔵 Sign in with Google
+          </div>
         </a>
-
-        <hr>
-
-        <!-- Email login -->
-        <input type="text" placeholder="Email" value="{email}" id="email_input">
-        <input type="password" placeholder="Password" value="{password}" id="password_input">
-        <button id="email_login_btn">Sign in with Email</button>
-
-        <p style="color:red; text-align:center;">{login_error}</p>
-        <button class="cancel-btn" onclick="window.parent.postMessage({{func:'closeLogin'}}, '*')">Cancel</button>
-    </div>
-
-    <script>
-    // Close drawer if overlay clicked
-    const overlay = document.querySelector('.login-overlay');
-    overlay.addEventListener('click', () => {{
-        window.parent.postMessage({{func:'closeLoginState'}}, '*');
-    }});
-
-    const card = document.querySelector('.login-card');
-    card.addEventListener('click', e => e.stopPropagation());
-    </script>
     """, unsafe_allow_html=True)
 
-    # Email login handling via Streamlit form
-    with st.form("email_login_form"):
-        email_input = st.text_input("Email", value=email)
-        password_input = st.text_input("Password", type="password", value=password)
-        submitted = st.form_submit_button("Sign in with Email")
-        if submitted:
-            st.session_state.email_input = email_input
-            st.session_state.password_input = password_input
-            if not firebase_auth:
-                st.session_state.login_error = "Firebase not initialized."
-            elif get_email_domain(email_input) not in PRIVILEGED_DOMAINS:
-                st.session_state.login_error = "Access denied for domain."
-            else:
-                try:
-                    firebase_auth.sign_in_with_email_and_password(email_input, password_input)
-                    st.session_state.user = "email"
-                    st.session_state.email = email_input
-                    st.session_state.name = email_input.split("@")[0].title()
-                    st.session_state.user_role = "privileged"
-                    st.session_state.show_login = False
-                    st.session_state.login_error = ""
-                except Exception as e:
-                    st.session_state.login_error = f"Login failed: {e}"
-
-    # Handle closing overlay from JS
-    if "_close_login_state" not in st.session_state:
-        st.session_state["_close_login_state"] = False
-    if st.session_state["_close_login_state"]:
-        st.session_state.show_login = False
-        st.session_state["_close_login_state"] = False
-        
+    # Streamlit email/password login
+    email = st.text_input("Email", value=st.session_state.email_input)
+    password = st.text_input("Password", value=st.session_state.password_input, type="password")
+    if st.button("Sign in with Email"):
+        st.session_state.email_input = email
+        st.session_state.password_input = password
+        try:
+            user = firebase_auth.sign_in_with_email_and_password(email, password)
+            st.session_state.user = "firebase"
+            st.session_state.email = email
+            st.session_state.name = email.split("@")[0].title()
+            st.session_state.user_role = "privileged" if get_email_domain(email) in PRIVILEGED_DOMAINS else "user"
+            st.session_state.show_login = False
+            st.success(f"Welcome, {st.session_state.name}!")
+        except Exception as e:
+            st.error(f"Email login failed: {e}")
 
     st.markdown("""
         <hr>
