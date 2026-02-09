@@ -39,20 +39,20 @@
       {"label": "Other", "definition": "Any subject not included in the above categories."}
     ],
     "es": [
-      {"label": "Toda la sociedad civil (de manera indiscriminada)", "definition": "Grupos de la sociedad civil afectados de manera indiscriminada."},
-      {"label": "Derechos cívicos y políticos", "definition": "Individuos o grupos defendiendo derechos cívicos y políticos."},
-      {"label": "Justicia ambiental", "definition": "Grupos o individuos que abogan por la justicia ambiental."},
-      {"label": "Grupos minoritarios y sus derechos", "definition": "Grupos minoritarios y defensores de sus derechos."},
-      {"label": "Periodistas, medios e influencers", "definition": "Profesionales de medios e influencers afectados."},
-      {"label": "Otro", "definition": "Cualquier sujeto no incluido en las categorías anteriores."}
+      {"label": "All civil society (indiscriminate)", "definition": "Grupos de la sociedad civil afectados de manera indiscriminada."},
+      {"label": "Civic & Political Rights", "definition": "Individuos o grupos defendiendo derechos cívicos y políticos."},
+      {"label": "Environment Justice", "definition": "Grupos o individuos que abogan por la justicia ambiental."},
+      {"label": "Minority Groups and their rights", "definition": "Grupos minoritarios y defensores de sus derechos."},
+      {"label": "Journalists, media and influencers", "definition": "Profesionales de medios e influencers afectados."},
+      {"label": "Other", "definition": "Cualquier sujeto no incluido en las categorías anteriores."}
     ],
     "fr": [
-      {"label": "Toute la société civile (sans distinction)", "definition": "Groupes de la société civile affectés de manière indiscriminée."},
-      {"label": "Droits civiques et politiques", "definition": "Individus ou groupes défendant les droits civiques et politiques."},
-      {"label": "Justice environnementale", "definition": "Groupes ou individus défendant la justice environnementale."},
-      {"label": "Groupes minoritaires et leurs droits", "definition": "Groupes minoritaires et défenseurs de leurs droits."},
-      {"label": "Journalistes, médias et influenceurs", "definition": "Professionnels des médias et influenceurs ciblés."},
-      {"label": "Autre", "definition": "Tout sujet non inclus dans les catégories ci-dessus."}
+      {"label": "All civil society (indiscriminate)", "definition": "Groupes de la société civile affectés de manière indiscriminée."},
+      {"label": "Civic & Political Rights", "definition": "Individus ou groupes défendant les droits civiques et politiques."},
+      {"label": "Environment Justice", "definition": "Groupes ou individus défendant la justice environnementale."},
+      {"label": "Minority Groups and their rights", "definition": "Groupes minoritaires et défenseurs de leurs droits."},
+      {"label": "Journalists, media and influencers", "definition": "Professionnels des médias et influenceurs ciblés."},
+      {"label": "Other", "definition": "Tout sujet non inclus dans les catégories ci-dessus."}
     ]
   },
 
@@ -69,26 +69,26 @@
       {"label": "Other", "definition": "Any mechanism not listed above."}
     ],
     "es": [
-      {"label": "Cambio legislativo", "definition": "Cambios en leyes o políticas que afectan a los sujetos."},
-      {"label": "Violencia física", "definition": "Uso de fuerza física contra los sujetos."},
-      {"label": "Intimidación psicológica sobre individuos", "definition": "Amenazas, acoso o intimidación."},
-      {"label": "Incarceración y represión legal", "definition": "Detenciones, arrestos o restricciones legales."},
-      {"label": "Represión administrativa", "definition": "Medidas burocráticas que restringen a los sujetos."},
-      {"label": "Discursos y comportamiento", "definition": "Propaganda o restricciones de comportamiento."},
-      {"label": "Represión digital", "definition": "Censura en línea o vigilancia digital."},
-      {"label": "Cambios en acceso a financiamiento", "definition": "Restricciones financieras que afectan a grupos o individuos."},
-      {"label": "Otro", "definition": "Cualquier mecanismo no listado arriba."}
+      {"label": "Legislative Change", "definition": "Cambios en leyes o políticas que afectan a los sujetos."},
+      {"label": "Physical Violence", "definition": "Uso de fuerza física contra los sujetos."},
+      {"label": "Psychological intimidation on individuals", "definition": "Amenazas, acoso o intimidación."},
+      {"label": "Incarceration and Legal Repression", "definition": "Detenciones, arrestos o restricciones legales."},
+      {"label": "Administrative Repression", "definition": "Medidas burocráticas que restringen a los sujetos."},
+      {"label": "Discourses and Behaviour", "definition": "Propaganda o restricciones de comportamiento."},
+      {"label": "Digital Repression", "definition": "Censura en línea o vigilancia digital."},
+      {"label": "Changes in access to funding", "definition": "Restricciones financieras que afectan a grupos o individuos."},
+      {"label": "Other", "definition": "Cualquier mecanismo no listado arriba."}
     ],
     "fr": [
-      {"label": "Changement législatif", "definition": "Modifications des lois ou politiques affectant les sujets."},
-      {"label": "Violence physique", "definition": "Usage de la force physique contre les sujets."},
-      {"label": "Intimidation psychologique sur les individus", "definition": "Menaces, harcèlement ou intimidation."},
-      {"label": "Incarcération et répression légale", "definition": "Détention, arrestations ou restrictions légales."},
-      {"label": "Répression administrative", "definition": "Mesures bureaucratiques restreignant les sujets."},
-      {"label": "Discours et comportement", "definition": "Propagande ou restrictions comportementales."},
-      {"label": "Répression numérique", "definition": "Censure en ligne ou surveillance numérique."},
-      {"label": "Changements dans l'accès au financement", "definition": "Restrictions financières affectant des groupes ou individus."},
-      {"label": "Autre", "definition": "Tout mécanisme non listé ci-dessus."}
+      {"label": "Legislative Change", "definition": "Modifications des lois ou politiques affectant les sujets."},
+      {"label": "Physical Violence", "definition": "Usage de la force physique contre les sujets."},
+      {"label": "Psychological intimidation on individuals", "definition": "Menaces, harcèlement ou intimidation."},
+      {"label": "Incarceration and Legal Repression", "definition": "Détention, arrestations ou restrictions légales."},
+      {"label": "Administrative Repression", "definition": "Mesures bureaucratiques restreignant les sujets."},
+      {"label": "Discourses and Behaviour", "definition": "Propagande ou restrictions comportementales."},
+      {"label": "Digital Repression", "definition": "Censure en ligne ou surveillance numérique."},
+      {"label": "Changes in access to funding", "definition": "Restrictions financières affectant des groupes ou individus."},
+      {"label": "Other", "definition": "Tout mécanisme non listé ci-dessus."}
     ]
   },
 
@@ -103,22 +103,22 @@
       {"label": "Other", "definition": "Any type of event not listed above."}
     ],
     "es": [
-      {"label": "Protestas", "definition": "Manifestaciones públicas o protestas."},
-      {"label": "Recortes de financiación", "definition": "Reducción o retiro de apoyo financiero."},
-      {"label": "Leyes contra el terrorismo", "definition": "Medidas legales bajo legislación antiterrorista."},
-      {"label": "Restricciones de financiación extranjera", "definition": "Límites al financiamiento extranjero de grupos o individuos."},
-      {"label": "Actividades en línea", "definition": "Restricciones sobre actividades o plataformas en línea."},
-      {"label": "Ciberderechos", "definition": "Regulaciones digitales que afectan los derechos en línea."},
-      {"label": "Otro", "definition": "Cualquier tipo de evento no listado arriba."}
+      {"label": "Protests", "definition": "Manifestaciones públicas o protestas."},
+      {"label": "Funding cuts", "definition": "Reducción o retiro de apoyo financiero."},
+      {"label": "Counter-Terrorism Laws", "definition": "Medidas legales bajo legislación antiterrorista."},
+      {"label": "Foreign Funding Restrictions", "definition": "Límites al financiamiento extranjero de grupos o individuos."},
+      {"label": "Online activities", "definition": "Restricciones sobre actividades o plataformas en línea."},
+      {"label": "Cyberlaws", "definition": "Regulaciones digitales que afectan los derechos en línea."},
+      {"label": "Other", "definition": "Cualquier tipo de evento no listado arriba."}
     ],
     "fr": [
-      {"label": "Manifestations", "definition": "Démonstrations ou manifestations publiques."},
-      {"label": "Réductions de financement", "definition": "Réduction ou retrait du soutien financier."},
-      {"label": "Lois anti-terrorisme", "definition": "Mesures légales en vertu de la législation antiterroriste."},
-      {"label": "Restrictions sur le financement étranger", "definition": "Limites sur le financement étranger des groupes ou individus."},
-      {"label": "Activités en ligne", "definition": "Restrictions sur les activités ou plateformes en ligne."},
-      {"label": "Cyberslégislation", "definition": "Régulations numériques affectant les droits en ligne."},
-      {"label": "Autre", "definition": "Tout type d'événement non listé ci-dessus."}
+      {"label": "Protests", "definition": "Démonstrations ou manifestations publiques."},
+      {"label": "Funding cuts", "definition": "Réduction ou retrait du soutien financier."},
+      {"label": "Counter-Terrorism Laws", "definition": "Mesures légales en vertu de la législation antiterroriste."},
+      {"label": "Foreign Funding Restrictions", "definition": "Limites sur le financement étranger des groupes ou individus."},
+      {"label": "Online activities", "definition": "Restrictions sur les activités ou plateformes en ligne."},
+      {"label": "Cyberlaws", "definition": "Régulations numériques affectant les droits en ligne."},
+      {"label": "Other", "definition": "Tout type d'événement non listé ci-dessus."}
     ]
   }
 }
