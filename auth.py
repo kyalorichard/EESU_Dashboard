@@ -46,17 +46,15 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
+    # Skip if no code
+    if "code" not in st.query_params:
+        return
+
+    code_param = st.query_params["code"]
+    # st.query_params can be dict of lists
+    code = code_param[0] if isinstance(code_param, list) else code_param
+
     try:
-        # safely get query params
-        query_params = st.experimental_get_query_params()
-        code_list = query_params.get("code", [])
-
-        if not code_list:
-            return  # no code in URL, nothing to do
-
-        code = code_list[0]
-
-        # Exchange code for tokens
         token_resp = requests.post(
             "https://oauth2.googleapis.com/token",
             data={
@@ -80,19 +78,23 @@ def handle_google_redirect():
 
         if get_email_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Access denied")
-            st.experimental_set_query_params()  # clear code
+            st.query_params = {}  # Clear query params
             return
 
+        # Store login info in session state
         st.session_state.user = "google"
         st.session_state.email = email
         st.session_state.name = name
         st.session_state.user_role = "privileged"
         st.session_state.show_login = False
-        st.experimental_set_query_params()  # clear code
 
-    except Exception as e:
-        st.error(f"Google login failed: {e}")
-        st.experimental_set_query_params()  # clear code
+        # Clear query params
+        st.query_params = {}
+
+    except Exception:
+        st.error("Google login failed")
+        st.query_params = {}
+
 
 
 
