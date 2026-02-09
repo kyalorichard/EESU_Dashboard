@@ -1060,19 +1060,19 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -------------------- TAB-STYLE RADIO --------------------
-# -------------------- TABS CSS --------------------
+# -------------------- DASHBOARD-STYLE TABS CSS --------------------
 st.markdown("""
 <style>
-/* Hide actual radio input */
+/* Hide actual radio buttons */
 div.stRadio > div[role='radiogroup'] > input {
     display: none;
 }
 
-/* Make labels look like tabs */
+/* Tab labels */
 div.stRadio > div[role='radiogroup'] > label {
     display: inline-block;
     min-width: 140px;
-    margin-right: 3px;
+    margin-right: 0px;  /* no spacing between tabs */
     cursor: pointer;
     border-radius: 6px 6px 0 0;
     padding: 12px 25px;
@@ -1083,7 +1083,8 @@ div.stRadio > div[role='radiogroup'] > label {
     border: 1px solid #e0e0e0;
     border-bottom: none;
     text-align: center;
-    transition: all 0.2s ease-in-out;
+    position: relative;
+    transition: all 0.3s ease-in-out;
 }
 
 /* Hover effect */
@@ -1092,12 +1093,30 @@ div.stRadio > div[role='radiogroup'] > label:hover {
     color: #660094;
 }
 
-/* Active tab */
+/* Active tab styling */
 div.stRadio > div[role='radiogroup'] > label[data-selected="true"] {
     background-color: #ffffff;
     font-weight: bold;
     color: #660094;
     border-bottom: 3px solid #660094;
+}
+
+/* Optional: add smooth underline animation */
+div.stRadio > div[role='radiogroup'] > label::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    width: 80%;
+    height: 3px;
+    background-color: #660094;
+    border-radius: 3px;
+    transform: scaleX(0);
+    transition: transform 0.3s ease-in-out;
+}
+
+div.stRadio > div[role='radiogroup'] > label[data-selected="true"]::after {
+    transform: scaleX(1);
 }
 </style>
 """, unsafe_allow_html=True)
