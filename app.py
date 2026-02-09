@@ -398,7 +398,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 .tooltip-box .tooltiptext {{
     visibility: hidden;
     width: 300px;
-    background-color: #black;
+    background-color: black;
     color: #fff;
     text-align: left;
     border-radius: 5px;
