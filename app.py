@@ -1117,88 +1117,65 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # ------------------- HTML + CSS Tabs -------------------
-tabs_html = f"""
-<style>
-.tab-container {{
-    display: flex;
-    gap: 2px;
-    margin-bottom: 0;
-}}
-.tab-btn {{
-    flex: 1;
-    text-align: center;
-    padding: 10px 15px;
-    font-weight: 500;
-    cursor: pointer;
-    border-radius: 6px 6px 0 0;
-    border: 1px solid #e0e0e0;
-    border-bottom: none;
-    background-color: #f5f5f5;
-    color: #444;
-    font-size: 16px;
-}}
-.tab-btn:hover {{ color: #660094; background-color: #eeeeee; }}
-.tab-btn.active {{
-    background-color: #ffffff;
-    font-weight: bold;
-    color: #660094;
-    border-bottom: 3px solid #660094;
-}}
-.tab-content {{
-    border: 1px solid #e0e0e0;
-    border-radius: 0 6px 6px 6px;
-    padding: 20px;
-    background-color: #ffffff;
-}}
-</style>
-
-<div class="tab-container">
-"""
-
-for tab in tabs:
-    active_class = "active" if st.session_state.active_tab == tab else ""
-    tabs_html += f"""
-    <div class="tab-btn {active_class}" onclick="change_tab('{tab}')">{tab}</div>
+# -------------------- STYLING --------------------
+st.markdown(
     """
-
-tabs_html += "</div>"
-
-tabs_html += """
-<script>
-function change_tab(tab_name){
-    const streamlitEvent = {
-        type: 'streamlit:customEvent',
-        tab: tab_name
-    };
-    window.parent.postMessage(streamlitEvent, '*');
-}
-</script>
-"""
-
-# ------------------- Listen for tab change -------------------
-# Trick: Use an invisible input element to store the JS message
-tabs_html += """
-<input type="hidden" id="tab_input" value="">
-<script>
-window.addEventListener("message", (event) => {
-    if(event.data.type === "tab-change"){
-        document.getElementById("tab_input").value = event.data.tab;
+    <style>
+    .tab-container {
+        display: flex;
+        gap: 2px;
+        margin-bottom: 0;
     }
-});
-</script>
-"""
+    .tab-btn {
+        flex: 1;
+        text-align: center;
+        padding: 10px 15px;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 6px 6px 0 0;
+        border: 1px solid #e0e0e0;
+        border-bottom: none;
+        background-color: #f5f5f5;
+        color: #444;
+        font-size: 16px;
+        transition: 0.2s;
+    }
+    .tab-btn:hover {
+        color: #660094;
+        background-color: #eeeeee;
+    }
+    .tab-btn.active {
+        background-color: #ffffff;
+        font-weight: bold;
+        color: #660094;
+        border-bottom: 3px solid #660094;
+    }
+    .tab-content {
+        border: 1px solid #e0e0e0;
+        border-radius: 0 6px 6px 6px;
+        padding: 20px;
+        background-color: #ffffff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-components.html(tabs_html, height=60, scrolling=False)
+# -------------------- TABS --------------------
+cols = st.columns(len(tabs))
+for i, tab in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab
+    btn_label = f"<div class='tab-btn {'active' if is_active else ''}'>{tab}</div>"
+    
+    if cols[i].button(tab, key=tab):
+        st.session_state.active_tab = tab
 
-# ------------------- Update Streamlit state -------------------
-# Trick: use a dummy text_input to capture JS input
-tab_selected = st.text_input("##", "", key="tab_input_text")
-
-if tab_selected and tab_selected != st.session_state.active_tab:
-    st.session_state.active_tab = tab_selected
-
-# ------------------- Display content -------------------
-st.markdown(f'<div class="tab-content"><h3>{st.session_state.active_tab}</h3></div>', unsafe_allow_html=True)
+# -------------------- TAB CONTENT --------------------
+st.markdown(
+    f"<div class='tab-content'><h3>{st.session_state.active_tab}</h3>"
+    f"<p>Content for the <b>{st.session_state.active_tab}</b> tab goes here.</p></div>",
+    unsafe_allow_html=True,
+)
 # ---------------- TAB 1 ----------------
 
 if tab_name=="Overview":
