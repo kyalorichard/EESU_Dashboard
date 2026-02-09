@@ -140,7 +140,7 @@ def auth_ui():
     if not st.session_state.show_login:
         return
 
-    # Drawer CSS
+    # --- Drawer CSS ---
     st.markdown("""
     <style>
     .overlay {
@@ -171,11 +171,17 @@ def auth_ui():
     """, unsafe_allow_html=True)
 
     # --- Drawer + Overlay ---
+    overlay_clicked = st.button(" ")  # Dummy button to detect overlay click
+
     with st.container():
-        # Only the overlay background (not capturing clicks)
+        # Overlay (clicking this closes drawer)
+        if st.button("Close", key="overlay_button"):
+            st.session_state.show_login = False
+            st.experimental_rerun()
+
         st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
 
-        # Drawer content (clickable)
+        # Drawer content
         st.markdown('<div class="drawer">', unsafe_allow_html=True)
 
         st.markdown("### Sign in")
