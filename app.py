@@ -1116,18 +1116,11 @@ tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
-# CSS styling (keep your existing style)
+# CSS to style Streamlit buttons as tabs
 st.markdown(
     """
     <style>
-    .tab-container {
-        display: flex;
-        gap: 2px;
-        margin-bottom: 0;
-    }
-    .tab-btn {
-        flex: 1;
-        text-align: center;
+    div.stButton > button {
         padding: 10px 15px;
         font-weight: 500;
         cursor: pointer;
@@ -1138,12 +1131,13 @@ st.markdown(
         color: #444;
         font-size: 16px;
         transition: 0.2s;
+        width: 100%;
     }
-    .tab-btn:hover {
+    div.stButton > button:hover {
         color: #660094;
         background-color: #eeeeee;
     }
-    .tab-btn.active {
+    div.stButton > button.active {
         background-color: #ffffff;
         font-weight: bold;
         color: #660094;
@@ -1154,22 +1148,40 @@ st.markdown(
         border-radius: 0 6px 6px 6px;
         padding: 20px;
         background-color: #ffffff;
+        margin-top: -1px;
     }
     </style>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
-# -------------------- TABS --------------------
-tab_cols = st.columns(len(tabs))
+# Create tabs as columns with styled buttons
+cols = st.columns(len(tabs))
 for i, tab in enumerate(tabs):
     is_active = st.session_state.active_tab == tab
-    # Use HTML + button trick
-    if tab_cols[i].button(tab, key=tab):
+    if is_active:
+        btn_class = "active"
+    else:
+        btn_class = ""
+    
+    # Add a class to make active tab look selected
+    if cols[i].button(tab, key=tab):
         st.session_state.active_tab = tab
+    
+    # Apply class via JS hack (only affects appearance)
+    st.markdown(
+        f"""
+        <script>
+        const btn = window.parent.document.querySelectorAll('div.stButton button')[{i}];
+        if(btn) btn.className = '{btn_class}';
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
 
-# Define tab_name for later use
+# Current tab content
 tab_name = st.session_state.active_tab
+st.markdown(f"<div class='tab-content'>", unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
 
