@@ -1116,8 +1116,7 @@ tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
-# ------------------- HTML + CSS Tabs -------------------
-# -------------------- STYLING --------------------
+# CSS styling (keep your existing style)
 st.markdown(
     """
     <style>
@@ -1162,20 +1161,16 @@ st.markdown(
 )
 
 # -------------------- TABS --------------------
-cols = st.columns(len(tabs))
+tab_cols = st.columns(len(tabs))
 for i, tab in enumerate(tabs):
     is_active = st.session_state.active_tab == tab
-    btn_label = f"<div class='tab-btn {'active' if is_active else ''}'>{tab}</div>"
-    
-    if cols[i].button(tab, key=tab):
+    # Use HTML + button trick
+    if tab_cols[i].button(tab, key=tab):
         st.session_state.active_tab = tab
 
-# -------------------- TAB CONTENT --------------------
-st.markdown(
-    f"<div class='tab-content'><h3>{st.session_state.active_tab}</h3>"
-    f"<p>Content for the <b>{st.session_state.active_tab}</b> tab goes here.</p></div>",
-    unsafe_allow_html=True,
-)
+# Define tab_name for later use
+tab_name = st.session_state.active_tab
+
 # ---------------- TAB 1 ----------------
 
 if tab_name=="Overview":
