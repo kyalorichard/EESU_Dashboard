@@ -1104,23 +1104,14 @@ div.tab-label:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# Render tabs as buttons
 cols = st.columns(len(tabs))
 for i, tab in enumerate(tabs):
     if cols[i].button(tab, key=f"tab_{i}"):
         st.session_state.active_tab = tab
 
-# Display tabs visually
-tab_html = "".join([
-    f'<div class="tab-btn {"active" if t==st.session_state.active_tab else ""}">{t}</div>'
-    for t in tabs
-])
-st.markdown(f'<div class="tab-container">{tab_html}</div>', unsafe_allow_html=True)
-st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
-
-# -------------------- TAB CONTENT --------------------
+# Display which tab is active
 tab_name = st.session_state.active_tab
-
+st.markdown(f"### Active Tab: {tab_name}")
 
 # ---------------- TAB 1 ----------------
 
