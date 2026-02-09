@@ -1160,13 +1160,13 @@ if tab_name=="Overview":
         showarrow=False,
         font=dict(color="#660094", size=16, family="Arial", weight="bold"),
         align="center",
-        bordercolor="#660094",
+        bordercolor="black",
         borderwidth=1,
         borderpad=2,
         bgcolor="white",
         opacity=0.9,
-        hovertext="Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.",
-        hoverlabel=dict(bgcolor="#660094", font_color="white", font_size=12)
+        hovertext="Alerts may be classified under more than one enabling principle <br? and can therefore be counted in multiple principles.",
+        hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
     )
 
 
