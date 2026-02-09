@@ -1092,10 +1092,6 @@ window.addEventListener('setActiveTab', e => {
 </script>
 """, unsafe_allow_html=True)
 
-# Update session state if form submits new tab
-if "active_tab" in st.experimental_get_query_params():
-    st.session_state.active_tab = st.experimental_get_query_params()["active_tab"][0]
-
             
 # ---------------- TAB 1 ----------------
 def render_tab_content(tab_name):
