@@ -1342,7 +1342,30 @@ elif tab_name=="Negative Alerts":
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
-        r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
+       
+
+       # Disclaimer tooltip
+        tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
+
+        # Include a small "?" icon in the title using HTML
+        title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
+        fig = create_bar_chart(m6,"enabling-principle","count",title="Negative alert distribution across enabling principles",horizontal=True)
+
+        # Update the title to include the tooltip
+        fig.update_layout(
+            title=dict(
+                text=title_html,
+                x=0.5,        # center
+                xanchor='center',
+                yanchor='top',
+                font=dict(size=16)
+            )
+        )
+
+        # Render the chart
+        r2c3.plotly_chart(fig, use_container_width=True, key="tab2_chart6")
+
+        #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
