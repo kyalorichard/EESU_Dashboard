@@ -140,34 +140,48 @@ def auth_ui():
     if not st.session_state.show_login:
         return
 
-    # --- Drawer + Overlay ---
-    login_url = get_google_auth_url()
-    email = st.session_state.email_input
-    password = st.session_state.password_input
-    login_error = st.session_state.login_error
-
     # Drawer CSS
     st.markdown("""
     <style>
-    .overlay { position: fixed; inset:0; background: rgba(0,0,0,.45); z-index:9998; }
-    .drawer { position: fixed; top:0; right:0; width:350px; height:100%; background:#fff; z-index:9999;
-              padding:1.5rem; box-shadow:-10px 0 30px rgba(0,0,0,.3); display:flex; flex-direction:column;
-              transition: transform 0.3s ease; transform: translateX(0); }
-    .drawer input { margin-bottom:.5rem; padding:.5rem; border-radius:6px; border:1px solid #ccc; width:100%; }
-    .drawer button { padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; margin-bottom:.3rem; cursor:pointer; }
+    .overlay {
+        position: fixed; inset:0;
+        background: rgba(0,0,0,.45);
+        z-index:9998;
+    }
+    .drawer {
+        position: fixed; top:0; right:0;
+        width:350px; height:100%;
+        background:#fff;
+        z-index:9999;
+        padding:1.5rem;
+        box-shadow:-10px 0 30px rgba(0,0,0,.3);
+        display:flex; flex-direction:column;
+        transition: transform 0.3s ease;
+        transform: translateX(0);
+    }
+    .drawer input {
+        margin-bottom:.5rem; padding:.5rem; border-radius:6px; border:1px solid #ccc; width:100%;
+    }
+    .drawer button {
+        padding:.6rem; width:100%; border-radius:6px; border:none; font-weight:600; margin-bottom:.3rem; cursor:pointer;
+    }
     .google-btn { background:#1a73e8; color:white; }
     .cancel-btn { background:#ccc; }
     </style>
     """, unsafe_allow_html=True)
 
-    # Drawer container
+    # --- Drawer + Overlay ---
     with st.container():
+        # Only the overlay background (not capturing clicks)
         st.markdown('<div class="overlay"></div>', unsafe_allow_html=True)
+
+        # Drawer content (clickable)
         st.markdown('<div class="drawer">', unsafe_allow_html=True)
 
         st.markdown("### Sign in")
 
         # Google login button
+        login_url = get_google_auth_url()
         if oauth_enabled:
             st.markdown(f"<a href='{login_url}'><button class='google-btn'>🔵 Sign in with Google</button></a>", unsafe_allow_html=True)
         else:
@@ -176,8 +190,8 @@ def auth_ui():
         st.markdown("<hr>", unsafe_allow_html=True)
 
         # Email login inputs
-        email_input = st.text_input("Email", value=email, key="email_input")
-        password_input = st.text_input("Password", value=password, type="password", key="password_input")
+        email_input = st.text_input("Email", value=st.session_state.email_input, key="email_input")
+        password_input = st.text_input("Password", value=st.session_state.password_input, type="password", key="password_input")
 
         # Sign in button
         if st.button("Sign in with Email"):
@@ -205,5 +219,7 @@ def auth_ui():
             st.session_state.show_login = False
             st.experimental_rerun()
 
+        # Error message
         st.markdown(f"<p style='color:red;text-align:center;'>{st.session_state.login_error}</p>", unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
