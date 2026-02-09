@@ -1153,7 +1153,7 @@ if tab_name=="Overview":
     fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
     # Update the title to include the tooltip
-    fig.update_layout(
+    fig12.update_layout(
         title=dict(
             text=title_html,
             x=0.5,        # center
