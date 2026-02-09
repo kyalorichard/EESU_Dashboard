@@ -1143,69 +1143,35 @@ if tab_name=="Overview":
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     
-    with r1c1:
-        fig1 = create_h_stacked_bar(
-            a1,
-            y="alert-type",
-            x="count",
-            color_col="alert-impact",
-            title="Alert type distribution",
-            horizontal=True
-        )
-        show_chart(fig1, key="tab1_chart1")
-    with r1c2:
+    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
+    
+    # Disclaimer tooltip
         tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
 
-        # Render chart title + "?" on the same line
-        st.markdown(f"""
-        <div style="display:flex; align-items:center; margin-bottom:5px;">
-            <h4 style="margin:0; margin-right:5px;">Alert distribution across enabling principles</h4>
-            <span title="{tooltip_text}" style="
-                display:inline-block;
-                width:18px;
-                height:18px;
-                line-height:18px;
-                border-radius:50%;
-                background:#660094;
-                color:white;
-                text-align:center;
-                cursor:help;
-                font-weight:bold;
-                font-size:14px;
-            ">?</span>
-        </div>
-        """, unsafe_allow_html=True)
-        fig2 = create_h_stacked_bar(
-            a2,
-            y="enabling-principle",
-            x="count",
-            color_col="alert-impact",
-            title="Alert distribution across enabling principles", 
-            horizontal=True
+        # Include a small "?" icon in the title using HTML
+        title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
+        fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True)
+
+        # Update the title to include the tooltip
+        fig.update_layout(
+            title=dict(
+                text=title_html,
+                x=0.5,        # center
+                xanchor='center',
+                yanchor='top',
+                font=dict(size=16)
+            )
         )
-        show_chart(fig2, key="tab1_chart2")
-    with r2c1:
-        fig3 = create_h_stacked_bar(
-            a3,
-            y="region",
-            x="count",
-            color_col="alert-impact",
-            title="Alert distribution across regions",
-            horizontal=False
-        )
-        show_chart(fig3, key="tab1_chart3")
+
+        # Render the chart
+        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
     
-    with r2c2:        
-        fig4 = create_h_stacked_bar(        
-            a4,
-            y="alert-country",
-            x="count",
-            color_col="alert-impact",
-            title="Alert distribution across countries",
-            horizontal=False
-        )                    
-        show_chart(fig4, key="tab1_chart4")
-        
+    
+    
+    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
+
     
     cols_rename_map  = {
         "post_title": "Title of post",
@@ -1349,7 +1315,7 @@ elif tab_name=="Negative Alerts":
 
         # Include a small "?" icon in the title using HTML
         title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
-        fig = create_bar_chart(m6,"enabling-principle","count",title="Negative alert distribution across enabling principles",horizontal=True)
+        fig23 = create_bar_chart(m6,"enabling-principle","count",title="Negative alert distribution across enabling principles",horizontal=True)
 
         # Update the title to include the tooltip
         fig.update_layout(
@@ -1363,7 +1329,7 @@ elif tab_name=="Negative Alerts":
         )
 
         # Render the chart
-        r2c3.plotly_chart(fig, use_container_width=True, key="tab2_chart6")
+        r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
 
         #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
