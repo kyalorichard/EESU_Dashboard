@@ -391,12 +391,19 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     position: relative;
     display: inline-block;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
+    color: black;                /* icon color */
+    border: 2px solid black;     /* round border */
+    border-radius: 50%;          /* makes it circular */
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
 }}
 .tooltip-box .tooltiptext {{
     visibility: hidden;
     width: 300px;
-    background-color: #660094;
+    background-color: #black;
     color: #fff;
     text-align: left;
     border-radius: 5px;
