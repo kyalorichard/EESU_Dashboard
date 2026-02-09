@@ -135,44 +135,60 @@ def inject_auth_css():
 # ----------------------------
 def top_right_auth():
     handle_google_redirect()
+
+    # Initialize modal state
     if "auth_open" not in st.session_state:
         st.session_state.auth_open = False
 
     import streamlit.components.v1 as components
 
-    photo = st.session_state.get("photo")
     email = st.session_state.get("email", "?")
-    avatar_html = f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
-    
-    if st.button("Toggle Login"):
-        st.session_state.auth_open = not st.session_state.auth_open
-    st.markdown(avatar_html, unsafe_allow_html=True)
+    photo = st.session_state.get("photo")
 
+    # Avatar HTML (clickable)
+    avatar_html = f"""
+    <div id="avatar" style="
+        width:50px; height:50px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        cursor:pointer; font-weight:600; font-size:18px;
+        background:#1a73e8; color:white;
+    ">
+        {avatar_initials(email) if not photo else f'<img src="{photo}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'}
+    </div>
+
+    <script>
+    const avatar = window.parent.document.getElementById("avatar");
+    avatar && avatar.addEventListener('click', () => {{
+        window.parent.postMessage({{func:"toggleAuthModal"}}, "*");
+    }});
+    </script>
+    """
+
+    # Render avatar
+    components.html(avatar_html, height=60, scrolling=False)
+
+    # Handle messages from JS
+    if "_auth_msg_handler" not in st.session_state:
+        def handle_message(msg):
+            if msg.get("func") == "toggleAuthModal":
+                st.session_state.auth_open = not st.session_state.auth_open
+                st.experimental_rerun()
+        st.session_state["_auth_msg_handler"] = handle_message
+
+    # Show modal if open
     if st.session_state.get("auth_open", False):
-        # Modal HTML
         modal_html = f"""
-        <div style="
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.5); z-index: 99999;
-            display: flex; justify-content: center; align-items: center;
-        " id="authModal">
+        <div id="authModal" style="
+            position: fixed; top:0; left:0; width:100vw; height:100vh;
+            background: rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center;
+            z-index:99999;
+        ">
             <div style="
-                background: white; border-radius: 12px; padding: 2rem;
-                width: 400px; max-width: 90%; box-shadow:0 12px 32px rgba(0,0,0,0.4);
-                text-align: center; font-family: 'Google Sans', sans-serif;
+                background:white; border-radius:12px; padding:2rem; 
+                max-width:400px; width:90%; text-align:center; box-shadow:0 12px 32px rgba(0,0,0,0.4);
             ">
                 {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name','User')}</strong>!"}
                 {f'<a href="{get_google_auth_url()}"><button style="width:100%; margin-top:1rem;">🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
-                {"" if "user" in st.session_state else '''
-                <hr style="margin:1rem 0;">
-                <form>
-                    <input type="text" placeholder="Email" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-                    <input type="password" placeholder="Password" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-                    <button type="button" style="width:100%;">Sign in with Email</button>
-                </form>
-                '''}
-                {f'<br><button style="width:100%; margin-top:1rem;" onclick="alert(\'Logout handled in backend\')">Logout</button>' if "user" in st.session_state else ""}
             </div>
         </div>
 
@@ -180,12 +196,13 @@ def top_right_auth():
         const modal = document.getElementById('authModal');
         modal.addEventListener('click', function(e) {{
             if(e.target === modal) {{
-                window.parent.postMessage({{func:"closeAuthModal"}}, "*");
+                window.parent.postMessage({{func:"toggleAuthModal"}}, "*");
             }}
         }});
         </script>
         """
-        components.html(modal_html, height=700)
+        components.html(modal_html, height=800)
+
 
     # Welcome note on dashboard
     if "user" in st.session_state:
