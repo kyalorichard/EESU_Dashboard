@@ -1155,7 +1155,7 @@ if tab_name=="Overview":
     fig12.add_annotation(
         xref='paper', yref='paper',
         x=1.0,  # position on x-axis (right side)
-        y=1.25, # slightly above the chart title
+        y=1.09, # slightly above the chart title
         text='?',  # the "?" icon
         showarrow=False,
         font=dict(color="black", size=16, family="Arial", weight="bold"),
