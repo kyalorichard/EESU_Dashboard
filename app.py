@@ -481,7 +481,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, title_tooltip=None, horizontal=False):
     categories = sorted(df[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
