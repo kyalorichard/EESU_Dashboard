@@ -391,10 +391,10 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     position: relative;
     display: inline-block;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 14px;
     font-family: Arial;
     color: black;                /* icon color */
-    border: 1px solid black;     /* round border */
+    border: 2px solid black;     /* round border */
     border-radius: 50%;          /* makes it circular */
     
 }}
