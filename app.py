@@ -1054,11 +1054,12 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
 tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 
+# Initialize active tab
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -----------------------------
-# CSS for modern tabs with sliding underline
+# Modern CSS for tabs
 # -----------------------------
 st.markdown("""
 <style>
@@ -1078,22 +1079,26 @@ st.markdown("""
     border: none;
     outline: none;
     color: #555;
-    transition: color 0.2s ease;
+    transition: color 0.3s ease, transform 0.2s ease;
     position: relative;
     z-index: 1;
+    font-family: "Segoe UI", sans-serif;
 }
 .tab-button:hover {
     color: #660094;
+    transform: scale(1.05);
 }
 .tab-button.active {
     font-weight: bold;
     color: #660094;
+    text-shadow: 0px 0px 2px rgba(102,0,148,0.8);
 }
 .tab-underline {
     position: absolute;
-    bottom: 0;
+    bottom: -2px;
     height: 4px;
     background-color: #660094;
+    border-radius: 2px;
     left: 0;
     width: 0;
     transition: transform 0.3s ease, width 0.3s ease;
@@ -1103,40 +1108,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tab buttons inside the same container for underline
+# Streamlit tab buttons
 # -----------------------------
-tab_buttons_html = "<div class='tabs-row'>"
-underline_width = 100 / len(tabs)
-active_index = tabs.index(st.session_state.active_tab)
-
+tab_cols = st.columns(len(tabs))
 for i, tab_name in enumerate(tabs):
-    active_class = "active" if st.session_state.active_tab == tab_name else ""
-    tab_buttons_html += f"""
-    <button class='tab-button {active_class}' onclick="document.dispatchEvent(new CustomEvent('tab_click', {{detail:'{tab_name}'}}))">
-        {tab_name}
-    </button>
-    """
+    if tab_cols[i].button(tab_name, key=f"tab_btn_{i}"):
+        st.session_state.active_tab = tab_name
 
-# Add underline
-tab_buttons_html += f"""
-<div class='tab-underline' style='width:{underline_width}%; transform: translateX({active_index * 100}%);'></div>
+# -----------------------------
+# Sliding underline
+# -----------------------------
+active_index = tabs.index(st.session_state.active_tab)
+underline_width = 100 / len(tabs)
+
+st.markdown(f"""
+<div class='tabs-row'>
+    <div class='tab-underline' style='width: {underline_width}%; transform: translateX({active_index * 100}%);'></div>
 </div>
-"""
-
-st.markdown(tab_buttons_html, unsafe_allow_html=True)
-
-# -----------------------------
-# Update Streamlit active_tab via JS event listener
-# -----------------------------
-st.markdown("""
-<script>
-const streamlitEl = window.parent.document;
-document.addEventListener('tab_click', function(e) {
-    const tabName = e.detail;
-    window.parent.postMessage({isStreamlitMessage: true, type: 'CUSTOM_EVENT', event: 'SET_TAB', value: tabName}, "*");
-});
-</script>
 """, unsafe_allow_html=True)
+
 
 # ---------------- TAB 1 ----------------
 
