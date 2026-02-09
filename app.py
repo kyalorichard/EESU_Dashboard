@@ -1060,7 +1060,7 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # -----------------------------
-# CSS for styled tabs
+# CSS for tabs
 # -----------------------------
 st.markdown("""
 <style>
@@ -1102,25 +1102,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs as HTML buttons
+# Render tabs as Streamlit buttons
 # -----------------------------
-tab_html = "<div class='tabs-row'>"
-for tab in tabs:
-    active_class = "active" if st.session_state.active_tab == tab else ""
-    tab_html += f"""
-    <form action="/" method="get" style="margin:0; padding:0;">
-        <button class="tab-button {active_class}" name="tab" value="{tab}">{tab}</button>
-    </form>
-    """
-tab_html += "</div>"
+tab_cols = st.columns(len(tabs))
+for i, tab_name in enumerate(tabs):
+    is_active = st.session_state.active_tab == tab_name
+    # Use markdown for styling because st.button cannot take CSS directly
+    button_label = f"<div class='tab-button {'active' if is_active else ''}'>{tab_name}</div>"
+    if tab_cols[i].button("", key=f"tab_btn_{i}"):  # empty label
+        st.session_state.active_tab = tab_name
+    # Render the styled label
+    tab_cols[i].markdown(button_label, unsafe_allow_html=True)
 
-# Capture clicks
-query_params = st.experimental_get_query_params()
-clicked_tab = query_params.get("tab", [st.session_state.active_tab])[0]
-st.session_state.active_tab = clicked_tab
-
-st.markdown(tab_html, unsafe_allow_html=True)
-
+# Optional divider below tabs
+st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
 
             
 # ---------------- TAB 1 ----------------
