@@ -1117,7 +1117,7 @@ if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
 # CSS to style Streamlit buttons as flush tabs
- CSS for flush, professional tabs
+ 
 st.markdown("""
 <style>
 /* Remove column spacing */
