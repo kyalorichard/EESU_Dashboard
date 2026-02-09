@@ -1054,7 +1054,8 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
 # Initialize active tab in session_state
 if "active_tab" not in st.session_state:
-    st.session_state.active_tab = tabs[0]
+    st.session_state["active_tab"] = tabs[0]
+
 
 # -----------------------------
 # CSS for tabs
