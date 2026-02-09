@@ -1059,27 +1059,70 @@ tabs = ["Overview","Negative Alerts","Visualization Map","User Manual"]
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = tabs[0]
 
-# Render tabs as styled buttons
+# Inject CSS for sliding underline tabs
+st.markdown("""
+<style>
+.tabs-container {
+    display: flex;
+    position: relative;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    cursor: pointer;
+    font-weight: 500;
+    color: #555;
+    transition: color 0.3s;
+    position: relative;
+}
+
+.tab.active {
+    color: #660094;
+    font-weight: bold;
+}
+
+.tab-underline {
+    position: absolute;
+    bottom: 0;
+    height: 4px;
+    background-color: #660094;
+    width: 0;
+    left: 0;
+    transition: all 0.3s ease;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Render tabs and calculate underline
 tab_cols = st.columns(len(tabs))
 for i, tab_name in enumerate(tabs):
-    is_active = st.session_state.active_tab == tab_name
-    style = f"""
-        border: none;
-        padding: 10px 20px;
-        border-bottom: 4px solid {"#660094" if is_active else "transparent"};
-        background-color: {"#f5f5f5" if is_active else "#ffffff"};
-        font-weight: {"bold" if is_active else "normal"};
-        font-size: 16px;
-        color: {"#660094" if is_active else "#444"};
-        cursor: pointer;
-        border-radius: 4px 4px 0 0;
-        transition: 0.2s;
-    """
-    if tab_cols[i].button(tab_name, key=f"tab_{i}", help=tab_name):
+    if tab_cols[i].button(tab_name, key=f"tab_{i}"):
         st.session_state.active_tab = tab_name
 
-# Optional divider below tabs
-st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
+# Calculate underline position and width
+active_index = tabs.index(st.session_state.active_tab)
+underline_style = f"""
+<style>
+.tabs-container .tab-underline {{
+    width: {100 / len(tabs)}%;
+    transform: translateX({active_index * 100}%);
+}}
+</style>
+"""
+st.markdown(underline_style, unsafe_allow_html=True)
+
+# Render the tabs container
+tab_buttons_html = "<div class='tabs-container'>"
+for i, tab_name in enumerate(tabs):
+    active_class = "active" if st.session_state.active_tab == tab_name else ""
+    tab_buttons_html += f"<div class='tab {active_class}'>{tab_name}</div>"
+tab_buttons_html += "<div class='tab-underline'></div></div>"
+
+st.markdown(tab_buttons_html, unsafe_allow_html=True)
 
             
 # ---------------- TAB 1 ----------------
