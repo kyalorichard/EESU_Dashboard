@@ -64,6 +64,71 @@ footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
+# ----------------- Inject Material Tabs CSS -----------------
+st.markdown("""
+<style>
+/* Container & labels for Material tabs */
+div[role="radiogroup"] {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: relative;
+    padding-bottom: 6px;
+}
+
+div[role="radiogroup"] input[type="radio"] {
+    display: none;
+}
+
+div[role="radiogroup"] label {
+    cursor: pointer;
+    padding: 8px 20px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666666;
+    position: relative;
+    transition: color 0.25s ease;
+    border-radius: 4px;
+}
+
+/* Active tab styling */
+div[role="radiogroup"] input[type="radio"]:checked + label {
+    color: #6200ee;
+    font-weight: 600;
+}
+
+/* Animated underline */
+div[role="radiogroup"] label::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0%;
+    height: 3px;
+    background-color: #6200ee;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+div[role="radiogroup"] input[type="radio"]:checked + label::after {
+    width: 100%;
+}
+
+/* Hover effect */
+div[role="radiogroup"] label:hover {
+    color: #3700b3;
+}
+
+/* Responsive stacking */
+@media (max-width: 600px) {
+    div[role="radiogroup"] {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
@@ -92,6 +157,7 @@ def load_data():
         .replace("VNSAs", "Violent Non-State Actors")
     )
 
+    
     # Ensure the replacement happens after stripping spaces
     df['Actor of repression'] = df['Actor of repression'].str.replace("VNSAs", "Violent Non-State Actors")
 
@@ -986,22 +1052,28 @@ if "active_tab" not in st.session_state:
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-TAB_NAMES = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
+tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 
 if "active_tab" not in st.session_state:
-    st.session_state.active_tab = "Overview"
+    st.session_state.active_tab = tabs[0]
 
-selected_tab = st.radio(
-    "",
-    TAB_NAMES,
-    index=TAB_NAMES.index(st.session_state.active_tab),
-    horizontal=True
-)
+# Render tabs as Material radios
+tab_html = ""
+for i, tab in enumerate(tabs):
+    checked_attr = "checked" if st.session_state.active_tab == tab else ""
+    tab_html += f'<input type="radio" name="material_tabs" id="tab_{i}" {checked_attr}><label for="tab_{i}">{tab}</label>'
 
-st.session_state.active_tab = selected_tab
+st.markdown(f'<div role="radiogroup">{tab_html}</div>', unsafe_allow_html=True)
+
+# Capture clicks via buttons
+for i, tab in enumerate(tabs):
+    if st.session_state.active_tab != tab:
+        if st.button(f"select_tab_{i}", key=f"select_tab_{i}", help="switch tab", on_click=lambda t=tab: st.session_state.update({"active_tab": t})):
+            st.session_state.active_tab = tab
+            
 # ---------------- TAB 1 ----------------
 if st.session_state.active_tab == "Overview":
-    st.session_state.active_tab = "Overview"
+    #st.session_state.active_tab = "Overview"
     render_summary_cards(filtered_global)
     
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
@@ -1083,7 +1155,7 @@ if st.session_state.active_tab == "Overview":
 
 # ---------------- TAB 2: Negative Events ----------------
 if st.session_state.active_tab == "Negative Alerts":
-    st.session_state.active_tab = "Negative Alerts"
+    #st.session_state.active_tab = "Negative Alerts"
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
 
@@ -1274,7 +1346,7 @@ if st.session_state.active_tab == "Negative Alerts":
       
       # ---------------- TAB 3 (MAP) ----------------
 if st.session_state.active_tab == "Visualization Map":
-    st.session_state.active_tab = "Visualization Map"
+    #st.session_state.active_tab = "Visualization Map"
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
     if geo_file.exists():
@@ -1400,7 +1472,7 @@ if st.session_state.active_tab == "Visualization Map":
 # -------------------------------USER MANUAL TAB------------------------------------       
      
 if st.session_state.active_tab =="User Manual":
-    st.session_state.active_tab = "User Manual"
+    #st.session_state.active_tab = "User Manual"
     st.header("EU SEE Dashboard – Quick Start")
 
     st.markdown("""
