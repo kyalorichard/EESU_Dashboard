@@ -1181,7 +1181,6 @@ for i, tab in enumerate(tabs):
 
 # Current tab content
 tab_name = st.session_state.active_tab
-st.markdown(f"<div class='tab-content'>", unsafe_allow_html=True)
 
 # ---------------- TAB 1 ----------------
 
