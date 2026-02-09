@@ -1,24 +1,43 @@
 # auth.py
 import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, auth
 import pyrebase
+import firebase_admin
+from firebase_admin import credentials
 import urllib.parse
+import requests
+from google.oauth2 import id_token
+from google.auth.transport import requests as grequests
+import json
 
 # ----------------------------
-# Firebase initialization
+# Firebase Admin Init
 # ----------------------------
-if not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
-    firebase_admin.initialize_app(cred)
+if "firebase_admin" in st.secrets and not firebase_admin._apps:
+    try:
+        cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error(f"Firebase Admin initialization failed: {e}")
 
-firebase = pyrebase.initialize_app(dict(st.secrets["firebase"]))
-firebase_auth = firebase.auth()
+# ----------------------------
+# Pyrebase Init (Email login)
+# ----------------------------
+firebase_auth = None
+firebase_cfg = dict(st.secrets.get("firebase", {}))
+if firebase_cfg:
+    try:
+        firebase = pyrebase.initialize_app(firebase_cfg)
+        firebase_auth = firebase.auth()
+    except Exception as e:
+        st.error(f"Firebase initialization failed: {e}")
 
 # ----------------------------
 # Config
 # ----------------------------
-PRIVILEGED_DOMAINS = set(st.secrets["access"]["privileged_domains"])
+PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
+GOOGLE_CLIENT_ID = st.secrets.get("oauth", {}).get("client_id")
+GOOGLE_CLIENT_SECRET = st.secrets.get("oauth", {}).get("client_secret")
+REDIRECT_URI = st.secrets.get("oauth", {}).get("redirect_uri")
 
 # ----------------------------
 # Helpers
@@ -26,156 +45,148 @@ PRIVILEGED_DOMAINS = set(st.secrets["access"]["privileged_domains"])
 def get_email_domain(email: str) -> str:
     return email.split("@")[-1].lower()
 
-def get_user_role_from_domain():
-    if "user" not in st.session_state:
-        return "public"
-
-    decoded = auth.verify_id_token(st.session_state.user["idToken"])
-    email = decoded.get("email", "")
-    domain = get_email_domain(email)
-
-    return "privileged" if domain in PRIVILEGED_DOMAINS else "public"
-
 def avatar_initials(email: str) -> str:
-    name = email.split("@")[0]
-    parts = name.replace(".", " ").split()
-    return (parts[0][0] + (parts[1][0] if len(parts) > 1 else "")).upper()
+    parts = email.split("@")[0].replace(".", " ").split()
+    return "".join(p[0].upper() for p in parts[:2])
 
-def is_privileged():
+def is_privileged() -> bool:
     return st.session_state.get("user_role") == "privileged"
 
 # ----------------------------
 # Google OAuth
 # ----------------------------
-def google_oauth_url():
+def get_google_auth_url():
     params = {
-        "client_id": st.secrets["firebase"]["appId"],
-        "redirect_uri": st.secrets["oauth"]["redirect_uri"],
-        "response_type": "token",
-        "scope": "email profile",
-        "provider": "google.com",
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "prompt": "select_account",
     }
-    return (
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp"
-        f"?{urllib.parse.urlencode(params)}"
-    )
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
-    params = st.experimental_get_query_params()
+    try:
+        params = st.experimental_get_query_params()
+    except Exception:
+        params = {}
 
-    if "id_token" in params:
-        id_token = params["id_token"][0]
-        decoded = auth.verify_id_token(id_token)
+    if "code" not in params:
+        return
 
-        st.session_state.user = {"idToken": id_token}
-        st.session_state.email = decoded.get("email")
-        st.session_state.photo = decoded.get("picture")
-        st.session_state.user_role = get_user_role_from_domain()
+    code = params["code"][0]
 
+    try:
+        token_resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        token_resp.raise_for_status()
+        tokens = token_resp.json()
+
+        idinfo = id_token.verify_oauth2_token(
+            tokens["id_token"], grequests.Request(), GOOGLE_CLIENT_ID
+        )
+
+        email = idinfo.get("email")
+        name = idinfo.get("name") or email.split("@")[0].title()
+        picture = idinfo.get("picture")
+    except Exception:
+        st.error("Google login failed or token invalid.")
         st.experimental_set_query_params()
-        st.rerun()
+        return
+
+    # Domain restriction
+    if get_email_domain(email) not in PRIVILEGED_DOMAINS:
+        st.error(f"Access denied. Only emails from {', '.join(PRIVILEGED_DOMAINS)} allowed.")
+        st.experimental_set_query_params()
+        return
+
+    st.session_state.user = "google"
+    st.session_state.email = email
+    st.session_state.name = name
+    st.session_state.photo = picture
+    st.session_state.user_role = "privileged"
+
+    st.experimental_set_query_params()
+    st.experimental_rerun()
 
 # ----------------------------
-# UI
+# CSS
 # ----------------------------
 def inject_auth_css():
-    st.markdown(
-        """
-        <style>
-        .auth-container {
-            position: fixed;
-            top: 0.75rem;
-            right: 1.5rem;
-            z-index: 9999;
-        }
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #1a73e8;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        details summary { list-style: none; }
-        details summary::-webkit-details-marker { display: none; }
-        .dropdown-panel {
-            margin-top: 0.4rem;
-            background: white;
-            border-radius: 10px;
-            padding: 0.75rem;
-            width: 240px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-            animation: slideDown 0.25s ease-out;
-        }
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown("""
+    <style>
+    .auth-container { position: fixed; top: 1rem; left: 1rem; z-index: 9999; }
+    .avatar-button { width:50px; height:50px; border-radius:50%; background:#1a73e8; color:white; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; }
+    .avatar-img { width:50px; height:50px; border-radius:50%; object-fit:cover; cursor:pointer; }
+    </style>
+    """, unsafe_allow_html=True)
 
+# ----------------------------
+# Top-left avatar + centered modal login
+# ----------------------------
 def top_right_auth():
-    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+    handle_google_redirect()
+    if "auth_open" not in st.session_state:
+        st.session_state.auth_open = False
 
-    # Public user
-    if "user" not in st.session_state:
-        st.markdown(
-            f"""
-            <details>
-              <summary><div class="avatar">?</div></summary>
-              <div class="dropdown-panel">
-                <a href="{google_oauth_url()}">
-                    <button style="width:100%">🔵 Sign in with Google</button>
-                </a>
-                <hr>
-            """,
-            unsafe_allow_html=True
-        )
+    import streamlit.components.v1 as components
 
-        with st.form("email_login"):
-            email = st.text_input("Email", label_visibility="collapsed")
-            password = st.text_input("Password", type="password", label_visibility="collapsed")
-            if st.form_submit_button("Sign in"):
-                user = firebase_auth.sign_in_with_email_and_password(email, password)
-                st.session_state.user = user
-                st.session_state.email = email
-                st.session_state.user_role = get_user_role_from_domain()
-                st.rerun()
+    photo = st.session_state.get("photo")
+    email = st.session_state.get("email", "?")
+    avatar_html = f'<img src="{photo}" class="avatar-img">' if photo else f'<div class="avatar-button">{avatar_initials(email)}</div>'
+    
+    if st.button("Toggle Login"):
+        st.session_state.auth_open = not st.session_state.auth_open
+    st.markdown(avatar_html, unsafe_allow_html=True)
 
-        st.markdown("</div></details>", unsafe_allow_html=True)
+    if st.session_state.get("auth_open", False):
+        # Modal HTML
+        modal_html = f"""
+        <div style="
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); z-index: 99999;
+            display: flex; justify-content: center; align-items: center;
+        " id="authModal">
+            <div style="
+                background: white; border-radius: 12px; padding: 2rem;
+                width: 400px; max-width: 90%; box-shadow:0 12px 32px rgba(0,0,0,0.4);
+                text-align: center; font-family: 'Google Sans', sans-serif;
+            ">
+                {"<h3>Sign in</h3>" if "user" not in st.session_state else f"👋 Welcome, <strong>{st.session_state.get('name','User')}</strong>!"}
+                {f'<a href="{get_google_auth_url()}"><button style="width:100%; margin-top:1rem;">🔵 Sign in with Google</button></a>' if "user" not in st.session_state else ""}
+                {"" if "user" in st.session_state else '''
+                <hr style="margin:1rem 0;">
+                <form>
+                    <input type="text" placeholder="Email" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
+                    <input type="password" placeholder="Password" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
+                    <button type="button" style="width:100%;">Sign in with Email</button>
+                </form>
+                '''}
+                {f'<br><button style="width:100%; margin-top:1rem;" onclick="alert(\'Logout handled in backend\')">Logout</button>' if "user" in st.session_state else ""}
+            </div>
+        </div>
 
-    # Logged-in user
-    else:
-        email = st.session_state.get("email")
-        role = st.session_state.get("user_role")
-        photo = st.session_state.get("photo")
+        <script>
+        const modal = document.getElementById('authModal');
+        modal.addEventListener('click', function(e) {{
+            if(e.target === modal) {{
+                window.parent.postMessage({{func:"closeAuthModal"}}, "*");
+            }}
+        }});
+        </script>
+        """
+        components.html(modal_html, height=700)
 
-        avatar = (
-            f"<img src='{photo}' class='avatar'>"
-            if photo else f"<div class='avatar'>{avatar_initials(email)}</div>"
-        )
-
-        st.markdown(
-            f"""
-            <details>
-              <summary>{avatar}</summary>
-              <div class="dropdown-panel">
-                <strong>{email}</strong><br>
-                <small>{role.capitalize()} access</small>
-            """,
-            unsafe_allow_html=True
-        )
-
-        if st.button("Logout"):
-            st.session_state.clear()
-            st.rerun()
-
-        st.markdown("</div></details>", unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Welcome note on dashboard
+    if "user" in st.session_state:
+        st.markdown(f"👋 Welcome, **{st.session_state.get('name','User')}**!", unsafe_allow_html=True)
