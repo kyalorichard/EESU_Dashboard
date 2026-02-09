@@ -1163,28 +1163,42 @@ for tab in tabs:
 
 tabs_html += "</div>"
 
-# JS to send tab click back to Streamlit via window.parent.postMessage
 tabs_html += """
 <script>
 function change_tab(tab_name){
-    window.parent.postMessage({isStreamlitMessage:true, type:'tab-change', tab: tab_name}, "*")
+    const streamlitEvent = {
+        type: 'streamlit:customEvent',
+        tab: tab_name
+    };
+    window.parent.postMessage(streamlitEvent, '*');
 }
 </script>
 """
 
-# Use components.html to handle JS messages
-components.html(tabs_html, height=60)
-
 # ------------------- Listen for tab change -------------------
-# This will capture the JS event sent by onclick
-tab_name = st.session_state.active_tab
+# Trick: Use an invisible input element to store the JS message
+tabs_html += """
+<input type="hidden" id="tab_input" value="">
+<script>
+window.addEventListener("message", (event) => {
+    if(event.data.type === "tab-change"){
+        document.getElementById("tab_input").value = event.data.tab;
+    }
+});
+</script>
+"""
 
-if "tab_name_js" not in st.session_state:
-    st.session_state.tab_name_js = tab_name
+components.html(tabs_html, height=60, scrolling=False)
 
-# Display content for active tab
+# ------------------- Update Streamlit state -------------------
+# Trick: use a dummy text_input to capture JS input
+tab_selected = st.text_input("##", "", key="tab_input_text")
+
+if tab_selected and tab_selected != st.session_state.active_tab:
+    st.session_state.active_tab = tab_selected
+
+# ------------------- Display content -------------------
 st.markdown(f'<div class="tab-content"><h3>{st.session_state.active_tab}</h3></div>', unsafe_allow_html=True)
-
 # ---------------- TAB 1 ----------------
 
 if tab_name=="Overview":
