@@ -10,9 +10,14 @@ from google.auth.transport import requests as grequests
 # ---------------------------
 # Firebase Admin Init
 # ---------------------------
+firebase_admin_initialized = False
 if "firebase_admin" in st.secrets and not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
-    firebase_admin.initialize_app(cred)
+    try:
+        cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
+        firebase_admin.initialize_app(cred)
+        firebase_admin_initialized = True
+    except Exception as e:
+        st.warning(f"Firebase Admin initialization failed: {e}")
 
 # ---------------------------
 # Pyrebase Init
@@ -20,16 +25,25 @@ if "firebase_admin" in st.secrets and not firebase_admin._apps:
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 if firebase_cfg:
-    firebase = pyrebase.initialize_app(firebase_cfg)
-    firebase_auth = firebase.auth()
+    try:
+        firebase = pyrebase.initialize_app(firebase_cfg)
+        firebase_auth = firebase.auth()
+    except Exception as e:
+        st.warning(f"Firebase email login not initialized: {e}")
 
 # ---------------------------
 # Config
 # ---------------------------
 PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
-GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
-GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
-REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
+
+try:
+    GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
+    GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
+    REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
+    oauth_enabled = True
+except KeyError:
+    oauth_enabled = False
+    st.warning("⚠️ OAuth credentials missing. Google login will be disabled.")
 
 # ---------------------------
 # Helpers
@@ -47,6 +61,8 @@ def init_state():
 # Google OAuth
 # ---------------------------
 def get_google_auth_url():
+    if not oauth_enabled:
+        return "#"
     params = {
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
@@ -57,7 +73,7 @@ def get_google_auth_url():
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 def handle_google_redirect():
-    if "code" not in st.query_params:
+    if not oauth_enabled or "code" not in st.query_params:
         return
 
     code = st.query_params["code"][0] if isinstance(st.query_params["code"], list) else st.query_params["code"]
@@ -167,7 +183,6 @@ def auth_ui():
 
     login_url = get_google_auth_url()
 
-    # --- Drawer ---
     email = st.session_state.email_input
     password = st.session_state.password_input
     login_error = st.session_state.login_error
@@ -178,16 +193,19 @@ def auth_ui():
 
         st.markdown("<h3>Sign in</h3>", unsafe_allow_html=True)
 
-        # Google login
-        st.markdown(f"""
-        <a href="{login_url}" style="text-decoration:none">
-            <button class="google-btn">🔵 Sign in with Google</button>
-        </a>
-        """, unsafe_allow_html=True)
+        # Google login button (if available)
+        if oauth_enabled:
+            st.markdown(f"""
+            <a href="{login_url}" style="text-decoration:none">
+                <button class="google-btn">🔵 Sign in with Google</button>
+            </a>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("Google login disabled. Missing OAuth credentials.")
 
         st.markdown("<hr>", unsafe_allow_html=True)
 
-        # Email login inputs
+        # Email login
         email = st.text_input("Email", value=email)
         password = st.text_input("Password", type="password", value=password)
         submitted = st.form_submit_button("Sign in with Email")
@@ -214,7 +232,6 @@ def auth_ui():
         if login_error:
             st.error(login_error)
 
-        # Cancel button
         if st.button("Cancel"):
             st.session_state.show_login = False
 
