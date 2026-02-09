@@ -1052,10 +1052,11 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 # ---------------- TABS ----------------
 #tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
-# Initialize active tab in session_state
+# -----------------------------
+# Safe session_state initialization
+# -----------------------------
 if "active_tab" not in st.session_state:
     st.session_state["active_tab"] = tabs[0]
-
 
 # -----------------------------
 # CSS for tabs
@@ -1101,7 +1102,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Render tabs using st.radio
+# Horizontal tabs using st.radio
 # -----------------------------
 selected_tab = st.radio(
     "",
@@ -1110,10 +1111,9 @@ selected_tab = st.radio(
     horizontal=True
 )
 st.session_state.active_tab = selected_tab
+tab_name = selected_tab  # alias for readability
 
-# Optional divider
 st.markdown("<hr style='margin:0 0 10px 0'>", unsafe_allow_html=True)
-
 
 # ---------------- TAB 1 ----------------
 
