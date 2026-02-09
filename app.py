@@ -1150,7 +1150,7 @@ if tab_name=="Overview":
 
     # Include a small "?" icon in the title using HTML
     title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
-    fig 12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
+    fig12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
     # Update the title to include the tooltip
     fig12.update_layout(
@@ -1295,13 +1295,7 @@ elif tab_name=="Negative Alerts":
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-        disclaimer_text = (
-            "Disclaimer:\n"
-            "These charts reflect only the data selected by the filters above.\n"
-            "Excluded countries, actors, or event types are not included.\n"
-            "Values do not include data outside your selections."
-        )
-
+        
         r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), use_container_width=True, key="tab2_chart1")
         r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
@@ -1317,7 +1311,7 @@ elif tab_name=="Negative Alerts":
         fig23 = create_bar_chart(m6,"enabling-principle","count",title="Negative alert distribution across enabling principles",horizontal=True)
 
         # Update the title to include the tooltip
-        fig.update_layout(
+        fig23.update_layout(
             title=dict(
                 text=title_html,
                 x=0.5,        # center
