@@ -15,6 +15,9 @@ from auth import auth_ui
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
+# Get role from session_state
+user_role = st.session_state.get("user_role", None)
+
 if st.session_state.get("user"):
     st.success(f"Welcome, {st.session_state['name']}! You are logged in.")
     st.write(f"Your email: {st.session_state['email']}")
