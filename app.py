@@ -372,24 +372,24 @@ with col2:
 
     # --- Alerts Breakdown (conditional) ---
     if show_breakdown:
-with col3:
+    with col3:
         st.markdown(f"""
-    <div style="{card_style}">
-        <h3 style="margin:0; font-size:20px; font-weight:600;">Alerts Breakdown</h3>
-        <div style="display:flex; justify-content:space-between; font-size:14px; margin:6px 0;">
-            <span style="color:#FFDB58; font-weight:bold;">Negative ● {negative}</span>
-            <span style="color:#660094; font-weight:bold;">Positive ● {positive}</span>
-        </div>
-        <div style="display:flex; height:24px; border-radius:8px; overflow:hidden; font-size:12px;">
-            <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold;">
-                {f'{neg_pct}%' if neg_pct>5 else ''}
+        <div style="{card_style}">
+            <h3 style="margin:0; font-size:20px; font-weight:600;">Alerts Breakdown</h3>
+            <div style="display:flex; justify-content:space-between; font-size:14px; margin:6px 0;">
+                <span style="color:#FFDB58; font-weight:bold;">Negative ● {negative}</span>
+                <span style="color:#660094; font-weight:bold;">Positive ● {positive}</span>
             </div>
-            <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
-                {f'{pos_pct}%' if pos_pct>5 else ''}
+            <div style="display:flex; height:24px; border-radius:8px; overflow:hidden; font-size:12px;">
+                <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                    {f'{neg_pct}%' if neg_pct>5 else ''}
+                </div>
+                <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
+                    {f'{pos_pct}%' if pos_pct>5 else ''}
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 def normalize_label(label: str) -> str:
     """
