@@ -582,7 +582,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     fig.update_layout(
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center',font=dict(family="Arial, sans-serif", size=14))
+        title=dict(text=title, x=0.5, xanchor='center',font=dict(family="Arial black", size=12))
     )
    
     return fig
