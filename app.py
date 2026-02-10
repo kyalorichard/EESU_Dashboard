@@ -339,14 +339,24 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     with col2:
         st.markdown(f"""
     <style>
-    .tooltip-box {{
+    /* Tooltip circle */
+    .tooltip-box {
         position: relative;
-        display: inline-block;
-        cursor: pointer;
-        color: #008CAA;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;          /* circle width */
+        height: 24px;         /* circle height */
+        border-radius: 50%;   /* makes it a perfect circle */
+        background-color: #008CAA;  /* circle color */
+        color: white;         /* text color inside circle */
+        font-size: 14px;
         font-weight: bold;
-    }}
-    .tooltip-box .tooltiptext {{
+        cursor: pointer;
+    }
+
+    /* Tooltip text */
+    .tooltip-box .tooltiptext {
         visibility: hidden;
         width: 260px;
         background-color: #333;
@@ -355,18 +365,22 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         border-radius: 6px;
         padding: 8px 12px;
         position: absolute;
-        z-index: 1;
-        bottom: 130%;
+        z-index: 10;
+        bottom: 130%;           /* show above the circle */
         left: 50%;
-        margin-left: -130px;
+        margin-left: -130px;    /* center the tooltip */
         opacity: 0;
         transition: opacity 0.3s;
+        font-family: Arial, sans-serif;
         font-size: 12px;
-    }}
-    .tooltip-box:hover .tooltiptext {{
+        line-height: 1.4;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .tooltip-box:hover .tooltiptext {
         visibility: visible;
         opacity: 1;
-    }}
+    }
     </style>
 
     <div style="{card_style}">
