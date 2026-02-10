@@ -291,9 +291,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
     font_size = max(12, min(16, 14 - int(total_alerts/100)))
 
-   import streamlit as st
-
-
+  
 bar_height = 30
 font_size = 12
 
