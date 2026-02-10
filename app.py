@@ -986,7 +986,7 @@ st.markdown(
     <style>
     /* Tabs container */
     div[data-testid="stTabs"] {
-        background-color: #ffffff;
+        background-color: purple;
         border-bottom: 1px solid #e6e6e6;
     }
 
@@ -1003,13 +1003,13 @@ st.markdown(
 
     /* Hover */
     div[data-testid="stTabs"] button:hover {
-        background-color: #f1f3f5;
+        background-color: purple;
         color: #2d0055;
     }
 
     /* Active tab */
     div[data-testid="stTabs"] button[aria-selected="true"] {
-        background-color: #ffffff;
+        background-color: purple;
         color: #2d0055;
         font-weight: 700;
         border-bottom: 3px solid #2d0055;
@@ -1503,7 +1503,6 @@ with tab_manual:
         )
     else:
         st.warning("User Manual PDF not found.")
-
 
 
 # ---------------- FOOTER ----------------
