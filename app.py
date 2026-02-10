@@ -394,22 +394,22 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
         <div style="width:100%; display:flex; flex-direction:column; gap:8px; font-family:Arial, sans-serif;">
 
-    <!-- Labels Row -->
-    <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:600; color:#333;">
-        <span style="color:#FF6F61;">Negative ● 120</span>
-        <span style="color:#6A0DAD;">Positive ● 125</span>
-    </div>
+    
+        <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:600; color:#333;">
+            <span style="color:#FF6F61;">Negative ● 120</span>
+            <span style="color:#6A0DAD;">Positive ● 125</span>
+        </div>
 
-    <!-- Progress Bar Row -->
-    <div style="width:100%; height:30px; display:flex; border-radius:15px; overflow:hidden; background:#e0e0e0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="width:49%; background:#FF6F61; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px; transition: width 0.5s; border-radius:15px 0 0 15px;">
-            49%
-        </div>
-        <div style="width:51%; background:#6A0DAD; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px; transition: width 0.5s; border-radius:0 15px 15px 0;">
-            51%
+        <!-- Progress Bar Row -->
+        <div style="width:100%; height:30px; display:flex; border-radius:15px; overflow:hidden; background:#e0e0e0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="width:49%; background:#FF6F61; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px; transition: width 0.5s; border-radius:15px 0 0 15px;">
+                49%
+            </div>
+            <div style="width:51%; background:#6A0DAD; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px; transition: width 0.5s; border-radius:0 15px 15px 0;">
+                51%
+            </div>
         </div>
     </div>
-</div>
     """, unsafe_allow_html=True)
 
 
