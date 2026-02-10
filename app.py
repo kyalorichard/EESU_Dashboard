@@ -865,7 +865,7 @@ def render_sankey(df, top_n=None, width=900):
         ["#33C1FF"] * len(mechanism_nodes) +
         ["#33FF8A"] * len(subject_nodes)
     )
-    
+
     links = []
 
     # Actor → Mechanism
@@ -891,15 +891,17 @@ def render_sankey(df, top_n=None, width=900):
     # Figure height scales with number of nodes
     fig_height = max(500, len(nodes) * 40)
 
+    # Create Sankey
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=40,             # spacing between nodes
-            thickness=35,       # node thickness
+            pad=40,
+            thickness=35,
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
-            hovertemplate="%{label}<extra></extra>"
+            hovertemplate="%{label}<extra></extra>",
+            font=dict(size=12, family="Arial")  # Node label font
         ),
         link=dict(
             source=[l["source"] for l in links],
@@ -909,32 +911,34 @@ def render_sankey(df, top_n=None, width=900):
         )
     ))
 
-    # Optional legend as scatter
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#FF5733", family="Arial"),
-        name="Actor of repression"
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33C1FF", family="Arial"),
-        name="Mechanism of repression"
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33FF8A", family="Arial"),
-        name="Subject of repression"
-    ))
+    # Optional legend as scatter (consistent font)
+    legend_markers = [
+        ("Actor of repression", "#FF5733"),
+        ("Mechanism of repression", "#33C1FF"),
+        ("Subject of repression", "#33FF8A")
+    ]
+    for name, color in legend_markers:
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode="markers",
+            marker=dict(size=10, color=color),
+            name=name
+        ))
 
+    # Layout with consistent fonts
     fig.update_layout(
-        title="Flow of Negative Events",
-        font=dict(size=12, color="purple",family="Arial black"),
+        title=dict(
+            text="Flow of Negative Events",
+            x=0.5,
+            xanchor="center",
+            font=dict(size=16, family="Arial Black", color="#660094")  # Title font
+        ),
+        font=dict(size=12, family="Arial", color="black"),  # Axis, legend, hover font
         height=fig_height,
         width=width,
         margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
     )
-    
+
     return fig
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
