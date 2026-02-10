@@ -857,7 +857,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
 
     # Helper: wrap long labels
     # Helper: truncate long labels
-    def truncate_label(label, max_chars=25):
+    def wrap_label(label, max_chars=25):
         label = str(label)
         return label if len(label) <= max_chars else label[:max_chars-3] + "..."
 
