@@ -15,6 +15,12 @@ from auth import auth_ui
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
+if st.session_state.get("user"):
+    st.success(f"Welcome, {st.session_state['name']}! You are logged in.")
+    st.write(f"Your email: {st.session_state['email']}")
+    st.write(f"Role: {st.session_state['user_role']}")
+else:
+    st.info("Please sign in from the sidebar to access the dashboard features.")
 
 BASE_DIR = Path(__file__).resolve().parent
 
