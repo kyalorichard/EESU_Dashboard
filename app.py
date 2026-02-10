@@ -1277,23 +1277,11 @@ with tab_negative:
               
         fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
 
-        # First, add the chart title as an annotation (optional if title already exists)
-        fig23.add_annotation(
-            xref='paper', yref='paper',
-            x=0.0,          # left-aligned start
-            y=1.08,         # just above the plot area
-            text="<b>Alert distribution across enabling principles</b>",
-            showarrow=False,
-            font=dict(size=16, color="black", family="Arial"),
-            align="left",
-            xanchor="left",
-            yanchor="bottom"
-        )
-
+              
         # Add the "?" tooltip icon immediately after the title
         fig23.add_annotation(
             xref='paper', yref='paper',
-            x=0.55,         # adjust so it's at the end of the title
+            x=0.95,         # adjust so it's at the end of the title
             y=1.08,         # same vertical alignment as title
             text="❔",       # Unicode circle with question mark
             showarrow=False,
