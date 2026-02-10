@@ -988,18 +988,23 @@ st.markdown(
     div[data-testid="stTabs"] {
         background-color: #ffffff;
         border-bottom: 1px solid #e6e6e6;
+        display: flex !important;       /* make tabs flex container */
+        justify-content: space-between; /* distribute evenly */
+        width: 100%;
     }
 
-    /* Tabs list */
+    /* Tabs list: make each button grow equally */
     div[data-testid="stTabs"] button {
+        flex: 1 1 0;          /* grow and shrink equally */
         font-size: 15px;
         font-weight: 600;
-        font:  Arial black;
+        font-family: "Arial Black", Arial, sans-serif;
         color: #444444;
-        padding: 10px 18px;
-        margin-right: 6px;
+        padding: 10px 0;
+        margin: 0;             /* remove extra margin */
         border-radius: 6px 6px 0 0;
         background-color: #f8f9fa;
+        text-align: center;
     }
 
     /* Hover */
