@@ -26,99 +26,12 @@ st.markdown("""
 
 """, unsafe_allow_html=True)
 st.markdown("""
-<div style="font-size:12px; font:Arial; color:#333333; margin-bottom:20px;">
+<div style="font-size:10px; font:Arial; color:#333333; margin-bottom:20px;">
 This dashboard is an interactive tool designed to explore and analyse information produced by the EU SEE project.<br>
 It brings together data reported by Network Members across 86 countries to document trends in the enabling environment for civil society.
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------- CUSTOM CSS ----------------
-st.markdown("""
-<style>
-
-/* Remove top spacing */
-.css-18e3th9 {padding-top: 0rem;}
-.css-1d391kg {padding-top: 0rem; padding-bottom: 0rem;}
-
-/* Summary card styling */
-.summary-card {
-   background: linear-gradient(135deg, #660094 0%, #8a2be2 50%, #b266ff 100%);
-   color: white;
-   padding: 5px;
-   border-radius: 12px;
-   text-align: center;
-   margin: 5px;
-   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-.stTabs [role="tab"] button {font-size: 20px; font-weight: bold;}
-footer {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
-
-# ----------------- Inject Material Tabs CSS -----------------
-st.markdown("""
-<style>
-/* Container & labels for Material tabs */
-div[role="radiogroup"] {
-    display: flex !important;
-    flex-wrap: wrap;
-    gap: 12px;
-    position: relative;
-    padding-bottom: 6px;
-}
-
-div[role="radiogroup"] input[type="radio"] {
-    display: none;
-}
-
-div[role="radiogroup"] label {
-    cursor: pointer;
-    padding: 8px 20px;
-    font-size: 16px;
-    font-weight: 500;
-    color: #666666;
-    position: relative;
-    transition: color 0.25s ease;
-    border-radius: 4px;
-}
-
-/* Active tab styling */
-div[role="radiogroup"] input[type="radio"]:checked + label {
-    color: #6200ee;
-    font-weight: 600;
-}
-
-/* Animated underline */
-div[role="radiogroup"] label::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 0%;
-    height: 3px;
-    background-color: #6200ee;
-    border-radius: 2px;
-    transition: width 0.3s ease;
-}
-
-div[role="radiogroup"] input[type="radio"]:checked + label::after {
-    width: 100%;
-}
-
-/* Hover effect */
-div[role="radiogroup"] label:hover {
-    color: #3700b3;
-}
-
-/* Responsive stacking */
-@media (max-width: 600px) {
-    div[role="radiogroup"] {
-        flex-direction: column;
-        gap: 8px;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
