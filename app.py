@@ -986,22 +986,27 @@ st.markdown(
     <style>
     /* Tabs container */
     div[data-testid="stTabs"] {
+        display: flex !important;       /* flex container */
+        width: 100%;
+        gap: 0px;                        /* no extra gap */
         background-color: #ffffff;
         border-bottom: 1px solid #e6e6e6;
-        display: flex !important;    /* flex container */
-        width: 100%;
-        gap: 0px;                    /* no extra gap between tabs */
     }
 
-    /* Tabs list: all tabs grow equally with bold text */
+    /* Ensure each tab wrapper div expands */
+    div[data-testid="stTabs"] > div {
+        flex: 1 !important;             /* make wrapper div take equal space */
+    }
+
+    /* Tabs list: buttons inside wrapper div */
     div[data-testid="stTabs"] button {
-        flex: 1;                     /* all tabs same width */
+        width: 100% !important;          /* fill the wrapper div completely */
         font-size: 15px;
-        font-weight: 700;            /* fully bold text */
+        font-weight: 700;                /* bold text */
         font-family: "Arial Black", Arial, sans-serif;
         color: #444444;
         padding: 10px 0;
-        margin: 0;                   /* remove default margin */
+        margin: 0;                        /* remove default margin */
         border-radius: 6px 6px 0 0;
         background-color: #f8f9fa;
         text-align: center;
@@ -1009,19 +1014,19 @@ st.markdown(
         transition: all 0.2s ease;
     }
 
-    /* Hover: thicker underline */
+    /* Hover effect: thicker underline */
     div[data-testid="stTabs"] button:hover {
         background-color: #660094;
         color: white;
-        border-bottom: 5px solid #2d0055;  /* thick underline on hover */
+        border-bottom: 5px solid #2d0055;
     }
 
     /* Active tab */
     div[data-testid="stTabs"] button[aria-selected="true"] {
         background-color: #660094;
         color: white;
-        font-weight: 700;                    /* bold active text */
-        border-bottom: 5px solid #2d0055;   /* same thickness as hover */
+        font-weight: 700;
+        border-bottom: 5px solid #2d0055;
     }
 
     /* Tab content spacing */
