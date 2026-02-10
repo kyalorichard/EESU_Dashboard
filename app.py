@@ -406,19 +406,17 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
                 {neg_pct}%
             </text>
-            <text x="60" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
+            <text x="40" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
                 {pos_pct}%
             </text>
-            <text x="60" y="65" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">
-                {total_alerts}
-            </text>
+           
         </svg>
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
         <div style="display:flex; justify-content:space-between; width:100%; margin-top:8px; font-size:14px; font-weight:600;">
-            <span style="color:#660094;">Negative: {negative}</span>
-            <span style="color:#FFDB58;">Positive: {positive}</span>
+            <span style="color:#FFDB58;">Negative: {negative}</span>
+            <span style="color:#660094;">Positive: {positive}</span>
         </div>
     </div>
     ''', unsafe_allow_html=True)
