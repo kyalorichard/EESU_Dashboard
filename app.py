@@ -560,13 +560,22 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
     color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
-        df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+         # ---------------- Label handling ----------------
+        if normalize_labels:
+            df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+        else:
+            df[y] = df[y].astype(str).apply(
+                lambda l: wrap_label_by_words(l, words_per_line=4)
+            )
+            
+
+        
         
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else df_cat[x],
