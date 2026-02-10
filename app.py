@@ -1095,7 +1095,7 @@ with tab_overview:
         y="enabling-principle",
         x="count",
         color_col="alert-impact",
-        title="",  # leave blank, we'll add title + tooltip manually
+        title="lert distribution across enabling principles", 
         horizontal=True,
         normalize_labels=False
     )
@@ -1107,7 +1107,7 @@ with tab_overview:
         y=1.05,
         text="❔",  # unicode "?" inside a circle
         showarrow=False,
-        font=dict(color="black", size=12, family="Arial", weight="bold"),
+        font=dict(color="black", size=10, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
         borderwidth=0.2,
@@ -1268,11 +1268,11 @@ with tab_negative:
         # Add the "?" tooltip icon immediately after the title
         fig23.add_annotation(
             xref='paper', yref='paper',
-            x=0.98,         # adjust so it's at the end of the title
-            y=1.09,         # same vertical alignment as title
+            x=0.42,         # adjust so it's at the end of the title
+            y=1.05,         # same vertical alignment as title
             text="❔",       # Unicode circle with question mark
             showarrow=False,
-            font=dict(color="black", size=14, family="Arial", weight="bold"),
+            font=dict(color="black", size=10, family="Arial", weight="bold"),
             align="center",
             bordercolor="black",
             borderwidth=1,
