@@ -973,145 +973,17 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     return fig
 
 # ---------------- TABS ----------------
-
-tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
-
-# TABS CONFIG
-# --------------------------------------------------
-tabs = [
-    ("📊", "Overview"),
-    ("⚠️", "Negative Alerts"),
-    ("🗺️", "Visualization Map"),
-    ("📘", "User Manual"),
-]
-
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = tabs[0][1]
-
-# --------------------------------------------------
-# CSS (STICKY + ICON TABS + FULL WIDTH UNDERLINE)
-# --------------------------------------------------
-st.markdown(
-    """
-    <style>
-    /* Sticky wrapper */
-    .sticky-tabs {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        background: white;
-    }
-
-    /* Remove Streamlit column gaps */
-    div[data-testid="column"] {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
-
-    /* Base tab container */
-    .tab-btn {
-        position: relative;
-    }
-
-    /* Button styling */
-    .tab-btn button {
-        margin: 0 !important;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 10px 14px;
-        font-weight: 700;
-        border-radius: 6px 6px 0 0;
-        border: 1px solid #e0e0e0;
-        border-bottom: none;
-        background-color: #f5f5f5;
-        color: #444;
-        font-size: 15px;
-    }
-
-    .tab-btn button:hover {
-        background-color: #eeeeee;
-        color: #660094;
-    }
-
-    /* Hover underline (inactive tabs) */
-    .tab-btn::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        bottom: -1px;
-        width: 100%;
-        height: 0;
-        background-color: #660094;
-        transition: height 0.2s ease;
-        z-index: 5;
-    }
-
-    .tab-btn:hover::after {
-        height: 6px;
-    }
-
-    /* Active tab underline */
-    .tab-active::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        bottom: -1px;
-        width: 100%;
-        height: 4px;
-        background-color: #660094;
-        border-radius: 2px 2px 0 0;
-        z-index: 10;
-    }
-
-    /* Active tab button */
-    .tab-active button {
-        background-color: #ffffff !important;
-        color: #660094 !important;
-        border-bottom: none !important;
-    }
-
-    /* Content container */
-    .tab-container {
-        border: 1px solid #e0e0e0;
-        border-radius: 0 6px 6px 6px;
-        padding: 20px;
-        background-color: #ffffff;
-        margin-top: -1px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
+tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
+    [
+        "📊 Overview",
+        "⚠️ Negative Alerts",
+        "🗺️ Visualization Map",
+        "📘 User Manual",
+    ]
 )
-
-# --------------------------------------------------
-# RENDER STICKY TAB BAR
-# --------------------------------------------------
-st.markdown("<div class='sticky-tabs'>", unsafe_allow_html=True)
-
-cols = st.columns(len(tabs), gap="small")
-
-for i, (icon, label) in enumerate(tabs):
-    is_active = st.session_state.active_tab == label
-
-    with cols[i]:
-        st.markdown(
-            f"<div class='tab-btn {'tab-active' if is_active else ''}'>",
-            unsafe_allow_html=True
-        )
-        if st.button(f"{icon} {label}", key=f"tab_{label}"):
-            st.session_state.active_tab = label
-        st.markdown("</div>", unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-# Current tab content
-tab_name = st.session_state.active_tab
-
 # ---------------- TAB 1 ----------------
 
-if tab_name=="Overview":
+with tab_overview:
     #st.subheader("Overview Metrics")
     render_summary_cards(filtered_global)
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
@@ -1179,7 +1051,7 @@ if tab_name=="Overview":
         
     
 # ---------------- TAB 2: Negative Events ----------------
-elif tab_name=="Negative Alerts":
+with tab_negative:
     #st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -1388,7 +1260,7 @@ elif tab_name=="Negative Alerts":
             st.write(reactive_df_updated_prev)     
         
         # ---------------- TAB 3 (MAP) ----------------
-elif tab_name=="Visualization Map":
+with tab_map:
     #st.subheader("Visualization Map")
     render_summary_cards(filtered_global)
     geo_file = Path.cwd() / "data" / "countriess.geojson"
@@ -1514,7 +1386,7 @@ elif tab_name=="Visualization Map":
 
 # -------------------------------USER MANUAL TAB------------------------------------       
         
-elif tab_name=="User Manual":
+with tab_manual:
     st.markdown("""
     <div style="font-family: Arial; color: #660094; font-size: 14px;">
         <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
