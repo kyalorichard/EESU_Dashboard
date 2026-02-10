@@ -234,7 +234,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-auth_iu()
+auth_ui()
 
 # Global Filters
 st.sidebar.markdown(
