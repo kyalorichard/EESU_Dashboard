@@ -954,17 +954,23 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
         name="Subject of repression"
     ))
 
+    # Layout with consistent fonts
     fig.update_layout(
-        title="Flow of Negative Events",
-        font=dict(size=12, color="purple", family="Arial black"),
+        title=dict(
+            text="Flow of Negative Events",
+            x=0.5,
+            xanchor="center",
+            font=dict(size=16, family="Arial Black", color="#660094")  # Title font
+        ),
+        font=dict(size=12, family="Arial", color="black"),  # Axis, legend, hover font
         height=fig_height,
         width=width,
         xaxis=dict(showgrid=False, zeroline=False, visible=False),
         yaxis=dict(showgrid=False, zeroline=False, visible=False),
-        # margin=dict(l=20, r=20, t=40, b=20)
         margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
     )
+
 
     return fig
 # ---------------- TOP-N BAR HELPER ----------------
