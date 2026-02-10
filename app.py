@@ -988,20 +988,20 @@ st.markdown(
     div[data-testid="stTabs"] {
         background-color: #ffffff;
         border-bottom: 1px solid #e6e6e6;
-        display: flex !important;       /* make tabs flex container */
-        justify-content: space-between; /* distribute evenly */
+        display: flex !important;    /* flex container */
         width: 100%;
+        gap: 0px;                    /* no extra gap between tabs */
     }
 
-    /* Tabs list: make each button grow equally */
+    /* Tabs list: all tabs grow equally */
     div[data-testid="stTabs"] button {
-        flex: 1 1 0;          /* grow and shrink equally */
+        flex: 1;                     /* grow equally */
         font-size: 15px;
-        font-weight: 600;
+        font-weight: 700;
         font-family: "Arial Black", Arial, sans-serif;
         color: #444444;
         padding: 10px 0;
-        margin: 0;             /* remove extra margin */
+        margin: 0;                    /* remove default margin */
         border-radius: 6px 6px 0 0;
         background-color: #f8f9fa;
         text-align: center;
