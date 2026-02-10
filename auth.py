@@ -47,12 +47,7 @@ def logout_user():
     for k in ["user", "email", "name", "user_role", "email_input", "password_input"]:
         st.session_state.pop(k, None)
     # Refresh sidebar immediately if in Streamlit runtime
-    try:
-        st.experimental_rerun()
-    except RuntimeError:
-        # Happens if rerun is called outside app execution; safe to ignore
-        pass
-
+    
 # ---------------------------
 # Sidebar Auth UI
 # ---------------------------
