@@ -1005,13 +1005,13 @@ st.markdown(
     /* Hover */
     div[data-testid="stTabs"] button:hover {
         background-color: #660094;
-        color: #2d0055;
+        color: white;
     }
 
     /* Active tab */
     div[data-testid="stTabs"] button[aria-selected="true"] {
         background-color: #660094;
-        color: #2d0055;
+        color: white;
         font-weight: 700;
         border-bottom: 3px solid #2d0055;
     }
