@@ -293,17 +293,17 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
    
        # --- Common Card Style ---
-card_style = """
-    background: none;              /* transparent background */
-    color: #008CAA;                /* main text color */
-    border: 3px solid #008CAA;     /* thick border */
-    border-radius: 12px;
-    padding: 16px;
-    text-align: center;
-    box-shadow: none;
-    margin: 6px 0;
-    font-family: 'Arial', sans-serif;
-"""
+    card_style = """
+        background: none;              /* transparent background */
+        color: #008CAA;                /* main text color */
+        border: 3px solid #008CAA;     /* thick border */
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        box-shadow: none;
+        margin: 6px 0;
+        font-family: 'Arial', sans-serif;
+    """
 # Create three columns
 col1, col2, col3 = st.columns(3)
 # --- Monitored Countries ---
