@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
+from auth import auth_ui
 
 
 
@@ -233,7 +234,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-
+auth_iu()
 
 # Global Filters
 st.sidebar.markdown(
