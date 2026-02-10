@@ -1,17 +1,6 @@
 # ---------------- auth.py ----------------
 import streamlit as st
 import pyrebase
-import firebase_admin
-from firebase_admin import credentials
-import urllib.parse
-import requests
-from google.oauth2 import id_token
-from google.auth.transport import requests as grequests
-
-# --------------------------- Firebase Admin ---------------------------
-if "firebase_admin" in st.secrets and not firebase_admin._apps:
-    cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
-    firebase_admin.initialize_app(cred)
 
 # --------------------------- Pyrebase Auth ---------------------------
 firebase_auth = None
@@ -22,9 +11,6 @@ if firebase_cfg:
 
 # --------------------------- Config ---------------------------
 PRIVILEGED_DOMAINS = set(st.secrets.get("access", {}).get("privileged_domains", []))
-GOOGLE_CLIENT_ID = st.secrets["oauth"]["client_id"]
-GOOGLE_CLIENT_SECRET = st.secrets["oauth"]["client_secret"]
-REDIRECT_URI = st.secrets["oauth"]["redirect_uri"]
 
 # --------------------------- Helpers ---------------------------
 def get_email_domain(email: str) -> str:
@@ -39,63 +25,6 @@ def init_state():
     st.session_state.setdefault("user", None)
     st.session_state.setdefault("user_role", None)
     st.session_state.setdefault("name", None)
-
-# --------------------------- Google OAuth ---------------------------
-def get_google_auth_url():
-    params = {
-        "client_id": GOOGLE_CLIENT_ID,
-        "redirect_uri": REDIRECT_URI,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "prompt": "select_account",
-    }
-    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
-
-def handle_google_redirect():
-    if "code" not in st.query_params:
-        return
-    code_param = st.query_params["code"]
-    code = code_param[0] if isinstance(code_param, list) else code_param
-    try:
-        token_resp = requests.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "code": code,
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uri": REDIRECT_URI,
-                "grant_type": "authorization_code",
-            },
-            timeout=10,
-        )
-        token_resp.raise_for_status()
-        tokens = token_resp.json()
-        idinfo = id_token.verify_oauth2_token(tokens["id_token"], grequests.Request(), GOOGLE_CLIENT_ID)
-
-        email = idinfo["email"]
-        name = idinfo.get("name", email.split("@")[0].title())
-
-        if get_email_domain(email) not in PRIVILEGED_DOMAINS:
-            st.error("Access denied")
-            st.query_params = {}
-            return
-
-        st.session_state.user = "google"
-        st.session_state.email = email
-        st.session_state.name = name
-        st.session_state.user_role = "privileged"
-        st.session_state.show_login = False
-        st.query_params = {}
-
-    except requests.exceptions.RequestException:
-        st.error("Google login failed: network issue")
-        st.query_params = {}
-    except ValueError:
-        st.error("Google login failed: invalid token")
-        st.query_params = {}
-    except Exception as e:
-        st.error(f"Google login failed: {e}")
-        st.query_params = {}
 
 # --------------------------- Logout ---------------------------
 def logout_user():
@@ -158,8 +87,6 @@ def inject_css():
         margin-bottom:.5rem;
         transition: all 0.2s ease;
     }
-    .google-btn { background:#1a73e8; color:white; }
-    .google-btn:hover { background:#1669c1; box-shadow: 0 0 8px rgba(26,115,232,0.6); }
     .email-btn { background:#4caf50; color:white; }
     .email-btn:hover { background:#3b8c40; box-shadow: 0 0 8px rgba(76,175,80,0.6); }
     .cancel-btn { background:#ccc; }
@@ -171,7 +98,6 @@ def inject_css():
 def auth_ui():
     init_state()
     inject_css()
-    handle_google_redirect()
 
     # Already logged in
     if st.session_state.user:
@@ -185,7 +111,6 @@ def auth_ui():
         st.session_state.show_login = True
 
     # Login overlay & drawer
-    login_url = get_google_auth_url()
     overlay_class = "login-overlay show" if st.session_state.show_login else "login-overlay"
     card_class = "login-card show" if st.session_state.show_login else "login-card"
 
@@ -193,13 +118,6 @@ def auth_ui():
     <div class="{overlay_class}" id="loginOverlay"></div>
     <div class="{card_class}" id="loginCard">
         <h3>Sign in</h3>
-
-        <!-- Google Login -->
-        <a href="{login_url}" style="text-decoration:none">
-            <button class="google-btn">🔵 Sign in with Google</button>
-        </a>
-
-        <hr>
 
         <!-- Email Login -->
         <input type="text" id="email_input" placeholder="Email" value="{st.session_state.email_input}" title="Use a privileged domain email">
