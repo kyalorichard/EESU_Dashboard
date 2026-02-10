@@ -416,10 +416,10 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 <title>Positive Alerts: {positive} ({pos_pct}%)</title>
             </circle>
             <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
-                {neg_pct}%
+                {pos_pct}%
             </text>
             <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
-                {pos_pct}%
+                {neg_pct}%
             </text>
             <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
                 {total_alerts}
