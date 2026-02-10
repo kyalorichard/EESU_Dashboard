@@ -578,15 +578,11 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
          # ---------------- Label handling ----------------
         if normalize_labels:
             df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
-        
-        axis = "y" if horizontal else "x"
-
-        if normalize_labels:
-            df_cat[y] = df_cat[y].apply(
-                lambda l: safe_wrap_label(l, axis=axis, words_per_line=4)
-            )
         else:
-            df_cat[y] = df_cat[y].apply(normalize_label)
+            df_cat[y] = df_cat[y].apply(
+                lambda l: wrap_label_by_words(l, words_per_line=4)
+            )
+            
 
         
         
