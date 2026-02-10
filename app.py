@@ -1038,7 +1038,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="black"),
+        font=dict(size=12, color="black", family="Arial black"),
         height=fig_height,
         width=width,
         xaxis=dict(showgrid=False, zeroline=False, visible=False),
@@ -1135,9 +1135,9 @@ st.markdown(
         background-color: #f5f5f5;
         color: #444;
         font-size: 16px;
-        font-family: Arial, sans-serif !important;
+        font-family: Arial black !important;
         transition: 0.2s;
-        width: 200;
+        width: 400;
     }
     div.stButton > button:hover {
         color: #660094;
