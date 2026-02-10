@@ -339,8 +339,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     with col2:
         st.markdown(f"""
     <style>
-    /* Tooltip circle */
-    .tooltip-box {
+    .tooltip-box {{
         position: relative;
         display: inline-flex;
         align-items: center;
@@ -353,10 +352,8 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         font-size: 14px;
         font-weight: bold;
         cursor: pointer;
-    }
-
-    /* Tooltip text */
-    .tooltip-box .tooltiptext {
+    }}
+    .tooltip-box .tooltiptext {{
         visibility: hidden;
         width: 260px;
         background-color: #333;
@@ -375,7 +372,10 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         font-size: 12px;
         line-height: 1.4;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
+        .tooltip-box:hover .tooltiptext {{
+            visibility: visible;
+            opacity: 1;
+    }}
 
     .tooltip-box:hover .tooltiptext {
         visibility: visible;
