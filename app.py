@@ -400,75 +400,100 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     # ---------------- Alerts Breakdown ----------------
     with col3:
         st.markdown(f'''
-    <div style="{card_style}">
-        <svg width="120" height="100">
-            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*50}" 
-                stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Negative Alerts: {negative} ({neg_pct}%)</title>
-            </circle>
-            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*40}" 
-                stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Positive Alerts: {positive} ({pos_pct}%)</title>
-            </circle>
-            <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
-                {pos_pct}%
-            </text>
-            <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
-                {neg_pct}%
-            </text>
-            <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
-                {total_alerts}
-            </text>
-        </svg>
-        <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
-            Alerts Breakdown
+        <div style="{card_style}; padding:12px 10px;">
+            <svg width="100" height="100" viewBox="0 0 120 120" style="display:block; margin:auto;">
+                <!-- Background ring -->
+                <circle cx="60" cy="60" r="42"
+                    stroke="#e0e0e0" stroke-width="10" fill="none"/>
+
+                <!-- Negative ring -->
+                <circle cx="60" cy="60" r="42"
+                    stroke="#FFDB58" stroke-width="10" fill="none"
+                    stroke-dasharray="{2*3.1416*42}"
+                    stroke-dashoffset="{2*3.1416*42*(1-(neg_pct/100))}"
+                    stroke-linecap="round"
+                    transform="rotate(-90 60 60)">
+                    <title>Negative Alerts: {negative} ({neg_pct}%)</title>
+                </circle>
+
+                <!-- Positive ring -->
+                <circle cx="60" cy="60" r="34"
+                    stroke="#660094" stroke-width="10" fill="none"
+                    stroke-dasharray="{2*3.1416*34}"
+                    stroke-dashoffset="{2*3.1416*34*(1-(pos_pct/100))}"
+                    stroke-linecap="round"
+                    transform="rotate(-90 60 60)">
+                    <title>Positive Alerts: {positive} ({pos_pct}%)</title>
+                </circle>
+
+                <!-- Percent labels -->
+                <text x="60" y="38" text-anchor="middle"
+                    font-size="11" font-weight="700" fill="#660094">
+                    {pos_pct}%
+                </text>
+
+                <text x="60" y="86" text-anchor="middle"
+                    font-size="11" font-weight="700" fill="#FFDB58">
+                    {neg_pct}%
+                </text>
+
+                <!-- Center total -->
+                <text x="60" y="66" text-anchor="middle"
+                    font-size="14" font-weight="700" fill="#333">
+                    {total_alerts}
+                </text>
+            </svg>
+
+            <div style="margin-top:6px; font-size:15px; font-weight:600; color:#555;">
+                Alerts Breakdown
+            </div>
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                margin-top:4px;
+                font-size:13px;
+                font-weight:600;">
+                <span style="color:#FFDB58;">Negative: {negative}</span>
+                <span style="color:#660094;">Positive: {positive}</span>
+            </div>
         </div>
-        <div style="display:flex; justify-content:space-between; width:100%; margin-top:8px; font-size:14px; font-weight:600;">
-            <span style="color:#FFDB58;">Negative: {negative}</span>
-            <span style="color:#660094;">Positive: {positive}</span>
-        </div>
-    </div>
-    ''', unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
 
 
-def normalize_label(label: str) -> str:
-    """
-    Capitalize first character only, lowercase remaining characters.
-    Safe for None/NaN.
-    """
-    if pd.isna(label):
-        return ""
-    label = str(label).strip()
-    if len(label) == 0:
-        return ""
-    return label[0].upper() + label[1:].lower()
+    def normalize_label(label: str) -> str:
+        """
+        Capitalize first character only, lowercase remaining characters.
+        Safe for None/NaN.
+        """
+        if pd.isna(label):
+            return ""
+        label = str(label).strip()
+        if len(label) == 0:
+            return ""
+        return label[0].upper() + label[1:].lower()
 
-# Define a consistent color mapping for your dashboard
-COLOR_MAPPING = {
-    "positive": "#660094",
-    "negative": "#FFDB58"
-}
+    # Define a consistent color mapping for your dashboard
+    COLOR_MAPPING = {
+        "positive": "#660094",
+        "negative": "#FFDB58"
+    }
 
-def wrap_label_by_words(label, words_per_line=3):
-    """Wrap long labels for better display"""
-    words = label.split()
-    lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
-    return '<br>'.join(lines)
+    def wrap_label_by_words(label, words_per_line=3):
+        """Wrap long labels for better display"""
+        words = label.split()
+        lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+        return '<br>'.join(lines)
 
-def safe_wrap_label(label, axis="y", words_per_line=4):
-    """
-    Wrap labels ONLY for y-axis.
-    X-axis wrapping breaks Plotly font rendering.
-    """
-    if axis == "x":
-        return normalize_label(label)
-    return wrap_label_by_words(normalize_label(label), words_per_line)
+    def safe_wrap_label(label, axis="y", words_per_line=4):
+        """
+        Wrap labels ONLY for y-axis.
+        X-axis wrapping breaks Plotly font rendering.
+        """
+        if axis == "x":
+            return normalize_label(label)
+        return wrap_label_by_words(normalize_label(label), words_per_line)
 
 
 
