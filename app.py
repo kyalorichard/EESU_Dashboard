@@ -155,16 +155,25 @@ st.sidebar.markdown(
 # Apply global CSS to sidebar to remove spacing between label and dropdown
 st.markdown("""
     <style>
-    /* Reduce gap between sidebar labels and widgets */
-    .css-1d391kg {  /* Streamlit sidebar widget container */
-        margin-top: 0rem;
-        margin-bottom: 0rem;
+    /* Sidebar dropdown text */
+    .css-1hwfws3 {  /* The selected item in multiselect/selectbox */
+        font-family: Arial !important;
+        font-size: 12px !important;
+        color: purple !important;
     }
-    /* Force multiselect text to Arial */
-    .stSelectbox, .stMultiSelect {
-        font-family: Arial;
-        font-size: 12px;
-        color: purple;
+
+    /* Dropdown options list */
+    .css-1n76uvr div[role="option"] {
+        font-family: Arial !important;
+        font-size: 12px !important;
+        color: purple !important;
+    }
+
+    /* Placeholder text in dropdown */
+    .css-1wa3eu0-placeholder {
+        font-family: Arial !important;
+        font-size: 12px !important;
+        color: purple !important;
     }
     </style>
 """, unsafe_allow_html=True)
