@@ -856,14 +856,23 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
         return go.Figure()
 
     # Helper: wrap long labels
-    # Helper: truncate long labels
-    def wrap_label(label, max_chars=25):
-        label = str(label)
-        return label if len(label) <= max_chars else label[:max_chars-3] + "..."
+    def wrap_label(label):
+        words = str(label).split()
+        lines = []
+        line = ""
+        for word in words:
+            if len(line + " " + word) <= wrap_width:
+                line = (line + " " + word).strip()
+            else:
+                lines.append(line)
+                line = word
+        lines.append(line)
+        return "<br>".join(lines)
 
-    # Bold only the node type
+    # Bold node type with color
     def format_node_label(node_type, name):
-        return f"<b>{node_type}:</b> {name}"
+        return f"<b style='color:#660094'>{node_type}:</b> <span style='color:black'>{name}</span>"
+
 
     # Get top-N nodes
     def get_top_nodes(col):
@@ -877,9 +886,10 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
     top_subjects = get_top_nodes("Subject of repression")
 
     # Build node labels (wrapped)
-    actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
-    mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
-    subject_nodes = [wrap_label(f"Subject: {s}") for s in top_subjects]
+    
+    actor_nodes = [wrap_label(format_node_label("Actor", a)) for a in top_actors]
+    mechanism_nodes = [wrap_label(format_node_label("Mechanism", m)) for m in top_mechanisms]
+    subject_nodes = [wrap_label(format_node_label("Subject", s)) for s in top_subjects]
 
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
