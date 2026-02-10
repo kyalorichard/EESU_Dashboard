@@ -1100,30 +1100,17 @@ with tab_overview:
         normalize_labels=False
     )
 
-    # Add chart title as an annotation (so we can add the "?" icon immediately next to it)
-    fig12.add_annotation(
-        xref='paper', yref='paper',
-        x=0.0,  # left side for title
-        y=1.05, # above plot
-        text="<b>Alert distribution across enabling principles</b>",
-        showarrow=False,
-        font=dict(size=16, color='black', family="Arial"),
-        align="left",
-        xanchor="left",
-        yanchor="bottom"
-    )
-
-    # Add "?" tooltip icon immediately after title
+        # Add "?" tooltip icon immediately after title
     fig12.add_annotation(
         xref='paper', yref='paper',
         x=0.42,  # adjust so it sits right after the title
         y=1.05,
         text="❔",  # unicode "?" inside a circle
         showarrow=False,
-        font=dict(color="black", size=14, family="Arial", weight="bold"),
+        font=dict(color="black", size=12, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
-        borderwidth=0.5,
+        borderwidth=0.2,
         borderpad=3,
         bgcolor="white",
         opacity=0.9,
@@ -1282,7 +1269,7 @@ with tab_negative:
         fig23.add_annotation(
             xref='paper', yref='paper',
             x=0.98,         # adjust so it's at the end of the title
-            y=1.18,         # same vertical alignment as title
+            y=1.09,         # same vertical alignment as title
             text="❔",       # Unicode circle with question mark
             showarrow=False,
             font=dict(color="black", size=14, family="Arial", weight="bold"),
