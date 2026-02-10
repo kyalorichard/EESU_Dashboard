@@ -23,7 +23,7 @@ st.markdown("""
 <h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px; font: Arial'>
     EU SEE Dashboard 
 </h1>
-<hr style='margin:5px 0'>
+
 """, unsafe_allow_html=True)
 st.markdown("""
 <div style="font-size:12px; font:Arial; color:#333333; margin-bottom:20px;">
