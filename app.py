@@ -528,7 +528,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         orientation='h' if horizontal else 'v',
         color=color_col,
         #color_discrete_map=COLOR_MAPPING if color_col else None,
-        color_discrete_sequence=['#FFDB58'],  # Purple color for all bars
+        color_discrete_sequence=['#FFDB58'],  # yellow color for all bars
         text=y
     )
 
@@ -586,7 +586,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial"),
+            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=10, family="Arial black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     num_bars = df.shape[0]
