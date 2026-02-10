@@ -1521,17 +1521,17 @@ elif tab_name=="Visualization Map":
 # -------------------------------USER MANUAL TAB------------------------------------       
         
 elif tab_name=="User Manual":
-    #st.subheader("User Manual")
-    st.header("EU SEE Dashboard – Quick Start")
-
     st.markdown("""
-    This section provides concise, decision-ready documentation for executives,
-    donors, and policy stakeholders.
-    """)
+    <div style="font-family: Arial; color: #660094;">
+        <h2>EU SEE Dashboard – Quick Start</h2>
+        <p>This section provides concise, decision-ready documentation for executives,
+        donors, and policy stakeholders.</p>
 
-    # ---------------- EXECUTIVE BRIEF ----------------
-    st.subheader("Executive Brief (1 Page)")
-    st.caption("For senior leadership, donors, and policy reporting")
+        <!-- Executive Brief -->
+        <h2>Executive Brief (1 Page)</h2>
+        <p><em>For senior leadership, donors, and policy reporting</em></p>
+    </div>
+    """, unsafe_allow_html=True)
 
     if EXEC_BRIEF_PATH.exists():
         pdf_bytes = EXEC_BRIEF_PATH.read_bytes()
@@ -1542,18 +1542,18 @@ elif tab_name=="User Manual":
             file_name="EU_SEE_Dashboard_Quick_Start_Executive.pdf",
             mime="application/pdf"
         )
-        st.subheader("Executive Brief")
-                
-        
+
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
             f"""
-            <iframe
-                src="data:application/pdf;base64,{pdf_base64}"
-                width="100%"
-                height="550px"
-                style="border:none;"
-            ></iframe>
+            <div style="font-family: Arial; color: #660094;">
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="550px"
+                    style="border:none;"
+                ></iframe>
+            </div>
             """,
             unsafe_allow_html=True
         )
@@ -1562,9 +1562,13 @@ elif tab_name=="User Manual":
 
     st.divider()
 
-    # ---------------- FULL USER MANUAL ----------------
-    st.subheader("Full User Manual")
-    st.caption("Detailed guidance for analysts and advanced users")
+    # Full User Manual
+    st.markdown("""
+    <div style="font-family: Arial; color: #660094;">
+        <h2>Full User Manual</h2>
+        <p><em>Detailed guidance for analysts and advanced users</em></p>
+    </div>
+    """, unsafe_allow_html=True)
 
     if USER_MANUAL_PATH.exists():
         pdf_bytes = USER_MANUAL_PATH.read_bytes()
@@ -1579,12 +1583,14 @@ elif tab_name=="User Manual":
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
             f"""
-            <iframe
-                src="data:application/pdf;base64,{pdf_base64}"
-                width="100%"
-                height="700px"
-                style="border:none;"
-            ></iframe>
+            <div style="font-family: Arial; color: #660094;">
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="700px"
+                    style="border:none;"
+                ></iframe>
+            </div>
             """,
             unsafe_allow_html=True
         )
