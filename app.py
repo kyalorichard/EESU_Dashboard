@@ -930,7 +930,7 @@ def render_sankey(df, top_n=None, width=900):
             text="Flow of Negative Events",
             x=0.5,
             xanchor="center",
-            font=dict(size=16, family="Arial Black", color="#660094")  # Title font
+            font=dict(size=12, family="Arial Black", color="purple")  # Title font
         ),
         font=dict(size=12, family="Arial", color="black"),  # Axis, legend, hover font
         height=fig_height,
