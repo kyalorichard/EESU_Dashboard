@@ -94,8 +94,9 @@ def load_data():
 
     # Warn about missing ISO codes
     missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
-    if len(missing_countries) > 0:
+    if len(missing_countries):
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
+        
 
     # Process dates
     if 'creation_date' in df.columns:
