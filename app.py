@@ -399,41 +399,158 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     # ---------------- Alerts Breakdown ----------------
     # ---------------- Alerts Breakdown ----------------
     with col3:
-        st.markdown(f'''
+        st.markdown(f"""
+    <style>
+    /* ===== Ring draw animation ===== */
+    @keyframes draw-ring {{
+        from {{
+            stroke-dashoffset: var(--circumference);
+        }}
+        to {{
+            stroke-dashoffset: var(--offset);
+        }}
+    }}
+
+    .animated-ring {{
+        animation: draw-ring 1.2s ease-out forwards;
+    }}
+
+    /* ===== Color-matched glow (hover) ===== */
+    .glow-ring {{
+        transition: filter 0.25s ease, opacity 0.25s ease;
+    }}
+
+    .glow-ring:hover {{
+        filter:
+            drop-shadow(0 0 6px currentColor)
+            drop-shadow(0 0 12px currentColor);
+        opacity: 1;
+    }}
+
+    svg:hover .glow-ring {{
+        opacity: 0.35;
+    }}
+
+    svg:hover .glow-ring:hover {{
+        opacity: 1;
+    }}
+
+    /* ===== Glow pulse on tab activation ===== */
+    @keyframes glow-pulse {{
+        0% {{
+            filter: drop-shadow(0 0 0px currentColor);
+        }}
+        60% {{
+            filter:
+                drop-shadow(0 0 6px currentColor)
+                drop-shadow(0 0 12px currentColor);
+        }}
+        100% {{
+            filter: drop-shadow(0 0 0px currentColor);
+        }}
+    }}
+
+    .tab-glow {{
+        animation: glow-pulse 1.1s ease-out;
+    }}
+    </style>
+
     <div style="{card_style}">
+
         <svg width="120" height="120">
-            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*50}" 
-                stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
+
+            <!-- Background ring -->
+            <circle cx="60" cy="60" r="50"
+                stroke="#e0e0e0"
+                stroke-width="12"
+                fill="none"/>
+
+            <!-- Negative ring (outer) -->
+            <circle cx="60" cy="60" r="50"
+                stroke="#FFDB58"
+                color="#FFDB58"
+                stroke-width="12"
+                fill="none"
+                stroke-dasharray="{2*3.1416*50}"
+                stroke-dashoffset="{2*3.1416*50}"
+                stroke-linecap="round"
+                transform="rotate(-90 60 60)"
+                class="animated-ring glow-ring tab-glow"
+                style="
+                    --circumference:{2*3.1416*50};
+                    --offset:{2*3.1416*50*(1-(neg_pct/100))};
+                ">
                 <title>Negative Alerts: {negative} ({neg_pct}%)</title>
             </circle>
-            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*40}" 
-                stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
+
+            <!-- Positive ring (inner) -->
+            <circle cx="60" cy="60" r="40"
+                stroke="#660094"
+                color="#660094"
+                stroke-width="12"
+                fill="none"
+                stroke-dasharray="{2*3.1416*40}"
+                stroke-dashoffset="{2*3.1416*40}"
+                stroke-linecap="round"
+                transform="rotate(-90 60 60)"
+                class="animated-ring glow-ring tab-glow"
+                style="
+                    animation-delay:0.15s;
+                    --circumference:{2*3.1416*40};
+                    --offset:{2*3.1416*40*(1-(pos_pct/100))};
+                ">
                 <title>Positive Alerts: {positive} ({pos_pct}%)</title>
             </circle>
-            <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
+
+            <!-- Percent labels -->
+            <text x="60" y="38" text-anchor="middle"
+                font-size="12" font-weight="700" fill="#660094">
                 {pos_pct}%
             </text>
-            <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
+
+            <text x="60" y="82" text-anchor="middle"
+                font-size="12" font-weight="700" fill="#FFDB58">
                 {neg_pct}%
             </text>
-            <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
+
+            <!-- Center total -->
+            <text x="60" y="66" text-anchor="middle"
+                font-size="16" font-weight="700" fill="#333">
                 {total_alerts}
             </text>
+
         </svg>
+
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
-        <div style="display:flex; justify-content:space-between; width:100%; margin-top:8px; font-size:14px; font-weight:600;">
-            <span style="color:#FFDB58;">Negative: {negative}</span>
-            <span style="color:#660094;">Positive: {positive}</span>
+
+        <!-- Divider -->
+        <div style="width:100%; height:1px; background:#eee; margin:8px 0;"></div>
+
+        <!-- Legend -->
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            font-size:13px;
+            font-weight:600;
+            color:#444;
+        ">
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="width:10px; height:10px; border-radius:50%; background:#FFDB58;"></span>
+                <span>Negative</span>
+                <span style="font-weight:700;">{negative}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="width:10px; height:10px; border-radius:50%; background:#660094;"></span>
+                <span>Positive</span>
+                <span style="font-weight:700;">{positive}</span>
+            </div>
         </div>
+
     </div>
-    ''', unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 
 
