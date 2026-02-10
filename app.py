@@ -593,14 +593,35 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     height = 350
     # Bold axis line
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')        
+        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')     
+        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
+        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
               
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'), font=dict(color="#660094", family="Arial black", size=12),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
+    fig.update_layout(
+        barmode='stack',
+        height=height,
+        margin=dict(l=120 if horizontal else 20, r=20, t=45, b=20),
+        title=dict(
+            text=title,
+            x=0.5,
+            xanchor='center',
+            font=dict(
+                family="Arial Black",
+                size=12,
+                color="#660094"
+            )
+        ),
+        font=dict(
+            family="Arial",
+            size=12,
+            color="black"
+        )
+    )
     return fig
 
 
