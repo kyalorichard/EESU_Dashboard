@@ -779,7 +779,14 @@ def render_heatmaps(df, top_n=5):
             title="What are the mechanisms used<br>by restrictive actors?"
         )
         fig1.update_traces(zmin=0, zmax=zmax)
-        fig1.update_layout(title_x=0.5, title_font=dict(size=12, family="Arial"))
+        fig1.update_layout(
+            title=dict(
+                text=fig1.layout.title.text,
+                x=0.5,
+                xanchor="center",
+                font=dict(size=12, family="Arial")
+            )
+        )
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
     
     with col2:
@@ -788,7 +795,14 @@ def render_heatmaps(df, top_n=5):
             title="What are the restrictive mechanisms<br>affecting civil society actors?"
         )
         fig2.update_traces(zmin=0, zmax=zmax)
-        fig2.update_layout(title_x=0.5, title_font=dict(size=12, family="Arial"))
+        fig2.update_layout(
+            title=dict(
+                text=fig2.layout.title.text,
+                x=0.5,
+                xanchor="center",
+                font=dict(size=12, family="Arial")
+            )
+        )
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
     
     with col3:
@@ -797,7 +811,14 @@ def render_heatmaps(df, top_n=5):
             title="Who are the actors restricting<br>civil society?"
         )
         fig3.update_traces(zmin=0, zmax=zmax)
-        fig3.update_layout(title_x=0.5, title_font=dict(size=12, family="Arial"))
+        fig3.update_layout(
+            title=dict(
+                text=fig.layout.title.text,
+                x=0.5,
+                xanchor="center",
+                font=dict(size=12, family="Arial")
+            )
+        )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
             
 # ---------------- UPDATED SANKEY FUNCTION ----------------
