@@ -582,7 +582,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     fig.update_layout(
         height=height,
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center',font=dict(color="#008CAA",family="Arial black", size=12))
+        title=dict(text=title, x=0.5, xanchor='center',font=dict(color="#660094",family="Arial black", size=12))
     )
    
     return fig
@@ -606,7 +606,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial Black"),
+            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=12, family="Arial"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     num_bars = df.shape[0]
@@ -620,7 +620,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'), font=dict(color="#008CAA", family="Arial black", size=12),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
+    fig.update_layout(title=dict(text=title, x=0.5, xanchor='center'), font=dict(color="#660094", family="Arial black", size=12),barmode='stack',height=height, margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20))
     return fig
 
 
