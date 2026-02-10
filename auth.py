@@ -46,8 +46,8 @@ def init_state():
 def logout_user():
     for k in ["user", "email", "name", "user_role", "email_input", "password_input"]:
         st.session_state.pop(k, None)
-    # Refresh sidebar immediately if in Streamlit runtime
-    
+    # No need for st.experimental_rerun; Streamlit auto reruns on widget click
+
 # ---------------------------
 # Sidebar Auth UI
 # ---------------------------
@@ -55,7 +55,7 @@ def auth_ui():
     init_state()
 
     sidebar = st.sidebar
-    #sidebar.markdown("## Account")
+    sidebar.markdown("## Account")
 
     # Logged in view
     if st.session_state.user:
@@ -64,8 +64,8 @@ def auth_ui():
         return  # Stop rendering login inputs
 
     # Logged out view
-    sidebar.text_input("Email", value=st.session_state.email_input, key="email_input")
-    sidebar.text_input("Password", value=st.session_state.password_input, type="password", key="password_input")
+    st.session_state.email_input = sidebar.text_input("Email", value=st.session_state.email_input)
+    st.session_state.password_input = sidebar.text_input("Password", value=st.session_state.password_input, type="password")
 
     if sidebar.button("Sign in"):
         email = st.session_state.email_input
@@ -83,7 +83,6 @@ def auth_ui():
                 st.session_state.name = email.split("@")[0].title()
                 st.session_state.user_role = "privileged"
                 st.session_state.login_error = ""
-                st.experimental_rerun()  # Refresh sidebar immediately
             except Exception as e:
                 st.session_state.login_error = f"Login failed: {e}"
 
