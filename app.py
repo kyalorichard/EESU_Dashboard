@@ -526,6 +526,10 @@ def show_chart(fig, key=None, add_source=False, source_text="Source: EU SEE Dash
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
    
     df = df.copy()
+
+    # ---------------- Safe numeric conversion for y ----------------
+    df[y] = pd.to_numeric(df[y], errors='coerce').fillna(0)
+    
     num_bars = df.shape[0]
     height = max(350, num_bars * 25)  # Auto height based on number of bars
     font_size = max(10, 20 - int(num_bars / 5))  # Dynamic font size
@@ -1352,7 +1356,7 @@ elif tab_name=="Negative Alerts":
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
               
-        fig23= (create_bar_chart(m6,y="enabling-principle",x="count",title="Negative alert distribution across enabling principle", horizontal=False))
+        fig23= (create_bar_chart(m6,y="enabling-principle",x="count",title="Negative alert distribution across enabling principle", horizontal=True))
 
         fig23.add_annotation(
             xref='paper', yref='paper',
