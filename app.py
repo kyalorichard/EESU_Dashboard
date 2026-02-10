@@ -1116,14 +1116,14 @@ with tab_overview:
     # Add "?" tooltip icon immediately after title
     fig12.add_annotation(
         xref='paper', yref='paper',
-        x=0.52,  # adjust so it sits right after the title
+        x=0.42,  # adjust so it sits right after the title
         y=1.05,
         text="❔",  # unicode "?" inside a circle
         showarrow=False,
         font=dict(color="black", size=14, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
-        borderwidth=1,
+        borderwidth=0.5,
         borderpad=3,
         bgcolor="white",
         opacity=0.9,
@@ -1277,25 +1277,44 @@ with tab_negative:
               
         fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
 
+        # First, add the chart title as an annotation (optional if title already exists)
         fig23.add_annotation(
             xref='paper', yref='paper',
-            x=0.9,  # position on x-axis (right side)
-            y=1.095, # slightly above the chart title
-            text='?',  # the "?" icon
+            x=0.0,          # left-aligned start
+            y=1.08,         # just above the plot area
+            text="<b>Alert distribution across enabling principles</b>",
+            showarrow=False,
+            font=dict(size=16, color="black", family="Arial"),
+            align="left",
+            xanchor="left",
+            yanchor="bottom"
+        )
+
+        # Add the "?" tooltip icon immediately after the title
+        fig23.add_annotation(
+            xref='paper', yref='paper',
+            x=0.55,         # adjust so it's at the end of the title
+            y=1.08,         # same vertical alignment as title
+            text="❔",       # Unicode circle with question mark
             showarrow=False,
             font=dict(color="black", size=14, family="Arial", weight="bold"),
             align="center",
             bordercolor="black",
             borderwidth=1,
-            borderpad=2,
+            borderpad=3,
             bgcolor="white",
             opacity=0.9,
-            hovertext="Alerts may be classified under more than one enabling principle <br> and can therefore be counted in multiple principles.",
+            hovertext=(
+                "Alerts may be classified under more than one enabling principle "
+                "<br>and can therefore be counted in multiple principles."
+            ),
             hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
         )
+
+        # Add source line if needed
         fig23 = add_source_line(fig23)
 
-        # Render the chart
+        # Render the chart in Streamlit
         r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
 
         #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
