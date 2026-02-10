@@ -92,11 +92,18 @@ def load_data():
 
     df['region'] = df['continent'].apply(continent_to_region)
 
-    # Warn about missing ISO codes
-    missing_countries = df.loc[df['iso_alpha3'].isna(), 'alert-country'].unique()
-    if len(missing_countries):
+    # Warn about missing ISO codes (cleaned)
+    missing_countries = (
+        df.loc[df['iso_alpha3'].isna(), 'alert-country']
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .loc[lambda s: s.str.lower() != "none"]
+        .unique()
+    )
+
+    if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
-        
 
     # Process dates
     if 'creation_date' in df.columns:
