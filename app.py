@@ -18,41 +18,84 @@ BASE_DIR = Path(__file__).resolve().parent
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
-# ---------------- DASHBOARD TITLE WITH RESPONSIVE DIVIDER ----------------
+# ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown("""
-<h1 style="
-    margin: 0 0 6px 0;
-    line-height: 1.1;
-    color: #660094;  /* main title color */
-    font-size: 48px;
-    font-family: Arial, sans-serif;
-    font-weight: 700;
-">
+<!-- Container for animations -->
+<div style="overflow: hidden;">
+
+<h1 class="animated-title">
     EU SEE Dashboard
 </h1>
 
-<!-- Responsive divider with gradient matching KPI colors -->
-<div style="
-    width: 15%;               /* scales with container */
-    max-width: 120px;         /* prevents it from being too large on wide screens */
+<!-- Animated divider -->
+<div class="animated-divider"></div>
+
+<div class="animated-subtitle">
+    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
+    It aggregates information reported by Network Members across 86 countries to document trends 
+    in the enabling environment for civil society.
+</div>
+
+</div>
+
+<style>
+/* ---------------- Title ---------------- */
+.animated-title {
+    margin: 0 0 6px 0;
+    line-height: 1.1;
+    color: #660094;
+    font-size: 48px;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(-20px);
+    animation: titleFadeSlide 0.8s ease-out forwards;
+    animation-delay: 0.2s;
+}
+
+/* Title animation */
+@keyframes titleFadeSlide {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------- Divider ---------------- */
+.animated-divider {
+    width: 15%;
+    max-width: 120px;
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
     margin-bottom: 16px;
-"></div>
+    opacity: 0;
+    transform: translateX(-120%);
+    animation: dividerSlide 1s ease-out forwards;
+    animation-delay: 0.6s;
+}
 
-<div style="
+@keyframes dividerSlide {
+    from { transform: translateX(-120%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+
+/* ---------------- Subtitle ---------------- */
+.animated-subtitle {
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
     margin-bottom: 20px;
     max-width: 900px;
     line-height: 1.5;
-">
-    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
-    in the enabling environment for civil society.
-</div>
+    opacity: 0;
+    animation: subtitleFade 0.8s ease-out forwards;
+    animation-delay: 1.0s;
+}
+
+@keyframes subtitleFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+</style>
 """, unsafe_allow_html=True)
 
 
