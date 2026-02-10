@@ -391,7 +391,7 @@ with col2:
             </div>
             """, unsafe_allow_html=True)
 
-    def normalize_label(label: str) -> str:
+def normalize_label(label: str) -> str:
     """
     Capitalize first character only, lowercase remaining characters.
     Safe for None/NaN.
