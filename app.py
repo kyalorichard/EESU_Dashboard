@@ -139,9 +139,8 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
-st.sidebar.image("assets/eu-see-logo.png", width=500)
+st.sidebar.image("assets/eu-see-logo.png", width=400)
 st.sidebar.markdown("## 🔐 Login / Access")
-st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 # Call the sidebar login
 #auth_ui()   # ← place near the top
