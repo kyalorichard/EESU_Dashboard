@@ -409,7 +409,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
                 {pos_pct}%
             </text>
-            <text x="60" y="65" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">
+            <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
                 {total_alerts}
             </text>
         </svg>
