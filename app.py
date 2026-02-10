@@ -840,23 +840,39 @@ def get_top_n_items(df, col, top_n):
     return counts.index.tolist()
 
 # ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
-def render_sankey(df, top_n=None, width=900):
+def render_sankey(df, top_n=None, width=900, wrap_width=25):
     """
     Render a Sankey diagram for Negative Events:
     Actor → Mechanism → Subject
+    Wraps long labels to display fully.
+    
+    Parameters:
+        df (DataFrame): Filtered negative events data
+        top_n (int or None): Number of top items to show per axis. Use None for all.
+        wrap_width (int): Maximum characters per line before wrapping
     """
     if df.empty:
         st.warning("No data available for Sankey")
         return go.Figure()
 
-    # Helper: truncate long labels
-    def truncate_label(label, max_chars=25):
-        label = str(label)
-        return label if len(label) <= max_chars else label[:max_chars-3] + "..."
+    # Helper: wrap long labels
+    def wrap_label(label):
+        words = str(label).split()
+        lines = []
+        line = ""
+        for word in words:
+            if len(line + " " + word) <= wrap_width:
+                line = (line + " " + word).strip()
+            else:
+                lines.append(line)
+                line = word
+        lines.append(line)
+        return "<br>".join(lines)
 
     # Bold node type with color
     def format_node_label(node_type, name):
         return f"<b style='color:#660094'>{node_type}:</b> <span style='color:black'>{name}</span>"
+
 
     # Get top-N nodes
     def get_top_nodes(col):
@@ -869,11 +885,12 @@ def render_sankey(df, top_n=None, width=900):
     top_mechanisms = get_top_nodes("Mechanism of repression")
     top_subjects = get_top_nodes("Subject of repression")
 
-    # Build node labels with formatted colors
-    actor_nodes = [truncate_label(format_node_label("Actor", a)) for a in top_actors]
-    mechanism_nodes = [truncate_label(format_node_label("Mechanism", m)) for m in top_mechanisms]
-    subject_nodes = [truncate_label(format_node_label("Subject", s)) for s in top_subjects]
+    # Build node labels (wrapped)
+    actor_nodes = [wrap_label(format_node_label(f"Actor: {a}")) for a in top_actors]
+    mechanism_nodes = [wrap_label(format_node_label(f"Mechanism: {m}")) for m in top_mechanisms]
+    subject_nodes = [wrap_label(format_node_label(f"Subject: {s}")) for s in top_subjects]
 
+   
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
 
@@ -882,7 +899,7 @@ def render_sankey(df, top_n=None, width=900):
         ["#33C1FF"] * len(mechanism_nodes) +
         ["#33FF8A"] * len(subject_nodes)
     )
-    
+
     links = []
 
     # Actor → Mechanism
@@ -890,8 +907,8 @@ def render_sankey(df, top_n=None, width=900):
                df["Mechanism of repression"].isin(top_mechanisms)]
     for _, r in df_am.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=node_index[truncate_label(format_node_label("Actor", r['Actor of repression']))],
-            target=node_index[truncate_label(format_node_label("Mechanism", r['Mechanism of repression']))],
+            source=node_index[wrap_label(f"Actor: {r['Actor of repression']}")],
+            target=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
             value=r["value"]
         ))
 
@@ -900,8 +917,8 @@ def render_sankey(df, top_n=None, width=900):
                df["Subject of repression"].isin(top_subjects)]
     for _, r in df_ms.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value").iterrows():
         links.append(dict(
-            source=node_index[truncate_label(format_node_label("Mechanism", r['Mechanism of repression']))],
-            target=node_index[truncate_label(format_node_label("Subject", r['Subject of repression']))],
+            source=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
+            target=node_index[wrap_label(f"Subject: {r['Subject of repression']}")],
             value=r["value"]
         ))
 
@@ -911,8 +928,8 @@ def render_sankey(df, top_n=None, width=900):
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=40,             # spacing between nodes
-            thickness=35,       # node thickness
+            pad=40,
+            thickness=35,
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
@@ -943,17 +960,25 @@ def render_sankey(df, top_n=None, width=900):
         name="Subject of repression"
     ))
 
+    # Layout with consistent fonts
     fig.update_layout(
-        title="Flow of Negative Events",
-        font=dict(size=12, color="black", family="Arial"),
+        title=dict(
+            text="Flow of Negative Events",
+            x=0.5,
+            xanchor="center",
+            font=dict(size=12, family="Arial Black", color="#660094")  # Title font
+        ),
+        font=dict(size=10, family="Arial", color="black"),  # Axis, legend, hover font
         height=fig_height,
         width=width,
+        xaxis=dict(showgrid=False, zeroline=False, visible=False),
+        yaxis=dict(showgrid=False, zeroline=False, visible=False),
         margin=dict(l=50, r=50, t=50, b=50),
         showlegend=True
     )
-    
+
+
     return fig
-    
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
     if col not in df.columns or df.empty:
