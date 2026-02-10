@@ -1526,7 +1526,7 @@ elif tab_name=="User Manual":
         <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
         <p>This section provides concise, decision-ready documentation for executives,
         donors, and policy stakeholders.</p>
-        <h2 style="font-size: 24px;">Executive Brief (1 Page)</h2>
+        <h2 style="font-size: 20px;">Executive Brief (1 Page)</h2>
         <p>For senior leadership, donors, and policy reporting.</p>
 
         
@@ -1546,7 +1546,7 @@ elif tab_name=="User Manual":
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
             f"""
-            <div style="font-family: Arial; color: #660094; font-size: 14px;">
+            <div style="font-family: Arial; color: #660094; font-size: 12px;">
                 <iframe
                     src="data:application/pdf;base64,{pdf_base64}"
                     width="100%"
