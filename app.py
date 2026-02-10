@@ -390,6 +390,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 </div>
 </div>
 """, unsafe_allow_html=True)
+
 def normalize_label(label: str) -> str:
     """
     Capitalize first character only, lowercase remaining characters.
@@ -1091,8 +1092,8 @@ if tab_name=="Overview":
 
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=True),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=True),use_container_width=True,  key="tab1_chart4")
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
 
     
     cols_rename_map  = {
