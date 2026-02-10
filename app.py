@@ -868,11 +868,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
                 line = word
         lines.append(line)
         return "<br>".join(lines)
-
-    # Bold node type with color
-    def format_node_label(node_type, name):
-        return f"<b style='color:#660094'>{node_type}:</b> <span style='color:black'>{name}</span>"
-
+    
 
     # Get top-N nodes
     def get_top_nodes(col):
@@ -886,11 +882,10 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
     top_subjects = get_top_nodes("Subject of repression")
 
     # Build node labels (wrapped)
-    actor_nodes = [wrap_label(format_node_label(f"Actor: {a}")) for a in top_actors]
-    mechanism_nodes = [wrap_label(format_node_label(f"Mechanism: {m}")) for m in top_mechanisms]
-    subject_nodes = [wrap_label(format_node_label(f"Subject: {s}")) for s in top_subjects]
+    actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
+    mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
+    subject_nodes = [wrap_label(f"Subject: {s}") for s in top_subjects]
 
-   
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
 
@@ -932,6 +927,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
             thickness=35,
             line=dict(color="black", width=0.5),
             label=nodes,
+            label=actor_nodes + mechanism_nodes + subject_nodes,  # plain text
             color=node_colors,
             hovertemplate="%{label}<extra></extra>"
         ),
