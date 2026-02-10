@@ -1522,14 +1522,14 @@ elif tab_name=="Visualization Map":
         
 elif tab_name=="User Manual":
     st.markdown("""
-    <div style="font-family: Arial; color: #660094;">
-        <h2>EU SEE Dashboard – Quick Start</h2>
+    <div style="font-family: Arial; color: #660094; font-size: 14px;">
+        <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
         <p>This section provides concise, decision-ready documentation for executives,
         donors, and policy stakeholders.</p>
 
-        <!-- Executive Brief -->
-        <h2>Executive Brief (1 Page)</h2>
-        <p><em>For senior leadership, donors, and policy reporting</em></p>
+        
+        <h2 style="font-size: 20px;">Executive Brief (1 Page)</h2>
+        <p style="font-size: 12px;"><em>For senior leadership, donors, and policy reporting</em></p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1546,7 +1546,7 @@ elif tab_name=="User Manual":
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
             f"""
-            <div style="font-family: Arial; color: #660094;">
+            <div style="font-family: Arial; color: #660094; font-size: 14px;">
                 <iframe
                     src="data:application/pdf;base64,{pdf_base64}"
                     width="100%"
@@ -1564,9 +1564,9 @@ elif tab_name=="User Manual":
 
     # Full User Manual
     st.markdown("""
-    <div style="font-family: Arial; color: #660094;">
-        <h2>Full User Manual</h2>
-        <p><em>Detailed guidance for analysts and advanced users</em></p>
+    <div style="font-family: Arial; color: #660094; font-size: 14px;">
+        <h2 style="font-size: 20px;">Full User Manual</h2>
+        <p style="font-size: 12px;"><em>Detailed guidance for analysts and advanced users</em></p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1583,7 +1583,7 @@ elif tab_name=="User Manual":
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         st.markdown(
             f"""
-            <div style="font-family: Arial; color: #660094;">
+            <div style="font-family: Arial; color: #660094; font-size: 14px;">
                 <iframe
                     src="data:application/pdf;base64,{pdf_base64}"
                     width="100%"
