@@ -1195,11 +1195,6 @@ if tab_name=="Overview":
     
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
     
-    # Disclaimer tooltip
-    tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
-
-    # Include a small "?" icon in the title using HTML
-    title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
     fig12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
     fig12.add_annotation(
@@ -1359,12 +1354,8 @@ elif tab_name=="Negative Alerts":
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
-       
-
-       
-        # Include a small "?" icon in the title using HTML
-        title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
-        fig23= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
+              
+       fig23= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
         fig23.add_annotation(
             xref='paper', yref='paper',
