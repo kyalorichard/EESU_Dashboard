@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 import base64
 from auth import auth_ui
 
-auth_ui()
+
 
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
@@ -232,6 +232,8 @@ st.sidebar.markdown(
     '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🔐 Login / Access</div>',
     unsafe_allow_html=True
 )
+
+auth_ui()
 
 # Global Filters
 st.sidebar.markdown(
