@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-from auth import auth_ui
+#from auth import auth_ui
 
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
@@ -233,9 +233,6 @@ st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 # Call the sidebar login
 #auth_ui()   # ← place near the top
 
-#if "user" not in st.session_state:
-    #st.info("Please sign in to continue.")
-    #st.stop()
 
 st.sidebar.header("🌍 Global Filters")
 
