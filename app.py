@@ -361,7 +361,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         margin-left: -130px;
         opacity: 0;
         transition: opacity 0.3s;
-        font: Arial;
+        font-family: Arial;
         font-size: 12px;
     }}
     .tooltip-box:hover .tooltiptext {{
