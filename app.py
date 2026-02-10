@@ -856,18 +856,14 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
         return go.Figure()
 
     # Helper: wrap long labels
-    def wrap_label(label):
-        words = str(label).split()
-        lines = []
-        line = ""
-        for word in words:
-            if len(line + " " + word) <= wrap_width:
-                line = (line + " " + word).strip()
-            else:
-                lines.append(line)
-                line = word
-        lines.append(line)
-        return "<br>".join(lines)
+    # Helper: truncate long labels
+    def truncate_label(label, max_chars=25):
+        label = str(label)
+        return label if len(label) <= max_chars else label[:max_chars-3] + "..."
+
+    # Bold only the node type
+    def format_node_label(node_type, name):
+        return f"<b>{node_type}:</b> {name}"
 
     # Get top-N nodes
     def get_top_nodes(col):
