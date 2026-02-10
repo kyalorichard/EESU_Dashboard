@@ -291,7 +291,15 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
     font_size = max(12, min(16, 14 - int(total_alerts/100)))
 
-  
+# Example values
+total_countries = 12
+total_alerts = 245
+negative = 120
+positive = 125
+show_breakdown = True
+
+neg_pct = round((negative / total_alerts) * 100, 1)
+pos_pct = round((positive / total_alerts) * 100, 1)  
 bar_height = 30
 font_size = 12
 
