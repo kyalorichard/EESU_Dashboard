@@ -994,6 +994,7 @@ st.markdown(
     div[data-testid="stTabs"] button {
         font-size: 15px;
         font-weight: 600;
+        font:  Arial black;
         color: #444444;
         padding: 10px 18px;
         margin-right: 6px;
@@ -1003,13 +1004,13 @@ st.markdown(
 
     /* Hover */
     div[data-testid="stTabs"] button:hover {
-        background-color: purple;
+        background-color: #660094;
         color: #2d0055;
     }
 
     /* Active tab */
     div[data-testid="stTabs"] button[aria-selected="true"] {
-        background-color: purple;
+        background-color: #660094;
         color: #2d0055;
         font-weight: 700;
         border-bottom: 3px solid #2d0055;
