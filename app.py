@@ -1355,7 +1355,7 @@ elif tab_name=="Negative Alerts":
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
               
-        fig23= (create_bar_chart(m6,y="enabling-principle",x="count",title="Alert distribution across enabling principles", horizontal=True))
+        fig23= (create_bar_chart(m6,y="enabling-principle",x="count",title="Negative alert distribution across enabling principle", horizontal=True))
 
         fig23.add_annotation(
             xref='paper', yref='paper',
