@@ -1028,7 +1028,7 @@ st.markdown(
     }
 
     /* On very small screens, allow horizontal scroll */
-    @media screen and (max-width: 600px) {
+    @media screen and (max-width: 900px) {
         div[data-testid="stTabs"] {
             overflow-x: auto;
         }
