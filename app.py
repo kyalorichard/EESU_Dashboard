@@ -27,7 +27,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown("""
 <div style="font-size:12px; font:Arial; color:#333333; margin-bottom:20px;">
-This dashboard is an interactive tool designed to explore and analyse information produced by the EU SEE project. 
+This dashboard is an interactive tool designed to explore and analyse information produced by the EU SEE project.<br>
 It brings together data reported by Network Members across 86 countries to document trends in the enabling environment for civil society.
 </div>
 """, unsafe_allow_html=True)
