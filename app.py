@@ -986,7 +986,7 @@ st.markdown(
     <style>
     /* Tabs container */
     div[data-testid="stTabs"] {
-        background-color: purple;
+        background-color: #ffffff;
         border-bottom: 1px solid #e6e6e6;
     }
 
@@ -1503,6 +1503,7 @@ with tab_manual:
         )
     else:
         st.warning("User Manual PDF not found.")
+
 
 
 # ---------------- FOOTER ----------------
