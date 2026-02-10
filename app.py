@@ -353,7 +353,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 </style>
 
 <div style="{card_style}">
-    <h1 style="margin:0;font-size:324px;font-weight:bold;">
+    <h1 style="margin:0;font-size:24px;font-weight:bold;">
         Total Alerts 
         <span class="tooltip-box">'?'
             <span class="tooltiptext">
