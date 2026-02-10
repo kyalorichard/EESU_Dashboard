@@ -1281,8 +1281,8 @@ with tab_negative:
         # Add the "?" tooltip icon immediately after the title
         fig23.add_annotation(
             xref='paper', yref='paper',
-            x=0.95,         # adjust so it's at the end of the title
-            y=1.08,         # same vertical alignment as title
+            x=0.98,         # adjust so it's at the end of the title
+            y=1.18,         # same vertical alignment as title
             text="❔",       # Unicode circle with question mark
             showarrow=False,
             font=dict(color="black", size=14, family="Arial", weight="bold"),
