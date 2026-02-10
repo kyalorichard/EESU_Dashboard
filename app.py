@@ -981,43 +981,37 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
         "📘 User Manual",
     ]
 )
-
 st.markdown(
     """
     <style>
-    /* Make tabs container flex and wrap */
+    /* Tabs container */
     div[data-testid="stTabs"] {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        justify-content: flex-start !important;
-        gap: 4px;
         background-color: #ffffff;
-        font: Arial black;
         border-bottom: 1px solid #e6e6e6;
-        padding-bottom: 2px;
     }
 
-    /* Individual tab buttons */
+    /* Tabs list */
     div[data-testid="stTabs"] button {
-        flex: 1 1 auto !important;   /* allow resizing */
-        min-width: 120px;           /* minimum width for readability */
         font-size: 15px;
         font-weight: 600;
+        font:  Arial black;
         color: #444444;
         padding: 10px 18px;
+        margin-right: 6px;
         border-radius: 6px 6px 0 0;
         background-color: #f8f9fa;
-        text-align: center;
     }
 
+    /* Hover */
     div[data-testid="stTabs"] button:hover {
         background-color: #660094;
-        color: #2d0055;
+        color: white;
     }
 
+    /* Active tab */
     div[data-testid="stTabs"] button[aria-selected="true"] {
-        background-color: #ffffff;
-        color: #2d0055;
+        background-color: #660094;
+        color: white;
         font-weight: 700;
         border-bottom: 3px solid #2d0055;
     }
@@ -1025,16 +1019,6 @@ st.markdown(
     /* Tab content spacing */
     div[data-testid="stTabs"] > div[role="tabpanel"] {
         padding-top: 18px;
-    }
-
-    /* On very small screens, allow horizontal scroll */
-    @media screen and (max-width: 900px) {
-        div[data-testid="stTabs"] {
-            overflow-x: auto;
-        }
-        div[data-testid="stTabs"] button {
-            flex: 0 0 auto; /* do not shrink below content width */
-        }
     }
     </style>
     """,
