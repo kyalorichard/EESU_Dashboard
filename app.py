@@ -425,7 +425,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 {total_alerts}
             </text>
         </svg>
-        <div style="margin-top:8px; font-size:16px; font-weight:600; color:#555;">
+        <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
         <div style="display:flex; justify-content:space-between; width:100%; margin-top:4px; font-size:14px; font-weight:600;">
