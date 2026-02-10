@@ -20,8 +20,8 @@ user_role = st.session_state.get("user_role", None)
 
 if st.session_state.get("user"):
     st.success(f"Welcome, {st.session_state['name']}! You are logged in.")
-    st.write(f"Your email: {st.session_state['email']}")
-    st.write(f"Role: {st.session_state['user_role']}")
+    #st.write(f"Your email: {st.session_state['email']}")
+    #st.write(f"Role: {st.session_state['user_role']}")
 else:
     st.info("Please sign in from the sidebar to access the dashboard features.")
 
@@ -1460,8 +1460,11 @@ with tab_negative:
         )
             
         # ---------------- Tab two data preview ----------------
-        with st.expander("Summary Data preview"):
-            st.write(reactive_df_updated_prev)     
+        if user_role == "privileged":        
+            with st.expander("Summary Data preview"):
+                st.write(reactive_df_updated_prev)
+        else:
+            st.info("Sign in with a privileged account to view Summary data.")      
         
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
