@@ -291,60 +291,79 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
     font_size = max(12, min(16, 14 - int(total_alerts/100)))
 
-    # Create columns
-    col1, col2, col3 = st.columns(3)
+   import streamlit as st
 
-    card_style = f"""
-    background: none;  /* no fill */
-        color: #008CAA;    /* text color */
-        border: 3px solid #008CAA;  /* thick blue border */
-        border-radius: 12px;
-        padding: 10px;
-        text-align: center;
-        box-shadow: none;  /* optional: remove shadow for cleaner look */
-        margin: 2px;
-    """
-    # --- Monitored Countries ---
-    with col1:
-        st.markdown(f"""
+
+bar_height = 30
+font_size = 12
+
+col1, col2, col3 = st.columns(3)
+
+# Base card style
+card_style = """
+background: #FFFFFF;
+border-radius: 16px;
+padding: 20px;
+box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+margin: 5px;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+transition: transform 0.2s;
+"""
+
+icon_style = """
+width: 50px; 
+height: 50px; 
+border-radius: 50%; 
+background: #008CAA; 
+color: white; 
+display: flex; 
+align-items:center; 
+justify-content:center; 
+font-size:24px; 
+font-weight:bold;
+margin-bottom:10px;
+"""
+
+# --- Monitored Countries ---
+with col1:
+    st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:24px;font-weight:bold;">Monitored Countries</h1>
-<h2 style="margin:0;font-size:24px;font-weight:bold;">{total_countries}</h2>
+    <div style="{icon_style}">🌍</div>
+    <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
+    <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
 </div>
 """, unsafe_allow_html=True)
 
-    # --- Total Alerts ---
-    with col2:
-       st.markdown(f"""
+# --- Total Alerts ---
+with col2:
+    st.markdown(f"""
 <style>
 .tooltip-box {{
     position: relative;
     display: inline-block;
     cursor: pointer;
-    font-size: 14px;
-    font-family: Arial;
-    color: black;                /* icon color */
-    border: 2px solid black;     /* round border */
-    border-radius: 50%;          /* makes it circular */
-    
+    color: #008CAA;
+    font-weight: bold;
 }}
 .tooltip-box .tooltiptext {{
     visibility: hidden;
-    width: 300px;
-    background-color: black;
+    width: 260px;
+    background-color: #333;
     color: #fff;
     text-align: left;
-    border-radius: 5px;
-    padding: 8px 10px;
+    border-radius: 6px;
+    padding: 8px 12px;
     position: absolute;
     z-index: 1;
-    bottom: 125%; /* show above icon */
+    bottom: 130%;
     left: 50%;
-    margin-left: -150px; /* center tooltip */
+    margin-left: -130px;
     opacity: 0;
     transition: opacity 0.3s;
     font-size: 12px;
-    font-family: Arial;
 }}
 .tooltip-box:hover .tooltiptext {{
     visibility: visible;
@@ -353,43 +372,44 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 </style>
 
 <div style="{card_style}">
-    <h1 style="margin:0;font-size:24px;font-weight:bold;">
-        Total Alerts 
-        <span class="tooltip-box">'?'
+    <div style="{icon_style}">⚠️</div>
+    <span style="font-size:16px; font-weight:600; color:#555;">
+        Total Alerts
+        <span class="tooltip-box">?
             <span class="tooltiptext">
-                Higher numbers of alerts across countries do not necessarily indicate a more concerning enabling environment. 
-                They may reflect more active reporting by Network Members, and thresholds for what constitutes a serious 
-                deterioration vary across countries and contexts.
+                Higher numbers of alerts do not always indicate a worse situation; 
+                they may reflect better reporting or different thresholds across countries.
             </span>
         </span>
-    </h1>
-    <h2 style="margin:0;font-size:24px;font-weight:bold;">{total_alerts}</h2>
+    </span>
+    <span style="font-size:36px; font-weight:bold; color:#FF6F61; margin-top:5px;">{total_alerts}</span>
 </div>
 """, unsafe_allow_html=True)
 
-
-   # --- Alerts Breakdown (conditional) ---
-    if show_breakdown:
-        with col3:
-           st.markdown(f"""
+# --- Alerts Breakdown ---
+if show_breakdown:
+    with col3:
+        st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:24px;font-weight:bold;">Alerts Breakdown</h1>
+    <div style="{icon_style}">📊</div>
+    <span style="font-size:16px; font-weight:600; color:#555; margin-bottom:8px;">Alerts Breakdown</span>
 
-<div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
-<span style="color:#008CAA;font-weight:bold;">Negative ● {negative}</span>
-<span style="color:#008CAA;font-weight:bold;">Positive ● {positive}</span>
-</div>
+    <div style="width:100%; display:flex; justify-content:space-between; font-size:14px; margin-bottom:8px;">
+        <span style="color:#FF6F61; font-weight:600;">Negative ● {negative}</span>
+        <span style="color:#6A0DAD; font-weight:600;">Positive ● {positive}</span>
+    </div>
 
-<div style="display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden;">
-    <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
-        {neg_pct if neg_pct>5 else ''}%
+    <div style="width:100%; display:flex; height:{bar_height}px; border-radius:8px; overflow:hidden; background:#e0e0e0;">
+        <div style="width:{neg_pct}%; background:#FF6F61; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:{font_size}px;">
+            {neg_pct if neg_pct > 5 else ''}
+        </div>
+        <div style="width:{pos_pct}%; background:#6A0DAD; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:{font_size}px;">
+            {pos_pct if pos_pct > 5 else ''}
+        </div>
     </div>
-    <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:{font_size}px;">
-        {pos_pct if pos_pct>5 else ''}%
-    </div>
-</div>
 </div>
 """, unsafe_allow_html=True)
+
 
 def normalize_label(label: str) -> str:
     """
