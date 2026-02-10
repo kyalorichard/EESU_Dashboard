@@ -981,8 +981,49 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
         "📘 User Manual",
     ]
 )
-# ---------------- TAB 1 ----------------
+st.markdown(
+    """
+    <style>
+    /* Tabs container */
+    div[data-testid="stTabs"] {
+        background-color: #ffffff;
+        border-bottom: 1px solid #e6e6e6;
+    }
 
+    /* Tabs list */
+    div[data-testid="stTabs"] button {
+        font-size: 15px;
+        font-weight: 600;
+        color: #444444;
+        padding: 10px 18px;
+        margin-right: 6px;
+        border-radius: 6px 6px 0 0;
+        background-color: #f8f9fa;
+    }
+
+    /* Hover */
+    div[data-testid="stTabs"] button:hover {
+        background-color: #f1f3f5;
+        color: #2d0055;
+    }
+
+    /* Active tab */
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        background-color: #ffffff;
+        color: #2d0055;
+        font-weight: 700;
+        border-bottom: 3px solid #2d0055;
+    }
+
+    /* Tab content spacing */
+    div[data-testid="stTabs"] > div[role="tabpanel"] {
+        padding-top: 18px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+# ---------------- TAB 1 ------------------------
 with tab_overview:
     #st.subheader("Overview Metrics")
     render_summary_cards(filtered_global)
@@ -1048,9 +1089,9 @@ with tab_overview:
     # ---------------- Tab two data preview ----------------
     with st.expander("Summary Data preview"):
         st.write(filtered_global_prev)     
-        
+     
     
-# ---------------- TAB 2: Negative Events ----------------
+# ---------------- Negative Events ----------------
 with tab_negative:
     #st.subheader("Negative Alerts")
     # Filter negative events
@@ -1384,7 +1425,7 @@ with tab_map:
     else:
         st.warning("GeoJSON file not found for map visualization.") 
 
-# -------------------------------USER MANUAL TAB------------------------------------       
+# -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
     st.markdown("""
