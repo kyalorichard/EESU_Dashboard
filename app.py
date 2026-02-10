@@ -938,6 +938,8 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
         )
     ))
 
+    fig.update_layout(font=dict(family="Arial Black", size=12, color="black"))  # text color
+
     # Optional legend as scatter
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
