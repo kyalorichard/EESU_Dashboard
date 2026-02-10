@@ -927,6 +927,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
             line=dict(color="black", width=0.5),
             label=nodes,
             color=node_colors,
+            font=dict(size=12, family="Arial")  # Node label font
             hovertemplate="%{label}<extra></extra>"
         ),
         link=dict(
@@ -960,9 +961,9 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
             text="Flow of Negative Events",
             x=0.5,
             xanchor="center",
-            font=dict(size=16, family="Arial Black", color="#660094")  # Title font
+            font=dict(size=12, family="Arial Black", color="#660094")  # Title font
         ),
-        font=dict(size=12, family="Arial", color="black"),  # Axis, legend, hover font
+        font=dict(size=10, family="Arial", color="black"),  # Axis, legend, hover font
         height=fig_height,
         width=width,
         xaxis=dict(showgrid=False, zeroline=False, visible=False),
