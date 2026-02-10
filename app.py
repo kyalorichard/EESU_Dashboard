@@ -1016,7 +1016,7 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] button[aria-selected="true"] {
-        background-color: #660094;
+        background-color: #ffffff;
         color: #2d0055;
         font-weight: 700;
         border-bottom: 3px solid #2d0055;
@@ -1027,7 +1027,15 @@ st.markdown(
         padding-top: 18px;
     }
 
-    
+    /* On very small screens, allow horizontal scroll */
+    @media screen and (max-width: 600px) {
+        div[data-testid="stTabs"] {
+            overflow-x: auto;
+        }
+        div[data-testid="stTabs"] button {
+            flex: 0 0 auto; /* do not shrink below content width */
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True
