@@ -36,17 +36,15 @@ def init_state():
     st.session_state.setdefault("email", "")
     st.session_state.setdefault("name", "")
     st.session_state.setdefault("user_role", "")
-    st.session_state.setdefault("email_input", "")
-    st.session_state.setdefault("password_input", "")
     st.session_state.setdefault("login_error", "")
 
 # ---------------------------
 # Logout
 # ---------------------------
 def logout_user():
-    for k in ["user", "email", "name", "user_role", "email_input", "password_input"]:
+    for k in ["user", "email", "name", "user_role"]:
         st.session_state.pop(k, None)
-    # No need for st.experimental_rerun; Streamlit auto reruns on widget click
+    # No rerun needed; Streamlit auto reruns on widget click
 
 # ---------------------------
 # Sidebar Auth UI
@@ -55,7 +53,7 @@ def auth_ui():
     init_state()
 
     sidebar = st.sidebar
-    #sidebar.markdown("## Account")
+    sidebar.markdown("## Account")
 
     # Logged in view
     if st.session_state.user:
@@ -64,12 +62,12 @@ def auth_ui():
         return  # Stop rendering login inputs
 
     # Logged out view
-    st.session_state.email_input = sidebar.text_input("Email", value=st.session_state.email_input)
-    st.session_state.password_input = sidebar.text_input("Password", value=st.session_state.password_input, type="password")
+    email_input = sidebar.text_input("Email", key="email_input")
+    password_input = sidebar.text_input("Password", type="password", key="password_input")
 
     if sidebar.button("Sign in"):
-        email = st.session_state.email_input
-        password = st.session_state.password_input
+        email = email_input
+        password = password_input
 
         if not firebase_auth:
             st.session_state.login_error = "Firebase not initialized."
@@ -88,3 +86,9 @@ def auth_ui():
 
     if st.session_state.login_error:
         sidebar.error(st.session_state.login_error)
+
+# ---------------------------
+# Helper for privileged content
+# ---------------------------
+def is_privileged():
+    return st.session_state.get("user_role") == "privileged"
