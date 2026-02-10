@@ -999,8 +999,8 @@ st.markdown(
 
     /* Individual tab buttons */
     div[data-testid="stTabs"] button {
-        flex: 1 1 auto !important;   /* allow resizing */
-        min-width: 120px;           /* minimum width for readability */
+        #flex: 1 1 auto !important;   /* allow resizing */
+        #min-width: 120px;           /* minimum width for readability */
         font-size: 15px;
         font-weight: 600;
         color: #444444;
