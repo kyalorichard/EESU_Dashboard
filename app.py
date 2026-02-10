@@ -291,10 +291,8 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
     font_size = max(12, min(16, 14 - int(total_alerts/100)))
 
-    # Create columns
-    col1, col2, col3 = st.columns(3)
-
-    # --- Common Card Style ---
+   
+       # --- Common Card Style ---
 card_style = """
     background: none;              /* transparent background */
     color: #008CAA;                /* main text color */
@@ -306,7 +304,8 @@ card_style = """
     margin: 6px 0;
     font-family: 'Arial', sans-serif;
 """
-
+# Create three columns
+col1, col2, col3 = st.columns(3)
 # --- Monitored Countries ---
 with col1:
     st.markdown(f"""
