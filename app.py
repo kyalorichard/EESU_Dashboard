@@ -482,6 +482,15 @@ def wrap_label_by_words(label, words_per_line=3):
     lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
     return '<br>'.join(lines)
 
+def safe_wrap_label(label, axis="y", words_per_line=4):
+    """
+    Wrap labels ONLY for y-axis.
+    X-axis wrapping breaks Plotly font rendering.
+    """
+    if axis == "x":
+        return normalize_label(label)
+    return wrap_label_by_words(normalize_label(label), words_per_line)
+
 
 
 # ---------------- DYNAMIC BAR CHART ----------------
@@ -569,11 +578,15 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
          # ---------------- Label handling ----------------
         if normalize_labels:
             df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
-        else:
+        
+        axis = "y" if horizontal else "x"
+
+        if normalize_labels:
             df_cat[y] = df_cat[y].apply(
-                lambda l: wrap_label_by_words(l, words_per_line=4)
+                lambda l: safe_wrap_label(l, axis=axis, words_per_line=4)
             )
-            
+        else:
+            df_cat[y] = df_cat[y].apply(normalize_label)
 
         
         
@@ -1224,7 +1237,7 @@ if tab_name=="Overview":
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=True),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=True),use_container_width=True,  key="tab1_chart4")
 
     
     cols_rename_map  = {
