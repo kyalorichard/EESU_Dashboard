@@ -37,47 +37,56 @@ It brings together data reported by Network Members across 86 countries to docum
 @st.cache_data(ttl=0)
 def load_data():
     parquet_file = Path.cwd() / "data" / "output_final.parquet"
+    meta_file = Path.cwd() / "data" / "countries_metadata.json"
+
+    # --- Step 1: Load Parquet file safely ---
     if not parquet_file.exists():
         st.error(f"Parquet file not found: {parquet_file}")
         return pd.DataFrame()
 
-    df = pd.read_parquet(parquet_file)
+    try:
+        df = pd.read_parquet(parquet_file)
+    except Exception as e:
+        st.error(f"Failed to read Parquet file: {e}")
+        return pd.DataFrame()
+
+    if df.empty:
+        st.warning("Loaded Parquet file is empty.")
+        return df
+
+    # --- Step 2: Basic cleaning ---
+    for col in ['alert-country', 'alert-impact', 'Actor of repression']:
+        if col not in df.columns:
+            st.warning(f"Column '{col}' not found in dataset.")
+            df[col] = ""
+
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
-    df = df[df['alert-country'] != "Jose"]
+    df = df[df['alert-country'].str.lower() != "jose"]
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
-    # Clean country field
-    df['alert-country'] = (
-        df['alert-country']
-        .astype(str)
-        .str.strip()
-        .replace("Lebanon NAR", "Lebanon")
-    )
+    # Clean country names
+    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
 
-    df['Actor of repression'] = (
-        df['Actor of repression']
-        .astype(str)
-        .str.strip()
-        .replace("VNSAs", "Violent Non-State Actors")
-    )
+    # Clean Actor of repression
+    df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
+    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent Non-State Actors"})
 
-    
-    # Ensure the replacement happens after stripping spaces
-    df['Actor of repression'] = df['Actor of repression'].str.replace("VNSAs", "Violent Non-State Actors")
-
-    meta_file = Path.cwd() / "data" / "countries_metadata.json"
+    # --- Step 3: Load metadata ---
     country_meta = {}
     if meta_file.exists():
-        with open(meta_file, encoding="utf-8") as f:
-            country_meta = json.load(f)
+        try:
+            with open(meta_file, encoding="utf-8") as f:
+                country_meta = json.load(f)
+        except Exception as e:
+            st.warning(f"Failed to load countries metadata: {e}")
     else:
-        st.error(f"Countries metadata JSON not found: {meta_file}")
+        st.warning(f"Countries metadata JSON not found: {meta_file}")
 
-    # ISO codes & continent
+    # --- Step 4: Map ISO codes and continent ---
     df['iso_alpha3'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3", None))
     df['continent'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
 
-    # Map continent to region
+    # --- Step 5: Map continent to region ---
     def continent_to_region(continent):
         if continent == "Africa":
             return "Africa"
@@ -92,7 +101,7 @@ def load_data():
 
     df['region'] = df['continent'].apply(continent_to_region)
 
-    # Warn about missing ISO codes (cleaned)
+    # --- Step 6: Warn about missing ISO codes ---
     missing_countries = (
         df.loc[df['iso_alpha3'].isna(), 'alert-country']
         .dropna()
@@ -105,7 +114,7 @@ def load_data():
     if len(missing_countries) > 0:
         st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
-    # Process dates
+    # --- Step 7: Process dates ---
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
         df['year'] = df['creation_date'].dt.year
@@ -115,8 +124,10 @@ def load_data():
 
     return df
 
+
+# --- Load data safely ---
 data = load_data()
-    
+
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
