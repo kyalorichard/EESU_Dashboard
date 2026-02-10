@@ -1526,10 +1526,10 @@ elif tab_name=="User Manual":
         <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
         <p>This section provides concise, decision-ready documentation for executives,
         donors, and policy stakeholders.</p>
+        <h2 style="font-size: 24px;">Executive Brief (1 Page)</h2>
+        <p>For senior leadership, donors, and policy reporting.</p>
 
         
-        <h2 style="font-size: 20px;">Executive Brief (1 Page)</h2>
-        <p style="font-size: 12px;"><em>For senior leadership, donors, and policy reporting</em></p>
     </div>
     """, unsafe_allow_html=True)
 
