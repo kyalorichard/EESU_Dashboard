@@ -482,48 +482,10 @@ def wrap_label_by_words(label, words_per_line=3):
     lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
     return '<br>'.join(lines)
 
-# ---------- Helper to add source ONLY for export ----------
-def add_source_for_export(fig, source_text="Source: EU SEE Dashboard. Data compiled by EU SEE Network."):
-    fig_export = fig.to_dict()
-    fig_export["layout"].setdefault("annotations", [])
-    fig_export["layout"]["annotations"].append(
-        dict(
-            text=source_text,
-            x=0,
-            y=-0.18,
-            xref="paper",
-            yref="paper",
-            showarrow=False,
-            font=dict(size=10, color="#444"),
-            align="left"
-        )
-    )
-    return fig_export
 
-# ---------- Helper to render chart ----------
-# --- Helper function to show chart ---
-def show_chart(fig, key=None, add_source=False, source_text="Source: EU SEE Dashboard. Data compiled by EU SEE Network."):
-    """
-    Show a Plotly figure in Streamlit.
-    If add_source=True, returns a copy with source annotation for download.
-    """
-    if add_source:
-        fig_export = copy.deepcopy(fig)
-        fig_export.add_annotation(
-            text=source_text,
-            x=0, y=-0.18,
-            xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(size=10, color="#444"),
-            align="left"
-        )
-        return fig_export
-    else:
-        st.plotly_chart(fig, use_container_width=True, key=key)
-        return fig  # Return figure if needed for download
-    
+
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
+def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,normalize_labels=True):
    
     df = df.copy()
 
@@ -536,8 +498,17 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
     # Optional: wrap labels (assuming wrap_label_by_words exists)
     
-    df[x] = df[x].apply(lambda l: wrap_label_by_words(
-        normalize_label(l) if x not in ["alert-country", "region"] else str(l), words_per_line=3)
+    # ---------------- Label handling ----------------
+    if normalize_labels:
+        df[x] = df[x].apply(
+            lambda l: wrap_label_by_words(
+                normalize_label(l) if x not in ["alert-country", "region"] else str(l),
+                words_per_line=3
+            )
+        )
+    else:
+        df[x] = df[x].astype(str).apply(
+            lambda l: wrap_label_by_words(l, words_per_line=3)
         )
         
     # Move "Other" category to the end if present
@@ -1194,9 +1165,9 @@ if tab_name=="Overview":
     r2c1,r2c2 = st.columns(2)
     
     
-    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True),use_container_width=True,  key="tab1_chart1")
+    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
     
-    fig12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
+    fig12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
     fig12.add_annotation(
         xref='paper', yref='paper',
@@ -1222,8 +1193,8 @@ if tab_name=="Overview":
 
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False),use_container_width=True,  key="tab1_chart4")
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=True),use_container_width=True,  key="tab1_chart3")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=True),use_container_width=True,  key="tab1_chart4")
 
     
     cols_rename_map  = {
@@ -1350,13 +1321,13 @@ elif tab_name=="Negative Alerts":
         r2c1, r2c2, r2c3 = st.columns(3)
 
         
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors"), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected"), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms"), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors,", normalize_labels=True), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
               
-        fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True))
+        fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
 
         fig23.add_annotation(
             xref='paper', yref='paper',
