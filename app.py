@@ -309,87 +309,87 @@ col1, col2, col3 = st.columns(3)
 # --- Monitored Countries ---
 with col1:
     st.markdown(f"""
-<div style="{card_style}">
-    <h3 style="margin:0; font-size:20px; font-weight:600;">Monitored Countries</h3>
-    <h2 style="margin:4px 0 0 0; font-size:28px; font-weight:bold;">{total_countries}</h2>
-</div>
-""", unsafe_allow_html=True)
+    <div style="{card_style}">
+        <h3 style="margin:0; font-size:20px; font-weight:600;">Monitored Countries</h3>
+        <h2 style="margin:4px 0 0 0; font-size:28px; font-weight:bold;">{total_countries}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- Total Alerts with Tooltip ---
 with col2:
     st.markdown(f"""
-<style>
-.tooltip-box {{
-    position: relative;
-    display: inline-block;
-    cursor: pointer;
-    font-size: 14px;
-    color: #008CAA;
-    border: 1px solid #008CAA;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    line-height: 18px;
-    text-align: center;
-    font-weight: bold;
-}}
-.tooltip-box .tooltiptext {{
-    visibility: hidden;
-    width: 280px;
-    background-color: rgba(0,0,0,0.85);
-    color: #fff;
-    text-align: left;
-    border-radius: 6px;
-    padding: 8px 12px;
-    position: absolute;
-    z-index: 10;
-    bottom: 125%;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    font-size: 12px;
-}}
-.tooltip-box:hover .tooltiptext {{
-    visibility: visible;
-    opacity: 1;
-}}
-</style>
+    <style>
+    .tooltip-box {{
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+        font-size: 14px;
+        color: #008CAA;
+        border: 1px solid #008CAA;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        line-height: 18px;
+        text-align: center;
+        font-weight: bold;
+    }}
+    .tooltip-box .tooltiptext {{
+        visibility: hidden;
+        width: 280px;
+        background-color: rgba(0,0,0,0.85);
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 8px 12px;
+        position: absolute;
+        z-index: 10;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        font-size: 12px;
+    }}
+    .tooltip-box:hover .tooltiptext {{
+        visibility: visible;
+        opacity: 1;
+    }}
+    </style>
 
-<div style="{card_style}">
-    <h3 style="margin:0; font-size:20px; font-weight:600;">
-        Total Alerts
-        <span class="tooltip-box">?
-            <span class="tooltiptext">
-                Higher numbers of alerts across countries do not necessarily indicate a more concerning environment.
-                They may reflect more active reporting by Network Members, and thresholds for serious deterioration vary across contexts.
+    <div style="{card_style}">
+        <h3 style="margin:0; font-size:20px; font-weight:600;">
+            Total Alerts
+            <span class="tooltip-box">?
+                <span class="tooltiptext">
+                    Higher numbers of alerts across countries do not necessarily indicate a more concerning environment.
+                    They may reflect more active reporting by Network Members, and thresholds for serious deterioration vary across contexts.
+                </span>
             </span>
-        </span>
-    </h3>
-    <h2 style="margin:4px 0 0 0; font-size:28px; font-weight:bold;">{total_alerts}</h2>
-</div>
-""", unsafe_allow_html=True)
+        </h3>
+        <h2 style="margin:4px 0 0 0; font-size:28px; font-weight:bold;">{total_alerts}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- Alerts Breakdown (conditional) ---
-if show_breakdown:
-    with col3:
+    # --- Alerts Breakdown (conditional) ---
+    if show_breakdown:
+with col3:
         st.markdown(f"""
-<div style="{card_style}">
-    <h3 style="margin:0; font-size:20px; font-weight:600;">Alerts Breakdown</h3>
-    <div style="display:flex; justify-content:space-between; font-size:14px; margin:6px 0;">
-        <span style="color:#FFDB58; font-weight:bold;">Negative ● {negative}</span>
-        <span style="color:#660094; font-weight:bold;">Positive ● {positive}</span>
-    </div>
-    <div style="display:flex; height:24px; border-radius:8px; overflow:hidden; font-size:12px;">
-        <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold;">
-            {f'{neg_pct}%' if neg_pct>5 else ''}
+    <div style="{card_style}">
+        <h3 style="margin:0; font-size:20px; font-weight:600;">Alerts Breakdown</h3>
+        <div style="display:flex; justify-content:space-between; font-size:14px; margin:6px 0;">
+            <span style="color:#FFDB58; font-weight:bold;">Negative ● {negative}</span>
+            <span style="color:#660094; font-weight:bold;">Positive ● {positive}</span>
         </div>
-        <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
-            {f'{pos_pct}%' if pos_pct>5 else ''}
+        <div style="display:flex; height:24px; border-radius:8px; overflow:hidden; font-size:12px;">
+            <div style="width:{neg_pct}%; background:#FFDB58; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                {f'{neg_pct}%' if neg_pct>5 else ''}
+            </div>
+            <div style="width:{pos_pct}%; background:#660094; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
+                {f'{pos_pct}%' if pos_pct>5 else ''}
+            </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 def normalize_label(label: str) -> str:
     """
