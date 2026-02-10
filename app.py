@@ -384,6 +384,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     </div>
     """, unsafe_allow_html=True)
 
+    # --- Alerts Breakdown Card ---
     if show_breakdown:
         with col3:
             st.markdown(f"""
