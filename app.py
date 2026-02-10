@@ -973,43 +973,108 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     return fig
 
 # ---------------- TABS ----------------
-#tab1, tab2, tab3, tab4 = st.tabs(["Overview","Negative Alerts","Visualization Map","User Manual"])
 
-# -------------------- CONFIG --------------------
 tabs = ["Overview", "Negative Alerts", "Visualization Map", "User Manual"]
 
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = tabs[0]
+# TABS CONFIG
+# --------------------------------------------------
+tabs = [
+    ("📊", "Overview"),
+    ("⚠️", "Negative Alerts"),
+    ("🗺️", "Visualization Map"),
+    ("📘", "User Manual"),
+]
 
-# CSS to style Streamlit buttons as tabs
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = tabs[0][1]
+
+# --------------------------------------------------
+# CSS (STICKY + ICON TABS + FULL WIDTH UNDERLINE)
+# --------------------------------------------------
 st.markdown(
     """
     <style>
-    div.stButton > button {
-        padding: 10px 10px;
-        font-weight: 800;
-        cursor: pointer;
+    /* Sticky wrapper */
+    .sticky-tabs {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: white;
+    }
+
+    /* Remove Streamlit column gaps */
+    div[data-testid="column"] {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Base tab container */
+    .tab-btn {
+        position: relative;
+    }
+
+    /* Button styling */
+    .tab-btn button {
+        margin: 0 !important;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 14px;
+        font-weight: 700;
         border-radius: 6px 6px 0 0;
         border: 1px solid #e0e0e0;
         border-bottom: none;
         background-color: #f5f5f5;
         color: #444;
-        font-size: 16px;
-        font-family: Arial black !important;
-        transition: 0.2s;
-        width: 400;
+        font-size: 15px;
     }
-    div.stButton > button:hover {
-        color: #660094;
+
+    .tab-btn button:hover {
         background-color: #eeeeee;
-    }
-    div.stButton > button.active {
-        background-color: #ffffff;
-        font-weight: bold;
         color: #660094;
-        border-bottom: 3px solid #660094;
     }
-    .tab-content {
+
+    /* Hover underline (inactive tabs) */
+    .tab-btn::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 0;
+        background-color: #660094;
+        transition: height 0.2s ease;
+        z-index: 5;
+    }
+
+    .tab-btn:hover::after {
+        height: 6px;
+    }
+
+    /* Active tab underline */
+    .tab-active::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 4px;
+        background-color: #660094;
+        border-radius: 2px 2px 0 0;
+        z-index: 10;
+    }
+
+    /* Active tab button */
+    .tab-active button {
+        background-color: #ffffff !important;
+        color: #660094 !important;
+        border-bottom: none !important;
+    }
+
+    /* Content container */
+    .tab-container {
         border: 1px solid #e0e0e0;
         border-radius: 0 6px 6px 6px;
         padding: 20px;
@@ -1021,30 +1086,26 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Create tabs as columns with styled buttons
-cols = st.columns(len(tabs))
-for i, tab in enumerate(tabs):
-    is_active = st.session_state.active_tab == tab
-    if is_active:
-        btn_class = "active"
-    else:
-        btn_class = ""
-    
-    # Add a class to make active tab look selected
-    if cols[i].button(tab, key=tab):
-        st.session_state.active_tab = tab
-    
-    # Apply class via JS hack (only affects appearance)
-    st.markdown(
-        f"""
-        <script>
-        const btn = window.parent.document.querySelectorAll('div.stButton button')[{i}];
-        if(btn) btn.className = '{btn_class}';
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
+# --------------------------------------------------
+# RENDER STICKY TAB BAR
+# --------------------------------------------------
+st.markdown("<div class='sticky-tabs'>", unsafe_allow_html=True)
 
+cols = st.columns(len(tabs), gap="small")
+
+for i, (icon, label) in enumerate(tabs):
+    is_active = st.session_state.active_tab == label
+
+    with cols[i]:
+        st.markdown(
+            f"<div class='tab-btn {'tab-active' if is_active else ''}'>",
+            unsafe_allow_html=True
+        )
+        if st.button(f"{icon} {label}", key=f"tab_{label}"):
+            st.session_state.active_tab = label
+        st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
 # Current tab content
 tab_name = st.session_state.active_tab
 
