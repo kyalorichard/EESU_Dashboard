@@ -139,7 +139,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         return selected
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
-st.sidebar.image("assets/eu-see-logo.png", width=400, height=300)
+st.sidebar.image("assets/eu-see-logo.png", width=400)
 # Login / Access
 st.sidebar.markdown(
     '<div style="font-family: Arial; font-size: 14px; font-weight: bold;">🔐 Login / Access</div>',
