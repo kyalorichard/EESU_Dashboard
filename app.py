@@ -1090,30 +1090,55 @@ with tab_overview:
     
     r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
     
-    fig12= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True, normalize_labels=False))
+    fig12 = create_h_stacked_bar(
+        a2,
+        y="enabling-principle",
+        x="count",
+        color_col="alert-impact",
+        title="",  # leave blank, we'll add title + tooltip manually
+        horizontal=True,
+        normalize_labels=False
+    )
 
+    # Add chart title as an annotation (so we can add the "?" icon immediately next to it)
     fig12.add_annotation(
         xref='paper', yref='paper',
-        x=0.9,  # position on x-axis (right side)
-        y=1.095, # slightly above the chart title
-        text='?',  # the "?" icon
+        x=0.0,  # left side for title
+        y=1.05, # above plot
+        text="<b>Alert distribution across enabling principles</b>",
+        showarrow=False,
+        font=dict(size=16, color='black', family="Arial"),
+        align="left",
+        xanchor="left",
+        yanchor="bottom"
+    )
+
+    # Add "?" tooltip icon immediately after title
+    fig12.add_annotation(
+        xref='paper', yref='paper',
+        x=0.52,  # adjust so it sits right after the title
+        y=1.05,
+        text="❔",  # unicode "?" inside a circle
         showarrow=False,
         font=dict(color="black", size=14, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
         borderwidth=1,
-        borderpad=2,
+        borderpad=3,
         bgcolor="white",
         opacity=0.9,
-        hovertext="Alerts may be classified under more than one enabling principle <br> and can therefore be counted in multiple principles.",
+        hovertext=(
+            "Alerts may be classified under more than one enabling principle "
+            "<br>and can therefore be counted in multiple principles."
+        ),
         hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
     )
+
+    # Add source line if needed
     fig12 = add_source_line(fig12)
 
-
-    # Render the chart
+    # Render chart in Streamlit
     r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
-
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
