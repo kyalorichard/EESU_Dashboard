@@ -1000,7 +1000,7 @@ st.markdown(
     /* Individual tab buttons */
     div[data-testid="stTabs"] button {
         flex: 1 1 auto !important;   /* allow resizing */
-        min-width: 120px;           /* minimum width for readability */
+        min-width: 900px;           /* minimum width for readability */
         font-size: 15px;
         font-weight: 600;
         color: #444444;
@@ -1033,7 +1033,7 @@ st.markdown(
             overflow-x: auto;
         }
         div[data-testid="stTabs"] button {
-            flex: 1 1 auto; /* do not shrink below content width */
+            flex: 0 0 auto; /* do not shrink below content width */
         }
     }
     </style>
