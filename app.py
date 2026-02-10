@@ -401,7 +401,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     with col3:
         st.markdown(f'''
     <div style="{card_style}">
-        <svg width="120" height="120">
+        <svg width="120" height="100">
             <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
             <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*50}" 
