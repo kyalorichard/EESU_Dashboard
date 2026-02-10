@@ -565,7 +565,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
     fig.update_traces(
         textposition=['inside' if val > 25 else 'outside' for val in df[y]],
         insidetextanchor='end',
-        textfont=dict(size=12, color='black', family="Arial")
+        textfont=dict(size=10, color='black', family="Arial black")
     )
 
     # Bold axis lines
