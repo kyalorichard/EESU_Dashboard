@@ -384,23 +384,16 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Alerts Breakdown Card ---
-    if show_breakdown:
-        with col3:
-            st.markdown(f"""
-    <div style="{card_style}">
-        <svg width="120" height="120">
-            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            if show_breakdown:
+    # ---------------- Alerts Breakdown ----------------
+if show_breakdown:
     with col3:
         st.markdown(f"""
 <div style="{card_style}">
-    <!-- Donut Chart -->
     <svg width="120" height="120">
         <!-- Background circle -->
         <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
 
-        <!-- Negative Alerts (purple outer ring) with hover text -->
+        <!-- Negative Alerts (purple outer ring) -->
         <circle cx="60" cy="60" r="50" stroke="#660094" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*50}" 
                 stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
@@ -408,7 +401,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             <title>Negative Alerts: {negative} ({neg_pct}%)</title>
         </circle>
 
-        <!-- Positive Alerts (yellow inner ring) with hover text -->
+        <!-- Positive Alerts (yellow inner ring) -->
         <circle cx="60" cy="60" r="40" stroke="#FFDB58" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*40}" 
                 stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
@@ -416,17 +409,17 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             <title>Positive Alerts: {positive} ({pos_pct}%)</title>
         </circle>
 
-        <!-- Negative Percentage text (outer ring) -->
+        <!-- Negative % text (outer ring) -->
         <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
             {neg_pct}%
         </text>
 
-        <!-- Positive Percentage text (inner ring) -->
+        <!-- Positive % text (inner ring) -->
         <text x="60" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
             {pos_pct}%
         </text>
 
-        <!-- Center total alerts text -->
+        <!-- Center total alerts -->
         <text x="60" y="65" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">
             {total_alerts}
         </text>
