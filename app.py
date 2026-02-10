@@ -1361,23 +1361,28 @@ elif tab_name=="Negative Alerts":
         r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True), use_container_width=True, key="tab2_chart5")
        
 
-       # Disclaimer tooltip
-        tooltip_text = "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles."
-
+       
         # Include a small "?" icon in the title using HTML
         title_html = f'Negative alert distribution across enabling principles <span title="{tooltip_text}" style="color:#660094; font-weight:bold; cursor:help;">?</span>'
-        fig23 = create_bar_chart(m6,"enabling-principle","count",title="Negative alert distribution across enabling principles",horizontal=True)
+        fig23= (create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True))
 
-        # Update the title to include the tooltip
-        fig23.update_layout(
-            title=dict(
-                text=title_html,
-                x=0.5,        # center
-                xanchor='center',
-                yanchor='top',
-                font=dict(size=16)
-            )
+        fig23.add_annotation(
+            xref='paper', yref='paper',
+            x=0.9,  # position on x-axis (right side)
+            y=1.095, # slightly above the chart title
+            text='?',  # the "?" icon
+            showarrow=False,
+            font=dict(color="black", size=14, family="Arial", weight="bold"),
+            align="center",
+            bordercolor="black",
+            borderwidth=1,
+            borderpad=2,
+            bgcolor="white",
+            opacity=0.9,
+            hovertext="Alerts may be classified under more than one enabling principle <br> and can therefore be counted in multiple principles.",
+            hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
         )
+        fig23 = add_source_line(fig23)
 
         # Render the chart
         r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
