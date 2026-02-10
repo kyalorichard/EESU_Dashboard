@@ -993,32 +993,35 @@ st.markdown(
         gap: 0px;                    /* no extra gap between tabs */
     }
 
-    /* Tabs list: all tabs grow equally */
+    /* Tabs list: all tabs grow equally with bold text */
     div[data-testid="stTabs"] button {
-        flex: 1;                     /* grow equally */
+        flex: 1;                     /* all tabs same width */
         font-size: 15px;
-        font-weight: 700;
+        font-weight: 700;            /* fully bold text */
         font-family: "Arial Black", Arial, sans-serif;
         color: #444444;
         padding: 10px 0;
-        margin: 0;                    /* remove default margin */
+        margin: 0;                   /* remove default margin */
         border-radius: 6px 6px 0 0;
         background-color: #f8f9fa;
         text-align: center;
+        border-bottom: 3px solid transparent; /* reserve space for hover underline */
+        transition: all 0.2s ease;
     }
 
-    /* Hover */
+    /* Hover: thicker underline */
     div[data-testid="stTabs"] button:hover {
         background-color: #660094;
         color: white;
+        border-bottom: 5px solid #2d0055;  /* thick underline on hover */
     }
 
     /* Active tab */
     div[data-testid="stTabs"] button[aria-selected="true"] {
         background-color: #660094;
         color: white;
-        font-weight: 700;
-        border-bottom: 3px solid #2d0055;
+        font-weight: 700;                    /* bold active text */
+        border-bottom: 5px solid #2d0055;   /* same thickness as hover */
     }
 
     /* Tab content spacing */
@@ -1029,6 +1032,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 # ---------------- TAB 1 ------------------------
 with tab_overview:
     #st.subheader("Overview Metrics")
