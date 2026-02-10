@@ -778,8 +778,9 @@ def render_heatmaps(df, top_n=5):
             actor_mechanism_pivot,
             title="What are the mechanisms used<br>by restrictive actors?"
         )
-        fig1.update_traces(zmin=0, zmax=zmax)
         fig1.update_layout(
+            xaxis=dict(tickfont=dict(size=10, family="Arial")),
+            yaxis=dict(tickfont=dict(size=10, family="Arial")),
             title=dict(
                 text=fig1.layout.title.text,
                 x=0.5,
@@ -796,6 +797,8 @@ def render_heatmaps(df, top_n=5):
         )
         fig2.update_traces(zmin=0, zmax=zmax)
         fig2.update_layout(
+            xaxis=dict(tickfont=dict(size=10, family="Arial")),
+            yaxis=dict(tickfont=dict(size=10, family="Arial")),
             title=dict(
                 text=fig2.layout.title.text,
                 x=0.5,
@@ -812,8 +815,10 @@ def render_heatmaps(df, top_n=5):
         )
         fig3.update_traces(zmin=0, zmax=zmax)
         fig3.update_layout(
+            xaxis=dict(tickfont=dict(size=10, family="Arial")),
+            yaxis=dict(tickfont=dict(size=10, family="Arial")),
             title=dict(
-                text=fig.layout.title.text,
+                text=fig3.layout.title.text,
                 x=0.5,
                 xanchor="center",
                 font=dict(size=12, family="Arial")
