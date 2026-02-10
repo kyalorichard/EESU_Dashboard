@@ -462,38 +462,38 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
 
 
-    def normalize_label(label: str) -> str:
-        """
-        Capitalize first character only, lowercase remaining characters.
-        Safe for None/NaN.
-        """
-        if pd.isna(label):
-            return ""
-        label = str(label).strip()
-        if len(label) == 0:
-            return ""
-        return label[0].upper() + label[1:].lower()
+def normalize_label(label: str) -> str:
+    """
+    Capitalize first character only, lowercase remaining characters.
+    Safe for None/NaN.
+    """
+    if pd.isna(label):
+        return ""
+    label = str(label).strip()
+    if len(label) == 0:
+        return ""
+    return label[0].upper() + label[1:].lower()
 
-    # Define a consistent color mapping for your dashboard
-    COLOR_MAPPING = {
-        "positive": "#660094",
-        "negative": "#FFDB58"
-    }
+# Define a consistent color mapping for your dashboard
+COLOR_MAPPING = {
+    "positive": "#660094",
+    "negative": "#FFDB58"
+}
 
-    def wrap_label_by_words(label, words_per_line=3):
-        """Wrap long labels for better display"""
-        words = label.split()
-        lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
-        return '<br>'.join(lines)
+def wrap_label_by_words(label, words_per_line=3):
+    """Wrap long labels for better display"""
+    words = label.split()
+    lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
+    return '<br>'.join(lines)
 
-    def safe_wrap_label(label, axis="y", words_per_line=4):
-        """
-        Wrap labels ONLY for y-axis.
-        X-axis wrapping breaks Plotly font rendering.
-        """
-        if axis == "x":
-            return normalize_label(label)
-        return wrap_label_by_words(normalize_label(label), words_per_line)
+def safe_wrap_label(label, axis="y", words_per_line=4):
+    """
+    Wrap labels ONLY for y-axis.
+    X-axis wrapping breaks Plotly font rendering.
+    """
+    if axis == "x":
+        return normalize_label(label)
+    return wrap_label_by_words(normalize_label(label), words_per_line)
 
 
 
