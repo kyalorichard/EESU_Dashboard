@@ -55,7 +55,7 @@ def auth_ui():
     init_state()
 
     sidebar = st.sidebar
-    sidebar.markdown("## Account")
+    #sidebar.markdown("## Account")
 
     # Logged in view
     if st.session_state.user:
