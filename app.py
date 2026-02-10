@@ -401,15 +401,15 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     with col3:
         st.markdown(f'''
     <div style="{card_style} ; padding:12px 10px;">
-        <svg width="100" height="100">
-            <circle cx="60" cy="60" r="40" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            <circle cx="60" cy="60" r="40" stroke="#FFDB58" stroke-width="12" fill="none"
+        <svg width="100" height="120">
+            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
+            <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*50}" 
                 stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Negative Alerts: {negative} ({neg_pct}%)</title>
             </circle>
-            <circle cx="60" cy="60" r="34" stroke="#660094" stroke-width="10" fill="none"
+            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*40}" 
                 stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
@@ -428,7 +428,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
-        <div style="display:flex; justify-content:space-between; width:100%; margin-top:4px; font-size:14px; font-weight:600;">
+        <div style="display:flex; justify-content:space-between; width:100%; margin-top:8px; font-size:14px; font-weight:600;">
             <span style="color:#FFDB58;">Negative: {negative}</span>
             <span style="color:#660094;">Positive: {positive}</span>
         </div>
