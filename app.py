@@ -532,7 +532,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
     num_bars = df.shape[0]
     height = max(350, num_bars * 25)  # Auto height based on number of bars
-    font_size = max(10, 20 - int(num_bars / 5))  # Dynamic font size
+    font_size = max(12, 14 - int(num_bars / 5))  # Dynamic font size
 
     # Optional: wrap labels (assuming wrap_label_by_words exists)
     
@@ -563,7 +563,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None):
 
     # Text positions (inside if large enough, otherwise outside)
     fig.update_traces(
-        textposition=['inside' if val > 20 else 'outside' for val in df[y]],
+        textposition=['inside' if val > 25 else 'outside' for val in df[y]],
         insidetextanchor='end',
         textfont=dict(size=12, color='black', family="Arial Black")
     )
