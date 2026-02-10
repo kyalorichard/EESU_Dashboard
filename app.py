@@ -391,13 +391,13 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     <div style="{card_style}">
         <svg width="120" height="120">
             <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            <circle cx="60" cy="60" r="50" stroke="#660094" stroke-width="12" fill="none"
+            <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*50}" 
                 stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Negative Alerts: {negative} ({neg_pct}%)</title>
             </circle>
-            <circle cx="60" cy="60" r="40" stroke="#FFDB58" stroke-width="12" fill="none"
+            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*40}" 
                 stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
@@ -410,7 +410,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 {pos_pct}%
             </text>
             <text x="60" y="65" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">
-                {total_alerts}
+                
             </text>
         </svg>
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
