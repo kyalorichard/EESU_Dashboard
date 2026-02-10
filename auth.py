@@ -44,7 +44,7 @@ def init_state():
 def logout_user():
     for k in ["user", "email", "name", "user_role"]:
         st.session_state.pop(k, None)
-    # No rerun needed; Streamlit auto reruns on widget click
+    # Streamlit reruns automatically on button click
 
 # ---------------------------
 # Sidebar Auth UI
@@ -53,7 +53,6 @@ def auth_ui():
     init_state()
 
     sidebar = st.sidebar
-    sidebar.markdown("## Account")
 
     # Logged in view
     if st.session_state.user:
@@ -69,20 +68,28 @@ def auth_ui():
         email = email_input
         password = password_input
 
-        if not firebase_auth:
-            st.session_state.login_error = "Firebase not initialized."
-        elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
-            st.session_state.login_error = "Access denied for this domain."
+        # Domain check first
+        if get_email_domain(email) not in PRIVILEGED_DOMAINS:
+            st.session_state.login_error = "Access denied: your email domain is not allowed."
+        elif not firebase_auth:
+            st.session_state.login_error = "Firebase not initialized. Please contact admin."
         else:
             try:
+                # Firebase login attempt
                 firebase_auth.sign_in_with_email_and_password(email, password)
+                # Login successful
                 st.session_state.user = "email"
                 st.session_state.email = email
                 st.session_state.name = email.split("@")[0].title()
                 st.session_state.user_role = "privileged"
                 st.session_state.login_error = ""
             except Exception as e:
-                st.session_state.login_error = f"Login failed: {e}"
+                err_str = str(e)
+                # Friendly differentiation
+                if "INVALID_PASSWORD" in err_str or "EMAIL_NOT_FOUND" in err_str or "INVALID_LOGIN_CREDENTIALS" in err_str:
+                    st.session_state.login_error = "Invalid email or password. Please try again."
+                else:
+                    st.session_state.login_error = f"Login failed: {e}"
 
     if st.session_state.login_error:
         sidebar.error(st.session_state.login_error)
