@@ -402,8 +402,8 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         st.markdown(f'''
     <div style="{card_style} ; padding:12px 10px;">
         <svg width="100" height="100">
-            <circle cx="60" cy="60" r="42" stroke="#e0e0e0" stroke-width="10" fill="none"/>
-            <circle cx="60" cy="60" r="42" stroke="#FFDB58" stroke-width="10" fill="none"
+            <circle cx="60" cy="60" r="42" stroke="#e0e0e0" stroke-width="12" fill="none"/>
+            <circle cx="60" cy="60" r="42" stroke="#FFDB58" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*50}" 
                 stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
