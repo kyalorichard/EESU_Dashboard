@@ -142,60 +142,55 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 st.sidebar.image("assets/eu-see-logo.png", width=400)
 # Login / Access
 st.sidebar.markdown(
-    '<div style="font-family: Arial; font-size: 14px; font-weight: bold;">🔐 Login / Access</div>',
+    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🔐 Login / Access</div>',
     unsafe_allow_html=True
 )
 
 # Global Filters
 st.sidebar.markdown(
-    '<div style="font-family: Arial; font-size: 14px; font-weight: bold;">🌍 Global Filters</div>',
+    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🌍 Global Filters</div>',
     unsafe_allow_html=True
 )
 
-# -----------------------------
 # Regions
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select region</span>', unsafe_allow_html=True)
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
-selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
+selected_regions = safe_multiselect("", regions_labels, "selected_regions")
 
 # Countries (filtered based on regions)
 filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
-selected_countries = safe_multiselect(
-    "Select country",
-    filtered_countries['alert-country'].dropna().unique(),
-    "selected_countries"
-)
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select country</span>', unsafe_allow_html=True)
+selected_countries = safe_multiselect("", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 
 # Alert impacts and types
-selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select Impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select Nature of event/alert</span>', unsafe_allow_html=True)
+selected_alert_impacts = safe_multiselect("", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select Impact of alert</span>', unsafe_allow_html=True)
+selected_alert_types = safe_multiselect("", data['alert-type'].dropna().unique(), "selected_alert_types")
 
 # Enabling principles
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select enabling principle</span>', unsafe_allow_html=True)
 selected_enabling_principle = safe_multiselect(
-    "Select enabling principle", 
+    "", 
     data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
     "selected_enabling_principle"
 )
 
 # Years
-selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select year</span>', unsafe_allow_html=True)
+selected_years = safe_multiselect("", sorted(data['year'].dropna().unique()), "selected_years")
 
 # Months (filtered based on years)
-if "Select All" in selected_years:
-    available_months = sorted(
-        data['month_name'].dropna().unique(),
-        key=lambda m: pd.to_datetime(m, format='%B').month
-    )
-else:
-    available_months = sorted(
-        data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
-        key=lambda m: pd.to_datetime(m, format='%B').month
-    )
-
-selected_months = safe_multiselect(
-    "Select Month",
-    available_months,
-    "selected_months"
+available_months = sorted(
+    data['month_name'].dropna().unique(),
+    key=lambda m: pd.to_datetime(m, format='%B').month
+) if "Select All" in selected_years else sorted(
+    data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
+    key=lambda m: pd.to_datetime(m, format='%B').month
 )
+st.sidebar.markdown('<span style="font-family: Arial; font-size: 12px; color:black;">Select Month</span>', unsafe_allow_html=True)
+selected_months = safe_multiselect("", available_months, "selected_months")
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
     for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
