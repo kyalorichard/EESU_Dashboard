@@ -1033,7 +1033,7 @@ st.markdown(
             overflow-x: auto;
         }
         div[data-testid="stTabs"] button {
-            flex: 0 0 auto; /* do not shrink below content width */
+            flex: 1 1 auto; /* do not shrink below content width */
         }
     }
     </style>
