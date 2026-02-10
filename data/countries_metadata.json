@@ -120,6 +120,7 @@
   "Philippines": {"iso_alpha3": "PHL", "continent": "Asia"},
   "Sierra Leone": {"iso_alpha3": "SLE", "continent": "Africa"},
   "Somalia": {"iso_alpha3": "SOM", "continent": "Africa"},
+  "South Africa": {"iso_alpha3": "ZAF", "continent": "Africa"},
   "Sri Lanka": {"iso_alpha3": "LKA", "continent": "Asia"},
   "Sudan": {"iso_alpha3": "SDN", "continent": "Africa"},
   "Sweden": {"iso_alpha3": "SWE", "continent": "Europe"},
