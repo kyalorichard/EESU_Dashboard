@@ -1237,8 +1237,11 @@ with tab_overview:
     )
     
     # ---------------- Tab two data preview ----------------
-    with st.expander("Summary Data preview"):
-        st.write(filtered_global_prev)     
+    if user_role == "privileged":
+        with st.expander("Summary Data preview"):
+            st.write(filtered_global_prev)  
+    else:
+        st.info("Sign in with a privileged account to view Summary data.")   
      
     
 # ---------------- Negative Events ----------------
