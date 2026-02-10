@@ -18,17 +18,40 @@ BASE_DIR = Path(__file__).resolve().parent
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
-# ---------------- DASHBOARD TITLE ----------------
+# ---------------- DASHBOARD TITLE WITH RESPONSIVE DIVIDER ----------------
 st.markdown("""
-<h1 style='margin-top:2px; line-height:1.1; color:#660094; font-size:52px; font: Arial'>
-    EU SEE Dashboard 
+<h1 style="
+    margin: 0 0 6px 0;
+    line-height: 1.1;
+    color: #660094;  /* main title color */
+    font-size: 48px;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+">
+    EU SEE Dashboard
 </h1>
 
-""", unsafe_allow_html=True)
-st.markdown("""
-<div style="font-size:10px; font:Arial; color:#333333; margin-bottom:20px;">
-This dashboard is an interactive tool designed to explore and analyse information produced by the EU SEE project.<br>
-It brings together data reported by Network Members across 86 countries to document trends in the enabling environment for civil society.
+<!-- Responsive divider with gradient matching KPI colors -->
+<div style="
+    width: 15%;               /* scales with container */
+    max-width: 120px;         /* prevents it from being too large on wide screens */
+    height: 4px;
+    background: linear-gradient(to right, #FFDB58, #660094);
+    border-radius: 2px;
+    margin-bottom: 16px;
+"></div>
+
+<div style="
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    color: #333333;
+    margin-bottom: 20px;
+    max-width: 900px;
+    line-height: 1.5;
+">
+    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
+    It aggregates information reported by Network Members across 86 countries to document trends 
+    in the enabling environment for civil society.
 </div>
 """, unsafe_allow_html=True)
 
