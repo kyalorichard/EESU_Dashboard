@@ -803,7 +803,7 @@ def render_heatmaps(df, top_n=5):
                 text=fig2.layout.title.text,
                 x=0.5,
                 xanchor="center",
-                font=dict(size=12, family="Arial")
+                font=dict(size=12, family="Arial black")
             )
         )
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
@@ -821,7 +821,7 @@ def render_heatmaps(df, top_n=5):
                 text=fig3.layout.title.text,
                 x=0.5,
                 xanchor="center",
-                font=dict(size=12, family="Arial")
+                font=dict(size=12, family="Arial black")
             )
         )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
@@ -912,23 +912,23 @@ def render_sankey(df, top_n=None, width=900):
     # Optional legend as scatter
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#FF5733"),
+        marker=dict(size=10, color="#FF5733", family="Arial"),
         name="Actor of repression"
     ))
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33C1FF"),
+        marker=dict(size=10, color="#33C1FF", family="Arial"),
         name="Mechanism of repression"
     ))
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33FF8A"),
+        marker=dict(size=10, color="#33FF8A", family="Arial"),
         name="Subject of repression"
     ))
 
     fig.update_layout(
         title="Flow of Negative Events",
-        font=dict(size=12, color="black"),
+        font=dict(size=12, color="purple",family="Arial black"),
         height=fig_height,
         width=width,
         margin=dict(l=50, r=50, t=50, b=50),
