@@ -308,8 +308,8 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     with col1:
         st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:30px;font-weight:bold;">Monitored Countries</h1>
-<h2 style="margin:0;font-size:30px;font-weight:bold;">{total_countries}</h2>
+<h1 style="margin:0;font-size:24px;font-weight:bold;">Monitored Countries</h1>
+<h2 style="margin:0;font-size:24px;font-weight:bold;">{total_countries}</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -353,7 +353,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 </style>
 
 <div style="{card_style}">
-    <h1 style="margin:0;font-size:30px;font-weight:bold;">
+    <h1 style="margin:0;font-size:324px;font-weight:bold;">
         Total Alerts 
         <span class="tooltip-box">'?'
             <span class="tooltiptext">
@@ -363,7 +363,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             </span>
         </span>
     </h1>
-    <h2 style="margin:0;font-size:30px;font-weight:bold;">{total_alerts}</h2>
+    <h2 style="margin:0;font-size:24px;font-weight:bold;">{total_alerts}</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -373,7 +373,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         with col3:
            st.markdown(f"""
 <div style="{card_style}">
-<h1 style="margin:0;font-size:30px;font-weight:bold;">Alerts Breakdown</h1>
+<h1 style="margin:0;font-size:24px;font-weight:bold;">Alerts Breakdown</h1>
 
 <div style="display:flex; justify-content:space-between; font-size:14px; margin:2px 0;">
 <span style="color:#008CAA;font-weight:bold;">Negative ● {negative}</span>
