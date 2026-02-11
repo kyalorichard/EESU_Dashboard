@@ -125,7 +125,7 @@ def logout_user():
 # -----------------------------
 # AUTH UI
 # -----------------------------
-def show_auth():
+def auth_ui():
 
     if st.session_state.user is None:
 
