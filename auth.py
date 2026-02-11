@@ -94,7 +94,7 @@ def refresh_id_token():
         pass
 
 # -------------------------------------------------
-# Authentication UI with Tabs and Forgot Password
+# Authentication UI
 # -------------------------------------------------
 def auth_ui():
     init_state()
@@ -151,12 +151,13 @@ def auth_ui():
             email = st.text_input("Email", key="login_email").strip()
             password = st.text_input("Password", type="password", key="login_pass")
 
-            # Buttons: Login and Forgot Password
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                submitted = st.form_submit_button("Sign in")
-            with col2:
-                forgot_pass = st.form_submit_button("Forgot Password")
+            # Primary Sign In button
+            submitted = st.form_submit_button("Sign in")
+
+            # Secondary Forgot Password button
+            forgot_pass = st.form_submit_button(
+                "Forgot Password?", help="Send a password reset email"
+            )
 
             # ----- Handle Login -----
             if submitted:
@@ -197,6 +198,14 @@ def auth_ui():
                     try:
                         firebase_auth.send_password_reset_email(email)
                         st.success(f"Password reset email sent to {email}.")
+
+                        # Button to go back to login after resetting password
+                        if st.button("Back to Login"):
+                            st.session_state.auth_tab = "Login"
+                            st.session_state.login_email = ""
+                            st.session_state.login_pass = ""
+                            st.rerun()
+
                     except Exception as e:
                         st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
