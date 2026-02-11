@@ -54,6 +54,7 @@ pytest>=8.2.0
 paramiko>=3.1.0
 logging
 portalocker
+pandas
 
 firebase-admin
 pyrebase4
