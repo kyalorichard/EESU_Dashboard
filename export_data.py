@@ -1,304 +1,196 @@
 #!/usr/bin/env python3
-
 import os
-import paramiko
-import smtplib
-import ssl
-import portalocker
-from email.message import EmailMessage
-from datetime import date, datetime
-import sys
 import re
+import paramiko
 import pandas as pd
-import traceback
+import logging
 import hashlib
+import smtplib
+from email.message import EmailMessage
+from datetime import datetime   # <-- make sure this is here
 
 # ==========================================================
 # CONFIG (ENVIRONMENT VARIABLES)
 # ==========================================================
 SFTP_HOST = os.getenv("SFTP_HOST")
+SFTP_PORT = 22
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
 LOCAL_DIR = os.getenv("LOCAL_DIR", "data")
 
-SMTP_HOST = os.getenv("SMTP_HOST")
+
+# ---------------- EMAIL CONFIG ----------------
+SMTP_SERVER = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
+SMTP_USERNAME = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASS")
+EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")
+EMAIL_TO = os.getenv("NOTIFY_EMAIL")
+EMAIL_SUBJECT = " Data Download Update Notification"
 
-ALERT_EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")
-ALERT_EMAIL_TO = os.getenv("NOTIFY_EMAIL")
+RAW_FILENAME = "raw_data.csv"
+FINAL_FILENAME = "output_final.csv"
+CHANGELOG_FILENAME = "change_log.csv"
 
-GITHUB_ENV = os.getenv("GITHUB_ENV")
+os.makedirs(LOCAL_DIR, exist_ok=True)
 
-LOCK_FILE = os.path.join(os.path.expanduser("~"), "sftp_csv_download.lock")
-SUCCESS_MARKER = f"{os.path.expanduser('~')}/sftp_success_email_{date.today().isoformat()}"
+# ---------------- LOGGING ----------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-CHUNK_SIZE = 100_000  # rows per chunk for large CSVs
-MASTER_CSV = os.path.join(LOCAL_DIR, "output_final.csv")
+# ---------------- EMAIL FUNCTION ----------------
+def send_update_email(new_rows_count, latest_file, local_path):
+    """
+    Sends a professional HTML email summarizing the SFTP CSV update.
+    Only sends if new_rows_count > 0.
+    """
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-# ==========================================================
-# FILE LOCK
-# ==========================================================
-class FileLock:
-    def __init__(self, path):
-        self.path = path
-        self.fp = None
-
-    def acquire(self):
-        self.fp = open(self.path, "w")
-        try:
-            portalocker.lock(self.fp, portalocker.LOCK_EX | portalocker.LOCK_NB)
-        except portalocker.exceptions.LockException:
-            print("Another sync is already running. Exiting.")
-            sys.exit(0)
-
-    def release(self):
-        if self.fp:
-            portalocker.unlock(self.fp)
-            self.fp.close()
-
-# ==========================================================
-# DETERMINISTIC ROW HASH
-# ==========================================================
-def row_hash(row):
-    """Return deterministic SHA256 hash for a row tuple."""
-    row_str = "|".join(str(x) for x in row)
-    return hashlib.sha256(row_str.encode()).hexdigest()
-
-# ==========================================================
-# EMAIL FUNCTIONS
-# ==========================================================
-def _send_email(subject, text_body, html_body):
-    missing = [
-        k for k, v in {
-            "SMTP_HOST": SMTP_HOST,
-            "SMTP_USER": SMTP_USER,
-            "SMTP_PASS": SMTP_PASSWORD,
-            "ALERT_EMAIL_FROM": ALERT_EMAIL_FROM,
-            "NOTIFY_EMAIL": ALERT_EMAIL_TO,
-        }.items() if not v
-    ]
-    if missing:
-        print("Email skipped. Missing env vars:", ", ".join(missing))
-        return False
+    # HTML email body
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height:1.5; color:#333;">
+        <h2 style="color:green;">✅ SFTP Data Sync Successful</h2>
+        <p>The scheduled SFTP data synchronization completed successfully.</p>
+        <table style="border-collapse: collapse; width: 600px;">
+            <tr>
+                <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold;">Status</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">SUCCESS</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold;">Downloaded file</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">{latest_file}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold;">Saved as</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">{local_path}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold;">New updates added</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">{new_rows_count}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold;">Date</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">{now}</td>
+            </tr>
+        </table>
+        <p style="margin-top: 20px;">This is an automated notification from the SFTP Data Sync system.</p>
+    </body>
+    </html>
+    """
 
     msg = EmailMessage()
-    msg["From"] = ALERT_EMAIL_FROM
-    msg["To"] = ALERT_EMAIL_TO
-    msg["Subject"] = subject
-    msg.set_content(text_body)
-    msg.add_alternative(html_body, subtype="html")
+    msg['From'] = EMAIL_FROM
+    msg['To'] = ", ".join(EMAIL_TO)
+    msg['Subject'] = EMAIL_SUBJECT
+    msg.add_alternative(html_body, subtype='html')  # use HTML email
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-            server.ehlo()
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
-            server.ehlo()
-            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.send_message(msg)
-        return True
+        logging.info(f"Update email sent successfully: {new_rows_count} new rows.")
     except Exception as e:
-        print("STARTTLS failed:", e)
+        logging.error(f"Failed to send email: {e}")
 
-    try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=20) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print("SSL failed:", e)
+# ---------------- SFTP CONNECTION ----------------
+transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
+transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
+sftp = paramiko.SFTPClient.from_transport(transport)
+logging.info("Connected to SFTP.")
 
-    return False
+# ---------------- LIST FILES ----------------
+remote_files = sftp.listdir(REMOTE_DIR)
+csv_files = [f for f in remote_files if f.lower().endswith(".csv")]
 
-def send_success_email(file_path, new_rows=0):
-    if not file_path or os.path.exists(SUCCESS_MARKER):
-        return
+def extract_date(filename):
+    match = re.search(r'(\d{4}_\d{2}_\d{2})', filename)
+    return match.group(1) if match else None
 
-    text_body = f"""
-SFTP Data Sync – SUCCESS
+csv_files_with_dates = [(f, extract_date(f)) for f in csv_files if extract_date(f)]
+if not csv_files_with_dates:
+    logging.error("No CSV files with dates found.")
+    sftp.close()
+    transport.close()
+    exit()
 
-File updated: {os.path.basename(file_path)}
-New rows appended: {new_rows}
-Stored as: {file_path}
-Date: {date.today().isoformat()}
-"""
-    html_body = f"""
-<html>
-<body style="font-family:Arial,sans-serif;color:#333;">
-  <h2 style="color:#2e7d32;">✅ SFTP Data Sync Successful</h2>
-  <p>The scheduled SFTP data synchronization completed successfully.</p>
+latest_file = sorted(csv_files_with_dates, key=lambda x: x[1], reverse=True)[0][0]
+remote_path = f"{REMOTE_DIR}/{latest_file}"
+local_path = os.path.join(LOCAL_DIR, RAW_FILENAME)
 
-  <table cellpadding="6" cellspacing="0">
-    <tr><td><b>Status</b></td><td style="color:#2e7d32;">SUCCESS</td></tr>
-    <tr><td><b>Downloaded file</b></td><td>{os.path.basename(file_path)}</td></tr>
-    <tr><td><b>New rows appended</b></td><td>{new_rows}</td></tr>
-    <tr><td><b>Saved as</b></td><td><code>{file_path}</code></td></tr>
-    <tr><td><b>Date</b></td><td>{date.today().isoformat()}</td></tr>
-  </table>
+# ---------------- DOWNLOAD ----------------
+remote_size = sftp.stat(remote_path).st_size
+if os.path.exists(local_path) and os.path.getsize(local_path) == remote_size:
+    logging.info(f"{RAW_FILENAME} is already up to date. Skipping download.")
+else:
+    sftp.get(remote_path, local_path)
+    logging.info(f"Downloaded latest file: {latest_file}")
 
-  <p>No action is required.</p>
-  <hr>
-  <p style="font-size:12px;color:#777;">Automated notification – Data Pipeline</p>
-</body>
-</html>
-"""
-    if _send_email(
-        "SFTP Data Sync – Completed Successfully",
-        text_body.strip(),
-        html_body,
-    ):
-        open(SUCCESS_MARKER, "w").close()
+# ---------------- LOAD RAW CSV ----------------
+df_raw = pd.read_csv(local_path).fillna("")
 
-def send_failure_email(error_msg):
-    text_body = f"""
-SFTP Data Sync – FAILURE
+# Rename columns to match final CSV
+rename_map = {
+    "Title": "post_title",
+    "Content": "summary",
+    "Date": "creation_date",
+    "Countries": "alert-country",
+    "Impact": "alert-impact",
+    "Alert types": "alert-type",
+    "Enabling principles": "enabling-principle"
+}
+df_raw.rename(columns=rename_map, inplace=True)
 
-Error:
-{error_msg}
+# Clean enabling-principle column
+if "enabling-principle" in df_raw.columns:
+    df_raw["enabling-principle"] = (
+        df_raw["enabling-principle"]
+        .astype(str)
+        .str.replace(r"\|", ",", regex=True)
+        .str.replace(r"\s*,\s*", ",", regex=True)
+    )
 
-Date: {date.today().isoformat()}
-"""
-    html_body = f"""
-<html>
-<body style="font-family:Arial,sans-serif;color:#333;">
-  <h2 style="color:#c62828;">❌ SFTP Data Sync Failed</h2>
-  <p>The scheduled SFTP data synchronization did not complete successfully.</p>
+logging.info(f"Columns renamed and cleaned in {RAW_FILENAME}")
 
-  <pre style="background:#f8f8f8;padding:10px;border:1px solid #ddd;">
-{error_msg}
-  </pre>
+# ---------------- LOAD EXISTING FINAL CSV ----------------
+final_path = os.path.join(LOCAL_DIR, FINAL_FILENAME)
+if os.path.exists(final_path):
+    df_final = pd.read_csv(final_path).fillna("")
+else:
+    df_final = pd.DataFrame(columns=df_raw.columns)
 
-  <ul>
-    <li>Check SFTP credentials</li>
-    <li>Verify SMTP configuration</li>
-    <li>Review logs</li>
-  </ul>
+# ---------------- GENERATE UNIQUE ID ----------------
+def normalize_text(series):
+    return series.astype(str).str.strip().str.lower().str.replace(r"[\n\r]+", " ", regex=True)
 
-  <hr>
-  <p style="font-size:12px;color:#777;">Automated alert – Data Pipeline</p>
-</body>
-</html>
-"""
-    _send_email("ALERT: SFTP Data Sync Failed", text_body.strip(), html_body)
+df_raw["_uid"] = normalize_text(df_raw["post_title"]).apply(lambda x: hashlib.md5(x.encode("utf-8")).hexdigest())
+df_final["_uid"] = normalize_text(df_final["post_title"]).apply(lambda x: hashlib.md5(x.encode("utf-8")).hexdigest())
 
-# ==========================================================
-# DOWNLOAD AND APPEND CSV
-# ==========================================================
-def download_latest_csv_to_master(chunk_size=CHUNK_SIZE):
-    os.makedirs(LOCAL_DIR, exist_ok=True)
-    new_rows_count = 0
-    latest_file = None
+# ---------------- FILTER NEW ROWS ----------------
+new_rows = df_raw[~df_raw["_uid"].isin(df_final["_uid"])].copy()
 
-    try:
-        # Connect to SFTP
-        transport = paramiko.Transport((SFTP_HOST, 22))
-        transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
-        sftp = paramiko.SFTPClient.from_transport(transport)
+if not new_rows.empty:
+    # Append new rows
+    combined_df = pd.concat([df_final, new_rows], ignore_index=True)
+    combined_df.to_csv(final_path, index=False)
+    logging.info(f"New rows appended: {len(new_rows)}")
 
-        try:
-            sftp.chdir(REMOTE_DIR)
-        except IOError:
-            sftp.chdir(".")
+    # Update change log
+    change_log_path = os.path.join(LOCAL_DIR, CHANGELOG_FILENAME)
+    new_rows.to_csv(change_log_path, mode='a', header=not os.path.exists(change_log_path), index=False)
+    logging.info(f"Change log updated with {len(new_rows)} rows.")
 
-        # Find latest CSV
-        csv_files = [f for f in sftp.listdir() if f.lower().endswith(".csv")]
-        date_pattern = re.compile(r".*?(\d{4}_\d{2}_\d{2}).*\.csv$")
-        latest_date = None
+    # Send professional email only if new rows exist
+    send_update_email(len(new_rows), latest_file, local_path)
+else:
+    logging.info("No new rows to append. Email not sent.")
 
-        for f in csv_files:
-            match = date_pattern.match(f)
-            if match:
-                d = datetime.strptime(match.group(1), "%Y_%m_%d").date()
-                if not latest_date or d > latest_date:
-                    latest_date = d
-                    latest_file = f
+# ---------------- CLOSE SFTP ----------------
+sftp.close()
+transport.close()
+logging.info("SFTP session closed. Incremental update completed successfully.")
 
-        if not latest_file:
-            print("No matching CSV found. Available files:", csv_files)
-            return 0, None, MASTER_CSV
-
-        remote_path = os.path.join(sftp.getcwd(), latest_file)
-        temp_path = MASTER_CSV + ".tmp"
-        sftp.get(remote_path, temp_path)
-
-        # Load existing row hashes
-        existing_hashes = set()
-        file_exists = os.path.exists(MASTER_CSV)
-        if file_exists:
-            for chunk in pd.read_csv(MASTER_CSV, chunksize=chunk_size):
-                for row in chunk.itertuples(index=False, name=None):
-                    existing_hashes.add(row_hash(row))
-
-        # Append new rows from remote CSV
-        for chunk in pd.read_csv(temp_path, chunksize=chunk_size):
-            new_rows = []
-            for row in chunk.itertuples(index=False, name=None):
-                h = row_hash(row)
-                if h not in existing_hashes:
-                    existing_hashes.add(h)
-                    new_rows.append(row)
-
-            if new_rows:
-                df_new = pd.DataFrame(new_rows, columns=chunk.columns)
-                if not file_exists:
-                    df_new.to_csv(MASTER_CSV, mode='w', index=False)
-                    file_exists = True
-                else:
-                    df_new.to_csv(MASTER_CSV, mode='a', index=False, header=False)
-
-                new_rows_count += len(new_rows)
-                print(f"Appended {len(new_rows)} new rows from chunk")
-
-    except Exception as e:
-        raise RuntimeError(f"SFTP download failed: {traceback.format_exc()}")
-    finally:
-        try:
-            if "sftp" in locals():
-                sftp.close()
-            if "transport" in locals():
-                transport.close()
-        except Exception:
-            pass
-
-    print(f"Total new rows appended: {new_rows_count}")
-    return new_rows_count, latest_file, MASTER_CSV
-
-# ==========================================================
-# MAIN
-# ==========================================================
-def main():
-    lock = FileLock(LOCK_FILE)
-    lock.acquire()
-
-    downloaded = 0
-    latest_file = None
-    local_path = MASTER_CSV
-
-    try:
-        downloaded, latest_file, local_path = download_latest_csv_to_master()
-
-        if downloaded > 0:
-            print(f"✅ {downloaded} new rows appended from {latest_file}")
-            send_success_email(local_path, new_rows=downloaded)
-        else:
-            print("No new CSV entries detected. Exiting workflow.")
-            if GITHUB_ENV:
-                with open(GITHUB_ENV, "a") as f:
-                    f.write("NEW_ROWS_DOWNLOADED=0\n")
-            sys.exit(0)
-
-    except Exception as e:
-        send_failure_email(str(e))
-        sys.exit(1)
-    finally:
-        lock.release()
-
-    if GITHUB_ENV:
-        with open(GITHUB_ENV, "a") as f:
-            f.write(f"NEW_ROWS_DOWNLOADED={downloaded}\n")
-
-if __name__ == "__main__":
-    main()
