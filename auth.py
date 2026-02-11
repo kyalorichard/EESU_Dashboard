@@ -99,8 +99,6 @@ def refresh_id_token():
 def auth_ui():
     init_state()
     sidebar = st.sidebar
-    sidebar.markdown("## Account")
-
     refresh_id_token()  # Refresh token on each UI load
 
     # -----------------------------
