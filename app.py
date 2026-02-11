@@ -15,15 +15,18 @@ from auth import auth_ui
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-# Get role from session_state
-user_role = st.session_state.get("user_role", None)
+user = st.session_state.get("user")
+user_role = st.session_state.get("user_role")
+email_verified = st.session_state.get("email_verified", False)
 
-if st.session_state.get("user"):
-    st.success(f"Welcome, {st.session_state['name']}! You are logged in.")
-    #st.write(f"Your email: {st.session_state['email']}")
-    #st.write(f"Role: {st.session_state['user_role']}")
+# Determine access tier
+if not user:
+    access_level = "public"
+elif user_role == "privileged" and email_verified:
+    access_level = "full"
 else:
-    st.info("Please sign in from the sidebar to access the dashboard features.")
+    access_level = "public"
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -1240,7 +1243,7 @@ with tab_overview:
     )
     
     # ---------------- Tab two data preview ----------------
-    if user_role == "privileged":
+    if access_level == "full":
         with st.expander("Summary Data preview"):
             st.write(filtered_global_prev)  
     else:
@@ -1460,7 +1463,7 @@ with tab_negative:
         )
             
         # ---------------- Tab two data preview ----------------
-        if user_role == "privileged":        
+        if access_level == "full":        
             with st.expander("Summary Data preview"):
                 st.write(reactive_df_updated_prev)
         else:

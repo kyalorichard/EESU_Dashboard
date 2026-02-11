@@ -48,12 +48,8 @@ def init_state():
         "email": "",
         "name": "",
         "user_role": None,
-        "login_error": "",
-        "register_error": "",
-        "register_success": "",
         "email_verified": False,
         "idToken": None,
-        "resend_success": "",
     }
 
     for k, v in defaults.items():
@@ -63,22 +59,20 @@ def init_state():
 # Logout
 # -------------------------------------------------
 def logout_user():
-    keys = [
+    for key in [
         "user",
         "email",
         "name",
         "user_role",
         "email_verified",
         "idToken",
-        "resend_success",
-    ]
-    for k in keys:
-        st.session_state.pop(k, None)
+    ]:
+        st.session_state.pop(key, None)
 
     st.rerun()
 
 # -------------------------------------------------
-# Authorization Check
+# Privilege Check
 # -------------------------------------------------
 def is_privileged():
     return (
@@ -94,9 +88,9 @@ def auth_ui():
     sidebar = st.sidebar
     sidebar.markdown("## Account")
 
-    # --------------------------------------------
+    # -----------------------------
     # Logged-in View
-    # --------------------------------------------
+    # -----------------------------
     if st.session_state.user:
 
         if st.session_state.email_verified:
@@ -115,157 +109,117 @@ def auth_ui():
                         st.session_state.idToken
                     )
 
-                    st.session_state.resend_success = (
-                        "Verification email resent. Check your inbox."
-                    )
+                    sidebar.success("Verification email resent.")
                 except Exception:
-                    st.session_state.resend_success = (
-                        "Unable to resend verification email."
-                    )
-
-            if st.session_state.resend_success:
-                sidebar.info(st.session_state.resend_success)
+                    sidebar.error("Unable to resend verification email.")
 
         sidebar.button("Logout", on_click=logout_user)
         return
 
-    # --------------------------------------------
+    # -----------------------------
     # Login / Register Tabs
-    # --------------------------------------------
-    action = sidebar.radio("Select action:", ["Login", "Register"])
+    # -----------------------------
+    tab1, tab2 = sidebar.tabs(["Login", "Register"])
 
-    if action == "Login":
-        login_ui(sidebar)
-    else:
-        register_ui(sidebar)
+    # -----------------------------
+    # LOGIN FORM
+    # -----------------------------
+    with tab1:
+        with sidebar.form("login_form", clear_on_submit=False):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign in")
 
-# -------------------------------------------------
-# Login
-# -------------------------------------------------
-def login_ui(sidebar):
-    email = sidebar.text_input("Email", key="login_email")
-    password = sidebar.text_input(
-        "Password", type="password", key="login_password"
-    )
+            if submitted:
 
-    if sidebar.button("Sign in"):
+                if not firebase_auth:
+                    st.error("Authentication service unavailable.")
+                    return
 
-        st.session_state.login_error = ""
+                try:
+                    user = firebase_auth.sign_in_with_email_and_password(
+                        email, password
+                    )
 
-        if not firebase_auth:
-            st.session_state.login_error = "Authentication service unavailable."
-            return
+                    id_token = user["idToken"]
+                    user_info = firebase_auth.get_account_info(id_token)
 
-        try:
-            user = firebase_auth.sign_in_with_email_and_password(
-                email, password
-            )
+                    email_verified = user_info["users"][0].get(
+                        "emailVerified", False
+                    )
 
-            st.session_state.idToken = user["idToken"]
+                    domain = get_email_domain(email)
 
-            user_info = firebase_auth.get_account_info(
-                user["idToken"]
-            )
+                    if domain not in PRIVILEGED_DOMAINS:
+                        st.error("Access restricted: unauthorized domain.")
+                        return
 
-            email_verified = user_info["users"][0].get(
-                "emailVerified", False
-            )
+                    st.session_state.user = user
+                    st.session_state.email = email
+                    st.session_state.name = email.split("@")[0].title()
+                    st.session_state.email_verified = email_verified
+                    st.session_state.idToken = id_token
 
-            domain = get_email_domain(email)
+                    if not email_verified:
+                        st.warning(
+                            "Please verify your email before accessing the dashboard."
+                        )
+                        st.session_state.user_role = "unverified"
+                        return
 
-            # Domain restriction
-            if domain not in PRIVILEGED_DOMAINS:
-                st.session_state.login_error = (
-                    "Access restricted: your email domain is not authorized."
-                )
-                return
+                    st.session_state.user_role = "privileged"
+                    st.rerun()
 
-            # Set session user
-            st.session_state.user = user
-            st.session_state.email = email
-            st.session_state.name = email.split("@")[0].title()
-            st.session_state.email_verified = email_verified
+                except Exception as e:
+                    error_code = parse_firebase_error(e)
 
-            if not email_verified:
-                st.session_state.user_role = "unverified"
-                st.session_state.login_error = (
-                    "Please verify your email before accessing the dashboard."
-                )
-                return
+                    if error_code in [
+                        "INVALID_PASSWORD",
+                        "EMAIL_NOT_FOUND",
+                        "INVALID_LOGIN_CREDENTIALS",
+                    ]:
+                        st.error("Incorrect email or password.")
+                    else:
+                        st.error("Login failed. Please try again.")
 
-            st.session_state.user_role = "privileged"
-            st.rerun()
+    # -----------------------------
+    # REGISTER FORM
+    # -----------------------------
+    with tab2:
+        with sidebar.form("register_form", clear_on_submit=False):
+            email = st.text_input("Email", key="reg_email")
+            password = st.text_input("Password", type="password", key="reg_pass")
+            submitted = st.form_submit_button("Register")
 
-        except Exception as e:
-            error_code = parse_firebase_error(e)
+            if submitted:
 
-            if error_code in [
-                "INVALID_PASSWORD",
-                "EMAIL_NOT_FOUND",
-                "INVALID_LOGIN_CREDENTIALS",
-            ]:
-                st.session_state.login_error = "Incorrect email or password."
-            else:
-                st.session_state.login_error = "Login failed. Please try again."
+                if not firebase_auth:
+                    st.error("Authentication service unavailable.")
+                    return
 
-    if st.session_state.login_error:
-        sidebar.error(st.session_state.login_error)
+                domain = get_email_domain(email)
 
-# -------------------------------------------------
-# Register
-# -------------------------------------------------
-def register_ui(sidebar):
-    email = sidebar.text_input("Email", key="register_email")
-    password = sidebar.text_input(
-        "Password", type="password", key="register_password"
-    )
+                if domain not in PRIVILEGED_DOMAINS:
+                    st.error("Registration restricted to approved domains.")
+                    return
 
-    if sidebar.button("Register"):
+                try:
+                    user = firebase_auth.create_user_with_email_and_password(
+                        email, password
+                    )
 
-        st.session_state.register_error = ""
-        st.session_state.register_success = ""
+                    firebase_auth.send_email_verification(user["idToken"])
 
-        if not firebase_auth:
-            st.session_state.register_error = "Authentication service unavailable."
-            return
+                    st.success(
+                        "Registration successful. Check your email to verify your account."
+                    )
 
-        domain = get_email_domain(email)
+                except Exception as e:
+                    error_code = parse_firebase_error(e)
 
-        if domain not in PRIVILEGED_DOMAINS:
-            st.session_state.register_error = (
-                "Registration restricted to approved domains."
-            )
-            return
-
-        try:
-            user = firebase_auth.create_user_with_email_and_password(
-                email, password
-            )
-
-            firebase_auth.send_email_verification(user["idToken"])
-
-            st.session_state.register_success = (
-                "Registration successful. Check your email to verify your account."
-            )
-
-        except Exception as e:
-            error_code = parse_firebase_error(e)
-
-            if error_code == "EMAIL_EXISTS":
-                st.session_state.register_error = (
-                    "This email is already registered. Please log in."
-                )
-            elif error_code == "WEAK_PASSWORD":
-                st.session_state.register_error = (
-                    "Password must be at least 6 characters."
-                )
-            else:
-                st.session_state.register_error = (
-                    "Registration failed. Please try again."
-                )
-
-    if st.session_state.register_error:
-        sidebar.error(st.session_state.register_error)
-
-    if st.session_state.register_success:
-        sidebar.success(st.session_state.register_success)
+                    if error_code == "EMAIL_EXISTS":
+                        st.error("This email is already registered.")
+                    elif error_code == "WEAK_PASSWORD":
+                        st.error("Password must be at least 6 characters.")
+                    else:
+                        st.error("Registration failed. Please try again.")
