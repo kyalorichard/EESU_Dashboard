@@ -146,18 +146,16 @@ def auth_ui():
     # -----------------------------
     # LOGIN FORM
     # -----------------------------
+    forgot_email_sent = False  # flag for Back to Login button
+
     if tab_choice == "Login":
         with sidebar.form("login_form", clear_on_submit=True):
             email = st.text_input("Email", key="login_email").strip()
             password = st.text_input("Password", type="password", key="login_pass")
 
-            # Primary Sign In button
+            # Form buttons
             submitted = st.form_submit_button("Sign in")
-
-            # Secondary Forgot Password button
-            forgot_pass = st.form_submit_button(
-                "Forgot Password?", help="Send a password reset email"
-            )
+            forgot_pass = st.form_submit_button("Forgot Password?")
 
             # ----- Handle Login -----
             if submitted:
@@ -198,16 +196,19 @@ def auth_ui():
                     try:
                         firebase_auth.send_password_reset_email(email)
                         st.success(f"Password reset email sent to {email}.")
-
-                        # Button to go back to login after resetting password
-                        if st.button("Back to Login"):
-                            st.session_state.auth_tab = "Login"
-                            st.session_state.login_email = ""
-                            st.session_state.login_pass = ""
-                            st.rerun()
-
+                        forgot_email_sent = True  # show Back to Login outside form
                     except Exception as e:
                         st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
+
+    # -----------------------------
+    # Back to Login button (outside the form)
+    # -----------------------------
+    if forgot_email_sent:
+        if st.button("Back to Login"):
+            st.session_state.auth_tab = "Login"
+            st.session_state.login_email = ""
+            st.session_state.login_pass = ""
+            st.rerun()
 
     # -----------------------------
     # REGISTER FORM
