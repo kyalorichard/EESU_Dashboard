@@ -1,4 +1,4 @@
-# auth.py (Tabs Managed Correctly)
+# auth.py
 import streamlit as st
 import pyrebase
 import firebase_admin
@@ -67,7 +67,8 @@ def init_state():
         "name": "",
         "user_role": None,
         "email_verified": False,
-        "idToken": None
+        "idToken": None,
+        "auth_tab": "Login"
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -93,7 +94,7 @@ def refresh_id_token():
         pass
 
 # -------------------------------------------------
-# Authentication UI with Proper Tabs
+# Authentication UI with Tabs and Forgot Password
 # -------------------------------------------------
 def auth_ui():
     init_state()
@@ -134,9 +135,6 @@ def auth_ui():
     # -----------------------------
     # Tabs: Login / Register
     # -----------------------------
-    if "auth_tab" not in st.session_state:
-        st.session_state.auth_tab = "Login"
-
     tab_choice = sidebar.radio(
         "Select Action",
         ["Login", "Register"],
@@ -152,50 +150,55 @@ def auth_ui():
         with sidebar.form("login_form", clear_on_submit=True):
             email = st.text_input("Email", key="login_email").strip()
             password = st.text_input("Password", type="password", key="login_pass")
-            submitted = st.form_submit_button("Sign in")
 
+            # Buttons: Login and Forgot Password
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                submitted = st.form_submit_button("Sign in")
+            with col2:
+                forgot_pass = st.form_submit_button("Forgot Password")
+
+            # ----- Handle Login -----
             if submitted:
                 if not firebase_auth:
                     st.error("Authentication service unavailable.")
-                    return
+                else:
+                    domain = get_email_domain(email)
+                    if domain not in PRIVILEGED_DOMAINS:
+                        st.error(f"Access restricted: {domain} is not an authorized domain.")
+                    else:
+                        try:
+                            user = firebase_auth.sign_in_with_email_and_password(email, password)
+                            id_token = user["idToken"]
+                            user_info = firebase_auth.get_account_info(id_token)
+                            email_verified = user_info["users"][0].get("emailVerified", False)
 
-                domain = get_email_domain(email)
-                if domain not in PRIVILEGED_DOMAINS:
-                    st.error(f"Access restricted: {domain} is not an authorized domain.")
-                    return
+                            st.session_state.user = user
+                            st.session_state.email = email
+                            st.session_state.name = email.split("@")[0].title()
+                            st.session_state.email_verified = email_verified
+                            st.session_state.idToken = id_token
+                            st.session_state.user_role = "privileged" if email_verified else "unverified"
 
-                try:
-                    user = firebase_auth.sign_in_with_email_and_password(email, password)
-                    id_token = user["idToken"]
-                    user_info = firebase_auth.get_account_info(id_token)
-                    email_verified = user_info["users"][0].get("emailVerified", False)
+                            if not email_verified:
+                                st.warning("Please verify your email before accessing the dashboard.")
+                                return
 
-                    st.session_state.user = user
-                    st.session_state.email = email
-                    st.session_state.name = email.split("@")[0].title()
-                    st.session_state.email_verified = email_verified
-                    st.session_state.idToken = id_token
-                    st.session_state.user_role = "privileged" if email_verified else "unverified"
+                            st.rerun()
+                        except Exception as e:
+                            error_code = parse_firebase_error(e)
+                            st.error(ERROR_MAP.get(error_code, f"Login failed: {error_code}"))
 
-                    if not email_verified:
-                        st.warning("Please verify your email before accessing the dashboard.")
-                        return
-
-                    st.rerun()
-
-                except Exception as e:
-                    error_code = parse_firebase_error(e)
-                    st.error(ERROR_MAP.get(error_code, f"Login failed: {error_code}"))
-
-        if st.button("Forgot Password?"):
-            if not email:
-                st.warning("Please enter your email above to reset your password.")
-            else:
-                try:
-                    firebase_auth.send_password_reset_email(email)
-                    st.success(f"Password reset email sent to {email}.")
-                except Exception as e:
-                    st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
+            # ----- Handle Forgot Password -----
+            if forgot_pass:
+                if not email:
+                    st.warning("Please enter your email above to reset your password.")
+                else:
+                    try:
+                        firebase_auth.send_password_reset_email(email)
+                        st.success(f"Password reset email sent to {email}.")
+                    except Exception as e:
+                        st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
     # -----------------------------
     # REGISTER FORM
@@ -209,27 +212,25 @@ def auth_ui():
             if submitted:
                 if not firebase_auth:
                     st.error("Authentication service unavailable.")
-                    return
+                else:
+                    domain = get_email_domain(email)
+                    if domain not in PRIVILEGED_DOMAINS:
+                        st.error(f"Registration restricted: {domain} is not an approved domain.")
+                    else:
+                        try:
+                            user = firebase_auth.create_user_with_email_and_password(email, password)
+                            firebase_auth.send_email_verification(user["idToken"])
 
-                domain = get_email_domain(email)
-                if domain not in PRIVILEGED_DOMAINS:
-                    st.error(f"Registration restricted: {domain} is not an approved domain.")
-                    return
+                            st.success("Registration successful. Check your email to verify your account.")
 
-                try:
-                    user = firebase_auth.create_user_with_email_and_password(email, password)
-                    firebase_auth.send_email_verification(user["idToken"])
+                            # Auto-login (unverified)
+                            st.session_state.user = user
+                            st.session_state.email = email
+                            st.session_state.name = email.split("@")[0].title()
+                            st.session_state.email_verified = False
+                            st.session_state.idToken = user["idToken"]
+                            st.session_state.user_role = "unverified"
 
-                    st.success("Registration successful. Check your email to verify your account.")
-
-                    # Auto-login (unverified)
-                    st.session_state.user = user
-                    st.session_state.email = email
-                    st.session_state.name = email.split("@")[0].title()
-                    st.session_state.email_verified = False
-                    st.session_state.idToken = user["idToken"]
-                    st.session_state.user_role = "unverified"
-
-                except Exception as e:
-                    error_code = parse_firebase_error(e)
-                    st.error(ERROR_MAP.get(error_code, f"Registration failed: {error_code}"))
+                        except Exception as e:
+                            error_code = parse_firebase_error(e)
+                            st.error(ERROR_MAP.get(error_code, f"Registration failed: {error_code}"))
