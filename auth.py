@@ -1,4 +1,4 @@
-# auth.py
+# auth.py (Tabs Managed Correctly)
 import streamlit as st
 import pyrebase
 import firebase_admin
@@ -93,7 +93,7 @@ def refresh_id_token():
         pass
 
 # -------------------------------------------------
-# Authentication UI
+# Authentication UI with Proper Tabs
 # -------------------------------------------------
 def auth_ui():
     init_state()
@@ -132,14 +132,23 @@ def auth_ui():
         return
 
     # -----------------------------
-    # Login / Register Tabs
+    # Tabs: Login / Register
     # -----------------------------
-    tab_login, tab_register = sidebar.tabs(["Login", "Register"])
+    if "auth_tab" not in st.session_state:
+        st.session_state.auth_tab = "Login"
+
+    tab_choice = sidebar.radio(
+        "Select Action",
+        ["Login", "Register"],
+        index=0 if st.session_state.auth_tab == "Login" else 1,
+        key="auth_tab_radio"
+    )
+    st.session_state.auth_tab = tab_choice
 
     # -----------------------------
     # LOGIN FORM
     # -----------------------------
-    with tab_login:
+    if tab_choice == "Login":
         with sidebar.form("login_form", clear_on_submit=True):
             email = st.text_input("Email", key="login_email").strip()
             password = st.text_input("Password", type="password", key="login_pass")
@@ -191,7 +200,7 @@ def auth_ui():
     # -----------------------------
     # REGISTER FORM
     # -----------------------------
-    with tab_register:
+    if tab_choice == "Register":
         with sidebar.form("register_form", clear_on_submit=True):
             email = st.text_input("Email", key="reg_email").strip()
             password = st.text_input("Password", type="password", key="reg_pass")
