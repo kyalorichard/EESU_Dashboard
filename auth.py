@@ -87,19 +87,34 @@ def is_privileged() -> bool:
 def refresh_id_token():
     """Refresh Firebase ID token if expired"""
     try:
-        if st.session_state.get("idToken"):
+        if st.session_state.get("idToken") and firebase_auth:
             refreshed = firebase_auth.refresh(st.session_state.idToken)
             st.session_state.idToken = refreshed["idToken"]
     except Exception:
-        pass
+        logout_user()  # logout if token is invalid
+
+def init_user_session():
+    """Keep user logged in across page reloads"""
+    if st.session_state.get("idToken") and firebase_auth:
+        try:
+            refreshed = firebase_auth.refresh(st.session_state.idToken)
+            st.session_state.idToken = refreshed["idToken"]
+            # Ensure role and email_verified remain
+            st.session_state.user_role = st.session_state.get("user_role", "unverified")
+            st.session_state.email_verified = st.session_state.get("email_verified", False)
+        except Exception:
+            logout_user()  # log out safely if refresh fails
 
 # -------------------------------------------------
 # Authentication UI
 # -------------------------------------------------
 def auth_ui():
     init_state()
+    init_user_session()
     sidebar = st.sidebar
-    refresh_id_token()  # Refresh token on each UI load
+    sidebar.markdown("## Account")
+
+    refresh_id_token()  # refresh token on every UI load
 
     # -----------------------------
     # Logged-in View
@@ -194,7 +209,7 @@ def auth_ui():
                     try:
                         firebase_auth.send_password_reset_email(email)
                         st.success(f"Password reset email sent to {email}.")
-                        forgot_email_sent = True  # show Back to Login outside form
+                        forgot_email_sent = True
                     except Exception as e:
                         st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
