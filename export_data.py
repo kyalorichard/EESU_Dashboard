@@ -11,6 +11,7 @@ import sys
 import re
 import pandas as pd
 import traceback
+import hashlib
 
 # ==========================================================
 # CONFIG (ENVIRONMENT VARIABLES)
@@ -34,8 +35,7 @@ GITHUB_ENV = os.getenv("GITHUB_ENV")
 LOCK_FILE = os.path.join(os.path.expanduser("~"), "sftp_csv_download.lock")
 SUCCESS_MARKER = f"{os.path.expanduser('~')}/sftp_success_email_{date.today().isoformat()}"
 
-CHUNK_SIZE = 100000  # rows per chunk for large CSVs
-
+CHUNK_SIZE = 100_000  # rows per chunk for large CSVs
 MASTER_CSV = os.path.join(LOCAL_DIR, "output_final.csv")
 
 # ==========================================================
@@ -58,6 +58,14 @@ class FileLock:
         if self.fp:
             portalocker.unlock(self.fp)
             self.fp.close()
+
+# ==========================================================
+# DETERMINISTIC ROW HASH
+# ==========================================================
+def row_hash(row):
+    """Return deterministic SHA256 hash for a row tuple."""
+    row_str = "|".join(str(x) for x in row)
+    return hashlib.sha256(row_str.encode()).hexdigest()
 
 # ==========================================================
 # EMAIL FUNCTIONS
@@ -105,7 +113,6 @@ def _send_email(subject, text_body, html_body):
 
     return False
 
-
 def send_success_email(file_path, new_rows=0):
     if not file_path or os.path.exists(SUCCESS_MARKER):
         return
@@ -145,7 +152,6 @@ Date: {date.today().isoformat()}
     ):
         open(SUCCESS_MARKER, "w").close()
 
-
 def send_failure_email(error_msg):
     text_body = f"""
 SFTP Data Sync – FAILURE
@@ -179,18 +185,15 @@ Date: {date.today().isoformat()}
     _send_email("ALERT: SFTP Data Sync Failed", text_body.strip(), html_body)
 
 # ==========================================================
-# INCREMENTAL CSV UPDATE TO MASTER FILE
+# DOWNLOAD AND APPEND CSV
 # ==========================================================
 def download_latest_csv_to_master(chunk_size=CHUNK_SIZE):
-    """
-    Append only new rows from latest SFTP CSV to output_final.csv.
-    Uses row hashes to avoid duplicates and preserve headers.
-    """
     os.makedirs(LOCAL_DIR, exist_ok=True)
     new_rows_count = 0
     latest_file = None
 
     try:
+        # Connect to SFTP
         transport = paramiko.Transport((SFTP_HOST, 22))
         transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
@@ -204,6 +207,7 @@ def download_latest_csv_to_master(chunk_size=CHUNK_SIZE):
         csv_files = [f for f in sftp.listdir() if f.lower().endswith(".csv")]
         date_pattern = re.compile(r".*?(\d{4}_\d{2}_\d{2}).*\.csv$")
         latest_date = None
+
         for f in csv_files:
             match = date_pattern.match(f)
             if match:
@@ -220,19 +224,19 @@ def download_latest_csv_to_master(chunk_size=CHUNK_SIZE):
         temp_path = MASTER_CSV + ".tmp"
         sftp.get(remote_path, temp_path)
 
-        # Load existing hashes
+        # Load existing row hashes
         existing_hashes = set()
         file_exists = os.path.exists(MASTER_CSV)
         if file_exists:
             for chunk in pd.read_csv(MASTER_CSV, chunksize=chunk_size):
                 for row in chunk.itertuples(index=False, name=None):
-                    existing_hashes.add(hash(row))
+                    existing_hashes.add(row_hash(row))
 
         # Append new rows from remote CSV
         for chunk in pd.read_csv(temp_path, chunksize=chunk_size):
             new_rows = []
             for row in chunk.itertuples(index=False, name=None):
-                h = hash(row)
+                h = row_hash(row)
                 if h not in existing_hashes:
                     existing_hashes.add(h)
                     new_rows.append(row)
@@ -244,17 +248,22 @@ def download_latest_csv_to_master(chunk_size=CHUNK_SIZE):
                     file_exists = True
                 else:
                     df_new.to_csv(MASTER_CSV, mode='a', index=False, header=False)
+
                 new_rows_count += len(new_rows)
+                print(f"Appended {len(new_rows)} new rows from chunk")
 
     except Exception as e:
         raise RuntimeError(f"SFTP download failed: {traceback.format_exc()}")
     finally:
         try:
-            sftp.close()
-            transport.close()
+            if "sftp" in locals():
+                sftp.close()
+            if "transport" in locals():
+                transport.close()
         except Exception:
             pass
 
+    print(f"Total new rows appended: {new_rows_count}")
     return new_rows_count, latest_file, MASTER_CSV
 
 # ==========================================================
@@ -271,7 +280,8 @@ def main():
     try:
         downloaded, latest_file, local_path = download_latest_csv_to_master()
 
-        if downloaded:
+        if downloaded > 0:
+            print(f"✅ {downloaded} new rows appended from {latest_file}")
             send_success_email(local_path, new_rows=downloaded)
         else:
             print("No new CSV entries detected. Exiting workflow.")
