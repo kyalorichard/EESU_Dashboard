@@ -53,6 +53,7 @@ pytest>=8.2.0
 
 paramiko>=3.1.0
 logging
+portalocker
 
 firebase-admin
 pyrebase4
@@ -60,12 +61,3 @@ pyrebase4
 #bcrypt
 #sqlite3
 
-# ----------------------------------------
-# OPTIONAL HEAVY UI FRAMEWORKS
-# These significantly slow GitHub Actions installs.
-# Enable ONLY if your Streamlit app explicitly requires them.
-# ----------------------------------------
-# dash
-# altair
-# streamlit-dash
-# streamlit_plotly_events
