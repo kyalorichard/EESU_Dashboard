@@ -1374,13 +1374,13 @@ with tab_negative:
             xref='paper', yref='paper',
             x=0.42,         # adjust so it's at the end of the title
             y=1.05,         # same vertical alignment as title
-            text="?",       # Unicode circle with question mark
+            text="❔",       # Unicode circle with question mark
             showarrow=False,
-            font=dict(color="white", size=10, family="Arial black", weight="bold"),
+            font=dict(color="black", size=10, family="Arial black", weight="bold"),
             align="center",
             bordercolor="black",
             borderwidth=1.3,
-            borderpad=6,
+            borderpad=3,
             bgcolor="black",
             opacity=1.0,
             hovertext=(
