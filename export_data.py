@@ -19,16 +19,25 @@ from datetime import date, datetime
 import sys
 import re
 import tempfile
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 # ==========================================================
 # CONFIG (ENVIRONMENT VARIABLES)
 # ==========================================================
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 SFTP_HOST = os.getenv("SFTP_HOST")
 SFTP_PORT = 22
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+=======
+SFTP_HOST ='83.149.119.154' #os.getenv("SFTP_HOST")
+SFTP_USERNAME = 'events-eusee.hivos.o_iwfvvmfr82h'  #os.getenv("SFTP_USERNAME") 
+SFTP_PASSWORD = '~Po7Rpdi9&oY3wkr' #os.getenv("SFTP_PASSWORD")
+>>>>>>> Stashed changes
 =======
 SFTP_HOST ='83.149.119.154' #os.getenv("SFTP_HOST")
 SFTP_USERNAME = 'events-eusee.hivos.o_iwfvvmfr82h'  #os.getenv("SFTP_USERNAME") 
@@ -53,6 +62,7 @@ CHANGELOG_FILENAME = "change_log.csv"
 
 os.makedirs(LOCAL_DIR, exist_ok=True)
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 # ---------------- LOGGING ----------------
 logging.basicConfig(
@@ -101,6 +111,8 @@ def send_update_email(new_rows_count, latest_file, local_path):
     </html>
     """
 =======
+=======
+>>>>>>> Stashed changes
 LOCK_FILE = "/tmp/sftp_csv_download.lock"
 SUCCESS_MARKER = f"/tmp/sftp_success_email_{date.today().isoformat()}"
 
@@ -162,6 +174,7 @@ def _send_email(subject, text_body, html_body):
     # Try STARTTLS first
     try:
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
@@ -184,6 +197,8 @@ def extract_date(filename):
     match = re.search(r'(\d{4}_\d{2}_\d{2})', filename)
     return match.group(1) if match else None
 =======
+=======
+>>>>>>> Stashed changes
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
@@ -224,6 +239,7 @@ if not csv_files_with_dates:
     exit()
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 latest_file = sorted(csv_files_with_dates, key=lambda x: x[1], reverse=True)[0][0]
 remote_path = f"{REMOTE_DIR}/{latest_file}"
 local_path = os.path.join(LOCAL_DIR, RAW_FILENAME)
@@ -251,6 +267,8 @@ rename_map = {
 }
 df_raw.rename(columns=rename_map, inplace=True)
 =======
+=======
+>>>>>>> Stashed changes
 File downloaded: {os.path.basename(file_path)}
 Stored as: {file_path}
 Date: {date.today().isoformat()}
@@ -493,5 +511,9 @@ def main():
 # ENTRY POINT
 # ==========================================================
 if __name__ == "__main__":
+<<<<<<< Updated upstream
+    main()
+>>>>>>> Stashed changes
+=======
     main()
 >>>>>>> Stashed changes
