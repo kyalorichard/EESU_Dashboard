@@ -480,7 +480,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     # ---------------- Alerts Breakdown ----------------
     with col3:
         st.markdown(f'''
-        <div style="{card_style}">
+    <div style="{card_style}">
 
             <svg width="140" height="140" viewBox="0 0 140 140">
 
