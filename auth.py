@@ -13,27 +13,27 @@ try:
         cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
         firebase_admin.initialize_app(cred)
 except Exception as e:
-    st.error(f"⚠️ Firebase Admin initialization failed.\n{str(e)}")
+    st.error(f"⚠️ Firebase Admin initialization failed: {repr(e)}")
     st.stop()
 
 # -------------------------------------------------
 # Pyrebase Initialization
 # -------------------------------------------------
-firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
+firebase_auth = None
 
 if firebase_cfg:
     try:
         firebase = pyrebase.initialize_app(firebase_cfg)
         firebase_auth = firebase.auth()
     except Exception as e:
-        st.warning(f"⚠️ Firebase authentication service unavailable.\n{str(e)}")
+        st.warning(f"⚠️ Firebase authentication service unavailable: {repr(e)}")
 
 # -------------------------------------------------
 # Configuration
 # -------------------------------------------------
 PRIVILEGED_DOMAINS = set(
-    d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", [])
+    d.lower().lstrip("www.") for d in st.secrets.get("access", {}).get("privileged_domains", [])
 )
 if not PRIVILEGED_DOMAINS:
     st.warning("⚠️ No privileged domains configured. Access will be blocked.")
@@ -50,13 +50,15 @@ ERROR_MAP = {
 # Helpers
 # -------------------------------------------------
 def get_email_domain(email: str) -> str:
-    return email.strip().split("@")[-1].lower()
+    return email.strip().split("@")[-1].lower().lstrip("www.")
 
 def parse_firebase_error(e):
     try:
         payload = e.args[1] if len(e.args) > 1 else e.args[0]
-        error_json = json.loads(payload)
-        return error_json.get("error", {}).get("message", str(e))
+        if isinstance(payload, str):
+            error_json = json.loads(payload)
+            return error_json.get("error", {}).get("message", str(e))
+        return str(e)
     except Exception:
         return str(e)
 
@@ -68,7 +70,8 @@ def init_state():
         "user_role": None,
         "email_verified": False,
         "idToken": None,
-        "auth_tab": "Login"
+        "auth_tab": "Login",
+        "forgot_email_sent": False
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -90,8 +93,12 @@ def refresh_id_token():
         if st.session_state.get("idToken"):
             refreshed = firebase_auth.refresh(st.session_state.idToken)
             st.session_state.idToken = refreshed["idToken"]
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"Token refresh failed: {parse_firebase_error(e)}")
+
+def format_name(email: str) -> str:
+    local_part = email.split("@")[0]
+    return local_part.replace(".", " ").title()
 
 # -------------------------------------------------
 # Authentication UI
@@ -109,7 +116,7 @@ def auth_ui():
             sidebar.success(f"👋 {st.session_state.name} ✅ Verified")
         else:
             sidebar.warning(f"👋 {st.session_state.name} ⚠️ Email not verified")
-            sidebar.markdown("You must verify your email to access the dashboard.")
+            sidebar.markdown("Please verify your email to access the dashboard.")
 
             if sidebar.button("Resend Verification Email"):
                 try:
@@ -124,6 +131,7 @@ def auth_ui():
                 try:
                     firebase_auth.send_password_reset_email(st.session_state.email)
                     sidebar.success(f"Password reset email sent to {st.session_state.email}.")
+                    st.session_state.forgot_email_sent = True
                 except Exception as e:
                     sidebar.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
@@ -144,18 +152,14 @@ def auth_ui():
     # -----------------------------
     # LOGIN FORM
     # -----------------------------
-    forgot_email_sent = False  # flag for Back to Login button
-
     if tab_choice == "Login":
         with sidebar.form("login_form", clear_on_submit=True):
             email = st.text_input("Email", key="login_email").strip()
             password = st.text_input("Password", type="password", key="login_pass")
 
-            # Form buttons
             submitted = st.form_submit_button("Sign in")
             forgot_pass = st.form_submit_button("Forgot Password?")
 
-            # ----- Handle Login -----
             if submitted:
                 if not firebase_auth:
                     st.error("Authentication service unavailable.")
@@ -172,7 +176,7 @@ def auth_ui():
 
                             st.session_state.user = user
                             st.session_state.email = email
-                            st.session_state.name = email.split("@")[0].title()
+                            st.session_state.name = format_name(email)
                             st.session_state.email_verified = email_verified
                             st.session_state.idToken = id_token
                             st.session_state.user_role = "privileged" if email_verified else "unverified"
@@ -186,7 +190,6 @@ def auth_ui():
                             error_code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(error_code, f"Login failed: {error_code}"))
 
-            # ----- Handle Forgot Password -----
             if forgot_pass:
                 if not email:
                     st.warning("Please enter your email above to reset your password.")
@@ -194,19 +197,17 @@ def auth_ui():
                     try:
                         firebase_auth.send_password_reset_email(email)
                         st.success(f"Password reset email sent to {email}.")
-                        forgot_email_sent = True  # show Back to Login outside form
+                        st.session_state.forgot_email_sent = True
                     except Exception as e:
                         st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
-    # -----------------------------
-    # Back to Login button (outside the form)
-    # -----------------------------
-    if forgot_email_sent:
-        if st.button("Back to Login"):
-            st.session_state.auth_tab = "Login"
-            st.session_state.login_email = ""
-            st.session_state.login_pass = ""
-            st.rerun()
+        if st.session_state.forgot_email_sent:
+            if st.button("Back to Login"):
+                st.session_state.forgot_email_sent = False
+                st.session_state.auth_tab = "Login"
+                st.session_state.login_email = ""
+                st.session_state.login_pass = ""
+                st.rerun()
 
     # -----------------------------
     # REGISTER FORM
@@ -234,7 +235,7 @@ def auth_ui():
                             # Auto-login (unverified)
                             st.session_state.user = user
                             st.session_state.email = email
-                            st.session_state.name = email.split("@")[0].title()
+                            st.session_state.name = format_name(email)
                             st.session_state.email_verified = False
                             st.session_state.idToken = user["idToken"]
                             st.session_state.user_role = "unverified"

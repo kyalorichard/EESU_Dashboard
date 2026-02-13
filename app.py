@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import json
 from pathlib import Path
 import streamlit.components.v1 as components
+import plotly.graph_objects as go
 import base64
 from auth import auth_ui
 import math
