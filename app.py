@@ -1382,7 +1382,7 @@ with tab_negative:
             borderwidth=1,
             borderpad=3,
             bgcolor="white",
-            opacity=0,
+            opacity=1.5,
             hovertext=(
                 "Alerts may be classified under more than one enabling principle "
                 "<br>and can therefore be counted in multiple principles."
