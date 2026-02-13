@@ -631,6 +631,15 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center',font=dict(color="#660094",family="Arial black", size=12))
     )
+    # ---------------- Download-only source ----------------
+    fig.add_annotation(
+        text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
+        xref="paper", yref="paper",
+        x=0, y=-0.15,  # slightly below the plot area
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        opacity=0  # invisible on-screen, visible in PNG download
+    )
    
     return fig
 
@@ -648,10 +657,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         else:
             df_cat[y] = df_cat[y].apply(
                 lambda l: wrap_label_by_words(l, words_per_line=4)
-            )
-            
-
-        
+            )                  
         
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else df_cat[x],
@@ -697,6 +703,16 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             size=12,
             color="black"
         )
+    )
+
+    # ---------------- Download-only source ----------------
+    fig.add_annotation(
+        text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
+        xref="paper", yref="paper",
+        x=0, y=-0.15,  # slightly below the plot area
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        opacity=0  # invisible on-screen, visible in PNG download
     )
     return fig
 
@@ -1228,7 +1244,7 @@ with tab_overview:
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     
-    if access_level=="full"
+    if access_level=="full":
         r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
         r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
 
