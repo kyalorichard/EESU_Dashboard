@@ -946,9 +946,9 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
             counts = counts.head(top_n)
         return counts.index.tolist()
 
-    top_actors = get_top_nodes("Actor of repression")
-    top_mechanisms = get_top_nodes("Mechanism of repression")
-    top_subjects = get_top_nodes("Subject of repression")
+    top_actors = get_top_nodes("Restrictive actor")
+    top_mechanisms = get_top_nodes("Restrictive mechanism ")
+    top_subjects = get_top_nodes("Civil society actor affected")
 
     # Build node labels (wrapped)
     actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
@@ -1196,7 +1196,7 @@ with tab_overview:
         y="enabling-principle",
         x="count",
         color_col="alert-impact",
-        title="lert distribution across enabling principles", 
+        title="Alert distribution across enabling principles", 
         horizontal=True,
         normalize_labels=False
     )
@@ -1214,7 +1214,7 @@ with tab_overview:
         borderwidth=0.2,
         borderpad=3,
         bgcolor="white",
-        opacity=0.9,
+        opacity=1.0,
         hovertext=(
             "Alerts may be classified under more than one enabling principle "
             "<br>and can therefore be counted in multiple principles."
