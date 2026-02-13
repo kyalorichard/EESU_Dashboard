@@ -1013,17 +1013,17 @@ def render_sankey(df, top_n=None, width=900, wrap_width=25):
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
         marker=dict(size=10, color="#FF5733"),
-        name="Actor of repression"
+        name="Restrictive actor "
     ))
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
         marker=dict(size=10, color="#33C1FF"),
-        name="Mechanism of repression"
+        name="Restrictive mechanism "
     ))
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode="markers",
         marker=dict(size=10, color="#33FF8A"),
-        name="Subject of repression"
+        name="Civil society actor affected "
     ))
 
     # Layout with consistent fonts
