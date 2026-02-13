@@ -1211,9 +1211,9 @@ with tab_overview:
         font=dict(color="#fff", size=10, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
-        borderwidth=0.2,
+        borderwidth=0.8,
         borderpad=3,
-        bgcolor="white",
+        bgcolor="blue",
         opacity=0.9,
         hovertext=(
             "Alerts may be classified under more than one enabling principle "
