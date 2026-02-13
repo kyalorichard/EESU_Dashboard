@@ -1376,10 +1376,9 @@ with tab_negative:
             y=1.05,         # same vertical alignment as title
             text="❔",       # Unicode circle with question mark
             showarrow=False,
-            font=dict(color="black", size=10, family="Arial", weight="bold"),
+            font=dict(color="black", size=10, family="Arial black", weight="bold"),
             align="center",
             bordercolor="black",
-            font_color="white",
             borderwidth=1,
             borderpad=3,
             bgcolor="white",
