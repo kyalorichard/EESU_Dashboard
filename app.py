@@ -1381,7 +1381,7 @@ with tab_negative:
             bordercolor="black",
             borderwidth=1.3,
             borderpad=3,
-            bgcolor="black",
+            bgcolor="white",
             opacity=1.0,
             hovertext=(
                 "Alerts may be classified under more than one enabling principle "
