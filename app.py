@@ -1208,7 +1208,7 @@ with tab_overview:
         y=1.05,
         text="❔",  # unicode "?" inside a circle
         showarrow=False,
-        font=dict(color="black", size=10, family="Arial", weight="bold"),
+        font=dict(color="#fff", size=10, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
         borderwidth=0.2,
