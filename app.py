@@ -237,13 +237,6 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=400)
-# Login / Access
-st.sidebar.markdown(
-    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🔐 Login / Access</div>',
-    unsafe_allow_html=True
-)
-
-auth_ui()
 
 # Global Filters
 st.sidebar.markdown(
@@ -323,6 +316,14 @@ filtered_global = data[
     (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
 ]
+
+# Login / Access
+st.sidebar.markdown(
+    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🔐 Login / Access</div>',
+    unsafe_allow_html=True
+)
+
+auth_ui()
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
@@ -523,10 +524,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     </div>
     ''', unsafe_allow_html=True)
 
-
-   
-
-
+ 
 def normalize_label(label: str) -> str:
     """
     Capitalize first character only, lowercase remaining characters.
@@ -1208,12 +1206,12 @@ with tab_overview:
         y=1.05,
         text="❔",  # unicode "?" inside a circle
         showarrow=False,
-        font=dict(color="#fff", size=10, family="Arial", weight="bold"),
+        font=dict(color="white", size=10, family="Arial", weight="bold"),
         align="center",
         bordercolor="black",
         borderwidth=0.8,
         borderpad=3,
-        bgcolor="purple",
+        bgcolor="#660094",
         opacity=0.9,
         hovertext=(
             "Alerts may be classified under more than one enabling principle "
@@ -1378,7 +1376,7 @@ with tab_negative:
             showarrow=False,
             font=dict(color="black", size=10, family="Arial black", weight="bold"),
             align="center",
-            bordercolor="purple",
+            bordercolor="#660094",
             borderwidth=1.3,
             borderpad=3,
             bgcolor="white",
