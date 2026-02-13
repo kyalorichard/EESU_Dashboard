@@ -478,81 +478,103 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
     # ---------------- Alerts Breakdown ----------------
     # ---------------- Alerts Breakdown ----------------
-   # --- Geometry ---
-    outer_r = 50
-    inner_r = 40
-    
-    outer_circ = 2 * math.pi * outer_r
-    inner_circ = 2 * math.pi * inner_r
-    
-    neg_pct = round(neg_pct, 1)
-    pos_pct = round(pos_pct, 1)
-    
     with col3:
         st.markdown(f'''
-        <div style="{card_style}; padding:8px 12px; text-align:center;">
-            <svg width="140" height="140">
-    
-                <!-- Background circles -->
-                <circle cx="70" cy="70" r="{outer_r}" 
+        <div style="{card_style}">
+
+            <svg width="140" height="140" viewBox="0 0 140 140">
+
+                <!-- Background Rings -->
+                <circle cx="70" cy="70" r="50"
                     stroke="#e0e0e0" stroke-width="12" fill="none"/>
-    
-                <circle cx="70" cy="70" r="{inner_r}" 
+
+                <circle cx="70" cy="70" r="40"
                     stroke="#f0f0f0" stroke-width="12" fill="none"/>
-    
-                <!-- Negative Ring (Outer) -->
-                <circle cx="70" cy="70" r="{outer_r}" 
+
+                <!-- Negative Ring -->
+                <circle cx="70" cy="70" r="50"
                     stroke="#FFDB58" stroke-width="12" fill="none"
-                    stroke-dasharray="{outer_circ}" 
-                    stroke-dashoffset="{outer_circ * (1 - neg_pct/100)}"
+                    stroke-dasharray="{2 * 3.1416 * 50}"
+                    stroke-dashoffset="{2 * 3.1416 * 50 * (1 - neg_pct/100)}"
                     stroke-linecap="round"
                     transform="rotate(-90 70 70)">
                     <title>Negative Alerts: {negative} ({neg_pct}%)</title>
                 </circle>
-    
-                <!-- Positive Ring (Inner) -->
-                <circle cx="70" cy="70" r="{inner_r}" 
+
+                <!-- Positive Ring -->
+                <circle cx="70" cy="70" r="40"
                     stroke="#660094" stroke-width="12" fill="none"
-                    stroke-dasharray="{inner_circ}" 
-                    stroke-dashoffset="{inner_circ * (1 - pos_pct/100)}"
+                    stroke-dasharray="{2 * 3.1416 * 40}"
+                    stroke-dashoffset="{2 * 3.1416 * 40 * (1 - pos_pct/100)}"
                     stroke-linecap="round"
                     transform="rotate(-90 70 70)">
                     <title>Positive Alerts: {positive} ({pos_pct}%)</title>
                 </circle>
-    
+
                 <!-- Center Total -->
                 <text x="70" y="75" text-anchor="middle"
-                    font-size="20" font-weight="700" fill="#333">
+                    font-size="22" font-weight="700" fill="#333">
                     {total_alerts}
                 </text>
-    
+
                 <!-- Percent Labels -->
                 <text x="70" y="30" text-anchor="middle"
                     font-size="12" font-weight="600" fill="#660094">
                     +{pos_pct}%
                 </text>
-    
-                <text x="70" y="120" text-anchor="middle"
+
+                <text x="70" y="125" text-anchor="middle"
                     font-size="12" font-weight="600" fill="#FFDB58">
                     -{neg_pct}%
                 </text>
-    
+
             </svg>
-    
-            <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
+
+            <div style="
+                margin-top:10px;
+                font-size:16px;
+                font-weight:600;
+                color:#555;">
                 Alerts Breakdown
             </div>
-    
+
+            <!-- Bottom Summary -->
             <div style="
-                display:flex; 
-                justify-content:space-between; 
-                width:100%; 
-                margin-top:8px; 
-                font-size:16px; 
-                font-weight:800;">
-                <span style="color:#FFDB58;">Negative: {negative}</span>
-                <span style="color:#660094;">Positive: {positive}</span>
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-top:12px;
+                padding:6px 4px;
+                font-size:15px;
+                font-weight:700;
+            ">
+
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="
+                        width:10px;
+                        height:10px;
+                        background:#FFDB58;
+                        border-radius:50%;
+                        display:inline-block;">
+                    </span>
+                    <span style="color:#555;">Negative:</span>
+                    <span style="color:#FFDB58;">{negative}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="
+                        width:10px;
+                        height:10px;
+                        background:#660094;
+                        border-radius:50%;
+                        display:inline-block;">
+                    </span>
+                    <span style="color:#555;">Positive:</span>
+                    <span style="color:#660094;">{positive}</span>
+                </div>
+
             </div>
+
         </div>
         ''', unsafe_allow_html=True)
     
