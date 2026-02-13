@@ -514,7 +514,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 <span style="color:#555;">Negative:</span>
                 <span style="color:#FFDB58;">{negative}</span>
             </div>
-            <div style="display:flex; align-items:center; gap:6px;">
+            <div style="display:flex; align-items:center; gap:10px;">
                 <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
                 <span style="color:#555;">Positive:</span>
                 <span style="color:#660094;">{positive}</span>
