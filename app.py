@@ -481,41 +481,41 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     with col3:
          st.markdown(f"""<div style="{card_style}">
 
-<svg width="140" height="140" viewBox="0 0 140 140">
-    <!-- Background Rings -->
-    <circle cx="70" cy="70" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-    <circle cx="70" cy="70" r="40" stroke="#f0f0f0" stroke-width="12" fill="none"/>
+    <svg width="140" height="140" viewBox="0 0 140 140">
+        <!-- Background Rings -->
+        <circle cx="70" cy="70" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
+        <circle cx="70" cy="70" r="40" stroke="#f0f0f0" stroke-width="12" fill="none"/>
 
-    <!-- Negative Ring -->
-    <circle cx="70" cy="70" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
-        stroke-dasharray="{2 * 3.1416 * 50}"
-        stroke-dashoffset="{2 * 3.1416 * 50 * (1 - neg_pct/100)}"
-        stroke-linecap="round"
-        transform="rotate(-90 70 70)">
-        <title>Negative Alerts: {negative} ({neg_pct}%)</title>
-    </circle>
+        <!-- Negative Ring -->
+        <circle cx="70" cy="70" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
+            stroke-dasharray="{2 * 3.1416 * 50}"
+            stroke-dashoffset="{2 * 3.1416 * 50 * (1 - neg_pct/100)}"
+            stroke-linecap="round"
+            transform="rotate(-90 70 70)">
+            <title>Negative Alerts: {negative} ({neg_pct}%)</title>
+        </circle>
 
-    <!-- Positive Ring -->
-    <circle cx="70" cy="70" r="40" stroke="#660094" stroke-width="12" fill="none"
-        stroke-dasharray="{2 * 3.1416 * 40}"
-        stroke-dashoffset="{2 * 3.1416 * 40 * (1 - pos_pct/100)}"
-        stroke-linecap="round"
-        transform="rotate(-90 70 70)">
-        <title>Positive Alerts: {positive} ({pos_pct}%)</title>
-    </circle>
+        <!-- Positive Ring -->
+        <circle cx="70" cy="70" r="40" stroke="#660094" stroke-width="12" fill="none"
+            stroke-dasharray="{2 * 3.1416 * 40}"
+            stroke-dashoffset="{2 * 3.1416 * 40 * (1 - pos_pct/100)}"
+            stroke-linecap="round"
+            transform="rotate(-90 70 70)">
+            <title>Positive Alerts: {positive} ({pos_pct}%)</title>
+        </circle>
 
-    <!-- Center Total -->
-    <text x="70" y="75" text-anchor="middle" font-size="22" font-weight="700" fill="#333">
-        {total_alerts}
-    </text>
+        <!-- Center Total -->
+        <text x="70" y="75" text-anchor="middle" font-size="22" font-weight="700" fill="#333">
+            {total_alerts}
+        </text>
 
-    <!-- Percent Labels -->
-    <text x="70" y="30" text-anchor="middle" font-size="12" font-weight="600" fill="#660094">
-        +{pos_pct}%
-    </text>
-    <text x="70" y="125" text-anchor="middle" font-size="12" font-weight="600" fill="#FFDB58">
-        -{neg_pct}%
-    </text>
+        <!-- Percent Labels -->
+        <text x="70" y="30" text-anchor="middle" font-size="12" font-weight="600" fill="#660094">
+            +{pos_pct}%
+        </text>
+        <text x="70" y="125" text-anchor="middle" font-size="12" font-weight="600" fill="#FFDB58">
+            -{neg_pct}%
+        </text>
 
 </svg>
 
