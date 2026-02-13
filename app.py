@@ -1213,7 +1213,7 @@ with tab_overview:
         bordercolor="black",
         borderwidth=0.8,
         borderpad=3,
-        bgcolor="blue",
+        bgcolor="purple",
         opacity=0.9,
         hovertext=(
             "Alerts may be classified under more than one enabling principle "
@@ -1254,7 +1254,7 @@ with tab_overview:
         with st.expander("Summary Data preview"):
             st.write(filtered_global_prev)  
     else:
-        st.info("Sign in with a privileged account to view Summary data.")   
+        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
      
     
 # ---------------- Negative Events ----------------
@@ -1378,7 +1378,7 @@ with tab_negative:
             showarrow=False,
             font=dict(color="black", size=10, family="Arial black", weight="bold"),
             align="center",
-            bordercolor="black",
+            bordercolor="purple",
             borderwidth=1.3,
             borderpad=3,
             bgcolor="white",
@@ -1474,7 +1474,7 @@ with tab_negative:
             with st.expander("Summary Data preview"):
                 st.write(reactive_df_updated_prev)
         else:
-            st.info("Sign in with a privileged account to view Summary data.")      
+            st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
         
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
