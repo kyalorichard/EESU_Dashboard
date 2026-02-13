@@ -1,4 +1,5 @@
-# auth.py
+# auth.py (refactored with persistent login)
+
 import streamlit as st
 import pyrebase
 import firebase_admin
@@ -21,13 +22,12 @@ except Exception as e:
 # -------------------------------------------------
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 firebase_auth = None
-
 if firebase_cfg:
     try:
         firebase = pyrebase.initialize_app(firebase_cfg)
         firebase_auth = firebase.auth()
     except Exception as e:
-        st.warning(f"⚠️ Firebase authentication service unavailable: {repr(e)}")
+        st.warning(f"⚠️ Firebase authentication unavailable: {repr(e)}")
 
 # -------------------------------------------------
 # Configuration
@@ -64,7 +64,6 @@ def parse_firebase_error(e):
 
 def init_state():
     defaults = {
-        "user": None,
         "email": "",
         "name": "",
         "user_role": None,
@@ -77,15 +76,16 @@ def init_state():
         st.session_state.setdefault(k, v)
 
 def logout_user():
-    for key in ["user", "email", "name", "user_role", "email_verified", "idToken"]:
+    for key in ["email", "name", "user_role", "email_verified", "idToken"]:
         st.session_state.pop(key, None)
     st.rerun()
 
 def is_privileged() -> bool:
-    return (
-        st.session_state.get("user_role") == "privileged"
-        and st.session_state.get("email_verified") is True
-    )
+    return st.session_state.get("user_role") == "privileged" and st.session_state.get("email_verified")
+
+def format_name(email: str) -> str:
+    local_part = email.split("@")[0]
+    return local_part.replace(".", " ").title()
 
 def refresh_id_token():
     """Refresh Firebase ID token if expired"""
@@ -93,40 +93,41 @@ def refresh_id_token():
         if st.session_state.get("idToken"):
             refreshed = firebase_auth.refresh(st.session_state.idToken)
             st.session_state.idToken = refreshed["idToken"]
-    except Exception as e:
-        st.warning(f"Token refresh failed: {parse_firebase_error(e)}")
+    except Exception:
+        logout_user()
 
-def format_name(email: str) -> str:
-    local_part = email.split("@")[0]
-    return local_part.replace(".", " ").title()
+def restore_session():
+    """Restore user session on page reload"""
+    if st.session_state.get("idToken") and firebase_auth:
+        try:
+            refreshed = firebase_auth.refresh(st.session_state.idToken)
+            st.session_state.idToken = refreshed["idToken"]
+        except Exception:
+            logout_user()
 
 # -------------------------------------------------
 # Authentication UI
 # -------------------------------------------------
 def auth_ui():
     init_state()
+    restore_session()
+    refresh_id_token()
     sidebar = st.sidebar
-    refresh_id_token()  # Refresh token on each UI load
 
     # -----------------------------
     # Logged-in View
     # -----------------------------
-    if st.session_state.user:
-        if st.session_state.email_verified:
-            sidebar.success(f"👋 {st.session_state.name} ✅ Verified")
-        else:
-            sidebar.warning(f"👋 {st.session_state.name} ⚠️ Email not verified")
-            sidebar.markdown("Please verify your email to access the dashboard.")
+    if st.session_state.get("idToken"):
+        sidebar.success(f"👋 {st.session_state.name} {'✅' if st.session_state.email_verified else '⚠️ Not verified'}")
 
+        if not st.session_state.email_verified:
+            sidebar.markdown("Please verify your email to access the dashboard.")
             if sidebar.button("Resend Verification Email"):
                 try:
-                    refreshed = firebase_auth.refresh(st.session_state.idToken)
-                    st.session_state.idToken = refreshed["idToken"]
                     firebase_auth.send_email_verification(st.session_state.idToken)
                     sidebar.success("Verification email resent successfully.")
                 except Exception:
-                    sidebar.error("Unable to resend verification email. Try again later.")
-
+                    sidebar.error("Unable to resend verification email.")
             if sidebar.button("Forgot Password"):
                 try:
                     firebase_auth.send_password_reset_email(st.session_state.email)
@@ -163,36 +164,30 @@ def auth_ui():
             if submitted:
                 if not firebase_auth:
                     st.error("Authentication service unavailable.")
+                elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Access restricted to privileged domains.")
                 else:
-                    domain = get_email_domain(email)
-                    if domain not in PRIVILEGED_DOMAINS:
-                        st.error(f"Access restricted: {domain} is not an authorized domain.")
-                    else:
-                        try:
-                            user = firebase_auth.sign_in_with_email_and_password(email, password)
-                            id_token = user["idToken"]
-                            user_info = firebase_auth.get_account_info(id_token)
-                            email_verified = user_info["users"][0].get("emailVerified", False)
+                    try:
+                        user = firebase_auth.sign_in_with_email_and_password(email, password)
+                        id_token = user["idToken"]
+                        info = firebase_auth.get_account_info(id_token)
+                        verified = info["users"][0].get("emailVerified", False)
 
-                            st.session_state.user = user
-                            st.session_state.email = email
-                            st.session_state.name = format_name(email)
-                            st.session_state.email_verified = email_verified
-                            st.session_state.idToken = id_token
-                            st.session_state.user_role = "privileged" if email_verified else "unverified"
+                        st.session_state.idToken = id_token
+                        st.session_state.email = email
+                        st.session_state.name = format_name(email)
+                        st.session_state.email_verified = verified
+                        st.session_state.user_role = "privileged" if verified else "unverified"
 
-                            if not email_verified:
-                                st.warning("Please verify your email before accessing the dashboard.")
-                                return
-
-                            st.rerun()
-                        except Exception as e:
-                            error_code = parse_firebase_error(e)
-                            st.error(ERROR_MAP.get(error_code, f"Login failed: {error_code}"))
+                        if not verified:
+                            st.warning("Please verify your email before accessing the dashboard.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(ERROR_MAP.get(parse_firebase_error(e), f"Login failed: {parse_firebase_error(e)}"))
 
             if forgot_pass:
                 if not email:
-                    st.warning("Please enter your email above to reset your password.")
+                    st.warning("Enter your email to reset your password.")
                 else:
                     try:
                         firebase_auth.send_password_reset_email(email)
@@ -204,7 +199,6 @@ def auth_ui():
         if st.session_state.forgot_email_sent:
             if st.button("Back to Login"):
                 st.session_state.forgot_email_sent = False
-                st.session_state.auth_tab = "Login"
                 st.session_state.login_email = ""
                 st.session_state.login_pass = ""
                 st.rerun()
@@ -221,25 +215,18 @@ def auth_ui():
             if submitted:
                 if not firebase_auth:
                     st.error("Authentication service unavailable.")
+                elif get_email_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Registration restricted to privileged domains.")
                 else:
-                    domain = get_email_domain(email)
-                    if domain not in PRIVILEGED_DOMAINS:
-                        st.error(f"Registration restricted: {domain} is not an approved domain.")
-                    else:
-                        try:
-                            user = firebase_auth.create_user_with_email_and_password(email, password)
-                            firebase_auth.send_email_verification(user["idToken"])
+                    try:
+                        user = firebase_auth.create_user_with_email_and_password(email, password)
+                        firebase_auth.send_email_verification(user["idToken"])
 
-                            st.success("Registration successful. Check your email to verify your account.")
-
-                            # Auto-login (unverified)
-                            st.session_state.user = user
-                            st.session_state.email = email
-                            st.session_state.name = format_name(email)
-                            st.session_state.email_verified = False
-                            st.session_state.idToken = user["idToken"]
-                            st.session_state.user_role = "unverified"
-
-                        except Exception as e:
-                            error_code = parse_firebase_error(e)
-                            st.error(ERROR_MAP.get(error_code, f"Registration failed: {error_code}"))
+                        st.success("Registration successful. Verify your email to login.")
+                        st.session_state.idToken = user["idToken"]
+                        st.session_state.email = email
+                        st.session_state.name = format_name(email)
+                        st.session_state.email_verified = False
+                        st.session_state.user_role = "unverified"
+                    except Exception as e:
+                        st.error(ERROR_MAP.get(parse_firebase_error(e), f"Registration failed: {parse_firebase_error(e)}"))
