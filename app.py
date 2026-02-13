@@ -1279,7 +1279,7 @@ with tab_overview:
         .rename(columns=cols_rename_map)
     )
     
-    # ---------------- Tab two data preview ----------------
+    # ---------------- Tab two data preview ------------------
     if access_level == "full":
         with st.expander("Summary Data preview"):
             st.write(filtered_global_prev)  
