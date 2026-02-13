@@ -508,7 +508,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:4px 4px; font-size:15px; font-weight:700; width:100%; gap:40px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding:6px 4px; font-size:15px; font-weight:700; width:100%; gap:40px;">
             <div style="display:flex; align-items:center; gap:6px;">
                 <span style="width:10px; height:10px; background:#FFDB58; border-radius:50%; display:inline-block;"></span>
                 <span style="color:#555;">Negative:</span>
