@@ -1182,7 +1182,7 @@ with tab_overview:
     df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
     a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count')
+    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)  # descending order
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     
@@ -1374,12 +1374,12 @@ with tab_negative:
             y=1.05,         # same vertical alignment as title
             text="❔",       # Unicode circle with question mark
             showarrow=False,
-            font=dict(color="black", size=10, family="Arial black", weight="bold"),
+            font=dict(color="white", size=10, family="Arial black", weight="bold"),
             align="center",
-            bordercolor="#660094",
+            bordercolor="black",
             borderwidth=1.3,
             borderpad=3,
-            bgcolor="white",
+            bgcolor="#660094",
             opacity=1.0,
             hovertext=(
                 "Alerts may be classified under more than one enabling principle "
