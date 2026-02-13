@@ -9,10 +9,6 @@ import streamlit.components.v1 as components
 import base64
 from auth import auth_ui
 
-
-
-
-
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
 user = st.session_state.get("user")
@@ -481,43 +477,84 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
     # ---------------- Alerts Breakdown ----------------
     # ---------------- Alerts Breakdown ----------------
+   # --- Geometry ---
+    outer_r = 50
+    inner_r = 40
+    
+    outer_circ = 2 * math.pi * outer_r
+    inner_circ = 2 * math.pi * inner_r
+    
+    neg_pct = round(neg_pct, 1)
+    pos_pct = round(pos_pct, 1)
+    
     with col3:
         st.markdown(f'''
-    <div style="{card_style} ; padding:2px 10px;">
-        <svg width="120" height="120">
-            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*50}" 
-                stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Negative Alerts: {negative} ({neg_pct}%)</title>
-            </circle>
-            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*40}" 
-                stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Positive Alerts: {positive} ({pos_pct}%)</title>
-            </circle>
-            <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
-                {pos_pct}%
-            </text>
-            <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
-                {neg_pct}%
-            </text>
-            <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
-                {total_alerts}
-            </text>
-        </svg>
-        <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
-            Alerts Breakdown
+        <div style="{card_style}; padding:8px 12px; text-align:center;">
+            <svg width="140" height="140">
+    
+                <!-- Background circles -->
+                <circle cx="70" cy="70" r="{outer_r}" 
+                    stroke="#e0e0e0" stroke-width="12" fill="none"/>
+    
+                <circle cx="70" cy="70" r="{inner_r}" 
+                    stroke="#f0f0f0" stroke-width="12" fill="none"/>
+    
+                <!-- Negative Ring (Outer) -->
+                <circle cx="70" cy="70" r="{outer_r}" 
+                    stroke="#FFDB58" stroke-width="12" fill="none"
+                    stroke-dasharray="{outer_circ}" 
+                    stroke-dashoffset="{outer_circ * (1 - neg_pct/100)}"
+                    stroke-linecap="round"
+                    transform="rotate(-90 70 70)">
+                    <title>Negative Alerts: {negative} ({neg_pct}%)</title>
+                </circle>
+    
+                <!-- Positive Ring (Inner) -->
+                <circle cx="70" cy="70" r="{inner_r}" 
+                    stroke="#660094" stroke-width="12" fill="none"
+                    stroke-dasharray="{inner_circ}" 
+                    stroke-dashoffset="{inner_circ * (1 - pos_pct/100)}"
+                    stroke-linecap="round"
+                    transform="rotate(-90 70 70)">
+                    <title>Positive Alerts: {positive} ({pos_pct}%)</title>
+                </circle>
+    
+                <!-- Center Total -->
+                <text x="70" y="75" text-anchor="middle"
+                    font-size="20" font-weight="700" fill="#333">
+                    {total_alerts}
+                </text>
+    
+                <!-- Percent Labels -->
+                <text x="70" y="30" text-anchor="middle"
+                    font-size="12" font-weight="600" fill="#660094">
+                    +{pos_pct}%
+                </text>
+    
+                <text x="70" y="120" text-anchor="middle"
+                    font-size="12" font-weight="600" fill="#FFDB58">
+                    -{neg_pct}%
+                </text>
+    
+            </svg>
+    
+            <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
+                Alerts Breakdown
+            </div>
+    
+            <div style="
+                display:flex; 
+                justify-content:space-between; 
+                width:100%; 
+                margin-top:8px; 
+                font-size:16px; 
+                font-weight:800;">
+                <span style="color:#FFDB58;">Negative: {negative}</span>
+                <span style="color:#660094;">Positive: {positive}</span>
+            </div>
         </div>
-        <div style="display:flex; justify-content:space-between; width:100%; margin-top:8px; font-size:18px; font-weight800;">
-            <span style="color:#FFDB58;">Negative: {negative}</span>
-            <span style="color:#660094;">Positive: {positive}</span>
-        </div>
-    </div>
-    ''', unsafe_allow_html=True)
-
+        ''', unsafe_allow_html=True)
+    
 
 
 def normalize_label(label: str) -> str:
