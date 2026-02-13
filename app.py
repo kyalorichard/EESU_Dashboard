@@ -1379,10 +1379,10 @@ with tab_negative:
             font=dict(color="black", size=10, family="Arial black", weight="bold"),
             align="center",
             bordercolor="black",
-            borderwidth=1,
+            borderwidth=2,
             borderpad=3,
             bgcolor="white",
-            opacity=1.5,
+            opacity=1.0,
             hovertext=(
                 "Alerts may be classified under more than one enabling principle "
                 "<br>and can therefore be counted in multiple principles."
