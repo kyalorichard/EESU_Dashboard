@@ -1227,25 +1227,30 @@ with tab_overview:
     r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
-
     
-    cols_rename_map  = {
-        "post_title": "Title of post",
-        "summary": "Event summary",
-        "creation_date": "Date of submission",
-        "alert-country": "Country",
-        "enabling-principle": "Enabling principles",
-        "alert-impact": "Impact of alert",
-        "alert-type": "Type of alert"
-    }
-    # keep only existing columns, then rename
-    filtered_global_prev = (
-        filtered_global
-        .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
-        .rename(columns=cols_rename_map)
-    )
+    if access_level=="full"
+        r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
+        r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
+
+        
+        cols_rename_map  = {
+            "post_title": "Title of post",
+            "summary": "Event summary",
+            "creation_date": "Date of submission",
+            "alert-country": "Country",
+            "enabling-principle": "Enabling principles",
+            "alert-impact": "Impact of alert",
+            "alert-type": "Type of alert"
+        }
+        # keep only existing columns, then rename
+        filtered_global_prev = (
+            filtered_global
+            .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+            .rename(columns=cols_rename_map)
+        )
+    
+    else:
+        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
     
     # ---------------- Tab two data preview ------------------
     if access_level == "full":
@@ -1358,7 +1363,7 @@ with tab_negative:
         r2c1, r2c2, r2c3 = st.columns(3)
 
         
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors,", normalize_labels=True), use_container_width=True, key="tab2_chart1")
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
         r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
         r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
         r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
