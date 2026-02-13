@@ -7,10 +7,8 @@ import json
 from pathlib import Path
 import streamlit.components.v1 as components
 import base64
-import plotly.graph_objects as go
-import math
 from auth import auth_ui
-
+import math
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
@@ -633,16 +631,25 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
         title=dict(text=title, x=0.5, xanchor='center',font=dict(color="#660094",family="Arial black", size=12))
     )
-    # ---------------- Download-only source ----------------
+
+    # ---------------- Dynamic download-only source ----------------
+    if horizontal:
+        # For horizontal bars, find max x for positioning
+        max_val = df[x].sum()
+    else:
+        # For vertical bars, find max y for positioning
+        max_val = df[x].sum()
+        
+    # Add hidden annotation just below plot
     fig.add_annotation(
         text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
         xref="paper", yref="paper",
-        x=0, y=-0.15,  # slightly below the plot area
+        x=0, y=-0.12,  # fixed slightly below chart for all cases
         showarrow=False,
         font=dict(size=10, color="gray"),
-        opacity=0  # invisible on-screen, visible in PNG download
+        opacity=0  # invisible on-screen
     )
-   
+  
     return fig
 
 
@@ -707,15 +714,24 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         )
     )
 
-    # ---------------- Download-only source ----------------
+    # ---------------- Dynamic download-only source ----------------
+    if horizontal:
+        # For horizontal bars, find max x for positioning
+        max_val = df[x].sum()
+    else:
+        # For vertical bars, find max y for positioning
+        max_val = df[x].sum()
+        
+    # Add hidden annotation just below plot
     fig.add_annotation(
         text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
         xref="paper", yref="paper",
-        x=0, y=-0.15,  # slightly below the plot area
+        x=0, y=-0.12,  # fixed slightly below chart for all cases
         showarrow=False,
         font=dict(size=10, color="gray"),
-        opacity=0  # invisible on-screen, visible in PNG download
+        opacity=0  # invisible on-screen
     )
+
     return fig
 
 
