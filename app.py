@@ -517,7 +517,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             -{neg_pct}%
         </text>
 
-</svg>
+    </svg>
 
 <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
     Alerts Breakdown
