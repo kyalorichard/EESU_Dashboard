@@ -118,13 +118,14 @@ def auth_ui():
     refresh_id_token()
 
     # Restore session from cookies if ready
-    if cookies and cookies.ready() and "email" in cookies:
+    if cookies and cookies.ready() and "email" in cookies and not st.session_state.get("user_restored"):
         st.session_state.email = cookies.get("email")
         st.session_state.name = cookies.get("name")
         st.session_state.user_role = cookies.get("user_role")
         st.session_state.email_verified = cookies.get("email_verified", False)
         st.session_state.idToken = cookies.get("idToken")
         st.session_state.user = True
+        st.session_state.user_restored = True  # avoid restoring multiple times
 
     sidebar = st.sidebar
 
@@ -193,11 +194,8 @@ def auth_ui():
                                 cookies["idToken"] = id_token
                                 cookies.save()
 
-                            if not email_verified:
-                                st.warning("Please verify your email before accessing the dashboard.")
-                                return
-
-                            st.experimental_rerun()
+                            # Set flag to refresh UI automatically
+                            st.session_state.user_restored = True
                         except Exception as e:
                             code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(code, f"Login failed: {code}"))
@@ -241,7 +239,6 @@ def auth_ui():
                             st.session_state.idToken = user["idToken"]
                             st.session_state.user_role = "unverified"
 
-                            # Save to cookies only if manager is ready
                             if cookies and cookies.ready():
                                 cookies["email"] = email
                                 cookies["name"] = st.session_state.name
@@ -249,6 +246,9 @@ def auth_ui():
                                 cookies["email_verified"] = False
                                 cookies["idToken"] = user["idToken"]
                                 cookies.save()
+
+                            # Set flag to refresh UI automatically
+                            st.session_state.user_restored = True
                         except Exception as e:
                             code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(code, f"Registration failed: {code}"))
