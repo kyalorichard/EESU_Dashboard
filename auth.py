@@ -1,4 +1,4 @@
-# auth_full.py
+# auth_full_safe.py
 import streamlit as st
 import pyrebase
 import firebase_admin
@@ -8,16 +8,27 @@ import json
 from datetime import datetime, timedelta
 from streamlit_cookies_manager import EncryptedCookieManager
 
-# ---------------- Firebase Admin ----------------
-try:
-    if "firebase_admin" in st.secrets and not firebase_admin._apps:
-        cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
-        firebase_admin.initialize_app(cred)
-except Exception as e:
-    st.error(f"Firebase Admin initialization failed: {e}")
-    st.stop()
+# ---------------- Firebase Admin Initialization ----------------
+def init_firebase_admin():
+    if not firebase_admin._apps:
+        try:
+            cred_dict = st.secrets.get("firebase_admin")
+            if not cred_dict:
+                st.error("Firebase Admin credentials missing in secrets.toml")
+                st.stop()
+            cred = credentials.Certificate(dict(cred_dict))
+            firebase_admin.initialize_app(cred)
+            st.success("✅ Firebase Admin initialized")
+        except Exception as e:
+            st.error(f"❌ Firebase Admin initialization failed: {e}")
+            st.stop()
 
-db = firestore.client()
+# Lazy Firestore client to ensure Admin is initialized
+def get_firestore_client():
+    init_firebase_admin()
+    return firestore.client()
+
+db = get_firestore_client()
 
 # ---------------- Pyrebase ----------------
 firebase_cfg = dict(st.secrets.get("firebase", {}))
@@ -186,7 +197,7 @@ ERROR_MAP = {
 def auth_ui():
     init_state()
 
-    # Clean expired sessions on app start
+    # Clean expired sessions
     cleanup_expired_sessions()
 
     # Restore existing session
