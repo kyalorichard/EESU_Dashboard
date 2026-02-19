@@ -11,7 +11,6 @@ try:
     if "firebase_admin" in st.secrets and not firebase_admin._apps:
         cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
         firebase_admin.initialize_app(cred)
-        st.success("Firebase Admin initialized ✅")
 except Exception as e:
     st.error(f"⚠️ Firebase Admin initialization failed: {e}")
     st.stop()
@@ -19,23 +18,19 @@ except Exception as e:
 # ---------------- Pyrebase ----------------
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
-
-if not firebase_cfg:
-    st.error("❌ Firebase config missing in secrets.toml")
-else:
+if firebase_cfg:
     try:
         firebase = pyrebase.initialize_app(firebase_cfg)
         firebase_auth = firebase.auth()
-        st.success("Firebase Auth initialized successfully ✅")
     except Exception as e:
-        st.error(f"❌ Firebase auth initialization failed: {e}")
-        firebase_auth = None
+        st.warning(f"⚠️ Firebase auth service unavailable: {e}")
 
 # ---------------- Privileged Domains ----------------
 PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", []))
 
 # ---------------- Cookie Manager ----------------
 def get_cookies_manager():
+    # Initialize cookies manager once
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
         if not cookie_password:
@@ -45,17 +40,19 @@ def get_cookies_manager():
             prefix="myapp",
             password=cookie_password
         )
+
     cookies = st.session_state["cookies_manager"]
 
-    # Sync cookies if not ready
+    # Sync cookies only if not ready
     if not cookies.ready():
         try:
-            cookies.sync()
+            cookies.sync()  # triggers loading from browser
         except Exception:
             st.info("🔄 Waiting for browser session…")
+        # Instead of rerun, just return None on first run
         return None
-    return cookies
 
+    return cookies
 # ---------------- Helpers ----------------
 def init_state():
     defaults = {
@@ -65,8 +62,7 @@ def init_state():
         "user_role": None,
         "email_verified": False,
         "idToken": None,
-        "auth_tab": "Login",
-        "user_restored": False
+        "auth_tab": "Login"
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -83,11 +79,10 @@ def logout_user():
     cookies = get_cookies_manager()
     for key in ["user", "email", "name", "user_role", "email_verified", "idToken"]:
         st.session_state.pop(key, None)
-        if cookies and key in cookies:
+        if key in cookies:
             del cookies[key]
-    if cookies:
-        cookies.save()
-    st.runtime.legacy_rerun()  # updated for Streamlit ≥1.27
+    cookies.save()
+    st.experimental_rerun()
 
 def is_privileged():
     return st.session_state.get("user_role") == "privileged" and st.session_state.get("email_verified")
@@ -116,25 +111,22 @@ def auth_ui():
     init_state()
     cookies = get_cookies_manager()
 
-    # Wait for cookies if not ready
+    # If cookies manager isn't ready yet, show waiting message and stop
     if cookies is None or not cookies.ready():
         st.info("🔄 Waiting for browser session…")
-        return
+        return  # exit early until cookies are synced
 
-    # Refresh token if available
+    # Refresh Firebase token if already logged in
     refresh_id_token()
 
-    # Restore session from cookies (only once)
-    if not st.session_state.user_restored:
-        if cookies and "email" in cookies:
-            st.session_state.email = cookies.get("email")
-            st.session_state.name = cookies.get("name")
-            st.session_state.user_role = cookies.get("user_role")
-            st.session_state.email_verified = cookies.get("email_verified", False)
-            st.session_state.idToken = cookies.get("idToken")
-            st.session_state.user = True
-        st.session_state.user_restored = True
-        st.runtime.legacy_rerun()  # updated rerun
+    # Restore session from cookies if available
+    if "email" in cookies:
+        st.session_state.email = cookies.get("email")
+        st.session_state.name = cookies.get("name")
+        st.session_state.user_role = cookies.get("user_role")
+        st.session_state.email_verified = cookies.get("email_verified", False)
+        st.session_state.idToken = cookies.get("idToken")
+        st.session_state.user = True
 
     sidebar = st.sidebar
 
@@ -144,7 +136,7 @@ def auth_ui():
             sidebar.success(f"👋 {st.session_state.name} ✅ Verified")
         else:
             sidebar.warning(f"👋 {st.session_state.name} ⚠️ Email not verified")
-            if sidebar.button("Resend verification email") and firebase_auth:
+            if sidebar.button("Resend verification email"):
                 try:
                     firebase_auth.send_email_verification(st.session_state.idToken)
                     st.success("Verification email resent.")
@@ -175,7 +167,7 @@ def auth_ui():
 
             if submitted:
                 if not firebase_auth:
-                    st.error("Authentication service unavailable. Check Firebase config.")
+                    st.error("Authentication service unavailable.")
                 else:
                     domain = get_email_domain(email)
                     if domain not in PRIVILEGED_DOMAINS:
@@ -194,7 +186,8 @@ def auth_ui():
                             st.session_state.idToken = id_token
                             st.session_state.user_role = "privileged" if email_verified else "unverified"
 
-                            if cookies and cookies.ready():
+                            # Save to cookies only if manager is ready
+                            if cookies.ready():
                                 cookies["email"] = email
                                 cookies["name"] = st.session_state.name
                                 cookies["user_role"] = st.session_state.user_role
@@ -202,12 +195,16 @@ def auth_ui():
                                 cookies["idToken"] = id_token
                                 cookies.save()
 
-                            st.session_state.user_restored = True
+                            if not email_verified:
+                                st.warning("Please verify your email before accessing the dashboard.")
+                                return
+
+                            st.experimental_rerun()
                         except Exception as e:
                             code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(code, f"Login failed: {code}"))
 
-            if forgot_pass and firebase_auth:
+            if forgot_pass:
                 if not email:
                     st.warning("Enter your email above to reset password.")
                 else:
@@ -226,7 +223,7 @@ def auth_ui():
 
             if submitted:
                 if not firebase_auth:
-                    st.error("Authentication service unavailable. Check Firebase config.")
+                    st.error("Authentication service unavailable.")
                 else:
                     domain = get_email_domain(email)
                     if domain not in PRIVILEGED_DOMAINS:
@@ -238,6 +235,7 @@ def auth_ui():
 
                             st.success("Registration successful. Check your email to verify account.")
 
+                            # Auto-login unverified
                             st.session_state.user = True
                             st.session_state.email = email
                             st.session_state.name = email.split("@")[0].title()
@@ -245,15 +243,14 @@ def auth_ui():
                             st.session_state.idToken = user["idToken"]
                             st.session_state.user_role = "unverified"
 
-                            if cookies and cookies.ready():
+                            # Save to cookies only if manager is ready
+                            if cookies.ready():
                                 cookies["email"] = email
                                 cookies["name"] = st.session_state.name
                                 cookies["user_role"] = "unverified"
                                 cookies["email_verified"] = False
                                 cookies["idToken"] = user["idToken"]
                                 cookies.save()
-
-                            st.session_state.user_restored = True
                         except Exception as e:
                             code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(code, f"Registration failed: {code}"))
