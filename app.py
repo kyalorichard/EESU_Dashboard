@@ -700,7 +700,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=10, family="Arial black"),
+            textfont=dict(color='black' if category_colors.get(cat)=="#FFDB58" else 'white', size=10, family="Arial black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     num_bars = df.shape[0]
