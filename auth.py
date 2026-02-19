@@ -4,7 +4,6 @@ import pyrebase
 import firebase_admin
 from firebase_admin import credentials
 import json
-from streamlit_cookies_manager import EncryptedCookieManager
 
 # -------------------------------------------------
 # Firebase Admin Initialization
@@ -31,7 +30,7 @@ if firebase_cfg:
         st.warning(f"⚠️ Firebase authentication service unavailable.\n{str(e)}")
 
 # -------------------------------------------------
-# Configuration
+# Privileged domains & error mapping
 # -------------------------------------------------
 PRIVILEGED_DOMAINS = set(
     d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", [])
@@ -48,11 +47,29 @@ ERROR_MAP = {
 }
 
 # -------------------------------------------------
-# Cookie Manager for persistent sessions
+# Lazy cookie manager
 # -------------------------------------------------
-cookies = EncryptedCookieManager(prefix="myapp")
-if not cookies.ready():
-    st.stop()
+cookies = None
+cookies_available = False
+
+def get_cookies():
+    global cookies, cookies_available
+    if cookies is None:
+        try:
+            from streamlit_cookies_manager import EncryptedCookieManager
+            cookies = EncryptedCookieManager(prefix="myapp")
+            cookies_available = True
+        except ImportError:
+            cookies = None
+            cookies_available = False
+    return cookies, cookies_available
+
+def save_session():
+    cookies, cookies_available = get_cookies()
+    if cookies_available and cookies.ready():
+        for k in ["user", "email", "name", "user_role", "email_verified", "idToken"]:
+            cookies[k] = st.session_state.get(k)
+        cookies.save()
 
 # -------------------------------------------------
 # Helpers
@@ -81,11 +98,21 @@ def init_state():
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
 
+    # Restore session from cookies if available
+    cookies, cookies_available = get_cookies()
+    if cookies_available and cookies.ready():
+        for k in defaults.keys():
+            if cookies.get(k):
+                st.session_state[k] = cookies.get(k)
+
 def logout_user():
+    cookies, cookies_available = get_cookies()
     for key in ["user", "email", "name", "user_role", "email_verified", "idToken"]:
         st.session_state.pop(key, None)
-    cookies["idToken"] = ""
-    cookies.save()
+        if cookies_available and cookies.ready():
+            cookies[key] = None
+    if cookies_available and cookies.ready():
+        cookies.save()
     st.rerun()
 
 def is_privileged() -> bool:
@@ -100,22 +127,9 @@ def refresh_id_token():
         if st.session_state.get("idToken") and firebase_auth:
             refreshed = firebase_auth.refresh(st.session_state.idToken)
             st.session_state.idToken = refreshed["idToken"]
-            # Update user info
-            user_info = firebase_auth.get_account_info(st.session_state.idToken)
-            st.session_state.email_verified = user_info["users"][0].get("emailVerified", False)
-            st.session_state.user_role = "privileged" if st.session_state.email_verified else "unverified"
-            # Save to cookie
-            cookies["idToken"] = st.session_state.idToken
-            cookies.save()
+            save_session()
     except Exception:
-        logout_user()  # token invalid, force logout
-
-# -------------------------------------------------
-# Restore session from cookie if available
-# -------------------------------------------------
-if "idToken" not in st.session_state and cookies.get("idToken"):
-    st.session_state.idToken = cookies.get("idToken")
-    refresh_id_token()
+        pass
 
 # -------------------------------------------------
 # Authentication UI
@@ -137,6 +151,8 @@ def auth_ui():
 
             if sidebar.button("Resend Verification Email"):
                 try:
+                    refreshed = firebase_auth.refresh(st.session_state.idToken)
+                    st.session_state.idToken = refreshed["idToken"]
                     firebase_auth.send_email_verification(st.session_state.idToken)
                     sidebar.success("Verification email resent successfully.")
                 except Exception:
@@ -197,9 +213,7 @@ def auth_ui():
                             st.session_state.idToken = id_token
                             st.session_state.user_role = "privileged" if email_verified else "unverified"
 
-                            # Save token to cookie
-                            cookies["idToken"] = id_token
-                            cookies.save()
+                            save_session()
 
                             if not email_verified:
                                 st.warning("Please verify your email before accessing the dashboard.")
@@ -221,9 +235,6 @@ def auth_ui():
                     except Exception as e:
                         st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
-    # -----------------------------
-    # Back to Login button
-    # -----------------------------
     if forgot_email_sent:
         if st.button("Back to Login"):
             st.session_state.auth_tab = "Login"
@@ -254,7 +265,6 @@ def auth_ui():
 
                             st.success("Registration successful. Check your email to verify your account.")
 
-                            # Auto-login (unverified)
                             st.session_state.user = user
                             st.session_state.email = email
                             st.session_state.name = email.split("@")[0].title()
@@ -262,10 +272,7 @@ def auth_ui():
                             st.session_state.idToken = user["idToken"]
                             st.session_state.user_role = "unverified"
 
-                            # Save token to cookie
-                            cookies["idToken"] = user["idToken"]
-                            cookies.save()
-
+                            save_session()
                         except Exception as e:
                             error_code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(error_code, f"Registration failed: {error_code}"))
