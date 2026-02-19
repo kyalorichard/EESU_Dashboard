@@ -674,7 +674,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         #textangle=-30,
         opacity=0.05,
         xanchor="center",
-        yanchor="center"
+        yanchor="middle"
     )  
     return fig
 
@@ -771,7 +771,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         #textangle=-30,
         opacity=0.05,
         xanchor="center",
-        yanchor="center"
+        yanchor="middle"
     )
 
     return fig
