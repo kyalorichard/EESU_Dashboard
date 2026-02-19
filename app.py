@@ -14,6 +14,9 @@ import math
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+import streamlit as st
+st.write(st.secrets.get("cookie", {}).get("cookie_password"))
+
 auth_ui()  # handle login/session first
 
 if is_privileged():
@@ -24,7 +27,7 @@ else:
         st.warning("⚠️ Your email is not verified. Please verify your email to access the dashboard.")
     else:
         st.info("Please log in or register using the sidebar to access the dashboard.")
-        
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
