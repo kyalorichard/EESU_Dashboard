@@ -15,7 +15,7 @@ import math
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 
-auth_ui()  # handle login/session first
+
 
 if is_privileged():
     st.title("📊 EESU Dashboard")
