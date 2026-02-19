@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui
+from auth import auth_ui, is_privileged, logout_user
 import math
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
@@ -207,7 +207,6 @@ def load_data():
 
     return df
 
-
 # --- Load data safely ---
 data = load_data()
 
@@ -290,7 +289,6 @@ selected_enabling_principle = safe_multiselect(
     data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
     "selected_enabling_principle"
 )
-
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
 available_months = sorted(
@@ -528,7 +526,6 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         </div>
     </div>
     ''', unsafe_allow_html=True)
-
  
 def normalize_label(label: str) -> str:
     """
@@ -562,8 +559,6 @@ def safe_wrap_label(label, axis="y", words_per_line=4):
     if axis == "x":
         return normalize_label(label)
     return wrap_label_by_words(normalize_label(label), words_per_line)
-
-
 
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,normalize_labels=True):
@@ -661,7 +656,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         xref="paper",
         yref="paper",
         x=0.5,
-        y=0.5,
+        y=0.02,
         showarrow=False,
         font=dict(
             size=20,
@@ -758,7 +753,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         xref="paper",
         yref="paper",
         x=0.5,
-        y=0.5,
+        y=0.02,
         showarrow=False,
         font=dict(
             size=20,
@@ -1154,25 +1149,6 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
     "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
 }
 
-SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
-def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
-    """
-    Adds a source line below the chart.
-    - y_offset: vertical position (negative values go below the plot)
-    """
-    fig.add_annotation(
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=y_offset,
-        showarrow=False,
-        text=SOURCE_TEXT,
-        font=dict(size=font_size, color=font_color),
-        xanchor="center",
-        yanchor="top"
-    )
-    return fig
-
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
@@ -1295,7 +1271,7 @@ with tab_overview:
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     
-    if access_level=="full":
+    if is_privileged()::
         r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
         r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
 
@@ -1537,7 +1513,7 @@ with tab_negative:
         )
             
         # ---------------- Tab two data preview ----------------
-        if access_level == "full":        
+        if is_privileged():        
             with st.expander("Summary Data preview"):
                 st.write(reactive_df_updated_prev)
         else:
@@ -1746,8 +1722,6 @@ with tab_manual:
         )
     else:
         st.warning("User Manual PDF not found.")
-
-
 
 # ---------------- FOOTER ----------------
 # Footer image
