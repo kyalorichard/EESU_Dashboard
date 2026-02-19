@@ -16,16 +16,22 @@ import math
 # ----------------------------
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+# Initialize cookies manager
+# -------------------------------
+cookies = get_cookies_manager()  # returns EncryptedCookieManager
+st.session_state["cookies_manager"] = cookies
+
+# -------------------------------
+# Wait until cookies are ready
+# -------------------------------
+if not cookies.ready():
+    st.info("Loading session...")
+    st.stop()  # stop rendering until cookies are ready
+
 # -------------------------------
 # Initialize Authentication UI
 # -------------------------------
-auth_ui()  # shows login/register sidebar and restores session
-
-# Wait until cookies are ready
-cookies = st.session_state.get("cookies_manager")
-if cookies and not cookies.ready():
-    st.info("Loading session...")
-    st.stop()
+auth_ui()  # handles login/register and restores session
 
 # -------------------------------
 # Access Control
@@ -39,14 +45,15 @@ if not is_privileged():
     st.stop()
 
 # -------------------------------
-# Main Dashboard Content
+# Dashboard Content
 # -------------------------------
 st.title("Welcome to the Dashboard")
 st.write(f"Hello, {st.session_state.get('name')}!")
 
-# Example: logout button
+# Logout button
 if st.button("Logout"):
     logout_user()
+
 
 
 
