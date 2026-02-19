@@ -654,9 +654,25 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         font=dict(size=10, color="gray"),
         opacity=0  # invisible on-screen
     )
-  
-    return fig
 
+    # ---------------- WATERMARK ----------------
+    fig.add_annotation(
+        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.5,
+        showarrow=False,
+        font=dict(
+            size=36,
+            color="black"
+        ),
+        textangle=-30,
+        opacity=0.08,
+        xanchor="center",
+        yanchor="middle"
+    )  
+    return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
@@ -736,11 +752,25 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         font=dict(size=10, color="gray"),
         opacity=0  # invisible on-screen
     )
+    # ---------------- WATERMARK ----------------
+    fig.add_annotation(
+        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.5,
+        showarrow=False,
+        font=dict(
+            size=36,
+            color="black"
+        ),
+        textangle=-30,
+        opacity=0.08,
+        xanchor="center",
+        yanchor="middle"
+    )
 
     return fig
-
-
-
 
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
@@ -932,8 +962,6 @@ def render_heatmaps(df, top_n=5):
         )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
             
-# ---------------- UPDATED SANKEY FUNCTION ----------------
-
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
     """
