@@ -1414,7 +1414,7 @@ with tab_negative:
                 "Subject of repression": reactive_df_updated["Subject of repression"]
                 .str.split(r", (?=[A-Z])")  # split only before capital letter
             })
-            .explode("Actor of repression")
+            .explode("Subject of repression")
         )
            
         tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
