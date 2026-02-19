@@ -17,12 +17,7 @@ import math
 # Initialize UI & Auth
 # ----------------------------
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
-# Only show the dashboard if privileged
-if is_privileged():
-    st.title("Welcome to EESU Dashboard")
-    # Your charts / content here
-else:
-    st.warning("You must be logged in with a verified email to access this dashboard.")
+
 
 # -----------------------------
 if not st.session_state.get("user"):
