@@ -4,7 +4,6 @@ import pyrebase
 import firebase_admin
 from firebase_admin import credentials
 import json
-from datetime import datetime, timedelta
 from streamlit_cookies_manager import EncryptedCookieManager
 
 # ---------------- Firebase Admin Initialization ----------------
@@ -43,7 +42,7 @@ ERROR_MAP = {
 }
 
 # ---------------- Cookie Manager ----------------
-COOKIE_EXPIRY_HOURS = 1  # cookie expiration time
+COOKIE_EXPIRY_HOURS = 1  # cookies expire after 1 hour
 
 def get_cookies_manager():
     cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
@@ -59,9 +58,11 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
+    # Load cookies if not ready
     if not cookies.ready():
+        cookies.load()
         with st.spinner("🔄 Loading session…"):
-            cookies.load()
+            st.stop()  # wait until cookies finish loading
 
     return cookies
 
@@ -148,7 +149,7 @@ def auth_ui():
         if sidebar.button("Logout"):
             logout_user()
             return
-        return
+        return  # skip login form if already logged in
 
     # ---------------- Tabs: Login / Register ----------------
     tab_choice = sidebar.radio(
