@@ -422,7 +422,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """
 
     # --- Monitored Countries ---
-    if is_privileged()
+    if is_privileged():
         with col1:
             st.markdown(f"""
         <div style="{card_style}">
