@@ -683,84 +683,84 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     return fig
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
-    categories = sorted(df[color_col].unique())
-    color_sequence = ['#FFDB58', '#660094', '008CAA']
+
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",
+                         title=None, horizontal=False, normalize_labels=True):
+
+    # ------------------- Preprocessing -------------------
+    df = df.copy()
+    df[y] = df[y].fillna("Unknown")
+    df[color_col] = df[color_col].fillna("Unknown")
+
+    # Aggregate counts per y-label and color category
+    df_agg = df.groupby([y, color_col]).size().reset_index(name="count")
+    df_agg["count"] = pd.to_numeric(df_agg["count"], errors="coerce").fillna(0)
+
+    categories = sorted(df_agg[color_col].unique())
+    color_sequence = ['#FFDB58', '#660094', '#008CAA']
+
+    # Determine which columns to map to x/y depending on orientation
+    if horizontal:
+        x_col, y_col = "count", y
+    else:
+        x_col, y_col = y, "count"
+
     fig = go.Figure()
+
+    # ------------------- Add bars -------------------
     for i, cat in enumerate(categories):
-        df_cat = df[df[color_col]==cat].copy()
-         # ---------------- Label handling ----------------
+        df_cat = df_agg[df_agg[color_col] == cat].copy()
+
+        # Normalize labels if requested
         if normalize_labels:
-            df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+            df_cat[y_col] = df_cat[y_col].apply(
+                lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4)
+            )
         else:
-            df_cat[y] = df_cat[y].apply(
+            df_cat[y_col] = df_cat[y_col].apply(
                 lambda l: wrap_label_by_words(l, words_per_line=4)
-            )                  
-        
+            )
+
         fig.add_trace(go.Bar(
-            x=df_cat[y] if not horizontal else df_cat[x],
-            y=df_cat[x] if not horizontal else df_cat[y],
+            x=df_cat[x_col] if horizontal else df_cat[y_col],
+            y=df_cat[y_col] if horizontal else df_cat[x_col],
             name=cat,
             orientation='h' if horizontal else 'v',
             marker_color=color_sequence[i % len(color_sequence)],
-            text=df_cat[x],
+            text=df_cat[x_col],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=10, family="Arial black"),
+            textfont=dict(
+                color='black' if color_sequence[i] == "#FFDB58" else 'white',
+                size=10,
+                family="Arial black"
+            ),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
-    num_bars = df.shape[0]
+
+    # ------------------- Layout & axes -------------------
     height = 350
-    # Bold axis line
-    if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')     
-        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
-        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
-    else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-              
-    fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
-    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    margin_l = 120 if horizontal else 20
+
     fig.update_layout(
         barmode='stack',
         height=height,
-        margin=dict(l=120 if horizontal else 20, r=20, t=45, b=20),
+        margin=dict(l=margin_l, r=20, t=45, b=20),
         title=dict(
             text=title,
             x=0.5,
             xanchor='center',
-            font=dict(
-                family="Arial Black",
-                size=12,
-                color="#660094"
-            )
+            font=dict(family="Arial Black", size=12, color="#660094")
         ),
-        font=dict(
-            family="Arial",
-            size=12,
-            color="black"
-        )
+        font=dict(family="Arial", size=12, color="black")
     )
 
-    # ---------------- Dynamic download-only source ----------------
-    if horizontal:
-        # For horizontal bars, find max x for positioning
-        max_val = df[x].sum()
-    else:
-        # For vertical bars, find max y for positioning
-        max_val = df[x].sum()
-        
-    # Add hidden annotation just below plot
-    fig.add_annotation(
-        text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
-        xref="paper", yref="paper",
-        x=0, y=-0.12,  # fixed slightly below chart for all cases
-        showarrow=False,
-        font=dict(size=10, color="gray"),
-        opacity=0  # invisible on-screen
-    )
-    # ---------------- WATERMARK ----------------
+    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray', 
+                     showline=True, linewidth=2, linecolor='black')
+    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray',
+                     showline=True, linewidth=2, linecolor='black')
+
+    # ------------------- Watermark -------------------
     fig.add_annotation(
         text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
         xref="paper",
@@ -768,18 +768,13 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         x=0.5,
         y=0.5,
         showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
+        font=dict(size=20, color="black"),
         opacity=0.05,
         xanchor="center",
         yanchor="middle"
     )
 
     return fig
-
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
