@@ -16,23 +16,39 @@ import math
 # ----------------------------
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-if st.session_state.get("user") and st.session_state.get("email_verified"):
-    st.title("Welcome to the Dashboard")
-    
-    # Example: show privileged content only
-    if is_privileged():
-        st.success(f"Hello {st.session_state.get('name')}, you have full access!")
-        # Your privileged charts/components here
-    else:
-        st.info("Your email is verified but you do not have privileged access.")
-else:
-    st.warning("Please log in with a verified email to access the dashboard.")
+# -------------------------------
+# Initialize Authentication UI
+# -------------------------------
+auth_ui()  # shows login/register sidebar and restores session
 
-# ------------------------------
-# Logout Button (anywhere in app)
-# ------------------------------
-if st.session_state.get("user"):
-    st.button("Logout", on_click=logout_user)
+# Wait until cookies are ready
+cookies = st.session_state.get("cookies_manager")
+if cookies and not cookies.ready():
+    st.info("Loading session...")
+    st.stop()
+
+# -------------------------------
+# Access Control
+# -------------------------------
+if not st.session_state.get("user"):
+    st.warning("Please log in to access the dashboard.")
+    st.stop()
+
+if not is_privileged():
+    st.error("Access restricted: You need a verified privileged account.")
+    st.stop()
+
+# -------------------------------
+# Main Dashboard Content
+# -------------------------------
+st.title("Welcome to the Dashboard")
+st.write(f"Hello, {st.session_state.get('name')}!")
+
+# Example: logout button
+if st.button("Logout"):
+    logout_user()
+
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -1222,6 +1238,23 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
+    """
+    Adds a source line below the chart.
+    - y_offset: vertical position (negative values go below the plot)
+    """
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=y_offset,
+        showarrow=False,
+        text=SOURCE_TEXT,
+        font=dict(size=font_size, color=font_color),
+        xanchor="center",
+        yanchor="top"
+    )
+    return fig
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
