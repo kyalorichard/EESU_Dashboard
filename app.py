@@ -1464,7 +1464,7 @@ with tab_negative:
         }
         
         selected = st.selectbox(
-            "Select a value from the drop-down menu to view the top actors, subjects, and mechanisms of repression",
+            "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, <br>restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
             options=list(top_n_map.keys()),
             index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
         )
