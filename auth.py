@@ -1,29 +1,35 @@
-# app.py
+# auth.py
 import streamlit as st
 import pyrebase
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials
 import json
 from streamlit_cookies_manager import EncryptedCookieManager
-import plotly.graph_objects as go
 
 # ---------------- Firebase Admin ----------------
-if not firebase_admin._apps:
-    cred_dict = st.secrets["firebase_admin"]
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+try:
+    if "firebase_admin" in st.secrets and not firebase_admin._apps:
+        cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
+        firebase_admin.initialize_app(cred)
+        st.success("Firebase Admin initialized ✅")
+except Exception as e:
+    st.error(f"⚠️ Firebase Admin initialization failed: {e}")
+    st.stop()
 
 # ---------------- Pyrebase ----------------
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 
-if firebase_cfg:
-    firebase = pyrebase.initialize_app(firebase_cfg)
-    firebase_auth = firebase.auth()
+if not firebase_cfg:
+    st.error("❌ Firebase config missing in secrets.toml")
 else:
-    st.error("Firebase config missing in secrets.toml")
+    try:
+        firebase = pyrebase.initialize_app(firebase_cfg)
+        firebase_auth = firebase.auth()
+        st.success("Firebase Auth initialized successfully ✅")
+    except Exception as e:
+        st.error(f"❌ Firebase auth initialization failed: {e}")
+        firebase_auth = None
 
 # ---------------- Privileged Domains ----------------
 PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", []))
@@ -33,12 +39,15 @@ def get_cookies_manager():
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
         if not cookie_password:
-            st.error("Cookie password missing in secrets.toml")
+            st.error("❌ Cookie password missing in secrets.toml")
             st.stop()
-        st.session_state["cookies_manager"] = EncryptedCookieManager(prefix="myapp", password=cookie_password)
-
+        st.session_state["cookies_manager"] = EncryptedCookieManager(
+            prefix="myapp",
+            password=cookie_password
+        )
     cookies = st.session_state["cookies_manager"]
 
+    # Sync cookies if not ready
     if not cookies.ready():
         try:
             cookies.sync()
@@ -47,7 +56,7 @@ def get_cookies_manager():
         return None
     return cookies
 
-# ---------------- Session Helpers ----------------
+# ---------------- Helpers ----------------
 def init_state():
     defaults = {
         "user": None,
@@ -78,7 +87,7 @@ def logout_user():
             del cookies[key]
     if cookies:
         cookies.save()
-    st.runtime.legacy_rerun()
+    st.runtime.legacy_rerun()  # updated for Streamlit ≥1.27
 
 def is_privileged():
     return st.session_state.get("user_role") == "privileged" and st.session_state.get("email_verified")
@@ -91,33 +100,6 @@ def refresh_id_token():
         except Exception:
             pass
 
-def get_email_domain(email: str) -> str:
-    return email.strip().split("@")[-1].lower()
-
-# ---------------- Firestore Cleanup ----------------
-def cleanup_expired_sessions(limit: int = 100):
-    """
-    Safely delete expired sessions from Firestore.
-    """
-    try:
-        expired_docs = (
-            db.collection("sessions")
-            .where("expires_at", "<", firestore.SERVER_TIMESTAMP)
-            .limit(limit)
-            .stream()
-        )
-        deleted_count = 0
-        for doc in expired_docs:
-            try:
-                doc.reference.delete()
-                deleted_count += 1
-            except Exception as inner_e:
-                st.warning(f"Failed to delete session {doc.id}: {inner_e}")
-        if deleted_count:
-            st.info(f"Cleaned up {deleted_count} expired session(s).")
-    except Exception as e:
-        st.warning(f"Firestore query failed (sessions cleanup): {e}")
-
 # ---------------- Authentication UI ----------------
 ERROR_MAP = {
     "EMAIL_EXISTS": "This email is already registered.",
@@ -127,17 +109,22 @@ ERROR_MAP = {
     "INVALID_LOGIN_CREDENTIALS": "Incorrect email or password."
 }
 
+def get_email_domain(email: str) -> str:
+    return email.strip().split("@")[-1].lower()
+
 def auth_ui():
     init_state()
     cookies = get_cookies_manager()
+
+    # Wait for cookies if not ready
     if cookies is None or not cookies.ready():
         st.info("🔄 Waiting for browser session…")
         return
 
+    # Refresh token if available
     refresh_id_token()
-    cleanup_expired_sessions()
 
-    # Restore session from cookies
+    # Restore session from cookies (only once)
     if not st.session_state.user_restored:
         if cookies and "email" in cookies:
             st.session_state.email = cookies.get("email")
@@ -147,10 +134,11 @@ def auth_ui():
             st.session_state.idToken = cookies.get("idToken")
             st.session_state.user = True
         st.session_state.user_restored = True
-        st.runtime.legacy_rerun()
+        st.runtime.legacy_rerun()  # updated rerun
 
     sidebar = st.sidebar
 
+    # ---------------- Logged-in View ----------------
     if st.session_state.user:
         if st.session_state.email_verified:
             sidebar.success(f"👋 {st.session_state.name} ✅ Verified")
@@ -168,7 +156,7 @@ def auth_ui():
             logout_user()
         return
 
-    # Login / Register tabs
+    # ---------------- Tabs ----------------
     tab_choice = sidebar.radio(
         "Select Action",
         ["Login", "Register"],
@@ -177,6 +165,7 @@ def auth_ui():
     )
     st.session_state.auth_tab = tab_choice
 
+    # ---------------- LOGIN ----------------
     if tab_choice == "Login":
         with sidebar.form("login_form", clear_on_submit=True):
             email = st.text_input("Email", key="login_email").strip()
@@ -186,7 +175,7 @@ def auth_ui():
 
             if submitted:
                 if not firebase_auth:
-                    st.error("Authentication service unavailable.")
+                    st.error("Authentication service unavailable. Check Firebase config.")
                 else:
                     domain = get_email_domain(email)
                     if domain not in PRIVILEGED_DOMAINS:
@@ -228,6 +217,7 @@ def auth_ui():
                     except Exception as e:
                         st.error(f"Failed to send reset email: {parse_firebase_error(e)}")
 
+    # ---------------- REGISTER ----------------
     if tab_choice == "Register":
         with sidebar.form("register_form", clear_on_submit=True):
             email = st.text_input("Email", key="reg_email").strip()
@@ -236,7 +226,7 @@ def auth_ui():
 
             if submitted:
                 if not firebase_auth:
-                    st.error("Authentication service unavailable.")
+                    st.error("Authentication service unavailable. Check Firebase config.")
                 else:
                     domain = get_email_domain(email)
                     if domain not in PRIVILEGED_DOMAINS:
