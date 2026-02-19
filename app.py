@@ -11,18 +11,28 @@ import base64
 from auth import auth_ui, is_privileged, logout_user
 import math
 
-
-
 # ----------------------------
 # Initialize UI & Auth
 # ----------------------------
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+if st.session_state.get("user") and st.session_state.get("email_verified"):
+    st.title("Welcome to the Dashboard")
+    
+    # Example: show privileged content only
+    if is_privileged():
+        st.success(f"Hello {st.session_state.get('name')}, you have full access!")
+        # Your privileged charts/components here
+    else:
+        st.info("Your email is verified but you do not have privileged access.")
+else:
+    st.warning("Please log in with a verified email to access the dashboard.")
 
-# -----------------------------
-if not st.session_state.get("user"):
-    st.warning("Please log in to access the dashboard.")
-    #st.stop()
+# ------------------------------
+# Logout Button (anywhere in app)
+# ------------------------------
+if st.session_state.get("user"):
+    st.button("Logout", on_click=logout_user)
 
 BASE_DIR = Path(__file__).resolve().parent
 
