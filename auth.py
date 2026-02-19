@@ -6,6 +6,16 @@ from firebase_admin import credentials
 import json
 from streamlit_cookies_manager import EncryptedCookieManager
 
+
+def get_cookies_manager():
+    password = st.secrets.get("cookie_password")
+    if not password:
+        st.error("Cookie password not set in secrets.")
+        st.stop()
+    return EncryptedCookieManager(
+        prefix="myapp",
+        password=password
+    )
 # -------------------------------
 # Firebase Admin Initialization
 # -------------------------------
