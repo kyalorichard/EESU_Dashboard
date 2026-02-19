@@ -429,7 +429,14 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
+        with col1:
+            st.markdown(f"""
+        <div style="{card_style}">
+            <div style="{icon_style}">🌍</div>
+            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
+            <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;"></span>
+        </div>
+        """, unsafe_allow_html=True)
             
 
     # --- Total Alerts ---
