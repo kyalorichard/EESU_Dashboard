@@ -47,6 +47,7 @@ def get_cookies_manager():
         )
     cookies = st.session_state["cookies_manager"]
 
+    # Sync cookies if not ready
     if not cookies.ready():
         try:
             cookies.sync()
@@ -86,7 +87,7 @@ def logout_user():
             del cookies[key]
     if cookies:
         cookies.save()
-    st.runtime.legacy_rerun()  # updated from experimental_rerun
+    st.runtime.legacy_rerun()  # updated for Streamlit ≥1.27
 
 def is_privileged():
     return st.session_state.get("user_role") == "privileged" and st.session_state.get("email_verified")
@@ -115,22 +116,25 @@ def auth_ui():
     init_state()
     cookies = get_cookies_manager()
 
-    # Show info if cookies not ready
+    # Wait for cookies if not ready
     if cookies is None or not cookies.ready():
         st.info("🔄 Waiting for browser session…")
+        return
 
     # Refresh token if available
     refresh_id_token()
 
-    # Restore session from cookies
-    if cookies and cookies.ready() and "email" in cookies and not st.session_state.user_restored:
-        st.session_state.email = cookies.get("email")
-        st.session_state.name = cookies.get("name")
-        st.session_state.user_role = cookies.get("user_role")
-        st.session_state.email_verified = cookies.get("email_verified", False)
-        st.session_state.idToken = cookies.get("idToken")
-        st.session_state.user = True
+    # Restore session from cookies (only once)
+    if not st.session_state.user_restored:
+        if cookies and "email" in cookies:
+            st.session_state.email = cookies.get("email")
+            st.session_state.name = cookies.get("name")
+            st.session_state.user_role = cookies.get("user_role")
+            st.session_state.email_verified = cookies.get("email_verified", False)
+            st.session_state.idToken = cookies.get("idToken")
+            st.session_state.user = True
         st.session_state.user_restored = True
+        st.runtime.legacy_rerun()  # updated rerun
 
     sidebar = st.sidebar
 
