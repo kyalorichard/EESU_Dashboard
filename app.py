@@ -1401,7 +1401,18 @@ with tab_negative:
         filtered_df1 = df_exploded.copy()
         #filtered_df = reactive_df_updated.copy()
         
-        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+        #tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+        protected_label = "Journalists, media and influencers"
+
+        tab2_actor = (
+            reactive_df_updated
+            .assign(**{
+                "Actor of repression": reactive_df_updated["Actor of repression"].apply(
+                    lambda x: [x] if x == protected_label else x.split(",")
+                )
+            })
+            .explode("Actor of repression")
+        )
         tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
         m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
 
