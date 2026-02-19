@@ -29,7 +29,7 @@ if firebase_cfg:
 PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", []))
 
 # ---------------- Cookie Manager ----------------
-ef get_cookies_manager():
+def get_cookies_manager():
     # Initialize cookies manager once
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
