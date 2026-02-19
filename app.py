@@ -1284,11 +1284,11 @@ with tab_overview:
             .rename(columns=cols_rename_map)
         )
        
-    # ---------------- Tab two data preview ------------------
+        # ---------------- Tab two data preview ------------------
     
         with st.expander("Summary Data preview"):
             st.write(filtered_global_prev)  
-   else:
+    else:
         st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
             
 # ---------------- Negative Events ----------------
