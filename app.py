@@ -669,7 +669,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
-    color_sequence = [,'#008CAA','#660094','#FFDB58']
+    #color_sequence = ['#008CAA','#660094','#FFDB58']
 
     # ---------------- Define category-to-color mapping ----------------
     category_colors = {
