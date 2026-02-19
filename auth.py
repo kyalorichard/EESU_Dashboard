@@ -36,9 +36,6 @@ PRIVILEGED_DOMAINS = set(
     d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", [])
 )
 
-# -------------------------------------------------
-# Error Messages
-# -------------------------------------------------
 ERROR_MAP = {
     "EMAIL_EXISTS": "This email is already registered.",
     "INVALID_PASSWORD": "Incorrect email or password.",
@@ -129,7 +126,7 @@ def auth_ui():
     # -----------------------------
     # Logged-in View
     # -----------------------------
-    if st.session_state.get("user"):
+    if st.session_state.user:
         if st.session_state.email_verified:
             sidebar.success(f"👋 {st.session_state.name} ✅ Verified")
         else:
@@ -146,9 +143,10 @@ def auth_ui():
     tab_choice = sidebar.radio(
         "Select Action",
         ["Login", "Register"],
-        index=0,
+        index=0 if st.session_state.auth_tab == "Login" else 1,
         key="auth_tab_radio"
     )
+    st.session_state.auth_tab = tab_choice
 
     # -----------------------------
     # LOGIN FORM
@@ -174,7 +172,6 @@ def auth_ui():
                             user_info = firebase_auth.get_account_info(id_token)
                             email_verified = user_info["users"][0].get("emailVerified", False)
 
-                            # Save in session
                             st.session_state.user = user
                             st.session_state.email = email
                             st.session_state.name = email.split("@")[0].title()
@@ -182,10 +179,6 @@ def auth_ui():
                             st.session_state.idToken = id_token
                             st.session_state.user_role = "privileged" if email_verified else "unverified"
 
-                            # Save in cookies
-                            cookies["user"] = user
-                            cookies["email"] = email
-                            cookies["name"] = st.session_state.name
                             # Save to cookies
                             cookies["user"] = user
                             cookies["email_verified"] = email_verified
@@ -196,7 +189,7 @@ def auth_ui():
                                 st.warning("Please verify your email before accessing the dashboard.")
                                 return
 
-                            st.experimental_rerun()
+                            st.rerun()
                         except Exception as e:
                             error_code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(error_code, f"Login failed: {error_code}"))
