@@ -1313,8 +1313,8 @@ with tab_overview:
             st.write(filtered_global_prev)  
     else:
         st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.") 
-        with st.expander("Summary Data preview"):
-            st.write(filtered_global_prev)    
+    st.write(filtered_global_prev)  
+          
             
 # ---------------- Negative Events ----------------
 with tab_negative:
