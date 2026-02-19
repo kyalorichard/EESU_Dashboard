@@ -14,11 +14,8 @@ import math
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-
-
-
 if is_privileged():
-    st.title("📊 EESU Dashboard")
+   
     st.write("Welcome to the privileged dashboard!")
 else:
     if st.session_state.get("user"):
