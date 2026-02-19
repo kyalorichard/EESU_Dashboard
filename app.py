@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth_full import auth_ui
+from auth import auth_ui
 import math
 import re
 
