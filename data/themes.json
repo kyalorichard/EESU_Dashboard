@@ -96,11 +96,17 @@
     "en": [
       {
         "label": "All civil society (indiscriminate)",
-        "definition": "General civil society groups affected indiscriminately."
+        "definition": "Situations where measures, legal changes, electoral irregularities, or regulatory developments affect the civic space broadly, without targeting a specific group, sector, or constituency. Use ONLY if no identifiable actor is targeted; do not use if repression targets specific rights defenders.",
+        "guideline": "Use only when the impact is generalized and potentially affects the functioning of civil society as a whole, e.g., laws restricting all NGOs, systemic bureaucratic restrictions, or electoral irregularities affecting multiple stakeholders."
       },
       {
         "label": "Civic & Political Rights",
-        "definition": "Individuals or groups defending civic and political rights."
+        "definition": "Individuals or groups defending civic and political rights. Use ONLY if a specific actor, group, or identifiable rights-based organization is targeted.",
+        "guideline": "Use only when a clearly identifiable actor or group is targeted with rights-based repression, e.g., harassment of human rights defenders, arrests of opposition activists, or threats against civil society organizations monitoring elections."
+      },
+      {
+        "label": "Socio-Economic Rights",
+        "definition": "Actors targeted based on their profession, economic activity, or socio-economic rights."
       },
       {
         "label": "Environment Justice",
@@ -122,11 +128,17 @@
     "es": [
       {
         "label": "All civil society (indiscriminate)",
-        "definition": "Grupos de la sociedad civil afectados de manera indiscriminada."
+        "definition": "Situaciones en las que medidas, cambios legales, irregularidades electorales o desarrollos regulatorios afectan ampliamente el espacio cívico, sin apuntar a un grupo, sector o conjunto específico. Use SOLO si no se apunta a ningún actor identificable; no usar si la represión afecta a defensores específicos de derechos.",
+        "guideline": "Usar únicamente cuando el impacto es generalizado y puede afectar el funcionamiento de la sociedad civil en su conjunto, por ejemplo, leyes que restringen a todas las ONG, restricciones burocráticas sistémicas o irregularidades electorales que afectan a múltiples actores."
       },
       {
         "label": "Civic & Political Rights",
-        "definition": "Individuos o grupos defendiendo derechos cívicos y políticos."
+        "definition": "Individuos o grupos que defienden derechos cívicos y políticos. Usar SOLO si se dirige a un actor, grupo u organización basada en derechos identificable.",
+        "guideline": "Usar únicamente cuando un actor o grupo claramente identificable sea objetivo de represión basada en derechos, por ejemplo, acoso a defensores de derechos humanos, arrestos de activistas de la oposición o amenazas a organizaciones de la sociedad civil que supervisan elecciones."
+      },
+      {
+        "label": "Socio-Economic Rights",
+        "definition": "Actores dirigidos en función de su profesión, actividad económica o derechos socioeconómicos."
       },
       {
         "label": "Environment Justice",
@@ -148,11 +160,17 @@
     "fr": [
       {
         "label": "All civil society (indiscriminate)",
-        "definition": "Groupes de la société civile affectés de manière indiscriminée."
+        "definition": "Situations où des mesures, des changements législatifs, des irrégularités électorales ou des développements réglementaires affectent largement l'espace civique, sans cibler un groupe, un secteur ou une population spécifique. À utiliser UNIQUEMENT si aucun acteur identifiable n’est ciblé ; ne pas utiliser si la répression vise des défenseurs spécifiques des droits.",
+        "guideline": "Utiliser uniquement lorsque l'impact est généralisé et peut affecter le fonctionnement de la société civile dans son ensemble, par exemple, des lois restreignant toutes les ONG, des restrictions bureaucratiques systémiques ou des irrégularités électorales affectant plusieurs parties prenantes."
       },
       {
         "label": "Civic & Political Rights",
-        "definition": "Individus ou groupes défendant les droits civiques et politiques."
+        "definition": "Individus ou groupes défendant les droits civiques et politiques. À utiliser UNIQUEMENT si un acteur, groupe ou organisation basée sur les droits clairement identifiable est ciblé.",
+        "guideline": "Utiliser uniquement lorsqu’un acteur ou un groupe clairement identifiable est ciblé par une répression basée sur les droits, par exemple, harcèlement de défenseurs des droits humains, arrestations d’activistes de l’opposition ou menaces contre des organisations de la société civile surveillant les élections."
+      },
+      {
+        "label": "Socio-Economic Rights",
+        "definition": "Acteurs ciblés en fonction de leur profession, activité économique ou droits socio-économiques."
       },
       {
         "label": "Environment Justice",
