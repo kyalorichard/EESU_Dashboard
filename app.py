@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import base64
 from auth import auth_ui, is_privileged
 import math
+import re
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
@@ -1402,14 +1403,11 @@ with tab_negative:
         #filtered_df = reactive_df_updated.copy()
         
         #tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-        protected_label = "Journalists, media and influencers"
-
         tab2_actor = (
             reactive_df_updated
             .assign(**{
-                "Actor of repression": reactive_df_updated["Actor of repression"].apply(
-                    lambda x: [x] if x == protected_label else x.split(",")
-                )
+                "Actor of repression": reactive_df_updated["Actor of repression"]
+                .str.split(r", (?=[A-Z])")  # split only before capital letter
             })
             .explode("Actor of repression")
         )
