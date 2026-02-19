@@ -664,11 +664,11 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         y=0.5,
         showarrow=False,
         font=dict(
-            size=36,
+            size=20,
             color="black"
         ),
         textangle=-30,
-        opacity=0.08,
+        opacity=0.05,
         xanchor="center",
         yanchor="middle"
     )  
@@ -761,11 +761,11 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         y=0.5,
         showarrow=False,
         font=dict(
-            size=36,
+            size=20,
             color="black"
         ),
         textangle=-30,
-        opacity=0.08,
+        opacity=0.05,
         xanchor="center",
         yanchor="middle"
     )
