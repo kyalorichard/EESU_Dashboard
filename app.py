@@ -11,26 +11,17 @@ import base64
 from auth import auth_ui, is_privileged, logout_user
 import math
 
-st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
+
 
 # ----------------------------
 # Initialize UI & Auth
 # ----------------------------
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-auth_ui()  # handles login/register UI and restores session from cookies
-
-# ----------------------------
-# Access Control
-# ----------------------------
-if not st.session_state.user:
-    st.warning("You must be logged in to access the dashboard.")
+# -----------------------------
+if not st.session_state.get("user"):
+    st.warning("Please log in to access the dashboard.")
     st.stop()
-
-if not is_privileged():
-    st.warning("Your email is not verified or you don't have privileged access.")
-    st.stop()
-
 
 BASE_DIR = Path(__file__).resolve().parent
 
