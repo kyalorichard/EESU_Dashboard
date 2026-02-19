@@ -205,11 +205,10 @@ def load_data():
         df.loc[df['alert-type'].str.strip().str.lower() == 'Context to watch', 'alert-impact'] = 'Context to watch'
 
     # --- Step 8: Update alert-impact column based on alert-type column ---
-    if 'alert-type' in df.columns:
-        df.loc[
-            df['alert-type'].fillna('').str.strip().str.lower() == 'context to watch',
-            'alert-impact'
-        ] = 'Context to watch'
+    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
+        mask = df['alert-type'].fillna('').str.strip().str.lower() == 'context to watch'
+        if mask.any():
+            df.loc[mask, 'alert-impact'] = 'Context to watch'
 
     return df
 
