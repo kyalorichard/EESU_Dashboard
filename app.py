@@ -21,7 +21,7 @@ if st.session_state.get("user"):
     if is_privileged():
         st.success("You have full access to privileged features.")
         # Example chart or feature
-            else:
+    else:
         st.info("Your email is not verified. Limited access.")
 else:
     st.info("Please login to access the dashboard.")
