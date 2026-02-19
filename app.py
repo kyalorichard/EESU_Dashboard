@@ -431,25 +431,19 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """
 
     # --- Monitored Countries ---
-    if is_privileged():
-        with col1:
-            st.markdown(f"""
+    with col1:
+        value_display = (
+            f'<span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>'
+            if is_privileged()
+            else '<span style="font-size:20px; font-weight:bold; color:#008CAA; margin-top:5px;">Available on Request</span>'
+        )
+        st.markdown(f"""
         <div style="{card_style}">
             <div style="{icon_style}">🌍</div>
             <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
+            {value_display}
         </div>
         """, unsafe_allow_html=True)
-    else:
-        with col1:
-            st.markdown(f"""
-        <div style="{card_style}">
-            <div style="{icon_style}">🌍</div>
-            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:20px; font-weight:bold; color:#008CAA; margin-top:5px;">Available on Request</span>
-        </div>
-        """, unsafe_allow_html=True)
-            
 
     # --- Total Alerts ---
     with col2:
