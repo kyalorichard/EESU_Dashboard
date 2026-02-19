@@ -14,8 +14,6 @@ import math
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-import streamlit as st
-st.write(st.secrets.get("cookie", {}).get("cookie_password"))
 
 auth_ui()  # handle login/session first
 
@@ -1217,6 +1215,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
 def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     """
     Adds a source line below the chart.
@@ -1234,6 +1234,7 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
         yanchor="top"
     )
     return fig
+
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
