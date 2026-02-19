@@ -669,7 +669,17 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
-    color_sequence = ['#FFDB58', "#660094",'#008CAA']
+    color_sequence = [,'#008CAA','#660094','#FFDB58']
+
+    # ---------------- Define category-to-color mapping ----------------
+    category_colors = {
+        "Context to watch": "#008CAA",
+        "Postive": "#660094",
+        "Negative": "#FFDB58"
+    }
+    
+    categories = sorted(df[color_col].unique())
+   
     fig = go.Figure()
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
@@ -686,7 +696,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             y=df_cat[x] if not horizontal else df_cat[y],
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=color_sequence[i % len(color_sequence)],
+            marker_color=category_colors, #[i % len(color_sequence)],
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
