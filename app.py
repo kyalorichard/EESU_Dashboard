@@ -1314,8 +1314,7 @@ with tab_overview:
     with st.expander("Summary Data preview"):
         st.write(filtered_global_prev)  
     
-        
-          
+                
             
 # ---------------- Negative Events ----------------
 with tab_negative:
