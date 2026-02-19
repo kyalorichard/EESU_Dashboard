@@ -200,6 +200,10 @@ def load_data():
         df['month_name'] = df['creation_date'].dt.strftime('%B')
     else:
         st.warning("No 'creation_date' column found in dataset.")
+    
+    # --- Step 8: Update alert-impact based on alert-type ---
+    if 'alert-type' in df.columns:
+        df.loc[df['alert-type'].str.strip().str.lower() == 'Context to watch', 'alert-impact'] = 'Context to watch'
 
     return df
 
@@ -1217,7 +1221,7 @@ with tab_overview:
     df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
     a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)  # descending order
+    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(20)  # select top 20
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     
@@ -1464,7 +1468,8 @@ with tab_negative:
         }
         
         selected = st.selectbox(
-            "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, <br>restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
+            "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, \n"
+            "restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
             options=list(top_n_map.keys()),
             index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
         )
