@@ -552,13 +552,6 @@ def normalize_label(label: str) -> str:
         return ""
     return label[0].upper() + label[1:].lower()
 
-# Define a consistent color mapping for your dashboard
-COLOR_MAPPING = {
-    "positive": "#660094",
-    "negative": "#FFDB58",
-    "context": "#FFDB58"
-}
-
 def wrap_label_by_words(label, words_per_line=3):
     """Wrap long labels for better display"""
     words = label.split()
@@ -1306,15 +1299,13 @@ with tab_overview:
             .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
             .rename(columns=cols_rename_map)
         )
-
-    else:
-        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.") 
+       
         # ---------------- Tab two data preview ------------------
     
-    with st.expander("Summary Data preview"):
-        st.write(filtered_global_prev)  
-    
-                
+        with st.expander("Summary Data preview"):
+            st.write(filtered_global_prev)  
+    else:
+        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
             
 # ---------------- Negative Events ----------------
 with tab_negative:
