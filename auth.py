@@ -4,6 +4,7 @@ import pyrebase
 import firebase_admin
 from firebase_admin import credentials
 import json
+from streamlit_cookies_manager import EncryptedCookieManager
 
 # -------------------------------------------------
 # Firebase Admin Initialization
