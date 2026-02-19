@@ -434,7 +434,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         <div style="{card_style}">
             <div style="{icon_style}">🌍</div>
             <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">'Available on Request'</span>
+            <span style="font-size:20px; font-weight:bold; color:#008CAA; margin-top:5px;">Available on Request</span>
         </div>
         """, unsafe_allow_html=True)
             
