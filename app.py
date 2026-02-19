@@ -8,18 +8,19 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged, logout_user
+from auth import auth_ui, is_privileged, logout_user, get_cookies_manager
 import math
 
-# ----------------------------
-# Initialize UI & Auth
-# ----------------------------
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-# Initialize cookies manager
 # -------------------------------
-cookies = get_cookies_manager()  # returns EncryptedCookieManager
-st.session_state["cookies_manager"] = cookies
+# Initialize Cookies Manager
+# -------------------------------
+try:
+    cookies = get_cookies_manager()  # returns EncryptedCookieManager
+except Exception as e:
+    st.error(f"Failed to initialize cookies manager: {e}")
+    st.stop()
 
 # -------------------------------
 # Wait until cookies are ready
@@ -43,17 +44,6 @@ if not st.session_state.get("user"):
 if not is_privileged():
     st.error("Access restricted: You need a verified privileged account.")
     st.stop()
-
-# -------------------------------
-# Dashboard Content
-# -------------------------------
-st.title("Welcome to the Dashboard")
-st.write(f"Hello, {st.session_state.get('name')}!")
-
-# Logout button
-if st.button("Logout"):
-    logout_user()
-
 
 
 
