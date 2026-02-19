@@ -29,7 +29,8 @@ if firebase_cfg:
 PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", []))
 
 # ---------------- Cookie Manager ----------------
-def get_cookies_manager():
+ef get_cookies_manager():
+    # Initialize cookies manager once
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
         if not cookie_password:
@@ -42,14 +43,14 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
-    # Only sync if not ready, with rerun
+    # Sync cookies only if not ready
     if not cookies.ready():
         try:
-            cookies.sync()
+            cookies.sync()  # triggers loading from browser
         except Exception:
-            # Streamlit Cloud sometimes raises errors if sync is too early
             st.info("🔄 Waiting for browser session…")
-        st.experimental_rerun()
+        # Instead of rerun, just return None on first run
+        return None
 
     return cookies
 # ---------------- Helpers ----------------
