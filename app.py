@@ -8,27 +8,23 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged, logout_user, get_cookies_manager
+from auth import auth_ui, is_privileged, logout_user
+
 import math
+auth_ui()
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-# ------------------------------
-# Initialize authentication
-# ------------------------------
-auth_ui()  # handles login/register UI and restores session from cookies
+if st.session_state.get("user"):
+    st.write(f"Welcome, **{st.session_state.name}**!")
 
-# ------------------------------
-# Main content access control
-# ------------------------------
-if not st.session_state.get("user"):
-    st.warning("Please log in to access the dashboard.")
-    st.stop()
-
-if not is_privileged():
-    st.warning("You do not have sufficient privileges to view this content.")
-    st.stop()
-
+    if is_privileged():
+        st.success("You have full access to privileged features.")
+        # Example chart or feature
+            else:
+        st.info("Your email is not verified. Limited access.")
+else:
+    st.info("Please login to access the dashboard.")
 
 BASE_DIR = Path(__file__).resolve().parent
 
