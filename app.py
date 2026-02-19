@@ -201,8 +201,12 @@ def load_data():
         st.warning("No 'creation_date' column found in dataset.")
     
     # --- Step 8: Update alert-impact based on alert-type ---
-    if 'alert-type' in df.columns:
-        df.loc[df['alert-type'].str.strip().str.lower() == 'Context to watch', 'alert-impact'] = 'Context to watch'
+    
+    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
+        for idx, row in df.iterrows():
+            alert_type_val = str(row['alert-type']).strip().lower()  # lowercase + strip
+            if alert_type_val == 'context to watch':
+                df.at[idx, 'alert-impact'] = 'Context to watch'
 
     return df
 
@@ -551,7 +555,8 @@ def normalize_label(label: str) -> str:
 # Define a consistent color mapping for your dashboard
 COLOR_MAPPING = {
     "positive": "#660094",
-    "negative": "#FFDB58"
+    "negative": "#FFDB58",
+    "context": "#FFDB58"
 }
 
 def wrap_label_by_words(label, words_per_line=3):
@@ -671,7 +676,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
-    color_sequence = ['#FFDB58', "#94008D",'#008CAA']
+    color_sequence = ['#FFDB58', "#660094",'#008CAA']
     fig = go.Figure()
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
@@ -1307,7 +1312,9 @@ with tab_overview:
         with st.expander("Summary Data preview"):
             st.write(filtered_global_prev)  
     else:
-        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
+        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.") 
+        with st.expander("Summary Data preview"):
+            st.write(filtered_global_prev)    
             
 # ---------------- Negative Events ----------------
 with tab_negative:
