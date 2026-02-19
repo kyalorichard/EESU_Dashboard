@@ -30,13 +30,11 @@ PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("pr
 
 # ---------------- Cookie Manager ----------------
 def get_cookies_manager():
-    """Return a ready-to-use cookies manager (deferred init)."""
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
         if not cookie_password:
             st.error("❌ Cookie password missing in secrets.toml")
             st.stop()
-
         st.session_state["cookies_manager"] = EncryptedCookieManager(
             prefix="myapp",
             password=cookie_password
@@ -44,14 +42,16 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
-    # Deferred initialization: sync only when ready
+    # Only sync if not ready, with rerun
     if not cookies.ready():
-        cookies.sync()  # triggers initialization with the browser
-        st.info("🔄 Loading session…")
-        st.experimental_rerun()  # rerun until ready
+        try:
+            cookies.sync()
+        except Exception:
+            # Streamlit Cloud sometimes raises errors if sync is too early
+            st.info("🔄 Waiting for browser session…")
+        st.experimental_rerun()
 
     return cookies
-
 # ---------------- Helpers ----------------
 def init_state():
     defaults = {
