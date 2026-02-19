@@ -8,22 +8,28 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged, logout_user
+from auth import auth_ui, is_privileged, logout_user, get_cookies, save_session
 import math
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-user = st.session_state.get("user")
-user_role = st.session_state.get("user_role")
-email_verified = st.session_state.get("email_verified", False)
+# ----------------------------
+# Initialize UI & Auth
+# ----------------------------
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-# Determine access tier
-if not user:
-    access_level = "public"
-elif user_role == "privileged" and email_verified:
-    access_level = "full"
-else:
-    access_level = "public"
+auth_ui()  # handles login/register UI and restores session from cookies
+
+# ----------------------------
+# Access Control
+# ----------------------------
+if not st.session_state.user:
+    st.warning("You must be logged in to access the dashboard.")
+    st.stop()
+
+if not is_privileged():
+    st.warning("Your email is not verified or you don't have privileged access.")
+    st.stop()
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -1271,6 +1277,7 @@ with tab_overview:
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     
+    if is_privileged()::
     if is_privileged():
         r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
         r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
