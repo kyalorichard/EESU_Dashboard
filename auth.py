@@ -111,16 +111,14 @@ def auth_ui():
     init_state()
     cookies = get_cookies_manager()
 
-    # If cookies manager isn't ready yet, show waiting message and stop
+    # Show info if cookies not ready, but do NOT block UI
     if cookies is None or not cookies.ready():
         st.info("🔄 Waiting for browser session…")
-        return  # exit early until cookies are synced
 
-    # Refresh Firebase token if already logged in
     refresh_id_token()
 
-    # Restore session from cookies if available
-    if "email" in cookies:
+    # Restore session from cookies if ready
+    if cookies and cookies.ready() and "email" in cookies:
         st.session_state.email = cookies.get("email")
         st.session_state.name = cookies.get("name")
         st.session_state.user_role = cookies.get("user_role")
@@ -187,7 +185,7 @@ def auth_ui():
                             st.session_state.user_role = "privileged" if email_verified else "unverified"
 
                             # Save to cookies only if manager is ready
-                            if cookies.ready():
+                            if cookies and cookies.ready():
                                 cookies["email"] = email
                                 cookies["name"] = st.session_state.name
                                 cookies["user_role"] = st.session_state.user_role
@@ -244,7 +242,7 @@ def auth_ui():
                             st.session_state.user_role = "unverified"
 
                             # Save to cookies only if manager is ready
-                            if cookies.ready():
+                            if cookies and cookies.ready():
                                 cookies["email"] = email
                                 cookies["name"] = st.session_state.name
                                 cookies["user_role"] = "unverified"
