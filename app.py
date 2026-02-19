@@ -1612,7 +1612,8 @@ with tab_map:
             .agg(
                 total_alerts=("alert-impact", "size"),
                 negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
+                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum()),
+                context_to_watch_alerts=("alert-impact", lambda x: (x == "Positive").sum())
             )
             .reset_index()
         )
@@ -1644,6 +1645,7 @@ with tab_map:
                 "total_alerts": False,
                 "negative_alerts": False,
                 "positive_alerts": False,
+                "context_to_watch_alerts": False,
                 "perc_negative": False
             },
             color_continuous_scale="YlOrBr",
@@ -1660,9 +1662,10 @@ with tab_map:
                 "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
                 "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
                 "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "% Negative: %{customdata[3]}%<extra></extra>"
+                "<span style='color:#00FFAA'>●</span> Context to watch: %{customdata[3]}<br>"
+                "% Negative: %{customdata[4]}%<extra></extra>"
             ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
+            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","context_to_watch_alerts","perc_negative"]].values,
             hoverlabel=dict(
                 bgcolor="#2D0055",
                 font_size=13,
