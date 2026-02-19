@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged, logout_user, get_cookies, save_session
+from auth import auth_ui, is_privileged, logout_user
 import math
 
 st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
