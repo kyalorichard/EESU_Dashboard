@@ -31,11 +31,7 @@ PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("pr
 # ---------------- Cookie Manager ----------------
 def get_cookies_manager():
     if "cookies_manager" not in st.session_state:
-        cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
-        if not cookie_password:
-            st.error("❌ Cookie password missing in secrets.toml")
-            st.stop()
-
+        cookie_password = st.secrets["cookie"]["cookie_password"]
         st.session_state["cookies_manager"] = EncryptedCookieManager(
             prefix="myapp",
             password=cookie_password
@@ -43,11 +39,11 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
-    # Modern v0.2+ pattern: wait until ready
+    # Initialize cookies if not ready
     if not cookies.ready():
-        cookies.sync()  # initialize / load cookies
+        cookies.sync()          # trigger initialization
         st.info("🔄 Loading session…")
-        st.experimental_rerun()  # rerun app until ready
+        st.experimental_rerun() # rerun until ready
 
     return cookies
 # ---------------- Helpers ----------------
