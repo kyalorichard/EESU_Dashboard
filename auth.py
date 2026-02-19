@@ -29,18 +29,13 @@ if firebase_cfg:
 PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", []))
 
 # ---------------- Cookie Manager ----------------
-# ---------------- Cookie Manager ----------------
 def get_cookies_manager():
-    """
-    Initialize or return the encrypted cookie manager.
-    Automatically syncs cookies from the browser.
-    """
+    # Initialize cookies manager once
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
         if not cookie_password:
             st.error("❌ Cookie password missing in secrets.toml")
             st.stop()
-
         st.session_state["cookies_manager"] = EncryptedCookieManager(
             prefix="myapp",
             password=cookie_password
@@ -48,15 +43,16 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
-    # Always attempt to sync cookies from browser
+    # Sync cookies only if not ready
     if not cookies.ready():
         try:
-            cookies.sync()
+            cookies.sync()  # triggers loading from browser
         except Exception:
             st.info("🔄 Waiting for browser session…")
+        # Instead of rerun, just return None on first run
+        return None
 
     return cookies
-
 # ---------------- Helpers ----------------
 def init_state():
     defaults = {
