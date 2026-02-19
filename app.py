@@ -1613,7 +1613,7 @@ with tab_map:
                 total_alerts=("alert-impact", "size"),
                 negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
                 positive_alerts=("alert-impact", lambda x: (x == "Positive").sum()),
-                context_to_watch_alerts=("alert-impact", lambda x: (x == "Positive").sum())
+                context_to_watch_alerts=("alert-impact", lambda x: (x == "Context to watch").sum())
             )
             .reset_index()
         )
