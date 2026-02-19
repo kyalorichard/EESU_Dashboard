@@ -1408,15 +1408,30 @@ with tab_negative:
         m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
 
         #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
+        protected_label = "Journalists, media and influencers"
+        placeholder = "Journalists__MEDIA__and__influencers"
+        
+        def safe_split(x):
+            if pd.isna(x):
+                return []
+
+            x = x.strip()
+
+            # Temporarily replace protected label
+            x = x.replace(protected_label, placeholder)
+
+            # Split normally
+            parts = [i.strip() for i in x.split(",")]
+
+            # Restore protected label
+            parts = [p.replace(placeholder, protected_label) for p in parts]
+
+            return parts
+
         tab2_subj = (
             reactive_df_updated
             .assign(**{
-                "Subject of repression": (
-                    reactive_df_updated["Subject of repression"]
-                    .fillna("")                                 # handle NaN safely
-                    .astype(str)
-                    .str.split(r", (?=[A-Z])")                  # split only before capital letter
-                )
+                "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
             })
             .explode("Subject of repression")
         )
