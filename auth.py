@@ -110,9 +110,16 @@ def get_email_domain(email: str) -> str:
 def auth_ui():
     init_state()
     cookies = get_cookies_manager()
+
+    # If cookies manager isn't ready yet, show waiting message and stop
+    if cookies is None or not cookies.ready():
+        st.info("🔄 Waiting for browser session…")
+        return  # exit early until cookies are synced
+
+    # Refresh Firebase token if already logged in
     refresh_id_token()
 
-    # Restore session from cookies
+    # Restore session from cookies if available
     if "email" in cookies:
         st.session_state.email = cookies.get("email")
         st.session_state.name = cookies.get("name")
@@ -139,7 +146,6 @@ def auth_ui():
 
         if sidebar.button("Logout"):
             logout_user()
-            return
         return
 
     # ---------------- Tabs ----------------
@@ -180,13 +186,14 @@ def auth_ui():
                             st.session_state.idToken = id_token
                             st.session_state.user_role = "privileged" if email_verified else "unverified"
 
-                            # Save to cookies
-                            cookies["email"] = email
-                            cookies["name"] = st.session_state.name
-                            cookies["user_role"] = st.session_state.user_role
-                            cookies["email_verified"] = email_verified
-                            cookies["idToken"] = id_token
-                            cookies.save()
+                            # Save to cookies only if manager is ready
+                            if cookies.ready():
+                                cookies["email"] = email
+                                cookies["name"] = st.session_state.name
+                                cookies["user_role"] = st.session_state.user_role
+                                cookies["email_verified"] = email_verified
+                                cookies["idToken"] = id_token
+                                cookies.save()
 
                             if not email_verified:
                                 st.warning("Please verify your email before accessing the dashboard.")
@@ -236,13 +243,14 @@ def auth_ui():
                             st.session_state.idToken = user["idToken"]
                             st.session_state.user_role = "unverified"
 
-                            # Save to cookies
-                            cookies["email"] = email
-                            cookies["name"] = st.session_state.name
-                            cookies["user_role"] = "unverified"
-                            cookies["email_verified"] = False
-                            cookies["idToken"] = user["idToken"]
-                            cookies.save()
+                            # Save to cookies only if manager is ready
+                            if cookies.ready():
+                                cookies["email"] = email
+                                cookies["name"] = st.session_state.name
+                                cookies["user_role"] = "unverified"
+                                cookies["email_verified"] = False
+                                cookies["idToken"] = user["idToken"]
+                                cookies.save()
                         except Exception as e:
                             code = parse_firebase_error(e)
                             st.error(ERROR_MAP.get(code, f"Registration failed: {code}"))
