@@ -13,30 +13,30 @@ import math
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-# -------------------------------
-# Initialize Cookies Manager
-# -------------------------------
+# Initialize cookies manager safely
 try:
-    cookies = get_cookies_manager()  # returns EncryptedCookieManager
+    cookies = get_cookies_manager()
 except Exception as e:
     st.error(f"Failed to initialize cookies manager: {e}")
     st.stop()
 
-# -------------------------------
-# Wait until cookies are ready
-# -------------------------------
+# Wait for cookies to be ready (non-blocking)
 if not cookies.ready():
-    st.info("Loading session...")
+    st.info("Loading session…")
     st.stop()  # stop rendering until cookies are ready
 
-# -------------------------------
-# Initialize Authentication UI
-# -------------------------------
-auth_ui()  # handles login/register and restores session
+# Restore user from cookies if available
+if "user" in cookies:
+    st.session_state["user"] = cookies["user"]
+    st.session_state["email"] = cookies.get("email")
+    st.session_state["name"] = cookies.get("name")
+    st.session_state["user_role"] = cookies.get("user_role")
+    st.session_state["email_verified"] = cookies.get("email_verified", False)
 
-# -------------------------------
-# Access Control
-# -------------------------------
+# Initialize authentication UI
+auth_ui()
+
+# Access control
 if not st.session_state.get("user"):
     st.warning("Please log in to access the dashboard.")
     st.stop()
@@ -45,6 +45,19 @@ if not is_privileged():
     st.error("Access restricted: You need a verified privileged account.")
     st.stop()
 
+# Dashboard content
+st.title(f"Welcome, {st.session_state.get('name')}!")
+
+# Logout
+if st.button("Logout"):
+    logout_user()
+    cookies.delete("user")
+    cookies.delete("email")
+    cookies.delete("name")
+    cookies.delete("user_role")
+    cookies.delete("email_verified")
+    cookies.save()
+    st.rerun()
 
 
 BASE_DIR = Path(__file__).resolve().parent
