@@ -22,7 +22,7 @@ st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 # -----------------------------
 if not st.session_state.get("user"):
     st.warning("Please log in to access the dashboard.")
-    st.stop()
+    #st.stop()
 
 BASE_DIR = Path(__file__).resolve().parent
 
