@@ -14,23 +14,17 @@ import math
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-# ---------------- Authentication ----------------
-auth_ui()  # handle login/registration/session
+auth_ui()  # handle login/session first
 
-# ---------------- Protected Dashboard ----------------
 if is_privileged():
     st.title("📊 EESU Dashboard")
-    st.write("Welcome! You have access to the privileged dashboard content.")
-
-    # Example: Add dashboard components here
-    st.subheader("Dashboard Metrics")
-    st.write("…your charts, KPIs, tables…")
-
+    st.write("Welcome to the privileged dashboard!")
 else:
     if st.session_state.get("user"):
         st.warning("⚠️ Your email is not verified. Please verify your email to access the dashboard.")
     else:
         st.info("Please log in or register using the sidebar to access the dashboard.")
+        
 
 BASE_DIR = Path(__file__).resolve().parent
 
