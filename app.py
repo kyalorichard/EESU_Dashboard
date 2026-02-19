@@ -696,7 +696,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             y=df_cat[x] if not horizontal else df_cat[y],
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=category_colors, #[i % len(color_sequence)],
+            marker_color=category_colors.get(cat, "#808080"),  # fallback color if category missing
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
