@@ -29,15 +29,12 @@ if firebase_cfg:
 PRIVILEGED_DOMAINS = set(d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", []))
 
 # ---------------- Cookie Manager ----------------
-COOKIE_EXPIRY_HOURS = 1
-
 def get_cookies_manager():
     if "cookies_manager" not in st.session_state:
         cookie_password = st.secrets.get("cookie", {}).get("cookie_password")
         if not cookie_password:
             st.error("❌ Cookie password missing in secrets.toml")
             st.stop()
-
         st.session_state["cookies_manager"] = EncryptedCookieManager(
             prefix="myapp",
             password=cookie_password
@@ -45,19 +42,13 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
-    # Load cookies safely
+    # Modern pattern: wait until ready
     if not cookies.ready():
-        try:
-            cookies.load()
-            # Stop execution until cookies finish loading
-            st.info("🔄 Loading session…")
-            st.stop()
-        except Exception as e:
-            st.warning(f"⚠️ Failed to load cookies (first run expected): {e}")
-            # continue with empty cookies
-            pass
+        st.info("🔄 Loading session…")
+        st.stop()  # Streamlit reruns automatically when ready
 
     return cookies
+
 # ---------------- Helpers ----------------
 def init_state():
     defaults = {
