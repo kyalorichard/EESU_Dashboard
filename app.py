@@ -18,12 +18,12 @@ try:
     cookies = get_cookies_manager()
 except Exception as e:
     st.error(f"Failed to initialize cookies manager: {e}")
-    st.stop()
+    #st.stop()
 
 # Wait for cookies to be ready (non-blocking)
 if not cookies.ready():
     st.info("Loading session…")
-    st.stop()  # stop rendering until cookies are ready
+    #st.stop()  # stop rendering until cookies are ready
 
 # Restore user from cookies if available
 if "user" in cookies:
@@ -39,11 +39,11 @@ auth_ui()
 # Access control
 if not st.session_state.get("user"):
     st.warning("Please log in to access the dashboard.")
-    st.stop()
+    #st.stop()
 
 if not is_privileged():
     st.error("Access restricted: You need a verified privileged account.")
-    st.stop()
+    #st.stop()
 
 # Dashboard content
 st.title(f"Welcome, {st.session_state.get('name')}!")
