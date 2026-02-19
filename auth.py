@@ -37,6 +37,7 @@ def get_cookies_manager():
         if not cookie_password:
             st.error("❌ Cookie password missing in secrets.toml")
             st.stop()
+
         st.session_state["cookies_manager"] = EncryptedCookieManager(
             prefix="myapp",
             password=cookie_password
@@ -44,14 +45,19 @@ def get_cookies_manager():
 
     cookies = st.session_state["cookies_manager"]
 
-    # async load cookies safely
+    # Load cookies safely
     if not cookies.ready():
-        cookies.load()
-        st.info("🔄 Loading session…")
-        st.stop()
+        try:
+            cookies.load()
+            # Stop execution until cookies finish loading
+            st.info("🔄 Loading session…")
+            st.stop()
+        except Exception as e:
+            st.warning(f"⚠️ Failed to load cookies (first run expected): {e}")
+            # continue with empty cookies
+            pass
 
     return cookies
-
 # ---------------- Helpers ----------------
 def init_state():
     defaults = {
