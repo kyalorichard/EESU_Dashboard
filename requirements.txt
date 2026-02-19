@@ -58,7 +58,5 @@ pandas
 
 firebase-admin
 pyrebase4
-
-#bcrypt
-#sqlite3
+streamlit-cookies-manager
 
