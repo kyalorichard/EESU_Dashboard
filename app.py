@@ -665,7 +665,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         xref="paper",
         yref="paper",
         x=0.5,
-        y=0.02,
+        y=0.5,
         showarrow=False,
         font=dict(
             size=20,
@@ -762,7 +762,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         xref="paper",
         yref="paper",
         x=0.5,
-        y=0.02,
+        y=0.5,
         showarrow=False,
         font=dict(
             size=20,
