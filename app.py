@@ -422,14 +422,18 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """
 
     # --- Monitored Countries ---
-    with col1:
-        st.markdown(f"""
-    <div style="{card_style}">
-        <div style="{icon_style}">🌍</div>
-        <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-        <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    if is_privileged()
+        with col1:
+            st.markdown(f"""
+        <div style="{card_style}">
+            <div style="{icon_style}">🌍</div>
+            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
+            <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
+            
 
     # --- Total Alerts ---
     with col2:
@@ -664,7 +668,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
             color="black"
         ),
         #textangle=-30,
-        opacity=0.05,
+        opacity=0.03,
         xanchor="center",
         yanchor="bottom"
     )  
@@ -761,7 +765,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             color="black"
         ),
         #textangle=-30,
-        opacity=0.05,
+        opacity=0.03,
         xanchor="center",
         yanchor="bottom"
     )
