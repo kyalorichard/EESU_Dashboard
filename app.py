@@ -1283,18 +1283,14 @@ with tab_overview:
             .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
             .rename(columns=cols_rename_map)
         )
-    
-    else:
-        st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
-    
+       
     # ---------------- Tab two data preview ------------------
-    if access_level == "full":
+    
         with st.expander("Summary Data preview"):
             st.write(filtered_global_prev)  
-    else:
+   else:
         st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
-     
-    
+            
 # ---------------- Negative Events ----------------
 with tab_negative:
     #st.subheader("Negative Alerts")
