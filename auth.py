@@ -86,7 +86,7 @@ def logout_user():
             del cookies[key]
     if cookies:
         cookies.save()
-    st.experimental_rerun()
+    st.runtime.legacy_rerun()  # updated from experimental_rerun
 
 def is_privileged():
     return st.session_state.get("user_role") == "privileged" and st.session_state.get("email_verified")
