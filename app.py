@@ -1704,7 +1704,7 @@ with tab_map:
 # -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
-    def display_pdf_preview(title, description, pdf_path: Path, zoom=2):
+    def display_pdf_link(title, description, pdf_path: Path):
         st.markdown(f"""
             <div style="font-family: Arial; color: #660094; font-size: 14px;">
                 <h2 style="font-size: 20px;">{title}</h2>
@@ -1721,15 +1721,14 @@ with tab_manual:
                 mime="application/pdf"
             )
 
-            # Open PDF with PyMuPDF
-            pdf_doc = fitz.open(pdf_path)
-            for page_number in range(pdf_doc.page_count):
-                page = pdf_doc.load_page(page_number)
-                pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
-                img_bytes = pix.tobytes("png")
-                st.image(img_bytes, caption=f"{title} – Page {page_number + 1}", use_column_width=True)
+            # Open in new tab
+            st.markdown(
+                f'<a href="{pdf_path.as_posix()}" target="_blank">Open {title} in new tab</a>',
+                unsafe_allow_html=True
+            )
         else:
             st.warning(f"{title} PDF not found.")
+
 
     # --- Dashboard Header ---
     st.markdown("""
@@ -1740,8 +1739,8 @@ with tab_manual:
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Executive Brief Preview ---
-    display_pdf_preview(
+    # --- Executive Brief ---
+    display_pdf_link(
         "Executive Brief (1 Page)",
         "For senior leadership, donors, and policy reporting.",
         EXEC_BRIEF_PATH
@@ -1749,8 +1748,8 @@ with tab_manual:
 
     st.divider()
 
-    # --- Full User Manual Preview ---
-    display_pdf_preview(
+    # --- Full User Manual ---
+    display_pdf_link(
         "Full User Manual",
         "<em>Detailed guidance for analysts and advanced users</em>",
         USER_MANUAL_PATH
