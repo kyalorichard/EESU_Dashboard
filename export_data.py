@@ -83,7 +83,10 @@ def send_update_email(new_rows_count, latest_file, local_path):
 
     msg = EmailMessage()
     msg['From'] = EMAIL_FROM
-    msg['To'] = ", ".join(EMAIL_TO)
+    # Ensure EMAIL_TO is always a list
+    recipients = EMAIL_TO if isinstance(EMAIL_TO, list) else [EMAIL_TO]
+    msg['To'] = ", ".join(recipients)
+    #msg['To'] = ", ".join(EMAIL_TO)
     msg['Subject'] = EMAIL_SUBJECT
     msg.add_alternative(html_body, subtype='html')  # use HTML email
 
