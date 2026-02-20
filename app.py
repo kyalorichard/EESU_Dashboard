@@ -201,8 +201,6 @@ def load_data():
 # --- Load data safely ---
 data = load_data()
 
-
-
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
