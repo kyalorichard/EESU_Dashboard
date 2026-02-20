@@ -17,7 +17,6 @@ st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 
 BASE_DIR = Path(__file__).resolve().parent
-
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
@@ -199,23 +198,6 @@ def load_data():
 
     return df
 
-# --- Load data safely ---
-data = load_data()
-
-if data is None:
-    st.stop()
-
-if data.empty:
-    st.warning("Dataset is empty after loading.")
-    st.stop()
-
-required_columns = ["region", "alert-country", "alert-impact"]
-
-missing_cols = [col for col in required_columns if col not in data.columns]
-
-if missing_cols:
-    st.error(f"Dataset schema invalid. Missing columns: {missing_cols}")
-    st.stop()
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
