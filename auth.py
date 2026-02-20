@@ -52,6 +52,26 @@ def get_cookies():
 
     cookies = st.session_state.cookies
 
+    # Wait until cookies are ready (max 1 second)
+    try:
+        if not cookies.ready():
+            start = time.time()
+            while not cookies.ready() and time.time() - start < 1.0:
+                time.sleep(0.05)  # small delay
+            if not cookies.ready():
+                if DEBUG:
+                    st.sidebar.warning("Cookies not ready after waiting.")
+                return None
+    except CookiesNotReady:
+        if DEBUG:
+            st.sidebar.warning("Caught CookiesNotReady exception.")
+        return None
+    except Exception as e:
+        if DEBUG:
+            st.sidebar.warning(f"Cookie load error: {e}")
+        return None
+
+    # Try to sync/load without raising
     try:
         if hasattr(cookies, "sync"):
             cookies.sync()
@@ -59,10 +79,9 @@ def get_cookies():
             cookies.load()
     except Exception as e:
         if DEBUG:
-            st.sidebar.warning(f"Could not load cookies: {e}")
+            st.sidebar.warning(f"Could not sync/load cookies: {e}")
 
     return cookies
-
 # -------------------------------------------------
 # Session Initialization
 # -------------------------------------------------
