@@ -1704,8 +1704,7 @@ with tab_map:
 # -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
-    from pdf2image import convert_from_path
-    def display_pdf_as_images(title, description, pdf_path: Path, dpi=150):
+    def display_pdf_link(title, description, pdf_path: Path):
         st.markdown(f"""
             <div style="font-family: Arial; color: #660094; font-size: 14px;">
                 <h2 style="font-size: 20px;">{title}</h2>
@@ -1722,12 +1721,14 @@ with tab_manual:
                 mime="application/pdf"
             )
 
-            # Convert PDF pages to images
-            pages = convert_from_path(pdf_path, dpi=dpi)
-            for i, page in enumerate(pages, start=1):
-                st.image(page, caption=f"{title} – Page {i}", use_column_width=True)
+            # Open in new tab
+            st.markdown(
+                f'<a href="{pdf_path.as_posix()}" target="_blank">Open {title} in new tab</a>',
+                unsafe_allow_html=True
+            )
         else:
             st.warning(f"{title} PDF not found.")
+
 
     # --- Dashboard Header ---
     st.markdown("""
@@ -1739,7 +1740,7 @@ with tab_manual:
     """, unsafe_allow_html=True)
 
     # --- Executive Brief ---
-    display_pdf_as_images(
+    display_pdf_link(
         "Executive Brief (1 Page)",
         "For senior leadership, donors, and policy reporting.",
         EXEC_BRIEF_PATH
@@ -1748,12 +1749,11 @@ with tab_manual:
     st.divider()
 
     # --- Full User Manual ---
-    display_pdf_as_images(
+    display_pdf_link(
         "Full User Manual",
         "<em>Detailed guidance for analysts and advanced users</em>",
         USER_MANUAL_PATH
     )
-
 # ---------------- FOOTER ----------------
 # Footer image
 # --- Load image and convert to base64 ---
