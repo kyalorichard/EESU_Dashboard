@@ -19,10 +19,7 @@ if is_privileged():
    
     st.write("Welcome to the privileged dashboard!")
 else:
-    if st.session_state.get("user"):
-        st.warning("⚠️ Your email is not verified. Please verify your email to access the dashboard.")
-    else:
-        st.info("Please log in or register using the sidebar to access the dashboard.")
+    st.info("Please log in or register using the sidebar to access the dashboard.")
 
 
 BASE_DIR = Path(__file__).resolve().parent
