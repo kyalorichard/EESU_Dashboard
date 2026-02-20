@@ -1250,7 +1250,7 @@ with tab_overview:
     df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
     a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(40)  # select top 20
+    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     
