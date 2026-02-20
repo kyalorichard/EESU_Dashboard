@@ -1704,6 +1704,7 @@ with tab_map:
 # -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
+    from pdf2image import convert_from_path
     def display_pdf_as_images(title, description, pdf_path: Path, dpi=150):
         st.markdown(f"""
             <div style="font-family: Arial; color: #660094; font-size: 14px;">
