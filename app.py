@@ -502,32 +502,33 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Negative Alerts: {negative} ({neg_pct}%)</title>
             </circle>
+            
+            <circle cx="60" cy="60" r="40" stroke="#008CAA" stroke-width="12" fill="none"
+                stroke-dasharray="{2*3.1416*40}" 
+                stroke-dashoffset="{2*3.1416*40*(1-(context_pct/100))}"
+                stroke-linecap="round" transform="rotate(-90 60 60)">
+                <title>Positive Alerts: {context} ({context_pct}%)</title>
+            </circle>
             <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*40}" 
                 stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Positive Alerts: {positive} ({pos_pct}%)</title>
             </circle>
-            <circle cx="60" cy="60" r="30" stroke="#008CAA" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*30}" 
-                stroke-dashoffset="{2*3.1416*30*(1-(context_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Positive Alerts: {context} ({context_pct}%)</title>
-            </circle>
-            <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
+            <text x="40" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
                 {pos_pct}%
             </text>
             <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
                 {neg_pct}%
             </text>
             <text x="70" y="65" text-anchor="middle" font-size="12" font-weight="bold" color="white",fill="#333">
-                {context_pct}
+                {context_pct}%
             </text>
         </svg>
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 2px; font-size:12px; font-weight:700; width:100%; gap:40px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 2px; font-size:12px; font-weight:700; width:100%; gap:20px;">
             <div style="display:flex; align-items:center; gap:6px;">
                 <span style="width:10px; height:10px; background:#FFDB58; border-radius:30%; display:inline-block;"></span>
                 <span style="color:#555;">Negative:</span>
