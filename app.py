@@ -15,12 +15,6 @@ import re
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-if is_privileged():
-   
-    st.write("Welcome to the privileged dashboard!")
-else:
-    st.info("Please log in or register using the sidebar to access the dashboard.")
-
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -327,6 +321,12 @@ st.sidebar.markdown(
 )
 
 auth_ui()
+
+if is_privileged():
+   
+    st.write("Welcome to the privileged dashboard!")
+else:
+    st.info("Please log in or register using the sidebar to access the dashboard.")
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
