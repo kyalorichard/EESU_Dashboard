@@ -1704,76 +1704,81 @@ with tab_map:
 # -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
-    # --- Paths to PDFs ---
-    
-    # --- Helper function for responsive PDF iframe ---
-    def display_pdf_iframe(title, description, pdf_path: Path, default_height=700):
-        # Section title and description
-        st.markdown(f"""
-            <div style="font-family: Arial; color: #660094; font-size: 14px;">
-                <h2 style="font-size: 20px;">{title}</h2>
-                <p style="font-size: 12px;">{description}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if pdf_path.exists():
-            # Download button
-            st.download_button(
-                f"Download {title} (PDF)",
-                pdf_path.read_bytes(),
-                file_name=pdf_path.name,
-                mime="application/pdf"
-            )
-
-            # Responsive iframe
-            pdf_display = f"""
-            <iframe
-                src="{pdf_path.as_uri()}"
-                width="100%"
-                height="{default_height}px"
-                style="border:none;"
-                id="pdfFrame"
-            ></iframe>
-            <script>
-                const iframe = document.getElementById('pdfFrame');
-                function resizeIframe() {{
-                    // Adjust height to 80% of the browser window
-                    iframe.style.height = (window.innerHeight * 0.8) + "px";
-                }}
-                window.addEventListener('resize', resizeIframe);
-                resizeIframe();  // initial resize
-            </script>
-            """
-            st.components.v1.html(pdf_display, height=default_height)  # fixed height for Streamlit container
-        else:
-            st.warning(f"{title} PDF not found.")
-
-    # --- Dashboard Header ---
     st.markdown("""
     <div style="font-family: Arial; color: #660094; font-size: 14px;">
         <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
         <p>This section provides concise, decision-ready documentation for executives,
         donors, and policy stakeholders.</p>
+        <h2 style="font-size: 20px;">Executive Brief (1 Page)</h2>
+        <p>For senior leadership, donors, and policy reporting.</p>
+
+        
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Executive Brief Section ---
-    display_pdf_iframe(
-        "Executive Brief (1 Page)",
-        "For senior leadership, donors, and policy reporting.",
-        EXEC_BRIEF_PATH
-    )
+    if EXEC_BRIEF_PATH.exists():
+        pdf_bytes = EXEC_BRIEF_PATH.read_bytes()
+
+        st.download_button(
+            "Download Executive Brief (PDF)",
+            pdf_bytes,
+            file_name="EU_SEE_Dashboard_Quick_Start_Executive.pdf",
+            mime="application/pdf"
+        )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <div style="font-family: Arial; color: #660094; font-size: 12px;">
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="550px"
+                    style="border:none;"
+                ></iframe>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("Executive Brief PDF not found.")
 
     st.divider()
 
-    # --- Full User Manual Section ---
-    display_pdf_iframe(
-        "Full User Manual",
-        "<em>Detailed guidance for analysts and advanced users</em>",
-        USER_MANUAL_PATH
-    )
-    
-   
+    # Full User Manual
+    st.markdown("""
+    <div style="font-family: Arial; color: #660094; font-size: 14px;">
+        <h2 style="font-size: 20px;">Full User Manual</h2>
+        <p style="font-size: 12px;"><em>Detailed guidance for analysts and advanced users</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if USER_MANUAL_PATH.exists():
+        pdf_bytes = USER_MANUAL_PATH.read_bytes()
+
+        st.download_button(
+            "Download Full User Manual (PDF)",
+            pdf_bytes,
+            file_name="EU SEE Dashboard user manual.pdf",
+            mime="application/pdf"
+        )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <div style="font-family: Arial; color: #660094; font-size: 14px;">
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="700px"
+                    style="border:none;"
+                ></iframe>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("User Manual PDF not found.")
 
 # ---------------- FOOTER ----------------
 # Footer image
