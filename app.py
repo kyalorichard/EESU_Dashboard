@@ -102,7 +102,7 @@ st.markdown("""
 
 
 # ---------------- LOAD DATA ----------------
-#@st.cache_data(ttl=0)
+@st.cache_data(ttl=0)
 def load_data():
     parquet_file = Path.cwd() / "data" / "output_final.parquet"
     meta_file = Path.cwd() / "data" / "countries_metadata.json"
@@ -197,6 +197,10 @@ def load_data():
         df.loc[mask, 'alert-impact'] = 'Context to watch'
 
     return df
+
+# --- Load data safely ---
+data = load_data()
+
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
