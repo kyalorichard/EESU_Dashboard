@@ -194,15 +194,28 @@ def load_data():
     # --- Step 8: Update alert-impact based on alert-type ---
     
     if 'alert-type' in df.columns and 'alert-impact' in df.columns:
-        for idx, row in df.iterrows():
-            alert_type_val = str(row['alert-type']).strip().lower()  # lowercase + strip
-            if alert_type_val == 'context to watch':
-                df.at[idx, 'alert-impact'] = 'Context to watch'
+        mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
+        df.loc[mask, 'alert-impact'] = 'Context to watch'
 
     return df
 
 # --- Load data safely ---
 data = load_data()
+
+if data is None:
+    st.stop()
+
+if data.empty:
+    st.warning("Dataset is empty after loading.")
+    st.stop()
+
+required_columns = ["region", "alert-country", "alert-impact"]
+
+missing_cols = [col for col in required_columns if col not in data.columns]
+
+if missing_cols:
+    st.error(f"Dataset schema invalid. Missing columns: {missing_cols}")
+    st.stop()
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
