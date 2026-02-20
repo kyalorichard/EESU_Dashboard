@@ -180,7 +180,6 @@ def auth_ui():
     action = sidebar.radio("Select Action", ["Login", "Register"])
 
     # ================= LOGIN =================
-    # ----- LOGIN -----
     if action == "Login":
         with sidebar.form("login_form"):
             email = st.text_input("Email").strip()
@@ -191,23 +190,20 @@ def auth_ui():
                 if get_domain(email) not in PRIVILEGED_DOMAINS:
                     st.error("Access restricted to approved domains.")
                     return
-                if not firebase_available:
-                    st.warning("Firebase not available. Cannot log in.")
-                    return
                 try:
                     user = firebase_auth.sign_in_with_email_and_password(email, password)
                     info = firebase_auth.get_account_info(user["idToken"])
                     verified = info["users"][0]["emailVerified"]
                     role = "privileged" if verified else "restricted"
 
-                    # Session
+                    # Store session
                     st.session_state.user = True
                     st.session_state.email = email
                     st.session_state.name = email.split("@")[0].title()
                     st.session_state.email_verified = verified
                     st.session_state.role = role
 
-                    # Cookies
+                    # Store SAFE cookie data
                     cookies = get_cookies()
                     if cookies and cookies.ready():
                         cookies["email"] = email
@@ -222,25 +218,7 @@ def auth_ui():
                     st.rerun()
                 except Exception as e:
                     st.error(parse_error(e))
-
-        # Forgot Password
-        st.markdown("---")
-        st.write("Forgot your password? Enter your email below to reset it.")
-        forgot_email = st.text_input("Email for password reset", key="forgot_email")
-        if st.button("Send Reset Email"):
-            if not forgot_email:
-                st.warning("Please enter your email.")
-            elif get_domain(forgot_email) not in PRIVILEGED_DOMAINS:
-                st.error("Password reset restricted to approved domains.")
-            elif not firebase_available:
-                st.warning("Firebase not available. Cannot reset password.")
-            else:
-                try:
-                    firebase_auth.send_password_reset_email(forgot_email)
-                    st.success(f"Password reset email sent to {forgot_email}.")
-                except Exception as e:
-                    st.error(f"Failed to send reset email: {parse_error(e)}")
-
+            
 
     # ================= REGISTER =================
     if action == "Register":
