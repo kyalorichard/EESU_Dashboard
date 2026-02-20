@@ -58,6 +58,6 @@ pandas
 
 firebase-admin
 pyrebase4
-streamlit-cookies-manager
+streamlit-cookies-manager>=0.2.0
 pdf2image
 
