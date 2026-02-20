@@ -236,11 +236,3 @@ def auth_ui():
                     st.success("Registration successful. Check your email to verify.")
                 except Exception as e:
                     st.error(parse_error(e))
-
-    # ---------------- DEBUG INFO ----------------
-    if DEBUG:
-        sidebar.markdown("---")
-        sidebar.markdown("**DEBUG INFO**")
-        sidebar.text(f"Session State: {st.session_state}")
-        cookies = get_cookies()
-        sidebar.text(f"Cookies: {dict(cookies) if cookies and cookies.ready() else 'Not ready'}")
