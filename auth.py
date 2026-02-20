@@ -107,7 +107,7 @@ def restore_session():
         return
 
     if not st.session_state.restored:
-        if "email" in cookies:
+        if cookies.ready() and "email" in cookies:
             st.session_state.user = True
             st.session_state.email = cookies.get("email")
             st.session_state.name = cookies.get("name")
