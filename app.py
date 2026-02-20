@@ -373,11 +373,13 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     total_alerts = len(df) if not df.empty else 0
     negative = (df['alert-impact'] == "Negative").sum() if not df.empty else 0
     positive = (df['alert-impact'] == "Positive").sum() if not df.empty else 0
-    total_np = negative + positive
+    context = (df['alert-impact'] == "Context to watch").sum() if not df.empty else 0
+    total_np = negative + positive + context
 
     # Percentages
     neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
     pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
+    context_pct = round((context / total_np) * 100, 1) if total_np else 0
 
     # Adjust bar height and font size based on total alerts
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
@@ -506,14 +508,20 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Positive Alerts: {positive} ({pos_pct}%)</title>
             </circle>
+            <circle cx="60" cy="60" r="30" stroke="#660094" stroke-width="12" fill="none"
+                stroke-dasharray="{2*3.1416*30}" 
+                stroke-dashoffset="{2*3.1416*30*(1-(pos_pct/100))}"
+                stroke-linecap="round" transform="rotate(-90 60 60)">
+                <title>Positive Alerts: {context} ({context_pct}%)</title>
+            </circle>
             <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
                 {pos_pct}%
             </text>
             <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
                 {neg_pct}%
             </text>
-            <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
-                {total_alerts}
+            <text x="70" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
+                {context_pct}
             </text>
         </svg>
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
@@ -528,6 +536,11 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             <div style="display:flex; align-items:center; gap:6px;">
                 <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
                 <span style="color:#555;">Positive:</span>
+                <span style="color:#660094;">{positive}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
+                <span style="color:#555;">Context to Watch:</span>
                 <span style="color:#660094;">{positive}</span>
             </div>
         </div>
