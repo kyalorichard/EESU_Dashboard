@@ -1705,71 +1705,68 @@ with tab_map:
         
 with tab_manual:
     # --- Helper function for responsive PDF iframe ---
-    def display_pdf_iframe(title, description, pdf_path: Path, default_height=700):
-        # Section title and description
-        st.markdown(f"""
-            <div style="font-family: Arial; color: #660094; font-size: 14px;">
-                <h2 style="font-size: 20px;">{title}</h2>
-                <p style="font-size: 12px;">{description}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if pdf_path.exists():
-            # Download button
-            st.download_button(
-                f"Download {title} (PDF)",
-                pdf_path.read_bytes(),
-                file_name=pdf_path.name,
-                mime="application/pdf"
-            )
-
-            # Responsive iframe
-            pdf_display = f"""
-            <iframe
-                src="{pdf_path.as_uri()}"
-                width="100%"
-                height="{default_height}px"
-                style="border:none;"
-                id="pdfFrame"
-            ></iframe>
-            <script>
-                const iframe = document.getElementById('pdfFrame');
-                function resizeIframe() {{
-                    // Adjust height to 80% of the browser window
-                    iframe.style.height = (window.innerHeight * 0.8) + "px";
-                }}
-                window.addEventListener('resize', resizeIframe);
-                resizeIframe();  // initial resize
-            </script>
-            """
-            st.components.v1.html(pdf_display, height=default_height)  # fixed height for Streamlit container
-        else:
-            st.warning(f"{title} PDF not found.")
-
-    # --- Dashboard Header ---
-    st.markdown("""
-    <div style="font-family: Arial; color: #660094; font-size: 14px;">
-        <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
-        <p>This section provides concise, decision-ready documentation for executives,
-        donors, and policy stakeholders.</p>
-    </div>
+    def display_pdf(title, description, pdf_path: Path, iframe_height=700):
+    st.markdown(f"""
+        <div style="font-family: Arial; color: #660094; font-size: 14px;">
+            <h2 style="font-size: 20px;">{title}</h2>
+            <p style="font-size: 12px;">{description}</p>
+        </div>
     """, unsafe_allow_html=True)
 
-    # --- Executive Brief Section ---
-    display_pdf_iframe(
-        "Executive Brief (1 Page)",
-        "For senior leadership, donors, and policy reporting.",
-        EXEC_BRIEF_PATH
-    )
+    if pdf_path.exists():
+        pdf_bytes = pdf_path.read_bytes()
+        
+        # Download button
+        st.download_button(
+            f"Download {title} (PDF)",
+            pdf_bytes,
+            file_name=pdf_path.name,
+            mime="application/pdf"
+        )
 
-    st.divider()
+        # Encode PDF to base64
+        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        # Embed PDF in iframe
+        pdf_display = f"""
+        <iframe
+            src="data:application/pdf;base64,{pdf_base64}"
+            width="100%"
+            height="{iframe_height}px"
+            style="border: none;"
+        ></iframe>
+        """
+        st.components.v1.html(pdf_display, height=iframe_height)
+    else:
+        st.warning(f"{title} PDF not found.")
 
-    # --- Full User Manual Section ---
-    display_pdf_iframe(
-        "Full User Manual",
-        "<em>Detailed guidance for analysts and advanced users</em>",
-        USER_MANUAL_PATH
-    )
+
+# --- Dashboard Header ---
+st.markdown("""
+<div style="font-family: Arial; color: #660094; font-size: 14px;">
+    <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
+    <p>This section provides concise, decision-ready documentation for executives,
+    donors, and policy stakeholders.</p>
+</div>
+""", unsafe_allow_html=True)
+
+# --- Executive Brief ---
+display_pdf(
+    "Executive Brief (1 Page)",
+    "For senior leadership, donors, and policy reporting.",
+    EXEC_BRIEF_PATH,
+    iframe_height=550
+)
+
+st.divider()
+
+# --- Full User Manual ---
+display_pdf(
+    "Full User Manual",
+    "<em>Detailed guidance for analysts and advanced users</em>",
+    USER_MANUAL_PATH,
+    iframe_height=700
+)
 
 # ---------------- FOOTER ----------------
 # Footer image
