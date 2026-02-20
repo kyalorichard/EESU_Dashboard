@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-<<<<<<< Updated upstream
 import re
 import paramiko
 import pandas as pd
