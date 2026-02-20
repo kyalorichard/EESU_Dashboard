@@ -1,10 +1,11 @@
-# auth.py (with DEBUG sidebar)
+# auth.py (final version)
 import streamlit as st
 import pyrebase
 import firebase_admin
 from firebase_admin import credentials
-from streamlit_cookies_manager import EncryptedCookieManager
+from streamlit_cookies_manager import EncryptedCookieManager, CookiesNotReady
 import json
+import time
 
 # ----------------- DEBUG FLAG -----------------
 DEBUG = True  # Set False in production
@@ -16,7 +17,6 @@ if not firebase_admin._apps:
     if "firebase_admin" not in st.secrets:
         st.error("Missing firebase_admin in secrets.toml")
         st.stop()
-
     cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
     firebase_admin.initialize_app(cred)
 
@@ -39,7 +39,7 @@ PRIVILEGED_DOMAINS = set(
 )
 
 # -------------------------------------------------
-# Cookie Manager
+# Cookie Manager (safe)
 # -------------------------------------------------
 def get_cookies():
     if "cookies" not in st.session_state:
@@ -47,31 +47,29 @@ def get_cookies():
         if not password:
             st.error("Cookie password missing in secrets.toml")
             return None
-
         st.session_state.cookies = EncryptedCookieManager(prefix="myapp", password=password)
 
     cookies = st.session_state.cookies
 
     # Wait until cookies are ready (max 1 second)
     try:
+        start = time.time()
+        while not cookies.ready() and time.time() - start < 1.0:
+            time.sleep(0.05)
         if not cookies.ready():
-            start = time.time()
-            while not cookies.ready() and time.time() - start < 1.0:
-                time.sleep(0.05)  # small delay
-            if not cookies.ready():
-                if DEBUG:
-                    st.sidebar.warning("Cookies not ready after waiting.")
-                return None
+            if DEBUG:
+                st.sidebar.warning("Cookies not ready after waiting.")
+            return None
     except CookiesNotReady:
         if DEBUG:
-            st.sidebar.warning("Caught CookiesNotReady exception.")
+            st.sidebar.warning("Caught CookiesNotReady exception")
         return None
     except Exception as e:
         if DEBUG:
             st.sidebar.warning(f"Cookie load error: {e}")
         return None
 
-    # Try to sync/load without raising
+    # Try to sync/load safely
     try:
         if hasattr(cookies, "sync"):
             cookies.sync()
@@ -82,6 +80,7 @@ def get_cookies():
             st.sidebar.warning(f"Could not sync/load cookies: {e}")
 
     return cookies
+
 # -------------------------------------------------
 # Session Initialization
 # -------------------------------------------------
@@ -107,12 +106,16 @@ def restore_session():
         return
 
     if not st.session_state.restored:
-        if cookies.ready() and "email" in cookies:
-            st.session_state.user = True
-            st.session_state.email = cookies.get("email")
-            st.session_state.name = cookies.get("name")
-            st.session_state.role = cookies.get("role")
-            st.session_state.email_verified = cookies.get("email_verified", False)
+        try:
+            if cookies.ready() and "email" in cookies:
+                st.session_state.user = True
+                st.session_state.email = cookies.get("email")
+                st.session_state.name = cookies.get("name")
+                st.session_state.role = cookies.get("role")
+                st.session_state.email_verified = cookies.get("email_verified", False)
+        except CookiesNotReady:
+            if DEBUG:
+                st.sidebar.warning("Cookies not ready during restore_session()")
         st.session_state.restored = True
 
 # -------------------------------------------------
@@ -120,7 +123,7 @@ def restore_session():
 # -------------------------------------------------
 def logout():
     cookies = get_cookies()
-    if cookies:
+    if cookies and cookies.ready():
         for key in ["email", "name", "role", "email_verified"]:
             if key in cookies:
                 del cookies[key]
@@ -162,20 +165,17 @@ def is_privileged():
 def auth_ui():
     init_session()
     restore_session()
-
     sidebar = st.sidebar
 
     # ---------------- Logged-In View ----------------
     if st.session_state.user:
         sidebar.success(f"👋 {st.session_state.name}")
-
         if not st.session_state.email_verified:
             sidebar.warning("Email not verified.")
             sidebar.info("Please verify your email before accessing the dashboard.")
             if sidebar.button("Logout"):
                 logout()
             return
-
         if sidebar.button("Logout"):
             logout()
         return
@@ -194,7 +194,6 @@ def auth_ui():
                 if get_domain(email) not in PRIVILEGED_DOMAINS:
                     st.error("Access restricted to approved domains.")
                     return
-
                 try:
                     user = firebase_auth.sign_in_with_email_and_password(email, password)
                     info = firebase_auth.get_account_info(user["idToken"])
@@ -208,9 +207,9 @@ def auth_ui():
                     st.session_state.email_verified = verified
                     st.session_state.role = role
 
-                    # Store SAFE cookie data (no JWT)
+                    # Store SAFE cookie data
                     cookies = get_cookies()
-                    if cookies:
+                    if cookies and cookies.ready():
                         cookies["email"] = email
                         cookies["name"] = st.session_state.name
                         cookies["email_verified"] = verified
@@ -221,7 +220,6 @@ def auth_ui():
                             pass
 
                     st.rerun()
-
                 except Exception as e:
                     st.error(parse_error(e))
 
@@ -236,12 +234,10 @@ def auth_ui():
                 if get_domain(email) not in PRIVILEGED_DOMAINS:
                     st.error("Registration restricted to approved domains.")
                     return
-
                 try:
                     user = firebase_auth.create_user_with_email_and_password(email, password)
                     firebase_auth.send_email_verification(user["idToken"])
                     st.success("Registration successful. Check your email to verify.")
-
                 except Exception as e:
                     st.error(parse_error(e))
 
@@ -251,4 +247,4 @@ def auth_ui():
         sidebar.markdown("**DEBUG INFO**")
         sidebar.text(f"Session State: {st.session_state}")
         cookies = get_cookies()
-        sidebar.text(f"Cookies: {dict(cookies) if cookies else 'None'}")
+        sidebar.text(f"Cookies: {dict(cookies) if cookies and cookies.ready() else 'Not ready'}")
