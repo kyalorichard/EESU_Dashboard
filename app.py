@@ -1704,8 +1704,7 @@ with tab_map:
 # -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
-    # --- Helper function for responsive PDF iframe ---
-    def display_pdf(title, description, pdf_path: Path, iframe_height=700):
+    def display_pdf_as_images(title, description, pdf_path: Path, dpi=150):
         st.markdown(f"""
             <div style="font-family: Arial; color: #660094; font-size: 14px;">
                 <h2 style="font-size: 20px;">{title}</h2>
@@ -1714,32 +1713,20 @@ with tab_manual:
         """, unsafe_allow_html=True)
 
         if pdf_path.exists():
-            pdf_bytes = pdf_path.read_bytes()
-            
             # Download button
             st.download_button(
                 f"Download {title} (PDF)",
-                pdf_bytes,
+                pdf_path.read_bytes(),
                 file_name=pdf_path.name,
                 mime="application/pdf"
             )
 
-            # Encode PDF to base64
-            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-            
-            # Embed PDF in iframe
-            pdf_display = f"""
-            <iframe
-                src="data:application/pdf;base64,{pdf_base64}"
-                width="100%"
-                height="{iframe_height}px"
-                style="border: none;"
-            ></iframe>
-            """
-            st.components.v1.html(pdf_display, height=iframe_height)
+            # Convert PDF pages to images
+            pages = convert_from_path(pdf_path, dpi=dpi)
+            for i, page in enumerate(pages, start=1):
+                st.image(page, caption=f"{title} – Page {i}", use_column_width=True)
         else:
             st.warning(f"{title} PDF not found.")
-
 
     # --- Dashboard Header ---
     st.markdown("""
@@ -1751,21 +1738,19 @@ with tab_manual:
     """, unsafe_allow_html=True)
 
     # --- Executive Brief ---
-    display_pdf(
+    display_pdf_as_images(
         "Executive Brief (1 Page)",
         "For senior leadership, donors, and policy reporting.",
-        EXEC_BRIEF_PATH,
-        iframe_height=550
+        EXEC_BRIEF_PATH
     )
 
     st.divider()
 
     # --- Full User Manual ---
-    display_pdf(
+    display_pdf_as_images(
         "Full User Manual",
         "<em>Detailed guidance for analysts and advanced users</em>",
-        USER_MANUAL_PATH,
-        iframe_height=700
+        USER_MANUAL_PATH
     )
 
 # ---------------- FOOTER ----------------
