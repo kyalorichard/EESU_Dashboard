@@ -45,7 +45,7 @@ def get_cookies():
         password = st.secrets.get("cookie", {}).get("cookie_password")
         if not password:
             st.error("Cookie password missing in secrets.toml")
-            st.stop()
+            return None
 
         st.session_state.cookies = EncryptedCookieManager(
             prefix="myapp",
@@ -54,16 +54,15 @@ def get_cookies():
 
     cookies = st.session_state.cookies
 
-    # Wait until ready
+    # Try loading but DO NOT stop execution
     if not cookies.ready():
         try:
-            cookies.sync()  # newer versions
+            cookies.sync()
         except AttributeError:
             try:
-                cookies.load()  # older versions
+                cookies.load()
             except Exception:
                 pass
-        st.stop()
 
     return cookies
 
@@ -130,9 +129,9 @@ def get_domain(email):
 
 def is_privileged():
     return (
-        st.session_state.user
-        and st.session_state.email_verified
-        and st.session_state.role == "privileged"
+        st.session_state.get("user", False)
+        and st.session_state.get("email_verified", False)
+        and st.session_state.get("role") == "privileged"
     )
 
 # -------------------------------------------------
