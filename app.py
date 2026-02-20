@@ -510,7 +510,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
             </circle>
             <circle cx="60" cy="60" r="30" stroke="#660094" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*30}" 
-                stroke-dashoffset="{2*3.1416*30*(1-(pos_pct/100))}"
+                stroke-dashoffset="{2*3.1416*30*(1-(context_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Positive Alerts: {context} ({context_pct}%)</title>
             </circle>
@@ -529,19 +529,19 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 2px; font-size:15px; font-weight:700; width:100%; gap:40px;">
             <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#FFDB58; border-radius:50%; display:inline-block;"></span>
+                <span style="width:10px; height:10px; background:#FFDB58; border-radius:35%; display:inline-block;"></span>
                 <span style="color:#555;">Negative:</span>
                 <span style="color:#FFDB58;">{negative}</span>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
+                <span style="width:10px; height:10px; background:#660094; border-radius:35%; display:inline-block;"></span>
                 <span style="color:#555;">Positive:</span>
                 <span style="color:#660094;">{positive}</span>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
+                <span style="width:10px; height:10px; background:#660094; border-radius:30%; display:inline-block;"></span>
                 <span style="color:#555;">Context to Watch:</span>
-                <span style="color:#660094;">{positive}</span>
+                <span style="color:#660094;">{context}</span>
             </div>
         </div>
     </div>
