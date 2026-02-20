@@ -1706,9 +1706,9 @@ with tab_map:
 with tab_manual:
     # --- Paths to PDFs ---
     
-
-    # --- Helper function for responsive iframe ---
+    # --- Helper function for responsive PDF iframe ---
     def display_pdf_iframe(title, description, pdf_path: Path, default_height=700):
+        # Section title and description
         st.markdown(f"""
             <div style="font-family: Arial; color: #660094; font-size: 14px;">
                 <h2 style="font-size: 20px;">{title}</h2>
@@ -1725,7 +1725,7 @@ with tab_manual:
                 mime="application/pdf"
             )
 
-            # Embed PDF in iframe with responsive height
+            # Responsive iframe
             pdf_display = f"""
             <iframe
                 src="{pdf_path.as_uri()}"
@@ -1737,18 +1737,18 @@ with tab_manual:
             <script>
                 const iframe = document.getElementById('pdfFrame');
                 function resizeIframe() {{
-                    // Set iframe height to 80% of window height
+                    // Adjust height to 80% of the browser window
                     iframe.style.height = (window.innerHeight * 0.8) + "px";
                 }}
                 window.addEventListener('resize', resizeIframe);
-                resizeIframe(); // initial resize
+                resizeIframe();  // initial resize
             </script>
             """
-            st.components.v1.html(pdf_display, height=int(st.runtime.legacy_get_page_height()*0.8))
+            st.components.v1.html(pdf_display, height=default_height)  # fixed height for Streamlit container
         else:
             st.warning(f"{title} PDF not found.")
 
-    # --- Dashboard Sections ---
+    # --- Dashboard Header ---
     st.markdown("""
     <div style="font-family: Arial; color: #660094; font-size: 14px;">
         <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
@@ -1757,6 +1757,7 @@ with tab_manual:
     </div>
     """, unsafe_allow_html=True)
 
+    # --- Executive Brief Section ---
     display_pdf_iframe(
         "Executive Brief (1 Page)",
         "For senior leadership, donors, and policy reporting.",
@@ -1765,11 +1766,14 @@ with tab_manual:
 
     st.divider()
 
+    # --- Full User Manual Section ---
     display_pdf_iframe(
         "Full User Manual",
         "<em>Detailed guidance for analysts and advanced users</em>",
         USER_MANUAL_PATH
     )
+    
+   
 
 # ---------------- FOOTER ----------------
 # Footer image
