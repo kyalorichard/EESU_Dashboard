@@ -1,9 +1,9 @@
-# auth_safe_full.py — robust, debug-ready, full auth flow
+# auth_safe_full_v2.py — full robust auth with safe cookies
 import streamlit as st
 import pyrebase
 import firebase_admin
 from firebase_admin import credentials
-from streamlit_cookies_manager import EncryptedCookieManager
+from streamlit_cookies_manager import EncryptedCookieManager, CookiesNotReady
 import json
 import time
 
@@ -56,17 +56,20 @@ def get_cookies():
 
     cookies = st.session_state.cookies
 
-    try:
-        start = time.time()
-        while not cookies.ready() and time.time() - start < 1.0:
+    # Wait until cookies are ready (max 1 second)
+    start = time.time()
+    while True:
+        try:
+            if cookies.ready():
+                break
+        except CookiesNotReady:
+            if time.time() - start > 1.0:
+                if DEBUG:
+                    st.sidebar.warning("Cookies not ready after waiting 1 second.")
+                return None
             time.sleep(0.05)
-        if not cookies.ready() and DEBUG:
-            st.sidebar.warning("Cookies not ready after waiting.")
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Cookie load error: {e}")
-        return None
 
+    # Try to sync/load safely
     try:
         if hasattr(cookies, "sync"):
             cookies.sync()
@@ -87,7 +90,7 @@ def init_session():
         "role": None,
         "email_verified": False,
         "restored": False,
-        "password": None,  # optionally store temporarily for resending verification
+        "password": None,  # optional, for resending verification
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -100,12 +103,15 @@ def restore_session():
 
     if not st.session_state.restored:
         try:
-            if cookies.ready() and "email" in cookies:
+            if "email" in cookies:
                 st.session_state.user = True
                 st.session_state.email = cookies.get("email")
                 st.session_state.name = cookies.get("name")
                 st.session_state.role = cookies.get("role")
                 st.session_state.email_verified = cookies.get("email_verified", False)
+        except CookiesNotReady:
+            if DEBUG:
+                st.sidebar.warning("Tried to access cookies before ready.")
         except Exception as e:
             if DEBUG:
                 st.sidebar.warning(f"Error restoring session: {e}")
@@ -113,12 +119,15 @@ def restore_session():
 
 def logout():
     cookies = get_cookies()
-    if cookies and cookies.ready():
-        for key in ["email", "name", "role", "email_verified"]:
-            if key in cookies:
-                del cookies[key]
+    if cookies:
         try:
+            for key in ["email", "name", "role", "email_verified"]:
+                if key in cookies:
+                    del cookies[key]
             cookies.save()
+        except CookiesNotReady:
+            if DEBUG:
+                st.sidebar.warning("Tried to delete cookies before ready.")
         except Exception:
             pass
     for key in list(st.session_state.keys()):
@@ -163,7 +172,6 @@ def auth_ui():
             if firebase_available:
                 if sidebar.button("Resend Verification Email"):
                     try:
-                        # Firebase requires sign-in to resend verification
                         if st.session_state.password:
                             user = firebase_auth.sign_in_with_email_and_password(
                                 st.session_state.email,
@@ -191,7 +199,6 @@ def auth_ui():
 
     # ----- LOGIN -----
     if action == "Login":
-        # Login form
         with sidebar.form("login_form"):
             email = st.text_input("Email", key="login_email").strip()
             password = st.text_input("Password", type="password", key="login_password")
@@ -216,17 +223,17 @@ def auth_ui():
                         st.session_state.role = role
                         st.session_state.password = password
 
-                        # Cookies
                         cookies = get_cookies()
-                        if cookies and cookies.ready():
-                            cookies["email"] = email
-                            cookies["name"] = st.session_state.name
-                            cookies["email_verified"] = verified
-                            cookies["role"] = role
+                        if cookies:
                             try:
+                                cookies["email"] = email
+                                cookies["name"] = st.session_state.name
+                                cookies["email_verified"] = verified
+                                cookies["role"] = role
                                 cookies.save()
-                            except Exception:
-                                pass
+                            except CookiesNotReady:
+                                if DEBUG:
+                                    st.sidebar.warning("Cookies not ready when saving session.")
 
                         st.rerun()
                     except Exception as e:
