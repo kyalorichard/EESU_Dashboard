@@ -501,17 +501,16 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Negative Alerts: {negative} ({neg_pct}%)</title>
-            </circle>
-            
+            </circle>            
             <circle cx="60" cy="60" r="40" stroke="#008CAA" stroke-width="12" fill="none"
                 stroke-dasharray="{2*3.1416*40}" 
                 stroke-dashoffset="{2*3.1416*40*(1-(context_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Positive Alerts: {context} ({context_pct}%)</title>
             </circle>
-            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*40}" 
-                stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
+            <circle cx="60" cy="60" r="30" stroke="#660094" stroke-width="12" fill="none"
+                stroke-dasharray="{2*3.1416*30}" 
+                stroke-dashoffset="{2*3.1416*30*(1-(pos_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Positive Alerts: {positive} ({pos_pct}%)</title>
             </circle>
