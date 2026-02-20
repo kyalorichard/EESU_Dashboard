@@ -320,9 +320,8 @@ st.sidebar.markdown(
 auth_ui()
 
 if st.session_state.get("user") and st.session_state.get("email_verified"):
-    st.title("Welcome to the Dashboard!")
     st.write(f"Hello, {st.session_state.name}!")
-    # Your main app code here
+   
 else:
     st.info("Please log in to access the dashboard.")
 
