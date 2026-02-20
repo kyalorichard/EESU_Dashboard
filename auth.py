@@ -13,20 +13,22 @@ if not firebase_admin._apps:
     if "firebase_admin" not in st.secrets:
         st.error("Missing firebase_admin in secrets.toml")
         st.stop()
+
     cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
     firebase_admin.initialize_app(cred)
 
 # -------------------------------------------------
-# Firebase Auth (Pyrebase)
+# Firebase Client (Pyrebase)
 # -------------------------------------------------
 firebase_auth = None
 firebase_cfg = dict(st.secrets.get("firebase", {}))
 
 if not firebase_cfg:
     st.error("Firebase config missing in secrets.toml")
-else:
-    firebase = pyrebase.initialize_app(firebase_cfg)
-    firebase_auth = firebase.auth()
+    st.stop()
+
+firebase = pyrebase.initialize_app(firebase_cfg)
+firebase_auth = firebase.auth()
 
 # -------------------------------------------------
 # Privileged Domains
@@ -36,7 +38,7 @@ PRIVILEGED_DOMAINS = set(
 )
 
 # -------------------------------------------------
-# Cookie Manager (SAFE VERSION)
+# Cookie Manager (Version-Compatible)
 # -------------------------------------------------
 def get_cookies():
     if "cookies" not in st.session_state:
@@ -52,8 +54,15 @@ def get_cookies():
 
     cookies = st.session_state.cookies
 
+    # Wait until ready
     if not cookies.ready():
-        cookies.sync()
+        try:
+            cookies.sync()  # newer versions
+        except AttributeError:
+            try:
+                cookies.load()  # older versions
+            except Exception:
+                pass
         st.stop()
 
     return cookies
@@ -70,11 +79,11 @@ def init_session():
         "email_verified": False,
         "restored": False,
     }
-    for k, v in defaults.items():
-        st.session_state.setdefault(k, v)
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
 
 # -------------------------------------------------
-# Restore From Cookies
+# Restore Session From Cookies
 # -------------------------------------------------
 def restore_session():
     cookies = get_cookies()
@@ -82,10 +91,10 @@ def restore_session():
     if not st.session_state.restored:
         if "email" in cookies:
             st.session_state.user = True
-            st.session_state.email = cookies["email"]
-            st.session_state.name = cookies["name"]
-            st.session_state.role = cookies["role"]
-            st.session_state.email_verified = cookies["email_verified"]
+            st.session_state.email = cookies.get("email")
+            st.session_state.name = cookies.get("name")
+            st.session_state.role = cookies.get("role")
+            st.session_state.email_verified = cookies.get("email_verified", False)
         st.session_state.restored = True
 
 # -------------------------------------------------
@@ -93,29 +102,31 @@ def restore_session():
 # -------------------------------------------------
 def logout():
     cookies = get_cookies()
+
     for key in ["email", "name", "role", "email_verified"]:
         if key in cookies:
             del cookies[key]
     cookies.save()
 
+    # Clear session safely
     for key in list(st.session_state.keys()):
         del st.session_state[key]
 
     st.rerun()
 
 # -------------------------------------------------
-# Helper
+# Helpers
 # -------------------------------------------------
 def parse_error(e):
     try:
         payload = e.args[1] if len(e.args) > 1 else e.args[0]
         data = json.loads(payload)
         return data.get("error", {}).get("message", str(e))
-    except:
+    except Exception:
         return str(e)
 
 def get_domain(email):
-    return email.split("@")[-1].lower()
+    return email.strip().split("@")[-1].lower()
 
 def is_privileged():
     return (
@@ -133,12 +144,15 @@ def auth_ui():
 
     sidebar = st.sidebar
 
-    # ---------------- Logged In ----------------
+    # ---------------- Logged-In View ----------------
     if st.session_state.user:
         sidebar.success(f"👋 {st.session_state.name}")
 
         if not st.session_state.email_verified:
             sidebar.warning("Email not verified.")
+            sidebar.info("Please verify your email before accessing the dashboard.")
+            if sidebar.button("Logout"):
+                logout()
             return
 
         if sidebar.button("Logout"):
@@ -150,7 +164,7 @@ def auth_ui():
 
     # ================= LOGIN =================
     if action == "Login":
-        with sidebar.form("login"):
+        with sidebar.form("login_form"):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             submit = st.form_submit_button("Sign in")
@@ -167,14 +181,14 @@ def auth_ui():
 
                     role = "privileged" if verified else "restricted"
 
-                    # Save session
+                    # Store session
                     st.session_state.user = True
                     st.session_state.email = email
                     st.session_state.name = email.split("@")[0].title()
                     st.session_state.email_verified = verified
                     st.session_state.role = role
 
-                    # Save safe cookie data
+                    # Store SAFE cookie data (no JWT)
                     cookies = get_cookies()
                     cookies["email"] = email
                     cookies["name"] = st.session_state.name
@@ -189,7 +203,7 @@ def auth_ui():
 
     # ================= REGISTER =================
     if action == "Register":
-        with sidebar.form("register"):
+        with sidebar.form("register_form"):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             submit = st.form_submit_button("Register")
