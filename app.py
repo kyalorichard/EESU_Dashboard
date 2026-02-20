@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui
+from auth import auth_ui, is_privileged
 import math
 import re
 
@@ -319,14 +319,12 @@ st.sidebar.markdown(
 
 auth_ui()
 
-if st.session_state.get("user"):
-    if st.session_state.get("email_verified"):
-        st.title(f"Welcome to the Dashboard, {st.session_state.name}!")
-        st.write("Your session is secure and persistent.")
-    else:
-        st.warning("Please verify your email address to access the dashboard tools.")
+if st.session_state.get("user") and st.session_state.get("email_verified"):
+    st.title("Welcome to the Dashboard!")
+    st.write(f"Hello, {st.session_state.name}!")
+    # Your main app code here
 else:
-    st.info("Please login or register to see the dashboard.")
+    st.info("Please log in to access the dashboard.")
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
