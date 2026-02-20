@@ -219,20 +219,20 @@ def auth_ui():
                 except Exception as e:
                     st.error(parse_error(e))
         # ------------------ Forgot Password ------------------
-    st.markdown("---")
-    st.write("Forgot your password? Enter your email below to reset it.")
-    forgot_email = st.text_input("Email for password reset", key="forgot_email")
-    if st.button("Send Reset Email"):
-        if not forgot_email:
-            st.warning("Please enter your email.")
-        elif get_domain(forgot_email) not in PRIVILEGED_DOMAINS:
-            st.error("Password reset restricted to approved domains.")
-        else:
-            try:
-                firebase_auth.send_password_reset_email(forgot_email)
-                st.success(f"Password reset email sent to {forgot_email}.")
-            except Exception as e:
-                st.error(f"Failed to send reset email: {parse_error(e)}")
+        st.markdown("---")
+        st.write("Forgot your password? Enter your email below to reset it.")
+        forgot_email = st.text_input("Email for password reset", key="forgot_email")
+        if st.button("Send Reset Email"):
+            if not forgot_email:
+                st.warning("Please enter your email.")
+            elif get_domain(forgot_email) not in PRIVILEGED_DOMAINS:
+                st.error("Password reset restricted to approved domains.")
+            else:
+                try:
+                    firebase_auth.send_password_reset_email(forgot_email)
+                    st.success(f"Password reset email sent to {forgot_email}.")
+                except Exception as e:
+                    st.error(f"Failed to send reset email: {parse_error(e)}")
 
     # ================= REGISTER =================
     if action == "Register":
