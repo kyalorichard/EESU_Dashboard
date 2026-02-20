@@ -1,9 +1,9 @@
-# auth.py (final version)
+# auth.py (final, safe, debug-ready)
 import streamlit as st
 import pyrebase
 import firebase_admin
 from firebase_admin import credentials
-from streamlit_cookies_manager import EncryptedCookieManager, CookiesNotReady
+from streamlit_cookies_manager import EncryptedCookieManager
 import json
 import time
 
@@ -60,10 +60,6 @@ def get_cookies():
             if DEBUG:
                 st.sidebar.warning("Cookies not ready after waiting.")
             return None
-    except CookiesNotReady:
-        if DEBUG:
-            st.sidebar.warning("Caught CookiesNotReady exception")
-        return None
     except Exception as e:
         if DEBUG:
             st.sidebar.warning(f"Cookie load error: {e}")
@@ -113,9 +109,9 @@ def restore_session():
                 st.session_state.name = cookies.get("name")
                 st.session_state.role = cookies.get("role")
                 st.session_state.email_verified = cookies.get("email_verified", False)
-        except CookiesNotReady:
+        except Exception as e:
             if DEBUG:
-                st.sidebar.warning("Cookies not ready during restore_session()")
+                st.sidebar.warning(f"Error restoring session: {e}")
         st.session_state.restored = True
 
 # -------------------------------------------------
