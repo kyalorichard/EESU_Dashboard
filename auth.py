@@ -58,7 +58,7 @@ def get_cookies():
             time.sleep(0.05)
         if not cookies.ready():
             if DEBUG:
-                st.sidebar.warning("Cookies not ready after waiting.")
+               # st.sidebar.warning("Cookies not ready after waiting.")
             return None
     except Exception as e:
         if DEBUG:
