@@ -180,44 +180,61 @@ def auth_ui():
     action = sidebar.radio("Select Action", ["Login", "Register"])
 
     # ================= LOGIN =================
-    if action == "Login":
-        with sidebar.form("login_form"):
-            email = st.text_input("Email").strip()
-            password = st.text_input("Password", type="password")
-            submit = st.form_submit_button("Sign in")
+    # ================= LOGIN =================
+if action == "Login":
+    with sidebar.form("login_form"):
+        email = st.text_input("Email").strip()
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Sign in")
 
-            if submit:
-                if get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Access restricted to approved domains.")
-                    return
-                try:
-                    user = firebase_auth.sign_in_with_email_and_password(email, password)
-                    info = firebase_auth.get_account_info(user["idToken"])
-                    verified = info["users"][0]["emailVerified"]
-                    role = "privileged" if verified else "restricted"
+        if submit:
+            if get_domain(email) not in PRIVILEGED_DOMAINS:
+                st.error("Access restricted to approved domains.")
+                return
+            try:
+                user = firebase_auth.sign_in_with_email_and_password(email, password)
+                info = firebase_auth.get_account_info(user["idToken"])
+                verified = info["users"][0]["emailVerified"]
+                role = "privileged" if verified else "restricted"
 
-                    # Store session
-                    st.session_state.user = True
-                    st.session_state.email = email
-                    st.session_state.name = email.split("@")[0].title()
-                    st.session_state.email_verified = verified
-                    st.session_state.role = role
+                # Store session
+                st.session_state.user = True
+                st.session_state.email = email
+                st.session_state.name = email.split("@")[0].title()
+                st.session_state.email_verified = verified
+                st.session_state.role = role
 
-                    # Store SAFE cookie data
-                    cookies = get_cookies()
-                    if cookies and cookies.ready():
-                        cookies["email"] = email
-                        cookies["name"] = st.session_state.name
-                        cookies["email_verified"] = verified
-                        cookies["role"] = role
-                        try:
-                            cookies.save()
-                        except Exception:
-                            pass
+                # Store SAFE cookie data
+                cookies = get_cookies()
+                if cookies and cookies.ready():
+                    cookies["email"] = email
+                    cookies["name"] = st.session_state.name
+                    cookies["email_verified"] = verified
+                    cookies["role"] = role
+                    try:
+                        cookies.save()
+                    except Exception:
+                        pass
 
-                    st.rerun()
-                except Exception as e:
-                    st.error(parse_error(e))
+                st.rerun()
+            except Exception as e:
+                st.error(parse_error(e))
+
+    # ---------- Forgot Password ----------
+    sidebar.markdown("### Forgot Password?")
+    reset_email = sidebar.text_input("Enter your email to reset", key="reset_email")
+
+    if sidebar.button("Send Reset Link"):
+        if not reset_email:
+            sidebar.warning("Please enter your email.")
+        elif get_domain(reset_email) not in PRIVILEGED_DOMAINS:
+            sidebar.error("Reset restricted to approved domains.")
+        else:
+            try:
+                firebase_auth.send_password_reset_email(reset_email)
+                sidebar.success("Password reset email sent. Check your inbox.")
+            except Exception as e:
+                sidebar.error(parse_error(e))
 
     # ================= REGISTER =================
     if action == "Register":
