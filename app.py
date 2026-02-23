@@ -15,7 +15,6 @@ import re
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-
 BASE_DIR = Path(__file__).resolve().parent
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
