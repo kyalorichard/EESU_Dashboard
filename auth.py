@@ -181,70 +181,70 @@ def auth_ui():
 
     # ================= LOGIN =================
     # ================= LOGIN =================
-if action == "Login":
-    with sidebar.form("login_form"):
-        email = st.text_input("Email").strip()
-        password = st.text_input("Password", type="password")
+    if action == "Login":
+        with sidebar.form("login_form"):
+            email = st.text_input("Email").strip()
+            password = st.text_input("Password", type="password")
 
-        col1, col2 = st.columns(2)
-        submit = col1.form_submit_button("Sign in")
-        forgot = col2.form_submit_button("Forgot Password")
+            col1, col2 = st.columns(2)
+            submit = col1.form_submit_button("Sign in")
+            forgot = col2.form_submit_button("Forgot Password")
 
-        # -------- LOGIN --------
-        if submit:
-            if not email or not password:
-                st.error("Please enter email and password.")
-                return
+            # -------- LOGIN --------
+            if submit:
+                if not email or not password:
+                    st.error("Please enter email and password.")
+                    return
 
-            if get_domain(email) not in PRIVILEGED_DOMAINS:
-                st.error("Access restricted to approved domains.")
-                return
+                if get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Access restricted to approved domains.")
+                    return
 
-            try:
-                user = firebase_auth.sign_in_with_email_and_password(email, password)
-                info = firebase_auth.get_account_info(user["idToken"])
-                verified = info["users"][0]["emailVerified"]
-                role = "privileged" if verified else "restricted"
+                try:
+                    user = firebase_auth.sign_in_with_email_and_password(email, password)
+                    info = firebase_auth.get_account_info(user["idToken"])
+                    verified = info["users"][0]["emailVerified"]
+                    role = "privileged" if verified else "restricted"
 
-                # Store session
-                st.session_state.user = True
-                st.session_state.email = email
-                st.session_state.name = email.split("@")[0].title()
-                st.session_state.email_verified = verified
-                st.session_state.role = role
+                    # Store session
+                    st.session_state.user = True
+                    st.session_state.email = email
+                    st.session_state.name = email.split("@")[0].title()
+                    st.session_state.email_verified = verified
+                    st.session_state.role = role
 
-                # Store SAFE cookie data
-                cookies = get_cookies()
-                if cookies and cookies.ready():
-                    cookies["email"] = email
-                    cookies["name"] = st.session_state.name
-                    cookies["email_verified"] = verified
-                    cookies["role"] = role
-                    try:
-                        cookies.save()
-                    except Exception:
-                        pass
+                    # Store SAFE cookie data
+                    cookies = get_cookies()
+                    if cookies and cookies.ready():
+                        cookies["email"] = email
+                        cookies["name"] = st.session_state.name
+                        cookies["email_verified"] = verified
+                        cookies["role"] = role
+                        try:
+                            cookies.save()
+                        except Exception:
+                            pass
 
-                st.rerun()
+                    st.rerun()
 
-            except Exception as e:
-                st.error(parse_error(e))
+                except Exception as e:
+                    st.error(parse_error(e))
 
-        # -------- FORGOT PASSWORD --------
-        if forgot:
-            if not email:
-                st.warning("Please enter your email above.")
-                return
+            # -------- FORGOT PASSWORD --------
+            if forgot:
+                if not email:
+                    st.warning("Please enter your email above.")
+                    return
 
-            if get_domain(email) not in PRIVILEGED_DOMAINS:
-                st.error("Reset restricted to approved domains.")
-                return
+                if get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Reset restricted to approved domains.")
+                    return
 
-            try:
-                firebase_auth.send_password_reset_email(email)
-                st.success("Password reset email sent. Check your inbox.")
-            except Exception as e:
-                st.error(parse_error(e))
+                try:
+                    firebase_auth.send_password_reset_email(email)
+                    st.success("Password reset email sent. Check your inbox.")
+                except Exception as e:
+                    st.error(parse_error(e))
 
     # ================= REGISTER =================
     if action == "Register":
