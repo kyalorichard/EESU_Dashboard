@@ -118,136 +118,105 @@ st.markdown("""
 
 # ---------------- LOAD DATA ----------------
 #@st.cache_data(ttl=0)
-
-try:
-    import paramiko
-    HAS_PARAMIKO = True
-except ImportError:
-    HAS_PARAMIKO = False
-
-DEBUG = True
-
 def load_data():
-    """
-    Load data from SFTP or local files safely, Docker/Streamlit Cloud compatible.
-    Returns:
-        df (pd.DataFrame): main data
-        metadata (dict): country metadata
-    """
+    parquet_file = Path.cwd() / "data" / "output_final.parquet"
+    meta_file = Path.cwd() / "data" / "countries_metadata.json"
 
-    # ----------------- 1️⃣ SFTP credentials from secrets.toml -----------------
-    sftp_secrets = st.secrets.get("sftp", {})
-    SFTP_HOST = sftp_secrets.get("host")
-    SFTP_USERNAME = sftp_secrets.get("username")
-    SFTP_PASSWORD = sftp_secrets.get("password")
-    REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
-    SFTP_PORT = 22
+    # --- Step 1: Load Parquet file safely ---
+    if not parquet_file.exists():
+        st.error(f"Parquet file not found: {parquet_file}")
+        return pd.DataFrame()
 
-    # ----------------- 2️⃣ Local folder (writable in Docker / Streamlit Cloud) -----------------
-    local_dir = Path(tempfile.gettempdir()) / "eesu_data"
-    local_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        df = pd.read_parquet(parquet_file)
+    except Exception as e:
+        st.error(f"Failed to read Parquet file: {e}")
+        return pd.DataFrame()
 
-    local_parquet = local_dir / "output_final.parquet"
-    local_meta = local_dir / "countries_metadata.json"
+    if df.empty:
+        st.warning("Loaded Parquet file is empty.")
+        return df
 
-    df = pd.DataFrame()
-    metadata = {}
+    # --- Step 2: Basic cleaning ---
+    for col in ['alert-country', 'alert-impact', 'Actor of repression']:
+        if col not in df.columns:
+            st.warning(f"Column '{col}' not found in dataset.")
+            df[col] = ""
 
+    df['alert-country'] = df['alert-country'].astype(str).str.strip()
+    df = df[df['alert-country'].str.lower() != "jose"]
+    df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
-    # ----------------- 3️⃣ Download from SFTP if credentials exist -----------------
-    if all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]) and HAS_PARAMIKO:
+    # Clean country names
+    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
+
+    # Clean Actor of repression
+    df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
+    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent Non-State Actors"})
+
+    # --- Step 3: Load metadata ---
+    country_meta = {}
+    if meta_file.exists():
         try:
-            transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
-            transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
-            sftp = paramiko.SFTPClient.from_transport(transport)
-
-            # Download Parquet
-            remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
-            try:
-                sftp.get(remote_parquet, str(local_parquet))
-                if local_parquet.stat().st_size == 0:
-                    st.warning("Downloaded Parquet is empty.")
-            except FileNotFoundError:
-                st.warning(f"Remote Parquet not found: {remote_parquet}")
-
-            # Download metadata
-            remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
-            try:
-                sftp.get(remote_meta, str(local_meta))
-            except FileNotFoundError:
-                st.warning(f"Remote metadata not found: {remote_meta}")
-
-            sftp.close()
-            transport.close()
+            with open(meta_file, encoding="utf-8") as f:
+                country_meta = json.load(f)
         except Exception as e:
-            if DEBUG:
-                st.warning(f"SFTP download failed: {e}")
-    elif DEBUG:
-        st.warning("SFTP credentials missing or paramiko not installed; using local files.")
-
-    # ----------------- 4️⃣ Load Parquet safely -----------------
-    if local_parquet.exists() and local_parquet.stat().st_size > 0:
-        try:
-            df = pd.read_parquet(local_parquet)
-        except Exception as e:
-            st.warning(f"Failed to read Parquet: {e}")
-            df = pd.DataFrame()
+            st.warning(f"Failed to load countries metadata: {e}")
     else:
-        if DEBUG:
-            st.warning(f"Parquet file missing or empty: {local_parquet}")
+        st.warning(f"Countries metadata JSON not found: {meta_file}")
 
-    # ----------------- 5️⃣ Load metadata safely -----------------
-    if local_meta.exists():
-        try:
-            metadata = json.loads(local_meta.read_text())
-        except Exception as e:
-            if DEBUG:
-                st.warning(f"Failed to read metadata JSON: {e}")
+    # --- Step 4: Map ISO codes and continent ---
+    df['iso_alpha3'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3", None))
+    df['continent'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
 
-    # ----------------- 6️⃣ Data cleaning & mapping -----------------
-    if not df.empty:
-        for col in ['alert-country', 'alert-impact', 'Actor of repression']:
-            if col not in df.columns:
-                df[col] = ""
+    # --- Step 5: Map continent to region ---
+    def continent_to_region(continent):
+        if continent == "Africa":
+            return "Africa"
+        elif continent in ["Asia", "Oceania"]:
+            return "Asia and the Pacific"
+        elif continent in ["Europe", "Middle East"]:
+            return "The Middle East"
+        elif continent in ["Americas", "North America", "South America", "Caribbean"]:
+            return "Americas and the Caribbean"
+        else:
+            return "Unknown"
 
-        df['alert-country'] = df['alert-country'].astype(str).str.strip().replace({"Lebanon NAR": "Lebanon"})
-        df = df[df['alert-country'].str.lower() != "jose"]
-        df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
+    df['region'] = df['continent'].apply(continent_to_region)
 
-        df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip().replace({"VNSAs": "Violent Non-State Actors"})
+    # --- Step 6: Warn about missing ISO codes ---
+    missing_countries = (
+        df.loc[df['iso_alpha3'].isna(), 'alert-country']
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .loc[lambda s: s.str.lower() != "none"]
+        .unique()
+    )
 
-        df['iso_alpha3'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("iso_alpha3"))
-        df['continent'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("continent", "Unknown"))
+    if len(missing_countries) > 0:
+        st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
 
-        continent_map = {
-            "Africa": "Africa",
-            "Asia": "Asia and the Pacific",
-            "Oceania": "Asia and the Pacific",
-            "Europe": "The Middle East",
-            "Middle East": "The Middle East",
-            "Americas": "Americas and the Caribbean",
-            "North America": "Americas and the Caribbean",
-            "South America": "Americas and the Caribbean",
-            "Caribbean": "Americas and the Caribbean"
-        }
-        df['region'] = df['continent'].apply(lambda x: continent_map.get(x, "Unknown"))
+    # --- Step 7: Process dates ---
+    if 'creation_date' in df.columns:
+        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
+        df['year'] = df['creation_date'].dt.year
+        df['month_name'] = df['creation_date'].dt.strftime('%B')
+    else:
+        st.warning("No 'creation_date' column found in dataset.")
+    
+    # --- Step 8: Update alert-impact based on alert-type ---
+    
+    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
+        mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
+        df.loc[mask, 'alert-impact'] = 'Context to watch'
 
-        missing = df.loc[df['iso_alpha3'].isna(), 'alert-country'].dropna().unique()
-        if len(missing) > 0:
-            st.warning(f"Countries missing ISO codes: {', '.join(missing)}")
+    return df
 
-        if 'creation_date' in df.columns:
-            df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
-            df['year'] = df['creation_date'].dt.year
-            df['month_name'] = df['creation_date'].dt.strftime('%B')
+# --- Load data safely ---
+data = load_data()
 
-        if 'alert-type' in df.columns:
-            mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
-            df.loc[mask, 'alert-impact'] = 'Context to watch'
 
-    return df, metadata
-
-data, meta = load_data()
 
 if not data.empty and "region" in data.columns:
     filtered_countries = data[data['region'].isin(selected_regions)] \
