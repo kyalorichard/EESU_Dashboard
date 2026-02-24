@@ -121,7 +121,7 @@ DATA_DIR = BASE_DIR / "data"
 
 # ---------------- EXPORT DIRECTORY ----------------
 # Use /exports if it exists in Docker, otherwise fallback to local export folder
-EXPORT_DIR = Path("/data") if Path("/data").exists() else BASE_DIR / "exportss"
+EXPORT_DIR = Path("/data") if Path("/data").exists() else BASE_DIR / "data"
 
 # Ensure folders exist (important if writing files later)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
