@@ -106,37 +106,44 @@ st.markdown("""
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
-    # --- SFTP CONFIG ---
+     # --- SFTP CONFIG ---
     SFTP_HOST = os.getenv("SFTP_HOST")
     SFTP_PORT = 22
     SFTP_USERNAME = os.getenv("SFTP_USERNAME")
     SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
     REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
-    
+
+    # --- Step 0: Check credentials ---
+    if not all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]):
+        st.error("Missing SFTP credentials in environment variables.")
+        return pd.DataFrame(), {}
+
     remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
     remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
 
     local_dir = Path.cwd() / "data"
-    local_dir.mkdir(exist_ok=True)
+    local_dir.mkdir(parents=True, exist_ok=True)
     local_parquet = local_dir / "output_final.parquet"
     local_meta = local_dir / "countries_metadata.json"
 
-    # --- Step 0: Pull files from remote SFTP ---
+    transport = None
+    sftp = None
     try:
+        # --- Step 1: Connect to SFTP ---
         transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
         transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
         logging.info("Connected to SFTP.")
 
-        # Download parquet file
+        # --- Step 2: Download Parquet ---
         try:
             sftp.get(remote_parquet, str(local_parquet))
             logging.info("Downloaded remote output_final.parquet")
         except FileNotFoundError:
             st.error(f"Remote Parquet file not found: {remote_parquet}")
-            return pd.DataFrame()
+            return pd.DataFrame(), {}
 
-        # Download metadata JSON
+        # --- Step 3: Download Metadata (optional) ---
         try:
             sftp.get(remote_meta, str(local_meta))
             logging.info("Downloaded remote countries_metadata.json")
@@ -145,13 +152,34 @@ def load_data():
 
     except Exception as e:
         st.error(f"SFTP connection or download failed: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(), {}
 
     finally:
-        sftp.close()
-        transport.close()
+        if sftp:
+            sftp.close()
+        if transport:
+            transport.close()
         logging.info("SFTP connection closed.")
 
+    # --- Step 4: Load Parquet file safely ---
+    try:
+        df = pd.read_parquet(local_parquet)
+    except Exception as e:
+        st.error(f"Failed to read Parquet file: {e}")
+        return pd.DataFrame(), {}
+
+    if df.empty:
+        st.warning("Loaded Parquet file is empty.")
+
+    # --- Step 5: Load metadata safely ---
+    metadata = {}
+    if local_meta.exists():
+        try:
+            metadata = json.loads(local_meta.read_text())
+        except Exception as e:
+            st.warning(f"Failed to read metadata JSON: {e}")
+
+    return df, metadata
     # --- Step 1: Load Parquet file safely ---
     try:
         df = pd.read_parquet(local_parquet)
