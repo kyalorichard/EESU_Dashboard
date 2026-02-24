@@ -120,7 +120,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # Define folders
 DATA_DIR = BASE_DIR / "data"
-EXPORT_DIR = BASE_DIR / "export-files"
+EXPORT_DIR = BASE_DIR / "exports"
 
 # Ensure folders exist (important if writing files later)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -129,8 +129,8 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------- LOAD DATA ----------------
 #@st.cache_data(ttl=0)
 def load_data():
-    parquet_file = DATA_DIR / "output_final.parquet"
-    meta_file = DATA_DIR / "countries_metadata.json"
+    parquet_file = EXPORT_DIR / "output_final.parquet"
+    meta_file = EXPORT_DIR / "countries_metadata.json"
 
    # parquet_file = Path.cwd() / "data" / "output_final.parquet"
     #meta_file = Path.cwd() / "data" / "countries_metadata.json"
