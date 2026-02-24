@@ -13,12 +13,12 @@ DEBUG = True  # Set False in production
 # -------------------------------------------------
 # Firebase Admin Initialization
 # -------------------------------------------------
-if not firebase_admin._apps:
-    if "firebase_admin" not in st.secrets:
-        st.error("Missing firebase_admin in secrets.toml")
-        st.stop()
-    cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
-    firebase_admin.initialize_app(cred)
+#if not firebase_admin._apps:
+   # if "firebase_admin" not in st.secrets:
+        #st.error("Missing firebase_admin in secrets.toml")
+        #st.stop()
+   # cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
+   # firebase_admin.initialize_app(cred)
 
 # -------------------------------------------------
 # Firebase Client (Pyrebase)
