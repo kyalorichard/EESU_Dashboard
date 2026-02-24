@@ -23,7 +23,7 @@ SFTP_USERNAME = sftp_secrets.get("username")
 SFTP_PASSWORD = sftp_secrets.get("password")
 REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
 
-st.write("SFTP_HOST:", os.getenv("SFTP_HOST"))
+st.write("SFTP_HOST:", sftp_secrets.get("host"))
 st.write("SFTP_USERNAME:", sftp_secrets.get("username"))
 st.write("SFTP_PASSWORD:", sftp_secrets.get("password"))
 st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
