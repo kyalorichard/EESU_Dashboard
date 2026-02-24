@@ -12,6 +12,7 @@ from auth import auth_ui, is_privileged
 import math
 import paramiko
 import logging
+import tempfile  
 import os
 import re
 
