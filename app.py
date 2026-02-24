@@ -127,49 +127,71 @@ except ImportError:
 DEBUG = True
 
 def load_data():
-    """Load Parquet and metadata safely from SFTP or local files."""
-    
-    # --- 1️⃣ Read SFTP from secrets.toml ---
+    """
+    Load data from SFTP or local files safely, Docker/Streamlit Cloud compatible.
+    Returns:
+        df (pd.DataFrame): main data
+        metadata (dict): country metadata
+    """
+
+    # ----------------- 1️⃣ SFTP credentials from secrets.toml -----------------
     sftp_secrets = st.secrets.get("sftp", {})
     SFTP_HOST = sftp_secrets.get("host")
     SFTP_USERNAME = sftp_secrets.get("username")
     SFTP_PASSWORD = sftp_secrets.get("password")
     REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
+    SFTP_PORT = 22
 
-    # --- Local folder ---
+    # ----------------- 2️⃣ Local folder (Docker-safe) -----------------
     local_dir = Path("/app/data")
-    local_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        if local_dir.exists() and not local_dir.is_dir():
+            local_dir.unlink()  # remove file if it exists
+        local_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Could not create /app/data: {e}, using temp folder.")
+        local_dir = Path(tempfile.gettempdir()) / "eesu_data"
+        local_dir.mkdir(parents=True, exist_ok=True)
+
     local_parquet = local_dir / "output_final.parquet"
     local_meta = local_dir / "countries_metadata.json"
 
     df = pd.DataFrame()
     metadata = {}
 
-    # --- 2️⃣ Download from SFTP if credentials exist ---
+    # ----------------- 3️⃣ Download from SFTP if credentials exist -----------------
     if all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]) and HAS_PARAMIKO:
         try:
-            transport = paramiko.Transport((SFTP_HOST, 22))
+            transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
             transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
             sftp = paramiko.SFTPClient.from_transport(transport)
-            
-            # Parquet
+
+            # Download Parquet
             remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
-            sftp.get(remote_parquet, str(local_parquet))
-            
-            # Metadata
+            try:
+                sftp.get(remote_parquet, str(local_parquet))
+                if local_parquet.stat().st_size == 0:
+                    st.warning("Downloaded Parquet is empty.")
+            except FileNotFoundError:
+                st.warning(f"Remote Parquet not found: {remote_parquet}")
+
+            # Download metadata
             remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
-            sftp.get(remote_meta, str(local_meta))
-            
+            try:
+                sftp.get(remote_meta, str(local_meta))
+            except FileNotFoundError:
+                st.warning(f"Remote metadata not found: {remote_meta}")
+
             sftp.close()
             transport.close()
         except Exception as e:
             if DEBUG:
                 st.warning(f"SFTP download failed: {e}")
-
     elif DEBUG:
         st.warning("SFTP credentials missing or paramiko not installed; using local files.")
 
-    # --- 3️⃣ Load Parquet safely ---
+    # ----------------- 4️⃣ Load Parquet safely -----------------
     if local_parquet.exists() and local_parquet.stat().st_size > 0:
         try:
             df = pd.read_parquet(local_parquet)
@@ -179,9 +201,8 @@ def load_data():
     else:
         if DEBUG:
             st.warning(f"Parquet file missing or empty: {local_parquet}")
-        df = pd.DataFrame()
 
-    # --- 4️⃣ Load metadata safely ---
+    # ----------------- 5️⃣ Load metadata safely -----------------
     if local_meta.exists():
         try:
             metadata = json.loads(local_meta.read_text())
@@ -189,20 +210,22 @@ def load_data():
             if DEBUG:
                 st.warning(f"Failed to read metadata JSON: {e}")
 
-    # --- 5️⃣ Safe cleaning & mapping ---
+    # ----------------- 6️⃣ Data cleaning & mapping -----------------
     if not df.empty:
         for col in ['alert-country', 'alert-impact', 'Actor of repression']:
             if col not in df.columns:
                 df[col] = ""
+
         df['alert-country'] = df['alert-country'].astype(str).str.strip().replace({"Lebanon NAR": "Lebanon"})
         df = df[df['alert-country'].str.lower() != "jose"]
         df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
+
         df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip().replace({"VNSAs": "Violent Non-State Actors"})
-        
+
         df['iso_alpha3'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("iso_alpha3"))
         df['continent'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("continent", "Unknown"))
 
-        mapping = {
+        continent_map = {
             "Africa": "Africa",
             "Asia": "Asia and the Pacific",
             "Oceania": "Asia and the Pacific",
@@ -213,7 +236,11 @@ def load_data():
             "South America": "Americas and the Caribbean",
             "Caribbean": "Americas and the Caribbean"
         }
-        df['region'] = df['continent'].apply(lambda x: mapping.get(x, "Unknown"))
+        df['region'] = df['continent'].apply(lambda x: continent_map.get(x, "Unknown"))
+
+        missing = df.loc[df['iso_alpha3'].isna(), 'alert-country'].dropna().unique()
+        if len(missing) > 0:
+            st.warning(f"Countries missing ISO codes: {', '.join(missing)}")
 
         if 'creation_date' in df.columns:
             df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
