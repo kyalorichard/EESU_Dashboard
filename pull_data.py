@@ -79,11 +79,11 @@ except Exception as e:
     logging.error(f"SFTP connection failed: {e}")
     exit()
 
-#local_file = "data/output_final.parquet"
-#remote_file = f"{REMOTE_DIR}/output_final.parquet"
+local_file = "data/countries_metadata.json"
+remote_file = f"{REMOTE_DIR}/countries_metadata.json"
 
-#sftp.put(local_file, remote_file)
-#logging.info(f"Uploaded {local_file} to {remote_file}")
+sftp.put(local_file, remote_file)
+logging.info(f"Uploaded {local_file} to {remote_file}")
 
 # ---------------- LOG REMOTE EXPORT DIRECTORY CONTENTS ----------------
 try:
