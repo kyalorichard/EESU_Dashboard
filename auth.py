@@ -15,7 +15,7 @@ DEBUG = True  # Set False in production
 # -------------------------------------------------
 #if not firebase_admin._apps:
    # if "firebase_admin" not in st.secrets:
-        #st.error("Missing firebase_admin in secrets.toml")
+        ##st.error("Missing firebase_admin in secrets.toml")
         #st.stop()
    # cred = credentials.Certificate(dict(st.secrets["firebase_admin"]))
    # firebase_admin.initialize_app(cred)
@@ -58,7 +58,7 @@ def get_cookies():
             time.sleep(0.05)
         if not cookies.ready():
             if DEBUG:
-                st.sidebar.warning("Cookies not ready after waiting.")
+               st.sidebar.warning("")
             return None
     except Exception as e:
         if DEBUG:
@@ -180,16 +180,26 @@ def auth_ui():
     action = sidebar.radio("Select Action", ["Login", "Register"])
 
     # ================= LOGIN =================
+    # ================= LOGIN =================
     if action == "Login":
         with sidebar.form("login_form"):
             email = st.text_input("Email").strip()
             password = st.text_input("Password", type="password")
-            submit = st.form_submit_button("Sign in")
 
+            col1, col2 = st.columns(2)
+            submit = col1.form_submit_button("Sign in")
+            forgot = col2.form_submit_button("Forgot Password")
+
+            # -------- LOGIN --------
             if submit:
+                if not email or not password:
+                    st.error("Please enter email and password.")
+                    return
+
                 if get_domain(email) not in PRIVILEGED_DOMAINS:
                     st.error("Access restricted to approved domains.")
                     return
+
                 try:
                     user = firebase_auth.sign_in_with_email_and_password(email, password)
                     info = firebase_auth.get_account_info(user["idToken"])
@@ -216,6 +226,23 @@ def auth_ui():
                             pass
 
                     st.rerun()
+
+                except Exception as e:
+                    st.error(parse_error(e))
+
+            # -------- FORGOT PASSWORD --------
+            if forgot:
+                if not email:
+                    st.warning("Please enter your email above.")
+                    return
+
+                if get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Reset restricted to approved domains.")
+                    return
+
+                try:
+                    firebase_auth.send_password_reset_email(email)
+                    st.success("Password reset email sent. Check your inbox.")
                 except Exception as e:
                     st.error(parse_error(e))
 
@@ -236,3 +263,4 @@ def auth_ui():
                     st.success("Registration successful. Check your email to verify.")
                 except Exception as e:
                     st.error(parse_error(e))
+    
