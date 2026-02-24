@@ -120,7 +120,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # Define folders
 DATA_DIR = BASE_DIR / "data"
-EXPORT_DIR = BASE_DIR / "export-files"
+EXPORT_DIR = BASE_DIR / "exports"
 
 # Ensure folders exist (important if writing files later)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
