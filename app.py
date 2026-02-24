@@ -142,23 +142,16 @@ def load_data():
     REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
     SFTP_PORT = 22
 
-    # ----------------- 2️⃣ Local folder (Docker-safe) -----------------
-    local_dir = Path("/app/data")
-    try:
-        if local_dir.exists() and not local_dir.is_dir():
-            local_dir.unlink()  # remove file if it exists
-        local_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        if DEBUG:
-            st.warning(f"Could not create /app/data: {e}, using temp folder.")
-        local_dir = Path(tempfile.gettempdir()) / "eesu_data"
-        local_dir.mkdir(parents=True, exist_ok=True)
+    # ----------------- 2️⃣ Local folder (writable in Docker / Streamlit Cloud) -----------------
+    local_dir = Path(tempfile.gettempdir()) / "eesu_data"
+    local_dir.mkdir(parents=True, exist_ok=True)
 
     local_parquet = local_dir / "output_final.parquet"
     local_meta = local_dir / "countries_metadata.json"
 
     df = pd.DataFrame()
     metadata = {}
+
 
     # ----------------- 3️⃣ Download from SFTP if credentials exist -----------------
     if all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]) and HAS_PARAMIKO:
