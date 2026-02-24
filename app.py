@@ -105,73 +105,69 @@ st.markdown("""
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
+
 def load_data():
-     # --- SFTP CONFIG ---
+    # --- SFTP CONFIG ---
     SFTP_HOST = os.getenv("SFTP_HOST")
     SFTP_PORT = 22
     SFTP_USERNAME = os.getenv("SFTP_USERNAME")
     SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
     REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
 
-    # --- Step 0: Check credentials ---
+    # --- Check credentials ---
     if not all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]):
         st.error("Missing SFTP credentials in environment variables.")
         return pd.DataFrame(), {}
 
+    # --- File paths ---
     remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
     remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
-
     local_dir = Path.cwd() / "data"
     local_dir.mkdir(parents=True, exist_ok=True)
     local_parquet = local_dir / "output_final.parquet"
     local_meta = local_dir / "countries_metadata.json"
 
+    # --- Download files from SFTP ---
     transport = None
     sftp = None
     try:
-        # --- Step 1: Connect to SFTP ---
         transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
         transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
         logging.info("Connected to SFTP.")
 
-        # --- Step 2: Download Parquet ---
         try:
             sftp.get(remote_parquet, str(local_parquet))
-            logging.info("Downloaded remote output_final.parquet")
+            logging.info("Downloaded Parquet file.")
         except FileNotFoundError:
             st.error(f"Remote Parquet file not found: {remote_parquet}")
             return pd.DataFrame(), {}
 
-        # --- Step 3: Download Metadata (optional) ---
         try:
             sftp.get(remote_meta, str(local_meta))
-            logging.info("Downloaded remote countries_metadata.json")
+            logging.info("Downloaded metadata JSON.")
         except FileNotFoundError:
-            st.warning(f"Remote countries metadata JSON not found: {remote_meta}")
+            st.warning(f"Remote metadata not found: {remote_meta}")
 
     except Exception as e:
-        st.error(f"SFTP connection or download failed: {e}")
+        st.error(f"SFTP download failed: {e}")
         return pd.DataFrame(), {}
 
     finally:
-        if sftp:
-            sftp.close()
-        if transport:
-            transport.close()
-        logging.info("SFTP connection closed.")
+        if sftp: sftp.close()
+        if transport: transport.close()
 
-    # --- Step 4: Load Parquet file safely ---
+    # --- Load Parquet ---
     try:
         df = pd.read_parquet(local_parquet)
     except Exception as e:
-        st.error(f"Failed to read Parquet file: {e}")
+        st.error(f"Failed to read Parquet: {e}")
         return pd.DataFrame(), {}
 
     if df.empty:
-        st.warning("Loaded Parquet file is empty.")
+        st.warning("Parquet file is empty.")
 
-    # --- Step 5: Load metadata safely ---
+    # --- Load metadata ---
     metadata = {}
     if local_meta.exists():
         try:
@@ -179,93 +175,60 @@ def load_data():
         except Exception as e:
             st.warning(f"Failed to read metadata JSON: {e}")
 
-    return df, metadata
-    # --- Step 1: Load Parquet file safely ---
-    try:
-        df = pd.read_parquet(local_parquet)
-    except Exception as e:
-        st.error(f"Failed to read Parquet file: {e}")
-        return pd.DataFrame()
-
-    if df.empty:
-        st.warning("Loaded Parquet file is empty.")
-        return df
-     
-    # --- Step 2: Basic cleaning ---
+    # --- Data cleaning ---
     for col in ['alert-country', 'alert-impact', 'Actor of repression']:
         if col not in df.columns:
-            st.warning(f"Column '{col}' not found in dataset.")
+            st.warning(f"Missing column '{col}', creating empty column.")
             df[col] = ""
 
     df['alert-country'] = df['alert-country'].astype(str).str.strip()
+    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
     df = df[df['alert-country'].str.lower() != "jose"]
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
-    # Clean country names
-    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
-
-    # Clean Actor of repression
     df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
     df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent Non-State Actors"})
 
-    # --- Step 3: Load metadata ---
-    country_meta = {}
-    if meta_file.exists():
-        try:
-            with open(meta_file, encoding="utf-8") as f:
-                country_meta = json.load(f)
-        except Exception as e:
-            st.warning(f"Failed to load countries metadata: {e}")
-    else:
-        st.warning(f"Countries metadata JSON not found: {meta_file}")
+    # --- Map ISO codes and continent ---
+    df['iso_alpha3'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("iso_alpha3"))
+    df['continent'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("continent", "Unknown"))
 
-    # --- Step 4: Map ISO codes and continent ---
-    df['iso_alpha3'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3", None))
-    df['continent'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
-
-    # --- Step 5: Map continent to region ---
+    # --- Map continent to region ---
     def continent_to_region(continent):
-        if continent == "Africa":
-            return "Africa"
-        elif continent in ["Asia", "Oceania"]:
-            return "Asia and the Pacific"
-        elif continent in ["Europe", "Middle East"]:
-            return "The Middle East"
-        elif continent in ["Americas", "North America", "South America", "Caribbean"]:
-            return "Americas and the Caribbean"
-        else:
-            return "Unknown"
+        mapping = {
+            "Africa": "Africa",
+            "Asia": "Asia and the Pacific",
+            "Oceania": "Asia and the Pacific",
+            "Europe": "The Middle East",
+            "Middle East": "The Middle East",
+            "Americas": "Americas and the Caribbean",
+            "North America": "Americas and the Caribbean",
+            "South America": "Americas and the Caribbean",
+            "Caribbean": "Americas and the Caribbean"
+        }
+        return mapping.get(continent, "Unknown")
 
     df['region'] = df['continent'].apply(continent_to_region)
 
-    # --- Step 6: Warn about missing ISO codes ---
-    missing_countries = (
-        df.loc[df['iso_alpha3'].isna(), 'alert-country']
-        .dropna()
-        .astype(str)
-        .str.strip()
-        .loc[lambda s: s.str.lower() != "none"]
-        .unique()
-    )
+    # --- Warn missing ISO codes ---
+    missing = df.loc[df['iso_alpha3'].isna(), 'alert-country'].dropna().unique()
+    if len(missing) > 0:
+        st.warning(f"Countries missing ISO codes: {', '.join(missing)}")
 
-    if len(missing_countries) > 0:
-        st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
-
-    # --- Step 7: Process dates ---
+    # --- Process dates ---
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
         df['year'] = df['creation_date'].dt.year
         df['month_name'] = df['creation_date'].dt.strftime('%B')
     else:
-        st.warning("No 'creation_date' column found in dataset.")
-    
-    # --- Step 8: Update alert-impact based on alert-type ---
-    
-    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
+        st.warning("No 'creation_date' column found.")
+
+    # --- Update alert-impact based on alert-type ---
+    if 'alert-type' in df.columns:
         mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
         df.loc[mask, 'alert-impact'] = 'Context to watch'
 
-    return df
+    return df, metadata    
 
 # --- Load data safely ---
 data = load_data()
