@@ -47,7 +47,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.LEASEWEB_SERVER_IP }} << EOF
             set -e
             if [ ! -d "$APP_DIR" ]; then
-              git clone https://github.com/kyalorichard/EESU_Dashboard.git $APP_DIR
+              git clone https://github.com/kyalorichard11/EESU_Dashboard.git $APP_DIR
             else
               cd $APP_DIR
               git reset --hard
