@@ -10,6 +10,9 @@ import plotly.graph_objects as go
 import base64
 from auth import auth_ui, is_privileged
 import math
+import paramiko
+import logging
+import os
 import re
 
 
@@ -103,16 +106,55 @@ st.markdown("""
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
-    parquet_file = Path.cwd() / "data" / "output_final.parquet"
-    meta_file = Path.cwd() / "data" / "countries_metadata.json"
+    # --- SFTP CONFIG ---
+    SFTP_HOST = os.getenv("SFTP_HOST")
+    SFTP_PORT = 22
+    SFTP_USERNAME = os.getenv("SFTP_USERNAME")
+    SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+    REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
+    
+    remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
+    remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
 
-    # --- Step 1: Load Parquet file safely ---
-    if not parquet_file.exists():
-        st.error(f"Parquet file not found: {parquet_file}")
+    local_dir = Path.cwd() / "data"
+    local_dir.mkdir(exist_ok=True)
+    local_parquet = local_dir / "output_final.parquet"
+    local_meta = local_dir / "countries_metadata.json"
+
+    # --- Step 0: Pull files from remote SFTP ---
+    try:
+        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
+        transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        logging.info("Connected to SFTP.")
+
+        # Download parquet file
+        try:
+            sftp.get(remote_parquet, str(local_parquet))
+            logging.info("Downloaded remote output_final.parquet")
+        except FileNotFoundError:
+            st.error(f"Remote Parquet file not found: {remote_parquet}")
+            return pd.DataFrame()
+
+        # Download metadata JSON
+        try:
+            sftp.get(remote_meta, str(local_meta))
+            logging.info("Downloaded remote countries_metadata.json")
+        except FileNotFoundError:
+            st.warning(f"Remote countries metadata JSON not found: {remote_meta}")
+
+    except Exception as e:
+        st.error(f"SFTP connection or download failed: {e}")
         return pd.DataFrame()
 
+    finally:
+        sftp.close()
+        transport.close()
+        logging.info("SFTP connection closed.")
+
+    # --- Step 1: Load Parquet file safely ---
     try:
-        df = pd.read_parquet(parquet_file)
+        df = pd.read_parquet(local_parquet)
     except Exception as e:
         st.error(f"Failed to read Parquet file: {e}")
         return pd.DataFrame()
@@ -120,7 +162,7 @@ def load_data():
     if df.empty:
         st.warning("Loaded Parquet file is empty.")
         return df
-
+     
     # --- Step 2: Basic cleaning ---
     for col in ['alert-country', 'alert-impact', 'Actor of repression']:
         if col not in df.columns:
