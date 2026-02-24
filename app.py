@@ -24,9 +24,10 @@ SFTP_PASSWORD = sftp_secrets.get("password")
 REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
 
 st.write("SFTP_HOST:", os.getenv("SFTP_HOST"))
-st.write("SFTP_USERNAME:", os.getenv("SFTP_USERNAME"))
-st.write("SFTP_PASSWORD:", "set" if os.getenv("SFTP_PASSWORD") else "not set")
-st.write("SFTP_REMOTE_DIR:", os.getenv("SFTP_REMOTE_DIR"))
+st.write("SFTP_USERNAME:", sftp_secrets.get("username"))
+st.write("SFTP_PASSWORD:", sftp_secrets.get("password"))
+st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
+
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 BASE_DIR = Path(__file__).resolve().parent
