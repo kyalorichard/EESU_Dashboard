@@ -52,11 +52,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s \
   CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
 # -----------------------------
-# Run Streamlit app using shell-form CMD for multi-line readability
+# Run Streamlit app (JSON-array CMD, single-line)
 # -----------------------------
-CMD streamlit run app.py \
-    --server.port=8501 \
-    --server.address=0.0.0.0 \
-    --server.enableCORS=false \
-    --server.enableXsrfProtection=false \
-    --browser.gatherUsageStats=false
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false", "--browser.gatherUsageStats=false"]
