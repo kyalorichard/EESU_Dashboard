@@ -118,88 +118,90 @@ st.markdown("""
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 
-def load_data():
-     # --- Check credentials ---
-    if not all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]):
-        st.error("Missing SFTP credentials in environment variables.")
-        return pd.DataFrame(), {}
+try:
+    import paramiko
+    HAS_PARAMIKO = True
+except ImportError:
+    HAS_PARAMIKO = False
 
-    # --- File paths ---
-    remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
-    remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
-    local_dir = Path.cwd() / "data"
+DEBUG = True
+
+def load_data():
+    """Load Parquet and metadata safely from SFTP or local files."""
+    
+    # --- 1️⃣ Read SFTP from secrets.toml ---
+    sftp_secrets = st.secrets.get("sftp", {})
+    SFTP_HOST = sftp_secrets.get("host")
+    SFTP_USERNAME = sftp_secrets.get("username")
+    SFTP_PASSWORD = sftp_secrets.get("password")
+    REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
+
+    # --- Local folder ---
+    local_dir = Path("/app/data")
     local_dir.mkdir(parents=True, exist_ok=True)
     local_parquet = local_dir / "output_final.parquet"
     local_meta = local_dir / "countries_metadata.json"
 
-    # --- Download files from SFTP ---
-    transport = None
-    sftp = None
-    try:
-        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
-        transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
-        sftp = paramiko.SFTPClient.from_transport(transport)
-        logging.info("Connected to SFTP.")
-
-        try:
-            sftp.get(remote_parquet, str(local_parquet))
-            logging.info("Downloaded Parquet file.")
-        except FileNotFoundError:
-            st.error(f"Remote Parquet file not found: {remote_parquet}")
-            return pd.DataFrame(), {}
-
-        try:
-            sftp.get(remote_meta, str(local_meta))
-            logging.info("Downloaded metadata JSON.")
-        except FileNotFoundError:
-            st.warning(f"Remote metadata not found: {remote_meta}")
-
-    except Exception as e:
-        st.error(f"SFTP download failed: {e}")
-        return pd.DataFrame(), {}
-
-    finally:
-        if sftp: sftp.close()
-        if transport: transport.close()
-
-    # --- Load Parquet ---
-    try:
-        df = pd.read_parquet(local_parquet)
-    except Exception as e:
-        st.error(f"Failed to read Parquet: {e}")
-        return pd.DataFrame(), {}
-
-    if df.empty:
-        st.warning("Parquet file is empty.")
-
-    # --- Load metadata ---
+    df = pd.DataFrame()
     metadata = {}
+
+    # --- 2️⃣ Download from SFTP if credentials exist ---
+    if all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]) and HAS_PARAMIKO:
+        try:
+            transport = paramiko.Transport((SFTP_HOST, 22))
+            transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            
+            # Parquet
+            remote_parquet = f"{REMOTE_DIR}/output_final.parquet"
+            sftp.get(remote_parquet, str(local_parquet))
+            
+            # Metadata
+            remote_meta = f"{REMOTE_DIR}/countries_metadata.json"
+            sftp.get(remote_meta, str(local_meta))
+            
+            sftp.close()
+            transport.close()
+        except Exception as e:
+            if DEBUG:
+                st.warning(f"SFTP download failed: {e}")
+
+    elif DEBUG:
+        st.warning("SFTP credentials missing or paramiko not installed; using local files.")
+
+    # --- 3️⃣ Load Parquet safely ---
+    if local_parquet.exists() and local_parquet.stat().st_size > 0:
+        try:
+            df = pd.read_parquet(local_parquet)
+        except Exception as e:
+            st.warning(f"Failed to read Parquet: {e}")
+            df = pd.DataFrame()
+    else:
+        if DEBUG:
+            st.warning(f"Parquet file missing or empty: {local_parquet}")
+        df = pd.DataFrame()
+
+    # --- 4️⃣ Load metadata safely ---
     if local_meta.exists():
         try:
             metadata = json.loads(local_meta.read_text())
         except Exception as e:
-            st.warning(f"Failed to read metadata JSON: {e}")
+            if DEBUG:
+                st.warning(f"Failed to read metadata JSON: {e}")
 
-    # --- Data cleaning ---
-    for col in ['alert-country', 'alert-impact', 'Actor of repression']:
-        if col not in df.columns:
-            st.warning(f"Missing column '{col}', creating empty column.")
-            df[col] = ""
+    # --- 5️⃣ Safe cleaning & mapping ---
+    if not df.empty:
+        for col in ['alert-country', 'alert-impact', 'Actor of repression']:
+            if col not in df.columns:
+                df[col] = ""
+        df['alert-country'] = df['alert-country'].astype(str).str.strip().replace({"Lebanon NAR": "Lebanon"})
+        df = df[df['alert-country'].str.lower() != "jose"]
+        df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
+        df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip().replace({"VNSAs": "Violent Non-State Actors"})
+        
+        df['iso_alpha3'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("iso_alpha3"))
+        df['continent'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("continent", "Unknown"))
 
-    df['alert-country'] = df['alert-country'].astype(str).str.strip()
-    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
-    df = df[df['alert-country'].str.lower() != "jose"]
-    df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
-
-    df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
-    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent Non-State Actors"})
-
-    # --- Map ISO codes and continent ---
-    df['iso_alpha3'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("iso_alpha3"))
-    df['continent'] = df['alert-country'].apply(lambda x: metadata.get(x, {}).get("continent", "Unknown"))
-
-    # --- Map continent to region ---
-    def continent_to_region(continent):
         mapping = {
             "Africa": "Africa",
             "Asia": "Asia and the Pacific",
@@ -211,32 +213,27 @@ def load_data():
             "South America": "Americas and the Caribbean",
             "Caribbean": "Americas and the Caribbean"
         }
-        return mapping.get(continent, "Unknown")
+        df['region'] = df['continent'].apply(lambda x: mapping.get(x, "Unknown"))
 
-    df['region'] = df['continent'].apply(continent_to_region)
+        if 'creation_date' in df.columns:
+            df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
+            df['year'] = df['creation_date'].dt.year
+            df['month_name'] = df['creation_date'].dt.strftime('%B')
 
-    # --- Warn missing ISO codes ---
-    missing = df.loc[df['iso_alpha3'].isna(), 'alert-country'].dropna().unique()
-    if len(missing) > 0:
-        st.warning(f"Countries missing ISO codes: {', '.join(missing)}")
+        if 'alert-type' in df.columns:
+            mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
+            df.loc[mask, 'alert-impact'] = 'Context to watch'
 
-    # --- Process dates ---
-    if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
-        df['year'] = df['creation_date'].dt.year
-        df['month_name'] = df['creation_date'].dt.strftime('%B')
-    else:
-        st.warning("No 'creation_date' column found.")
+    return df, metadata
 
-    # --- Update alert-impact based on alert-type ---
-    if 'alert-type' in df.columns:
-        mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
-        df.loc[mask, 'alert-impact'] = 'Context to watch'
+data, meta = load_data()
 
-    return df, metadata    
-
-# --- Load data safely ---
-data = load_data()
+if not data.empty and "region" in data.columns:
+    filtered_countries = data[data['region'].isin(selected_regions)] \
+        if "Select All" not in selected_regions else data
+else:
+    filtered_countries = pd.DataFrame()
+    st.warning("Data is empty or 'region' column missing. Dashboard continues safely.")
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
