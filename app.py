@@ -16,11 +16,12 @@ import os
 import re
 
 # --- SFTP CONFIG ---
-SFTP_HOST = os.getenv("SFTP_HOST")
+sftp_secrets = st.secrets.get("sftp", {})
+SFTP_HOST = sftp_secrets.get("host")
 SFTP_PORT = 22
-SFTP_USERNAME = os.getenv("SFTP_USERNAME")
-SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
-REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
+SFTP_USERNAME = sftp_secrets.get("username")
+SFTP_PASSWORD = sftp_secrets.get("password")
+REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
 
 st.write("SFTP_HOST:", os.getenv("SFTP_HOST"))
 st.write("SFTP_USERNAME:", os.getenv("SFTP_USERNAME"))
