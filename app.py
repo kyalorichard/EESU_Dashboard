@@ -15,7 +15,17 @@ import logging
 import os
 import re
 
+# --- SFTP CONFIG ---
+SFTP_HOST = os.getenv("SFTP_HOST")
+SFTP_PORT = 22
+SFTP_USERNAME = os.getenv("SFTP_USERNAME")
+SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
 
+st.write("SFTP_HOST:", os.getenv("SFTP_HOST"))
+st.write("SFTP_USERNAME:", os.getenv("SFTP_USERNAME"))
+st.write("SFTP_PASSWORD:", "set" if os.getenv("SFTP_PASSWORD") else "not set")
+st.write("SFTP_REMOTE_DIR:", os.getenv("SFTP_REMOTE_DIR"))
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -107,14 +117,7 @@ st.markdown("""
 @st.cache_data(ttl=0)
 
 def load_data():
-    # --- SFTP CONFIG ---
-    SFTP_HOST = os.getenv("SFTP_HOST")
-    SFTP_PORT = 22
-    SFTP_USERNAME = os.getenv("SFTP_USERNAME")
-    SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
-    REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
-
-    # --- Check credentials ---
+     # --- Check credentials ---
     if not all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD]):
         st.error("Missing SFTP credentials in environment variables.")
         return pd.DataFrame(), {}
