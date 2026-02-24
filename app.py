@@ -114,7 +114,7 @@ st.markdown("""
 
 
 # ---------------- LOAD DATA ----------------
-@st.cache_data(ttl=0)
+#@st.cache_data(ttl=0)
 
 def load_data():
      # --- Check credentials ---
