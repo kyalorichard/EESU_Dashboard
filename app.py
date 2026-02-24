@@ -230,14 +230,6 @@ def load_data():
 data = load_data()
 
 
-
-if not data.empty and "region" in data.columns:
-    filtered_countries = data[data['region'].isin(selected_regions)] \
-        if "Select All" not in selected_regions else data
-else:
-    filtered_countries = pd.DataFrame()
-    st.warning("Data is empty or 'region' column missing. Dashboard continues safely.")
-
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
