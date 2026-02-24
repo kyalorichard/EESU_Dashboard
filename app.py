@@ -115,16 +115,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Base directory where app.py exists
+# ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
-
-# Define folders
 DATA_DIR = BASE_DIR / "data"
-EXPORT_DIR = BASE_DIR / "exports"
+
+# ---------------- EXPORT DIRECTORY ----------------
+# Use /exports if it exists in Docker, otherwise fallback to local export folder
+EXPORT_DIR = Path("/exports") if Path("/exports").exists() else BASE_DIR / "export-files"
 
 # Ensure folders exist (important if writing files later)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # ---------------- LOAD DATA ----------------
 #@st.cache_data(ttl=0)
