@@ -115,18 +115,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- BASE DIRECTORIES ----------------
+## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 
 # ---------------- EXPORT DIRECTORY ----------------
-# Use /exports if it exists in Docker, otherwise fallback to local export folder
-EXPORT_DIR = Path("/data") if Path("/data").exists() else BASE_DIR / "data"
+# Use /exports if it exists (Docker volume mapping)
+EXPORT_DIR = Path("/exports") if Path("/exports").exists() else BASE_DIR / "exports"
 
-# Ensure folders exist (important if writing files later)
+# Ensure folders exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-
 
 # ---------------- LOAD DATA ----------------
 #@st.cache_data(ttl=0)
