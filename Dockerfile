@@ -55,9 +55,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s \
 # Run Streamlit app using JSON-array CMD
 # Fixes JSONArgsRecommended warning and sets production flags
 # -----------------------------
-CMD ["streamlit", "run", "app.py",
-     "--server.port=8501",
-     "--server.address=0.0.0.0",
-     "--server.enableCORS=false",
-     "--server.enableXsrfProtection=false",
-     "--browser.gatherUsageStats=false"]
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false", "--browser.gatherUsageStats=false"]
