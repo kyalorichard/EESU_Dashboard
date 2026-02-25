@@ -31,7 +31,18 @@ import re
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+
+# ---------------- EXPORT DIRECTORY ----------------
+# Use /exports if it exists (Docker volume mapping)
+EXPORT_DIR = Path("/exports") if Path("/exports").exists() else BASE_DIR / "exports"
+
+# Ensure folders exist
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
@@ -114,18 +125,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
-## ---------------- BASE DIRECTORIES ----------------
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-
-# ---------------- EXPORT DIRECTORY ----------------
-# Use /exports if it exists (Docker volume mapping)
-EXPORT_DIR = Path("/exports") if Path("/exports").exists() else BASE_DIR / "exports"
-
-# Ensure folders exist
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------- LOAD DATA ----------------
 #@st.cache_data(ttl=0)
