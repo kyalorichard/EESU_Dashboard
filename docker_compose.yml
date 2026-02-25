@@ -6,11 +6,9 @@ services:
     image: kyalorichard11/eesu-dashboard:latest
     container_name: eese-dashboard
     ports:
-      - "8501:8501" # Host port : Container port
+      - "8501:8501"
     volumes:
-      - /var/www/vhosts/events-eusee.hivos.org/exports:/exports # Required
-      # For dev mode (optional, live code)
-      # - ./EESU_Dashboard:/app
+      - /var/www/vhosts/events-eusee.hivos.org/exports:/exports
     environment:
       PYTHONDONTWRITEBYTECODE: 1
       PYTHONUNBUFFERED: 1
