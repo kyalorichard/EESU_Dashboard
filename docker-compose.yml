@@ -1,13 +1,21 @@
-version: "3.9"
-
 services:
-  dashboard:
+  eese-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: kyalorichard11/eesu-dashboard:latest
-    container_name: eusee_dashboard
+    container_name: eese-dashboard
     ports:
-      - "8501:8501"
+      - "8501:8501" # Host port : Container port
     volumes:
-      - ./data:/app/data # maps your local 'data' folder
+      - /var/www/vhosts/events-eusee.hivos.org/exports:/exports # Required
+      # For dev mode (optional, live code)
+      # - ./EESU_Dashboard:/app
     environment:
-      - IS_STREAMLIT_CLOUD=False
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
+      # Uncomment if SFTP is needed
+      # SFTP_HOST: your-sftp-host.com
+      # SFTP_USERNAME: your-username
+      # SFTP_PASSWORD: your-password
     restart: unless-stopped
