@@ -24,7 +24,7 @@ SMTP_SERVER = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASS")
-EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")
+EMAIL_FROM = os.getenv("NOTIFY_EMAIL")
 EMAIL_TO = os.getenv("NOTIFY_EMAIL")
 EMAIL_SUBJECT = "Data Download Update Notification"
 
