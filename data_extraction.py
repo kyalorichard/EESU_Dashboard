@@ -82,13 +82,30 @@ def send_update_email(new_rows_count, latest_file, local_path):
     """
 
     msg = EmailMessage()
-    msg['From'] = EMAIL_FROM
-    # Ensure EMAIL_TO is always a list
-    recipients = EMAIL_TO if isinstance(EMAIL_TO, list) else [EMAIL_TO]
-    msg['To'] = ", ".join(recipients)
-    #msg['To'] = ", ".join(EMAIL_TO)
-    msg['Subject'] = EMAIL_SUBJECT
-    msg.add_alternative(html_body, subtype='html')  # use HTML email
+    msg["From"] = EMAIL_FROM
+
+    # Robust recipient parsing (env vars are strings; also handle None safely)
+    if not EMAIL_TO:
+        logging.warning("NOTIFY_EMAIL is not set; skipping email notification.")
+        return
+
+    if isinstance(EMAIL_TO, (list, tuple, set)):
+        parts = []
+        for v in EMAIL_TO:
+            if v:
+                parts.append(str(v))
+        raw = ",".join(parts)
+    else:
+        raw = str(EMAIL_TO)
+
+    recipients = [r.strip() for r in re.split(r"[;,]\s*", raw) if r and r.strip()]
+    if not recipients:
+        logging.warning("NOTIFY_EMAIL is empty/invalid after parsing; skipping email notification.")
+        return
+
+    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = EMAIL_SUBJECT
+    msg.add_alternative(html_body, subtype="html")
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
