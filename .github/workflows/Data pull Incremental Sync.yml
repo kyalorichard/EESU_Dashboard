@@ -44,7 +44,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASSWORD }}
           ALERT_EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           NOTIFY_EMAIL: ${{ secrets.EMAIL_TO }}
-        run: python export_data.py
+        run: python data_extraction.py
 
       # Critical: ensure workflow files are not modified/staged in this automation
       - name: Reset any workflow-file changes (prevent workflows push rejection)
