@@ -42,7 +42,7 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASS: ${{ secrets.SMTP_PASSWORD }}
-          ALERT_EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          ALERT_EMAIL_FROM: ${{ secrets.EMAIL_TO }}
           NOTIFY_EMAIL: ${{ secrets.EMAIL_TO }}
         run: python data_extraction.py
 
