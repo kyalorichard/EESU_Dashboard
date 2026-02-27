@@ -1,4 +1,4 @@
-name: Data pull Incremental Sync
+rtsname: Data pull Incremental Sync
 
 on:
   schedule:
@@ -59,7 +59,7 @@ jobs:
           labels: automated
           commit-message: "Update CSV files [skip ci]"
           add-paths: |
-            data/
+            exports/
 
       - name: Auto merge PR
         if: steps.pr.outputs.pull-request-number != ''
