@@ -34,7 +34,7 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: python export_data.py
+        run: python data_extraction.py
 
       - name: Exit if no new CSV
         if: env.NEW_FILES_DOWNLOADED == '0'
