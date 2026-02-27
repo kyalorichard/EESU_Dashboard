@@ -46,9 +46,25 @@ def send_update_email(new_rows_count, latest_file, local_path):
     Sends a professional HTML email summarizing the SFTP CSV update.
     Only sends if new_rows_count > 0.
     """
+    # Optional guard (keeps behavior explicit)
+    if not new_rows_count or new_rows_count <= 0:
+        logging.info("No new rows; email not sent.")
+        return
+
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    # HTML email body
+    # --- Validate minimum email/SMTP config (fail softly) ---
+    if not EMAIL_FROM:
+        logging.error("ALERT_EMAIL_FROM is not set; cannot send email.")
+        return
+    if not SMTP_SERVER or not SMTP_PORT:
+        logging.error("SMTP_HOST/SMTP_PORT not set; cannot send email.")
+        return
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        logging.error("SMTP_USER/SMTP_PASS not set; cannot send email.")
+        return
+
+    # --- Build HTML body ---
     html_body = f"""
     <html>
     <body style="font-family: Arial, sans-serif; line-height:1.5; color:#333;">
@@ -81,41 +97,59 @@ def send_update_email(new_rows_count, latest_file, local_path):
     </html>
     """
 
+    # --- Plain-text fallback (some clients block HTML-only emails) ---
+    text_body = (
+        "SFTP Data Sync Successful\n"
+        f"Status: SUCCESS\n"
+        f"Downloaded file: {latest_file}\n"
+        f"Saved as: {local_path}\n"
+        f"New updates added: {new_rows_count}\n"
+        f"Date: {now}\n"
+        "This is an automated notification from the SFTP Data Sync system.\n"
+    )
+
+    # --- Robust recipient parsing (never returns None entries) ---
+    def parse_recipients(value):
+        if not value:
+            return []
+        if isinstance(value, (list, tuple, set)):
+            raw = ",".join([str(v).strip() for v in value if v])
+        else:
+            raw = str(value).strip()
+
+        # split on comma/semicolon, trim, drop empties/"none"
+        recips = [r.strip() for r in re.split(r"[;,]\s*", raw) if r and r.strip()]
+        recips = [r for r in recips if r.lower() != "none"]
+        return recips
+
+    recipients = parse_recipients(EMAIL_TO)
+    if not recipients:
+        logging.warning("NOTIFY_EMAIL is empty/invalid; skipping email notification.")
+        return
+
+    # --- Construct message ---
     msg = EmailMessage()
     msg["From"] = EMAIL_FROM
-
-    # Robust recipient parsing (env vars are strings; also handle None safely)
-    if not EMAIL_TO:
-        logging.warning("NOTIFY_EMAIL is not set; skipping email notification.")
-        return
-
-    if isinstance(EMAIL_TO, (list, tuple, set)):
-        parts = []
-        for v in EMAIL_TO:
-            if v:
-                parts.append(str(v))
-        raw = ",".join(parts)
-    else:
-        raw = str(EMAIL_TO)
-
-    recipients = [r.strip() for r in re.split(r"[;,]\s*", raw) if r and r.strip()]
-    if not recipients:
-        logging.warning("NOTIFY_EMAIL is empty/invalid after parsing; skipping email notification.")
-        return
-
     msg["To"] = ", ".join(recipients)
-    msg["Subject"] = EMAIL_SUBJECT
+    msg["Subject"] = EMAIL_SUBJECT.strip() if EMAIL_SUBJECT else "Data Download Update Notification"
+    msg["Date"] = now  # optional; EmailMessage will add one if omitted
+
+    msg.set_content(text_body)
     msg.add_alternative(html_body, subtype="html")
 
+    # --- Send ---
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20) as server:
+            server.ehlo()
             server.starttls()
+            server.ehlo()
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.send_message(msg)
-        logging.info(f"Update email sent successfully: {new_rows_count} new rows.")
+
+        logging.info(f"Update email sent successfully to {recipients}: {new_rows_count} new rows.")
     except Exception as e:
         logging.error(f"Failed to send email: {e}")
-
+        
 # ---------------- SFTP CONNECTION ----------------
 transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
 transport.connect(username=SFTP_USERNAME, password=SFTP_PASSWORD)
