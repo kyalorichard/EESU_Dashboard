@@ -24,8 +24,8 @@ SMTP_SERVER = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASS")
-EMAIL_FROM = os.getenv("NOTIFY_EMAIL")
-EMAIL_TO = os.getenv("NOTIFY_EMAIL")
+EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")     # ✅ FIXED
+EMAIL_TO = os.getenv("NOTIFY_EMAIL")           # ✅ FIXED
 EMAIL_SUBJECT = "Data Download Update Notification"
 
 RAW_FILENAME = "raw_data.csv"
@@ -37,11 +37,13 @@ os.makedirs(LOCAL_DIR, exist_ok=True)
 # ---------------- LOGGING ----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+
 def require_env(name: str) -> str:
     v = os.getenv(name)
     if not v:
         raise RuntimeError(f"Missing required env var: {name}")
     return v
+
 
 # ---------------- EMAIL FUNCTION ----------------
 def send_update_email(new_rows_count, latest_file, local_path):
@@ -101,7 +103,11 @@ def send_update_email(new_rows_count, latest_file, local_path):
     def parse_recipients(value):
         if not value:
             return []
-        raw = ",".join([str(v).strip() for v in value]) if isinstance(value, (list, tuple, set)) else str(value).strip()
+        raw = (
+            ",".join([str(v).strip() for v in value])
+            if isinstance(value, (list, tuple, set))
+            else str(value).strip()
+        )
         recips = [r.strip() for r in re.split(r"[;,]\s*", raw) if r and r.strip()]
         return [r for r in recips if r.lower() != "none"]
 
@@ -128,6 +134,7 @@ def send_update_email(new_rows_count, latest_file, local_path):
     except Exception as e:
         logging.error(f"Failed to send email: {e}")
 
+
 # ---------------- HELPERS ----------------
 def ensure_remote_dir(sftp, path: str):
     """Create remote directories if missing (supports nested)."""
@@ -140,8 +147,17 @@ def ensure_remote_dir(sftp, path: str):
         except FileNotFoundError:
             sftp.mkdir(cur)
 
+
 def normalize_text(series: pd.Series) -> pd.Series:
-    return series.astype(str).str.strip().str.lower().str.replace(r"[\n\r]+", " ", regex=True)
+    # normalize whitespace, not just newlines
+    return (
+        series.astype(str)
+        .str.strip()
+        .str.lower()
+        .str.replace(r"[\n\r]+", " ", regex=True)
+        .str.replace(r"\s+", " ", regex=True)
+    )
+
 
 def extract_date_dt(filename: str):
     m = re.search(r"(\d{4}_\d{2}_\d{2})", filename)
@@ -152,8 +168,9 @@ def extract_date_dt(filename: str):
     except ValueError:
         return None
 
+
 def make_uid(df: pd.DataFrame) -> pd.Series:
-    # stronger composite key than title alone
+    # composite key for stable dedupe
     key_cols = ["post_title", "creation_date", "alert-country", "alert-type"]
     for c in key_cols:
         if c not in df.columns:
@@ -165,6 +182,7 @@ def make_uid(df: pd.DataFrame) -> pd.Series:
         normalize_text(df[key_cols[3]])
     )
     return key.apply(lambda x: hashlib.md5(x.encode("utf-8")).hexdigest())
+
 
 # ==========================================================
 # MAIN
@@ -200,6 +218,8 @@ try:
 
     # Local staging
     local_raw_path = os.path.join(LOCAL_DIR, RAW_FILENAME)
+    final_path = os.path.join(LOCAL_DIR, FINAL_FILENAME)
+    change_log_path = os.path.join(LOCAL_DIR, CHANGELOG_FILENAME)
 
     # Remote “same folder” outputs
     remote_raw_path = f"{REMOTE_DIR}/{RAW_FILENAME}"
@@ -224,6 +244,14 @@ try:
         logging.info(f"Downloaded latest file: {latest_file} -> {local_raw_path}")
     else:
         logging.info(f"{RAW_FILENAME} is already up to date locally. Skipping download.")
+
+    # ---------------- SYNC REMOTE FINAL -> LOCAL (FOR DEDUPE) ----------------
+    try:
+        sftp.stat(remote_final_path)
+        sftp.get(remote_final_path, final_path)
+        logging.info(f"Downloaded existing remote FINAL for dedupe -> {final_path}")
+    except FileNotFoundError:
+        logging.info("No remote FINAL found yet; starting fresh (first run).")
 
     # ---------------- LOAD RAW CSV ----------------
     df_raw = pd.read_csv(local_raw_path).fillna("")
@@ -251,7 +279,6 @@ try:
         raise RuntimeError(f"Missing required column post_title after rename. Found: {list(df_raw.columns)}")
 
     # ---------------- LOAD EXISTING FINAL (LOCAL STAGING) ----------------
-    final_path = os.path.join(LOCAL_DIR, FINAL_FILENAME)
     if os.path.exists(final_path):
         df_final = pd.read_csv(final_path).fillna("")
     else:
@@ -264,13 +291,19 @@ try:
     else:
         df_final["_uid"] = pd.Series(dtype=str)
 
+    logging.info(f"df_final rows loaded for dedupe: {len(df_final)}")
+
     new_rows = df_raw[~df_raw["_uid"].isin(df_final["_uid"])].copy()
 
     # ---------------- UPDATE FINAL + CHANGELOG (LOCAL) ----------------
-    change_log_path = os.path.join(LOCAL_DIR, CHANGELOG_FILENAME)
-
     if not new_rows.empty:
-        combined_df = pd.concat([df_final.drop(columns=["_uid"], errors="ignore"), new_rows.drop(columns=["_uid"], errors="ignore")], ignore_index=True)
+        combined_df = pd.concat(
+            [
+                df_final.drop(columns=["_uid"], errors="ignore"),
+                new_rows.drop(columns=["_uid"], errors="ignore"),
+            ],
+            ignore_index=True,
+        )
         combined_df.to_csv(final_path, index=False)
         logging.info(f"New rows appended: {len(new_rows)} -> {final_path}")
 
@@ -286,12 +319,11 @@ try:
     else:
         logging.info("No new rows to append. Email not sent.")
 
-        # Ensure final exists even on first run (optional)
+        # Ensure final exists even on first run
         if not os.path.exists(final_path):
             df_final.drop(columns=["_uid"], errors="ignore").to_csv(final_path, index=False)
 
     # ---------------- UPLOAD BACK TO SAME REMOTE FOLDER ----------------
-    # Always keep a stable raw snapshot on remote as raw_data.csv
     try:
         sftp.put(local_raw_path, remote_raw_path)
         logging.info(f"Uploaded RAW -> {remote_raw_path}")
