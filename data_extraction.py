@@ -24,8 +24,8 @@ SMTP_SERVER = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASS")
-EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")     # ✅ FIXED
-EMAIL_TO = os.getenv("NOTIFY_EMAIL")           # ✅ FIXED
+EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")  # ✅ FIXED
+EMAIL_TO = os.getenv("NOTIFY_EMAIL")        # ✅ FIXED
 EMAIL_SUBJECT = "Data Download Update Notification"
 
 RAW_FILENAME = "raw_data.csv"
@@ -43,6 +43,14 @@ def require_env(name: str) -> str:
     if not v:
         raise RuntimeError(f"Missing required env var: {name}")
     return v
+
+
+def set_github_env(key: str, value: str) -> None:
+    """Expose variables to subsequent GitHub Actions steps."""
+    github_env = os.getenv("GITHUB_ENV")
+    if github_env:
+        with open(github_env, "a", encoding="utf-8") as f:
+            f.write(f"{key}={value}\n")
 
 
 # ---------------- EMAIL FUNCTION ----------------
@@ -149,7 +157,6 @@ def ensure_remote_dir(sftp, path: str):
 
 
 def normalize_text(series: pd.Series) -> pd.Series:
-    # normalize whitespace, not just newlines
     return (
         series.astype(str)
         .str.strip()
@@ -170,7 +177,6 @@ def extract_date_dt(filename: str):
 
 
 def make_uid(df: pd.DataFrame) -> pd.Series:
-    # composite key for stable dedupe
     key_cols = ["post_title", "creation_date", "alert-country", "alert-type"]
     for c in key_cols:
         if c not in df.columns:
@@ -202,6 +208,10 @@ try:
     logging.info("Connected to SFTP.")
 
     ensure_remote_dir(sftp, REMOTE_DIR)
+
+    # Change flags (used for uploads + GitHub Actions)
+    raw_changed = False          # downloaded a newer dated CSV
+    final_changed = False        # output_final.csv actually appended rows
 
     # ---------------- LIST FILES ----------------
     remote_files = sftp.listdir(REMOTE_DIR)
@@ -242,6 +252,7 @@ try:
         sftp.get(remote_path, local_raw_path)
         os.utime(local_raw_path, (remote_mtime, remote_mtime))
         logging.info(f"Downloaded latest file: {latest_file} -> {local_raw_path}")
+        raw_changed = True
     else:
         logging.info(f"{RAW_FILENAME} is already up to date locally. Skipping download.")
 
@@ -306,12 +317,18 @@ try:
         )
         combined_df.to_csv(final_path, index=False)
         logging.info(f"New rows appended: {len(new_rows)} -> {final_path}")
+        final_changed = True
 
         # changelog append with uid for traceability
         new_rows_out = new_rows.copy()
         cols = [c for c in df_raw.columns if c != "_uid"] + ["_uid"]
         new_rows_out = new_rows_out[cols]
-        new_rows_out.to_csv(change_log_path, mode="a", header=not os.path.exists(change_log_path), index=False)
+        new_rows_out.to_csv(
+            change_log_path,
+            mode="a",
+            header=not os.path.exists(change_log_path),
+            index=False
+        )
         logging.info(f"Change log updated with {len(new_rows)} rows -> {change_log_path}")
 
         # Send email
@@ -319,23 +336,33 @@ try:
     else:
         logging.info("No new rows to append. Email not sent.")
 
-        # Ensure final exists even on first run
+        # Ensure final exists even on first run (but do NOT mark as changed)
         if not os.path.exists(final_path):
             df_final.drop(columns=["_uid"], errors="ignore").to_csv(final_path, index=False)
 
-    # ---------------- UPLOAD BACK TO SAME REMOTE FOLDER ----------------
+    # ---------------- EXPORT FLAG TO GITHUB ACTIONS (FINAL-ONLY POLICY) ----------------
+    set_github_env("NEW_FILES_DOWNLOADED", "1" if final_changed else "0")
+    logging.info(f"NEW_FILES_DOWNLOADED={'1' if final_changed else '0'}")
+
+    # ---------------- UPLOAD BACK TO SAME REMOTE FOLDER (ONLY IF CHANGED) ----------------
     try:
-        sftp.put(local_raw_path, remote_raw_path)
-        logging.info(f"Uploaded RAW -> {remote_raw_path}")
-
-        sftp.put(final_path, remote_final_path)
-        logging.info(f"Uploaded FINAL -> {remote_final_path}")
-
-        if os.path.exists(change_log_path):
-            sftp.put(change_log_path, remote_changelog_path)
-            logging.info(f"Uploaded CHANGELOG -> {remote_changelog_path}")
+        if raw_changed:
+            sftp.put(local_raw_path, remote_raw_path)
+            logging.info(f"Uploaded RAW -> {remote_raw_path}")
         else:
-            logging.info("No changelog to upload (no changes yet).")
+            logging.info("RAW unchanged; skipping RAW upload.")
+
+        if final_changed:
+            sftp.put(final_path, remote_final_path)
+            logging.info(f"Uploaded FINAL -> {remote_final_path}")
+
+            if os.path.exists(change_log_path):
+                sftp.put(change_log_path, remote_changelog_path)
+                logging.info(f"Uploaded CHANGELOG -> {remote_changelog_path}")
+            else:
+                logging.info("No changelog to upload (unexpected: final changed but changelog missing).")
+        else:
+            logging.info("FINAL unchanged; skipping FINAL/CHANGELOG upload.")
 
     except Exception as e:
         logging.exception(f"Failed to upload outputs to remote exports folder: {e}")
