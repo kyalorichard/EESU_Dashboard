@@ -72,9 +72,11 @@ jobs:
             export/
 
       # Optional auto-merge (repo must allow auto-merge; PAT must have rights)
-      - name: Enable auto-merge (squash)
+      - name: Enable auto-merge (squash) if allowed
         if: steps.cpr.outputs.pull-request-number != ''
+        continue-on-error: true
         run: |
           gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --squash --auto
         env:
           GH_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
+   
