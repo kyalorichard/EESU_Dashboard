@@ -1,8 +1,14 @@
 name: Data pull Incremental Sync
+
 on:
   schedule:
-    - cron: '0 6 * * *'  # Runs daily at 06:00 UTC
-  workflow_dispatch:      # Allows manual trigger
+    - cron: "0 6 * * *" # Runs daily at 06:00 UTC
+  workflow_dispatch:
+
+# Required for pushing commits and opening PRs
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   sftp_sync:
@@ -11,11 +17,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Use PAT if you want PR/merge to work reliably
+          token: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -28,13 +38,17 @@ jobs:
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           LOCAL_DIR: export
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+
+          # Align these to what your script reads
+          SMTP_HOST: ${{ secrets.SMTP_SERVER }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: python data_extraction.py
+          SMTP_USER: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASS: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          NOTIFY_EMAIL: ${{ secrets.EMAIL_TO }}
+        run: |
+          mkdir -p export
+          python data_extraction.py
 
       - name: Exit if no new CSV
         if: env.NEW_FILES_DOWNLOADED == '0'
@@ -42,36 +56,25 @@ jobs:
           echo "No new CSV file detected. Exiting workflow."
           exit 0
 
-      - name: Commit & push to temp branch
-        id: commit_push
-        env:
-          GIT_TOKEN_CUSTOM: ${{ secrets.GIT_TOKEN_CUSTOM }}
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          BRANCH_NAME="csv-update-$(date +%s)"
-          git checkout -b $BRANCH_NAME
-          git add -A export/
-          git commit -m "Update CSV files [skip ci]"
-          git push https://$GIT_TOKEN_CUSTOM@github.com/${{ github.repository }} HEAD:$BRANCH_NAME
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
       - name: Create Pull Request
-        id: pr
-        uses: peter-evans/create-pull-request@v5
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GIT_TOKEN_CUSTOM }}
-          branch: ${{ steps.commit_push.outputs.branch_name }}
           base: main
+          branch: automated/csv-update
+          delete-branch: true
           title: "Automated CSV update"
-          body: "This PR updates raw_data.csv with the latest CSV from SFTP."
+          body: "This PR updates CSV files from SFTP sync."
           labels: automated
           commit-message: "Update CSV files [skip ci]"
+          add-paths: |
+            export/
 
-      - name: Auto merge PR
-        if: steps.pr.outputs.pull-request-number != ''
-        uses: "pascalgn/automerge-action@v0.15.0"
-        with:
-          github_token: ${{ secrets.GIT_TOKEN_CUSTOM }}
-          merge_method: squash
-          pull_request_number: ${{ steps.pr.outputs.pull-request-number }}
+      # Optional auto-merge (repo must allow auto-merge; PAT must have rights)
+      - name: Enable auto-merge (squash)
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: |
+          gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --squash --auto
+        env:
+          GH_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
