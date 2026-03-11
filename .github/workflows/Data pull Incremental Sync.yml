@@ -47,7 +47,7 @@ jobs:
           ALERT_EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           NOTIFY_EMAIL: ${{ secrets.EMAIL_TO }}
         run: |
-          mkdir -p export
+          mkdir -p exports
           python data_extraction.py
 
       - name: Exit if no new CSV
@@ -69,7 +69,7 @@ jobs:
           labels: automated
           commit-message: "Update CSV files [skip ci]"
           add-paths: |
-            export/
+            exports/
 
       # Optional auto-merge (repo must allow auto-merge; PAT must have rights)
       - name: Enable auto-merge (squash) if allowed
