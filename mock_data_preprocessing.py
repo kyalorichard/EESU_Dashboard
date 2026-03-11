@@ -32,19 +32,19 @@ if not openai.api_key:
 BASE_DIR = Path(__file__).resolve().parent
 
 # --- SFTP CONFIG ---
-SFTP_HOST = os.getenv("SFTP_HOST", "83.149.119.154")
+SFTP_HOST = os.getenv("SFTP_HOST")
 SFTP_PORT = int(os.getenv("SFTP_PORT") or 22)
-SFTP_USERNAME = os.getenv("SFTP_USERNAME", "events-eusee.hivos.o_iwfvvmfr82h")
-SFTP_PASSWORD = os.getenv("SFTP_PASSWORD", "~Po7Rpdi9&oY3wkr")
+SFTP_USERNAME = os.getenv("SFTP_USERNAME")
+SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 REMOTE_DIR = os.getenv("REMOTE_DIR", "exports")
 
 # --- SMTP / NOTIFICATIONS ---
 NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL")
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
-SMTP_USER = os.getenv("SMTP_USER", "kyalorichard11@gmail.com")
-SMTP_PASS = os.getenv("SMTP_PASS", "nwkq vyly slsi bexj")
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
 
 # --- LOCAL PATHS ---
 LOCAL_DIR = BASE_DIR / os.getenv("LOCAL_DIR", "data")
