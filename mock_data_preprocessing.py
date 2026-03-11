@@ -20,7 +20,6 @@ import openai
 
 # ---------------- LOAD ENVIRONMENT VARIABLES ----------------
 load_dotenv()
-
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
     raise ValueError("OpenAI API key not set! Please add it to your .env file as OPENAI_API_KEY")
