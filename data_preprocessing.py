@@ -48,7 +48,7 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 
 # --- LOCAL PATHS ---
-LOCAL_DIR = BASE_DIR / os.getenv("LOCAL_DIR", "data")
+LOCAL_DIR = BASE_DIR / os.getenv("LOCAL_DIR", "exports")
 LOCAL_DIR.mkdir(parents=True, exist_ok=True)
 
 OUTPUT_FOLDER = BASE_DIR / "exports"
