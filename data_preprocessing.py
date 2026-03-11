@@ -74,8 +74,9 @@ FIELDS = [
     "Type of event",
 ]
 
-
-# ---------------- TOKEN ESTIMATION ----------------
+# ==========================================================
+# TOKEN ESTIMATION
+# ==========================================================
 try:
     import tiktoken
 
@@ -156,6 +157,45 @@ def download_file_from_sftp(remote_filename: str, local_path: Path, required: bo
             transport.close()
 
 
+def ensure_local_file_from_remote(
+    remote_filename: str,
+    local_path: Path,
+    required: bool = True,
+) -> bool:
+    """
+    Ensure a local file exists.
+    - If local file exists, use it
+    - If missing, try downloading from remote
+    """
+    local_path = Path(local_path)
+
+    if local_path.exists():
+        print(f"Local file already available: {local_path}")
+        return True
+
+    print(f"Local file missing: {local_path}")
+    print(f"Trying to download from remote: {remote_filename}")
+
+    if not sftp_enabled():
+        if required:
+            raise FileNotFoundError(
+                f"Local file missing and SFTP is not configured: {local_path}"
+            )
+        return False
+
+    downloaded = download_file_from_sftp(
+        remote_filename=remote_filename,
+        local_path=local_path,
+        required=required,
+    )
+
+    if downloaded and local_path.exists():
+        print(f"Local file restored from remote: {local_path}")
+        return True
+
+    return False
+
+
 def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
     """
     Upload one local file into REMOTE_DIR and overwrite remote file if it exists.
@@ -164,7 +204,6 @@ def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
     sftp = None
     try:
         local_path = Path(local_path)
-
         if not local_path.exists():
             raise FileNotFoundError(f"Local file does not exist: {local_path}")
 
@@ -186,7 +225,7 @@ def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
 
 def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
     """
-    Simple verification: compare local and remote file sizes.
+    Verify uploaded file by comparing local and remote file sizes.
     """
     transport = None
     sftp = None
@@ -223,23 +262,19 @@ def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
             transport.close()
 
 
-# ==========================================================
-# FILE TRANSFER FLOW
-# ==========================================================
 def fetch_required_input_files() -> None:
     """
-    Download the remote source files that local processing depends on.
-    Remote output_final.csv becomes the local working input file.
+    Ensure required local working files exist.
+    If missing locally, download from remote.
     """
     if not sftp_enabled():
         print("SFTP not configured. Using local files only.")
-        return
 
-    download_file_from_sftp("output_final.csv", INPUT_CSV, required=True)
-    download_file_from_sftp("themes.json", THEMES_FILE, required=True)
+    ensure_local_file_from_remote("output_final.csv", INPUT_CSV, required=True)
+    ensure_local_file_from_remote("themes.json", THEMES_FILE, required=True)
 
-    # Optional: pull remote parquet too if you want a local copy for reference
-    download_file_from_sftp("output_final.parquet", OUTPUT_PARQUET, required=False)
+    # Optional reference copy. It may not exist remotely.
+    ensure_local_file_from_remote("output_final.parquet", OUTPUT_PARQUET, required=False)
 
 
 def upload_output_files(verify: bool = True) -> None:
