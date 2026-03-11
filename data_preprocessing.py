@@ -90,7 +90,9 @@ except ImportError:
         return max(1, len(text) // 4 + 50)
 
 
-# ---------------- SFTP HELPERS ----------------
+# ==========================================================
+# SFTP HELPERS
+# ==========================================================
 def sftp_enabled() -> bool:
     return all([SFTP_HOST, SFTP_USERNAME, SFTP_PASSWORD, REMOTE_DIR])
 
@@ -109,7 +111,11 @@ def ensure_remote_dir(sftp: paramiko.SFTPClient, remote_directory: str) -> None:
     """
     Recursively create remote directory if it does not exist.
     """
-    parts = remote_directory.strip("/").split("/")
+    remote_directory = remote_directory.strip("/")
+    if not remote_directory:
+        return
+
+    parts = remote_directory.split("/")
     current = ""
     for part in parts:
         current = f"{current}/{part}" if current else part
@@ -119,16 +125,30 @@ def ensure_remote_dir(sftp: paramiko.SFTPClient, remote_directory: str) -> None:
             sftp.mkdir(current)
 
 
-def download_file_from_sftp(remote_filename: str, local_path: Path) -> None:
+def download_file_from_sftp(remote_filename: str, local_path: Path, required: bool = True) -> bool:
+    """
+    Download one file from REMOTE_DIR into local_path.
+    Returns True if downloaded, False if missing and not required.
+    """
     transport = None
     sftp = None
     try:
         transport, sftp = create_sftp_client()
         remote_path = posixpath.join(REMOTE_DIR, remote_filename)
         local_path.parent.mkdir(parents=True, exist_ok=True)
+
         print(f"Downloading {remote_path} -> {local_path}")
         sftp.get(remote_path, str(local_path))
         print(f"Downloaded: {remote_filename}")
+        return True
+
+    except FileNotFoundError:
+        msg = f"Remote file not found: {remote_filename}"
+        if required:
+            raise FileNotFoundError(msg)
+        print(msg)
+        return False
+
     finally:
         if sftp:
             sftp.close()
@@ -136,24 +156,66 @@ def download_file_from_sftp(remote_filename: str, local_path: Path) -> None:
             transport.close()
 
 
-def upload_file_to_sftp(local_path: Path, remote_filename: str | None = None) -> None:
+def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
+    """
+    Upload one local file into REMOTE_DIR and overwrite remote file if it exists.
+    """
+    transport = None
+    sftp = None
+    try:
+        local_path = Path(local_path)
+
+        if not local_path.exists():
+            raise FileNotFoundError(f"Local file does not exist: {local_path}")
+
+        transport, sftp = create_sftp_client()
+        ensure_remote_dir(sftp, REMOTE_DIR)
+
+        remote_path = posixpath.join(REMOTE_DIR, remote_filename)
+
+        print(f"Uploading {local_path} -> {remote_path}")
+        sftp.put(str(local_path), remote_path)
+        print(f"Uploaded and overwrote remote file: {remote_filename}")
+
+    finally:
+        if sftp:
+            sftp.close()
+        if transport:
+            transport.close()
+
+
+def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
+    """
+    Simple verification: compare local and remote file sizes.
+    """
     transport = None
     sftp = None
     try:
         local_path = Path(local_path)
         if not local_path.exists():
-            print(f"Upload skipped, file does not exist: {local_path}")
-            return
+            print(f"Cannot verify missing local file: {local_path}")
+            return False
 
         transport, sftp = create_sftp_client()
-        ensure_remote_dir(sftp, REMOTE_DIR)
-
-        remote_filename = remote_filename or local_path.name
         remote_path = posixpath.join(REMOTE_DIR, remote_filename)
 
-        print(f"Uploading {local_path} -> {remote_path}")
-        sftp.put(str(local_path), remote_path)
-        print(f"Uploaded: {remote_filename}")
+        local_size = local_path.stat().st_size
+        remote_size = sftp.stat(remote_path).st_size
+
+        if local_size == remote_size:
+            print(f"Verified {remote_filename}: local and remote sizes match ({local_size} bytes)")
+            return True
+
+        print(
+            f"Verification failed for {remote_filename}: "
+            f"local={local_size} bytes, remote={remote_size} bytes"
+        )
+        return False
+
+    except FileNotFoundError:
+        print(f"Verification failed: remote file not found: {remote_filename}")
+        return False
+
     finally:
         if sftp:
             sftp.close()
@@ -161,43 +223,53 @@ def upload_file_to_sftp(local_path: Path, remote_filename: str | None = None) ->
             transport.close()
 
 
+# ==========================================================
+# FILE TRANSFER FLOW
+# ==========================================================
 def fetch_required_input_files() -> None:
     """
-    Download required input files from the remote SFTP folder to local exports folder.
+    Download the remote source files that local processing depends on.
+    Remote output_final.csv becomes the local working input file.
     """
     if not sftp_enabled():
         print("SFTP not configured. Using local files only.")
         return
 
-    required_files = {
-        "output_final.csv": INPUT_CSV,
-        "themes.json": THEMES_FILE,
-    }
+    download_file_from_sftp("output_final.csv", INPUT_CSV, required=True)
+    download_file_from_sftp("themes.json", THEMES_FILE, required=True)
 
-    for remote_name, local_path in required_files.items():
-        download_file_from_sftp(remote_name, local_path)
+    # Optional: pull remote parquet too if you want a local copy for reference
+    download_file_from_sftp("output_final.parquet", OUTPUT_PARQUET, required=False)
 
 
-def upload_output_files() -> None:
+def upload_output_files(verify: bool = True) -> None:
     """
-    Upload generated outputs back to the remote SFTP folder.
+    Overwrite remote output_final.csv and output_final.parquet
+    with the local processed versions.
     """
     if not sftp_enabled():
         print("SFTP not configured. Skipping remote upload.")
         return
 
-    files_to_upload = [
-        OUTPUT_CSV,
-        OUTPUT_PARQUET,
-        PERMANENTLY_FAILED_FILE,
+    uploads = [
+        (OUTPUT_CSV, "output_final.csv"),
+        (OUTPUT_PARQUET, "output_final.parquet"),
     ]
 
-    for file_path in files_to_upload:
-        if file_path.exists():
-            upload_file_to_sftp(file_path)
-        else:
-            print(f"Output not found, skipping upload: {file_path}")
+    if PERMANENTLY_FAILED_FILE.exists():
+        uploads.append((PERMANENTLY_FAILED_FILE, "permanently_failed_batches.json"))
 
+    for local_path, remote_name in uploads:
+        if not local_path.exists():
+            print(f"Skipping missing local file: {local_path}")
+            continue
+
+        upload_file_to_sftp(local_path, remote_name)
+
+        if verify:
+            ok = verify_remote_file_matches(local_path, remote_name)
+            if not ok:
+                raise RuntimeError(f"Upload verification failed for {remote_name}")
 
 # ---------------- EMAIL NOTIFIER ----------------
 def send_email(subject: str, body: str, to_email: str) -> None:
