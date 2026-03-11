@@ -137,5 +137,9 @@
   "Zimbabwe": {"iso_alpha3": "ZWE", "continent": "Africa"},
   "Republic of Congo": {"iso_alpha3": "COG", "continent": "Africa"},
   "Democratic Republic of Congo": {"iso_alpha3": "COD", "continent": "Africa"},
-  "The Gambia": {"iso_alpha3": "GMB", "continent": "Africa"}
+  "The Gambia": {"iso_alpha3": "GMB", "continent": "Africa"},
+  "Côte d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"},
+  "Cote d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"},
+  "Ivory Coast": {"iso_alpha3": "CIV", "continent": "Africa"},
+  "Papua New Guinea": {"iso_alpha3": "PNG", "continent": "Oceania"}
 }
