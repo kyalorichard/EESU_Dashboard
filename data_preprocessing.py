@@ -9,7 +9,7 @@ import random
 import smtplib
 from email.message import EmailMessage
 from pathlib import Path
-
+from datetime import datetime
 import pandas as pd
 import paramiko
 from dotenv import load_dotenv
@@ -817,6 +817,184 @@ async def process_all(
     return df_out
 
 
+def send_summary_update_email(
+    to_email,
+    total_rows,
+    processed_rows,
+    skipped_rows,
+    output_csv,
+    output_parquet,
+    permanently_failed_count=0,
+    mock_mode=False,
+    smtp_host=SMTP_HOST,
+    smtp_port=SMTP_PORT,
+    smtp_user=SMTP_USER,
+    smtp_pass=SMTP_PASS,
+):
+    """
+    Send a formatted HTML email summarizing dataset update results.
+    """
+
+    if not all([to_email, smtp_host, smtp_port, smtp_user, smtp_pass]):
+        print("Email not sent: missing SMTP configuration.")
+        return
+
+    run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    output_csv = Path(output_csv)
+    output_parquet = Path(output_parquet)
+
+    csv_status = "Created" if output_csv.exists() else "Not found"
+    parquet_status = "Created" if output_parquet.exists() else "Not found"
+
+    subject = f"Dataset Summary Update Completed | {run_time}"
+
+    plain_text = f"""
+Dataset Summary Update Completed
+
+Run time: {run_time}
+Mock mode: {mock_mode}
+
+Processing results:
+- Total rows in dataset: {total_rows}
+- Fully blank rows processed: {processed_rows}
+- Rows skipped (already filled): {skipped_rows}
+- Permanently failed batches: {permanently_failed_count}
+
+Output files:
+- CSV: {output_csv.name} ({csv_status})
+- Parquet: {output_parquet.name} ({parquet_status})
+
+This notification confirms that the dataset summary update pipeline has completed.
+"""
+
+    html = f"""
+    <html>
+      <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;padding:24px 0;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="700" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #dfe3e8;">
+                
+                <tr>
+                  <td style="background:#1f4e79;color:#ffffff;padding:24px 32px;">
+                    <h1 style="margin:0;font-size:24px;">Dataset Summary Update Completed</h1>
+                    <p style="margin:8px 0 0 0;font-size:14px;opacity:0.95;">
+                      Automated processing report for summary field updates
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:28px 32px;">
+                    <p style="margin:0 0 18px 0;font-size:15px;color:#222;">
+                      Hello,
+                    </p>
+                    <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#222;">
+                      The dataset update pipeline has finished processing summary-based classification fields.
+                      Below is the execution summary and output status.
+                    </p>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Run Details
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Run time</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{run_time}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Mock mode</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{mock_mode}</td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Processing Summary
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Total rows in dataset</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{total_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Fully blank rows processed</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{processed_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Rows skipped</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{skipped_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Permanently failed batches</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{permanently_failed_count}</td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Output Files
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">CSV output</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_csv.name} — {csv_status}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Parquet output</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_parquet.name} — {parquet_status}</td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#222;">
+                      This message confirms that the summary update job completed and the output dataset was written successfully.
+                    </p>
+
+                    <p style="margin:20px 0 0 0;font-size:15px;color:#222;">
+                      Regards,<br>
+                      Automated Dataset Update Pipeline
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:16px 32px;background:#f8fafc;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;">
+                    This is an automated notification generated by the dataset processing workflow.
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = to_email
+        msg.set_content(plain_text)
+        msg.add_alternative(html, subtype="html")
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+
+        print(f"Summary update email sent to {to_email}")
+
+    except Exception as e:
+        print(f"Failed to send summary update email: {e}")
+
+
 # ---------------- RUN SCRIPT ----------------
 if __name__ == "__main__":
     mock_mode = False  # Set True for testing without API calls
@@ -885,4 +1063,19 @@ if __name__ == "__main__":
 
     # 6) Optional notification
     if NOTIFY_EMAIL:
-        send_email("Extraction Completed", summary_message, NOTIFY_EMAIL)
+        permanently_failed_count = 0
+        if PERMANENTLY_FAILED_FILE.exists():
+            with open(PERMANENTLY_FAILED_FILE, "r", encoding="utf-8") as f:
+                permanently_failed = json.load(f)
+            permanently_failed_count = len(permanently_failed)
+
+        send_summary_update_email(
+            to_email=NOTIFY_EMAIL,
+            total_rows=len(df_out),
+            processed_rows=len(blank_rows),
+            skipped_rows=skipped_rows,
+            output_csv=OUTPUT_CSV,
+            output_parquet=OUTPUT_PARQUET,
+            permanently_failed_count=permanently_failed_count,
+            mock_mode=mock_mode,
+        )
