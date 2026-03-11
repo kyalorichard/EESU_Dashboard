@@ -7,24 +7,25 @@ import os
 import posixpath
 import random
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
-from datetime import datetime
+
+import openai
 import pandas as pd
 import paramiko
 from dotenv import load_dotenv
 from langdetect import LangDetectException, detect
 from tqdm.asyncio import tqdm_asyncio
 
-import openai
-
-# ---------------- LOAD ENVIRONMENT VARIABLES ----------------
+# ==========================================================
+# LOAD ENVIRONMENT VARIABLES
+# ==========================================================
 load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
-    raise ValueError("OpenAI API key not set! Please add it to your .env file as OPENAI_API_KEY")
-
+    raise ValueError("OPENAI_API_KEY is not set. Add it to your environment or .env file.")
 
 # ==========================================================
 # CONFIG
@@ -33,31 +34,26 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # --- SFTP CONFIG ---
 SFTP_HOST = os.getenv("SFTP_HOST")
-SFTP_PORT = 22
+SFTP_PORT = int(os.getenv("SFTP_PORT", "22"))
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
-REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
-LOCAL_DIR = os.getenv("LOCAL_DIR", "exports")
+REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR", "exports")
 
 # --- SMTP / NOTIFICATIONS ---
 NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL")
-
 SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 
 # --- LOCAL PATHS ---
-LOCAL_DIR = BASE_DIR / os.getenv("LOCAL_DIR", "exports")
-LOCAL_DIR.mkdir(parents=True, exist_ok=True)
-
 OUTPUT_FOLDER = BASE_DIR / "exports"
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
 INPUT_CSV = OUTPUT_FOLDER / "output_final.csv"
 THEMES_FILE = OUTPUT_FOLDER / "themes.json"
-OUTPUT_PARQUET = OUTPUT_FOLDER / "output_final.parquet"
 OUTPUT_CSV = OUTPUT_FOLDER / "output_final.csv"
+OUTPUT_PARQUET = OUTPUT_FOLDER / "output_final.parquet"
 PERMANENTLY_FAILED_FILE = OUTPUT_FOLDER / "permanently_failed_batches.json"
 
 # --- PROCESSING CONFIG ---
@@ -89,6 +85,22 @@ except ImportError:
     def estimate_tokens(text: str) -> int:
         text = text or ""
         return max(1, len(text) // 4 + 50)
+
+
+# ==========================================================
+# OUTPUT WRITER
+# ==========================================================
+def write_outputs(df: pd.DataFrame) -> None:
+    """
+    Write local CSV and parquet outputs and log clearly.
+    """
+    OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
+
+    df.to_csv(OUTPUT_CSV, index=False)
+    print(f"Wrote local CSV: {OUTPUT_CSV}")
+
+    df.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
+    print(f"Wrote local parquet: {OUTPUT_PARQUET}")
 
 
 # ==========================================================
@@ -126,7 +138,11 @@ def ensure_remote_dir(sftp: paramiko.SFTPClient, remote_directory: str) -> None:
             sftp.mkdir(current)
 
 
-def download_file_from_sftp(remote_filename: str, local_path: Path, required: bool = True) -> bool:
+def download_file_from_sftp(
+    remote_filename: str,
+    local_path: Path,
+    required: bool = True,
+) -> bool:
     """
     Download one file from REMOTE_DIR into local_path.
     Returns True if downloaded, False if missing and not required.
@@ -155,45 +171,6 @@ def download_file_from_sftp(remote_filename: str, local_path: Path, required: bo
             sftp.close()
         if transport:
             transport.close()
-
-
-def ensure_local_file_from_remote(
-    remote_filename: str,
-    local_path: Path,
-    required: bool = True,
-) -> bool:
-    """
-    Ensure a local file exists.
-    - If local file exists, use it
-    - If missing, try downloading from remote
-    """
-    local_path = Path(local_path)
-
-    if local_path.exists():
-        print(f"Local file already available: {local_path}")
-        return True
-
-    print(f"Local file missing: {local_path}")
-    print(f"Trying to download from remote: {remote_filename}")
-
-    if not sftp_enabled():
-        if required:
-            raise FileNotFoundError(
-                f"Local file missing and SFTP is not configured: {local_path}"
-            )
-        return False
-
-    downloaded = download_file_from_sftp(
-        remote_filename=remote_filename,
-        local_path=local_path,
-        required=required,
-    )
-
-    if downloaded and local_path.exists():
-        print(f"Local file restored from remote: {local_path}")
-        return True
-
-    return False
 
 
 def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
@@ -271,18 +248,22 @@ def fetch_required_input_files() -> None:
 
     download_file_from_sftp("output_final.csv", INPUT_CSV, required=True)
     download_file_from_sftp("themes.json", THEMES_FILE, required=True)
-
-    # Optional reference copy
     download_file_from_sftp("output_final.parquet", OUTPUT_PARQUET, required=False)
+
 
 def upload_output_files(verify: bool = True) -> None:
     """
-    Overwrite remote output_final.csv and output_final.parquet
-    with the local processed versions.
+    Overwrite remote output files with the local processed versions.
     """
     if not sftp_enabled():
         print("SFTP not configured. Skipping remote upload.")
         return
+
+    if not OUTPUT_CSV.exists():
+        raise FileNotFoundError(f"Local CSV output is missing: {OUTPUT_CSV}")
+
+    if not OUTPUT_PARQUET.exists():
+        raise FileNotFoundError(f"Local parquet output is missing: {OUTPUT_PARQUET}")
 
     uploads = [
         (OUTPUT_CSV, "output_final.csv"),
@@ -293,10 +274,6 @@ def upload_output_files(verify: bool = True) -> None:
         uploads.append((PERMANENTLY_FAILED_FILE, "permanently_failed_batches.json"))
 
     for local_path, remote_name in uploads:
-        if not local_path.exists():
-            print(f"Skipping missing local file: {local_path}")
-            continue
-
         upload_file_to_sftp(local_path, remote_name)
 
         if verify:
@@ -304,10 +281,13 @@ def upload_output_files(verify: bool = True) -> None:
             if not ok:
                 raise RuntimeError(f"Upload verification failed for {remote_name}")
 
-# ---------------- EMAIL NOTIFIER ----------------
+
+# ==========================================================
+# EMAIL NOTIFIER
+# ==========================================================
 def send_email(subject: str, body: str, to_email: str) -> None:
     if not all([subject, body, to_email, SMTP_USER, SMTP_PASS, SMTP_HOST]):
-        print("Email not sent: Missing credentials or recipient.")
+        print("Email not sent: missing credentials or recipient.")
         return
 
     try:
@@ -327,7 +307,182 @@ def send_email(subject: str, body: str, to_email: str) -> None:
         print(f"Email failed: {e}")
 
 
-# ---------------- LOAD HELPERS ----------------
+def send_summary_update_email(
+    to_email,
+    total_rows,
+    processed_rows,
+    skipped_rows,
+    output_csv,
+    output_parquet,
+    permanently_failed_count=0,
+    mock_mode=False,
+    smtp_host=SMTP_HOST,
+    smtp_port=SMTP_PORT,
+    smtp_user=SMTP_USER,
+    smtp_pass=SMTP_PASS,
+):
+    """
+    Send a formatted HTML email summarizing dataset update results.
+    """
+    if not all([to_email, smtp_host, smtp_port, smtp_user, smtp_pass]):
+        print("Email not sent: missing SMTP configuration.")
+        return
+
+    run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    output_csv = Path(output_csv)
+    output_parquet = Path(output_parquet)
+
+    csv_status = "Created" if output_csv.exists() else "Not found"
+    parquet_status = "Created" if output_parquet.exists() else "Not found"
+
+    subject = f"Dataset Summary Update Completed | {run_time}"
+
+    plain_text = f"""
+Dataset Summary Update Completed
+
+Run time: {run_time}
+Mock mode: {mock_mode}
+
+Processing results:
+- Total rows in dataset: {total_rows}
+- Fully blank rows processed: {processed_rows}
+- Rows skipped (already filled): {skipped_rows}
+- Permanently failed batches: {permanently_failed_count}
+
+Output files:
+- CSV: {output_csv.name} ({csv_status})
+- Parquet: {output_parquet.name} ({parquet_status})
+
+This notification confirms that the dataset summary update pipeline has completed.
+"""
+
+    html = f"""
+    <html>
+      <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;padding:24px 0;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="700" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #dfe3e8;">
+                <tr>
+                  <td style="background:#1f4e79;color:#ffffff;padding:24px 32px;">
+                    <h1 style="margin:0;font-size:24px;">Dataset Summary Update Completed</h1>
+                    <p style="margin:8px 0 0 0;font-size:14px;opacity:0.95;">
+                      Automated processing report for summary field updates
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:28px 32px;">
+                    <p style="margin:0 0 18px 0;font-size:15px;color:#222;">Hello,</p>
+                    <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#222;">
+                      The dataset update pipeline has finished processing summary-based classification fields.
+                      Below is the execution summary and output status.
+                    </p>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Run Details
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Run time</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{run_time}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Mock mode</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{mock_mode}</td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Processing Summary
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Total rows in dataset</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{total_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Fully blank rows processed</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{processed_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Rows skipped</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{skipped_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Permanently failed batches</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{permanently_failed_count}</td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Output Files
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">CSV output</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_csv.name} — {csv_status}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Parquet output</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_parquet.name} — {parquet_status}</td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#222;">
+                      This message confirms that the summary update job completed and the output dataset was written successfully.
+                    </p>
+
+                    <p style="margin:20px 0 0 0;font-size:15px;color:#222;">
+                      Regards,<br>
+                      Automated Dataset Update Pipeline
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:16px 32px;background:#f8fafc;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;">
+                    This is an automated notification generated by the dataset processing workflow.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = to_email
+        msg.set_content(plain_text)
+        msg.add_alternative(html, subtype="html")
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+
+        print(f"Summary update email sent to {to_email}")
+
+    except Exception as e:
+        print(f"Failed to send summary update email: {e}")
+
+
+# ==========================================================
+# LOAD HELPERS
+# ==========================================================
 def load_themes(themes_path: Path) -> dict:
     if not themes_path.exists():
         raise FileNotFoundError(f"Themes file not found: {themes_path}")
@@ -352,7 +507,9 @@ def load_input_dataframe(input_csv: Path, test_rows: int | None = None) -> pd.Da
     return df
 
 
-# ---------------- HELPERS ----------------
+# ==========================================================
+# HELPERS
+# ==========================================================
 def format_theme_options(theme_list: dict, lang: str) -> str:
     options = theme_list.get(lang, theme_list["en"])
     return ", ".join([t["label"] for t in options])
@@ -657,7 +814,9 @@ Texts:
     return prompt
 
 
-# ---------------- BATCH BUILDER ----------------
+# ==========================================================
+# BATCH BUILDER
+# ==========================================================
 def build_batches(
     df_input: pd.DataFrame,
     max_tokens: int = MAX_BATCH_TOKENS,
@@ -709,7 +868,9 @@ def build_batches(
     return batches
 
 
-# ---------------- MOCK EXTRACTOR ----------------
+# ==========================================================
+# MOCK EXTRACTOR
+# ==========================================================
 async def mock_extract_batch(
     batch_summaries: list[str],
     actor_themes: dict,
@@ -741,7 +902,9 @@ async def mock_extract_batch(
     return results, None
 
 
-# ---------------- OPENAI EXTRACTOR ----------------
+# ==========================================================
+# OPENAI EXTRACTOR
+# ==========================================================
 async def extract_batch(
     batch_summaries: list[str],
     actor_themes: dict,
@@ -810,7 +973,9 @@ async def extract_batch(
     return [{k: "Error" for k in FIELDS} for _ in batch_summaries], None
 
 
-# ---------------- MAIN PROCESS ----------------
+# ==========================================================
+# MAIN PROCESS
+# ==========================================================
 async def process_all(
     df_source: pd.DataFrame,
     actor_themes: dict,
@@ -819,8 +984,6 @@ async def process_all(
     type_themes: dict,
     mock_mode: bool = False,
 ) -> pd.DataFrame:
-    # Load previous output if exists, else use fresh source dataframe
-    # Always start from the latest CSV dataframe
     df_out = df_source.copy()
     print("Starting processing from latest output_final.csv")
 
@@ -850,6 +1013,7 @@ async def process_all(
 
     if rows_to_process.empty:
         print("No fully blank rows to process. Nothing to do.")
+        write_outputs(df_out)
         return df_out
 
     batches = build_batches(rows_to_process, max_rows=MAX_BATCH_SIZE)
@@ -902,14 +1066,9 @@ async def process_all(
         chunk = batches[i:i + CONCURRENT_BATCHES]
         tasks = [process_batch(*b) for b in chunk]
         await tqdm_asyncio.gather(*tasks, desc="Processing batches", total=len(chunk))
+        write_outputs(df_out)
 
-        # Save intermediate outputs
-        df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
-        df_out.to_csv(OUTPUT_CSV, index=False)
-
-    # Final save
-    df_out.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
-    df_out.to_csv(OUTPUT_CSV, index=False)
+    write_outputs(df_out)
 
     if permanently_failed:
         with open(PERMANENTLY_FAILED_FILE, "w", encoding="utf-8") as f:
@@ -921,185 +1080,9 @@ async def process_all(
     return df_out
 
 
-def send_summary_update_email(
-    to_email,
-    total_rows,
-    processed_rows,
-    skipped_rows,
-    output_csv,
-    output_parquet,
-    permanently_failed_count=0,
-    mock_mode=False,
-    smtp_host=SMTP_HOST,
-    smtp_port=SMTP_PORT,
-    smtp_user=SMTP_USER,
-    smtp_pass=SMTP_PASS,
-):
-    """
-    Send a formatted HTML email summarizing dataset update results.
-    """
-
-    if not all([to_email, smtp_host, smtp_port, smtp_user, smtp_pass]):
-        print("Email not sent: missing SMTP configuration.")
-        return
-
-    run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    output_csv = Path(output_csv)
-    output_parquet = Path(output_parquet)
-
-    csv_status = "Created" if output_csv.exists() else "Not found"
-    parquet_status = "Created" if output_parquet.exists() else "Not found"
-
-    subject = f"Dataset Summary Update Completed | {run_time}"
-
-    plain_text = f"""
-Dataset Summary Update Completed
-
-Run time: {run_time}
-Mock mode: {mock_mode}
-
-Processing results:
-- Total rows in dataset: {total_rows}
-- Fully blank rows processed: {processed_rows}
-- Rows skipped (already filled): {skipped_rows}
-- Permanently failed batches: {permanently_failed_count}
-
-Output files:
-- CSV: {output_csv.name} ({csv_status})
-- Parquet: {output_parquet.name} ({parquet_status})
-
-This notification confirms that the dataset summary update pipeline has completed.
-"""
-
-    html = f"""
-    <html>
-      <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;padding:24px 0;">
-          <tr>
-            <td align="center">
-              <table role="presentation" width="700" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #dfe3e8;">
-                
-                <tr>
-                  <td style="background:#1f4e79;color:#ffffff;padding:24px 32px;">
-                    <h1 style="margin:0;font-size:24px;">Dataset Summary Update Completed</h1>
-                    <p style="margin:8px 0 0 0;font-size:14px;opacity:0.95;">
-                      Automated processing report for summary field updates
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding:28px 32px;">
-                    <p style="margin:0 0 18px 0;font-size:15px;color:#222;">
-                      Hello,
-                    </p>
-                    <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#222;">
-                      The dataset update pipeline has finished processing summary-based classification fields.
-                      Below is the execution summary and output status.
-                    </p>
-
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
-                      <tr>
-                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
-                          Run Details
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Run time</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{run_time}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Mock mode</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{mock_mode}</td>
-                      </tr>
-                    </table>
-
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
-                      <tr>
-                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
-                          Processing Summary
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Total rows in dataset</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{total_rows}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Fully blank rows processed</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{processed_rows}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Rows skipped</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{skipped_rows}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Permanently failed batches</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{permanently_failed_count}</td>
-                      </tr>
-                    </table>
-
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
-                      <tr>
-                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
-                          Output Files
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">CSV output</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_csv.name} — {csv_status}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Parquet output</td>
-                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_parquet.name} — {parquet_status}</td>
-                      </tr>
-                    </table>
-
-                    <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#222;">
-                      This message confirms that the summary update job completed and the output dataset was written successfully.
-                    </p>
-
-                    <p style="margin:20px 0 0 0;font-size:15px;color:#222;">
-                      Regards,<br>
-                      Automated Dataset Update Pipeline
-                    </p>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding:16px 32px;background:#f8fafc;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;">
-                    This is an automated notification generated by the dataset processing workflow.
-                  </td>
-                </tr>
-
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-    """
-
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = smtp_user
-        msg["To"] = to_email
-        msg.set_content(plain_text)
-        msg.add_alternative(html, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-
-        print(f"Summary update email sent to {to_email}")
-
-    except Exception as e:
-        print(f"Failed to send summary update email: {e}")
-
-
-# ---------------- RUN SCRIPT ----------------
+# ==========================================================
+# RUN SCRIPT
+# ==========================================================
 if __name__ == "__main__":
     mock_mode = False  # Set True for testing without API calls
 
@@ -1115,10 +1098,9 @@ if __name__ == "__main__":
 
     df_source = load_input_dataframe(INPUT_CSV, test_rows=TEST_ROWS)
 
-    # 3) Pre-run summary based on current input/output state
-
+    # 3) Pre-run summary based on current downloaded input
     df_prev = pd.read_csv(INPUT_CSV)
-    
+
     for col in FIELDS:
         if col not in df_prev.columns:
             df_prev[col] = ""
@@ -1160,8 +1142,8 @@ if __name__ == "__main__":
     )
     print(summary_message)
 
-    # 5) Push updated outputs back to the same remote SFTP folder
-    upload_output_files()
+    # 5) Push updated outputs back to remote
+    upload_output_files(verify=True)
 
     # 6) Optional notification
     if NOTIFY_EMAIL:
