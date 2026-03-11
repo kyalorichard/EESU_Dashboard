@@ -1,43 +1,56 @@
 name: Weekly EESU Data Processing
 
-# Trigger the workflow
 on:
   schedule:
-    # Runs at 1:00 AM every Monday (UTC)
     - cron: "0 1 * * 1"
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   run-processing:
     runs-on: ubuntu-latest
 
     env:
-      DATA_DIR: data
+      DATA_DIR: exports
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASS: ${{ secrets.SMTP_PASS }}
       NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+      SFTP_HOST: ${{ secrets.SFTP_HOST }}
+      SFTP_PORT: ${{ secrets.SFTP_PORT }}
+      SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+      SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+      REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
+      LOCAL_DIR: exports
 
     steps:
-      # 1. Checkout repo
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. Set up Python
       - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # 3. Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Run the script
-      - name: Run EESU data processing
+      - name: Check environment variables
         run: |
-          python data_preprocessing.py
+          python - <<'PY'
+          import os
+          print("OPENAI_API_KEY exists:", bool(os.getenv("OPENAI_API_KEY")))
+          print("SMTP_HOST exists:", bool(os.getenv("SMTP_HOST")))
+          print("NOTIFY_EMAIL exists:", bool(os.getenv("NOTIFY_EMAIL")))
+          print("SFTP_HOST exists:", bool(os.getenv("SFTP_HOST")))
+          print("SFTP_PORT exists:", bool(os.getenv("SFTP_PORT")))
+          print("SFTP_USERNAME exists:", bool(os.getenv("SFTP_USERNAME")))
+          print("SFTP_PASSWORD exists:", bool(os.getenv("SFTP_PASSWORD")))
+          print("REMOTE_DIR exists:", bool(os.getenv("SFTP_REMOTE_DIR")))
+          PY
+
+      - name: Run EESU data processing
+        run: python data_preprocessing.py
