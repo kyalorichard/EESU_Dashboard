@@ -34,7 +34,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # --- SFTP CONFIG ---
 SFTP_HOST = os.getenv("SFTP_HOST")
-SFTP_PORT = int(os.getenv("SFTP_PORT", "22"))
+SFTP_PORT = int(os.getenv("SFTP_PORT") or 22)
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR", "exports")
