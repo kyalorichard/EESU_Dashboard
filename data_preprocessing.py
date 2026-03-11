@@ -264,18 +264,16 @@ def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
 
 def fetch_required_input_files() -> None:
     """
-    Ensure required local working files exist.
-    If missing locally, download from remote.
+    Always refresh local working files from remote so remote is the source of truth.
     """
     if not sftp_enabled():
-        print("SFTP not configured. Using local files only.")
+        raise RuntimeError("SFTP is required because remote files are the source of truth.")
 
-    ensure_local_file_from_remote("output_final.csv", INPUT_CSV, required=True)
-    ensure_local_file_from_remote("themes.json", THEMES_FILE, required=True)
+    download_file_from_sftp("output_final.csv", INPUT_CSV, required=True)
+    download_file_from_sftp("themes.json", THEMES_FILE, required=True)
 
-    # Optional reference copy. It may not exist remotely.
-    ensure_local_file_from_remote("output_final.parquet", OUTPUT_PARQUET, required=False)
-
+    # Optional reference copy
+    download_file_from_sftp("output_final.parquet", OUTPUT_PARQUET, required=False)
 
 def upload_output_files(verify: bool = True) -> None:
     """
