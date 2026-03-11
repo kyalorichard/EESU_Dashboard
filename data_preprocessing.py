@@ -15,6 +15,7 @@ import paramiko
 from dotenv import load_dotenv
 from langdetect import LangDetectException, detect
 from tqdm.asyncio import tqdm_asyncio
+
 import openai
 
 # ---------------- LOAD ENVIRONMENT VARIABLES ----------------
@@ -31,15 +32,16 @@ if not openai.api_key:
 BASE_DIR = Path(__file__).resolve().parent
 
 # --- SFTP CONFIG ---
-SFTP_HOST = os.getenv("SFTP_HOST", "83.149.119.154")
-SFTP_PORT = int(os.getenv("SFTP_PORT") or 22)
-SFTP_USERNAME = os.getenv("SFTP_USERNAME", "events-eusee.hivos.o_iwfvvmfr82h")
-SFTP_PASSWORD = os.getenv("SFTP_PASSWORD", "~Po7Rpdi9&oY3wkr")
-REMOTE_DIR = os.getenv("REMOTE_DIR", "exports")
-
+SFTP_HOST = os.getenv("SFTP_HOST")
+SFTP_PORT = 22
+SFTP_USERNAME = os.getenv("SFTP_USERNAME")
+SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
+LOCAL_DIR = os.getenv("LOCAL_DIR", "exports")
 
 # --- SMTP / NOTIFICATIONS ---
 NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL")
+
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT") or 587)
 SMTP_USER = os.getenv("SMTP_USER")
