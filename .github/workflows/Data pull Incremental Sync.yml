@@ -37,7 +37,7 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          LOCAL_DIR: export
+          LOCAL_DIR: exports
 
           # Align these to what your script reads
           SMTP_HOST: ${{ secrets.SMTP_SERVER }}
