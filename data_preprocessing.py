@@ -15,7 +15,6 @@ import paramiko
 from dotenv import load_dotenv
 from langdetect import LangDetectException, detect
 from tqdm.asyncio import tqdm_asyncio
-
 import openai
 
 # ---------------- LOAD ENVIRONMENT VARIABLES ----------------
