@@ -21,7 +21,8 @@ jobs:
       SFTP_PORT: ${{ secrets.SFTP_PORT }}
       SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
       SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-      REMOTE_DIR: ${{ secrets.REMOTE_DIR }}
+      REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
+      LOCAL_DIR: exports
 
     steps:
       - name: Checkout code
