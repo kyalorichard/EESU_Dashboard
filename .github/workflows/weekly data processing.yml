@@ -46,6 +46,10 @@ jobs:
           print("SMTP_HOST exists:", bool(os.getenv("SMTP_HOST")))
           print("NOTIFY_EMAIL exists:", bool(os.getenv("NOTIFY_EMAIL")))
           print("SFTP_HOST exists:", bool(os.getenv("SFTP_HOST")))
+          print("SFTP_PORT exists:", bool(os.getenv("SFTP_PORT")))
+          print("SFTP_USERNAME exists:", bool(os.getenv("SFTP_USERNAME")))
+          print("SFTP_PASSWORD exists:", bool(os.getenv("SFTP_PASSWORD")))
+          print("REMOTE_DIR exists:", bool(os.getenv("SFTP_REMOTE_DIR")))
           PY
 
       - name: Run EESU data processing
