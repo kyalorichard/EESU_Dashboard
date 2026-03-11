@@ -715,6 +715,7 @@ async def process_all(
     mock_mode: bool = False,
 ) -> pd.DataFrame:
     # Load previous output if exists, else use fresh source dataframe
+    # Always start from the latest CSV dataframe
     df_out = df_source.copy()
     print("Starting processing from latest output_final.csv")
 
@@ -1010,8 +1011,9 @@ if __name__ == "__main__":
     df_source = load_input_dataframe(INPUT_CSV, test_rows=TEST_ROWS)
 
     # 3) Pre-run summary based on current input/output state
-    df_prev = pd.read_csv(INPUT_CSV)
 
+    df_prev = pd.read_csv(INPUT_CSV)
+    
     for col in FIELDS:
         if col not in df_prev.columns:
             df_prev[col] = ""
