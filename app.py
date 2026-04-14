@@ -1409,37 +1409,40 @@ with tab_negative:
 
             
         # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
-        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
-        df_exploded = explode_multi_valued_columns(reactive_df, cols_to_explode)
-            
+        cols_to_explode = [
+            "Actor of repression",
+            "Subject of repression",
+            "Mechanism of repression",
+            "Type of event"
+        ]
+
         df_exploded = reactive_df.copy()
+
         for col in cols_to_explode:
             df_exploded[col] = df_exploded[col].apply(safe_split)
-            #df_exploded[col] = df_exploded[col].str.split(",")
             df_exploded = df_exploded.explode(col)
-            df_exploded[col] = df_exploded[col].str.strip()
-        
+            df_exploded[col] = df_exploded[col].astype(str).str.strip()
+
         def cap_first(s):
-            if s is None:
+            if pd.isna(s):
                 return None
             s = str(s).strip()
-            if not s or s.lower() == "nan":
+            if not s:
                 return None
             return s[:1].upper() + s[1:]
 
         def formatted_options(series):
             s = series.dropna().astype(str).str.strip()
             s = s[s.ne("")]
-            s = s.map(cap_first).dropna()
-            return sorted(s.unique())
+            return sorted(s.map(cap_first).dropna().unique())
 
-                    
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
+
         with col1:
             selected_actor_types = safe_multiselect(
                 "Types of restrictive actors",
-                formatted_options(df_exploded['Actor of repression']),
+                formatted_options(df_exploded["Actor of repression"]),
                 "selected_actor_types",
                 sidebar=False
             )
@@ -1447,7 +1450,7 @@ with tab_negative:
         with col2:
             selected_subject_types = safe_multiselect(
                 "Types of civil society actors affected",
-                formatted_options(df_exploded['Subject of repression']),
+                formatted_options(df_exploded["Subject of repression"]),
                 "selected_subject_types",
                 sidebar=False
             )
@@ -1455,7 +1458,7 @@ with tab_negative:
         with col3:
             selected_mechanism_types = safe_multiselect(
                 "Types of restrictive mechanisms",
-                formatted_options(df_exploded['Mechanism of repression']),
+                formatted_options(df_exploded["Mechanism of repression"]),
                 "selected_mechanism_types",
                 sidebar=False
             )
@@ -1463,7 +1466,7 @@ with tab_negative:
         with col4:
             selected_event_types = safe_multiselect(
                 "Types of negative events",
-                formatted_options(df_exploded['Type of event']),
+                formatted_options(df_exploded["Type of event"]),
                 "selected_event_types",
                 sidebar=False
             )
