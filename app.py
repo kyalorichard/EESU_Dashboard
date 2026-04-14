@@ -1481,9 +1481,11 @@ with tab_negative:
             (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
         render_summary_cards(reactive_df_updated,show_breakdown=False)
+        
+        df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
 
         filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types)).apply(safe_split)) &
+            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
             (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
