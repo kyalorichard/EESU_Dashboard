@@ -1044,7 +1044,7 @@ def render_heatmaps(df, top_n=5):
             )
         )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
-        
+
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
     """
@@ -1697,7 +1697,7 @@ with tab_negative:
 with tab_map:
     #st.subheader("Visualization Map")
     render_summary_cards(filtered_global)
-    geo_file = Path.cwd() / "data" / "countriess.geojson"
+    geo_file = Path.cwd() / "exports" / "countriess.geojson"
     if geo_file.exists():
         with open(geo_file) as f: 
             countries_gj = json.load(f)
