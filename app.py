@@ -1419,45 +1419,42 @@ with tab_negative:
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
         
-        def multiselect_with_format(label, series, key):
-            raw_vals = series.dropna().unique()
-            display_vals = [v[:1].upper() + v[1:] if isinstance(v, str) else v for v in raw_vals]
-
-            selected_display = safe_multiselect(label, display_vals, key, sidebar=False)
-
-            # Map back to raw values
-            selected_raw = [raw_vals[display_vals.index(v)] for v in selected_display]
-
-            return selected_raw
+        def cap_first(s):
+            s = str(s).strip()
+            return s[:1].upper() + s[1:].lower() if s else s
                     
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            selected_actor_types = multiselect_with_format(
+            selected_actor_types = safe_multiselect(
                 "Types of restrictive actors",
-                df_exploded['Actor of repression'],
-                "selected_actor_types"
+                sorted(df_exploded['Actor of repression'].dropna().map(cap_first).unique()),
+                "selected_actor_types",
+                sidebar=False
             )
 
         with col2:
-            selected_subject_types = multiselect_with_format(
+            selected_subject_types = safe_multiselect(
                 "Types of civil society actors affected",
-                df_exploded['Subject of repression'],
-                "selected_subject_types"
+                sorted(df_exploded['Subject of repression'].dropna().map(cap_first).unique()),
+                "selected_subject_types",
+                sidebar=False
             )
 
         with col3:
-            selected_mechanism_types = multiselect_with_format(
+            selected_mechanism_types = safe_multiselect(
                 "Types of restrictive mechanisms",
-                df_exploded['Mechanism of repression'],
-                "selected_mechanism_types"
+                sorted(df_exploded['Mechanism of repression'].dropna().map(cap_first).unique()),
+                "selected_mechanism_types",
+                sidebar=False
             )
 
         with col4:
-            selected_event_types = multiselect_with_format(
+            selected_event_types = safe_multiselect(
                 "Types of negative events",
-                df_exploded['Type of event'],
-                "selected_event_types"
+                sorted(df_exploded['Type of event'].dropna().map(cap_first).unique()),
+                "selected_event_types",
+                sidebar=False
             )
         ##### -------- Tab 2 Summary card totals--------------------------
         reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
