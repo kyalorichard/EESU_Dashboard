@@ -163,6 +163,7 @@ def load_data():
 
     # Clean country names
     df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
+    df['alert-country'] = df['alert-country'].replace({"Democratic Republic of Congo 2": "Democratic Republic of the Congo"})
 
     # ❗ REMOVE alert-type == "event"
     df = df[df['alert-type'].str.lower() != "event"]
