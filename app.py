@@ -129,8 +129,8 @@ st.markdown("""
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
-    #parquet_file = EXPORT_DIR / "output_final.parquet"
-    parquet_file = EXPORT_DIR / "output_final.csv"
+    parquet_file = EXPORT_DIR / "output_final.parquet"
+    
     meta_file = EXPORT_DIR / "countries_metadata.json"
 
    # parquet_file = Path.cwd() / "data" / "output_final.parquet"
