@@ -951,7 +951,7 @@ def render_heatmaps(df, top_n=5):
                 text=fig1.layout.title.text,
                 x=0.5,
                 xanchor="center",
-                font=dict(size=12, family="Arial")
+                font=dict(size=12, family="Arial black")
             )
         )
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
