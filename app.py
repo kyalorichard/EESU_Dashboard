@@ -8,40 +8,25 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged
+from auth import auth_ui
 import math
-import paramiko
-import logging
-import tempfile  
-import os
-import re
 
-# --- SFTP CONFIG ---
-#sftp_secrets = st.secrets.get("sftp", {})
-#SFTP_HOST = sftp_secrets.get("host")
-#SFTP_PORT = 22
-#SFTP_USERNAME = sftp_secrets.get("username")
-#SFTP_PASSWORD = sftp_secrets.get("password")
-#REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
+st.set_page_config(page_title="EU SEE Dashboard", layout="wide")
 
-#st.write("SFTP_HOST:", sftp_secrets.get("host"))
-#st.write("SFTP_USERNAME:", sftp_secrets.get("username"))
-#st.write("SFTP_PASSWORD:", sftp_secrets.get("password"))
-#st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
+user = st.session_state.get("user")
+user_role = st.session_state.get("user_role")
+email_verified = st.session_state.get("email_verified", False)
 
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
+# Determine access tier
+if not user:
+    access_level = "public"
+elif user_role == "privileged" and email_verified:
+    access_level = "full"
+else:
+    access_level = "public"
 
-## ---------------- BASE DIRECTORIES ----------------
+
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-
-# ---------------- EXPORT DIRECTORY ----------------
-# Use /exports if it exists (Docker volume mapping)
-EXPORT_DIR = Path("/exports") if Path("/exports").exists() else BASE_DIR / "exports"
-
-# Ensure folders exist
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
@@ -126,15 +111,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
-    parquet_file = EXPORT_DIR / "output_final.parquet"
-    
-    meta_file = EXPORT_DIR / "countries_metadata.json"
-
-   # parquet_file = Path.cwd() / "data" / "output_final.parquet"
-    #meta_file = Path.cwd() / "data" / "countries_metadata.json"
+    parquet_file = Path.cwd() / "data" / "output_final.parquet"
+    meta_file = Path.cwd() / "data" / "countries_metadata.json"
 
     # --- Step 1: Load Parquet file safely ---
     if not parquet_file.exists():
@@ -162,19 +144,7 @@ def load_data():
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     # Clean country names
-    
-    df['alert-country'] = df['alert-country'].replace({
-        "Lebanon NAR": "Lebanon",
-        "Democratic Republic of Congo 2": "Democratic Republic of the Congo"
-    })
-
-    # ❗ REMOVE alert-type == "event"    
-    df['alert-type'] = df['alert-type'].astype(str).str.strip()
-
-    df = df[
-        (df['alert-type'].str.lower() != "event") & 
-        (df['alert-type'] != "")
-    ]
+    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
 
     # Clean Actor of repression
     df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
@@ -230,25 +200,19 @@ def load_data():
         df['month_name'] = df['creation_date'].dt.strftime('%B')
     else:
         st.warning("No 'creation_date' column found in dataset.")
-    
-    # --- Step 8: Update alert-impact based on alert-type ---
-    
-    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
-        mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
-        df.loc[mask, 'alert-impact'] = 'Context to watch'
 
     return df
 
+
 # --- Load data safely ---
 data = load_data()
-
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
     
     # Always keep "Select All" as first dropdown option
-    options_with_all = ["Select all"] + options
+    options_with_all = ["Select All"] + options
 
     # Initialize session_state if not present
     if session_key not in st.session_state:
@@ -265,7 +229,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         selected = []
 
     # If user selects "Select All" or nothing, internally select all options
-    if "Select all" in selected or len(selected) == 0:
+    if "Select All" in selected or len(selected) == 0:
         st.session_state[session_key] = options.copy()
         return options
     else:
@@ -311,17 +275,18 @@ st.markdown("""
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
 selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
 
-filtered_countries = data[data['region'].isin(selected_regions)] if "Select all" not in selected_regions else data
+filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 
-selected_alert_impacts = safe_multiselect("Select nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+selected_alert_types = safe_multiselect("Select Impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
 
 selected_enabling_principle = safe_multiselect(
     "Select enabling principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().str.capitalize().unique(),
+    data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
     "selected_enabling_principle"
 )
+
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
 
 available_months = sorted(
@@ -331,12 +296,12 @@ available_months = sorted(
     data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
     key=lambda m: pd.to_datetime(m, format='%B').month
 )
-selected_months = safe_multiselect("Select month", available_months, "selected_months")
+selected_months = safe_multiselect("Select Month", available_months, "selected_months")
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
     for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
                 "selected_alert_impacts","selected_months","selected_years"]:
-        st.session_state[key] = ["Select all"]
+        st.session_state[key] = ["Select All"]
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
@@ -360,12 +325,6 @@ st.sidebar.markdown(
 )
 
 auth_ui()
-
-if st.session_state.get("user") and st.session_state.get("email_verified"):
-    st.write(f"Hello, {st.session_state.name}!")
-   
-else:
-    st.info("Please log in to access the dashboard.")
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
@@ -405,7 +364,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     Render three summary cards with gradient background:
     1. Monitored Countries
     2. Total Alerts
-    3. Alerts Breakdown (Negative vs Positive vs Context to watch)
+    3. Alerts Breakdown (Negative vs Positive)
     
     Parameters:
         df (DataFrame): Filtered data
@@ -415,13 +374,11 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     total_alerts = len(df) if not df.empty else 0
     negative = (df['alert-impact'] == "Negative").sum() if not df.empty else 0
     positive = (df['alert-impact'] == "Positive").sum() if not df.empty else 0
-    context = (df['alert-impact'] == "Context to watch").sum() if not df.empty else 0
-    total_np = negative + positive + context
+    total_np = negative + positive
 
     # Percentages
     neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
     pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
-    context_pct = round((context / total_np) * 100, 1) if total_np else 0
 
     # Adjust bar height and font size based on total alerts
     bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
@@ -462,25 +419,14 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """
 
     # --- Monitored Countries ---
-    if is_privileged():
-        with col1:
-            st.markdown(f"""
-        <div style="{card_style}">
-            <div style="{icon_style}">🌍</div>
-            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        with col1:
-            st.markdown(f"""
-        <div style="{card_style}">
-            <div style="{icon_style}">🌍</div>
-            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:20px; font-weight:bold; color:#008CAA; margin-top:5px;">Available on Request</span>
-        </div>
-        """, unsafe_allow_html=True)
-            
+    with col1:
+        st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{icon_style}">🌍</div>
+        <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
+        <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # --- Total Alerts ---
     with col2:
@@ -533,6 +479,7 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     """, unsafe_allow_html=True)
 
     # ---------------- Alerts Breakdown ----------------
+    # ---------------- Alerts Breakdown ----------------
     with col3:
         st.markdown(f'''
     <div style="{card_style} ; padding:2px 10px;">
@@ -543,51 +490,41 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Negative Alerts: {negative} ({neg_pct}%)</title>
-            </circle>            
-            <circle cx="60" cy="60" r="40" stroke="#008CAA" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*40}" 
-                stroke-dashoffset="{2*3.1416*40*(1-(context_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Context to watch Alerts: {context} ({context_pct}%)</title>
             </circle>
-            <circle cx="60" cy="60" r="30" stroke="#660094" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*30}" 
-                stroke-dashoffset="{2*3.1416*30*(1-(pos_pct/100))}"
+            <circle cx="60" cy="60" r="40" stroke="#660094" stroke-width="12" fill="none"
+                stroke-dasharray="{2*3.1416*40}" 
+                stroke-dashoffset="{2*3.1416*40*(1-(pos_pct/100))}"
                 stroke-linecap="round" transform="rotate(-90 60 60)">
                 <title>Positive Alerts: {positive} ({pos_pct}%)</title>
             </circle>
-            <text x="40" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
+            <text x="60" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
                 {pos_pct}%
             </text>
             <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
                 {neg_pct}%
             </text>
-            <text x="70" y="65" text-anchor="middle" font-size="12" font-weight="bold" fill="#008CAA">
-                {context_pct}%
+            <text x="60" y="65" text-anchor="middle" font-size="2" font-weight="bold" color="white",fill="#333">
+                {total_alerts}
             </text>
         </svg>
         <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
             Alerts Breakdown
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 2px; font-size:12px; font-weight:700; width:100%; gap:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 2px; font-size:15px; font-weight:700; width:100%; gap:40px;">
             <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#FFDB58; border-radius:30%; display:inline-block;"></span>
+                <span style="width:10px; height:10px; background:#FFDB58; border-radius:50%; display:inline-block;"></span>
                 <span style="color:#555;">Negative:</span>
                 <span style="color:#FFDB58;">{negative}</span>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#660094; border-radius:30%; display:inline-block;"></span>
+                <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
                 <span style="color:#555;">Positive:</span>
                 <span style="color:#660094;">{positive}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#008CAA; border-radius:40%; display:inline-block;"></span>
-                <span style="color:#555;">Context to Watch:</span>
-                <span style="color:#008CAA;">{context}</span>
             </div>
         </div>
     </div>
     ''', unsafe_allow_html=True)
+
  
 def normalize_label(label: str) -> str:
     """
@@ -600,6 +537,12 @@ def normalize_label(label: str) -> str:
     if len(label) == 0:
         return ""
     return label[0].upper() + label[1:].lower()
+
+# Define a consistent color mapping for your dashboard
+COLOR_MAPPING = {
+    "positive": "#660094",
+    "negative": "#FFDB58"
+}
 
 def wrap_label_by_words(label, words_per_line=3):
     """Wrap long labels for better display"""
@@ -615,6 +558,8 @@ def safe_wrap_label(label, axis="y", words_per_line=4):
     if axis == "x":
         return normalize_label(label)
     return wrap_label_by_words(normalize_label(label), words_per_line)
+
+
 
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,normalize_labels=True):
@@ -695,40 +640,24 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     else:
         # For vertical bars, find max y for positioning
         max_val = df[x].sum()
-   
-    # ---------------- WATERMARK ----------------
+        
+    # Add hidden annotation just below plot
     fig.add_annotation(
-        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=0.5,
+        text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
+        xref="paper", yref="paper",
+        x=0, y=-0.12,  # fixed slightly below chart for all cases
         showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
-        opacity=0.05,
-        xanchor="center",
-        yanchor="middle"
-    )  
+        font=dict(size=10, color="gray"),
+        opacity=0  # invisible on-screen
+    )
+  
     return fig
+
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
-    #color_sequence = ['#008CAA','#660094','#FFDB58']
-
-    # ---------------- Define category-to-color mapping ----------------
-    category_colors = {
-        "Context to watch": "#008CAA",
-        "Postive": "#660094",
-        "Negative": "#FFDB58"
-    }
-    
-    categories = sorted(df[color_col].unique())
-   
+    color_sequence = ['#FFDB58', '#660094']
     fig = go.Figure()
     for i, cat in enumerate(categories):
         df_cat = df[df[color_col]==cat].copy()
@@ -745,11 +674,11 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             y=df_cat[x] if not horizontal else df_cat[y],
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=category_colors.get(cat, "#660094"),  # fallback color if category missing
+            marker_color=color_sequence[i % len(color_sequence)],
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if category_colors.get(cat)=="#FFDB58" else 'white', size=10, family="Arial black"),
+            textfont=dict(color='black' if color_sequence[i]=="#FFDB58" else 'white', size=10, family="Arial black"),
             hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
         ))
     num_bars = df.shape[0]
@@ -793,26 +722,21 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     else:
         # For vertical bars, find max y for positioning
         max_val = df[x].sum()
-  
-    # ---------------- WATERMARK ----------------
+        
+    # Add hidden annotation just below plot
     fig.add_annotation(
-        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=0.5,
+        text="Source: EUSEE Dashboard. Data compiled by EUSEE Network.",
+        xref="paper", yref="paper",
+        x=0, y=-0.12,  # fixed slightly below chart for all cases
         showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
-        opacity=0.05,
-        xanchor="center",
-        yanchor="middle"
+        font=dict(size=10, color="gray"),
+        opacity=0  # invisible on-screen
     )
 
     return fig
+
+
+
 
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
@@ -963,7 +887,7 @@ def render_heatmaps(df, top_n=5):
                 text=fig1.layout.title.text,
                 x=0.5,
                 xanchor="center",
-                font=dict(size=12, family="Arial black")
+                font=dict(size=12, family="Arial")
             )
         )
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
@@ -1004,6 +928,8 @@ def render_heatmaps(df, top_n=5):
         )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
             
+# ---------------- UPDATED SANKEY FUNCTION ----------------
+
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
     """
@@ -1196,6 +1122,25 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
     "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
 }
 
+SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
+def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
+    """
+    Adds a source line below the chart.
+    - y_offset: vertical position (negative values go below the plot)
+    """
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=y_offset,
+        showarrow=False,
+        text=SOURCE_TEXT,
+        font=dict(size=font_size, color=font_color),
+        xanchor="center",
+        yanchor="top"
+    )
+    return fig
+
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
@@ -1262,26 +1207,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
-def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
-    """
-    Adds a source line below the chart.
-    - y_offset: vertical position (negative values go below the plot)
-    """
-    fig.add_annotation(
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=y_offset,
-        showarrow=False,
-        text=SOURCE_TEXT,
-        font=dict(size=font_size, color=font_color),
-        xanchor="center",
-        yanchor="top"
-    )
-    return fig
-
-
 # ---------------- TAB 1 ------------------------
 with tab_overview:
     #st.subheader("Overview Metrics")
@@ -1292,7 +1217,7 @@ with tab_overview:
     df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
     a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
     a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(20)
+    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)  # descending order
     r1c1,r1c2 = st.columns(2)
     r2c1,r2c2 = st.columns(2)
     
@@ -1338,7 +1263,7 @@ with tab_overview:
   
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     
-    if is_privileged():
+    if access_level=="full":
         r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
         r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
 
@@ -1381,32 +1306,10 @@ with tab_negative:
             st.session_state["neg_top_n"] = 5  # default Top 5
                 
         # ---------------- SPELL OUT "VNSAs" ----------------
-       
-        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent Non-State Actors', regex=True))
+        reactive_df['Actor of repression'] = reactive_df['Actor of repression'].replace("VNSAs", "Violent Non-State Actors")
             
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
-
-        protected_label = "Journalists, media and influencers"
-        placeholder = "Journalists__MEDIA__and__influencers"
-        
-        def safe_split(x):
-            if pd.isna(x):
-                return []
-
-            x = x.strip()
-
-            # Temporarily replace protected label
-            x = x.replace(protected_label, placeholder)
-
-            # Split normally
-            parts = [i.strip() for i in x.split(",")]
-
-            # Restore protected label
-            parts = [p.replace(placeholder, protected_label) for p in parts]
-
-            return parts
-
             
         # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
         cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
@@ -1414,7 +1317,6 @@ with tab_negative:
             
         df_exploded = reactive_df.copy()
         for col in cols_to_explode:
-            #df_exploded[col] = df_exploded[col].apply(safe_split)
             df_exploded[col] = df_exploded[col].str.split(",")
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
@@ -1424,25 +1326,25 @@ with tab_negative:
         with col1:
             selected_actor_types = safe_multiselect(
                 "Types of restrictive actors",
-                df_exploded['Actor of repression'].dropna().str.capitalize() .unique(),
+                df_exploded['Actor of repression'].dropna().unique(),
                 "selected_actor_types", sidebar=False
             )
         with col2:
             selected_subject_types = safe_multiselect(
                 "Types of civil society actors affected",
-                df_exploded['Subject of repression'].dropna().str.capitalize() .unique(),
+                df_exploded['Subject of repression'].dropna().unique(),
                 "selected_subject_types", sidebar=False
             )
         with col3:
             selected_mechanism_types = safe_multiselect(
                 "Types of restrictive mechanisms",
-                df_exploded['Mechanism of repression'].dropna().str.capitalize() .unique(),
+                df_exploded['Mechanism of repression'].dropna().unique(),
                 "selected_mechanism_types", sidebar=False
             )
         with col4:
             selected_event_types = safe_multiselect(
                 "Types of negative events",
-                df_exploded['Type of event'].dropna().str.capitalize() .unique(),
+                df_exploded['Type of event'].dropna().unique(),
                 "selected_event_types", sidebar=False
             )
         ##### -------- Tab 2 Summary card totals--------------------------
@@ -1463,20 +1365,10 @@ with tab_negative:
         #filtered_df = reactive_df_updated.copy()
         
         tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-        
         tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
         m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
 
-        #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-        
-        tab2_subj = (
-            reactive_df_updated
-            .assign(**{
-                "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
-            })
-            .explode("Subject of repression")
-        )
-           
+        tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
         tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
         m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
 
@@ -1572,8 +1464,7 @@ with tab_negative:
         }
         
         selected = st.selectbox(
-            "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, \n"
-            "restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
+            "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, <br>restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
             options=list(top_n_map.keys()),
             index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
         )
@@ -1613,7 +1504,7 @@ with tab_negative:
         )
             
         # ---------------- Tab two data preview ----------------
-        if is_privileged():        
+        if access_level == "full":        
             with st.expander("Summary Data preview"):
                 st.write(reactive_df_updated_prev)
         else:
@@ -1665,8 +1556,7 @@ with tab_map:
             .agg(
                 total_alerts=("alert-impact", "size"),
                 negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum()),
-                context_to_watch_alerts=("alert-impact", lambda x: (x == "Context to watch").sum())
+                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum())
             )
             .reset_index()
         )
@@ -1698,7 +1588,6 @@ with tab_map:
                 "total_alerts": False,
                 "negative_alerts": False,
                 "positive_alerts": False,
-                "context_to_watch_alerts": False,
                 "perc_negative": False
             },
             color_continuous_scale="YlOrBr",
@@ -1715,10 +1604,9 @@ with tab_map:
                 "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
                 "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
                 "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "<span style='color:#00FFAA'>●</span> Context to watch: %{customdata[3]}<br>"
-                "% Negative: %{customdata[4]}%<extra></extra>"
+                "% Negative: %{customdata[3]}%<extra></extra>"
             ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","context_to_watch_alerts","perc_negative"]].values,
+            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","perc_negative"]].values,
             hoverlabel=dict(
                 bgcolor="#2D0055",
                 font_size=13,
@@ -1750,56 +1638,84 @@ with tab_map:
 # -----------------USER MANUAL TAB-----------------
         
 with tab_manual:
-    def display_pdf_link(title, description, pdf_path: Path):
-        st.markdown(f"""
-            <div style="font-family: Arial; color: #660094; font-size: 14px;">
-                <h2 style="font-size: 20px;">{title}</h2>
-                <p style="font-size: 12px;">{description}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if pdf_path.exists():
-            # Download button
-            st.download_button(
-                f"Download {title} (PDF)",
-                pdf_path.read_bytes(),
-                file_name=pdf_path.name,
-                mime="application/pdf"
-            )
-
-            # Open in new tab
-            st.markdown(
-                f'<a href="{pdf_path.as_posix()}" target="_blank">Open {title} in new tab</a>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.warning(f"{title} PDF not found.")
-
-
-    # --- Dashboard Header ---
     st.markdown("""
     <div style="font-family: Arial; color: #660094; font-size: 14px;">
         <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
         <p>This section provides concise, decision-ready documentation for executives,
         donors, and policy stakeholders.</p>
+        <h2 style="font-size: 20px;">Executive Brief (1 Page)</h2>
+        <p>For senior leadership, donors, and policy reporting.</p>
+
+        
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Executive Brief ---
-    display_pdf_link(
-        "Executive Brief (1 Page)",
-        "For senior leadership, donors, and policy reporting.",
-        EXEC_BRIEF_PATH
-    )
+    if EXEC_BRIEF_PATH.exists():
+        pdf_bytes = EXEC_BRIEF_PATH.read_bytes()
+
+        st.download_button(
+            "Download Executive Brief (PDF)",
+            pdf_bytes,
+            file_name="EU_SEE_Dashboard_Quick_Start_Executive.pdf",
+            mime="application/pdf"
+        )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <div style="font-family: Arial; color: #660094; font-size: 12px;">
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="550px"
+                    style="border:none;"
+                ></iframe>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("Executive Brief PDF not found.")
 
     st.divider()
 
-    # --- Full User Manual ---
-    display_pdf_link(
-        "Full User Manual",
-        "<em>Detailed guidance for analysts and advanced users</em>",
-        USER_MANUAL_PATH
-    )
+    # Full User Manual
+    st.markdown("""
+    <div style="font-family: Arial; color: #660094; font-size: 14px;">
+        <h2 style="font-size: 20px;">Full User Manual</h2>
+        <p style="font-size: 12px;"><em>Detailed guidance for analysts and advanced users</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if USER_MANUAL_PATH.exists():
+        pdf_bytes = USER_MANUAL_PATH.read_bytes()
+
+        st.download_button(
+            "Download Full User Manual (PDF)",
+            pdf_bytes,
+            file_name="EU SEE Dashboard user manual.pdf",
+            mime="application/pdf"
+        )
+
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        st.markdown(
+            f"""
+            <div style="font-family: Arial; color: #660094; font-size: 14px;">
+                <iframe
+                    src="data:application/pdf;base64,{pdf_base64}"
+                    width="100%"
+                    height="700px"
+                    style="border:none;"
+                ></iframe>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("User Manual PDF not found.")
+
+
+
 # ---------------- FOOTER ----------------
 # Footer image
 # --- Load image and convert to base64 ---
