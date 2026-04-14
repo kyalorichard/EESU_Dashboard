@@ -1420,15 +1420,26 @@ with tab_negative:
             df_exploded[col] = df_exploded[col].str.strip()
         
         def cap_first(s):
+            if s is None:
+                return None
             s = str(s).strip()
-            return s[:1].upper() + s[1:].lower() if s else s
+            if not s or s.lower() == "nan":
+                return None
+            return s[:1].upper() + s[1:]
+
+        def formatted_options(series):
+            s = series.dropna().astype(str).str.strip()
+            s = s[s.ne("")]
+            s = s.map(cap_first).dropna()
+            return sorted(s.unique())
+
                     
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             selected_actor_types = safe_multiselect(
                 "Types of restrictive actors",
-                sorted(df_exploded['Actor of repression'].dropna().map(cap_first).unique()),
+                formatted_options(df_exploded['Actor of repression']),
                 "selected_actor_types",
                 sidebar=False
             )
@@ -1436,7 +1447,7 @@ with tab_negative:
         with col2:
             selected_subject_types = safe_multiselect(
                 "Types of civil society actors affected",
-                sorted(df_exploded['Subject of repression'].dropna().map(cap_first).unique()),
+                formatted_options(df_exploded['Subject of repression']),
                 "selected_subject_types",
                 sidebar=False
             )
@@ -1444,7 +1455,7 @@ with tab_negative:
         with col3:
             selected_mechanism_types = safe_multiselect(
                 "Types of restrictive mechanisms",
-                sorted(df_exploded['Mechanism of repression'].dropna().map(cap_first).unique()),
+                formatted_options(df_exploded['Mechanism of repression']),
                 "selected_mechanism_types",
                 sidebar=False
             )
@@ -1452,7 +1463,7 @@ with tab_negative:
         with col4:
             selected_event_types = safe_multiselect(
                 "Types of negative events",
-                sorted(df_exploded['Type of event'].dropna().map(cap_first).unique()),
+                formatted_options(df_exploded['Type of event']),
                 "selected_event_types",
                 sidebar=False
             )
