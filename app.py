@@ -1424,25 +1424,25 @@ with tab_negative:
         with col1:
             selected_actor_types = safe_multiselect(
                 "Types of restrictive actors",
-                df_exploded['Actor of repression'].dropna().str.capitalize() .unique(),
+                df_exploded['Actor of repression'].dropna().unique(),
                 "selected_actor_types", sidebar=False
             )
         with col2:
             selected_subject_types = safe_multiselect(
                 "Types of civil society actors affected",
-                df_exploded['Subject of repression'].dropna().str.capitalize() .unique(),
+                df_exploded['Subject of repression'].dropna().unique(),
                 "selected_subject_types", sidebar=False
             )
         with col3:
             selected_mechanism_types = safe_multiselect(
                 "Types of restrictive mechanisms",
-                df_exploded['Mechanism of repression'].dropna().str.capitalize() .unique(),
+                df_exploded['Mechanism of repression'].dropna().unique(),
                 "selected_mechanism_types", sidebar=False
             )
         with col4:
             selected_event_types = safe_multiselect(
                 "Types of negative events",
-                df_exploded['Type of event'].dropna().str.capitalize() .unique(),
+                df_exploded['Type of event'].dropna().unique(),
                 "selected_event_types", sidebar=False
             )
         ##### -------- Tab 2 Summary card totals--------------------------
@@ -1800,7 +1800,7 @@ with tab_manual:
         "<em>Detailed guidance for analysts and advanced users</em>",
         USER_MANUAL_PATH
     )
-# ---------------- FOOTER -----------------
+# ---------------- FOOTER ----------------
 # Footer image
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
