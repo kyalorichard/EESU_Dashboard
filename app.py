@@ -1800,7 +1800,7 @@ with tab_manual:
         "<em>Detailed guidance for analysts and advanced users</em>",
         USER_MANUAL_PATH
     )
-# ---------------- FOOTER ----------------
+# ---------------- FOOTER -----------------
 # Footer image
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
