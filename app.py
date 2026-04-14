@@ -236,7 +236,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
     
     # Always keep "Select All" as first dropdown option
-    options_with_all = ["Select All"] + options
+    options_with_all = ["Select all"] + options
 
     # Initialize session_state if not present
     if session_key not in st.session_state:
@@ -253,7 +253,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         selected = []
 
     # If user selects "Select All" or nothing, internally select all options
-    if "Select All" in selected or len(selected) == 0:
+    if "Select all" in selected or len(selected) == 0:
         st.session_state[session_key] = options.copy()
         return options
     else:
@@ -299,7 +299,7 @@ st.markdown("""
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
 selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
 
-filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
+filtered_countries = data[data['region'].isin(selected_regions)] if "Select all" not in selected_regions else data
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 
 selected_alert_impacts = safe_multiselect("Select nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
@@ -324,7 +324,7 @@ selected_months = safe_multiselect("Select month", available_months, "selected_m
 if st.sidebar.button("🔄 Reset Filters"):
     for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
                 "selected_alert_impacts","selected_months","selected_years"]:
-        st.session_state[key] = ["Select All"]
+        st.session_state[key] = ["Select all"]
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
@@ -1411,25 +1411,25 @@ with tab_negative:
         with col1:
             selected_actor_types = safe_multiselect(
                 "Types of restrictive actors",
-                df_exploded['Actor of repression'].dropna().unique(),
+                df_exploded['Actor of repression'].dropna().str.capitalize() .unique(),
                 "selected_actor_types", sidebar=False
             )
         with col2:
             selected_subject_types = safe_multiselect(
                 "Types of civil society actors affected",
-                df_exploded['Subject of repression'].dropna().unique(),
+                df_exploded['Subject of repression'].dropna().str.capitalize() .unique(),
                 "selected_subject_types", sidebar=False
             )
         with col3:
             selected_mechanism_types = safe_multiselect(
                 "Types of restrictive mechanisms",
-                df_exploded['Mechanism of repression'].dropna().unique(),
+                df_exploded['Mechanism of repression'].dropna().str.capitalize() .unique(),
                 "selected_mechanism_types", sidebar=False
             )
         with col4:
             selected_event_types = safe_multiselect(
                 "Types of negative events",
-                df_exploded['Type of event'].dropna().unique(),
+                df_exploded['Type of event'].dropna().str.capitalize() .unique(),
                 "selected_event_types", sidebar=False
             )
         ##### -------- Tab 2 Summary card totals--------------------------
