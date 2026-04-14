@@ -302,12 +302,12 @@ selected_regions = safe_multiselect("Select region", regions_labels, "selected_r
 filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 
-selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select Impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_alert_impacts = safe_multiselect("Select nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+selected_alert_types = safe_multiselect("Select impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
 
 selected_enabling_principle = safe_multiselect(
     "Select enabling principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+    data['enabling-principle'].dropna().str.split(",").explode().str.strip().str.capitalize().unique(),
     "selected_enabling_principle"
 )
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
@@ -319,7 +319,7 @@ available_months = sorted(
     data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
     key=lambda m: pd.to_datetime(m, format='%B').month
 )
-selected_months = safe_multiselect("Select Month", available_months, "selected_months")
+selected_months = safe_multiselect("Select month", available_months, "selected_months")
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
     for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
