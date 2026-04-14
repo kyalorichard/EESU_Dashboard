@@ -1438,6 +1438,7 @@ with tab_negative:
             s = series.dropna().astype(str).str.strip()
             s = s[s.ne("")]
             return sorted(s.map(cap_first).dropna().unique())
+        
 
         # ---------------- INLINE FILTERS ----------------
         col1, col2, col3, col4 = st.columns(4)
@@ -1482,7 +1483,7 @@ with tab_negative:
         render_summary_cards(reactive_df_updated,show_breakdown=False)
 
         filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types)).apply(safe_split)) &
             (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
@@ -1614,8 +1615,8 @@ with tab_negative:
         
         # ---------------- HEATMAPS ----------------
         #with st.expander("Show Heatmaps"):
-        filtered_df['Subject of repression']= filtered_df['Subject of repression'].apply(safe_split)
-        
+        #filtered_df['Subject of repression']= filtered_df['Subject of repression'].apply(safe_split)
+
         render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
