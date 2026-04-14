@@ -1371,6 +1371,7 @@ with tab_negative:
     #st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+    reactive_df = filtered_global[filtered_global['Actor of repression'] != "Error"].copy()
     
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
