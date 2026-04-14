@@ -162,9 +162,19 @@ def load_data():
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     # Clean country names
-    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
-
     
+    df['alert-country'] = df['alert-country'].replace({
+        "Lebanon NAR": "Lebanon",
+        "Democratic Republic of Congo 2": "Democratic Republic of the Congo"
+    })
+
+    # ❗ REMOVE alert-type == "event"    
+    df['alert-type'] = df['alert-type'].astype(str).str.strip()
+
+    df = df[
+        (df['alert-type'].str.lower() != "event") & 
+        (df['alert-type'] != "")
+    ]
 
     # Clean Actor of repression
     df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
