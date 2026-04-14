@@ -1374,6 +1374,27 @@ with tab_negative:
             
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
+
+        protected_label = "Journalists, media and influencers"
+        placeholder = "Journalists__MEDIA__and__influencers"
+        
+        def safe_split(x):
+            if pd.isna(x):
+                return []
+
+            x = x.strip()
+
+            # Temporarily replace protected label
+            x = x.replace(protected_label, placeholder)
+
+            # Split normally
+            parts = [i.strip() for i in x.split(",")]
+
+            # Restore protected label
+            parts = [p.replace(placeholder, protected_label) for p in parts]
+
+            return parts
+
             
         # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
         cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
@@ -1381,7 +1402,7 @@ with tab_negative:
             
         df_exploded = reactive_df.copy()
         for col in cols_to_explode:
-            df_exploded[col] = df_exploded[col].str.split(",")
+            df_exploded[col] = df_exploded[col].str.split(",").apply(safe_split)
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
             
@@ -1434,26 +1455,7 @@ with tab_negative:
         m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
 
         #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-        protected_label = "Journalists, media and influencers"
-        placeholder = "Journalists__MEDIA__and__influencers"
         
-        def safe_split(x):
-            if pd.isna(x):
-                return []
-
-            x = x.strip()
-
-            # Temporarily replace protected label
-            x = x.replace(protected_label, placeholder)
-
-            # Split normally
-            parts = [i.strip() for i in x.split(",")]
-
-            # Restore protected label
-            parts = [p.replace(placeholder, protected_label) for p in parts]
-
-            return parts
-
         tab2_subj = (
             reactive_df_updated
             .assign(**{
