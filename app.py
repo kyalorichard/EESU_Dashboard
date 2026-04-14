@@ -1402,7 +1402,7 @@ with tab_negative:
             
         df_exploded = reactive_df.copy()
         for col in cols_to_explode:
-            df_exploded[col] = df_exploded[col].str.split(",").apply(safe_split)
+            df_exploded[col] = df_exploded[col].apply(safe_split)
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
             
