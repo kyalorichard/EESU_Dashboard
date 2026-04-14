@@ -365,7 +365,7 @@ if st.session_state.get("user") and st.session_state.get("email_verified"):
     st.write(f"Hello, {st.session_state.name}!")
    
 else:
-    #st.info("Please log in to access the dashboard.")
+    st.info("")
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
