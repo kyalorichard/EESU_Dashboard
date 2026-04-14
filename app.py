@@ -1370,7 +1370,7 @@ with tab_negative:
                 
         # ---------------- SPELL OUT "VNSAs" ----------------
        
-        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent Non-State Actors', regex=True)
+        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent Non-State Actors', regex=True))
             
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
