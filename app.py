@@ -903,7 +903,7 @@ def get_top_n_items(df, col, top_n):
 # ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
 def render_heatmaps(df, top_n=5):
     """
-    Renders three heatmaps for Negative Events tab, handling multi-valued fields:
+    Renders three heatmaps for Negative Events tab, handling multi-valued fields safely:
     - Actor → Mechanism
     - Subject → Mechanism
     - Actor → Subject
@@ -916,12 +916,42 @@ def render_heatmaps(df, top_n=5):
         st.warning("No data available for heatmaps.")
         return
 
-    # Explode multi-valued columns
-    df_exploded = explode_multi_valued_columns(df, [
+    protected_label = "Journalists, media and influencers"
+    placeholder = "Journalists__MEDIA__and__influencers"
+
+    def safe_split(x):
+        if pd.isna(x):
+            return []
+
+        x = str(x).strip()
+        if not x:
+            return []
+
+        x = x.replace(protected_label, placeholder)
+        parts = [i.strip() for i in x.split(",") if str(i).strip()]
+        parts = [p.replace(placeholder, protected_label) for p in parts]
+        return parts
+
+    # Explode multi-valued columns safely
+    df_exploded = df.copy()
+
+    explode_cols = [
         "Actor of repression",
         "Subject of repression",
         "Mechanism of repression"
-    ])
+    ]
+
+    for col in explode_cols:
+        df_exploded[col] = df_exploded[col].apply(safe_split)
+        df_exploded = df_exploded.explode(col)
+        df_exploded[col] = df_exploded[col].astype(str).str.strip()
+
+    # Remove blanks created during splitting/exploding
+    df_exploded = df_exploded[
+        (df_exploded["Actor of repression"] != "") &
+        (df_exploded["Subject of repression"] != "") &
+        (df_exploded["Mechanism of repression"] != "")
+    ].copy()
 
     # Determine Top-N items
     top_actors = get_top_n_items(df_exploded, "Actor of repression", top_n)
@@ -930,15 +960,25 @@ def render_heatmaps(df, top_n=5):
 
     # Filter to Top-N items
     df_top = df_exploded[
-        df_exploded['Actor of repression'].isin(top_actors) &
-        df_exploded['Subject of repression'].isin(top_subjects) &
-        df_exploded['Mechanism of repression'].isin(top_mechanisms)
+        df_exploded["Actor of repression"].isin(top_actors) &
+        df_exploded["Subject of repression"].isin(top_subjects) &
+        df_exploded["Mechanism of repression"].isin(top_mechanisms)
     ].copy()
 
+    if df_top.empty:
+        st.warning("No heatmap data available after applying Top-N filters.")
+        return
+
     # Create pivot tables
-    actor_mechanism_pivot = filter_top_n(df_top, 'Actor of repression', 'Mechanism of repression', top_n)
-    subject_mechanism_pivot = filter_top_n(df_top, 'Subject of repression', 'Mechanism of repression', top_n)
-    actor_subject_pivot = filter_top_n(df_top, 'Actor of repression', 'Subject of repression', top_n)
+    actor_mechanism_pivot = filter_top_n(
+        df_top, "Actor of repression", "Mechanism of repression", top_n
+    )
+    subject_mechanism_pivot = filter_top_n(
+        df_top, "Subject of repression", "Mechanism of repression", top_n
+    )
+    actor_subject_pivot = filter_top_n(
+        df_top, "Actor of repression", "Subject of repression", top_n
+    )
 
     # Consistent color scale
     all_values = pd.concat([
@@ -956,6 +996,7 @@ def render_heatmaps(df, top_n=5):
             actor_mechanism_pivot,
             title="What are the mechanisms used<br>by restrictive actors?"
         )
+        fig1.update_traces(zmin=0, zmax=zmax)
         fig1.update_layout(
             xaxis=dict(tickfont=dict(size=10, family="Arial")),
             yaxis=dict(tickfont=dict(size=10, family="Arial")),
@@ -967,7 +1008,7 @@ def render_heatmaps(df, top_n=5):
             )
         )
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
-    
+
     with col2:
         fig2 = create_heatmap(
             subject_mechanism_pivot,
@@ -985,7 +1026,7 @@ def render_heatmaps(df, top_n=5):
             )
         )
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
-    
+
     with col3:
         fig3 = create_heatmap(
             actor_subject_pivot,
@@ -1003,7 +1044,7 @@ def render_heatmaps(df, top_n=5):
             )
         )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
-            
+        
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
     """
