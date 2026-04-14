@@ -1371,7 +1371,7 @@ with tab_negative:
     #st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
-    reactive_df = filtered_global[filtered_global['Actor of repression'] != "Error"].copy()
+
     
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
@@ -1418,6 +1418,8 @@ with tab_negative:
         ]
 
         df_exploded = reactive_df.copy()
+
+        df_exploded = df_exploded[(df_exploded['Type of event'] != "Error")]
 
         for col in cols_to_explode:
             df_exploded[col] = df_exploded[col].apply(safe_split)
