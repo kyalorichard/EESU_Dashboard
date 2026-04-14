@@ -1614,6 +1614,8 @@ with tab_negative:
         
         # ---------------- HEATMAPS ----------------
         #with st.expander("Show Heatmaps"):
+        filtered_df['Subject of repression']= filtered_df['Subject of repression'].apply(safe_split)
+        
         render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
