@@ -178,7 +178,7 @@ def load_data():
 
     # Clean Actor of repression
     df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
-    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent Non-State Actors"})
+    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent non-state actors"})
 
     # --- Step 3: Load metadata ---
     country_meta = {}
@@ -1424,7 +1424,7 @@ with tab_negative:
                 
         # ---------------- SPELL OUT "VNSAs" ----------------
        
-        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent Non-State Actors', regex=True))
+        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent non-state actors', regex=True))
             
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
