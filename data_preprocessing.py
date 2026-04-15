@@ -96,10 +96,15 @@ def write_outputs(df: pd.DataFrame) -> None:
     """
     OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
-    df.to_csv(OUTPUT_CSV, index=False)
+    df_to_write = df.copy()
+    for col in FIELDS:
+        if col in df_to_write.columns:
+            df_to_write[col] = df_to_write[col].fillna("").astype("string")
+
+    df_to_write.to_csv(OUTPUT_CSV, index=False)
     print(f"Wrote local CSV: {OUTPUT_CSV}")
 
-    df.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
+    df_to_write.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
     print(f"Wrote local parquet: {OUTPUT_PARQUET}")
 
 
@@ -502,7 +507,9 @@ def load_input_dataframe(input_csv: Path, test_rows: int | None = None) -> pd.Da
 
     for col in FIELDS:
         if col not in df.columns:
-            df[col] = ""
+            df[col] = pd.Series([""] * len(df), dtype="string")
+        else:
+            df[col] = df[col].astype("string")
 
     return df
 
@@ -959,11 +966,19 @@ async def extract_batch(
             if not isinstance(data, list):
                 raise ValueError("Model response is not a JSON array.")
 
-            for res in data:
-                for key in FIELDS:
-                    res[key] = to_comma_separated(res.get(key, ""))
+            if len(data) != len(batch_summaries):
+                raise ValueError(
+                    f"Model returned {len(data)} items for {len(batch_summaries)} summaries."
+                )
 
-            return data, None
+            normalized_data = []
+            for res in data:
+                normalized = {}
+                for key in FIELDS:
+                    normalized[key] = to_comma_separated(res.get(key, ""))
+                normalized_data.append(normalized)
+
+            return normalized_data, None
 
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
@@ -989,7 +1004,9 @@ async def process_all(
 
     for col in FIELDS:
         if col not in df_out.columns:
-            df_out[col] = ""
+            df_out[col] = pd.Series([""] * len(df_out), dtype="string")
+        else:
+            df_out[col] = df_out[col].astype("string")
 
     permanently_failed = []
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
@@ -1035,25 +1052,74 @@ async def process_all(
                         mock_mode=mock_mode,
                         batch_indices=batch_indices,
                     )
-                    break
+
+                    if not isinstance(results, list):
+                        raise ValueError("Batch result is not a list.")
+
+                    if len(results) != len(batch_indices):
+                        raise ValueError(
+                            f"Batch size mismatch: expected {len(batch_indices)} results, got {len(results)}."
+                        )
+
+                    batch_updates = []
+                    for j, res in enumerate(results):
+                        idx = batch_indices[j]
+                        clean_row = {}
+
+                        for key in FIELDS:
+                            value = res.get(key, "")
+                            value = "" if value is None else str(value).strip()
+                            clean_row[key] = value
+
+                        batch_updates.append((idx, clean_row))
+
+                    return {
+                        "updates": batch_updates,
+                        "failed": None,
+                    }
+
                 except Exception as exc:
                     retries += 1
                     last_exception = exc
                     print(f"Batch starting at {batch_indices[0]} failed (attempt {retries}): {exc}")
-                    await asyncio.sleep(2 ** retries)
-            else:
-                permanently_failed.append(
-                    {"start_idx": batch_indices[0], "error": str(last_exception)}
-                )
-                results = [{k: "Error" for k in FIELDS} for _ in batch_summaries]
+                    if retries <= MAX_RETRIES:
+                        await asyncio.sleep(2 ** retries)
 
-            for j, res in enumerate(results):
-                idx = batch_indices[j]
+            fallback_updates = []
+            for idx in batch_indices:
+                fallback_updates.append((idx, {key: "Error" for key in FIELDS}))
+
+            return {
+                "updates": fallback_updates,
+                "failed": {
+                    "start_idx": batch_indices[0],
+                    "batch_indices": batch_indices,
+                    "error": str(last_exception),
+                },
+            }
+
+    for i in range(0, len(batches), CONCURRENT_BATCHES):
+        chunk = batches[i:i + CONCURRENT_BATCHES]
+        tasks = [process_batch(*b) for b in chunk]
+
+        chunk_results = await tqdm_asyncio.gather(
+            *tasks,
+            desc="Processing batches",
+            total=len(chunk),
+        )
+
+        # Sequential dataframe updates only
+        for result in chunk_results:
+            if result["failed"] is not None:
+                permanently_failed.append(result["failed"])
+
+            for idx, row_data in result["updates"]:
                 row_status = []
 
                 for key in FIELDS:
-                    value = res.get(key, "")
+                    value = row_data.get(key, "")
                     df_out.loc[idx, key] = value
+
                     if value == "Error" or not str(value).strip():
                         row_status.append(f"{key}=ERROR")
 
@@ -1062,10 +1128,6 @@ async def process_all(
                 else:
                     print(f"[ROW {idx}] Successfully filled all fields.")
 
-    for i in range(0, len(batches), CONCURRENT_BATCHES):
-        chunk = batches[i:i + CONCURRENT_BATCHES]
-        tasks = [process_batch(*b) for b in chunk]
-        await tqdm_asyncio.gather(*tasks, desc="Processing batches", total=len(chunk))
         write_outputs(df_out)
 
     write_outputs(df_out)
@@ -1103,7 +1165,9 @@ if __name__ == "__main__":
 
     for col in FIELDS:
         if col not in df_prev.columns:
-            df_prev[col] = ""
+            df_prev[col] = pd.Series([""] * len(df_prev), dtype="string")
+        else:
+            df_prev[col] = df_prev[col].astype("string")
 
     def is_row_fully_blank_for_summary(row) -> bool:
         for col in FIELDS:
