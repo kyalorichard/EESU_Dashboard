@@ -171,10 +171,10 @@ def load_data():
     # ❗ REMOVE alert-type == "event"    
     df['alert-type'] = df['alert-type'].astype(str).str.strip()
 
-    #df = df[
-        #(df['alert-type'].str.lower() != "event") & 
-        #(df['alert-type'] != "")
-    #]
+    df = df[
+        (df['alert-type'].str.lower() != "event") & 
+        (df['alert-type'] != "")
+    ]
 
     # Clean Actor of repression
     df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
