@@ -162,11 +162,23 @@ def load_data():
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     # Clean country names
-    df['alert-country'] = df['alert-country'].replace({"Lebanon NAR": "Lebanon"})
+    
+    df['alert-country'] = df['alert-country'].replace({
+        "Lebanon NAR": "Lebanon",
+        "Democratic Republic of Congo 2": "Democratic Republic of the Congo"
+    })
+
+    # ❗ REMOVE alert-type == "event"    
+    df['alert-type'] = df['alert-type'].astype(str).str.strip()
+
+    df = df[
+        (df['alert-type'].str.lower() != "event") & 
+        (df['alert-type'] != "")
+    ]
 
     # Clean Actor of repression
     df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
-    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent Non-State Actors"})
+    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent non-state actors"})
 
     # --- Step 3: Load metadata ---
     country_meta = {}
@@ -236,7 +248,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
     options = sorted(list(options))
     
     # Always keep "Select All" as first dropdown option
-    options_with_all = ["Select All"] + options
+    options_with_all = ["Select all"] + options
 
     # Initialize session_state if not present
     if session_key not in st.session_state:
@@ -253,7 +265,7 @@ def safe_multiselect(label, options, session_key, sidebar=True):
         selected = []
 
     # If user selects "Select All" or nothing, internally select all options
-    if "Select All" in selected or len(selected) == 0:
+    if "Select all" in selected or len(selected) == 0:
         st.session_state[session_key] = options.copy()
         return options
     else:
@@ -299,15 +311,15 @@ st.markdown("""
 regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
 selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
 
-filtered_countries = data[data['region'].isin(selected_regions)] if "Select All" not in selected_regions else data
+filtered_countries = data[data['region'].isin(selected_regions)] if "Select all" not in selected_regions else data
 selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
 
-selected_alert_impacts = safe_multiselect("Select Nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select Impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+selected_alert_impacts = safe_multiselect("Select nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
+selected_alert_types = safe_multiselect("Select impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
 
 selected_enabling_principle = safe_multiselect(
     "Select enabling principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().unique(),
+    data['enabling-principle'].dropna().str.split(",").explode().str.strip().str.capitalize().unique(),
     "selected_enabling_principle"
 )
 selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
@@ -319,12 +331,12 @@ available_months = sorted(
     data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
     key=lambda m: pd.to_datetime(m, format='%B').month
 )
-selected_months = safe_multiselect("Select Month", available_months, "selected_months")
+selected_months = safe_multiselect("Select month", available_months, "selected_months")
 # Reset button
 if st.sidebar.button("🔄 Reset Filters"):
     for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
                 "selected_alert_impacts","selected_months","selected_years"]:
-        st.session_state[key] = ["Select All"]
+        st.session_state[key] = ["Select all"]
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
@@ -353,7 +365,7 @@ if st.session_state.get("user") and st.session_state.get("email_verified"):
     st.write(f"Hello, {st.session_state.name}!")
    
 else:
-    st.info("Please log in to access the dashboard.")
+    st.info("")
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
@@ -891,7 +903,7 @@ def get_top_n_items(df, col, top_n):
 # ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
 def render_heatmaps(df, top_n=5):
     """
-    Renders three heatmaps for Negative Events tab, handling multi-valued fields:
+    Renders three heatmaps for Negative Events tab, handling multi-valued fields safely:
     - Actor → Mechanism
     - Subject → Mechanism
     - Actor → Subject
@@ -904,12 +916,42 @@ def render_heatmaps(df, top_n=5):
         st.warning("No data available for heatmaps.")
         return
 
-    # Explode multi-valued columns
-    df_exploded = explode_multi_valued_columns(df, [
+    protected_label = "Journalists, media and influencers"
+    placeholder = "Journalists__MEDIA__and__influencers"
+
+    def safe_split(x):
+        if pd.isna(x):
+            return []
+
+        x = str(x).strip()
+        if not x:
+            return []
+
+        x = x.replace(protected_label, placeholder)
+        parts = [i.strip() for i in x.split(",") if str(i).strip()]
+        parts = [p.replace(placeholder, protected_label) for p in parts]
+        return parts
+
+    # Explode multi-valued columns safely
+    df_exploded = df.copy()
+
+    explode_cols = [
         "Actor of repression",
         "Subject of repression",
         "Mechanism of repression"
-    ])
+    ]
+
+    for col in explode_cols:
+        df_exploded[col] = df_exploded[col].apply(safe_split)
+        df_exploded = df_exploded.explode(col)
+        df_exploded[col] = df_exploded[col].astype(str).str.strip()
+
+    # Remove blanks created during splitting/exploding
+    df_exploded = df_exploded[
+        (df_exploded["Actor of repression"] != "") &
+        (df_exploded["Subject of repression"] != "") &
+        (df_exploded["Mechanism of repression"] != "")
+    ].copy()
 
     # Determine Top-N items
     top_actors = get_top_n_items(df_exploded, "Actor of repression", top_n)
@@ -918,15 +960,25 @@ def render_heatmaps(df, top_n=5):
 
     # Filter to Top-N items
     df_top = df_exploded[
-        df_exploded['Actor of repression'].isin(top_actors) &
-        df_exploded['Subject of repression'].isin(top_subjects) &
-        df_exploded['Mechanism of repression'].isin(top_mechanisms)
+        df_exploded["Actor of repression"].isin(top_actors) &
+        df_exploded["Subject of repression"].isin(top_subjects) &
+        df_exploded["Mechanism of repression"].isin(top_mechanisms)
     ].copy()
 
+    if df_top.empty:
+        st.warning("No heatmap data available after applying Top-N filters.")
+        return
+
     # Create pivot tables
-    actor_mechanism_pivot = filter_top_n(df_top, 'Actor of repression', 'Mechanism of repression', top_n)
-    subject_mechanism_pivot = filter_top_n(df_top, 'Subject of repression', 'Mechanism of repression', top_n)
-    actor_subject_pivot = filter_top_n(df_top, 'Actor of repression', 'Subject of repression', top_n)
+    actor_mechanism_pivot = filter_top_n(
+        df_top, "Actor of repression", "Mechanism of repression", top_n
+    )
+    subject_mechanism_pivot = filter_top_n(
+        df_top, "Subject of repression", "Mechanism of repression", top_n
+    )
+    actor_subject_pivot = filter_top_n(
+        df_top, "Actor of repression", "Subject of repression", top_n
+    )
 
     # Consistent color scale
     all_values = pd.concat([
@@ -944,6 +996,7 @@ def render_heatmaps(df, top_n=5):
             actor_mechanism_pivot,
             title="What are the mechanisms used<br>by restrictive actors?"
         )
+        fig1.update_traces(zmin=0, zmax=zmax)
         fig1.update_layout(
             xaxis=dict(tickfont=dict(size=10, family="Arial")),
             yaxis=dict(tickfont=dict(size=10, family="Arial")),
@@ -951,11 +1004,11 @@ def render_heatmaps(df, top_n=5):
                 text=fig1.layout.title.text,
                 x=0.5,
                 xanchor="center",
-                font=dict(size=12, family="Arial")
+                font=dict(size=12, family="Arial black")
             )
         )
         st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
-    
+
     with col2:
         fig2 = create_heatmap(
             subject_mechanism_pivot,
@@ -973,7 +1026,7 @@ def render_heatmaps(df, top_n=5):
             )
         )
         st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
-    
+
     with col3:
         fig3 = create_heatmap(
             actor_subject_pivot,
@@ -991,7 +1044,7 @@ def render_heatmaps(df, top_n=5):
             )
         )
         st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
-            
+
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
     """
@@ -1359,6 +1412,7 @@ with tab_negative:
     #st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+
     
     if reactive_df.empty:
         st.warning("No negative events available for the selected filters.")
@@ -1369,72 +1423,12 @@ with tab_negative:
             st.session_state["neg_top_n"] = 5  # default Top 5
                 
         # ---------------- SPELL OUT "VNSAs" ----------------
-        #reactive_df['Actor of repression'] = reactive_df['Actor of repression'].replace("VNSAs", "Violent Non-State Actors")
-        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent Non-State Actors', regex=True)
-)
+       
+        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent non-state actors', regex=True))
             
         # ---------------- SUMMARY CARDS ----------------
         # Show totals BEFORE exploding multi-valued columns
-            
-        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
-        cols_to_explode = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"]
-        df_exploded = explode_multi_valued_columns(reactive_df, cols_to_explode)
-            
-        df_exploded = reactive_df.copy()
-        for col in cols_to_explode:
-            df_exploded[col] = df_exploded[col].str.split(",")
-            df_exploded = df_exploded.explode(col)
-            df_exploded[col] = df_exploded[col].str.strip()
-            
-        # ---------------- INLINE FILTERS ----------------
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            selected_actor_types = safe_multiselect(
-                "Types of restrictive actors",
-                df_exploded['Actor of repression'].dropna().unique(),
-                "selected_actor_types", sidebar=False
-            )
-        with col2:
-            selected_subject_types = safe_multiselect(
-                "Types of civil society actors affected",
-                df_exploded['Subject of repression'].dropna().unique(),
-                "selected_subject_types", sidebar=False
-            )
-        with col3:
-            selected_mechanism_types = safe_multiselect(
-                "Types of restrictive mechanisms",
-                df_exploded['Mechanism of repression'].dropna().unique(),
-                "selected_mechanism_types", sidebar=False
-            )
-        with col4:
-            selected_event_types = safe_multiselect(
-                "Types of negative events",
-                df_exploded['Type of event'].dropna().unique(),
-                "selected_event_types", sidebar=False
-            )
-        ##### -------- Tab 2 Summary card totals--------------------------
-        reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
-        render_summary_cards(reactive_df_updated,show_breakdown=False)
 
-        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
-        
-        filtered_df1 = df_exploded.copy()
-        #filtered_df = reactive_df_updated.copy()
-        
-        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-        
-        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
-
-        #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
         protected_label = "Journalists, media and influencers"
         placeholder = "Journalists__MEDIA__and__influencers"
         
@@ -1455,6 +1449,98 @@ with tab_negative:
 
             return parts
 
+            
+        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+        cols_to_explode = [
+            "Actor of repression",
+            "Subject of repression",
+            "Mechanism of repression",
+            "Type of event"
+        ]
+
+        df_exploded = reactive_df.copy()
+
+        df_exploded = df_exploded[(df_exploded['Type of event'] != "Error")]
+
+        for col in cols_to_explode:
+            df_exploded[col] = df_exploded[col].apply(safe_split)
+            df_exploded = df_exploded.explode(col)
+            df_exploded[col] = df_exploded[col].astype(str).str.strip()
+
+        def cap_first(s):
+            if pd.isna(s):
+                return None
+            s = str(s).strip()
+            if not s:
+                return None
+            return s[:1].upper() + s[1:]
+
+        def formatted_options(series):
+            s = series.dropna().astype(str).str.strip()
+            s = s[s.ne("")]
+            return sorted(s.map(cap_first).dropna().unique())
+        
+
+        # ---------------- INLINE FILTERS ----------------
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            selected_actor_types = safe_multiselect(
+                "Types of restrictive actors",
+                formatted_options(df_exploded["Actor of repression"]),
+                "selected_actor_types",
+                sidebar=False
+            )
+
+        with col2:
+            selected_subject_types = safe_multiselect(
+                "Types of civil society actors affected",
+                formatted_options(df_exploded["Subject of repression"]),
+                "selected_subject_types",
+                sidebar=False
+            )
+
+        with col3:
+            selected_mechanism_types = safe_multiselect(
+                "Types of restrictive mechanisms",
+                formatted_options(df_exploded["Mechanism of repression"]),
+                "selected_mechanism_types",
+                sidebar=False
+            )
+
+        with col4:
+            selected_event_types = safe_multiselect(
+                "Types of negative events",
+                formatted_options(df_exploded["Type of event"]),
+                "selected_event_types",
+                sidebar=False
+            )
+        ##### -------- Tab 2 Summary card totals--------------------------
+        reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+        render_summary_cards(reactive_df_updated,show_breakdown=False)
+
+        #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
+
+        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+            (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+            (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+        ]
+        
+        filtered_df1 = df_exploded.copy()
+        #filtered_df = reactive_df_updated.copy()
+        
+        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+        
+        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
+        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+
+        #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
+        
         tab2_subj = (
             reactive_df_updated
             .assign(**{
@@ -1572,6 +1658,8 @@ with tab_negative:
         
         # ---------------- HEATMAPS ----------------
         #with st.expander("Show Heatmaps"):
+        #filtered_df['Subject of repression']= filtered_df['Subject of repression'].apply(safe_split)
+
         render_heatmaps(filtered_df, top_n=top_n)
         
         # ---------------- SANKEY DIAGRAM ----------------
@@ -1609,7 +1697,7 @@ with tab_negative:
 with tab_map:
     #st.subheader("Visualization Map")
     render_summary_cards(filtered_global)
-    geo_file = Path.cwd() / "data" / "countriess.geojson"
+    geo_file = Path.cwd() / "exports" / "countriess.geojson"
     if geo_file.exists():
         with open(geo_file) as f: 
             countries_gj = json.load(f)
