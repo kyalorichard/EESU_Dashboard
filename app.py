@@ -2600,14 +2600,127 @@ def ai_priority_signal(summary: dict):
         return "Moderate priority", "#f59e0b", "Negative alerts are substantial under the current filters and may require closer review."
     return "Low priority", "#16a34a", "Negative alerts are limited under the current filters. Continue monitoring for emerging shifts."
 
+
+
+def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
+    """Generate a compact explanation for a selected dashboard or chatbot chart."""
+    s = summarize_for_ai(df)
+    if df is None or df.empty or s.get("total_alerts", 0) == 0:
+        return append_eusee_redirect(
+            "No records are available under the current filters, so there is no chart pattern to explain. Adjust the filters and try again."
+        )
+
+    ctx = str(chart_context or "current dashboard view")
+    lines = [f"Chart explanation — {ctx}", ""]
+    lines.append(f"The current filtered view contains {s['total_alerts']:,} alerts across {s['countries_count']:,} countries and {s['regions_count']:,} regions.")
+    lines.append(f"Negative alerts represent {s['negative_pct']}% of the filtered records, compared with {s['positive_pct']}% positive alerts and {s['context_pct']}% context-to-watch alerts.")
+
+    q = ctx.lower()
+    if any(k in q for k in ["country", "countries", "map"]):
+        lines.append("\nWhat the country pattern shows:")
+        lines.append(_format_ranked(s.get("top_countries", {})))
+        if s.get("top_negative_countries"):
+            lines.append("\nCountries with the highest negative-alert counts:")
+            lines.append(_format_ranked(s.get("top_negative_countries", {})))
+    elif any(k in q for k in ["region", "regional"]):
+        lines.append("\nRegional concentration:")
+        lines.append(_format_ranked(s.get("top_regions", {})))
+    elif any(k in q for k in ["actor", "actors"]):
+        lines.append("\nMain restrictive actors visible in the current filtered negative-alert records:")
+        lines.append(_format_ranked(s.get("top_actors", {})))
+    elif any(k in q for k in ["mechanism", "mechanisms"]):
+        lines.append("\nMain restrictive mechanisms visible in the current filtered negative-alert records:")
+        lines.append(_format_ranked(s.get("top_mechanisms", {})))
+    elif any(k in q for k in ["principle", "enabling"]):
+        lines.append("\nMost represented enabling principles:")
+        lines.append(_format_ranked(s.get("top_principles", {})))
+    elif any(k in q for k in ["trend", "time", "month", "year"]):
+        lines.append("\nTrend signal:")
+        lines.append(s.get("trend_sentence", "Trend information is not available for the selected filters."))
+    else:
+        lines.append("\nMain visible distributions:")
+        lines.append("Top countries:\n" + _format_ranked(s.get("top_countries", {})))
+        lines.append("\nTop alert types:\n" + _format_ranked(s.get("top_alert_types", {})))
+
+    lines.append("\nInterpretation caution: alert counts should not be read as direct prevalence alone. They may also reflect reporting intensity, monitoring coverage, and partner submission patterns.")
+    return append_eusee_redirect("\n".join(lines))
+
+
+def ai_try_llm_response(question, df):
+    """Optional LLM response. Uses OpenAI only when OPENAI_API_KEY is present; otherwise falls back locally."""
+    use_llm = False
+    try:
+        use_llm = bool(st.secrets.get("openai", {}).get("api_key") or st.secrets.get("OPENAI_API_KEY"))
+    except Exception:
+        use_llm = False
+    if not use_llm:
+        return local_ai_response(question, df)
+
+    # Safe fallback-first implementation: avoids hard dependency crashes if openai package is unavailable.
+    try:
+        from openai import OpenAI
+        api_key = st.secrets.get("openai", {}).get("api_key", st.secrets.get("OPENAI_API_KEY"))
+        client = OpenAI(api_key=api_key)
+        s = summarize_for_ai(df)
+        prompt = f"""
+You are the EU SEE Dashboard AI Copilot. Answer only from this filtered dashboard summary.
+Keep the answer concise, analytical, and cautious about reporting coverage.
+Always include the EUSEE redirect message at the end.
+
+Filtered summary:
+{s}
+
+User question: {question}
+"""
+        resp = client.chat.completions.create(
+            model=st.secrets.get("openai", {}).get("model", "gpt-4o-mini"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=550,
+        )
+        return append_eusee_redirect(resp.choices[0].message.content)
+    except Exception:
+        return local_ai_response(question, df)
+
+
+def _copilot_stream_text(text, chunk_size=8):
+    """Small deterministic streaming generator for Streamlit write_stream."""
+    import time
+    words = str(text or "").split(" ")
+    for i in range(0, len(words), chunk_size):
+        yield " ".join(words[i:i + chunk_size]) + " "
+        time.sleep(0.015)
+
+
+def _copilot_queue_answer(question, df):
+    q = str(question or "").strip()
+    if not q:
+        return
+    st.session_state.ai_messages.append({"role": "user", "content": q})
+    answer = ai_try_llm_response(q, df)
+    plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw"]
+    explain_words = ["explain chart", "explain this chart", "interpret chart", "what does this chart"]
+    if any(w in q.lower() for w in plot_words):
+        dim, ctype = _ai_plot_intent_to_dimension(q, df)
+        if dim:
+            st.session_state.ai_last_plot = {
+                "dimension_col": dim,
+                "chart_type": ctype,
+                "top_n": 10,
+                "title": f"Chatbot-generated plot: {dim}",
+            }
+            answer += "\n\n📊 I prepared a chart from the current filtered data. Open the Plot tab to view, adjust, explain, or download it."
+    if any(w in q.lower() for w in explain_words):
+        answer = ai_generate_chart_explanation(df, q)
+    st.session_state.ai_pending_answer = answer
+    st.session_state.ai_streaming = True
+
+
 def render_ai_assistant_panel(df):
-    """Independent right-side AI Copilot drawer.
-    Uses a keyed Streamlit container positioned with CSS, so it does not alter
-    the main dashboard grid or sidebar filters.
-    """
+    """Professional independent right-side AI Copilot with streaming, tabs, chart explanation, plotting, and exports."""
     if "ai_messages" not in st.session_state:
         st.session_state.ai_messages = [
-            {"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me for insights or type: plot top countries, chart alert impacts, or graph mechanisms."}
+            {"role": "assistant", "content": "Hello. I am your EU SEE AI Copilot. Ask me for insights, request extra plots, or ask me to explain a dashboard chart."}
         ]
     if "ai_streaming" not in st.session_state:
         st.session_state.ai_streaming = False
@@ -2621,178 +2734,195 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
 
-    # CSS positions only the keyed AI containers. It does not add right-padding
-    # to the dashboard, so charts keep their original layout.
     st.markdown("""
     <style>
-    /* Independent right AI drawer */
     .st-key-eusee_ai_right_sidebar {
-        position: fixed !important;
-        top: 78px !important;
-        right: 18px !important;
-        width: 390px !important;
-        max-width: calc(100vw - 36px) !important;
-        max-height: calc(100vh - 96px) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        z-index: 999999 !important;
-        background: #ffffff !important;
-        border: 1px solid #eadff5 !important;
-        border-radius: 20px !important;
-        box-shadow: 0 24px 65px rgba(45,0,85,.22) !important;
+        position: fixed !important; top: 74px !important; right: 16px !important;
+        width: 410px !important; max-width: calc(100vw - 32px) !important;
+        max-height: calc(100vh - 94px) !important; overflow-y: auto !important; overflow-x: hidden !important;
+        z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
+        border-radius: 22px !important; box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
         padding: 12px 12px 14px 12px !important;
     }
     .st-key-eusee_ai_right_sidebar_collapsed {
-        position: fixed !important;
-        top: 96px !important;
-        right: 16px !important;
-        width: 92px !important;
-        z-index: 999999 !important;
-        background: #ffffff !important;
-        border: 1px solid #eadff5 !important;
-        border-radius: 18px !important;
-        box-shadow: 0 18px 45px rgba(45,0,85,.20) !important;
-        padding: 10px !important;
+        position: fixed !important; top: 44% !important; right: 0 !important; width: 72px !important;
+        z-index: 999999 !important; background: linear-gradient(180deg,#2d0055,#660094) !important;
+        color: white !important; border-radius: 16px 0 0 16px !important;
+        box-shadow: 0 18px 45px rgba(45,0,85,.28) !important; padding: 10px 8px !important;
     }
-    .eusee-ai-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:16px;margin-bottom:10px;}
-    .eusee-ai-brand-title{font-size:17px;font-weight:900;line-height:1.15;}
-    .eusee-ai-brand-sub{font-size:11px;opacity:.90;margin-top:4px;}
-    .eusee-ai-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
-    .eusee-ai-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;}
-    .eusee-ai-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
-    .eusee-ai-metric-card{border:1px solid #eee6f5;border-radius:14px;padding:9px;background:#fbf9ff;}
-    .eusee-ai-metric-label{font-size:10px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
-    .eusee-ai-metric-value{font-size:18px;color:#2d0055;font-weight:900;}
-    .eusee-ai-msg{background:#f6f2ff;border-left:4px solid #660094;padding:10px;border-radius:12px;margin:8px 0;font-size:12px;line-height:1.45;}
-    .eusee-ai-user{background:#2d0055;color:white;padding:10px;border-radius:12px;margin:8px 0;font-size:12px;line-height:1.45;}
-    .eusee-ai-note{font-size:11px;color:#555;background:#fff9dc;border-left:4px solid #FFDB58;padding:8px;border-radius:10px;margin-top:8px;}
-    .eusee-ai-section-title{font-size:12px;color:#2d0055;font-weight:900;margin:8px 0 4px 0;}
-    .eusee-ai-small{font-size:11px;color:#666;line-height:1.35;}
-    .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button{font-size:11px!important;font-weight:800!important;padding:7px 2px!important;}
-    .st-key-eusee_ai_right_sidebar div[data-testid="stVerticalBlockBorderWrapper"]{border-color:#eee6f5!important;}
-    @media (max-width: 1100px){
-        .st-key-eusee_ai_right_sidebar{width:360px!important;right:10px!important;top:70px!important;}
-    }
-    @media (max-width: 760px){
-        .st-key-eusee_ai_right_sidebar{left:10px!important;right:10px!important;width:auto!important;top:68px!important;max-height:calc(100vh - 85px)!important;}
-        .st-key-eusee_ai_right_sidebar_collapsed{right:10px!important;top:80px!important;}
-    }
+    .copilot-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:18px;margin-bottom:10px;}
+    .copilot-title{font-size:17px;font-weight:900;line-height:1.15;}
+    .copilot-sub{font-size:11px;opacity:.92;margin-top:4px;}
+    .copilot-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+    .copilot-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;}
+    .copilot-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
+    .copilot-metric{border:1px solid #eee6f5;border-radius:14px;padding:9px;background:#fbf9ff;}
+    .copilot-label{font-size:10px;color:#666;font-weight:800;text-transform:uppercase;letter-spacing:.03em;}
+    .copilot-value{font-size:18px;color:#2d0055;font-weight:900;}
+    .copilot-msg{background:#f6f2ff;border-left:4px solid #660094;padding:10px;border-radius:13px;margin:8px 0;font-size:12px;line-height:1.48;}
+    .copilot-user{background:#2d0055;color:white;padding:10px;border-radius:13px;margin:8px 0;font-size:12px;line-height:1.48;}
+    .copilot-note{font-size:11px;color:#555;background:#fff9dc;border-left:4px solid #FFDB58;padding:8px;border-radius:11px;margin:8px 0;}
+    .copilot-section{font-size:12px;color:#2d0055;font-weight:900;margin:8px 0 4px 0;}
+    .copilot-small{font-size:11px;color:#666;line-height:1.38;}
+    .copilot-typing{display:inline-flex;gap:4px;align-items:center;padding:4px 0;}
+    .copilot-typing span{width:6px;height:6px;background:#660094;border-radius:50%;display:block;animation:copilotTyping 1.1s infinite ease-in-out;}
+    .copilot-typing span:nth-child(2){animation-delay:.15s}.copilot-typing span:nth-child(3){animation-delay:.3s}
+    @keyframes copilotTyping{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+    .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button{font-size:11px!important;font-weight:900!important;padding:7px 2px!important;}
+    @media (max-width: 760px){.st-key-eusee_ai_right_sidebar{left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}}
     </style>
     """, unsafe_allow_html=True)
 
     if not st.session_state.ai_right_sidebar_open:
         with st.container(key="eusee_ai_right_sidebar_collapsed"):
-            st.markdown("<div style='text-align:center;font-weight:900;color:#2d0055;font-size:13px;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
-            if st.button("Open", key="ai_right_open_btn", use_container_width=True):
+            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:13px;line-height:1.15;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
+            if st.button("Open", key="copilot_open_btn", use_container_width=True, help="Open EU SEE AI Copilot"):
                 st.session_state.ai_right_sidebar_open = True
                 st.rerun()
         return
 
     with st.container(key="eusee_ai_right_sidebar"):
-        top_l, top_r = st.columns([0.76, 0.24], vertical_alignment="center")
+        top_l, top_r = st.columns([0.72, 0.28], vertical_alignment="center")
         with top_l:
             st.markdown("""
-            <div class="eusee-ai-brand">
-                <div class="eusee-ai-brand-title">🤖 EU SEE AI Copilot</div>
-                <div class="eusee-ai-brand-sub">Independent right-side assistant linked to current filters</div>
-                <div class="eusee-ai-chip-row">
-                    <span class="eusee-ai-chip">Chat</span><span class="eusee-ai-chip">Insights</span><span class="eusee-ai-chip">Plots</span><span class="eusee-ai-chip">Export</span>
-                </div>
+            <div class="copilot-brand">
+                <div class="copilot-title">🤖 EU SEE AI Copilot</div>
+                <div class="copilot-sub">Streaming chat, chart explanation, extra plots and policy-ready exports</div>
+                <div class="copilot-chip-row"><span class="copilot-chip">Chat</span><span class="copilot-chip">Explain</span><span class="copilot-chip">Plot</span><span class="copilot-chip">Export</span></div>
             </div>
             """, unsafe_allow_html=True)
         with top_r:
-            if st.button("Collapse", key="ai_right_collapse_btn", use_container_width=True):
+            if st.button("◂ Collapse", key="copilot_collapse_btn", use_container_width=True, help="Collapse AI Copilot but keep launcher visible"):
                 st.session_state.ai_right_sidebar_open = False
                 st.rerun()
 
         st.markdown(f"""
-        <div class="eusee-ai-metric-grid">
-            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Alerts</div><div class="eusee-ai-metric-value">{s['total_alerts']:,}</div></div>
-            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Negative</div><div class="eusee-ai-metric-value">{s['negative_pct']}%</div></div>
-            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Countries</div><div class="eusee-ai-metric-value">{s['countries_count']:,}</div></div>
-            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Priority</div><div class="eusee-ai-metric-value" style="color:{level_color};">{level}</div></div>
+        <div class="copilot-metric-grid">
+            <div class="copilot-metric"><div class="copilot-label">Alerts</div><div class="copilot-value">{s['total_alerts']:,}</div></div>
+            <div class="copilot-metric"><div class="copilot-label">Negative</div><div class="copilot-value">{s['negative_pct']}%</div></div>
+            <div class="copilot-metric"><div class="copilot-label">Countries</div><div class="copilot-value">{s['countries_count']:,}</div></div>
+            <div class="copilot-metric"><div class="copilot-label">Priority</div><div class="copilot-value" style="color:{level_color};">{level}</div></div>
         </div>
         """, unsafe_allow_html=True)
 
-        chat_tab, plot_tab, insight_tab, export_tab = st.tabs(["Chat", "Plot", "Insights", "Export"])
+        chat_tab, explain_tab, plot_tab, insight_tab, export_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Export"])
 
         with chat_tab:
-            st.markdown("<div class='eusee-ai-small'>Ask questions, or request a chart: <b>plot top countries</b>, <b>chart alert impacts</b>, or <b>graph mechanisms</b>.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='copilot-small'>Ask naturally, e.g. <b>summarise the current view</b>, <b>plot top countries</b>, or <b>explain the regional chart</b>.</div>", unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("Summarise", key="ai_v5_right_q_summary", use_container_width=True):
-                    _save_ai_answer("summarise the current view", df)
-                    st.rerun()
-                if st.button("Top countries", key="ai_v5_right_q_countries", use_container_width=True):
-                    _save_ai_answer("plot top countries", df)
-                    st.rerun()
+                if st.button("Summarise", key="copilot_q_summary", use_container_width=True):
+                    _copilot_queue_answer("summarise the current view", df); st.rerun()
+                if st.button("Plot countries", key="copilot_q_plot_countries", use_container_width=True):
+                    _copilot_queue_answer("plot top countries", df); st.rerun()
+                if st.button("Explain map", key="copilot_q_explain_map", use_container_width=True):
+                    _copilot_queue_answer("explain chart: map / country distribution", df); st.rerun()
             with c2:
-                if st.button("Impacts chart", key="ai_v5_right_q_impacts", use_container_width=True):
-                    _save_ai_answer("chart alert impact", df)
-                    st.rerun()
-                if st.button("Mechanisms", key="ai_v5_right_q_mechanisms", use_container_width=True):
-                    _save_ai_answer("plot mechanisms", df)
-                    st.rerun()
-            if st.button("Clear chat", key="ai_v5_right_clear", use_container_width=True):
-                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the filtered EU SEE data or request a plot."}]
+                if st.button("Priority", key="copilot_q_priority", use_container_width=True):
+                    _copilot_queue_answer("what is the priority signal and why", df); st.rerun()
+                if st.button("Plot impacts", key="copilot_q_plot_impacts", use_container_width=True):
+                    _copilot_queue_answer("chart alert impacts", df); st.rerun()
+                if st.button("Next steps", key="copilot_q_next", use_container_width=True):
+                    _copilot_queue_answer("recommended next analytical steps", df); st.rerun()
+            if st.button("Clear chat", key="copilot_clear_chat", use_container_width=True):
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about filtered data, request a plot, or ask me to explain a chart."}]
                 st.session_state.ai_last_plot = None
+                st.session_state.ai_pending_answer = ""
+                st.session_state.ai_streaming = False
                 st.rerun()
 
-            with st.container(height=300):
-                for msg in st.session_state.ai_messages[-8:]:
-                    css = "eusee-ai-user" if msg["role"] == "user" else "eusee-ai-msg"
+            chat_box = st.container(height=330)
+            with chat_box:
+                for msg in st.session_state.ai_messages[-10:]:
+                    css = "copilot-user" if msg["role"] == "user" else "copilot-msg"
                     st.markdown(f'<div class="{css}">{_render_chat_content_html(msg["content"])}</div>', unsafe_allow_html=True)
                 if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
-                    st.markdown('<div class="eusee-ai-msg">▌ AI is preparing a response...</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="copilot-msg"><div class="copilot-typing"><span></span><span></span><span></span></div><br><b>AI Copilot is typing...</b></div>', unsafe_allow_html=True)
+                    streamed = st.write_stream(_copilot_stream_text(st.session_state.ai_pending_answer))
                     st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
                     st.session_state.ai_pending_answer = ""
                     st.session_state.ai_streaming = False
                     st.rerun()
 
-            with st.form("ai_v5_right_chat_form", clear_on_submit=True):
-                user_q = st.text_area("Message", placeholder="Example: Plot top 10 countries by negative alerts", height=68, label_visibility="collapsed")
+            with st.form("copilot_chat_form", clear_on_submit=True):
+                user_q = st.text_area("Message", placeholder="Ask a question or request a chart explanation...", height=70, label_visibility="collapsed")
                 submitted = st.form_submit_button("Send", use_container_width=True)
             if submitted and user_q.strip():
-                _save_ai_answer(user_q, df)
+                _copilot_queue_answer(user_q, df)
                 st.rerun()
 
+        with explain_tab:
+            st.markdown('<div class="copilot-section">Explain a dashboard chart</div>', unsafe_allow_html=True)
+            chart_context = st.selectbox(
+                "Select chart to explain",
+                [
+                    "Overview: alert type distribution",
+                    "Overview: enabling principles distribution",
+                    "Overview: regional distribution",
+                    "Overview: country distribution",
+                    "Map: country-level geographic distribution",
+                    "Negative alerts: restrictive actors",
+                    "Negative alerts: affected civil society actors",
+                    "Negative alerts: restrictive mechanisms",
+                    "Negative alerts: types of negative events",
+                    "Advanced: heatmaps and Sankey flow",
+                    "Chatbot-generated plot",
+                ],
+                key="copilot_chart_context",
+            )
+            if st.button("Generate chart explanation", key="copilot_explain_btn", use_container_width=True):
+                explanation = ai_generate_chart_explanation(df, chart_context)
+                st.session_state.ai_messages.append({"role": "user", "content": f"Explain chart: {chart_context}"})
+                st.session_state.ai_pending_answer = explanation
+                st.session_state.ai_streaming = True
+                st.rerun()
+            st.markdown('<div class="copilot-note">Tip: explanation uses the current dashboard filters and includes interpretation cautions on monitoring/reporting coverage.</div>', unsafe_allow_html=True)
+            with st.expander("Preview explanation now", expanded=True):
+                st.markdown(_render_chat_content_html(ai_generate_chart_explanation(df, chart_context)), unsafe_allow_html=True)
+
         with plot_tab:
-            st.markdown('<div class="eusee-ai-section-title">Create additional plots from chatbot data</div>', unsafe_allow_html=True)
+            st.markdown('<div class="copilot-section">Create additional plots from filtered data</div>', unsafe_allow_html=True)
             dims = _ai_get_available_plot_dimensions(df)
-            dim_labels = [d[0] for d in dims]
-            dim_map = {label: col for label, col in dims}
-            if dim_labels:
-                selected_label = st.selectbox("Dimension", dim_labels, index=0, key="ai_right_plot_dim")
-                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=0, key="ai_right_plot_type")
-                top_n = st.slider("Top N", 3, 30, 10, key="ai_right_plot_topn")
+            if dims:
+                dim_labels = [d[0] for d in dims]
+                dim_map = {label: col for label, col in dims}
+                selected_label = st.selectbox("Dimension", dim_labels, index=0, key="copilot_plot_dim")
+                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=0, key="copilot_plot_type")
+                top_n = st.slider("Top N", 3, 30, 10, key="copilot_plot_topn")
                 selected_col = dim_map[selected_label]
                 fig = _ai_make_plot(df, selected_col, chart_type=chart_type, top_n=top_n, title=f"{selected_label} distribution")
-                st.plotly_chart(fig, use_container_width=True, key="ai_v5_right_plot_builder")
+                st.plotly_chart(fig, use_container_width=True, key="copilot_plot_builder")
+                p1, p2 = st.columns(2)
+                with p1:
+                    if st.button("Explain this plot", key="copilot_explain_generated_plot", use_container_width=True):
+                        explanation = ai_generate_chart_explanation(df, f"Chatbot-generated plot: {selected_label}")
+                        st.session_state.ai_messages.append({"role": "user", "content": f"Explain generated plot: {selected_label}"})
+                        st.session_state.ai_pending_answer = explanation
+                        st.session_state.ai_streaming = True
+                        st.rerun()
+                with p2:
+                    if st.button("Save to chat", key="copilot_save_generated_plot", use_container_width=True):
+                        st.session_state.ai_last_plot = {"dimension_col": selected_col, "chart_type": chart_type, "top_n": top_n, "title": f"{selected_label} distribution"}
+                        st.session_state.ai_messages.append({"role": "assistant", "content": f"📊 Saved a {chart_type.lower()} plot for **{selected_label}** using the current filters."})
+                        st.rerun()
                 plot_df = _ai_clean_count_df(df, selected_col, top_n=top_n)
-                st.download_button("Download plot data (.csv)", data=plot_df.to_csv(index=False).encode("utf-8"), file_name="eusee_ai_plot_data.csv", mime="text/csv", use_container_width=True, key="ai_right_download_plot")
-                if st.button("Insert this plot into chat", key="ai_v5_right_insert_plot", use_container_width=True):
-                    st.session_state.ai_last_plot = {"dimension_col": selected_col, "chart_type": chart_type, "top_n": top_n, "title": f"{selected_label} distribution"}
-                    st.session_state.ai_messages.append({"role": "assistant", "content": f"📊 Added a {chart_type.lower()} plot for **{selected_label}** using the current filters."})
-                    st.rerun()
+                st.download_button("Download plot data (.csv)", data=plot_df.to_csv(index=False).encode("utf-8"), file_name="eusee_ai_plot_data.csv", mime="text/csv", use_container_width=True, key="copilot_download_plot_data")
+                if isinstance(st.session_state.ai_last_plot, dict):
+                    st.markdown('<div class="copilot-section">Last chatbot-generated plot</div>', unsafe_allow_html=True)
+                    lp = st.session_state.ai_last_plot
+                    st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="copilot_last_plot")
             else:
                 st.info("No suitable fields are available for plotting under the current filters.")
-            if isinstance(st.session_state.ai_last_plot, dict):
-                st.markdown('<div class="eusee-ai-section-title">Last chatbot-generated plot</div>', unsafe_allow_html=True)
-                lp = st.session_state.ai_last_plot
-                st.plotly_chart(
-                    _ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")),
-                    use_container_width=True,
-                    key="ai_v5_right_last_plot"
-                )
 
         with insight_tab:
             st.markdown(f"**Priority signal:** <span style='color:{level_color};font-weight:900;'>{level}</span>", unsafe_allow_html=True)
             st.caption(level_note)
-            st.markdown('<div class="eusee-ai-note">Use Plot to generate extra visuals without changing the main dashboard layout.</div>', unsafe_allow_html=True)
             with st.expander("Mini trend chart", expanded=True):
                 render_ai_trend_chart(df)
             with st.expander("Interpret current view", expanded=False):
                 st.markdown(_render_chat_content_html(local_ai_response("interpret the current view", df)), unsafe_allow_html=True)
+            with st.expander("Recommended next steps", expanded=False):
+                st.text(ai_recommended_next_steps(df))
             with st.expander("Data quality report", expanded=False):
                 st.text(ai_data_quality_report(df))
 
@@ -2800,11 +2930,11 @@ def render_ai_assistant_panel(df):
             summary_text = generate_ai_executive_summary(df)
             policy_text = generate_ai_policy_brief(df)
             chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
-            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="ai_right_exec_summary")
-            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="ai_right_policy_brief")
-            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_right_chat_transcript")
+            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="copilot_export_summary")
+            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="copilot_export_policy")
+            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="copilot_export_chat")
             if df is not None and not df.empty:
-                st.download_button("Filtered data (.csv)", data=df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_dashboard_data.csv", mime="text/csv", use_container_width=True, key="ai_right_filtered_data")
+                st.download_button("Filtered data (.csv)", data=df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_dashboard_data.csv", mime="text/csv", use_container_width=True, key="copilot_export_data")
 
 render_ai_assistant_panel(filtered_global)
 
