@@ -537,7 +537,7 @@ def auth_ui():
     with st.sidebar:
         st.markdown("""
         <style>
-        div[data-testid="stPopover"] > button {
+        div[data-testid="stExpander"] summary {
             width: 100%;
             border-radius: 14px !important;
             border: 1px solid rgba(255,255,255,0.22) !important;
@@ -547,7 +547,7 @@ def auth_ui():
             box-shadow: 0 10px 24px rgba(102,0,148,0.28) !important;
             min-height: 42px !important;
         }
-        div[data-testid="stPopover"] > button:hover {
+        div[data-testid="stExpander"] summary:hover {
             transform: translateY(-1px);
             box-shadow: 0 14px 30px rgba(102,0,148,0.34) !important;
         }
@@ -561,10 +561,8 @@ def auth_ui():
         </style>
         <div class="auth-left-note">Sign in only when you need privileged access. The dashboard remains visible.</div>
         """, unsafe_allow_html=True)
-        if hasattr(st, "popover"):
-            with st.popover("🔐 Sign in / Access", use_container_width=True):
-                _render_auth_panel()
-        else:
-            with st.expander("🔐 Sign in / Access", expanded=False):
-                _render_auth_panel()
+        # Fully non-blocking: use sidebar expander, not st.popover/st.dialog.
+        # This prevents dashboard blur/dimming and keeps charts/filters selectable.
+        with st.expander("🔐 Sign in / Access", expanded=False):
+            _render_auth_panel()
     return
