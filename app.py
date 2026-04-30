@@ -1924,6 +1924,81 @@ def render_analytical_flow_panel(df):
     st.markdown('<div class="flow-section-note">Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.</div>', unsafe_allow_html=True)
     st.plotly_chart(render_sankey(df, top_n=top_n), use_container_width=True, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
 
+
+# ---------------- PROFESSIONAL NEGATIVE ALERTS FILTER UX ----------------
+def render_negative_alerts_filter_panel_header(df):
+    """Professional filter header for the Negative Alerts tab."""
+    total = len(df) if df is not None else 0
+
+    def _nunique_clean(col):
+        if df is None or df.empty or col not in df.columns:
+            return 0
+        return int(df[col].dropna().astype(str).str.strip().replace("", np.nan).dropna().nunique())
+
+    actors = _nunique_clean("Actor of repression")
+    mechanisms = _nunique_clean("Mechanism of repression")
+    subjects = _nunique_clean("Subject of repression")
+    events = _nunique_clean("Type of event")
+
+    st.markdown(f"""
+    <style>
+    .neg-filter-shell {{ background: linear-gradient(180deg, #FFFFFF 0%, #FBF9FE 100%); border: 1px solid #E7DDF2; border-radius: 20px; padding: 15px 16px 13px 16px; margin: 8px 0 14px 0; box-shadow: 0 10px 28px rgba(45, 0, 85, 0.065); font-family: Inter, Arial, sans-serif; }}
+    .neg-filter-head {{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:10px; }}
+    .neg-filter-eyebrow {{ font-size:10px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; color:#008CAA; margin-bottom:4px; }}
+    .neg-filter-title {{ font-size:17px; font-weight:950; color:#2D0055; letter-spacing:-.02em; line-height:1.1; }}
+    .neg-filter-subtitle {{ font-size:11.5px; color:#667085; line-height:1.42; margin-top:4px; max-width:940px; }}
+    .neg-filter-status-grid {{ display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:8px; margin-top:11px; }}
+    .neg-filter-status {{ background:#FFFFFF; border:1px solid #EEF0F4; border-radius:13px; padding:8px 9px; box-shadow:0 3px 10px rgba(16,24,40,.04); }}
+    .neg-filter-status span {{ display:block; font-size:9.5px; color:#667085; font-weight:850; margin-bottom:3px; }}
+    .neg-filter-status strong {{ display:block; font-size:14px; color:#2D0055; font-weight:950; line-height:1; }}
+    .neg-filter-chip {{ display:inline-flex; align-items:center; gap:6px; background:#F5EFFA; border:1px solid #E6D7F0; border-radius:999px; padding:6px 10px; color:#4B006E; font-size:10.5px; font-weight:900; white-space:nowrap; }}
+    .neg-filter-caption {{ font-family: Inter, Arial, sans-serif; font-size:10.8px; color:#667085; margin: -2px 0 8px 0; line-height:1.35; }}
+    .neg-filter-card-label {{ font-family: Inter, Arial, sans-serif; color:#2D0055; font-size:11px; font-weight:950; margin:2px 0 4px 0; }}
+    .neg-filter-active-row {{ display:flex; flex-wrap:wrap; gap:7px; margin:10px 0 12px 0; }}
+    .neg-filter-active-pill {{ background:#FFFFFF; border:1px solid #E6E8EF; color:#344054; border-radius:999px; padding:5px 9px; font-size:10.5px; font-weight:850; box-shadow:0 2px 8px rgba(16,24,40,.035); }}
+    .neg-filter-active-pill strong {{ color:#660094; font-weight:950; }}
+    @media (max-width: 900px) {{ .neg-filter-head {{ flex-direction:column; }} .neg-filter-status-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+    </style>
+    <div class="neg-filter-shell">
+        <div class="neg-filter-head">
+            <div>
+                <div class="neg-filter-eyebrow">Negative alerts controls</div>
+                <div class="neg-filter-title">Diagnostic filters for restrictive events</div>
+                <div class="neg-filter-subtitle">Refine the negative-alert analysis by actor, affected group, mechanism, and event type. These controls update the intelligence cards, heatmaps, Sankey flow, and downstream charts.</div>
+            </div>
+            <div class="neg-filter-chip">⚠️ Filter-aware diagnostics</div>
+        </div>
+        <div class="neg-filter-status-grid">
+            <div class="neg-filter-status"><span>Negative records</span><strong>{total:,}</strong></div>
+            <div class="neg-filter-status"><span>Actors</span><strong>{actors:,}</strong></div>
+            <div class="neg-filter-status"><span>Mechanisms</span><strong>{mechanisms:,}</strong></div>
+            <div class="neg-filter-status"><span>Affected groups</span><strong>{subjects:,}</strong></div>
+            <div class="neg-filter-status"><span>Event types</span><strong>{events:,}</strong></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_negative_filter_selection_summary(selected_actor_types, selected_subject_types, selected_mechanism_types, selected_event_types):
+    """Compact active-filter summary for Negative Alerts tab."""
+    def _label(values):
+        if values is None:
+            return "All"
+        try:
+            return "All" if len(values) == 0 else f"{len(values)} selected"
+        except Exception:
+            return "All"
+
+    st.markdown(f"""
+    <div class="neg-filter-active-row">
+        <span class="neg-filter-active-pill">Restrictive actors: <strong>{_label(selected_actor_types)}</strong></span>
+        <span class="neg-filter-active-pill">Affected groups: <strong>{_label(selected_subject_types)}</strong></span>
+        <span class="neg-filter-active-pill">Mechanisms: <strong>{_label(selected_mechanism_types)}</strong></span>
+        <span class="neg-filter-active-pill">Event types: <strong>{_label(selected_event_types)}</strong></span>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
     if col not in df.columns or df.empty:
@@ -2991,40 +3066,66 @@ with tab_negative:
             return sorted(s.map(cap_first).dropna().unique())
     
 
-        # ---------------- INLINE FILTERS ----------------
-        col1, col2, col3, col4 = st.columns(4)
+        # ---------------- PROFESSIONAL INLINE FILTERS ----------------
+        render_negative_alerts_filter_panel_header(df_exploded)
+
+        reset_col, note_col = st.columns([0.9, 3.1], gap="large")
+        with reset_col:
+            if st.button("↺ Reset negative filters", use_container_width=True, key="reset_negative_alert_filters_btn"):
+                for k in ["selected_actor_types", "selected_subject_types", "selected_mechanism_types", "selected_event_types"]:
+                    st.session_state.pop(k, None)
+                st.rerun()
+        with note_col:
+            st.markdown(
+                '<div class="neg-filter-caption">Use these filters to reduce complexity before reading the relationship heatmaps and Sankey diagram. Leaving a filter empty keeps all options selected.</div>',
+                unsafe_allow_html=True,
+            )
+
+        col1, col2, col3, col4 = st.columns(4, gap="medium")
 
         with col1:
+            st.markdown('<div class="neg-filter-card-label">Restrictive actors</div>', unsafe_allow_html=True)
             selected_actor_types = safe_multiselect(
-                "Types of restrictive actors",
+                "Select restrictive actors",
                 formatted_options(df_exploded["Actor of repression"]),
                 "selected_actor_types",
                 sidebar=False
             )
 
         with col2:
+            st.markdown('<div class="neg-filter-card-label">Affected civil society actors</div>', unsafe_allow_html=True)
             selected_subject_types = safe_multiselect(
-                "Types of civil society actors affected",
+                "Select affected groups",
                 formatted_options(df_exploded["Subject of repression"]),
                 "selected_subject_types",
                 sidebar=False
             )
 
         with col3:
+            st.markdown('<div class="neg-filter-card-label">Restrictive mechanisms</div>', unsafe_allow_html=True)
             selected_mechanism_types = safe_multiselect(
-                "Types of restrictive mechanisms",
+                "Select mechanisms",
                 formatted_options(df_exploded["Mechanism of repression"]),
                 "selected_mechanism_types",
                 sidebar=False
             )
 
         with col4:
+            st.markdown('<div class="neg-filter-card-label">Negative event types</div>', unsafe_allow_html=True)
             selected_event_types = safe_multiselect(
-                "Types of negative events",
+                "Select event types",
                 formatted_options(df_exploded["Type of event"]),
                 "selected_event_types",
                 sidebar=False
             )
+
+        render_negative_filter_selection_summary(
+            selected_actor_types,
+            selected_subject_types,
+            selected_mechanism_types,
+            selected_event_types,
+        )
+
         ##### -------- Tab 2 Summary card totals--------------------------
         reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
