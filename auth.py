@@ -523,19 +523,14 @@ def auth_ui():
     st.markdown(
         """
         <style>
-        [data-testid="stSidebar"] {display: none !important;}
-        [data-testid="collapsedControl"] {display: none !important;}
-        .block-container {
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
-            max-width: 1180px !important;
-        }
+        /* Non-blocking login route: no modal, no blur, no disabled dashboard. */
         .eusee-login-page {
-            min-height: calc(100vh - 70px);
+            min-height: auto;
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: Arial, sans-serif;
+            margin: 4px 0 18px 0;
         }
         .eusee-login-shell {
             width: min(1040px, 96vw);
@@ -545,7 +540,7 @@ def auth_ui():
             border: 1px solid rgba(102,0,148,0.10);
             border-radius: 28px;
             overflow: hidden;
-            box-shadow: 0 28px 80px rgba(45,0,85,0.18);
+            box-shadow: 0 18px 48px rgba(45,0,85,0.14);
         }
         .eusee-login-brand {
             position: relative;
@@ -555,7 +550,7 @@ def auth_ui():
                 radial-gradient(circle at 20% 85%, rgba(0,140,170,0.20), transparent 24%),
                 linear-gradient(145deg, #2d0055 0%, #660094 52%, #008CAA 130%);
             color: #ffffff;
-            min-height: 560px;
+            min-height: 420px;
         }
         .eusee-brand-logo {
             font-size: 48px;
@@ -571,11 +566,11 @@ def auth_ui():
             line-height: 1.35;
             text-transform: uppercase;
             color: rgba(255,255,255,0.88);
-            margin-bottom: 48px;
+            margin-bottom: 28px;
         }
         .eusee-security-orb {
-            width: 210px;
-            height: 210px;
+            width: 170px;
+            height: 170px;
             border-radius: 999px;
             margin: 0 auto;
             display: flex;
@@ -597,7 +592,7 @@ def auth_ui():
             box-shadow: 0 18px 45px rgba(0,0,0,0.18);
         }
         .eusee-login-form-area {
-            padding: 42px 46px 36px 46px;
+            padding: 32px 40px 30px 40px;
             background:
                 linear-gradient(180deg, rgba(249,247,252,0.95), #ffffff 35%);
         }
@@ -681,7 +676,7 @@ def auth_ui():
               </div>
               <div class="eusee-login-heading">Welcome back</div>
               <div class="eusee-login-subheading">
-                Sign in to unlock privileged EU SEE dashboard features. You will be redirected back to the dashboard after successful login.
+                Sign in to unlock privileged EU SEE dashboard features. The dashboard remains available below while this sign-in section is open.
               </div>
               <div class="eusee-login-card">
         """,
@@ -779,7 +774,7 @@ def auth_ui():
         """
               </div>
               <div class="eusee-login-footer-note">
-                Access is limited to approved domains. The dashboard will remain the default view unless you choose to sign in.
+                Access is limited to approved domains. Use “Back to dashboard” to collapse this sign-in section.
               </div>
             </div>
           </div>
