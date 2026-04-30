@@ -546,60 +546,90 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
 
     # ---------------- Alerts Breakdown ----------------
     with col3:
+        # Standard donut chart with improved UX and consistent EUSEE branding
+        breakdown_labels = ["Negative", "Positive", "Context to watch"]
+        breakdown_values = [negative, positive, context]
+        breakdown_colors = ["#FFDB58", "#660094", "#008CAA"]
+
+        if total_np == 0:
+            fig_breakdown = go.Figure()
+            fig_breakdown.add_annotation(
+                text="No alerts",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font=dict(size=18, color="#660094", family="Arial Black")
+            )
+        else:
+            fig_breakdown = go.Figure(
+                data=[
+                    go.Pie(
+                        labels=breakdown_labels,
+                        values=breakdown_values,
+                        hole=0.62,
+                        sort=False,
+                        direction="clockwise",
+                        marker=dict(
+                            colors=breakdown_colors,
+                            line=dict(color="#FFFFFF", width=3)
+                        ),
+                        textinfo="percent",
+                        textposition="inside",
+                        insidetextfont=dict(size=12, color="#FFFFFF", family="Arial Black"),
+                        hovertemplate=(
+                            "<b>%{label}</b><br>"
+                            "Alerts: %{value:,}<br>"
+                            "Share: %{percent}<extra></extra>"
+                        ),
+                    )
+                ]
+            )
+            fig_breakdown.add_annotation(
+                text=f"<b>{total_np:,}</b><br><span style='font-size:11px'>alerts</span>",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font=dict(size=18, color="#660094", family="Arial Black"),
+                align="center"
+            )
+
+        fig_breakdown.update_layout(
+            title=dict(
+                text="Alerts Breakdown",
+                x=0.5,
+                xanchor="center",
+                font=dict(size=14, color="#555555", family="Arial Black")
+            ),
+            height=245,
+            margin=dict(l=0, r=0, t=36, b=0),
+            showlegend=False,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Arial", size=11, color="#333333"),
+        )
+
+        st.markdown(f'<div style="{card_style}; padding:10px 10px 8px 10px;">', unsafe_allow_html=True)
+        st.plotly_chart(fig_breakdown, use_container_width=True, config={"displayModeBar": False})
         st.markdown(f'''
-    <div style="{card_style} ; padding:2px 10px;">
-        <svg width="120" height="120">
-            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="12" fill="none"/>
-            <circle cx="60" cy="60" r="50" stroke="#FFDB58" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*50}" 
-                stroke-dashoffset="{2*3.1416*50*(1-(neg_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Negative Alerts: {negative} ({neg_pct}%)</title>
-            </circle>            
-            <circle cx="60" cy="60" r="40" stroke="#008CAA" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*40}" 
-                stroke-dashoffset="{2*3.1416*40*(1-(context_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Context to watch Alerts: {context} ({context_pct}%)</title>
-            </circle>
-            <circle cx="60" cy="60" r="30" stroke="#660094" stroke-width="12" fill="none"
-                stroke-dasharray="{2*3.1416*30}" 
-                stroke-dashoffset="{2*3.1416*30*(1-(pos_pct/100))}"
-                stroke-linecap="round" transform="rotate(-90 60 60)">
-                <title>Positive Alerts: {positive} ({pos_pct}%)</title>
-            </circle>
-            <text x="40" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#660094">
-                {pos_pct}%
-            </text>
-            <text x="40" y="80" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFDB58">
-                {neg_pct}%
-            </text>
-            <text x="70" y="65" text-anchor="middle" font-size="12" font-weight="bold" fill="#008CAA">
-                {context_pct}%
-            </text>
-        </svg>
-        <div style="margin-top:10px; font-size:16px; font-weight:600; color:#555;">
-            Alerts Breakdown
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:6px 2px; font-size:12px; font-weight:700; width:100%; gap:20px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#FFDB58; border-radius:30%; display:inline-block;"></span>
-                <span style="color:#555;">Negative:</span>
-                <span style="color:#FFDB58;">{negative}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#660094; border-radius:30%; display:inline-block;"></span>
-                <span style="color:#555;">Positive:</span>
-                <span style="color:#660094;">{positive}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:10px; height:10px; background:#008CAA; border-radius:40%; display:inline-block;"></span>
-                <span style="color:#555;">Context to Watch:</span>
-                <span style="color:#008CAA;">{context}</span>
+            <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:-8px; width:100%; font-size:12px; font-weight:700;">
+                <div style="display:flex; align-items:center; gap:6px; background:#fff9dc; border-radius:999px; padding:5px 9px;">
+                    <span style="width:10px; height:10px; background:#FFDB58; border-radius:50%; display:inline-block;"></span>
+                    <span style="color:#555;">Negative</span>
+                    <span style="color:#8a6f00;">{negative:,} ({neg_pct}%)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; background:#f5e9fb; border-radius:999px; padding:5px 9px;">
+                    <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
+                    <span style="color:#555;">Positive</span>
+                    <span style="color:#660094;">{positive:,} ({pos_pct}%)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; background:#e8f8fb; border-radius:999px; padding:5px 9px;">
+                    <span style="width:10px; height:10px; background:#008CAA; border-radius:50%; display:inline-block;"></span>
+                    <span style="color:#555;">Context</span>
+                    <span style="color:#008CAA;">{context:,} ({context_pct}%)</span>
+                </div>
             </div>
         </div>
-    </div>
-    ''', unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
  
 def normalize_label(label: str) -> str:
     """
