@@ -352,6 +352,99 @@ filtered_global = data[
     (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
 ]
+# ---------------- VISIBLE AI ASSISTANT TOP PANEL ----------------
+EUSEE_URL = "https://eusee.org"
+
+def _visible_ai_counts(df):
+    if df is None or df.empty:
+        return {"total":0,"neg":0,"pos":0,"ctx":0,"neg_pct":0,"countries":0,"regions":0}
+    total=len(df)
+    neg=int((df["alert-impact"]=="Negative").sum()) if "alert-impact" in df.columns else 0
+    pos=int((df["alert-impact"]=="Positive").sum()) if "alert-impact" in df.columns else 0
+    ctx=int((df["alert-impact"]=="Context to watch").sum()) if "alert-impact" in df.columns else 0
+    return {"total":total,"neg":neg,"pos":pos,"ctx":ctx,"neg_pct":round(neg/total*100,1) if total else 0,"countries":df["alert-country"].nunique() if "alert-country" in df.columns else 0,"regions":df["region"].nunique() if "region" in df.columns else 0}
+
+def _visible_ai_top(df, col, n=5, split=False):
+    if df is None or df.empty or col not in df.columns:
+        return {}
+    s=df[col].dropna().astype(str)
+    if split:
+        s=s.str.split(",").explode().str.strip()
+    return s[s.ne("")].value_counts().head(n).to_dict()
+
+def _visible_ai_answer(q, df):
+    q=str(q).lower()
+    c=_visible_ai_counts(df)
+    if c["total"]==0:
+        body="No records are available under the current filters. Please adjust the dashboard filters and try again."
+    else:
+        def lines(d):
+            return "\n".join([f"{i+1}. {k} — {v} alerts" for i,(k,v) in enumerate(d.items())]) or "No matching records found."
+        if "country" in q:
+            body="Top countries under the current filters:\n\n"+lines(_visible_ai_top(df,"alert-country"))
+        elif "region" in q:
+            body="Regional distribution under the current filters:\n\n"+lines(_visible_ai_top(df,"region"))
+        elif "type" in q:
+            body="Main alert types under the current filters:\n\n"+lines(_visible_ai_top(df,"alert-type"))
+        elif "mechanism" in q:
+            body="Top restrictive mechanisms under the current filters:\n\n"+lines(_visible_ai_top(df,"Mechanism of repression", split=True))
+        elif "actor" in q:
+            body="Top restrictive actors under the current filters:\n\n"+lines(_visible_ai_top(df,"Actor of repression", split=True))
+        elif "quality" in q:
+            cols=["creation_date","alert-country","region","alert-impact","alert-type","enabling-principle"]
+            body="Data quality check:\n\nRecords assessed: "+str(c["total"])+"\n"+"\n".join([f"- {col}: {int(df[col].isna().sum())} blank/missing values" for col in cols if col in df.columns])
+        else:
+            body=(f"Current filtered dashboard summary:\n\n- Total alerts: {c['total']:,}\n- Negative alerts: {c['neg']:,} ({c['neg_pct']}%)\n- Positive alerts: {c['pos']:,}\n- Context to watch: {c['ctx']:,}\n- Countries covered: {c['countries']:,}\n- Regions covered: {c['regions']:,}\n\nYou can ask about top countries, regions, alert types, mechanisms, actors, or data quality.")
+    return body+f"\n\n---\n🌐 For a broader overview and additional qualitative insights, please visit the EUSEE website: [Open EUSEE →]({EUSEE_URL})"
+
+def render_visible_ai_assistant(df):
+    if "visible_ai_messages" not in st.session_state:
+        st.session_state.visible_ai_messages=[{"role":"assistant","content":"Hello. I am your EU SEE AI assistant. Ask me about the currently filtered dashboard data."}]
+    c=_visible_ai_counts(df)
+    st.markdown("""
+    <style>
+    .eusee-ai-top{background:linear-gradient(135deg,#2d0055,#660094 55%,#7b2cff);color:white;padding:14px 18px;border-radius:16px;margin:10px 0 14px 0;box-shadow:0 8px 28px rgba(45,0,85,.16);font-family:Arial,sans-serif;}
+    .eusee-ai-pill{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800;margin-right:5px;margin-top:8px;}
+    .eusee-ai-u{background:linear-gradient(135deg,#660094,#7b2cff);color:white;border-radius:14px;padding:10px;margin:7px 0 7px 50px;font-size:13px;line-height:1.45;}
+    .eusee-ai-a{background:#f7f2ff;border:1px solid #eee5ff;border-radius:14px;padding:10px;margin:7px 50px 7px 0;font-size:13px;line-height:1.45;}
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown(f'''<div class="eusee-ai-top"><div style="font-size:18px;font-weight:900;">🤖 EUSEE AI Assistant <span style="font-size:10px;background:rgba(255,255,255,.18);padding:3px 8px;border-radius:999px;">Visible</span></div><div style="font-size:12px;color:#f1e8ff;margin-top:4px;">Open the assistant below. This top panel does not overlap or distort charts.</div><span class="eusee-ai-pill">{c['total']:,} alerts</span><span class="eusee-ai-pill">{c['countries']:,} countries</span><span class="eusee-ai-pill">{c['neg_pct']}% negative</span></div>''', unsafe_allow_html=True)
+    with st.expander("💬 Open EUSEE AI Assistant", expanded=False):
+        chat_tab, insight_tab, export_tab, guide_tab = st.tabs(["Chat","Insights","Export","Guide"])
+        with chat_tab:
+            qcols=st.columns(3)
+            qs={"Summary":"summary","Top countries":"top countries","Regions":"regions","Types":"alert types","Mechanisms":"mechanisms","Quality":"quality"}
+            for i,(lab,prompt) in enumerate(qs.items()):
+                with qcols[i%3]:
+                    if st.button(lab, key=f"visible_ai_{lab}", use_container_width=True):
+                        st.session_state.visible_ai_messages.append({"role":"user","content":prompt})
+                        st.session_state.visible_ai_messages.append({"role":"assistant","content":_visible_ai_answer(prompt,df)})
+                        st.rerun()
+            for msg in st.session_state.visible_ai_messages[-8:]:
+                klass="eusee-ai-u" if msg["role"]=="user" else "eusee-ai-a"
+                st.markdown(f'<div class="{klass}">{str(msg["content"]).replace(chr(10),"<br>")}</div>', unsafe_allow_html=True)
+            with st.form("visible_ai_form", clear_on_submit=True):
+                q=st.text_area("Ask EUSEE AI", placeholder="Ask about countries, regions, trends, mechanisms, actors, or data quality...", height=80)
+                submitted=st.form_submit_button("Send message", use_container_width=True)
+            if submitted and q.strip():
+                st.session_state.visible_ai_messages.append({"role":"user","content":q})
+                st.session_state.visible_ai_messages.append({"role":"assistant","content":_visible_ai_answer(q,df)})
+                st.rerun()
+        with insight_tab:
+            st.metric("Total alerts", f"{c['total']:,}")
+            st.metric("Negative alerts", f"{c['neg']:,}", f"{c['neg_pct']}%")
+            st.metric("Countries", f"{c['countries']:,}")
+            st.write(pd.DataFrame(list(_visible_ai_top(df,"alert-country").items()), columns=["Country","Alerts"]))
+        with export_tab:
+            st.download_button("Download AI summary (.txt)", _visible_ai_answer("summary",df), file_name="eusee_ai_summary.txt", mime="text/plain", use_container_width=True)
+            if df is not None and not df.empty:
+                st.download_button("Download filtered records (.csv)", df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True)
+        with guide_tab:
+            st.markdown("""**How to use this assistant**\n\nApply dashboard filters first, then ask about countries, regions, alert types, actors, mechanisms, trends, or data quality.""")
+
+render_visible_ai_assistant(filtered_global)
+
 
 # Login / Access
 st.sidebar.markdown(
@@ -2825,7 +2918,7 @@ def render_ai_assistant_panel(df):
             """)
 
 
-render_ai_assistant_panel(filtered_global)
+# Late hidden sidebar assistant removed. Visible assistant is rendered near the top.
 
 # ---------------- FOOTER ----------------
 # Footer image
