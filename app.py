@@ -1485,6 +1485,9 @@ def _local_ai_response_core(question, df):
     if any(k in q for k in ["data quality", "missing", "completeness"]):
         return ai_data_quality_report(df)
 
+    if any(k in q for k in ["auto insight", "automatic insight", "key insight", "main insight", "insights"]):
+        return generate_auto_insights_text(df)
+
     if any(k in q for k in ["next step", "recommend", "action"]):
         return ai_recommended_next_steps(df)
 
@@ -1510,6 +1513,123 @@ def _local_ai_response_core(question, df):
 def local_ai_response(question, df):
     """Chatbot-facing response wrapper with EUSEE website redirect."""
     return append_eusee_redirect(_local_ai_response_core(question, df))
+
+def ai_auto_insights(df):
+    '''Generate automatic, filter-aware insights for the Copilot Insights tab.'''
+    s = summarize_for_ai(df)
+    if s["total_alerts"] == 0:
+        return [
+            {"title": "No matching records", "body": "The current filter selection returns no records. Broaden the filters to generate insights.", "tone": "neutral"}
+        ]
+
+    insights = []
+    total = s["total_alerts"]
+
+    if s["negative_pct"] >= 70:
+        insights.append({
+            "title": "High negative-alert concentration",
+            "body": f"Negative alerts account for {s['negative_pct']}% of the current filtered records ({s['negative']:,} of {total:,}). Prioritize deeper review of actors, mechanisms, and affected groups.",
+            "tone": "high"
+        })
+    elif s["negative_pct"] >= 40:
+        insights.append({
+            "title": "Moderate negative-alert concentration",
+            "body": f"Negative alerts represent {s['negative_pct']}% of the filtered records. This warrants closer interpretation alongside geography and reporting coverage.",
+            "tone": "moderate"
+        })
+    else:
+        insights.append({
+            "title": "Lower negative-alert share",
+            "body": f"Negative alerts represent {s['negative_pct']}% of the filtered records. Continue monitoring for emerging shifts across countries and mechanisms.",
+            "tone": "low"
+        })
+
+    top_countries = s.get("top_countries", {})
+    if top_countries:
+        top_country, top_count = next(iter(top_countries.items()))
+        top_share = round((top_count / total) * 100, 1) if total else 0
+        insights.append({
+            "title": "Geographic concentration",
+            "body": f"{top_country} has the highest number of alerts under the current filters ({top_count:,}, {top_share}% of filtered records). Use the map or country chart to validate spatial concentration.",
+            "tone": "info"
+        })
+
+    neg_countries = s.get("top_negative_countries", {})
+    if neg_countries:
+        neg_country, neg_count = next(iter(neg_countries.items()))
+        insights.append({
+            "title": "Negative-alert hotspot",
+            "body": f"{neg_country} leads the filtered negative-alert count ({neg_count:,}). Review whether this reflects elevated restriction patterns, stronger reporting intensity, or both.",
+            "tone": "moderate" if s["negative_pct"] < 70 else "high"
+        })
+
+    top_types = s.get("top_alert_types", {})
+    if top_types:
+        top_type, type_count = next(iter(top_types.items()))
+        insights.append({
+            "title": "Dominant alert type",
+            "body": f"The most frequent alert type is '{top_type}' ({type_count:,} records). Compare this with alert impact to understand whether it is mainly negative, positive, or context-to-watch.",
+            "tone": "info"
+        })
+
+    if s.get("top_mechanisms"):
+        mech, mech_count = next(iter(s["top_mechanisms"].items()))
+        insights.append({
+            "title": "Main restrictive mechanism",
+            "body": f"Among negative alerts, the leading restrictive mechanism is '{mech}' ({mech_count:,}). Use the heatmaps and Sankey flow to inspect actor-to-mechanism pathways.",
+            "tone": "info"
+        })
+    elif s.get("top_actors"):
+        actor, actor_count = next(iter(s["top_actors"].items()))
+        insights.append({
+            "title": "Main restrictive actor",
+            "body": f"Among negative alerts, the leading restrictive actor category is '{actor}' ({actor_count:,}). Review affected groups before drawing conclusions.",
+            "tone": "info"
+        })
+
+    insights.append({
+        "title": "Trend signal",
+        "body": s.get("trend_sentence", "Trend information is not available for the selected filters."),
+        "tone": "neutral"
+    })
+
+    insights.append({
+        "title": "Interpretation caution",
+        "body": "Counts indicate reported/monitored alerts under the selected filters. They should be interpreted together with reporting coverage, submission intensity, and qualitative context.",
+        "tone": "caution"
+    })
+    return insights
+
+
+def render_auto_insights_cards(df):
+    '''Render auto-generated insights as compact cards inside the AI Copilot.'''
+    tone_styles = {
+        "high": ("#fff1f2", "#dc2626"),
+        "moderate": ("#fffbeb", "#f59e0b"),
+        "low": ("#ecfdf5", "#16a34a"),
+        "info": ("#f0f9ff", "#008CAA"),
+        "neutral": ("#f8fafc", "#64748b"),
+        "caution": ("#fff9dc", "#FFDB58"),
+    }
+    st.markdown('<div class="copilot-section">Auto insights from current filters</div>', unsafe_allow_html=True)
+    for ins in ai_auto_insights(df):
+        bg, border = tone_styles.get(ins.get("tone", "neutral"), tone_styles["neutral"])
+        card_html = f'''
+            <div style="background:{bg};border-left:5px solid {border};border-radius:13px;padding:10px 12px;margin:8px 0;">
+                <div style="font-size:12px;font-weight:900;color:#2d0055;margin-bottom:4px;">{ins['title']}</div>
+                <div style="font-size:11.5px;color:#333;line-height:1.42;">{ins['body']}</div>
+            </div>
+        '''
+        st.markdown(card_html, unsafe_allow_html=True)
+
+
+def generate_auto_insights_text(df):
+    '''Plain-text version for chat/export.'''
+    insights = ai_auto_insights(df)
+    lines = ["Auto insights from current filters"]
+    for i, ins in enumerate(insights, start=1):
+        lines.append(f"{i}. {ins['title']}: {ins['body']}")
+    return "\n".join(lines)
 
 def render_ai_trend_chart(df):
     trend = _month_trend(df)
@@ -2813,6 +2933,8 @@ def render_ai_assistant_panel(df):
             with c1:
                 if st.button("Summarise", key="copilot_q_summary", use_container_width=True):
                     _copilot_queue_answer("summarise the current view", df); st.rerun()
+                if st.button("Auto insights", key="copilot_q_auto_insights", use_container_width=True):
+                    _copilot_queue_answer("auto insights from current filters", df); st.rerun()
                 if st.button("Plot countries", key="copilot_q_plot_countries", use_container_width=True):
                     _copilot_queue_answer("plot top countries", df); st.rerun()
                 if st.button("Explain map", key="copilot_q_explain_map", use_container_width=True):
@@ -2917,6 +3039,12 @@ def render_ai_assistant_panel(df):
         with insight_tab:
             st.markdown(f"**Priority signal:** <span style='color:{level_color};font-weight:900;'>{level}</span>", unsafe_allow_html=True)
             st.caption(level_note)
+            render_auto_insights_cards(df)
+            if st.button("Send auto insights to chat", key="copilot_send_auto_insights", use_container_width=True):
+                st.session_state.ai_messages.append({"role": "user", "content": "Auto insights from current filters"})
+                st.session_state.ai_pending_answer = append_eusee_redirect(generate_auto_insights_text(df))
+                st.session_state.ai_streaming = True
+                st.rerun()
             with st.expander("Mini trend chart", expanded=True):
                 render_ai_trend_chart(df)
             with st.expander("Interpret current view", expanded=False):
@@ -2930,6 +3058,8 @@ def render_ai_assistant_panel(df):
             summary_text = generate_ai_executive_summary(df)
             policy_text = generate_ai_policy_brief(df)
             chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
+            auto_insights_text = generate_auto_insights_text(df)
+            st.download_button("Auto insights (.txt)", data=auto_insights_text, file_name="eusee_ai_auto_insights.txt", mime="text/plain", use_container_width=True, key="copilot_export_auto_insights")
             st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="copilot_export_summary")
             st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="copilot_export_policy")
             st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="copilot_export_chat")
