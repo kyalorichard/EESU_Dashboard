@@ -414,246 +414,240 @@ def info_tooltip(message: str) -> str:
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="summary"):
     """
-    Render three summary cards with gradient background:
+    Render compact, equal-height professional KPI cards:
     1. Monitored Countries
     2. Total Alerts
-    3. Alerts Breakdown (Negative vs Positive vs Context to watch)
-    
-    Parameters:
-        df (DataFrame): Filtered data
-        base_bar_height (int): Base height of the horizontal bar
+    3. Alerts Breakdown as a contained donut plot
     """
     total_countries = df['alert-country'].nunique() if not df.empty else 0
     total_alerts = len(df) if not df.empty else 0
-    negative = (df['alert-impact'] == "Negative").sum() if not df.empty else 0
-    positive = (df['alert-impact'] == "Positive").sum() if not df.empty else 0
-    context = (df['alert-impact'] == "Context to watch").sum() if not df.empty else 0
+    negative = int((df['alert-impact'] == "Negative").sum()) if not df.empty else 0
+    positive = int((df['alert-impact'] == "Positive").sum()) if not df.empty else 0
+    context = int((df['alert-impact'] == "Context to watch").sum()) if not df.empty else 0
     total_np = negative + positive + context
 
-    # Percentages
     neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
     pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
     context_pct = round((context / total_np) * 100, 1) if total_np else 0
 
-    # Adjust bar height and font size based on total alerts
-    bar_height = max(base_bar_height, min(50, total_alerts // 10 + 20))
-    font_size = max(12, min(16, 14 - int(total_alerts/100)))
+    neg_stop = neg_pct
+    pos_stop = neg_pct + pos_pct
 
-   
-    bar_height = 30
-    font_size = 12
+    if total_np:
+        donut_gradient = (
+            f"conic-gradient(#FFDB58 0% {neg_stop}%, "
+            f"#660094 {neg_stop}% {pos_stop}%, "
+            f"#008CAA {pos_stop}% 100%)"
+        )
+    else:
+        donut_gradient = "conic-gradient(#E5E7EB 0% 100%)"
+
+    st.markdown("""
+    <style>
+    .eusee-kpi-card {
+        height: 158px;
+        min-height: 158px;
+        background: linear-gradient(180deg, #FFFFFF 0%, #FBFBFD 100%);
+        border: 1px solid rgba(102, 0, 148, 0.10);
+        border-radius: 15px;
+        box-shadow: 0 8px 22px rgba(17, 24, 39, 0.075);
+        padding: 13px 15px;
+        margin: 3px 0 9px 0;
+        box-sizing: border-box;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .eusee-kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .eusee-kpi-title {
+        color: #4B5563;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: .01em;
+    }
+    .eusee-kpi-icon {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 11px;
+        background: #F3E8FF;
+        color: #660094;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 900;
+    }
+    .eusee-kpi-value {
+        font-size: 38px;
+        line-height: .95;
+        font-weight: 900;
+        margin-top: 8px;
+        letter-spacing: -0.03em;
+    }
+    .eusee-kpi-note {
+        color: #6B7280;
+        font-size: 10.5px;
+        font-weight: 700;
+        line-height: 1.25;
+        margin-top: 5px;
+    }
+    .eusee-donut-layout {
+        display: grid;
+        grid-template-columns: 82px 1fr;
+        align-items: center;
+        gap: 10px;
+        margin-top: 3px;
+    }
+    .eusee-donut {
+        width: 78px;
+        height: 78px;
+        border-radius: 50%;
+        position: relative;
+        background: var(--donut-gradient);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 4px 10px rgba(0,0,0,.08);
+    }
+    .eusee-donut::after {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        box-shadow: inset 0 0 0 1px rgba(102,0,148,.08);
+    }
+    .eusee-donut-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        color: #660094;
+        font-weight: 900;
+        line-height: 1;
+        pointer-events: none;
+    }
+    .eusee-donut-center .num { font-size: 15px; }
+    .eusee-donut-center .lab { font-size: 8.5px; color:#6B7280; margin-top:2px; }
+    .eusee-chip-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 3px 0;
+        border-bottom: 1px solid #F1F5F9;
+        font-size: 10.2px;
+        line-height: 1.1;
+    }
+    .eusee-chip-row:last-child { border-bottom: none; }
+    .eusee-chip-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: #4B5563;
+        font-weight: 800;
+        min-width: 0;
+    }
+    .eusee-dot {
+        width: 8px;
+        height: 8px;
+        min-width: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .eusee-chip-value {
+        color: #111827;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+    .eusee-tooltip {
+        color: #008CAA;
+        font-size: 11px;
+        font-weight: 900;
+        cursor: help;
+        margin-left: 3px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
 
-    # Base card style
-    card_style = """
-    background: #FFFFFF;
-    border-radius: 16px;
-    padding: 18px 18px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    margin: 5px;
-    min-height: 220px;
-    height: 220px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s;
-    overflow: hidden;
-    """
+    countries_value = f"{total_countries:,}" if is_privileged() else "On request"
+    countries_size = "38px" if is_privileged() else "21px"
 
-    icon_style = """
-    width: 42px; 
-    height: 42px; 
-    border-radius: 50%; 
-    background: #008CAA; 
-    color: white; 
-    display: flex; 
-    align-items:center; 
-    justify-content:center; 
-    font-size:21px; 
-    font-weight:bold;
-    margin-bottom:8px;
-    """
-
-    # --- Monitored Countries ---
-    if is_privileged():
-        with col1:
-            st.markdown(f"""
-        <div style="{card_style}">
-            <div style="{icon_style}">🌍</div>
-            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:36px; font-weight:bold; color:#008CAA; margin-top:5px;">{total_countries}</span>
+    with col1:
+        st.markdown(f"""
+        <div class="eusee-kpi-card">
+            <div>
+                <div class="eusee-kpi-top">
+                    <div class="eusee-kpi-title">Monitored Countries</div>
+                    <div class="eusee-kpi-icon">🌍</div>
+                </div>
+                <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
+            </div>
+            <div class="eusee-kpi-note">Countries represented by current filters</div>
         </div>
         """, unsafe_allow_html=True)
-    else:
-        with col1:
-            st.markdown(f"""
-        <div style="{card_style}">
-            <div style="{icon_style}">🌍</div>
-            <span style="font-size:16px; font-weight:600; color:#555;">Monitored Countries</span>
-            <span style="font-size:20px; font-weight:bold; color:#008CAA; margin-top:5px;">Available on Request</span>
-        </div>
-        """, unsafe_allow_html=True)
-            
 
-    # --- Total Alerts ---
     with col2:
         st.markdown(f"""
-    <style>
-    .tooltip-box {{
-        position: relative;
-        display: inline-block;
-        cursor: pointer;
-        color: #008CAA;
-        font-weight: bold;
-    }}
-    .tooltip-box .tooltiptext {{
-        visibility: hidden;
-        width: 260px;
-        background-color: #333;
-        color: #fff;
-        text-align: left;
-        border-radius: 6px;
-        padding: 8px 12px;
-        position: absolute;
-        z-index: 1;
-        bottom: 130%;
-        left: 50%;
-        margin-left: -130px;
-        opacity: 0;
-        transition: opacity 0.3s;
-        font-family: Arial;
-        font-size: 12px;
-    }}
-    .tooltip-box:hover .tooltiptext {{
-        visibility: visible;
-        opacity: 1;
-    }}
-    </style>
+        <div class="eusee-kpi-card">
+            <div>
+                <div class="eusee-kpi-top">
+                    <div class="eusee-kpi-title">
+                        Total Alerts
+                        <span class="eusee-tooltip" title="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span>
+                    </div>
+                    <div class="eusee-kpi-icon">⚠️</div>
+                </div>
+                <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div>
+            </div>
+            <div class="eusee-kpi-note">Filtered records after selected region, country, year and alert filters</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    <div style="{card_style}">
-        <div style="{icon_style}">⚠️</div>
-        <span style="font-size:16px; font-weight:600; color:#555;">
-            Total Alerts
-            <span class="tooltip-box">?
-                <span class="tooltiptext">
-                    Higher numbers of alerts do not always indicate a worse situation; 
-                    they may reflect better reporting or different thresholds across countries.
-                </span>
-            </span>
-        </span>
-        <span style="font-size:36px; font-weight:bold; color:#FF6F61; margin-top:5px;">{total_alerts}</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ---------------- Alerts Breakdown ----------------
     with col3:
-        # Standard donut chart with improved UX and fully contained summary-card layout.
-        # components.html is used so the Plotly donut stays inside the card boundary.
-        breakdown_labels = ["Negative", "Positive", "Context to watch"]
-        breakdown_values = [negative, positive, context]
-        breakdown_colors = ["#FFDB58", "#660094", "#008CAA"]
-
-        if total_np == 0:
-            fig_breakdown = go.Figure()
-            fig_breakdown.add_annotation(
-                text="No alerts",
-                x=0.5,
-                y=0.5,
-                showarrow=False,
-                font=dict(size=14, color="#660094", family="Arial Black")
-            )
-        else:
-            fig_breakdown = go.Figure(
-                data=[
-                    go.Pie(
-                        labels=breakdown_labels,
-                        values=breakdown_values,
-                        hole=0.64,
-                        sort=False,
-                        direction="clockwise",
-                        marker=dict(colors=breakdown_colors, line=dict(color="#FFFFFF", width=3)),
-                        textinfo="percent",
-                        textposition="inside",
-                        insidetextfont=dict(size=10, color="#FFFFFF", family="Arial Black"),
-                        hovertemplate=(
-                            "<b>%{label}</b><br>"
-                            "Alerts: %{value:,}<br>"
-                            "Share: %{percent}<extra></extra>"
-                        ),
-                    )
-                ]
-            )
-            fig_breakdown.add_annotation(
-                text=f"<b>{total_np:,}</b><br><span style='font-size:10px'>alerts</span>",
-                x=0.5,
-                y=0.5,
-                showarrow=False,
-                font=dict(size=15, color="#660094", family="Arial Black"),
-                align="center"
-            )
-
-        fig_breakdown.update_layout(
-            height=112,
-            width=210,
-            margin=dict(l=0, r=0, t=0, b=0),
-            showlegend=False,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Arial", size=10, color="#333333"),
-        )
-
-        fig_html = fig_breakdown.to_html(
-            include_plotlyjs="cdn",
-            full_html=False,
-            config={"displayModeBar": False, "responsive": True},
-            div_id=f"{card_key}_alerts_breakdown_donut"
-        )
-
-        components.html(f"""
-            <div style="
-                background:#FFFFFF;
-                border-radius:16px;
-                padding:10px 12px 8px 12px;
-                box-shadow:0 6px 20px rgba(0,0,0,0.08);
-                margin:5px;
-                height:220px;
-                box-sizing:border-box;
-                overflow:hidden;
-                display:flex;
-                flex-direction:column;
-                align-items:center;
-                justify-content:flex-start;
-                font-family:Arial, sans-serif;
-            ">
-                <div style="font-size:15px;font-weight:800;color:#555;margin:0 0 2px 0;text-align:center;line-height:1.1;">
-                    Alerts Breakdown
-                </div>
-                <div style="height:112px;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:-2px;">
-                    {fig_html}
-                </div>
-                <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:5px;width:100%;font-size:9.8px;font-weight:800;line-height:1.05;margin-top:4px;">
-                    <div style="display:flex;align-items:center;gap:5px;background:#fff9dc;border-radius:999px;padding:4px 6px;white-space:nowrap;">
-                        <span style="width:9px;height:9px;background:#FFDB58;border-radius:50%;display:inline-block;"></span>
-                        <span style="color:#555;">Negative</span>
-                        <span style="color:#8a6f00;">{negative:,} ({neg_pct}%)</span>
+        st.markdown(f"""
+        <div class="eusee-kpi-card">
+            <div class="eusee-kpi-top">
+                <div class="eusee-kpi-title">Alerts Breakdown</div>
+                <div class="eusee-kpi-icon">◔</div>
+            </div>
+            <div class="eusee-donut-layout">
+                <div class="eusee-donut" style="--donut-gradient:{donut_gradient};" title="Negative: {negative:,} ({neg_pct}%) | Positive: {positive:,} ({pos_pct}%) | Context to watch: {context:,} ({context_pct}%)">
+                    <div class="eusee-donut-center">
+                        <div class="num">{total_np:,}</div>
+                        <div class="lab">alerts</div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:5px;background:#f5e9fb;border-radius:999px;padding:4px 6px;white-space:nowrap;">
-                        <span style="width:9px;height:9px;background:#660094;border-radius:50%;display:inline-block;"></span>
-                        <span style="color:#555;">Positive</span>
-                        <span style="color:#660094;">{positive:,} ({pos_pct}%)</span>
+                </div>
+                <div>
+                    <div class="eusee-chip-row">
+                        <div class="eusee-chip-label"><span class="eusee-dot" style="background:#FFDB58;"></span>Negative</div>
+                        <div class="eusee-chip-value">{negative:,} · {neg_pct}%</div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:5px;background:#e8f8fb;border-radius:999px;padding:4px 6px;white-space:nowrap;">
-                        <span style="width:9px;height:9px;background:#008CAA;border-radius:50%;display:inline-block;"></span>
-                        <span style="color:#555;">Context</span>
-                        <span style="color:#008CAA;">{context:,} ({context_pct}%)</span>
+                    <div class="eusee-chip-row">
+                        <div class="eusee-chip-label"><span class="eusee-dot" style="background:#660094;"></span>Positive</div>
+                        <div class="eusee-chip-value">{positive:,} · {pos_pct}%</div>
+                    </div>
+                    <div class="eusee-chip-row">
+                        <div class="eusee-chip-label"><span class="eusee-dot" style="background:#008CAA;"></span>Context</div>
+                        <div class="eusee-chip-value">{context:,} · {context_pct}%</div>
                     </div>
                 </div>
             </div>
-        """, height=230, scrolling=False)
- 
+            <div class="eusee-kpi-note">Share of filtered alert-impact categories</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 def normalize_label(label: str) -> str:
     """
     Capitalize first character only, lowercase remaining characters.
