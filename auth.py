@@ -501,9 +501,25 @@ def _render_auth_panel():
 # Authentication UI Entrypoint
 # -----------------------------
 def auth_ui():
-    """Non-blocking floating-left authentication launcher."""
+    """Strictly non-blocking sidebar authentication."""
     init_session()
     restore_session()
+
+    # Safety reset: keep the dashboard clickable; do not use dialog/popover/expander.
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stAppViewContainer"], div[data-testid="stApp"], section.main, .main {
+            filter: none !important;
+            opacity: 1 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if "auth_sidebar_open" not in st.session_state:
+        st.session_state.auth_sidebar_open = False
 
     if st.session_state.get("user"):
         with st.sidebar:
@@ -537,32 +553,29 @@ def auth_ui():
     with st.sidebar:
         st.markdown("""
         <style>
-        div[data-testid="stExpander"] summary {
-            width: 100%;
-            border-radius: 14px !important;
-            border: 1px solid rgba(255,255,255,0.22) !important;
-            background: linear-gradient(135deg, #660094 0%, #3b075c 100%) !important;
-            color: #ffffff !important;
-            font-weight: 800 !important;
-            box-shadow: 0 10px 24px rgba(102,0,148,0.28) !important;
-            min-height: 42px !important;
-        }
-        div[data-testid="stExpander"] summary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 14px 30px rgba(102,0,148,0.34) !important;
-        }
-        .auth-left-note {
-            margin: 6px 0 10px 0;
+        .auth-inline-launch-note {
+            margin: 8px 0 8px 0;
             font-family: Arial, sans-serif;
             font-size: 10.5px;
             color: rgba(255,255,255,0.72);
             line-height: 1.35;
         }
+        div[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+            border-radius: 14px !important;
+            min-height: 42px !important;
+            font-weight: 850 !important;
+        }
         </style>
-        <div class="auth-left-note">Sign in only when you need privileged access. The dashboard remains visible.</div>
+        <div class="auth-inline-launch-note">
+            Sign in only when you need privileged access. This panel does not blur or block the dashboard.
+        </div>
         """, unsafe_allow_html=True)
-        # Fully non-blocking: use sidebar expander, not st.popover/st.dialog.
-        # This prevents dashboard blur/dimming and keeps charts/filters selectable.
-        with st.expander("🔐 Sign in / Access", expanded=False):
+
+        label = "▾ Hide sign in" if st.session_state.auth_sidebar_open else "🔐 Sign in / Access"
+        if st.button(label, use_container_width=True, key="auth_inline_toggle_btn"):
+            st.session_state.auth_sidebar_open = not st.session_state.auth_sidebar_open
+            st.rerun()
+
+        if st.session_state.auth_sidebar_open:
             _render_auth_panel()
     return
