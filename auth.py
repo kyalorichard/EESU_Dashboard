@@ -231,123 +231,123 @@ def parse_error(e):
 
 
 # -----------------------------
-# Modal Styling
+# Floating Authentication Panel Styling
 # -----------------------------
 def _auth_modal_css():
+    """Compact non-blocking styling for the left floating/popover auth panel."""
     st.markdown(
         """
         <style>
-        /* Hide sidebar auth remnants while modal is active */
-        section[data-testid="stSidebar"] { filter: brightness(0.92); }
-
-        /* Dim dashboard background behind the modal */
-        .eusee-auth-backdrop {
-            position: fixed;
-            inset: 0;
-            z-index: 9990;
-            background: linear-gradient(135deg, rgba(12,15,42,0.76), rgba(65,28,94,0.68));
-            backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
-        }
-
-        /* Streamlit dialog polish */
-        div[data-testid="stDialog"] > div {
-            border-radius: 22px !important;
-            padding: 0 !important;
-            max-width: 760px !important;
-            box-shadow: 0 26px 80px rgba(10,15,40,0.38) !important;
-            border: 1px solid rgba(255,255,255,0.55) !important;
-            overflow: hidden !important;
-        }
-        div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] p {
-            margin-bottom: 0 !important;
-        }
-        div[data-testid="stDialog"] [data-testid="stVerticalBlock"] {
-            gap: 0.45rem !important;
-        }
-
-        .auth-left-panel {
-            min-height: 420px;
-            background: linear-gradient(160deg, #ffffff 0%, #f9f5ff 58%, #f2eaff 100%);
-            border-right: 1px solid #eee7f7;
-            padding: 34px 30px 24px 30px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .auth-logo-title {
-            font-family: Arial Black, Arial, sans-serif;
-            color: #660094;
-            font-size: 42px;
-            line-height: 0.92;
-            letter-spacing: -1px;
-            margin: 0 0 8px 0;
-        }
-        .auth-logo-subtitle {
-            color: #660094;
+        /* IMPORTANT: no full-screen backdrop, no blur, no dashboard dimming. */
+        .eusee-auth-panel {
+            width: 100%;
+            max-width: 360px;
+            background: #ffffff;
+            border-radius: 18px;
+            border: 1px solid rgba(102, 0, 148, 0.14);
+            box-shadow: 0 16px 44px rgba(34, 12, 56, 0.18);
+            overflow: hidden;
             font-family: Arial, sans-serif;
-            font-size: 11px;
-            font-weight: 900;
-            line-height: 1.35;
-            text-transform: uppercase;
         }
-        .auth-shield {
-            width: 145px;
-            height: 145px;
-            margin: 34px auto 0 auto;
-            border-radius: 50%;
-            background: radial-gradient(circle, #ffffff 0%, #f1e4ff 62%, #ead7ff 100%);
+        .eusee-auth-header {
+            padding: 16px 16px 12px 16px;
+            background: linear-gradient(135deg, #fbf7ff 0%, #f1e6fb 100%);
+            border-bottom: 1px solid rgba(102, 0, 148, 0.10);
+        }
+        .eusee-auth-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .eusee-auth-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: inset 0 0 0 1px rgba(102,0,148,0.10), 0 14px 36px rgba(102,0,148,0.14);
-            color: #660094;
-            font-size: 56px;
+            color: white;
+            font-size: 20px;
+            background: linear-gradient(135deg, #660094, #008CAA);
+            box-shadow: 0 10px 22px rgba(102, 0, 148, 0.22);
         }
-        .auth-right-title {
-            font-family: Arial Black, Arial, sans-serif;
-            color: #231942;
-            text-align: center;
-            font-size: 22px;
-            margin: 14px 0 4px 0;
+        .eusee-auth-title {
+            font-size: 15px;
+            font-weight: 900;
+            color: #241037;
+            line-height: 1.15;
         }
-        .auth-right-subtitle {
-            font-family: Arial, sans-serif;
-            color: #6b6475;
-            text-align: center;
-            font-size: 12px;
-            margin-bottom: 14px;
-        }
-        .auth-caption {
-            font-family: Arial, sans-serif;
-            color: #6b6475;
-            text-align: center;
+        .eusee-auth-subtitle {
             font-size: 11px;
-            margin-top: 10px;
+            color: #6c6275;
+            line-height: 1.35;
+            margin-top: 3px;
+        }
+        .eusee-auth-body {
+            padding: 14px 16px 16px 16px;
+        }
+        .eusee-auth-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #f7effc;
+            color: #660094;
+            font-size: 10.5px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .eusee-auth-note {
+            font-size: 10.5px;
+            color: #6c6275;
+            line-height: 1.35;
+            margin: 8px 0 2px 0;
+        }
+        .eusee-auth-footer {
+            border-top: 1px solid #f0e7f7;
+            padding: 10px 16px 14px 16px;
+            background: #fffaff;
+            font-size: 10.5px;
+            color: #6c6275;
             line-height: 1.35;
         }
-        div[data-testid="stDialog"] label p {
-            font-size: 12px !important;
+        div[data-testid="stPopoverBody"] {
+            padding: 0 !important;
+            border-radius: 18px !important;
+            overflow: hidden !important;
+        }
+        div[data-testid="stPopoverBody"] [data-testid="stVerticalBlock"] {
+            gap: 0.45rem !important;
+        }
+        div[data-testid="stPopoverBody"] label p,
+        div[data-testid="stExpander"] label p {
+            font-size: 11.5px !important;
             font-weight: 800 !important;
             color: #332045 !important;
         }
-        div[data-testid="stDialog"] input {
+        div[data-testid="stPopoverBody"] input,
+        div[data-testid="stExpander"] input {
             border-radius: 10px !important;
-            min-height: 42px !important;
+            min-height: 38px !important;
             font-size: 12px !important;
         }
-        div[data-testid="stDialog"] div[data-testid="stForm"] {
+        div[data-testid="stPopoverBody"] div[data-testid="stForm"],
+        div[data-testid="stExpander"] div[data-testid="stForm"] {
             border: 0 !important;
-            padding: 0 22px 18px 22px !important;
+            padding: 0 !important;
         }
-        div[data-testid="stDialog"] button[kind="primaryFormSubmit"],
-        div[data-testid="stDialog"] button[kind="formSubmit"] {
+        div[data-testid="stPopoverBody"] button[kind="primaryFormSubmit"],
+        div[data-testid="stPopoverBody"] button[kind="formSubmit"],
+        div[data-testid="stExpander"] button[kind="primaryFormSubmit"],
+        div[data-testid="stExpander"] button[kind="formSubmit"] {
             border-radius: 10px !important;
-            min-height: 42px !important;
+            min-height: 39px !important;
             font-weight: 900 !important;
+            background: linear-gradient(135deg, #660094 0%, #008CAA 100%) !important;
+            border: 0 !important;
         }
         </style>
-        <div class="eusee-auth-backdrop"></div>
         """,
         unsafe_allow_html=True,
     )
@@ -369,82 +369,81 @@ def _save_cookie_session(email, name, verified, role, remember=False):
 
 
 def _render_auth_panel():
+    """Compact floating auth panel rendered inside st.popover/st.expander. Non-blocking."""
     _auth_modal_css()
 
-    c1, c2 = st.columns([0.92, 1.08], gap="large")
-
-    with c1:
-        st.markdown(
-            """
-            <div class="auth-left-panel">
-                <div>
-                    <div class="auth-logo-title">EU SEE</div>
-                    <div class="auth-logo-subtitle">Supporting<br>An Enabling Environment<br>For Civil Society</div>
+    st.markdown(
+        """
+        <div class="eusee-auth-panel">
+            <div class="eusee-auth-header">
+                <div class="eusee-auth-brand">
+                    <div class="eusee-auth-logo">🔐</div>
+                    <div>
+                        <div class="eusee-auth-title">EU SEE Access</div>
+                        <div class="eusee-auth-subtitle">Sign in for privileged dashboard features.</div>
+                    </div>
                 </div>
-                <div class="auth-shield">🔐</div>
-                <div class="auth-caption">Secure dashboard access for approved EU SEE users.</div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <div class="eusee-auth-body">
+        """,
+        unsafe_allow_html=True,
+    )
 
-    with c2:
-        st.markdown(
-            """
-            <div class="auth-right-title">Welcome Back</div>
-            <div class="auth-right-subtitle">Sign in to continue to the EU SEE Dashboard</div>
-            """,
-            unsafe_allow_html=True,
-        )
+    mode = st.session_state.get("auth_mode", "Login")
+    mode_label = "Welcome back" if mode == "Login" else "Create account"
+    st.markdown(f'<div class="eusee-auth-mode">{mode_label}</div>', unsafe_allow_html=True)
 
-        if st.session_state.get("auth_mode", "Login") == "Login":
-            with st.form("eusee_login_modal_form"):
-                email = st.text_input("Email", placeholder="Enter your email").strip()
-                password = st.text_input("Password", placeholder="Enter your password", type="password")
-                remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", False))
-                submitted = st.form_submit_button("Sign In", use_container_width=True)
+    if mode == "Login":
+        with st.form("eusee_login_float_form"):
+            email = st.text_input("Email", placeholder="Enter your email", key="float_login_email").strip()
+            password = st.text_input("Password", placeholder="Enter your password", type="password", key="float_login_password")
+            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", False), key="float_login_remember")
+            submitted = st.form_submit_button("Sign In", use_container_width=True)
 
-                if submitted:
-                    if not firebase_auth:
-                        st.error("Firebase authentication is not initialized.")
-                        return False
-                    if not email or not password:
-                        st.error("Enter email and password.")
-                        return False
-                    if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
-                        st.error("Access is restricted to approved domains.")
-                        return False
-                    try:
-                        user = firebase_auth.sign_in_with_email_and_password(email, password)
-                        info = firebase_auth.get_account_info(user["idToken"])
-                        verified = bool(info["users"][0].get("emailVerified", False))
-                        role = "privileged" if verified else "restricted"
+            if submitted:
+                if not firebase_auth:
+                    st.error("Firebase authentication is not initialized.")
+                    return False
+                if not email or not password:
+                    st.error("Enter email and password.")
+                    return False
+                if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Access is restricted to approved domains.")
+                    return False
+                try:
+                    user = firebase_auth.sign_in_with_email_and_password(email, password)
+                    info = firebase_auth.get_account_info(user["idToken"])
+                    verified = bool(info["users"][0].get("emailVerified", False))
+                    role = "privileged" if verified else "restricted"
 
-                        st.session_state.user = True
-                        st.session_state.email = email
-                        st.session_state.name = email.split("@")[0].replace(".", " ").title()
-                        st.session_state.email_verified = verified
-                        st.session_state.role = role
-                        st.session_state.auth_remember = remember
-                        _save_cookie_session(email, st.session_state.name, verified, role, remember)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(parse_error(e))
-                        return False
+                    st.session_state.user = True
+                    st.session_state.email = email
+                    st.session_state.name = email.split("@")[0].replace(".", " ").title()
+                    st.session_state.email_verified = verified
+                    st.session_state.role = role
+                    st.session_state.auth_remember = remember
+                    _save_cookie_session(email, st.session_state.name, verified, role, remember)
+                    st.rerun()
+                except Exception as e:
+                    st.error(parse_error(e))
+                    return False
 
-            col_a, col_b, col_c = st.columns([1, 0.55, 1])
-            with col_b:
-                st.caption("or")
-            if st.button("Login with SSO", use_container_width=True, disabled=True):
-                st.info("SSO can be connected later if enabled by your identity provider.")
-            st.markdown('<div class="auth-caption">Need access? Contact the EU SEE dashboard administrator.</div>', unsafe_allow_html=True)
-            if st.button("Create an account", use_container_width=True):
+        st.markdown('<div class="eusee-auth-note">Need an account or forgot your password?</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Create account", use_container_width=True, key="float_create_account_btn"):
                 st.session_state.auth_mode = "Register"
                 st.rerun()
+        with c2:
+            if st.button("Reset password", use_container_width=True, key="float_reset_toggle_btn"):
+                st.session_state.auth_reset_open = not st.session_state.get("auth_reset_open", False)
+                st.rerun()
 
-            with st.expander("Forgot password?"):
-                reset_email = st.text_input("Reset email", placeholder="Enter your email", key="reset_email_modal").strip()
-                if st.button("Send password reset", use_container_width=True):
+        if st.session_state.get("auth_reset_open", False):
+            with st.form("eusee_reset_float_form"):
+                reset_email = st.text_input("Reset email", placeholder="Enter your email", key="float_reset_email").strip()
+                reset_submit = st.form_submit_button("Send reset email", use_container_width=True)
+                if reset_submit:
                     if not firebase_auth:
                         st.error("Firebase authentication is not initialized.")
                     elif not reset_email:
@@ -458,32 +457,43 @@ def _render_auth_panel():
                         except Exception as e:
                             st.error(parse_error(e))
 
-        else:
-            with st.form("eusee_register_modal_form"):
-                email = st.text_input("Email", placeholder="Enter your email").strip()
-                password = st.text_input("Password", placeholder="Create a password", type="password")
-                submitted = st.form_submit_button("Register", use_container_width=True)
-                if submitted:
-                    if not firebase_auth:
-                        st.error("Firebase authentication is not initialized.")
-                        return False
-                    if not email or not password:
-                        st.error("Enter email and password.")
-                        return False
-                    if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
-                        st.error("Registration is restricted to approved domains.")
-                        return False
-                    try:
-                        user = firebase_auth.create_user_with_email_and_password(email, password)
-                        firebase_auth.send_email_verification(user["idToken"])
-                        st.success("Registration successful. Check your email to verify your account.")
-                    except Exception as e:
-                        st.error(parse_error(e))
-                        return False
-            if st.button("Back to sign in", use_container_width=True):
-                st.session_state.auth_mode = "Login"
-                st.rerun()
+    else:
+        with st.form("eusee_register_float_form"):
+            email = st.text_input("Email", placeholder="Enter your email", key="float_register_email").strip()
+            password = st.text_input("Password", placeholder="Create a password", type="password", key="float_register_password")
+            submitted = st.form_submit_button("Register", use_container_width=True)
+            if submitted:
+                if not firebase_auth:
+                    st.error("Firebase authentication is not initialized.")
+                    return False
+                if not email or not password:
+                    st.error("Enter email and password.")
+                    return False
+                if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Registration is restricted to approved domains.")
+                    return False
+                try:
+                    user = firebase_auth.create_user_with_email_and_password(email, password)
+                    firebase_auth.send_email_verification(user["idToken"])
+                    st.success("Registration successful. Check your email to verify your account.")
+                except Exception as e:
+                    st.error(parse_error(e))
+                    return False
 
+        if st.button("Back to sign in", use_container_width=True, key="float_back_login_btn"):
+            st.session_state.auth_mode = "Login"
+            st.rerun()
+
+    st.markdown(
+        """
+            </div>
+            <div class="eusee-auth-footer">
+                The panel is non-blocking. You can keep using the dashboard while this access panel is open.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     return False
 
 
