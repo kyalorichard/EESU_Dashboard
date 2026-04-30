@@ -445,137 +445,64 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     st.markdown("""
     <style>
     .eusee-kpi-card {
-        height: 158px;
-        min-height: 158px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FBFBFD 100%);
-        border: 1px solid rgba(102, 0, 148, 0.10);
-        border-radius: 15px;
-        box-shadow: 0 8px 22px rgba(17, 24, 39, 0.075);
-        padding: 13px 15px;
-        margin: 3px 0 9px 0;
+        height: 150px;
+        min-height: 150px;
+        background: radial-gradient(circle at 100% 0%, rgba(102,0,148,0.055), transparent 34%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
+        border: 1px solid rgba(102, 0, 148, 0.115);
+        border-radius: 17px;
+        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
+        padding: 11px 14px 10px 14px;
+        margin: 2px 0 8px 0;
         box-sizing: border-box;
         overflow: hidden;
         font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-    }
-    .eusee-kpi-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-    }
-    .eusee-kpi-title {
-        color: #4B5563;
-        font-size: 13px;
-        font-weight: 800;
-        line-height: 1.1;
-        letter-spacing: .01em;
-    }
-    .eusee-kpi-icon {
-        width: 32px;
-        height: 32px;
-        min-width: 32px;
-        border-radius: 11px;
-        background: #F3E8FF;
-        color: #660094;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        font-weight: 900;
-    }
-    .eusee-kpi-value {
-        font-size: 38px;
-        line-height: .95;
-        font-weight: 900;
-        margin-top: 8px;
-        letter-spacing: -0.03em;
-    }
-    .eusee-kpi-note {
-        color: #6B7280;
-        font-size: 10.5px;
-        font-weight: 700;
-        line-height: 1.25;
-        margin-top: 5px;
-    }
-    .eusee-donut-layout {
-        display: grid;
-        grid-template-columns: 82px 1fr;
-        align-items: center;
-        gap: 10px;
-        margin-top: 3px;
-    }
-    .eusee-donut {
-        width: 78px;
-        height: 78px;
-        border-radius: 50%;
         position: relative;
-        background: var(--donut-gradient);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 4px 10px rgba(0,0,0,.08);
     }
-    .eusee-donut::after {
+    .eusee-kpi-card::before {
         content: "";
         position: absolute;
-        inset: 18px;
-        border-radius: 50%;
-        background: #FFFFFF;
-        box-shadow: inset 0 0 0 1px rgba(102,0,148,.08);
+        top: 0; left: 0; right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #660094 0%, #008CAA 52%, #FFDB58 100%);
+        opacity: .92;
     }
-    .eusee-donut-center {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1;
-        color: #660094;
-        font-weight: 900;
-        line-height: 1;
-        pointer-events: none;
+    .eusee-kpi-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 15px 32px rgba(17, 24, 39, 0.090), inset 0 1px 0 rgba(255,255,255,0.95);
+        transition: all .18s ease;
     }
-    .eusee-donut-center .num { font-size: 15px; }
-    .eusee-donut-center .lab { font-size: 8.5px; color:#6B7280; margin-top:2px; }
-    .eusee-chip-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        padding: 3px 0;
-        border-bottom: 1px solid #F1F5F9;
-        font-size: 10.2px;
-        line-height: 1.1;
+    .eusee-kpi-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
+    .eusee-kpi-eyebrow { color:#8A6AA0; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
+    .eusee-kpi-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
+    .eusee-kpi-icon {
+        width:30px; height:30px; min-width:30px; border-radius:12px;
+        background:linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+        color:#660094; border:1px solid rgba(102,0,148,.10);
+        display:flex; align-items:center; justify-content:center;
+        font-size:16px; font-weight:900; box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
     }
-    .eusee-chip-row:last-child { border-bottom: none; }
-    .eusee-chip-label {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        color: #4B5563;
-        font-weight: 800;
-        min-width: 0;
+    .eusee-kpi-value { font-size:36px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; }
+    .eusee-kpi-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
+    .eusee-microline { height:4px; width:54px; border-radius:999px; background:linear-gradient(90deg, currentColor, rgba(255,255,255,0)); opacity:.32; margin-top:8px; }
+    .eusee-donut-layout { display:grid; grid-template-columns:76px 1fr; align-items:center; gap:9px; margin-top:4px; }
+    .eusee-donut {
+        width:72px; height:72px; border-radius:50%; position:relative; background:var(--donut-gradient);
+        box-shadow:inset 0 0 0 1px rgba(255,255,255,.95), 0 6px 14px rgba(17,24,39,.10);
     }
-    .eusee-dot {
-        width: 8px;
-        height: 8px;
-        min-width: 8px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-    .eusee-chip-value {
-        color: #111827;
-        font-weight: 900;
-        white-space: nowrap;
-    }
-    .eusee-tooltip {
-        color: #008CAA;
-        font-size: 11px;
-        font-weight: 900;
-        cursor: help;
-        margin-left: 3px;
-    }
+    .eusee-donut::before { content:""; position:absolute; inset:-3px; border-radius:50%; background:linear-gradient(135deg, rgba(102,0,148,.16), rgba(0,140,170,.10)); z-index:-1; }
+    .eusee-donut::after { content:""; position:absolute; inset:17px; border-radius:50%; background:#FFFFFF; box-shadow:inset 0 0 0 1px rgba(102,0,148,.09); }
+    .eusee-donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1; color:#2D0055; font-weight:950; line-height:1; pointer-events:none; font-family:Arial Black, Arial, sans-serif; }
+    .eusee-donut-center .num { font-size:14px; letter-spacing:-.03em; }
+    .eusee-donut-center .lab { font-size:7.8px; color:#667085; margin-top:2px; font-family:Arial, sans-serif; font-weight:800; }
+    .eusee-chip-row { display:flex; align-items:center; justify-content:space-between; gap:7px; padding:3px 0; border-bottom:1px solid rgba(102,0,148,.065); font-size:9.7px; line-height:1.05; }
+    .eusee-chip-row:last-child { border-bottom:none; }
+    .eusee-chip-label { display:flex; align-items:center; gap:5px; color:#344054; font-weight:900; min-width:0; }
+    .eusee-dot { width:8px; height:8px; min-width:8px; border-radius:999px; display:inline-block; box-shadow:0 0 0 2px rgba(255,255,255,.85), 0 1px 3px rgba(17,24,39,.14); }
+    .eusee-chip-value { color:#101828; font-weight:950; white-space:nowrap; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.02em; }
+    .eusee-tooltip { color:#008CAA; font-size:10px; font-weight:950; cursor:help; margin-left:3px; border:1px solid rgba(0,140,170,.25); border-radius:50%; padding:0 4px; background:rgba(0,140,170,.06); }
     </style>
     """, unsafe_allow_html=True)
 
@@ -589,10 +516,10 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top">
-                    <div class="eusee-kpi-title">Monitored Countries</div>
+                    <div><div class="eusee-kpi-eyebrow">Coverage</div><div class="eusee-kpi-title">Monitored Countries</div></div>
                     <div class="eusee-kpi-icon">🌍</div>
                 </div>
-                <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
+                <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
             <div class="eusee-kpi-note">Countries represented by current filters</div>
         </div>
@@ -603,13 +530,10 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top">
-                    <div class="eusee-kpi-title">
-                        Total Alerts
-                        <span class="eusee-tooltip" title="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span>
-                    </div>
+                    <div><div class="eusee-kpi-eyebrow">Monitoring volume</div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" title="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
                     <div class="eusee-kpi-icon">⚠️</div>
                 </div>
-                <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div>
+                <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
             </div>
             <div class="eusee-kpi-note">Filtered records after selected region, country, year and alert filters</div>
         </div>
@@ -619,7 +543,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         st.markdown(f"""
         <div class="eusee-kpi-card">
             <div class="eusee-kpi-top">
-                <div class="eusee-kpi-title">Alerts Breakdown</div>
+                <div><div class="eusee-kpi-eyebrow">Composition</div><div class="eusee-kpi-title">Alerts Breakdown</div></div>
                 <div class="eusee-kpi-icon">◔</div>
             </div>
             <div class="eusee-donut-layout">
@@ -644,7 +568,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                     </div>
                 </div>
             </div>
-            <div class="eusee-kpi-note">Share of filtered alert-impact categories</div>
+            <div class="eusee-kpi-note">Filtered composition by alert impact</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -3177,7 +3101,80 @@ def render_ai_assistant_panel(df):
 
 render_ai_assistant_panel(filtered_global)
 
+
+
+# ---------------- FEEDBACK CALLOUT ----------------
+def render_feedback_callout():
+    """Render a compact floating feedback callout above the footer logos."""
+    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
+    st.markdown(f"""
+    <style>
+    .eusee-feedback-floating {{
+        position: fixed;
+        right: 24px;
+        bottom: 118px;
+        width: 292px;
+        max-width: calc(100vw - 48px);
+        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
+        border: 1px solid rgba(102, 0, 148, 0.14);
+        border-left: 5px solid #660094;
+        border-radius: 16px;
+        padding: 13px 14px 12px 14px;
+        box-shadow: 0 14px 32px rgba(17, 24, 39, 0.16), inset 0 1px 0 rgba(255,255,255,0.96);
+        z-index: 10002;
+        font-family: Arial, sans-serif;
+        box-sizing: border-box;
+    }}
+    .eusee-feedback-floating:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 18px 38px rgba(17, 24, 39, 0.20), inset 0 1px 0 rgba(255,255,255,0.96);
+        transition: all .18s ease;
+    }}
+    .eusee-feedback-top {{ display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }}
+    .eusee-feedback-icon {{
+        width: 30px; height: 30px; min-width: 30px; border-radius: 12px;
+        background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
+        color: #660094; border: 1px solid rgba(102,0,148,.10);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 15px; font-weight: 900;
+    }}
+    .eusee-feedback-title {{ color: #2D0055; font-size: 12.5px; font-weight: 900; line-height: 1.1; }}
+    .eusee-feedback-text {{ color: #475467; font-size: 11px; line-height: 1.35; font-weight: 650; margin-bottom: 10px; }}
+    .eusee-feedback-actions {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }}
+    .eusee-feedback-button {{
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 7px 12px; border-radius: 999px;
+        background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
+        color: #FFFFFF !important; text-decoration: none !important;
+        font-size: 11px; font-weight: 900;
+        box-shadow: 0 6px 14px rgba(102, 0, 148, .20); white-space: nowrap;
+    }}
+    .eusee-feedback-button:hover {{ filter: brightness(1.04); transform: scale(1.02); transition: all .16s ease; }}
+    .eusee-feedback-linknote {{ color: #8A6AA0; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: right; }}
+    @media (max-width: 900px) {{
+        .eusee-feedback-floating {{ right: 12px; left: 12px; width: auto; bottom: 92px; }}
+        .eusee-feedback-linknote {{ display: none; }}
+    }}
+    </style>
+
+    <div class="eusee-feedback-floating">
+        <div class="eusee-feedback-top">
+            <div class="eusee-feedback-icon">💬</div>
+            <div class="eusee-feedback-title">Help us improve the EUSEE Dashboard</div>
+        </div>
+        <div class="eusee-feedback-text">
+            Share your feedback on usability, insights, and dashboard improvements using the feedback form.
+        </div>
+        <div class="eusee-feedback-actions">
+            <a class="eusee-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">Formular ausfüllen</a>
+            <div class="eusee-feedback-linknote">opens Microsoft Forms</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ---------------- FOOTER ----------------
+render_feedback_callout()
+
 # Footer image
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
