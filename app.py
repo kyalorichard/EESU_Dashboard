@@ -275,9 +275,6 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=400)
 
-# Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
-AI_ASSISTANT_SLOT = st.sidebar.container()
-
 # Global Filters
 st.sidebar.markdown(
     '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🌍 Global Filters</div>',
@@ -1849,6 +1846,200 @@ def render_ai_assistant_panel(df):
     st.markdown('</div></div>', unsafe_allow_html=True)
 # ---------------- MAIN DASHBOARD + AI ASSISTANT LAYOUT ----------------
 
+
+# ---------------- MAP INTELLIGENCE HELPERS ----------------
+def classify_map_risk(total_alerts, negative_alerts, negative_share):
+    """Classify country-level map risk using volume + negative-alert share."""
+    try:
+        total_alerts = int(total_alerts or 0)
+        negative_alerts = int(negative_alerts or 0)
+        negative_share = float(negative_share or 0)
+    except Exception:
+        return "No signal"
+
+    if total_alerts == 0:
+        return "No signal"
+    if negative_alerts >= 10 and negative_share >= 70:
+        return "Critical"
+    if negative_alerts >= 5 and negative_share >= 50:
+        return "High"
+    if negative_alerts >= 2 or negative_share >= 35:
+        return "Moderate"
+    return "Watch"
+
+
+def prepare_map_intelligence_data(df, countries_gj):
+    """Create country-level analytical layer for the Visualization Map tab."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    geo_countries = [f.get('properties', {}).get('name') for f in countries_gj.get('features', [])]
+    geo_countries = [c for c in geo_countries if c]
+
+    for col in ['alert-country', 'alert-impact', 'region']:
+        if col not in df.columns:
+            df[col] = "Unknown"
+
+    stats = (
+        df.groupby(['alert-country', 'region'], dropna=False)
+        .agg(
+            total_alerts=('alert-impact', 'size'),
+            negative_alerts=('alert-impact', lambda x: int((x == 'Negative').sum())),
+            positive_alerts=('alert-impact', lambda x: int((x == 'Positive').sum())),
+            context_to_watch_alerts=('alert-impact', lambda x: int((x == 'Context to watch').sum())),
+        )
+        .reset_index()
+    )
+
+    stats = stats[stats['alert-country'].isin(geo_countries)].copy()
+    if stats.empty:
+        return stats
+
+    stats['negative_share'] = ((stats['negative_alerts'] / stats['total_alerts'].replace(0, np.nan)) * 100).round(1).fillna(0)
+    stats['positive_share'] = ((stats['positive_alerts'] / stats['total_alerts'].replace(0, np.nan)) * 100).round(1).fillna(0)
+    stats['context_share'] = ((stats['context_to_watch_alerts'] / stats['total_alerts'].replace(0, np.nan)) * 100).round(1).fillna(0)
+    stats['risk_level'] = stats.apply(lambda r: classify_map_risk(r['total_alerts'], r['negative_alerts'], r['negative_share']), axis=1)
+    risk_order = {'Critical': 4, 'High': 3, 'Moderate': 2, 'Watch': 1, 'No signal': 0}
+    stats['risk_score'] = stats['risk_level'].map(risk_order).fillna(0).astype(int)
+    stats['risk_label'] = stats['risk_level'] + ' | ' + stats['negative_share'].astype(str) + '% negative'
+    return stats.sort_values(['risk_score', 'negative_alerts', 'total_alerts'], ascending=False)
+
+
+def map_intelligence_summary(map_df):
+    """Short narrative for map insights and exports."""
+    if map_df is None or map_df.empty:
+        return "No country-level map data are available under the current filters."
+
+    total_countries = int(map_df['alert-country'].nunique())
+    total_alerts = int(map_df['total_alerts'].sum())
+    negative = int(map_df['negative_alerts'].sum())
+    neg_share = round((negative / total_alerts) * 100, 1) if total_alerts else 0
+    top_total = map_df.sort_values('total_alerts', ascending=False).head(3)
+    top_risk = map_df.sort_values(['risk_score', 'negative_alerts', 'total_alerts'], ascending=False).head(3)
+
+    top_total_txt = '; '.join([f"{r['alert-country']} ({int(r['total_alerts'])})" for _, r in top_total.iterrows()])
+    top_risk_txt = '; '.join([f"{r['alert-country']} ({r['risk_level']}, {int(r['negative_alerts'])} negative)" for _, r in top_risk.iterrows()])
+
+    return (
+        f"Map intelligence summary: the current filtered map covers {total_countries} countries and {total_alerts} alerts. "
+        f"Negative alerts account for {neg_share}% of mapped records. Highest alert volumes: {top_total_txt}. "
+        f"Highest priority country signals: {top_risk_txt}. Interpret these as monitoring signals, not direct prevalence estimates, because reporting intensity and coverage vary by country."
+    )
+
+
+def render_map_intelligence_cards(map_df):
+    """Render compact map intelligence KPI cards."""
+    if map_df is None or map_df.empty:
+        st.info("No map intelligence indicators are available for the selected filters.")
+        return
+
+    mapped_countries = map_df['alert-country'].nunique()
+    total_alerts = int(map_df['total_alerts'].sum())
+    negative_alerts = int(map_df['negative_alerts'].sum())
+    critical_high = int(map_df['risk_level'].isin(['Critical', 'High']).sum())
+    neg_share = round((negative_alerts / total_alerts) * 100, 1) if total_alerts else 0
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Mapped countries", mapped_countries)
+    c2.metric("Mapped alerts", f"{total_alerts:,}")
+    c3.metric("Negative-alert share", f"{neg_share}%")
+    c4.metric("High/Critical signals", critical_high)
+
+
+def create_intelligent_choropleth(map_df, countries_gj, map_mode='Risk score'):
+    """Create map layer with switchable intelligence mode."""
+    if map_df is None or map_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No map data available", x=0.5, y=0.5, showarrow=False)
+        fig.update_layout(height=520, margin=dict(l=0, r=0, t=0, b=0))
+        return fig
+
+    coords = []
+    selected = set(map_df['alert-country'].astype(str))
+    for feature in countries_gj.get('features', []):
+        if feature.get('properties', {}).get('name') in selected:
+            geometry = feature.get('geometry', {})
+            if geometry.get('type') == 'Polygon':
+                coords.extend(geometry.get('coordinates', [[]])[0])
+            elif geometry.get('type') == 'MultiPolygon':
+                for poly in geometry.get('coordinates', []):
+                    if poly:
+                        coords.extend(poly[0])
+    if coords:
+        lons, lats = zip(*coords)
+        center = {"lat": float(np.mean(lats)), "lon": float(np.mean(lons))}
+        lon_span = max(lons) - min(lons)
+        zoom = max(1, min(5, 2 / (lon_span + 0.01)))
+    else:
+        center, zoom = {"lat": 10, "lon": 0}, 2
+
+    if map_mode == 'Negative share':
+        color_col, scale, title = 'negative_share', 'YlOrRd', '% negative alerts'
+    elif map_mode == 'Total alerts':
+        color_col, scale, title = 'total_alerts', 'YlOrBr', 'Total alerts'
+    else:
+        color_col, scale, title = 'risk_score', [[0, '#e5f4f7'], [0.25, '#c7e9ef'], [0.5, '#ffdb58'], [0.75, '#f59e0b'], [1, '#dc2626']], 'Risk score'
+
+    fig = px.choropleth_mapbox(
+        map_df,
+        geojson=countries_gj,
+        locations='alert-country',
+        featureidkey='properties.name',
+        color=color_col,
+        hover_name='alert-country',
+        color_continuous_scale=scale,
+        mapbox_style='open-street-map',
+        zoom=zoom,
+        center=center,
+        opacity=0.82,
+        custom_data=['region', 'total_alerts', 'negative_alerts', 'positive_alerts', 'context_to_watch_alerts', 'negative_share', 'risk_level']
+    )
+
+    fig.update_traces(
+        hovertemplate=(
+            "<b>%{location}</b><br>"
+            "Region: %{customdata[0]}<br>"
+            "Total alerts: %{customdata[1]}<br>"
+            "Negative: %{customdata[2]}<br>"
+            "Positive: %{customdata[3]}<br>"
+            "Context to watch: %{customdata[4]}<br>"
+            "Negative share: %{customdata[5]}%<br>"
+            "Priority signal: <b>%{customdata[6]}</b><extra></extra>"
+        ),
+        hoverlabel=dict(bgcolor='#2D0055', font_size=13, font_family='Arial', font_color='white'),
+        marker_line_width=0.7,
+        marker_line_color='white'
+    )
+    fig.update_layout(
+        height=560,
+        margin={"r": 0, "t": 10, "l": 0, "b": 0},
+        coloraxis_colorbar=dict(title=title, thickness=12, len=0.62),
+    )
+    return fig
+
+
+def render_country_intelligence(map_df, selected_country):
+    """Country drill-down card for map tab."""
+    if map_df is None or map_df.empty or not selected_country:
+        return
+    row = map_df[map_df['alert-country'] == selected_country]
+    if row.empty:
+        st.info("Selected country is not available under the current filters.")
+        return
+    r = row.iloc[0]
+    st.markdown(f"""
+    <div style="border:1px solid #eadff5;border-radius:16px;padding:14px;background:#fbf9ff;margin-top:8px;">
+      <div style="font-size:15px;font-weight:900;color:#2d0055;margin-bottom:6px;">🧭 Country intelligence: {r['alert-country']}</div>
+      <div style="font-size:13px;line-height:1.55;color:#333;">
+        <b>Region:</b> {r['region']}<br>
+        <b>Total alerts:</b> {int(r['total_alerts'])}<br>
+        <b>Negative alerts:</b> {int(r['negative_alerts'])} ({r['negative_share']}%)<br>
+        <b>Positive alerts:</b> {int(r['positive_alerts'])} ({r['positive_share']}%)<br>
+        <b>Context to watch:</b> {int(r['context_to_watch_alerts'])} ({r['context_share']}%)<br>
+        <b>Priority signal:</b> <span style="font-weight:900;color:#660094;">{r['risk_level']}</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
@@ -2127,112 +2318,72 @@ with tab_negative:
                 "selected_event_types",
                 sidebar=False
             )
-        ##### -------- Tab 2 Summary card totals--------------------------
-        reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+
+        reactive_df_updated = reactive_df[
+            (reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
             (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-        render_summary_cards(reactive_df_updated,show_breakdown=False)
+        render_summary_cards(reactive_df_updated, show_breakdown=False)
 
-        #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
-
-        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+        filtered_df = df_exploded[
+            (df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
             (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-    
-        filtered_df1 = df_exploded.copy()
-        #filtered_df = reactive_df_updated.copy()
-    
-        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-    
-        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
 
-        #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-    
-        tab2_subj = (
-            reactive_df_updated
-            .assign(**{
-                "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
-            })
-            .explode("Subject of repression")
-        )
-       
+        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
+        m1 = tab2_actor.groupby(["Actor of repression", "alert-impact"]).size().reset_index(name='count')
+
+        tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)}).explode("Subject of repression")
         tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
-        m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
+        m2 = tab2_subj.groupby(["Subject of repression", "alert-impact"]).size().reset_index(name='count')
 
         tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
         tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
-        m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
+        m3 = tab2_mech.groupby(["Mechanism of repression", "alert-impact"]).size().reset_index(name='count')
 
         tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
         tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
-        m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
+        m4 = tab2_type.groupby(["Type of event", "alert-impact"]).size().reset_index(name='count')
 
         tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
         tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
-        m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    
+        m5 = tab2_alert.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
+
         tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
         tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-        tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-    
+        tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"], categories=ENABLING_PRINCIPLE_ORDER, ordered=True)
+        m6 = tab2_enabling_principle.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle", ascending=False)
+
         # ---------------- BAR CHARTS ----------------
         r1c1, r1c2, r1c3 = st.columns(3)
         r2c1, r2c2, r2c3 = st.columns(3)
 
-    
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
-          
-        fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
+        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count", title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
+        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count", title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
+        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count", title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
+        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
+        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count", title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
 
-          
-        # Add the "?" tooltip icon immediately after the title
+        fig23 = create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False)
         fig23.add_annotation(
-            xref='paper', yref='paper',
-            x=0.42,         # adjust so it's at the end of the title
-            y=1.05,         # same vertical alignment as title
-            text="❔",       # Unicode circle with question mark
-            showarrow=False,
+            xref='paper', yref='paper', x=0.42, y=1.05, text="❔", showarrow=False,
             font=dict(color="white", size=10, family="Arial black", weight="bold"),
-            align="center",
-            bordercolor="black",
-            borderwidth=1.3,
-            borderpad=3,
-            bgcolor="#660094",
-            opacity=1.0,
-            hovertext=(
-                "Alerts may be classified under more than one enabling principle "
-                "<br>and can therefore be counted in multiple principles."
-            ),
+            align="center", bordercolor="black", borderwidth=1.3, borderpad=3, bgcolor="#660094", opacity=1.0,
+            hovertext="Alerts may be classified under more than one enabling principle <br>and can therefore be counted in multiple principles.",
             hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
         )
-
-        # Add source line if needed
         fig23 = add_source_line(fig23)
-
-        # Render the chart in Streamlit
         r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
-
-        #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
             st.session_state.top_n = 5
-        
-        def update_top_n():
-            st.session_state.top_n = {
-                "Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None
-            }[st.session_state.top_n_option]
 
         st.markdown(
             """
@@ -2244,30 +2395,21 @@ with tab_negative:
             </style>
             """,
             unsafe_allow_html=True
-        )  
-    
+        )
+
         st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
-        top_n_map = {
-            "Top 2": 2,
-            "Top 3": 3,
-            "Top 4": 4,
-            "Top 5": 5,
-            "All": None
-        }
-    
+        top_n_map = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}
         selected = st.selectbox(
             "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, \n"
             "restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
             options=list(top_n_map.keys()),
             index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
         )
-    
         st.session_state.top_n_option = selected
         st.session_state.top_n = top_n_map[selected]
         st.markdown('</div>', unsafe_allow_html=True)
-    
         top_n = st.session_state.top_n
-    
+
         # ---------------- HEATMAPS ----------------
         #with st.expander("Show Heatmaps"):
         #filtered_df['Subject of repression']= filtered_df['Subject of repression'].apply(safe_split)
@@ -2307,131 +2449,110 @@ with tab_negative:
     
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
-    #st.subheader("Visualization Map")
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#2d0055,#660094);color:white;padding:16px;border-radius:18px;margin-bottom:14px;">
+        <div style="font-size:22px;font-weight:900;">🗺️ Map Intelligence</div>
+        <div style="font-size:13px;opacity:.92;">Country-level spatial signals, risk categories, drill-down summaries, and AI-ready interpretation from the current filters.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     render_summary_cards(filtered_global)
-    geo_file = Path.cwd() / "exports" / "countriess.geojson"
+
+    geo_file = EXPORT_DIR / "countriess.geojson"
+    if not geo_file.exists():
+        geo_file = Path.cwd() / "exports" / "countriess.geojson"
+
     if geo_file.exists():
-        with open(geo_file) as f: 
+        with open(geo_file, encoding="utf-8") as f:
             countries_gj = json.load(f)
-    
-        # Base map data
-        df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
-        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
-        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
+        map_intel_df = prepare_map_intelligence_data(filtered_global.copy(), countries_gj)
 
-        # ----- Dynamic center & zoom -----
-        if not df_map.empty:
-            coords = []
-            for feature in countries_gj['features']:
-                if feature['properties']['name'] in df_map['alert-country'].values:
-                    geometry = feature['geometry']
-                    if geometry['type'] == "Polygon":
-                        coords.extend(geometry['coordinates'][0])
-                    elif geometry['type'] == "MultiPolygon":
-                        for poly in geometry['coordinates']:
-                            coords.extend(poly[0])
-
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
-            else:
-                center = {"lat":10,"lon":0}
-                zoom = 2
+        if map_intel_df.empty:
+            st.warning("No mapped country records are available under the current filters.")
         else:
-            center = {"lat":10,"lon":0}
-            zoom = 2
+            render_map_intelligence_cards(map_intel_df)
 
-        # ----- Add advanced hover stats -----
-        stats = (
-            filtered_global
-            .groupby("alert-country")
-            .agg(
-                total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum()),
-                context_to_watch_alerts=("alert-impact", lambda x: (x == "Context to watch").sum())
-            )
-            .reset_index()
-        )
+            ctrl1, ctrl2, ctrl3 = st.columns([1.2, 1.2, 1])
+            with ctrl1:
+                map_mode = st.selectbox(
+                    "Map layer",
+                    ["Risk score", "Negative share", "Total alerts"],
+                    index=0,
+                    help="Switch between composite priority signal, negative-alert intensity, and total reporting volume."
+                )
+            with ctrl2:
+                selected_country = st.selectbox(
+                    "Country drill-down",
+                    ["Select country"] + sorted(map_intel_df["alert-country"].dropna().astype(str).unique().tolist()),
+                    index=0
+                )
+            with ctrl3:
+                top_n_map = st.slider("Top priority countries", 3, 15, 8)
 
-        df_map = df_map.merge(stats, on="alert-country", how="left")
+            fig = create_intelligent_choropleth(map_intel_df, countries_gj, map_mode=map_mode)
+            st.plotly_chart(fig, use_container_width=True, key="map_intelligence_choropleth")
 
-        # Ensure numeric
-        df_map["negative_alerts"] = pd.to_numeric(df_map["negative_alerts"], errors="coerce")
-        df_map["total_alerts"] = pd.to_numeric(df_map["total_alerts"], errors="coerce")
-    
-        # Compute percentage safely
-        df_map["perc_negative"] = ((df_map["negative_alerts"] / df_map["total_alerts"]) * 100).round(1)
-    
-        # Optional: handle NaN values if total_alerts was 0
-        df_map["perc_negative"] = df_map["perc_negative"].fillna(0)
-            
-        # ----- Main choropleth -----
-        map_height = max(400, len(df_map)*20)
+            left, right = st.columns([1.15, 1])
+            with left:
+                st.markdown("### 🚦 Priority country signals")
+                priority_cols = [
+                    "alert-country", "region", "total_alerts", "negative_alerts", "negative_share", "risk_score", "risk_level"
+                ]
+                # Keep sorting fields available before renaming/display.
+                # This prevents KeyError when the visible table subset is sorted by risk_score.
+                safe_priority_cols = [c for c in priority_cols if c in map_intel_df.columns]
+                safe_sort_cols = [c for c in ["risk_score", "negative_alerts", "total_alerts"] if c in map_intel_df.columns]
 
-        fig = px.choropleth_mapbox(
-            df_map,
-            geojson=countries_gj,
-            locations="alert-country",
-            featureidkey="properties.name",
-            color="count",
-            hover_name="alert-country",
-            hover_data={
-                "count": False,
-                "total_alerts": False,
-                "negative_alerts": False,
-                "positive_alerts": False,
-                "context_to_watch_alerts": False,
-                "perc_negative": False
-            },
-            color_continuous_scale="YlOrBr",
-            mapbox_style="open-street-map",
-            zoom=zoom,
-            center=center,
-            opacity=0.8
-        )
+                priority_df = map_intel_df[safe_priority_cols].copy()
+                if safe_sort_cols:
+                    priority_df = priority_df.sort_values(safe_sort_cols, ascending=False)
 
-        # ----- Card-style hover tooltip -----
-        fig.update_traces(
-            hovertemplate=(
-                "<b>%{location}</b><br>"
-                "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
-                "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
-                "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "<span style='color:#00FFAA'>●</span> Context to watch: %{customdata[3]}<br>"
-                "% Negative: %{customdata[4]}%<extra></extra>"
-            ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","context_to_watch_alerts","perc_negative"]].values,
-            hoverlabel=dict(
-                bgcolor="#2D0055",
-                font_size=13,
-                font_family="Arial",
-                font_color="white",
-                bordercolor="#ffffff"
-            ),
-            marker_line_width=1,
-            marker_line_color="black"
-        )
+                priority_df = (
+                    priority_df
+                    .head(top_n_map)
+                    .drop(columns=["risk_score"], errors="ignore")
+                    .rename(columns={
+                        "alert-country": "Country",
+                        "region": "Region",
+                        "total_alerts": "Total alerts",
+                        "negative_alerts": "Negative alerts",
+                        "negative_share": "% negative",
+                        "risk_level": "Priority signal"
+                    })
+                )
+                st.dataframe(priority_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "⬇️ Download map intelligence CSV",
+                    map_intel_df.to_csv(index=False).encode("utf-8"),
+                    file_name="eusee_map_intelligence.csv",
+                    mime="text/csv"
+                )
 
-        # ----- Bubble density overlay -----
-    
+            with right:
+                if selected_country != "Select country":
+                    render_country_intelligence(map_intel_df, selected_country)
+                else:
+                    st.markdown("### 🧠 AI map interpretation")
+                    map_summary = map_intelligence_summary(map_intel_df)
+                    st.info(map_summary)
 
-        # ----- Final layout -----
-        fig.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=map_height
-        )
+                map_summary_txt = map_intelligence_summary(map_intel_df)
+                if st.button("💬 Send map insight to AI Copilot", key="send_map_intel_to_ai"):
+                    if "ai_messages" not in st.session_state:
+                        st.session_state.ai_messages = []
+                    st.session_state.ai_messages.append({"role": "assistant", "content": append_eusee_redirect(map_summary_txt)})
+                    st.success("Map insight sent to the AI Copilot chat history.")
 
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
-
-        st.plotly_chart(fig, use_container_width=True)
-
+            with st.expander("How to interpret this map intelligence layer"):
+                st.markdown("""
+                - **Risk score** combines negative-alert volume and negative-alert share into a simple priority signal.
+                - **Negative share** highlights countries where a larger proportion of mapped alerts are negative.
+                - **Total alerts** shows reporting volume and should not be interpreted alone as severity.
+                - Country signals are affected by reporting coverage, monitoring intensity, and partner submission patterns.
+                """)
     else:
-        st.warning("GeoJSON file not found for map visualization.") 
+        st.warning("GeoJSON file not found for map visualization.")
 
 # -----------------USER MANUAL TAB-----------------
     
@@ -2586,172 +2707,27 @@ def _save_ai_answer(question, df):
     st.session_state.ai_streaming = True
 
 
-
-def ai_priority_signal(summary: dict):
-    """Return a priority badge based on negative-alert share."""
-    total = summary.get("total_alerts", 0) or 0
-    negative = summary.get("negative", 0) or 0
-    if total == 0:
-        return "No data", "#6b7280", "No alerts are available under the current filters."
-    neg_share = negative / total
-    if neg_share >= 0.70:
-        return "High priority", "#dc2626", "Negative alerts dominate the current filtered dataset. Review country, actor, and mechanism patterns."
-    if neg_share >= 0.40:
-        return "Moderate priority", "#f59e0b", "Negative alerts are substantial under the current filters and may require closer review."
-    return "Low priority", "#16a34a", "Negative alerts are limited under the current filters. Continue monitoring for emerging shifts."
-
-def _copilot_context_df(df, context_label):
-    """Return the dataframe used by the unified Copilot context selector."""
-    if df is None:
-        return pd.DataFrame()
-    if context_label == "Negative alerts" and "alert-impact" in df.columns:
-        return df[df["alert-impact"].astype(str).str.strip().eq("Negative")].copy()
-    return df.copy()
-
-
-def _copilot_make_country_profile(country, df):
-    if df is None or df.empty or "alert-country" not in df.columns:
-        return "No country records are available under the current filters."
-    if not country:
-        top = df["alert-country"].dropna().astype(str).str.strip().value_counts()
-        country = top.index[0] if not top.empty else None
-    if not country:
-        return "No country could be selected from the current filtered data."
-    cdf = df[df["alert-country"].astype(str).str.strip().str.lower() == str(country).strip().lower()].copy()
-    if cdf.empty:
-        return f"No records found for {country} under the current filters."
-    total = len(cdf)
-    neg = int((cdf.get("alert-impact", pd.Series(dtype=str)).astype(str) == "Negative").sum()) if "alert-impact" in cdf.columns else 0
-    pos = int((cdf.get("alert-impact", pd.Series(dtype=str)).astype(str) == "Positive").sum()) if "alert-impact" in cdf.columns else 0
-    ctx = int((cdf.get("alert-impact", pd.Series(dtype=str)).astype(str) == "Context to watch").sum()) if "alert-impact" in cdf.columns else 0
-    neg_pct = round((neg / total) * 100, 1) if total else 0
-    lines = [f"Country profile: {country}", "", f"- Total alerts: {total:,}", f"- Negative alerts: {neg:,} ({neg_pct}%)", f"- Positive alerts: {pos:,}", f"- Context to watch: {ctx:,}"]
-    if "alert-type" in cdf.columns:
-        lines.append("\nTop alert types:\n" + _format_ranked(cdf["alert-type"].dropna().astype(str).str.strip().value_counts().head(5).to_dict()))
-    if "Mechanism of repression" in cdf.columns:
-        mech = _ai_clean_count_df(cdf, "Mechanism of repression", top_n=5)
-        if not mech.empty:
-            lines.append("\nTop restrictive mechanisms:\n" + "\n".join([f"{i+1}. {r['Mechanism of repression']} — {int(r['count'])}" for i, r in mech.iterrows()]))
-    lines.append("\nInterpretation note: country counts should be read alongside monitoring coverage and reporting intensity.")
-    return "\n".join(lines)
-
-
-def _copilot_route_answer(question, df, context_label="Current dashboard", selected_country=None):
-    """Unified command router: one chat box handles insights, plots, chart explanation, country profile, map intelligence, and exports."""
-    q = str(question or "").strip()
-    q_lower = q.lower()
-    working_df = _copilot_context_df(df, context_label)
-
-    # Country profile / country-specific explanations
-    if context_label == "Selected country" or any(k in q_lower for k in ["country profile", "profile", "why is", "high risk"]):
-        country = selected_country
-        if not country and "alert-country" in working_df.columns:
-            candidates = working_df["alert-country"].dropna().astype(str).str.strip().unique().tolist()
-            for c in candidates:
-                if c and c.lower() in q_lower:
-                    country = c
-                    break
-        if country or "country" in q_lower or "profile" in q_lower or "why is" in q_lower:
-            return _copilot_make_country_profile(country, working_df)
-
-    # Plot generation
-    plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw", "figure"]
-    if any(w in q_lower for w in plot_words):
-        dim, ctype = _ai_plot_intent_to_dimension(q_lower, working_df)
-        if dim:
-            st.session_state.ai_last_plot = {
-                "dimension_col": dim,
-                "chart_type": ctype,
-                "top_n": 10,
-                "title": f"Copilot plot: {dim}"
-            }
-            return f"I generated a {ctype.lower()} plot for `{dim}` using the `{context_label}` context. The chart is shown below the chat and can be adjusted from the plot controls."
-        return "I could not find a suitable field for plotting under the current filters."
-
-    # Map intelligence
-    if context_label == "Map intelligence" or any(k in q_lower for k in ["map", "risk", "priority countries", "hotspot", "hotspots"]):
-        s = summarize_for_ai(working_df)
-        top_neg = _format_ranked(s.get("top_negative_countries", {}))
-        return (
-            "Map intelligence summary\n\n"
-            f"The current view includes {s['total_alerts']:,} alerts across {s['countries_count']:,} countries. "
-            f"Negative alerts represent {s['negative_pct']}% of records.\n\n"
-            f"Priority countries by negative alerts:\n{top_neg}\n\n"
-            "Use the country selector or map layer to inspect whether high values reflect risk concentration, reporting intensity, or both."
-        )
-
-    # Chart explanation
-    if any(k in q_lower for k in ["explain chart", "explain this chart", "interpret chart", "what does this chart mean"]):
-        return _local_ai_response_core("interpret the current view", working_df)
-
-    # Data quality / recommendations / reports
-    if any(k in q_lower for k in ["data quality", "missing", "completeness"]):
-        return ai_data_quality_report(working_df)
-    if any(k in q_lower for k in ["next step", "recommend", "action"]):
-        return ai_recommended_next_steps(working_df)
-    if any(k in q_lower for k in ["policy brief", "briefing note", "generate a brief", "export summary"]):
-        return generate_ai_policy_brief(working_df)
-    if any(k in q_lower for k in ["auto insight", "insights", "summary", "summarise", "summarize", "overview"]):
-        return generate_ai_executive_summary(working_df)
-
-    return _local_ai_response_core(q, working_df)
-
-
-def _save_ai_answer(question, df):
-    """Unified Copilot answer saver with routing and EUSEE redirect."""
-    q = str(question or "").strip()
-    if not q:
-        return
-    context_label = st.session_state.get("ai_context_selector", "Current dashboard")
-    selected_country = st.session_state.get("ai_selected_country", None)
-    working_df = _copilot_context_df(df, context_label)
-    st.session_state.ai_messages.append({"role": "user", "content": q})
-    answer = _copilot_route_answer(q, working_df, context_label=context_label, selected_country=selected_country)
-    st.session_state.ai_pending_answer = append_eusee_redirect(answer)
-    st.session_state.ai_streaming = True
-
-
 def render_ai_assistant_panel(df):
-    """Unified right-side AI Copilot: one interface for chat, plots, explanations, insights, country profiles, map intelligence, and exports."""
+    """Professional sidebar AI cockpit. It does not interfere with dashboard layout."""
     if "ai_messages" not in st.session_state:
-        st.session_state.ai_messages = [
-            {"role": "assistant", "content": "Hello. I am your unified EU SEE Copilot. Ask anything: insights, plots, country profiles, map risk, chart explanation, or report summaries."}
-        ]
+        st.session_state.ai_messages = [{"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me for insights or type: plot top countries, chart alert impacts, or graph mechanisms."}]
     if "ai_streaming" not in st.session_state:
         st.session_state.ai_streaming = False
     if "ai_pending_answer" not in st.session_state:
         st.session_state.ai_pending_answer = ""
     if "ai_last_plot" not in st.session_state:
         st.session_state.ai_last_plot = None
-    if "ai_right_sidebar_open" not in st.session_state:
-        st.session_state.ai_right_sidebar_open = True
-    if "ai_context_selector" not in st.session_state:
-        st.session_state.ai_context_selector = "Current dashboard"
 
     s = summarize_for_ai(df)
-    try:
-        level, level_color, level_note = ai_priority_signal(s)
-    except Exception:
-        level, level_color, level_note = "Unknown", "#6b7280", "Priority signal unavailable."
+    level, level_color, level_note = ai_priority_signal(s)
 
-    st.markdown("""
+    st.sidebar.markdown("""
     <style>
-    .st-key-eusee_ai_right_sidebar {
-        position: fixed !important; top: 78px !important; right: 18px !important;
-        width: 410px !important; max-width: calc(100vw - 36px) !important;
-        max-height: calc(100vh - 96px) !important; overflow-y: auto !important; overflow-x: hidden !important;
-        z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
-        border-radius: 22px !important; box-shadow: 0 24px 65px rgba(45,0,85,.22) !important;
-        padding: 12px 12px 14px 12px !important;
-    }
-    .st-key-eusee_ai_right_sidebar_collapsed {
-        position: fixed !important; top: 96px !important; right: 16px !important; width: 104px !important;
-        z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
-        border-radius: 18px !important; box-shadow: 0 18px 45px rgba(45,0,85,.20) !important; padding: 10px !important;
-    }
-    .eusee-ai-brand{background:linear-gradient(135deg,#2d0055,#660094 58%,#008CAA);color:white;padding:14px;border-radius:17px;margin-bottom:10px;}
-    .eusee-ai-brand-title{font-size:18px;font-weight:900;line-height:1.15;}
-    .eusee-ai-brand-sub{font-size:11px;opacity:.92;margin-top:4px;line-height:1.35;}
+    section[data-testid="stSidebar"] {background: linear-gradient(180deg,#ffffff 0%,#fbf8ff 100%);}
+    .eusee-ai-shell{border:1px solid #eadff5;border-radius:18px;padding:14px;background:#fff;box-shadow:0 12px 30px rgba(45,0,85,.10);margin:12px 0 18px 0;}
+    .eusee-ai-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:16px;margin-bottom:12px;}
+    .eusee-ai-brand-title{font-size:17px;font-weight:900;line-height:1.15;}
+    .eusee-ai-brand-sub{font-size:11px;opacity:.88;margin-top:4px;}
     .eusee-ai-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
     .eusee-ai-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;}
     .eusee-ai-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
@@ -2762,40 +2738,18 @@ def render_ai_assistant_panel(df):
     .eusee-ai-user{background:#2d0055;color:white;padding:10px;border-radius:12px;margin:8px 0;font-size:12px;line-height:1.45;}
     .eusee-ai-note{font-size:11px;color:#555;background:#fff9dc;border-left:4px solid #FFDB58;padding:8px;border-radius:10px;margin-top:8px;}
     .eusee-ai-section-title{font-size:12px;color:#2d0055;font-weight:900;margin:8px 0 4px 0;}
-    .eusee-ai-small{font-size:11px;color:#666;line-height:1.35;}
-    .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button{border-radius:999px!important;font-weight:800!important;min-height:34px!important;}
-    .st-key-eusee_ai_right_sidebar textarea{font-size:13px!important;}
-    @media (max-width: 1100px){.st-key-eusee_ai_right_sidebar{width:370px!important;right:10px!important;top:70px!important;}}
-    @media (max-width: 760px){.st-key-eusee_ai_right_sidebar{left:10px!important;right:10px!important;width:auto!important;top:68px!important;max-height:calc(100vh - 85px)!important;}.st-key-eusee_ai_right_sidebar_collapsed{right:10px!important;top:80px!important;}}
+    div[data-testid="stSidebar"] div[data-testid="stTabs"] button{font-size:11px!important;font-weight:800!important;padding:7px 2px!important;}
     </style>
     """, unsafe_allow_html=True)
 
-    if not st.session_state.ai_right_sidebar_open:
-        with st.container(key="eusee_ai_right_sidebar_collapsed"):
-            st.markdown("<div style='text-align:center;font-weight:900;color:#2d0055;font-size:13px;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
-            if st.button("Open", key="ai_right_open_btn", use_container_width=True):
-                st.session_state.ai_right_sidebar_open = True
-                st.rerun()
-        return
-
-    with st.container(key="eusee_ai_right_sidebar"):
-        top_l, top_r = st.columns([0.76, 0.24], vertical_alignment="center")
-        with top_l:
-            st.markdown("""
-            <div class="eusee-ai-brand">
-                <div class="eusee-ai-brand-title">🤖 EU SEE Copilot</div>
-                <div class="eusee-ai-brand-sub">One assistant for chat, plots, explanations, map intelligence, country profiles, and reports.</div>
-                <div class="eusee-ai-chip-row">
-                    <span class="eusee-ai-chip">Ask anything</span><span class="eusee-ai-chip">Plot</span><span class="eusee-ai-chip">Explain</span><span class="eusee-ai-chip">Profile</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with top_r:
-            if st.button("Collapse", key="ai_right_collapse_btn", use_container_width=True):
-                st.session_state.ai_right_sidebar_open = False
-                st.rerun()
-
+    with st.sidebar:
+        st.markdown('<div class="eusee-ai-shell">', unsafe_allow_html=True)
         st.markdown(f"""
+        <div class="eusee-ai-brand">
+            <div class="eusee-ai-brand-title">🤖 EU SEE AI Copilot</div>
+            <div class="eusee-ai-brand-sub">Professional assistant linked to current dashboard filters</div>
+            <div class="eusee-ai-chip-row"><span class="eusee-ai-chip">Chat</span><span class="eusee-ai-chip">Insights</span><span class="eusee-ai-chip">Plots</span><span class="eusee-ai-chip">Export</span></div>
+        </div>
         <div class="eusee-ai-metric-grid">
             <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Alerts</div><div class="eusee-ai-metric-value">{s['total_alerts']:,}</div></div>
             <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Negative</div><div class="eusee-ai-metric-value">{s['negative_pct']}%</div></div>
@@ -2803,81 +2757,87 @@ def render_ai_assistant_panel(df):
             <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Priority</div><div class="eusee-ai-metric-value" style="color:{level_color};">{level}</div></div>
         </div>
         """, unsafe_allow_html=True)
-        st.caption(level_note)
 
-        context_options = ["Current dashboard", "Selected country", "Map intelligence", "Negative alerts"]
-        st.selectbox("Copilot context", context_options, key="ai_context_selector", help="Choose the analytical context the Copilot should use.")
-        if st.session_state.ai_context_selector == "Selected country" and df is not None and not df.empty and "alert-country" in df.columns:
-            country_options = sorted(df["alert-country"].dropna().astype(str).str.strip().unique().tolist())
-            st.selectbox("Selected country", country_options, key="ai_selected_country")
+        chat_tab, plot_tab, insight_tab, export_tab = st.tabs(["Chat", "Plot", "Insights", "Export"])
 
-        qa = st.columns(3)
-        quick_actions = [
-            ("Insights", "Generate auto insights for the current context."),
-            ("Explain", "Explain this chart or current dashboard view."),
-            ("Plot", "Plot top countries."),
-            ("Country", "Generate a country profile."),
-            ("Map", "Explain map intelligence and priority countries."),
-            ("Brief", "Generate a policy brief.")
-        ]
-        for i, (label, prompt) in enumerate(quick_actions):
-            with qa[i % 3]:
-                if st.button(label, key=f"ai_unified_quick_{label}", use_container_width=True):
-                    _save_ai_answer(prompt, df)
+        with chat_tab:
+            st.caption("Ask questions, or request a chart: `plot top countries`, `chart alert impacts`, `graph mechanisms`.")
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Summarise", key="ai_v5_q_summary", use_container_width=True):
+                    _save_ai_answer("summarise the current view", df); st.rerun()
+                if st.button("Top countries", key="ai_v5_q_countries", use_container_width=True):
+                    _save_ai_answer("plot top countries", df); st.rerun()
+            with c2:
+                if st.button("Impacts chart", key="ai_v5_q_impacts", use_container_width=True):
+                    _save_ai_answer("chart alert impact", df); st.rerun()
+                if st.button("Mechanisms", key="ai_v5_q_mechanisms", use_container_width=True):
+                    _save_ai_answer("plot mechanisms", df); st.rerun()
+            if st.button("Clear chat", key="ai_v5_clear", use_container_width=True):
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the filtered EU SEE data or request a plot."}]
+                st.session_state.ai_last_plot = None; st.rerun()
+
+            with st.container(height=330):
+                for msg in st.session_state.ai_messages[-8:]:
+                    css = "eusee-ai-user" if msg["role"] == "user" else "eusee-ai-msg"
+                    st.markdown(f'<div class="{css}">{_render_chat_content_html(msg["content"])}</div>', unsafe_allow_html=True)
+                if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
+                    st.markdown('<div class="eusee-ai-msg">▌ AI is preparing a response...</div>', unsafe_allow_html=True)
+                    st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
+                    st.session_state.ai_pending_answer = ""; st.session_state.ai_streaming = False; st.rerun()
+
+            with st.form("ai_v5_chat_form", clear_on_submit=True):
+                user_q = st.text_area("Message", placeholder="Example: Plot top 10 countries by negative alerts", height=70, label_visibility="collapsed")
+                submitted = st.form_submit_button("Send", use_container_width=True)
+            if submitted and user_q.strip():
+                _save_ai_answer(user_q, df); st.rerun()
+
+        with plot_tab:
+            st.markdown('<div class="eusee-ai-section-title">Create additional plots from chatbot data</div>', unsafe_allow_html=True)
+            dims = _ai_get_available_plot_dimensions(df)
+            dim_labels = [d[0] for d in dims]
+            dim_map = {label: col for label, col in dims}
+            if dim_labels:
+                selected_label = st.selectbox("Dimension", dim_labels, index=0)
+                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=0)
+                top_n = st.slider("Top N", 3, 30, 10)
+                selected_col = dim_map[selected_label]
+                fig = _ai_make_plot(df, selected_col, chart_type=chart_type, top_n=top_n, title=f"{selected_label} distribution")
+                st.plotly_chart(fig, use_container_width=True, key="ai_v5_plot_builder")
+                plot_df = _ai_clean_count_df(df, selected_col, top_n=top_n)
+                st.download_button("Download plot data (.csv)", data=plot_df.to_csv(index=False).encode("utf-8"), file_name="eusee_ai_plot_data.csv", mime="text/csv", use_container_width=True)
+                if st.button("Insert this plot into chat", key="ai_v5_insert_plot", use_container_width=True):
+                    st.session_state.ai_last_plot = {"dimension_col": selected_col, "chart_type": chart_type, "top_n": top_n, "title": f"{selected_label} distribution"}
+                    st.session_state.ai_messages.append({"role": "assistant", "content": f"📊 Added a {chart_type.lower()} plot for **{selected_label}** using the current filters."})
                     st.rerun()
+            else:
+                st.info("No suitable fields are available for plotting under the current filters.")
+            if isinstance(st.session_state.ai_last_plot, dict):
+                st.markdown('<div class="eusee-ai-section-title">Last chatbot-generated plot</div>', unsafe_allow_html=True)
+                lp = st.session_state.ai_last_plot
+                st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="ai_v5_last_plot")
 
-        if st.button("Clear conversation", key="ai_unified_clear", use_container_width=True):
-            st.session_state.ai_messages = [{"role": "assistant", "content": "Conversation cleared. Ask me anything about the current EU SEE dashboard context."}]
-            st.session_state.ai_last_plot = None
-            st.session_state.ai_pending_answer = ""
-            st.session_state.ai_streaming = False
-            st.rerun()
+        with insight_tab:
+            st.markdown(f"**Priority signal:** :violet[{level}]  ")
+            st.caption(level_note)
+            st.markdown('<div class="eusee-ai-note">Use Plot to generate extra visuals without changing the main dashboard layout.</div>', unsafe_allow_html=True)
+            with st.expander("Mini trend chart", expanded=True):
+                render_ai_trend_chart(df)
+            with st.expander("Interpret current view", expanded=False):
+                st.markdown(_render_chat_content_html(local_ai_response("interpret the current view", df)), unsafe_allow_html=True)
+            with st.expander("Data quality report", expanded=False):
+                st.text(ai_data_quality_report(df))
 
-        with st.container(height=320):
-            for msg in st.session_state.ai_messages[-10:]:
-                css = "eusee-ai-user" if msg["role"] == "user" else "eusee-ai-msg"
-                st.markdown(f'<div class="{css}">{_render_chat_content_html(msg["content"])}</div>', unsafe_allow_html=True)
-            if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
-                st.markdown('<div class="eusee-ai-msg">▌ AI is preparing a response...</div>', unsafe_allow_html=True)
-                st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
-                st.session_state.ai_pending_answer = ""
-                st.session_state.ai_streaming = False
-                st.rerun()
-
-        with st.form("ai_unified_chat_form", clear_on_submit=True):
-            user_q = st.text_area("Ask anything", placeholder="Example: Plot mechanisms, explain map risk, generate Kenya profile, summarize negative alerts", height=72, label_visibility="collapsed")
-            submitted = st.form_submit_button("Send", use_container_width=True)
-        if submitted and user_q.strip():
-            _save_ai_answer(user_q, df)
-            st.rerun()
-
-        if isinstance(st.session_state.ai_last_plot, dict):
-            st.markdown('<div class="eusee-ai-section-title">Copilot-generated plot</div>', unsafe_allow_html=True)
-            lp = st.session_state.ai_last_plot
-            dims = _ai_get_available_plot_dimensions(_copilot_context_df(df, st.session_state.get("ai_context_selector", "Current dashboard")))
-            dim_lookup = {col: label for label, col in dims}
-            current_col = lp.get("dimension_col")
-            if current_col in [c for _, c in dims]:
-                labels = [d[0] for d in dims]
-                cols = {label: col for label, col in dims}
-                default_label = dim_lookup.get(current_col, labels[0])
-                selected_label = st.selectbox("Plot dimension", labels, index=labels.index(default_label), key="ai_unified_plot_dim")
-                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=["Horizontal bar", "Bar", "Donut", "Treemap"].index(lp.get("chart_type", "Horizontal bar")) if lp.get("chart_type", "Horizontal bar") in ["Horizontal bar", "Bar", "Donut", "Treemap"] else 0, key="ai_unified_plot_type")
-                top_n = st.slider("Top N", 3, 30, int(lp.get("top_n", 10)), key="ai_unified_plot_topn")
-                plot_df = _copilot_context_df(df, st.session_state.get("ai_context_selector", "Current dashboard"))
-                fig = _ai_make_plot(plot_df, cols[selected_label], chart_type=chart_type, top_n=top_n, title=f"Copilot plot: {selected_label}")
-                st.plotly_chart(fig, use_container_width=True, key="ai_unified_dynamic_plot")
-                csv_df = _ai_clean_count_df(plot_df, cols[selected_label], top_n=top_n)
-                st.download_button("Download plot data", data=csv_df.to_csv(index=False).encode("utf-8"), file_name="eusee_copilot_plot_data.csv", mime="text/csv", use_container_width=True, key="ai_unified_plot_download")
-
-        with st.expander("One-click downloads", expanded=False):
-            working_df = _copilot_context_df(df, st.session_state.get("ai_context_selector", "Current dashboard"))
-            summary_text = generate_ai_executive_summary(working_df)
-            policy_text = generate_ai_policy_brief(working_df)
+        with export_tab:
+            summary_text = generate_ai_executive_summary(df)
+            policy_text = generate_ai_policy_brief(df)
             chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
-            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_copilot_executive_summary.txt", mime="text/plain", use_container_width=True, key="ai_unified_exec_summary")
-            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_copilot_policy_brief.txt", mime="text/plain", use_container_width=True, key="ai_unified_policy_brief")
-            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_copilot_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_unified_chat_transcript")
+            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True)
+            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True)
+            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True)
+            if df is not None and not df.empty:
+                st.download_button("Filtered data (.csv)", data=df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_dashboard_data.csv", mime="text/csv", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 render_ai_assistant_panel(filtered_global)
 
