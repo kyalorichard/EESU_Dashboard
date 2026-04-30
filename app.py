@@ -2687,65 +2687,286 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
-    #st.subheader("Overview Metrics")
     render_summary_cards(filtered_global, card_key="overview_summary")
-    a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-    df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-    a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(20)
-    r1c1,r1c2 = st.columns(2)
-    r2c1,r2c2 = st.columns(2)
 
+    st.markdown("""
+    <style>
+    .overview-panel-shell {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid #E6E8EF;
+        border-radius: 20px;
+        padding: 16px 16px 10px 16px;
+        margin: 10px 0 16px 0;
+        box-shadow: 0 12px 28px rgba(16,24,40,.07);
+        font-family: Arial, sans-serif;
+    }
+    .overview-panel-header {
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:14px;
+        margin-bottom: 10px;
+    }
+    .overview-eyebrow {
+        color:#660094;
+        font-size:10px;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.13em;
+        margin-bottom:4px;
+    }
+    .overview-title {
+        color:#23152F;
+        font-size:17px;
+        font-weight:950;
+        line-height:1.15;
+    }
+    .overview-subtitle {
+        color:#667085;
+        font-size:11.5px;
+        line-height:1.45;
+        margin-top:4px;
+        max-width:900px;
+    }
+    .overview-badge-row { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
+    .overview-badge {
+        background:#F4EAF8;
+        color:#660094;
+        border:1px solid #E7D4F1;
+        border-radius:999px;
+        padding:6px 10px;
+        font-size:10.5px;
+        font-weight:900;
+        white-space:nowrap;
+    }
+    .overview-chart-card {
+        background:#FFFFFF;
+        border:1px solid #E6E8EF;
+        border-radius:18px;
+        padding:10px 10px 4px 10px;
+        margin-bottom: 14px;
+        box-shadow:0 8px 22px rgba(16,24,40,.055);
+    }
+    .overview-card-note {
+        font-size:10.5px;
+        color:#667085;
+        line-height:1.35;
+        margin: -2px 4px 8px 4px;
+    }
+    .overview-insight-box {
+        background:#FFFCED;
+        border:1px solid #F8E9A1;
+        border-radius:15px;
+        padding:10px 12px;
+        margin: 4px 0 12px 0;
+        color:#344054;
+        font-size:11.5px;
+        line-height:1.45;
+    }
+    @media (max-width: 900px) { .overview-panel-header { flex-direction:column; } .overview-badge-row { justify-content:flex-start; } }
+    </style>
+    """, unsafe_allow_html=True)
 
-    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
+    total_records = len(filtered_global)
+    total_countries = filtered_global['alert-country'].nunique() if not filtered_global.empty and 'alert-country' in filtered_global.columns else 0
+    total_regions = filtered_global['region'].nunique() if not filtered_global.empty and 'region' in filtered_global.columns else 0
+    neg_share = round(((filtered_global['alert-impact'] == 'Negative').sum() / total_records) * 100, 1) if total_records and 'alert-impact' in filtered_global.columns else 0
 
-    fig12 = create_h_stacked_bar(
-        a2,
-        y="enabling-principle",
-        x="count",
-        color_col="alert-impact",
-        title="Alert distribution across enabling principles", 
-        horizontal=True,
-        normalize_labels=False
-    )
+    st.markdown(f"""
+    <div class="overview-panel-shell">
+        <div class="overview-panel-header">
+            <div>
+                <div class="overview-eyebrow">Overview analytics</div>
+                <div class="overview-title">Executive view of alert patterns and civic-space signals</div>
+                <div class="overview-subtitle">This panel combines distribution, composition, geographic concentration, and temporal views from the active filters. Chart contents remain based on the same alert, principle, region, and country dimensions.</div>
+            </div>
+            <div class="overview-badge-row">
+                <div class="overview-badge">{total_records:,} filtered records</div>
+                <div class="overview-badge">{total_countries:,} countries</div>
+                <div class="overview-badge">{neg_share}% negative</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # Add "?" tooltip icon immediately after title
-    fig12.add_annotation(
-        xref='paper', yref='paper',
-        x=0.42,  # adjust so it sits right after the title
-        y=1.05,
-        text="❔",  # unicode "?" inside a circle
-        showarrow=False,
-        font=dict(color="white", size=10, family="Arial", weight="bold"),
-        align="center",
-        bordercolor="black",
-        borderwidth=0.8,
-        borderpad=3,
-        bgcolor="#660094",
-        opacity=0.9,
-        hovertext=(
-            "Alerts may be classified under more than one enabling principle "
-            "<br>and can therefore be counted in multiple principles."
-        ),
-        hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
-    )
+    def _empty_overview_fig(message="No data available"):
+        fig = go.Figure()
+        fig.add_annotation(text=message, x=0.5, y=0.5, showarrow=False, font=dict(size=13, color="#667085", family="Arial"))
+        fig.update_layout(height=300, margin=dict(l=10, r=10, t=30, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        return fig
 
-    # Add source line if needed
-    fig12 = add_source_line(fig12)
+    def _overview_layout(fig, title, height=330, legend=True):
+        fig.update_layout(
+            title=dict(text=title, x=0.02, xanchor="left", font=dict(size=13, family="Arial Black", color="#2D0055")),
+            height=height,
+            margin=dict(l=10, r=10, t=48, b=35),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Arial", size=11, color="#222"),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.24, xanchor="center", x=0.5, font=dict(size=10)),
+            showlegend=legend,
+        )
+        return fig
 
-    # Render chart in Streamlit
-    r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
-  
-    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
+    def _impact_color(value):
+        return {"Negative": "#FFDB58", "Positive": "#660094", "Context to watch": "#008CAA", "Postive": "#660094"}.get(str(value), "#98A2B3")
 
-    #if is_privileged():
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
+    def make_impact_donut(df):
+        if df.empty or 'alert-impact' not in df.columns:
+            return _empty_overview_fig()
+        impact_df = df['alert-impact'].dropna().astype(str).value_counts().reset_index()
+        impact_df.columns = ['Impact', 'Count']
+        fig = go.Figure(go.Pie(
+            labels=impact_df['Impact'],
+            values=impact_df['Count'],
+            hole=0.62,
+            sort=False,
+            marker=dict(colors=[_impact_color(x) for x in impact_df['Impact']], line=dict(color="#FFFFFF", width=2)),
+            textinfo="percent",
+            textfont=dict(size=12, color="#111827", family="Arial Black"),
+            hovertemplate="<b>%{label}</b><br>Alerts: %{value:,}<br>Share: %{percent}<extra></extra>",
+        ))
+        fig.add_annotation(text=f"{int(impact_df['Count'].sum()):,}<br><span style='font-size:10px;color:#667085'>alerts</span>", x=0.5, y=0.5, showarrow=False, font=dict(size=18, family="Arial Black", color="#2D0055"))
+        return _overview_layout(fig, "Alert impact composition", height=320, legend=True)
 
-    
+    def make_monthly_trend(df):
+        if df.empty or 'creation_date' not in df.columns or 'alert-impact' not in df.columns:
+            return _empty_overview_fig("No date field available")
+        tmp = df.copy()
+        tmp['creation_date'] = pd.to_datetime(tmp['creation_date'], errors='coerce')
+        tmp = tmp.dropna(subset=['creation_date'])
+        if tmp.empty:
+            return _empty_overview_fig("No valid dates available")
+        tmp['month'] = tmp['creation_date'].dt.to_period('M').dt.to_timestamp()
+        trend = tmp.groupby(['month', 'alert-impact']).size().reset_index(name='count').sort_values('month')
+        fig = px.area(
+            trend,
+            x='month',
+            y='count',
+            color='alert-impact',
+            markers=True,
+            color_discrete_map={"Negative": "#FFDB58", "Positive": "#660094", "Context to watch": "#008CAA", "Postive": "#660094"},
+        )
+        fig.update_traces(line=dict(width=2), hovertemplate="<b>%{x|%b %Y}</b><br>Alerts: %{y:,}<extra></extra>")
+        fig.update_xaxes(title=None, showgrid=False, tickfont=dict(size=10, color="#667085"))
+        fig.update_yaxes(title=None, showgrid=True, gridcolor="#EEF0F4", tickfont=dict(size=10, color="#667085"))
+        return _overview_layout(fig, "Monthly alert trend", height=320, legend=True)
+
+    def make_country_treemap(df, top_n=20):
+        if df.empty or 'alert-country' not in df.columns or 'alert-impact' not in df.columns:
+            return _empty_overview_fig()
+        country_df = df.groupby(['alert-country', 'alert-impact']).size().reset_index(name='count')
+        top_countries = country_df.groupby('alert-country')['count'].sum().sort_values(ascending=False).head(top_n).index
+        country_df = country_df[country_df['alert-country'].isin(top_countries)].copy()
+        if country_df.empty:
+            return _empty_overview_fig()
+        fig = px.treemap(
+            country_df,
+            path=['alert-impact', 'alert-country'],
+            values='count',
+            color='alert-impact',
+            color_discrete_map={"Negative": "#FFDB58", "Positive": "#660094", "Context to watch": "#008CAA", "Postive": "#660094"},
+        )
+        fig.update_traces(
+            texttemplate="<b>%{label}</b><br>%{value:,}",
+            textfont=dict(size=11, family="Arial"),
+            marker=dict(line=dict(color="#FFFFFF", width=1.5)),
+            hovertemplate="<b>%{label}</b><br>Alerts: %{value:,}<extra></extra>",
+        )
+        return _overview_layout(fig, "Top country concentration by alert impact", height=370, legend=False)
+
+    def make_region_lollipop(df):
+        if df.empty or 'region' not in df.columns:
+            return _empty_overview_fig()
+        region_df = df.groupby('region').size().reset_index(name='count').sort_values('count', ascending=True)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=region_df['count'],
+            y=region_df['region'],
+            mode='lines',
+            line=dict(color="#D0D5DD", width=7),
+            hoverinfo='skip',
+            showlegend=False,
+        ))
+        fig.add_trace(go.Scatter(
+            x=region_df['count'],
+            y=region_df['region'],
+            mode='markers+text',
+            marker=dict(size=16, color="#008CAA", line=dict(color="#FFFFFF", width=2)),
+            text=region_df['count'],
+            textposition='middle right',
+            textfont=dict(size=11, color="#2D0055", family="Arial Black"),
+            hovertemplate="<b>%{y}</b><br>Alerts: %{x:,}<extra></extra>",
+            showlegend=False,
+        ))
+        fig.update_xaxes(title=None, showgrid=True, gridcolor="#EEF0F4", tickfont=dict(size=10, color="#667085"))
+        fig.update_yaxes(title=None, showgrid=False, tickfont=dict(size=11, color="#344054"))
+        return _overview_layout(fig, "Regional alert volume ranking", height=320, legend=False)
+
+    if filtered_global.empty:
+        st.info("No records are available for the current filter selection.")
+    else:
+        a1 = filtered_global.groupby(["alert-type", "alert-impact"]).size().reset_index(name='count')
+        df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
+        df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+        df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"], categories=ENABLING_PRINCIPLE_ORDER, ordered=True)
+        a2 = df_clean.groupby(["enabling-principle", "alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle", ascending=False)
+
+        st.markdown("""
+        <div class="overview-insight-box">
+            <b>How to read this overview:</b> start with the impact donut and monthly trend for overall signal, then use the bar charts to diagnose alert type and enabling-principle patterns, and finally inspect the treemap/lollipop views for geographic concentration.
+        </div>
+        """, unsafe_allow_html=True)
+
+        r0c1, r0c2 = st.columns([1, 1.35])
+        with r0c1:
+            st.markdown('<div class="overview-chart-card"><div class="overview-card-note">Composition view: quickly compare negative, positive, and context-to-watch alerts.</div>', unsafe_allow_html=True)
+            st.plotly_chart(make_impact_donut(filtered_global), use_container_width=True, key="overview_impact_donut")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with r0c2:
+            st.markdown('<div class="overview-chart-card"><div class="overview-card-note">Temporal view: identify whether alert patterns are rising, falling, or concentrated in specific months.</div>', unsafe_allow_html=True)
+            st.plotly_chart(make_monthly_trend(filtered_global), use_container_width=True, key="overview_monthly_area")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        r1c1, r1c2 = st.columns(2)
+        with r1c1:
+            st.markdown('<div class="overview-chart-card"><div class="overview-card-note">Distribution view: alert types broken down by impact category.</div>', unsafe_allow_html=True)
+            fig_alert_type = create_h_stacked_bar(a1, y="alert-type", x="count", color_col="alert-impact", title="Alert type distribution", horizontal=True, normalize_labels=True)
+            st.plotly_chart(fig_alert_type, use_container_width=True, key="tab1_chart1")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with r1c2:
+            st.markdown('<div class="overview-chart-card"><div class="overview-card-note">Principle view: alerts may be classified under more than one enabling principle.</div>', unsafe_allow_html=True)
+            fig12 = create_h_stacked_bar(
+                a2,
+                y="enabling-principle",
+                x="count",
+                color_col="alert-impact",
+                title="Alert distribution across enabling principles",
+                horizontal=True,
+                normalize_labels=False,
+            )
+            fig12.add_annotation(
+                xref='paper', yref='paper', x=0.42, y=1.05, text="❔", showarrow=False,
+                font=dict(color="white", size=10, family="Arial"), align="center", bordercolor="black", borderwidth=0.8,
+                borderpad=3, bgcolor="#660094", opacity=0.9,
+                hovertext="Alerts may be classified under more than one enabling principle <br>and can therefore be counted in multiple principles.",
+                hoverlabel=dict(bgcolor="black", font_color="white", font_size=12),
+            )
+            fig12 = add_source_line(fig12)
+            st.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        r2c1, r2c2 = st.columns([0.9, 1.35])
+        with r2c1:
+            st.markdown('<div class="overview-chart-card"><div class="overview-card-note">Ranking view: compare aggregate alert volume across regions.</div>', unsafe_allow_html=True)
+            st.plotly_chart(make_region_lollipop(filtered_global), use_container_width=True, key="overview_region_lollipop")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with r2c2:
+            st.markdown('<div class="overview-chart-card"><div class="overview-card-note">Concentration view: identify which countries dominate the filtered alert landscape.</div>', unsafe_allow_html=True)
+            st.plotly_chart(make_country_treemap(filtered_global, top_n=20), use_container_width=True, key="overview_country_treemap")
+            st.markdown('</div>', unsafe_allow_html=True)
+
     cols_rename_map  = {
         "post_title": "Title of post",
         "summary": "Event summary",
@@ -2755,19 +2976,14 @@ with tab_overview:
         "alert-impact": "Impact of alert",
         "alert-type": "Type of alert"
     }
-        # keep only existing columns, then rename
     filtered_global_prev = (
         filtered_global
         .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
         .rename(columns=cols_rename_map)
     )
-   
-        # ---------------- Tab two data preview ------------------
 
     render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
-    #else:
-        #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
-        
+
 # ---------------- Negative Events ----------------
 with tab_negative:
     #st.subheader("Negative Alerts")
