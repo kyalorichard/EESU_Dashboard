@@ -505,7 +505,7 @@ def auth_ui():
 
     # Keep the login as a modal when Streamlit supports dialogs; otherwise use a centered fallback.
     if hasattr(st, "dialog"):
-        @st.dialog("", width="large")
+        @st.dialog("Sign in to EU SEE Dashboard", width="large")
         def _login_dialog():
             _render_auth_panel()
         _login_dialog()
