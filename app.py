@@ -99,6 +99,28 @@ def inject_classic_dashboard_css():
     .data-preview-pill { background:#F4EAF8; color: var(--eusee-purple); border:1px solid #E7D4F1; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; white-space:nowrap; }
     .data-preview-footnote { font-size: 10.5px; color: var(--eusee-muted); line-height:1.4; margin-top:8px; padding: 8px 10px; background:#FFFCED; border:1px solid #F8E9A1; border-radius:11px; }
     div[data-testid="stDataFrame"] { border-radius: 14px !important; overflow: hidden !important; border: 1px solid #E6E8EF !important; box-shadow: 0 6px 16px rgba(16,24,40,.05) !important; }
+    .executive-table-shell {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid #E6E8EF;
+        border-radius: 18px;
+        padding: 14px;
+        margin: 4px 0 14px 0;
+        box-shadow: 0 10px 24px rgba(16,24,40,.06);
+        font-family: Arial, sans-serif;
+    }
+    .executive-table-header { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:12px; }
+    .executive-table-eyebrow { font-size:9.5px; font-weight:900; color:var(--eusee-purple); letter-spacing:.13em; text-transform:uppercase; margin-bottom:4px; }
+    .executive-table-title { font-size:15px; font-weight:900; color:#23152F; line-height:1.15; }
+    .executive-table-subtitle { font-size:11px; color:var(--eusee-muted); margin-top:4px; line-height:1.35; }
+    .executive-table-badge { background:#F4EAF8; color:var(--eusee-purple); border:1px solid #E7D4F1; border-radius:999px; padding:6px 10px; font-size:10px; font-weight:900; white-space:nowrap; }
+    .executive-metric-grid { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:8px; }
+    .executive-mini-kpi { background:#FFFFFF; border:1px solid #EEF0F4; border-radius:13px; padding:9px 10px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
+    .executive-mini-kpi span { display:block; font-size:10px; color:var(--eusee-muted); font-weight:800; margin-bottom:3px; }
+    .executive-mini-kpi strong { font-size:15px; color:#23152F; font-weight:900; }
+    .executive-table-status { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#F9FAFB; border:1px solid #EEF0F4; border-radius:13px; padding:9px 11px; margin:9px 0 10px 0; font-size:11px; color:#344054; font-family:Arial, sans-serif; }
+    .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
+    .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
+    @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
     </style>
     """, unsafe_allow_html=True)
 
@@ -127,30 +149,115 @@ def render_filter_status_card(df):
 
 
 def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
-    """Render a compact, professional data preview without changing table contents."""
+    """Render an executive-grade analytics table without changing the underlying records."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
+
     display_df = df.copy()
-    if "Date of submission" in display_df.columns:
-        display_df["Date of submission"] = pd.to_datetime(display_df["Date of submission"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    # Preserve content, only improve display formatting for date-like columns.
+    for date_col in ["Date of submission", "creation_date"]:
+        if date_col in display_df.columns:
+            display_df[date_col] = pd.to_datetime(display_df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
+
     n_rows, n_cols = display_df.shape
+    countries = display_df["alert-country"].nunique() if "alert-country" in display_df.columns else 0
+    impacts = display_df["alert-impact"].nunique() if "alert-impact" in display_df.columns else 0
+    years = display_df["year"].nunique() if "year" in display_df.columns else 0
+
     with st.expander(f"📋 {title}", expanded=False):
         st.markdown(f"""
-        <div class="data-preview-toolbar">
-            <div>
-                <div class="data-preview-title">Filtered records preview</div>
-                <div class="data-preview-subtitle">A structured preview of the records currently represented in the active dashboard view.</div>
+        <div class="executive-table-shell">
+            <div class="executive-table-header">
+                <div>
+                    <div class="executive-table-eyebrow">Executive analytics table</div>
+                    <div class="executive-table-title">Filtered records preview</div>
+                    <div class="executive-table-subtitle">Search, inspect, and export the records represented in the active dashboard view.</div>
+                </div>
+                <div class="executive-table-badge">Live filtered view</div>
             </div>
-            <div class="data-preview-pill-row">
-                <span class="data-preview-pill">{n_rows:,} rows</span>
-                <span class="data-preview-pill">{n_cols:,} columns</span>
+            <div class="executive-metric-grid">
+                <div class="executive-mini-kpi"><span>Rows</span><strong>{n_rows:,}</strong></div>
+                <div class="executive-mini-kpi"><span>Columns</span><strong>{n_cols:,}</strong></div>
+                <div class="executive-mini-kpi"><span>Countries</span><strong>{countries:,}</strong></div>
+                <div class="executive-mini-kpi"><span>Categories</span><strong>{impacts:,}</strong></div>
+                <div class="executive-mini-kpi"><span>Years</span><strong>{years:,}</strong></div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        st.dataframe(display_df, use_container_width=True, hide_index=True, height=min(420, max(240, 38 * min(n_rows, 8) + 72)), key=key)
+
+        control_col1, control_col2, control_col3 = st.columns([1.4, 1.1, 0.8])
+        with control_col1:
+            search_text = st.text_input(
+                "Search table",
+                value="",
+                placeholder="Search country, alert type, actor, principle...",
+                key=f"{key}_search",
+            )
+        with control_col2:
+            all_columns = list(display_df.columns)
+            selected_columns = st.multiselect(
+                "Columns",
+                options=all_columns,
+                default=all_columns,
+                key=f"{key}_columns",
+            )
+        with control_col3:
+            max_rows = st.selectbox(
+                "Rows shown",
+                options=[25, 50, 100, 250, 500, "All"],
+                index=1,
+                key=f"{key}_row_limit",
+            )
+
+        if not selected_columns:
+            selected_columns = list(display_df.columns)
+
+        table_df = display_df[selected_columns].copy()
+
+        # Executive search across visible columns only; underlying data remain unchanged.
+        if search_text.strip():
+            query = search_text.strip().lower()
+            mask = table_df.astype(str).apply(
+                lambda row: row.str.lower().str.contains(query, na=False).any(),
+                axis=1,
+            )
+            table_df = table_df.loc[mask]
+
+        filtered_rows = len(table_df)
+        if max_rows != "All":
+            table_view = table_df.head(int(max_rows)).copy()
+        else:
+            table_view = table_df.copy()
+
+        st.markdown(f"""
+        <div class="executive-table-status">
+            <div><strong>{filtered_rows:,}</strong> matching rows displayed from <strong>{n_rows:,}</strong> active records.</div>
+            <div class="executive-table-status-note">Tip: use search and column controls for quick executive review.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.dataframe(
+            table_view,
+            use_container_width=True,
+            hide_index=True,
+            height=min(520, max(260, 34 * min(len(table_view), 10) + 88)),
+            key=key,
+        )
+
+        csv = table_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Download filtered table as CSV",
+            data=csv,
+            file_name=f"{key}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key=f"{key}_download",
+        )
+
         st.markdown("""
-        <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, or event frequency.</div>
+        <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, event frequency, or a combination of these factors.</div>
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
