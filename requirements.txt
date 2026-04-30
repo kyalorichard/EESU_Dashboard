@@ -58,6 +58,7 @@ pandas
 
 pyrebase4>=4.5.0
 firebase-admin>=6.1.0
+streamlit-plotly-events
 streamlit-cookies-manager>=0.2.0
 pdf2image
 
