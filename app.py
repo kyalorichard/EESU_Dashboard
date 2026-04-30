@@ -275,6 +275,9 @@ def safe_multiselect(label, options, session_key, sidebar=True):
 # ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=400)
 
+# Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
+AI_ASSISTANT_SLOT = st.sidebar.container()
+
 # Global Filters
 st.sidebar.markdown(
     '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🌍 Global Filters</div>',
@@ -1678,23 +1681,6 @@ def _save_ai_answer(question, df):
     st.session_state.ai_is_typing = True
 
 
-
-def ai_priority_signal(summary: dict):
-    """Return dashboard priority status from summarize_for_ai() output."""
-    summary = summary or {}
-    total = summary.get("total_alerts", 0) or 0
-    negative = summary.get("negative", 0) or 0
-    neg_pct = summary.get("negative_pct", None)
-    if total == 0:
-        return "No data", "#6b7280", "No alerts are available under the current filters."
-    if neg_pct is None:
-        neg_pct = round((negative / total) * 100, 1) if total else 0
-    if neg_pct >= 70:
-        return "High priority", "#dc2626", "Negative alerts dominate the current filtered dataset and may require closer review."
-    if neg_pct >= 40:
-        return "Moderate priority", "#f59e0b", "Negative alerts are substantial under the current filters and should be interpreted with regional/contextual detail."
-    return "Low priority", "#16a34a", "Negative alerts are limited relative to the filtered records, but trends and reporting coverage should still be reviewed."
-
 def render_ai_assistant_panel(df):
     """Render a professional floating ChatGPT-style assistant."""
     st.markdown("""
@@ -2635,7 +2621,8 @@ def render_ai_assistant_panel(df):
     </style>
     """, unsafe_allow_html=True)
 
-    with st.sidebar:
+    ai_target = globals().get("AI_ASSISTANT_SLOT", st.sidebar)
+    with ai_target:
         st.markdown('<div class="eusee-ai-shell">', unsafe_allow_html=True)
         st.markdown(f"""
         <div class="eusee-ai-brand">
