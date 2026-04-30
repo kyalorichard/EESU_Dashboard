@@ -983,20 +983,14 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
 
     top_country = "Not available"
     top_country_count = 0
+    monitored_countries = 0
     if negative_df is not None and not negative_df.empty and "alert-country" in negative_df.columns:
-        country_counts = negative_df["alert-country"].dropna().astype(str).str.strip().replace("", np.nan).dropna().value_counts()
+        country_series = negative_df["alert-country"].dropna().astype(str).str.strip().replace("", np.nan).dropna()
+        monitored_countries = int(country_series.nunique()) if not country_series.empty else 0
+        country_counts = country_series.value_counts()
         if not country_counts.empty:
             top_country = str(country_counts.index[0])
             top_country_count = int(country_counts.iloc[0])
-
-    if negative_total == 0:
-        priority_label, priority_color, priority_note = "No data", "#667085", "No negative records match current filters"
-    elif negative_share >= 70:
-        priority_label, priority_color, priority_note = "High attention", "#B42318", "Negative alerts dominate the filtered view"
-    elif negative_share >= 45:
-        priority_label, priority_color, priority_note = "Moderate attention", "#B54708", "Negative alerts are substantial"
-    else:
-        priority_label, priority_color, priority_note = "Watch", "#027A48", "Continue monitoring emerging shifts"
 
     actor_pct = round((top_actor_count / negative_total) * 100, 1) if negative_total else 0
     mech_pct = round((top_mechanism_count / negative_total) * 100, 1) if negative_total else 0
@@ -1042,6 +1036,23 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     c1, c2, c3 = st.columns(3)
 
     with c1:
+        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
+        countries_size = "34px" if is_privileged() else "21px"
+        st.markdown(f"""
+        <div class="negintel-card">
+            <div>
+                <div class="negintel-top">
+                    <div><div class="negintel-eyebrow">Coverage</div><div class="negintel-title">Monitored Countries</div></div>
+                    <div class="negintel-icon">🌍</div>
+                </div>
+                <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
+                <div class="negintel-pill" style="background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);">Negative-alert scope</div>
+            </div>
+            <div class="negintel-note">Countries represented by current negative-alert filters</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
         st.markdown(f"""
         <div class="negintel-card">
             <div>
@@ -1051,26 +1062,9 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                 </div>
                 <div class="negintel-value">{negative_total:,}</div>
                 <div class="negintel-pill">{negative_share}% of filtered alerts</div>
+                <div class="negintel-compact-line"><strong>Top country:</strong> {_compact_text_for_card(top_country, 34)} <span style="color:#667085;">({top_country_count:,})</span></div>
             </div>
             <div class="negintel-note">Focused diagnostic view for restrictive events only</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(f"""
-        <div class="negintel-card">
-            <div>
-                <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Dominant pathway</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
-                    <div class="negintel-icon">⛓️</div>
-                </div>
-                <div class="negintel-row-list">
-                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label">{_compact_text_for_card(top_actor, 28)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">{_compact_text_for_card(top_mechanism, 28)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label">{_compact_text_for_card(top_subject, 28)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
-                </div>
-            </div>
-            <div class="negintel-note">Top actor, mechanism and affected group under current filters</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1079,12 +1073,14 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Priority signal</div><div class="negintel-title">Analytical Attention Level</div></div>
-                    <div class="negintel-icon">🎯</div>
+                    <div><div class="negintel-eyebrow">Dominant pathway</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
+                    <div class="negintel-icon">⛓️</div>
                 </div>
-                <div class="negintel-value" style="font-size:22px;color:{priority_color};letter-spacing:-.025em;">{priority_label}</div>
-                <div class="negintel-compact-line"><strong>Top country:</strong> {_compact_text_for_card(top_country, 34)} <span style="color:#667085;">({top_country_count:,})</span></div>
-                <div class="negintel-compact-line"><strong>Signal:</strong> {priority_note}</div>
+                <div class="negintel-row-list">
+                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label">Actor: {_compact_text_for_card(top_actor, 23)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">Mechanism: {_compact_text_for_card(top_mechanism, 19)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
+                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label">Subject: {_compact_text_for_card(top_subject, 21)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+                </div>
             </div>
             <div class="negintel-note">Use heatmaps and Sankey below to inspect the relationship structure</div>
         </div>
