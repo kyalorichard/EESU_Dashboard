@@ -452,8 +452,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     padding: 18px 18px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.08);
     margin: 5px;
-    min-height: 255px;
-    height: 255px;
+    min-height: 220px;
+    height: 220px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -464,17 +464,17 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     """
 
     icon_style = """
-    width: 50px; 
-    height: 50px; 
+    width: 42px; 
+    height: 42px; 
     border-radius: 50%; 
     background: #008CAA; 
     color: white; 
     display: flex; 
     align-items:center; 
     justify-content:center; 
-    font-size:24px; 
+    font-size:21px; 
     font-weight:bold;
-    margin-bottom:10px;
+    margin-bottom:8px;
     """
 
     # --- Monitored Countries ---
@@ -550,7 +550,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     # ---------------- Alerts Breakdown ----------------
     with col3:
-        # Standard donut chart with improved UX and consistent EUSEE branding
+        # Standard donut chart with improved UX and fully contained summary-card layout.
+        # components.html is used so the Plotly donut stays inside the card boundary.
         breakdown_labels = ["Negative", "Positive", "Context to watch"]
         breakdown_values = [negative, positive, context]
         breakdown_colors = ["#FFDB58", "#660094", "#008CAA"]
@@ -562,7 +563,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font=dict(size=18, color="#660094", family="Arial Black")
+                font=dict(size=14, color="#660094", family="Arial Black")
             )
         else:
             fig_breakdown = go.Figure(
@@ -570,16 +571,13 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                     go.Pie(
                         labels=breakdown_labels,
                         values=breakdown_values,
-                        hole=0.62,
+                        hole=0.64,
                         sort=False,
                         direction="clockwise",
-                        marker=dict(
-                            colors=breakdown_colors,
-                            line=dict(color="#FFFFFF", width=3)
-                        ),
+                        marker=dict(colors=breakdown_colors, line=dict(color="#FFFFFF", width=3)),
                         textinfo="percent",
                         textposition="inside",
-                        insidetextfont=dict(size=12, color="#FFFFFF", family="Arial Black"),
+                        insidetextfont=dict(size=10, color="#FFFFFF", family="Arial Black"),
                         hovertemplate=(
                             "<b>%{label}</b><br>"
                             "Alerts: %{value:,}<br>"
@@ -589,61 +587,72 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                 ]
             )
             fig_breakdown.add_annotation(
-                text=f"<b>{total_np:,}</b><br><span style='font-size:11px'>alerts</span>",
+                text=f"<b>{total_np:,}</b><br><span style='font-size:10px'>alerts</span>",
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font=dict(size=18, color="#660094", family="Arial Black"),
+                font=dict(size=15, color="#660094", family="Arial Black"),
                 align="center"
             )
 
         fig_breakdown.update_layout(
-            title=dict(
-                text="Alerts Breakdown",
-                x=0.5,
-                xanchor="center",
-                font=dict(size=1, color="rgba(0,0,0,0)", family="Arial")
-            ),
-            height=150,
+            height=112,
+            width=210,
             margin=dict(l=0, r=0, t=0, b=0),
             showlegend=False,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Arial", size=11, color="#333333"),
+            font=dict(family="Arial", size=10, color="#333333"),
         )
 
-        st.markdown(f'<div style="{card_style}; padding:10px 10px 8px 10px; justify-content:flex-start;">', unsafe_allow_html=True)
-        st.markdown('''
-            <div style="font-size:16px; font-weight:700; color:#555; margin:2px 0 0 0; text-align:center; line-height:1.15;">
-                Alerts Breakdown
-            </div>
-        ''', unsafe_allow_html=True)
-        st.plotly_chart(
-            fig_breakdown,
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key=f"{card_key}_alerts_breakdown_donut"
+        fig_html = fig_breakdown.to_html(
+            include_plotlyjs="cdn",
+            full_html=False,
+            config={"displayModeBar": False, "responsive": True},
+            div_id=f"{card_key}_alerts_breakdown_donut"
         )
-        st.markdown(f'''
-            <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:-18px; width:100%; font-size:10.5px; font-weight:700; line-height:1.1;">
-                <div style="display:flex; align-items:center; gap:6px; background:#fff9dc; border-radius:999px; padding:4px 7px;">
-                    <span style="width:10px; height:10px; background:#FFDB58; border-radius:50%; display:inline-block;"></span>
-                    <span style="color:#555;">Negative</span>
-                    <span style="color:#8a6f00;">{negative:,} ({neg_pct}%)</span>
+
+        components.html(f"""
+            <div style="
+                background:#FFFFFF;
+                border-radius:16px;
+                padding:10px 12px 8px 12px;
+                box-shadow:0 6px 20px rgba(0,0,0,0.08);
+                margin:5px;
+                height:220px;
+                box-sizing:border-box;
+                overflow:hidden;
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:flex-start;
+                font-family:Arial, sans-serif;
+            ">
+                <div style="font-size:15px;font-weight:800;color:#555;margin:0 0 2px 0;text-align:center;line-height:1.1;">
+                    Alerts Breakdown
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; background:#f5e9fb; border-radius:999px; padding:4px 7px;">
-                    <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
-                    <span style="color:#555;">Positive</span>
-                    <span style="color:#660094;">{positive:,} ({pos_pct}%)</span>
+                <div style="height:112px;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:-2px;">
+                    {fig_html}
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; background:#e8f8fb; border-radius:999px; padding:4px 7px;">
-                    <span style="width:10px; height:10px; background:#008CAA; border-radius:50%; display:inline-block;"></span>
-                    <span style="color:#555;">Context</span>
-                    <span style="color:#008CAA;">{context:,} ({context_pct}%)</span>
+                <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:5px;width:100%;font-size:9.8px;font-weight:800;line-height:1.05;margin-top:4px;">
+                    <div style="display:flex;align-items:center;gap:5px;background:#fff9dc;border-radius:999px;padding:4px 6px;white-space:nowrap;">
+                        <span style="width:9px;height:9px;background:#FFDB58;border-radius:50%;display:inline-block;"></span>
+                        <span style="color:#555;">Negative</span>
+                        <span style="color:#8a6f00;">{negative:,} ({neg_pct}%)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:5px;background:#f5e9fb;border-radius:999px;padding:4px 6px;white-space:nowrap;">
+                        <span style="width:9px;height:9px;background:#660094;border-radius:50%;display:inline-block;"></span>
+                        <span style="color:#555;">Positive</span>
+                        <span style="color:#660094;">{positive:,} ({pos_pct}%)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:5px;background:#e8f8fb;border-radius:999px;padding:4px 6px;white-space:nowrap;">
+                        <span style="width:9px;height:9px;background:#008CAA;border-radius:50%;display:inline-block;"></span>
+                        <span style="color:#555;">Context</span>
+                        <span style="color:#008CAA;">{context:,} ({context_pct}%)</span>
+                    </div>
                 </div>
             </div>
-        </div>
-        ''', unsafe_allow_html=True)
+        """, height=230, scrolling=False)
  
 def normalize_label(label: str) -> str:
     """
@@ -1867,7 +1876,7 @@ def render_ai_assistant_panel(df):
         .eusee-ai-context {display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
         .eusee-ai-pill {background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); padding:4px 8px; border-radius:999px; font-size:11px; font-weight:800; color:#fff;}
         .eusee-ai-body {padding:12px; background:linear-gradient(180deg,#ffffff 0%,#fbf8ff 100%); height:calc(100% - 96px); overflow-y:auto;}
-        .eusee-ai-card {background:#fff; border:1px solid #eee5ff; border-radius:16px; padding:12px; box-shadow:0 6px 18px rgba(45,0,85,.07); margin-bottom:10px;}
+        .eusee-ai-card {background:#fff; border:1px solid #eee5ff; border-radius:16px; padding:12px; box-shadow:0 6px 18px rgba(45,0,85,.07); margin-bottom:8px;}
         .eusee-ai-msg {background:#f7f2ff; border:1px solid #eee5ff; border-radius:16px 16px 16px 5px; padding:10px 12px; font-size:13px; color:#222; margin:8px 28px 10px 0; line-height:1.45; white-space:pre-wrap;}
         .eusee-ai-user {background:linear-gradient(135deg,#660094,#7b2cff); color:#fff; border-radius:16px 16px 5px 16px; padding:10px 12px; font-size:13px; margin:8px 0 10px 42px; line-height:1.45; white-space:pre-wrap;}
         .eusee-ai-kpi {background:#fff; border:1px solid #eee5ff; border-radius:14px; padding:10px; margin-bottom:8px;}
@@ -2976,7 +2985,7 @@ def render_ai_assistant_panel(df):
         color: white !important; border-radius: 16px 0 0 16px !important;
         box-shadow: 0 18px 45px rgba(45,0,85,.28) !important; padding: 10px 8px !important;
     }
-    .copilot-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:18px;margin-bottom:10px;}
+    .copilot-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:18px;margin-bottom:8px;}
     .copilot-title{font-size:17px;font-weight:900;line-height:1.15;}
     .copilot-sub{font-size:11px;opacity:.92;margin-top:4px;}
     .copilot-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
