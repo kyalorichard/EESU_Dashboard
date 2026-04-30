@@ -1380,30 +1380,30 @@ with tab_overview:
     #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
     
     #if is_privileged():
-        r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
-        r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
+    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
+    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
 
         
-        cols_rename_map  = {
-            "post_title": "Title of post",
-            "summary": "Event summary",
-            "creation_date": "Date of submission",
-            "alert-country": "Country",
-            "enabling-principle": "Enabling principles",
-            "alert-impact": "Impact of alert",
-            "alert-type": "Type of alert"
-        }
+    cols_rename_map  = {
+        "post_title": "Title of post",
+        "summary": "Event summary",
+        "creation_date": "Date of submission",
+        "alert-country": "Country",
+        "enabling-principle": "Enabling principles",
+        "alert-impact": "Impact of alert",
+        "alert-type": "Type of alert"
+    }
         # keep only existing columns, then rename
-        filtered_global_prev = (
-            filtered_global
-            .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
-            .rename(columns=cols_rename_map)
-        )
+    filtered_global_prev = (
+        filtered_global
+        .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+        .rename(columns=cols_rename_map)
+    )
        
         # ---------------- Tab two data preview ------------------
     
-        with st.expander("Summary Data preview"):
-            st.write(filtered_global_prev)  
+    with st.expander("Summary Data preview"):
+        st.write(filtered_global_prev)  
     #else:
         #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
             
@@ -1687,11 +1687,11 @@ with tab_negative:
         )
             
         # ---------------- Tab two data preview ----------------
-        if is_privileged():        
-            with st.expander("Summary Data preview"):
-                st.write(reactive_df_updated_prev)
-        else:
-            st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
+        #if is_privileged():        
+        with st.expander("Summary Data preview"):
+            st.write(reactive_df_updated_prev)
+        #else:
+            #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
         
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
