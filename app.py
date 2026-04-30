@@ -744,6 +744,115 @@ def safe_wrap_label(label, axis="y", words_per_line=4):
         return normalize_label(label)
     return wrap_label_by_words(normalize_label(label), words_per_line)
 
+
+# ---------------- PROFESSIONAL CHART UX THEME ----------------
+CHART_COLORS = {
+    "Positive": "#660094",
+    "Postive": "#660094",
+    "Negative": "#FFDB58",
+    "Context to watch": "#008CAA",
+    "Default": "#FFDB58",
+}
+
+CHART_FONT = "Inter, Arial, sans-serif"
+CHART_TITLE_COLOR = "#2D0055"
+CHART_TEXT_COLOR = "#263238"
+CHART_GRID_COLOR = "#EEF1F6"
+CHART_AXIS_COLOR = "#D8DEE9"
+
+
+def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, showlegend=True):
+    """Apply one professional, classic dashboard style without changing chart data."""
+    fig.update_layout(
+        template="plotly_white",
+        height=height,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
+        title=dict(
+            text=title if title is not None else fig.layout.title.text,
+            x=0.02,
+            xanchor="left",
+            y=0.98,
+            yanchor="top",
+            font=dict(family=CHART_FONT, size=14, color=CHART_TITLE_COLOR),
+        ),
+        margin=dict(l=135 if horizontal else 46, r=28, t=58, b=58),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor="#E2E8F0",
+            font=dict(family=CHART_FONT, size=12, color=CHART_TEXT_COLOR),
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(255,255,255,0.85)",
+            bordercolor="#EEF1F6",
+            borderwidth=1,
+            font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
+            title=None,
+        ),
+        showlegend=showlegend,
+    )
+    fig.update_xaxes(
+        title=None,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor=CHART_GRID_COLOR,
+        zeroline=False,
+        showline=True,
+        linewidth=1,
+        linecolor=CHART_AXIS_COLOR,
+        ticks="",
+        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
+    )
+    fig.update_yaxes(
+        title=None,
+        showgrid=False if horizontal else True,
+        gridwidth=1,
+        gridcolor=CHART_GRID_COLOR,
+        zeroline=False,
+        showline=True,
+        linewidth=1,
+        linecolor=CHART_AXIS_COLOR,
+        ticks="",
+        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
+    )
+    return fig
+
+
+def render_chart_shell():
+    """Global chart container polish: subtle cards, spacing and consistent dashboard feel."""
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stPlotlyChart"] {
+            background: #FFFFFF;
+            border: 1px solid #E9E2F2;
+            border-radius: 18px;
+            padding: 8px 10px 4px 10px;
+            box-shadow: 0 10px 28px rgba(45, 0, 85, 0.055);
+            margin-bottom: 18px;
+            transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+        }
+        div[data-testid="stPlotlyChart"]:hover {
+            transform: translateY(-1px);
+            border-color: #D8C7E6;
+            box-shadow: 0 14px 34px rgba(45, 0, 85, 0.09);
+        }
+        div[data-testid="stPlotlyChart"] svg.main-svg {
+            border-radius: 14px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+render_chart_shell()
+
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,normalize_labels=True):
    
@@ -753,8 +862,8 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     #df[y] = pd.to_numeric(df[y], errors='coerce').fillna(0)
 
     num_bars = df.shape[0]
-    height = max(350, num_bars * 25)  # Auto height based on number of bars
-    font_size = max(12, 14 - int(num_bars / 5))  # Dynamic font size
+    height = max(330, min(520, num_bars * 24 + 120))  # Professional compact auto-height
+    font_size = max(10, min(12, 13 - int(num_bars / 8)))
 
     # Optional: wrap labels (assuming wrap_label_by_words exists)
     
@@ -788,7 +897,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         orientation='h' if horizontal else 'v',
         color=color_col,
         #color_discrete_map=COLOR_MAPPING if color_col else None,
-        color_discrete_sequence=['#FFDB58'],  # yellow color for all bars
+        color_discrete_sequence=[CHART_COLORS['Default']],
         text=y
     )
 
@@ -796,7 +905,10 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     fig.update_traces(
         textposition=['inside' if val > 25 else 'outside' for val in df[y]],
         insidetextanchor='end',
-        textfont=dict(size=10, color='black', family="Arial black")
+        texttemplate="%{text}",
+        textfont=dict(size=11, color="#1F2937", family=CHART_FONT),
+        marker_line=dict(color="rgba(255,255,255,0.75)", width=0.8),
+        hovertemplate="<b>%{label}</b><br>Count: %{text}<extra></extra>"
     )
 
     # Bold axis lines
@@ -809,11 +921,13 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
 
-    # Layout
-    fig.update_layout(
+    # Professional chart theme
+    fig = apply_classic_chart_theme(
+        fig,
+        title=title,
         height=height,
-        margin=dict(l=120 if horizontal else 20, r=20, t=40, b=20),
-        title=dict(text=title, x=0.5, xanchor='center',font=dict(color="#660094",family="Arial black", size=12))
+        horizontal=horizontal,
+        showlegend=bool(color_col),
     )
 
     # ---------------- Dynamic download-only source ----------------
@@ -837,7 +951,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
             color="black"
         ),
         #textangle=-30,
-        opacity=0.05,
+        opacity=0.035,
         xanchor="center",
         yanchor="middle"
     )  
@@ -849,12 +963,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     #color_sequence = ['#008CAA','#660094','#FFDB58']
 
     # ---------------- Define category-to-color mapping ----------------
-    category_colors = {
-        "Context to watch": "#008CAA",
-        "Positive": "#660094",
-        "Postive": "#660094",
-        "Negative": "#FFDB58"
-    }
+    category_colors = CHART_COLORS
     
     categories = sorted(df[color_col].unique())
    
@@ -878,8 +987,9 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black' if category_colors.get(cat)=="#FFDB58" else 'white', size=10, family="Arial black"),
-            hovertemplate=f"%{{y}}<br>{cat}: %{{x}}<extra></extra>"
+            textfont=dict(color='#1F2937' if category_colors.get(cat)==CHART_COLORS['Negative'] else 'white', size=11, family=CHART_FONT),
+            marker_line=dict(color="rgba(255,255,255,0.72)", width=0.8),
+            hovertemplate=f"<b>%{{y}}</b><br>{cat}: %{{x}} alerts<extra></extra>"
         ))
     num_bars = df.shape[0]
     height = 350
@@ -894,26 +1004,14 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
     fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
     fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
     fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_layout(
-        barmode='stack',
+    fig = apply_classic_chart_theme(
+        fig,
+        title=title,
         height=height,
-        margin=dict(l=120 if horizontal else 20, r=20, t=45, b=20),
-        title=dict(
-            text=title,
-            x=0.5,
-            xanchor='center',
-            font=dict(
-                family="Arial Black",
-                size=12,
-                color="#660094"
-            )
-        ),
-        font=dict(
-            family="Arial",
-            size=12,
-            color="black"
-        )
+        horizontal=horizontal,
+        showlegend=True,
     )
+    fig.update_layout(barmode='stack')
 
     # ---------------- Dynamic download-only source ----------------
     if horizontal:
@@ -936,7 +1034,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             color="black"
         ),
         #textangle=-30,
-        opacity=0.05,
+        opacity=0.035,
         xanchor="center",
         yanchor="middle"
     )
@@ -985,9 +1083,10 @@ def create_heatmap(pivot_df, title="Heatmap"):
 
     # Define traffic-light colorscale
     colorscale=[
-        [0, "green"],
-        [0.5, "yellow"],
-        [1, "red"]
+        [0.0, "#F8FAFC"],
+        [0.35, "#DDF3F7"],
+        [0.7, "#BFA6D8"],
+        [1.0, "#660094"]
     ]
 
     # Normalize data between 0 and 1 for the colorscale
@@ -1002,20 +1101,30 @@ def create_heatmap(pivot_df, title="Heatmap"):
             y=pivot_df.index,
             colorscale=colorscale,
             hovertemplate="<b>%{y}</b> → <b>%{x}</b><br>Count: %{z}<extra></extra>",
-            colorbar=dict(title="Count", tickfont=dict(size=12))
+            colorbar=dict(
+                title=dict(text="Count", font=dict(size=11, family=CHART_FONT)),
+                tickfont=dict(size=10, family=CHART_FONT),
+                thickness=10,
+                len=0.72,
+                outlinewidth=0,
+            )
         )
     )
 
     fig.update_layout(
-        title=title,
-        title_font=dict(size=18, color="#660094"),
+        title=dict(text=title, x=0.02, xanchor="left", font=dict(size=14, family=CHART_FONT, color=CHART_TITLE_COLOR)),
         xaxis_title="",
         yaxis_title="",
-        xaxis_tickangle=-45,
-        yaxis=dict(tickfont=dict(size=12)),
-        margin=dict(l=80, r=20, t=50, b=120),
-        height=max(350, len(pivot_df)*35)
+        xaxis_tickangle=-35,
+        margin=dict(l=90, r=34, t=58, b=115),
+        height=max(330, len(pivot_df)*34),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=CHART_FONT, size=10, color=CHART_TEXT_COLOR),
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E2E8F0", font=dict(color=CHART_TEXT_COLOR, family=CHART_FONT)),
     )
+    fig.update_xaxes(showgrid=False, zeroline=False, showline=True, linecolor=CHART_AXIS_COLOR, ticks="")
+    fig.update_yaxes(showgrid=False, zeroline=False, showline=True, linecolor=CHART_AXIS_COLOR, ticks="")
    
     return fig
 # ---------------- HELPER: Get Top-N Items ----------------
