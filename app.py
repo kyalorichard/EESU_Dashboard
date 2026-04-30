@@ -1844,6 +1844,218 @@ def render_ai_assistant_panel(df):
             """, unsafe_allow_html=True)
 
     st.markdown('</div></div>', unsafe_allow_html=True)
+
+# ---------------- AI ASSISTANT FLOATING PANEL FIXED VERSION ----------------
+def render_ai_assistant_panel(df):
+    """Robust ChatGPT-style floating assistant using a real Streamlit container.
+
+    Fixes the earlier blank white panel issue by avoiding Streamlit widgets inside raw
+    HTML wrappers. The container itself is styled as fixed/floating via a unique anchor.
+    """
+    if "ai_messages" not in st.session_state:
+        st.session_state.ai_messages = [
+            {"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me about alerts, countries, regions, actors, mechanisms, trends, enabling principles, or data quality."}
+        ]
+    if "ai_floating_open" not in st.session_state:
+        st.session_state.ai_floating_open = True
+    if "ai_is_typing" not in st.session_state:
+        st.session_state.ai_is_typing = False
+    if "ai_pending_answer" not in st.session_state:
+        st.session_state.ai_pending_answer = None
+
+    s = summarize_for_ai(df)
+    level, level_color, level_note = ai_priority_level(df)
+
+    st.markdown(f"""
+    <style>
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) {{
+        position: fixed !important;
+        right: 24px !important;
+        bottom: 24px !important;
+        width: min(430px, calc(100vw - 48px)) !important;
+        max-height: calc(100vh - 48px) !important;
+        background: #ffffff !important;
+        border: 1px solid #eadff8 !important;
+        border-radius: 24px !important;
+        box-shadow: 0 24px 70px rgba(45,0,85,.30) !important;
+        z-index: 999999 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }}
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-mini-anchor) {{
+        position: fixed !important;
+        right: 24px !important;
+        bottom: 24px !important;
+        width: 230px !important;
+        z-index: 999999 !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }}
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) > div {{
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+    }}
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) > div:first-child {{
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }}
+    .eusee-ai-header-fixed {{
+        background: linear-gradient(135deg,#2d0055,#660094 55%,#7b2cff);
+        color: #fff;
+        padding: 15px 16px 13px 16px;
+        border-radius: 24px 24px 0 0;
+        font-family: Arial, sans-serif;
+    }}
+    .eusee-ai-title-fixed {{font-size:17px;font-weight:900;line-height:1.2;}}
+    .eusee-ai-badge-fixed {{font-size:10px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:3px 8px;border-radius:999px;margin-left:6px;}}
+    .eusee-ai-sub-fixed {{font-size:12px;line-height:1.35;color:#f1e8ff;margin-top:4px;}}
+    .eusee-ai-context-fixed {{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}}
+    .eusee-ai-pill-fixed {{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;}}
+    .eusee-ai-status-fixed {{display:inline-block;font-size:11px;font-weight:900;color:#fff;padding:5px 9px;border-radius:999px;background:{level_color};}}
+    .eusee-ai-scroll-fixed {{max-height: calc(100vh - 380px); overflow-y: auto; padding-top: 8px; padding-bottom: 8px;}}
+    .eusee-ai-msg-fixed {{background:#f7f2ff;border:1px solid #eee5ff;border-radius:16px 16px 16px 5px;padding:10px 12px;font-size:13px;color:#222;margin:8px 28px 10px 0;line-height:1.45;white-space:pre-wrap;font-family:Arial,sans-serif;}}
+    .eusee-ai-user-fixed {{background:linear-gradient(135deg,#660094,#7b2cff);color:#fff;border-radius:16px 16px 5px 16px;padding:10px 12px;font-size:13px;margin:8px 0 10px 42px;line-height:1.45;white-space:pre-wrap;font-family:Arial,sans-serif;}}
+    .eusee-ai-card-fixed {{background:#fff;border:1px solid #eee5ff;border-radius:16px;padding:12px;box-shadow:0 6px 18px rgba(45,0,85,.07);margin-bottom:10px;}}
+    .eusee-ai-mini-label {{background:linear-gradient(135deg,#660094,#7b2cff);color:#fff;border-radius:999px;padding:12px 18px;box-shadow:0 16px 38px rgba(45,0,85,.28);font-weight:900;text-align:center;margin-bottom:8px;}}
+    .eusee-ai-kpi {{background:#fff;border:1px solid #eee5ff;border-radius:14px;padding:10px;margin-bottom:8px;}}
+    .eusee-ai-kpi-label {{font-size:11px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}}
+    .eusee-ai-kpi-value {{font-size:22px;font-weight:900;margin-top:2px;}}
+    .eusee-ai-kpi-note {{font-size:11px;color:#777;line-height:1.3;}}
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) div[data-testid="stButton"] button {{border-radius: 999px !important;font-weight: 800 !important;min-height: 34px !important;}}
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) div[data-testid="stTabs"] button {{font-size: 12px !important;font-weight: 800 !important;padding: 7px 0 !important;}}
+    div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) textarea {{font-size:13px !important;}}
+    @media (max-width:900px) {{div[data-testid="stVerticalBlock"]:has(.eusee-ai-floating-anchor) {{right:10px !important;bottom:10px !important;width:calc(100vw - 20px) !important;}}}}
+    </style>
+    """, unsafe_allow_html=True)
+
+    if not st.session_state.ai_floating_open:
+        with st.container():
+            st.markdown('<span class="eusee-ai-mini-anchor"></span><div class="eusee-ai-mini-label">💬 EUSEE AI Assistant</div>', unsafe_allow_html=True)
+            if st.button("Open AI Assistant", key="ai_open_floating_fixed", use_container_width=True):
+                st.session_state.ai_floating_open = True
+                st.rerun()
+        return
+
+    with st.container():
+        st.markdown('<span class="eusee-ai-floating-anchor"></span>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="eusee-ai-header-fixed">
+                <div class="eusee-ai-title-fixed">🤖 EUSEE AI Assistant <span class="eusee-ai-badge-fixed">Pro</span></div>
+                <div class="eusee-ai-sub-fixed">ChatGPT-style assistant linked to current dashboard filters.</div>
+                <div class="eusee-ai-context-fixed">
+                    <span class="eusee-ai-status-fixed">{level}</span>
+                    <span class="eusee-ai-pill-fixed">{s['total_alerts']:,} alerts</span>
+                    <span class="eusee-ai-pill-fixed">{s['countries_count']:,} countries</span>
+                    <span class="eusee-ai-pill-fixed">{s['negative_pct']}% negative</span>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        top_controls = st.columns([1, 1, 1])
+        with top_controls[0]:
+            if st.button("Minimize", key="ai_minimize_float_fixed", use_container_width=True):
+                st.session_state.ai_floating_open = False
+                st.rerun()
+        with top_controls[1]:
+            if st.button("Clear", key="ai_clear_float_fixed", use_container_width=True):
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
+                st.session_state.ai_pending_answer = None
+                st.session_state.ai_is_typing = False
+                st.rerun()
+        with top_controls[2]:
+            if st.button("Brief", key="ai_brief_float_fixed", use_container_width=True):
+                _save_ai_answer("Generate a policy brief.", df)
+                st.rerun()
+
+        chat_tab, insight_tab, export_tab, guide_tab = st.tabs(["Chat", "Insights", "Export", "Guide"])
+
+        with chat_tab:
+            st.markdown('<div class="eusee-ai-card-fixed"><b style="color:#2d0055;">Quick prompts</b></div>', unsafe_allow_html=True)
+            quick_questions = {
+                "Summary": "Generate an executive summary.",
+                "Top countries": "Which countries have the highest number of alerts?",
+                "Negative": "Which countries have the highest negative alerts?",
+                "Regions": "Compare regions under the current filters.",
+                "Trend": "Show trend of alerts over time.",
+                "Types": "What are the main alert types?",
+                "Mechanisms": "What are the top restrictive mechanisms?",
+                "Actors": "What are the top restrictive actors?",
+                "Quality": "Show the data quality report.",
+                "Next steps": "What are the recommended next analytical steps?",
+            }
+            qcols = st.columns(2)
+            for idx, (label, prompt) in enumerate(quick_questions.items()):
+                with qcols[idx % 2]:
+                    if st.button(label, key=f"ai_float_quick_fixed_{label}", use_container_width=True):
+                        _save_ai_answer(prompt, df)
+                        st.rerun()
+
+            st.markdown('<div class="eusee-ai-scroll-fixed">', unsafe_allow_html=True)
+            for msg in st.session_state.ai_messages[-10:]:
+                css_class = "eusee-ai-user-fixed" if msg["role"] == "user" else "eusee-ai-msg-fixed"
+                safe_content = _render_chat_content_html(msg["content"])
+                st.markdown(f'<div class="{css_class}">{safe_content}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            if st.session_state.ai_is_typing and st.session_state.ai_pending_answer:
+                stream_box = st.empty()
+                streamed = ""
+                for chunk in _ai_stream_response_text(st.session_state.ai_pending_answer):
+                    streamed += chunk
+                    stream_box.markdown(f'<div class="eusee-ai-msg-fixed">{_render_chat_content_html(streamed)}</div>', unsafe_allow_html=True)
+                st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
+                st.session_state.ai_pending_answer = None
+                st.session_state.ai_is_typing = False
+                st.rerun()
+
+            with st.form("ai_assistant_floating_form_fixed", clear_on_submit=True):
+                user_q = st.text_area("Ask EUSEE AI", placeholder="Ask about countries, regions, trends, actors, mechanisms, or data quality...", height=78, label_visibility="collapsed")
+                submitted = st.form_submit_button("Send message", use_container_width=True)
+            if submitted and user_q.strip():
+                _save_ai_answer(user_q, df)
+                st.rerun()
+
+        with insight_tab:
+            st.markdown(f'<div class="eusee-ai-card-fixed"><b style="color:#2d0055;">Priority signal</b><br><span class="eusee-ai-status-fixed" style="margin-top:8px;">{level}</span><div style="font-size:12px;color:#666;margin-top:8px;">{level_note}</div></div>', unsafe_allow_html=True)
+            k1, k2 = st.columns(2)
+            with k1:
+                render_ai_metric("Total alerts", f"{s['total_alerts']:,}", "Filtered records")
+                render_ai_metric("Negative share", f"{s['negative_pct']}%", f"{s['negative']:,} negative alerts", color=level_color)
+            with k2:
+                render_ai_metric("Countries", f"{s['countries_count']:,}", "Covered in current filter")
+                render_ai_metric("Regions", f"{s['regions_count']:,}", "Regional coverage")
+            with st.expander("AI interpretation", expanded=True):
+                st.markdown(_render_chat_content_html(local_ai_response("interpret the current view", df)), unsafe_allow_html=True)
+            with st.expander("Mini trend chart", expanded=True):
+                render_ai_trend_chart(df)
+            with st.expander("Recommended next analytical steps", expanded=False):
+                st.text(ai_recommended_next_steps(df))
+            with st.expander("Data quality / completeness check", expanded=False):
+                st.text(ai_data_quality_report(df))
+
+        with export_tab:
+            summary_text = generate_ai_executive_summary(df)
+            policy_text = generate_ai_policy_brief(df)
+            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
+            st.download_button("Download executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True)
+            st.download_button("Download policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True)
+            st.download_button("Download chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True)
+            if df is not None and not df.empty:
+                cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle", "Actor of repression", "Subject of repression", "Mechanism of repression"] if c in df.columns]
+                csv_data = df[cols].to_csv(index=False).encode("utf-8") if cols else df.to_csv(index=False).encode("utf-8")
+                st.download_button("Download filtered records (.csv)", data=csv_data, file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True)
+
+        with guide_tab:
+            st.markdown("""
+                <div class="eusee-ai-card-fixed"><b style="color:#2d0055;">How to use this assistant</b>
+                <ul style="font-size:12px;color:#333;line-height:1.45;padding-left:18px;">
+                <li>Use dashboard filters first; answers are generated from the filtered view.</li>
+                <li>Use Chat for natural-language questions and quick prompts.</li>
+                <li>Use Insights for priority signal, interpretation, trend and data-quality checks.</li>
+                <li>Use Export for summaries, policy briefs, transcripts and filtered records.</li>
+                <li>Every answer links users back to the EUSEE website for broader qualitative context.</li>
+                </ul></div>
+                """, unsafe_allow_html=True)
 # ---------------- MAIN DASHBOARD + AI ASSISTANT LAYOUT ----------------
 
 # ---------------- TABS ----------------
