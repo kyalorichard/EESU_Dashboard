@@ -2497,12 +2497,21 @@ with tab_map:
             with left:
                 st.markdown("### 🚦 Priority country signals")
                 priority_cols = [
-                    "alert-country", "region", "total_alerts", "negative_alerts", "negative_share", "risk_level"
+                    "alert-country", "region", "total_alerts", "negative_alerts", "negative_share", "risk_score", "risk_level"
                 ]
+                # Keep sorting fields available before renaming/display.
+                # This prevents KeyError when the visible table subset is sorted by risk_score.
+                safe_priority_cols = [c for c in priority_cols if c in map_intel_df.columns]
+                safe_sort_cols = [c for c in ["risk_score", "negative_alerts", "total_alerts"] if c in map_intel_df.columns]
+
+                priority_df = map_intel_df[safe_priority_cols].copy()
+                if safe_sort_cols:
+                    priority_df = priority_df.sort_values(safe_sort_cols, ascending=False)
+
                 priority_df = (
-                    map_intel_df[priority_cols]
-                    .sort_values(["risk_score", "negative_alerts", "total_alerts"], ascending=False)
+                    priority_df
                     .head(top_n_map)
+                    .drop(columns=["risk_score"], errors="ignore")
                     .rename(columns={
                         "alert-country": "Country",
                         "region": "Region",
