@@ -16,15 +16,6 @@ import tempfile
 import os
 import re
 
-# Optional dependency for real Plotly map click events.
-# If not installed, the app falls back to the country drill-down dropdown.
-try:
-    from streamlit_plotly_events import plotly_events
-    HAS_PLOTLY_EVENTS = True
-except Exception:
-    plotly_events = None
-    HAS_PLOTLY_EVENTS = False
-
 # --- SFTP CONFIG ---
 #sftp_secrets = st.secrets.get("sftp", {})
 #SFTP_HOST = sftp_secrets.get("host")
@@ -1494,9 +1485,6 @@ def _local_ai_response_core(question, df):
     if any(k in q for k in ["data quality", "missing", "completeness"]):
         return ai_data_quality_report(df)
 
-    if any(k in q for k in ["auto insight", "automatic insight", "key insight", "main insight", "insights"]):
-        return generate_auto_insights_text(df)
-
     if any(k in q for k in ["next step", "recommend", "action"]):
         return ai_recommended_next_steps(df)
 
@@ -1522,123 +1510,6 @@ def _local_ai_response_core(question, df):
 def local_ai_response(question, df):
     """Chatbot-facing response wrapper with EUSEE website redirect."""
     return append_eusee_redirect(_local_ai_response_core(question, df))
-
-def ai_auto_insights(df):
-    '''Generate automatic, filter-aware insights for the Copilot Insights tab.'''
-    s = summarize_for_ai(df)
-    if s["total_alerts"] == 0:
-        return [
-            {"title": "No matching records", "body": "The current filter selection returns no records. Broaden the filters to generate insights.", "tone": "neutral"}
-        ]
-
-    insights = []
-    total = s["total_alerts"]
-
-    if s["negative_pct"] >= 70:
-        insights.append({
-            "title": "High negative-alert concentration",
-            "body": f"Negative alerts account for {s['negative_pct']}% of the current filtered records ({s['negative']:,} of {total:,}). Prioritize deeper review of actors, mechanisms, and affected groups.",
-            "tone": "high"
-        })
-    elif s["negative_pct"] >= 40:
-        insights.append({
-            "title": "Moderate negative-alert concentration",
-            "body": f"Negative alerts represent {s['negative_pct']}% of the filtered records. This warrants closer interpretation alongside geography and reporting coverage.",
-            "tone": "moderate"
-        })
-    else:
-        insights.append({
-            "title": "Lower negative-alert share",
-            "body": f"Negative alerts represent {s['negative_pct']}% of the filtered records. Continue monitoring for emerging shifts across countries and mechanisms.",
-            "tone": "low"
-        })
-
-    top_countries = s.get("top_countries", {})
-    if top_countries:
-        top_country, top_count = next(iter(top_countries.items()))
-        top_share = round((top_count / total) * 100, 1) if total else 0
-        insights.append({
-            "title": "Geographic concentration",
-            "body": f"{top_country} has the highest number of alerts under the current filters ({top_count:,}, {top_share}% of filtered records). Use the map or country chart to validate spatial concentration.",
-            "tone": "info"
-        })
-
-    neg_countries = s.get("top_negative_countries", {})
-    if neg_countries:
-        neg_country, neg_count = next(iter(neg_countries.items()))
-        insights.append({
-            "title": "Negative-alert hotspot",
-            "body": f"{neg_country} leads the filtered negative-alert count ({neg_count:,}). Review whether this reflects elevated restriction patterns, stronger reporting intensity, or both.",
-            "tone": "moderate" if s["negative_pct"] < 70 else "high"
-        })
-
-    top_types = s.get("top_alert_types", {})
-    if top_types:
-        top_type, type_count = next(iter(top_types.items()))
-        insights.append({
-            "title": "Dominant alert type",
-            "body": f"The most frequent alert type is '{top_type}' ({type_count:,} records). Compare this with alert impact to understand whether it is mainly negative, positive, or context-to-watch.",
-            "tone": "info"
-        })
-
-    if s.get("top_mechanisms"):
-        mech, mech_count = next(iter(s["top_mechanisms"].items()))
-        insights.append({
-            "title": "Main restrictive mechanism",
-            "body": f"Among negative alerts, the leading restrictive mechanism is '{mech}' ({mech_count:,}). Use the heatmaps and Sankey flow to inspect actor-to-mechanism pathways.",
-            "tone": "info"
-        })
-    elif s.get("top_actors"):
-        actor, actor_count = next(iter(s["top_actors"].items()))
-        insights.append({
-            "title": "Main restrictive actor",
-            "body": f"Among negative alerts, the leading restrictive actor category is '{actor}' ({actor_count:,}). Review affected groups before drawing conclusions.",
-            "tone": "info"
-        })
-
-    insights.append({
-        "title": "Trend signal",
-        "body": s.get("trend_sentence", "Trend information is not available for the selected filters."),
-        "tone": "neutral"
-    })
-
-    insights.append({
-        "title": "Interpretation caution",
-        "body": "Counts indicate reported/monitored alerts under the selected filters. They should be interpreted together with reporting coverage, submission intensity, and qualitative context.",
-        "tone": "caution"
-    })
-    return insights
-
-
-def render_auto_insights_cards(df):
-    '''Render auto-generated insights as compact cards inside the AI Copilot.'''
-    tone_styles = {
-        "high": ("#fff1f2", "#dc2626"),
-        "moderate": ("#fffbeb", "#f59e0b"),
-        "low": ("#ecfdf5", "#16a34a"),
-        "info": ("#f0f9ff", "#008CAA"),
-        "neutral": ("#f8fafc", "#64748b"),
-        "caution": ("#fff9dc", "#FFDB58"),
-    }
-    st.markdown('<div class="copilot-section">Auto insights from current filters</div>', unsafe_allow_html=True)
-    for ins in ai_auto_insights(df):
-        bg, border = tone_styles.get(ins.get("tone", "neutral"), tone_styles["neutral"])
-        card_html = f'''
-            <div style="background:{bg};border-left:5px solid {border};border-radius:13px;padding:10px 12px;margin:8px 0;">
-                <div style="font-size:12px;font-weight:900;color:#2d0055;margin-bottom:4px;">{ins['title']}</div>
-                <div style="font-size:11.5px;color:#333;line-height:1.42;">{ins['body']}</div>
-            </div>
-        '''
-        st.markdown(card_html, unsafe_allow_html=True)
-
-
-def generate_auto_insights_text(df):
-    '''Plain-text version for chat/export.'''
-    insights = ai_auto_insights(df)
-    lines = ["Auto insights from current filters"]
-    for i, ins in enumerate(insights, start=1):
-        lines.append(f"{i}. {ins['title']}: {ins['body']}")
-    return "\n".join(lines)
 
 def render_ai_trend_chart(df):
     trend = _month_trend(df)
@@ -1977,59 +1848,6 @@ def render_ai_assistant_panel(df):
 
     st.markdown('</div></div>', unsafe_allow_html=True)
 # ---------------- MAIN DASHBOARD + AI ASSISTANT LAYOUT ----------------
-
-
-
-# ---------------- MAP CLICK → AI EXPLANATION HELPERS ----------------
-def explain_country_map_signal(map_df, country_name):
-    """Generate a clear AI-ready explanation for a selected country on the map."""
-    if map_df is None or map_df.empty or not country_name:
-        return "No country-level map intelligence is available under the current filters."
-
-    row = map_df[map_df["alert-country"].astype(str) == str(country_name)]
-    if row.empty:
-        return f"No mapped records are available for {country_name} under the current filters."
-
-    r = row.iloc[0]
-    total = int(r.get("total_alerts", 0) or 0)
-    negative = int(r.get("negative_alerts", 0) or 0)
-    positive = int(r.get("positive_alerts", 0) or 0)
-    context = int(r.get("context_to_watch_alerts", 0) or 0)
-    neg_share = float(r.get("negative_share", 0) or 0)
-    risk = str(r.get("risk_level", "No signal"))
-    region = str(r.get("region", "Unknown"))
-
-    if risk in ["Critical", "High"]:
-        action = "This country should be prioritized for closer qualitative review, partner verification, and monitoring follow-up."
-    elif risk == "Moderate":
-        action = "This country shows a moderate signal and should be monitored for escalation or concentration in specific mechanisms."
-    else:
-        action = "This country currently shows a lower-priority signal, but the result should still be interpreted alongside reporting coverage."
-
-    return (
-        f"🗺️ Map click explanation for {country_name}:\n\n"
-        f"- Region: {region}\n"
-        f"- Total mapped alerts: {total}\n"
-        f"- Negative alerts: {negative} ({neg_share:.1f}%)\n"
-        f"- Positive alerts: {positive}\n"
-        f"- Context-to-watch alerts: {context}\n"
-        f"- Priority signal: {risk}\n\n"
-        f"Interpretation: {country_name} is classified as {risk} because the map intelligence layer combines negative-alert volume with the share of negative alerts. "
-        f"{action}\n\n"
-        f"Caution: this is a monitoring signal, not a prevalence estimate. Differences may reflect reporting coverage, monitoring intensity, or partner submission patterns."
-    )
-
-
-def extract_country_from_plotly_click(clicked_events):
-    """Extract country name from streamlit-plotly-events click payload."""
-    if not clicked_events:
-        return None
-    event = clicked_events[0]
-    for key in ["location", "hovertext", "label", "text"]:
-        val = event.get(key)
-        if val:
-            return str(val)
-    return None
 
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
@@ -2782,127 +2600,122 @@ def ai_priority_signal(summary: dict):
         return "Moderate priority", "#f59e0b", "Negative alerts are substantial under the current filters and may require closer review."
     return "Low priority", "#16a34a", "Negative alerts are limited under the current filters. Continue monitoring for emerging shifts."
 
+def _copilot_context_df(df, context_label):
+    """Return the dataframe used by the unified Copilot context selector."""
+    if df is None:
+        return pd.DataFrame()
+    if context_label == "Negative alerts" and "alert-impact" in df.columns:
+        return df[df["alert-impact"].astype(str).str.strip().eq("Negative")].copy()
+    return df.copy()
 
 
-def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
-    """Generate a compact explanation for a selected dashboard or chatbot chart."""
-    s = summarize_for_ai(df)
-    if df is None or df.empty or s.get("total_alerts", 0) == 0:
-        return append_eusee_redirect(
-            "No records are available under the current filters, so there is no chart pattern to explain. Adjust the filters and try again."
-        )
-
-    ctx = str(chart_context or "current dashboard view")
-    lines = [f"Chart explanation — {ctx}", ""]
-    lines.append(f"The current filtered view contains {s['total_alerts']:,} alerts across {s['countries_count']:,} countries and {s['regions_count']:,} regions.")
-    lines.append(f"Negative alerts represent {s['negative_pct']}% of the filtered records, compared with {s['positive_pct']}% positive alerts and {s['context_pct']}% context-to-watch alerts.")
-
-    q = ctx.lower()
-    if any(k in q for k in ["country", "countries", "map"]):
-        lines.append("\nWhat the country pattern shows:")
-        lines.append(_format_ranked(s.get("top_countries", {})))
-        if s.get("top_negative_countries"):
-            lines.append("\nCountries with the highest negative-alert counts:")
-            lines.append(_format_ranked(s.get("top_negative_countries", {})))
-    elif any(k in q for k in ["region", "regional"]):
-        lines.append("\nRegional concentration:")
-        lines.append(_format_ranked(s.get("top_regions", {})))
-    elif any(k in q for k in ["actor", "actors"]):
-        lines.append("\nMain restrictive actors visible in the current filtered negative-alert records:")
-        lines.append(_format_ranked(s.get("top_actors", {})))
-    elif any(k in q for k in ["mechanism", "mechanisms"]):
-        lines.append("\nMain restrictive mechanisms visible in the current filtered negative-alert records:")
-        lines.append(_format_ranked(s.get("top_mechanisms", {})))
-    elif any(k in q for k in ["principle", "enabling"]):
-        lines.append("\nMost represented enabling principles:")
-        lines.append(_format_ranked(s.get("top_principles", {})))
-    elif any(k in q for k in ["trend", "time", "month", "year"]):
-        lines.append("\nTrend signal:")
-        lines.append(s.get("trend_sentence", "Trend information is not available for the selected filters."))
-    else:
-        lines.append("\nMain visible distributions:")
-        lines.append("Top countries:\n" + _format_ranked(s.get("top_countries", {})))
-        lines.append("\nTop alert types:\n" + _format_ranked(s.get("top_alert_types", {})))
-
-    lines.append("\nInterpretation caution: alert counts should not be read as direct prevalence alone. They may also reflect reporting intensity, monitoring coverage, and partner submission patterns.")
-    return append_eusee_redirect("\n".join(lines))
+def _copilot_make_country_profile(country, df):
+    if df is None or df.empty or "alert-country" not in df.columns:
+        return "No country records are available under the current filters."
+    if not country:
+        top = df["alert-country"].dropna().astype(str).str.strip().value_counts()
+        country = top.index[0] if not top.empty else None
+    if not country:
+        return "No country could be selected from the current filtered data."
+    cdf = df[df["alert-country"].astype(str).str.strip().str.lower() == str(country).strip().lower()].copy()
+    if cdf.empty:
+        return f"No records found for {country} under the current filters."
+    total = len(cdf)
+    neg = int((cdf.get("alert-impact", pd.Series(dtype=str)).astype(str) == "Negative").sum()) if "alert-impact" in cdf.columns else 0
+    pos = int((cdf.get("alert-impact", pd.Series(dtype=str)).astype(str) == "Positive").sum()) if "alert-impact" in cdf.columns else 0
+    ctx = int((cdf.get("alert-impact", pd.Series(dtype=str)).astype(str) == "Context to watch").sum()) if "alert-impact" in cdf.columns else 0
+    neg_pct = round((neg / total) * 100, 1) if total else 0
+    lines = [f"Country profile: {country}", "", f"- Total alerts: {total:,}", f"- Negative alerts: {neg:,} ({neg_pct}%)", f"- Positive alerts: {pos:,}", f"- Context to watch: {ctx:,}"]
+    if "alert-type" in cdf.columns:
+        lines.append("\nTop alert types:\n" + _format_ranked(cdf["alert-type"].dropna().astype(str).str.strip().value_counts().head(5).to_dict()))
+    if "Mechanism of repression" in cdf.columns:
+        mech = _ai_clean_count_df(cdf, "Mechanism of repression", top_n=5)
+        if not mech.empty:
+            lines.append("\nTop restrictive mechanisms:\n" + "\n".join([f"{i+1}. {r['Mechanism of repression']} — {int(r['count'])}" for i, r in mech.iterrows()]))
+    lines.append("\nInterpretation note: country counts should be read alongside monitoring coverage and reporting intensity.")
+    return "\n".join(lines)
 
 
-def ai_try_llm_response(question, df):
-    """Optional LLM response. Uses OpenAI only when OPENAI_API_KEY is present; otherwise falls back locally."""
-    use_llm = False
-    try:
-        use_llm = bool(st.secrets.get("openai", {}).get("api_key") or st.secrets.get("OPENAI_API_KEY"))
-    except Exception:
-        use_llm = False
-    if not use_llm:
-        return local_ai_response(question, df)
-
-    # Safe fallback-first implementation: avoids hard dependency crashes if openai package is unavailable.
-    try:
-        from openai import OpenAI
-        api_key = st.secrets.get("openai", {}).get("api_key", st.secrets.get("OPENAI_API_KEY"))
-        client = OpenAI(api_key=api_key)
-        s = summarize_for_ai(df)
-        prompt = f"""
-You are the EU SEE Dashboard AI Copilot. Answer only from this filtered dashboard summary.
-Keep the answer concise, analytical, and cautious about reporting coverage.
-Always include the EUSEE redirect message at the end.
-
-Filtered summary:
-{s}
-
-User question: {question}
-"""
-        resp = client.chat.completions.create(
-            model=st.secrets.get("openai", {}).get("model", "gpt-4o-mini"),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=550,
-        )
-        return append_eusee_redirect(resp.choices[0].message.content)
-    except Exception:
-        return local_ai_response(question, df)
-
-
-def _copilot_stream_text(text, chunk_size=8):
-    """Small deterministic streaming generator for Streamlit write_stream."""
-    import time
-    words = str(text or "").split(" ")
-    for i in range(0, len(words), chunk_size):
-        yield " ".join(words[i:i + chunk_size]) + " "
-        time.sleep(0.015)
-
-
-def _copilot_queue_answer(question, df):
+def _copilot_route_answer(question, df, context_label="Current dashboard", selected_country=None):
+    """Unified command router: one chat box handles insights, plots, chart explanation, country profile, map intelligence, and exports."""
     q = str(question or "").strip()
-    if not q:
-        return
-    st.session_state.ai_messages.append({"role": "user", "content": q})
-    answer = ai_try_llm_response(q, df)
-    plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw"]
-    explain_words = ["explain chart", "explain this chart", "interpret chart", "what does this chart"]
-    if any(w in q.lower() for w in plot_words):
-        dim, ctype = _ai_plot_intent_to_dimension(q, df)
+    q_lower = q.lower()
+    working_df = _copilot_context_df(df, context_label)
+
+    # Country profile / country-specific explanations
+    if context_label == "Selected country" or any(k in q_lower for k in ["country profile", "profile", "why is", "high risk"]):
+        country = selected_country
+        if not country and "alert-country" in working_df.columns:
+            candidates = working_df["alert-country"].dropna().astype(str).str.strip().unique().tolist()
+            for c in candidates:
+                if c and c.lower() in q_lower:
+                    country = c
+                    break
+        if country or "country" in q_lower or "profile" in q_lower or "why is" in q_lower:
+            return _copilot_make_country_profile(country, working_df)
+
+    # Plot generation
+    plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw", "figure"]
+    if any(w in q_lower for w in plot_words):
+        dim, ctype = _ai_plot_intent_to_dimension(q_lower, working_df)
         if dim:
             st.session_state.ai_last_plot = {
                 "dimension_col": dim,
                 "chart_type": ctype,
                 "top_n": 10,
-                "title": f"Chatbot-generated plot: {dim}",
+                "title": f"Copilot plot: {dim}"
             }
-            answer += "\n\n📊 I prepared a chart from the current filtered data. Open the Plot tab to view, adjust, explain, or download it."
-    if any(w in q.lower() for w in explain_words):
-        answer = ai_generate_chart_explanation(df, q)
-    st.session_state.ai_pending_answer = answer
+            return f"I generated a {ctype.lower()} plot for `{dim}` using the `{context_label}` context. The chart is shown below the chat and can be adjusted from the plot controls."
+        return "I could not find a suitable field for plotting under the current filters."
+
+    # Map intelligence
+    if context_label == "Map intelligence" or any(k in q_lower for k in ["map", "risk", "priority countries", "hotspot", "hotspots"]):
+        s = summarize_for_ai(working_df)
+        top_neg = _format_ranked(s.get("top_negative_countries", {}))
+        return (
+            "Map intelligence summary\n\n"
+            f"The current view includes {s['total_alerts']:,} alerts across {s['countries_count']:,} countries. "
+            f"Negative alerts represent {s['negative_pct']}% of records.\n\n"
+            f"Priority countries by negative alerts:\n{top_neg}\n\n"
+            "Use the country selector or map layer to inspect whether high values reflect risk concentration, reporting intensity, or both."
+        )
+
+    # Chart explanation
+    if any(k in q_lower for k in ["explain chart", "explain this chart", "interpret chart", "what does this chart mean"]):
+        return _local_ai_response_core("interpret the current view", working_df)
+
+    # Data quality / recommendations / reports
+    if any(k in q_lower for k in ["data quality", "missing", "completeness"]):
+        return ai_data_quality_report(working_df)
+    if any(k in q_lower for k in ["next step", "recommend", "action"]):
+        return ai_recommended_next_steps(working_df)
+    if any(k in q_lower for k in ["policy brief", "briefing note", "generate a brief", "export summary"]):
+        return generate_ai_policy_brief(working_df)
+    if any(k in q_lower for k in ["auto insight", "insights", "summary", "summarise", "summarize", "overview"]):
+        return generate_ai_executive_summary(working_df)
+
+    return _local_ai_response_core(q, working_df)
+
+
+def _save_ai_answer(question, df):
+    """Unified Copilot answer saver with routing and EUSEE redirect."""
+    q = str(question or "").strip()
+    if not q:
+        return
+    context_label = st.session_state.get("ai_context_selector", "Current dashboard")
+    selected_country = st.session_state.get("ai_selected_country", None)
+    working_df = _copilot_context_df(df, context_label)
+    st.session_state.ai_messages.append({"role": "user", "content": q})
+    answer = _copilot_route_answer(q, working_df, context_label=context_label, selected_country=selected_country)
+    st.session_state.ai_pending_answer = append_eusee_redirect(answer)
     st.session_state.ai_streaming = True
 
 
 def render_ai_assistant_panel(df):
-    """Professional independent right-side AI Copilot with streaming, tabs, chart explanation, plotting, and exports."""
+    """Unified right-side AI Copilot: one interface for chat, plots, explanations, insights, country profiles, map intelligence, and exports."""
     if "ai_messages" not in st.session_state:
         st.session_state.ai_messages = [
-            {"role": "assistant", "content": "Hello. I am your EU SEE AI Copilot. Ask me for insights, request extra plots, or ask me to explain a dashboard chart."}
+            {"role": "assistant", "content": "Hello. I am your unified EU SEE Copilot. Ask anything: insights, plots, country profiles, map risk, chart explanation, or report summaries."}
         ]
     if "ai_streaming" not in st.session_state:
         st.session_state.ai_streaming = False
@@ -2912,221 +2725,159 @@ def render_ai_assistant_panel(df):
         st.session_state.ai_last_plot = None
     if "ai_right_sidebar_open" not in st.session_state:
         st.session_state.ai_right_sidebar_open = True
+    if "ai_context_selector" not in st.session_state:
+        st.session_state.ai_context_selector = "Current dashboard"
 
     s = summarize_for_ai(df)
-    level, level_color, level_note = ai_priority_signal(s)
+    try:
+        level, level_color, level_note = ai_priority_signal(s)
+    except Exception:
+        level, level_color, level_note = "Unknown", "#6b7280", "Priority signal unavailable."
 
     st.markdown("""
     <style>
     .st-key-eusee_ai_right_sidebar {
-        position: fixed !important; top: 74px !important; right: 16px !important;
-        width: 410px !important; max-width: calc(100vw - 32px) !important;
-        max-height: calc(100vh - 94px) !important; overflow-y: auto !important; overflow-x: hidden !important;
+        position: fixed !important; top: 78px !important; right: 18px !important;
+        width: 410px !important; max-width: calc(100vw - 36px) !important;
+        max-height: calc(100vh - 96px) !important; overflow-y: auto !important; overflow-x: hidden !important;
         z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
-        border-radius: 22px !important; box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
+        border-radius: 22px !important; box-shadow: 0 24px 65px rgba(45,0,85,.22) !important;
         padding: 12px 12px 14px 12px !important;
     }
     .st-key-eusee_ai_right_sidebar_collapsed {
-        position: fixed !important; top: 44% !important; right: 0 !important; width: 72px !important;
-        z-index: 999999 !important; background: linear-gradient(180deg,#2d0055,#660094) !important;
-        color: white !important; border-radius: 16px 0 0 16px !important;
-        box-shadow: 0 18px 45px rgba(45,0,85,.28) !important; padding: 10px 8px !important;
+        position: fixed !important; top: 96px !important; right: 16px !important; width: 104px !important;
+        z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
+        border-radius: 18px !important; box-shadow: 0 18px 45px rgba(45,0,85,.20) !important; padding: 10px !important;
     }
-    .copilot-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:18px;margin-bottom:10px;}
-    .copilot-title{font-size:17px;font-weight:900;line-height:1.15;}
-    .copilot-sub{font-size:11px;opacity:.92;margin-top:4px;}
-    .copilot-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
-    .copilot-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;}
-    .copilot-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
-    .copilot-metric{border:1px solid #eee6f5;border-radius:14px;padding:9px;background:#fbf9ff;}
-    .copilot-label{font-size:10px;color:#666;font-weight:800;text-transform:uppercase;letter-spacing:.03em;}
-    .copilot-value{font-size:18px;color:#2d0055;font-weight:900;}
-    .copilot-msg{background:#f6f2ff;border-left:4px solid #660094;padding:10px;border-radius:13px;margin:8px 0;font-size:12px;line-height:1.48;}
-    .copilot-user{background:#2d0055;color:white;padding:10px;border-radius:13px;margin:8px 0;font-size:12px;line-height:1.48;}
-    .copilot-note{font-size:11px;color:#555;background:#fff9dc;border-left:4px solid #FFDB58;padding:8px;border-radius:11px;margin:8px 0;}
-    .copilot-section{font-size:12px;color:#2d0055;font-weight:900;margin:8px 0 4px 0;}
-    .copilot-small{font-size:11px;color:#666;line-height:1.38;}
-    .copilot-typing{display:inline-flex;gap:4px;align-items:center;padding:4px 0;}
-    .copilot-typing span{width:6px;height:6px;background:#660094;border-radius:50%;display:block;animation:copilotTyping 1.1s infinite ease-in-out;}
-    .copilot-typing span:nth-child(2){animation-delay:.15s}.copilot-typing span:nth-child(3){animation-delay:.3s}
-    @keyframes copilotTyping{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
-    .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button{font-size:11px!important;font-weight:900!important;padding:7px 2px!important;}
-    @media (max-width: 760px){.st-key-eusee_ai_right_sidebar{left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}}
+    .eusee-ai-brand{background:linear-gradient(135deg,#2d0055,#660094 58%,#008CAA);color:white;padding:14px;border-radius:17px;margin-bottom:10px;}
+    .eusee-ai-brand-title{font-size:18px;font-weight:900;line-height:1.15;}
+    .eusee-ai-brand-sub{font-size:11px;opacity:.92;margin-top:4px;line-height:1.35;}
+    .eusee-ai-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+    .eusee-ai-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;}
+    .eusee-ai-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
+    .eusee-ai-metric-card{border:1px solid #eee6f5;border-radius:14px;padding:9px;background:#fbf9ff;}
+    .eusee-ai-metric-label{font-size:10px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+    .eusee-ai-metric-value{font-size:18px;color:#2d0055;font-weight:900;}
+    .eusee-ai-msg{background:#f6f2ff;border-left:4px solid #660094;padding:10px;border-radius:12px;margin:8px 0;font-size:12px;line-height:1.45;}
+    .eusee-ai-user{background:#2d0055;color:white;padding:10px;border-radius:12px;margin:8px 0;font-size:12px;line-height:1.45;}
+    .eusee-ai-note{font-size:11px;color:#555;background:#fff9dc;border-left:4px solid #FFDB58;padding:8px;border-radius:10px;margin-top:8px;}
+    .eusee-ai-section-title{font-size:12px;color:#2d0055;font-weight:900;margin:8px 0 4px 0;}
+    .eusee-ai-small{font-size:11px;color:#666;line-height:1.35;}
+    .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button{border-radius:999px!important;font-weight:800!important;min-height:34px!important;}
+    .st-key-eusee_ai_right_sidebar textarea{font-size:13px!important;}
+    @media (max-width: 1100px){.st-key-eusee_ai_right_sidebar{width:370px!important;right:10px!important;top:70px!important;}}
+    @media (max-width: 760px){.st-key-eusee_ai_right_sidebar{left:10px!important;right:10px!important;width:auto!important;top:68px!important;max-height:calc(100vh - 85px)!important;}.st-key-eusee_ai_right_sidebar_collapsed{right:10px!important;top:80px!important;}}
     </style>
     """, unsafe_allow_html=True)
 
     if not st.session_state.ai_right_sidebar_open:
         with st.container(key="eusee_ai_right_sidebar_collapsed"):
-            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:13px;line-height:1.15;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
-            if st.button("Open", key="copilot_open_btn", use_container_width=True, help="Open EU SEE AI Copilot"):
+            st.markdown("<div style='text-align:center;font-weight:900;color:#2d0055;font-size:13px;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
+            if st.button("Open", key="ai_right_open_btn", use_container_width=True):
                 st.session_state.ai_right_sidebar_open = True
                 st.rerun()
         return
 
     with st.container(key="eusee_ai_right_sidebar"):
-        top_l, top_r = st.columns([0.72, 0.28], vertical_alignment="center")
+        top_l, top_r = st.columns([0.76, 0.24], vertical_alignment="center")
         with top_l:
             st.markdown("""
-            <div class="copilot-brand">
-                <div class="copilot-title">🤖 EU SEE AI Copilot</div>
-                <div class="copilot-sub">Streaming chat, chart explanation, extra plots and policy-ready exports</div>
-                <div class="copilot-chip-row"><span class="copilot-chip">Chat</span><span class="copilot-chip">Explain</span><span class="copilot-chip">Plot</span><span class="copilot-chip">Export</span></div>
+            <div class="eusee-ai-brand">
+                <div class="eusee-ai-brand-title">🤖 EU SEE Copilot</div>
+                <div class="eusee-ai-brand-sub">One assistant for chat, plots, explanations, map intelligence, country profiles, and reports.</div>
+                <div class="eusee-ai-chip-row">
+                    <span class="eusee-ai-chip">Ask anything</span><span class="eusee-ai-chip">Plot</span><span class="eusee-ai-chip">Explain</span><span class="eusee-ai-chip">Profile</span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         with top_r:
-            if st.button("◂ Collapse", key="copilot_collapse_btn", use_container_width=True, help="Collapse AI Copilot but keep launcher visible"):
+            if st.button("Collapse", key="ai_right_collapse_btn", use_container_width=True):
                 st.session_state.ai_right_sidebar_open = False
                 st.rerun()
 
         st.markdown(f"""
-        <div class="copilot-metric-grid">
-            <div class="copilot-metric"><div class="copilot-label">Alerts</div><div class="copilot-value">{s['total_alerts']:,}</div></div>
-            <div class="copilot-metric"><div class="copilot-label">Negative</div><div class="copilot-value">{s['negative_pct']}%</div></div>
-            <div class="copilot-metric"><div class="copilot-label">Countries</div><div class="copilot-value">{s['countries_count']:,}</div></div>
-            <div class="copilot-metric"><div class="copilot-label">Priority</div><div class="copilot-value" style="color:{level_color};">{level}</div></div>
+        <div class="eusee-ai-metric-grid">
+            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Alerts</div><div class="eusee-ai-metric-value">{s['total_alerts']:,}</div></div>
+            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Negative</div><div class="eusee-ai-metric-value">{s['negative_pct']}%</div></div>
+            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Countries</div><div class="eusee-ai-metric-value">{s['countries_count']:,}</div></div>
+            <div class="eusee-ai-metric-card"><div class="eusee-ai-metric-label">Priority</div><div class="eusee-ai-metric-value" style="color:{level_color};">{level}</div></div>
         </div>
         """, unsafe_allow_html=True)
+        st.caption(level_note)
 
-        chat_tab, explain_tab, plot_tab, insight_tab, export_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Export"])
+        context_options = ["Current dashboard", "Selected country", "Map intelligence", "Negative alerts"]
+        st.selectbox("Copilot context", context_options, key="ai_context_selector", help="Choose the analytical context the Copilot should use.")
+        if st.session_state.ai_context_selector == "Selected country" and df is not None and not df.empty and "alert-country" in df.columns:
+            country_options = sorted(df["alert-country"].dropna().astype(str).str.strip().unique().tolist())
+            st.selectbox("Selected country", country_options, key="ai_selected_country")
 
-        with chat_tab:
-            st.markdown("<div class='copilot-small'>Ask naturally, e.g. <b>summarise the current view</b>, <b>plot top countries</b>, or <b>explain the regional chart</b>.</div>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Summarise", key="copilot_q_summary", use_container_width=True):
-                    _copilot_queue_answer("summarise the current view", df); st.rerun()
-                if st.button("Auto insights", key="copilot_q_auto_insights", use_container_width=True):
-                    _copilot_queue_answer("auto insights from current filters", df); st.rerun()
-                if st.button("Plot countries", key="copilot_q_plot_countries", use_container_width=True):
-                    _copilot_queue_answer("plot top countries", df); st.rerun()
-                if st.button("Explain map", key="copilot_q_explain_map", use_container_width=True):
-                    _copilot_queue_answer("explain chart: map / country distribution", df); st.rerun()
-            with c2:
-                if st.button("Priority", key="copilot_q_priority", use_container_width=True):
-                    _copilot_queue_answer("what is the priority signal and why", df); st.rerun()
-                if st.button("Plot impacts", key="copilot_q_plot_impacts", use_container_width=True):
-                    _copilot_queue_answer("chart alert impacts", df); st.rerun()
-                if st.button("Next steps", key="copilot_q_next", use_container_width=True):
-                    _copilot_queue_answer("recommended next analytical steps", df); st.rerun()
-            if st.button("Clear chat", key="copilot_clear_chat", use_container_width=True):
-                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about filtered data, request a plot, or ask me to explain a chart."}]
-                st.session_state.ai_last_plot = None
+        qa = st.columns(3)
+        quick_actions = [
+            ("Insights", "Generate auto insights for the current context."),
+            ("Explain", "Explain this chart or current dashboard view."),
+            ("Plot", "Plot top countries."),
+            ("Country", "Generate a country profile."),
+            ("Map", "Explain map intelligence and priority countries."),
+            ("Brief", "Generate a policy brief.")
+        ]
+        for i, (label, prompt) in enumerate(quick_actions):
+            with qa[i % 3]:
+                if st.button(label, key=f"ai_unified_quick_{label}", use_container_width=True):
+                    _save_ai_answer(prompt, df)
+                    st.rerun()
+
+        if st.button("Clear conversation", key="ai_unified_clear", use_container_width=True):
+            st.session_state.ai_messages = [{"role": "assistant", "content": "Conversation cleared. Ask me anything about the current EU SEE dashboard context."}]
+            st.session_state.ai_last_plot = None
+            st.session_state.ai_pending_answer = ""
+            st.session_state.ai_streaming = False
+            st.rerun()
+
+        with st.container(height=320):
+            for msg in st.session_state.ai_messages[-10:]:
+                css = "eusee-ai-user" if msg["role"] == "user" else "eusee-ai-msg"
+                st.markdown(f'<div class="{css}">{_render_chat_content_html(msg["content"])}</div>', unsafe_allow_html=True)
+            if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
+                st.markdown('<div class="eusee-ai-msg">▌ AI is preparing a response...</div>', unsafe_allow_html=True)
+                st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
                 st.session_state.ai_pending_answer = ""
                 st.session_state.ai_streaming = False
                 st.rerun()
 
-            chat_box = st.container(height=330)
-            with chat_box:
-                for msg in st.session_state.ai_messages[-10:]:
-                    css = "copilot-user" if msg["role"] == "user" else "copilot-msg"
-                    st.markdown(f'<div class="{css}">{_render_chat_content_html(msg["content"])}</div>', unsafe_allow_html=True)
-                if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
-                    st.markdown('<div class="copilot-msg"><div class="copilot-typing"><span></span><span></span><span></span></div><br><b>AI Copilot is typing...</b></div>', unsafe_allow_html=True)
-                    streamed = st.write_stream(_copilot_stream_text(st.session_state.ai_pending_answer))
-                    st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
-                    st.session_state.ai_pending_answer = ""
-                    st.session_state.ai_streaming = False
-                    st.rerun()
+        with st.form("ai_unified_chat_form", clear_on_submit=True):
+            user_q = st.text_area("Ask anything", placeholder="Example: Plot mechanisms, explain map risk, generate Kenya profile, summarize negative alerts", height=72, label_visibility="collapsed")
+            submitted = st.form_submit_button("Send", use_container_width=True)
+        if submitted and user_q.strip():
+            _save_ai_answer(user_q, df)
+            st.rerun()
 
-            with st.form("copilot_chat_form", clear_on_submit=True):
-                user_q = st.text_area("Message", placeholder="Ask a question or request a chart explanation...", height=70, label_visibility="collapsed")
-                submitted = st.form_submit_button("Send", use_container_width=True)
-            if submitted and user_q.strip():
-                _copilot_queue_answer(user_q, df)
-                st.rerun()
+        if isinstance(st.session_state.ai_last_plot, dict):
+            st.markdown('<div class="eusee-ai-section-title">Copilot-generated plot</div>', unsafe_allow_html=True)
+            lp = st.session_state.ai_last_plot
+            dims = _ai_get_available_plot_dimensions(_copilot_context_df(df, st.session_state.get("ai_context_selector", "Current dashboard")))
+            dim_lookup = {col: label for label, col in dims}
+            current_col = lp.get("dimension_col")
+            if current_col in [c for _, c in dims]:
+                labels = [d[0] for d in dims]
+                cols = {label: col for label, col in dims}
+                default_label = dim_lookup.get(current_col, labels[0])
+                selected_label = st.selectbox("Plot dimension", labels, index=labels.index(default_label), key="ai_unified_plot_dim")
+                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=["Horizontal bar", "Bar", "Donut", "Treemap"].index(lp.get("chart_type", "Horizontal bar")) if lp.get("chart_type", "Horizontal bar") in ["Horizontal bar", "Bar", "Donut", "Treemap"] else 0, key="ai_unified_plot_type")
+                top_n = st.slider("Top N", 3, 30, int(lp.get("top_n", 10)), key="ai_unified_plot_topn")
+                plot_df = _copilot_context_df(df, st.session_state.get("ai_context_selector", "Current dashboard"))
+                fig = _ai_make_plot(plot_df, cols[selected_label], chart_type=chart_type, top_n=top_n, title=f"Copilot plot: {selected_label}")
+                st.plotly_chart(fig, use_container_width=True, key="ai_unified_dynamic_plot")
+                csv_df = _ai_clean_count_df(plot_df, cols[selected_label], top_n=top_n)
+                st.download_button("Download plot data", data=csv_df.to_csv(index=False).encode("utf-8"), file_name="eusee_copilot_plot_data.csv", mime="text/csv", use_container_width=True, key="ai_unified_plot_download")
 
-        with explain_tab:
-            st.markdown('<div class="copilot-section">Explain a dashboard chart</div>', unsafe_allow_html=True)
-            chart_context = st.selectbox(
-                "Select chart to explain",
-                [
-                    "Overview: alert type distribution",
-                    "Overview: enabling principles distribution",
-                    "Overview: regional distribution",
-                    "Overview: country distribution",
-                    "Map: country-level geographic distribution",
-                    "Negative alerts: restrictive actors",
-                    "Negative alerts: affected civil society actors",
-                    "Negative alerts: restrictive mechanisms",
-                    "Negative alerts: types of negative events",
-                    "Advanced: heatmaps and Sankey flow",
-                    "Chatbot-generated plot",
-                ],
-                key="copilot_chart_context",
-            )
-            if st.button("Generate chart explanation", key="copilot_explain_btn", use_container_width=True):
-                explanation = ai_generate_chart_explanation(df, chart_context)
-                st.session_state.ai_messages.append({"role": "user", "content": f"Explain chart: {chart_context}"})
-                st.session_state.ai_pending_answer = explanation
-                st.session_state.ai_streaming = True
-                st.rerun()
-            st.markdown('<div class="copilot-note">Tip: explanation uses the current dashboard filters and includes interpretation cautions on monitoring/reporting coverage.</div>', unsafe_allow_html=True)
-            with st.expander("Preview explanation now", expanded=True):
-                st.markdown(_render_chat_content_html(ai_generate_chart_explanation(df, chart_context)), unsafe_allow_html=True)
-
-        with plot_tab:
-            st.markdown('<div class="copilot-section">Create additional plots from filtered data</div>', unsafe_allow_html=True)
-            dims = _ai_get_available_plot_dimensions(df)
-            if dims:
-                dim_labels = [d[0] for d in dims]
-                dim_map = {label: col for label, col in dims}
-                selected_label = st.selectbox("Dimension", dim_labels, index=0, key="copilot_plot_dim")
-                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=0, key="copilot_plot_type")
-                top_n = st.slider("Top N", 3, 30, 10, key="copilot_plot_topn")
-                selected_col = dim_map[selected_label]
-                fig = _ai_make_plot(df, selected_col, chart_type=chart_type, top_n=top_n, title=f"{selected_label} distribution")
-                st.plotly_chart(fig, use_container_width=True, key="copilot_plot_builder")
-                p1, p2 = st.columns(2)
-                with p1:
-                    if st.button("Explain this plot", key="copilot_explain_generated_plot", use_container_width=True):
-                        explanation = ai_generate_chart_explanation(df, f"Chatbot-generated plot: {selected_label}")
-                        st.session_state.ai_messages.append({"role": "user", "content": f"Explain generated plot: {selected_label}"})
-                        st.session_state.ai_pending_answer = explanation
-                        st.session_state.ai_streaming = True
-                        st.rerun()
-                with p2:
-                    if st.button("Save to chat", key="copilot_save_generated_plot", use_container_width=True):
-                        st.session_state.ai_last_plot = {"dimension_col": selected_col, "chart_type": chart_type, "top_n": top_n, "title": f"{selected_label} distribution"}
-                        st.session_state.ai_messages.append({"role": "assistant", "content": f"📊 Saved a {chart_type.lower()} plot for **{selected_label}** using the current filters."})
-                        st.rerun()
-                plot_df = _ai_clean_count_df(df, selected_col, top_n=top_n)
-                st.download_button("Download plot data (.csv)", data=plot_df.to_csv(index=False).encode("utf-8"), file_name="eusee_ai_plot_data.csv", mime="text/csv", use_container_width=True, key="copilot_download_plot_data")
-                if isinstance(st.session_state.ai_last_plot, dict):
-                    st.markdown('<div class="copilot-section">Last chatbot-generated plot</div>', unsafe_allow_html=True)
-                    lp = st.session_state.ai_last_plot
-                    st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="copilot_last_plot")
-            else:
-                st.info("No suitable fields are available for plotting under the current filters.")
-
-        with insight_tab:
-            st.markdown(f"**Priority signal:** <span style='color:{level_color};font-weight:900;'>{level}</span>", unsafe_allow_html=True)
-            st.caption(level_note)
-            render_auto_insights_cards(df)
-            if st.button("Send auto insights to chat", key="copilot_send_auto_insights", use_container_width=True):
-                st.session_state.ai_messages.append({"role": "user", "content": "Auto insights from current filters"})
-                st.session_state.ai_pending_answer = append_eusee_redirect(generate_auto_insights_text(df))
-                st.session_state.ai_streaming = True
-                st.rerun()
-            with st.expander("Mini trend chart", expanded=True):
-                render_ai_trend_chart(df)
-            with st.expander("Interpret current view", expanded=False):
-                st.markdown(_render_chat_content_html(local_ai_response("interpret the current view", df)), unsafe_allow_html=True)
-            with st.expander("Recommended next steps", expanded=False):
-                st.text(ai_recommended_next_steps(df))
-            with st.expander("Data quality report", expanded=False):
-                st.text(ai_data_quality_report(df))
-
-        with export_tab:
-            summary_text = generate_ai_executive_summary(df)
-            policy_text = generate_ai_policy_brief(df)
+        with st.expander("One-click downloads", expanded=False):
+            working_df = _copilot_context_df(df, st.session_state.get("ai_context_selector", "Current dashboard"))
+            summary_text = generate_ai_executive_summary(working_df)
+            policy_text = generate_ai_policy_brief(working_df)
             chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
-            auto_insights_text = generate_auto_insights_text(df)
-            st.download_button("Auto insights (.txt)", data=auto_insights_text, file_name="eusee_ai_auto_insights.txt", mime="text/plain", use_container_width=True, key="copilot_export_auto_insights")
-            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="copilot_export_summary")
-            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="copilot_export_policy")
-            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="copilot_export_chat")
-            if df is not None and not df.empty:
-                st.download_button("Filtered data (.csv)", data=df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_dashboard_data.csv", mime="text/csv", use_container_width=True, key="copilot_export_data")
+            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_copilot_executive_summary.txt", mime="text/plain", use_container_width=True, key="ai_unified_exec_summary")
+            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_copilot_policy_brief.txt", mime="text/plain", use_container_width=True, key="ai_unified_policy_brief")
+            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_copilot_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_unified_chat_transcript")
 
 render_ai_assistant_panel(filtered_global)
 
