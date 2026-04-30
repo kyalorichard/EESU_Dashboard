@@ -1286,91 +1286,174 @@ def filter_top_n(df, row_col, col_col, top_n=None):
     heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
     return heatmap_df
 
-# ---------------- FORMATTED HEATMAP ----------------
-def create_heatmap(pivot_df, title="Heatmap"):
-    """
-    Creates a Plotly heatmap from a pivot table with formatted labels and hover info.
-    """
+# ---------------- PROFESSIONAL RELATIONSHIP ANALYTICS HELPERS ----------------
+def _safe_chart_label(label, words_per_line=3, max_chars=42):
+    """Readable compact label for dense heatmaps/Sankey nodes."""
+    text = normalize_label(label) if 'normalize_label' in globals() else str(label)
+    text = str(text).strip()
+    if len(text) > max_chars:
+        text = text[: max_chars - 1].rstrip() + "…"
+    return wrap_label_by_words(text, words_per_line=words_per_line)
+
+
+def render_analytics_module_header(title, subtitle, badges=None):
+    """Consistent executive-style header for complex analytical modules."""
+    badges = badges or []
+    badge_html = "".join([f'<span class="analytics-badge">{b}</span>' for b in badges])
+    st.markdown(f"""
+    <style>
+    .analytics-panel {{
+        background: linear-gradient(180deg, #FFFFFF 0%, #FBFAFD 100%);
+        border: 1px solid #E8E1F0;
+        border-radius: 18px;
+        padding: 14px 16px 12px 16px;
+        margin: 12px 0 14px 0;
+        box-shadow: 0 8px 26px rgba(45, 0, 85, 0.055);
+    }}
+    .analytics-panel-title {{
+        font-family: Inter, Arial, sans-serif;
+        font-size: 15px;
+        font-weight: 900;
+        color: #2D0055;
+        margin-bottom: 4px;
+        letter-spacing: -0.01em;
+    }}
+    .analytics-panel-subtitle {{
+        font-family: Inter, Arial, sans-serif;
+        font-size: 11.8px;
+        color: #52616B;
+        line-height: 1.45;
+        max-width: 980px;
+    }}
+    .analytics-badge {{
+        display: inline-block;
+        background: #F5EFFA;
+        color: #660094;
+        border: 1px solid #E6D7F0;
+        border-radius: 999px;
+        padding: 4px 9px;
+        margin: 7px 6px 0 0;
+        font-family: Inter, Arial, sans-serif;
+        font-size: 10.5px;
+        font-weight: 800;
+    }}
+    .chart-card-caption {{
+        font-family: Inter, Arial, sans-serif;
+        font-size: 10.8px;
+        color: #6B7280;
+        line-height: 1.35;
+        margin-top: -8px;
+        margin-bottom: 6px;
+    }}
+    </style>
+    <div class="analytics-panel">
+        <div class="analytics-panel-title">{title}</div>
+        <div class="analytics-panel-subtitle">{subtitle}</div>
+        <div>{badge_html}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def create_heatmap(pivot_df, title="Heatmap", x_label="", y_label=""):
+    """Professional Plotly heatmap for relationship matrices."""
     if pivot_df.empty:
-        # Placeholder chart if no data
         fig = go.Figure()
-        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False, font=dict(size=16))
-        fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+        fig.add_annotation(
+            text="No matching relationship data",
+            x=0.5, y=0.5, xref="paper", yref="paper",
+            showarrow=False,
+            font=dict(size=13, color="#64748B", family=CHART_FONT)
+        )
+        fig.update_layout(
+            height=320,
+            margin=dict(l=20, r=20, t=48, b=20),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            title=dict(text=title, x=0.02, xanchor="left", font=dict(size=13, family=CHART_FONT, color=CHART_TITLE_COLOR))
+        )
         return fig
 
-    # Wrap labels for better readability
-    pivot_df.index = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.index]
-    pivot_df.columns = [wrap_label_by_words(str(i), words_per_line=3) for i in pivot_df.columns]
+    plot_df = pivot_df.copy()
+    plot_df.index = [_safe_chart_label(i, words_per_line=2, max_chars=36) for i in plot_df.index]
+    plot_df.columns = [_safe_chart_label(i, words_per_line=2, max_chars=34) for i in plot_df.columns]
 
-    # Define traffic-light colorscale
-    colorscale=[
-        [0.0, "#F8FAFC"],
-        [0.35, "#DDF3F7"],
-        [0.7, "#BFA6D8"],
-        [1.0, "#660094"]
+    z_values = plot_df.values.astype(float)
+    zmax = float(np.nanmax(z_values)) if z_values.size else 1
+
+    colorscale = [
+        [0.00, "#F8FAFC"],
+        [0.18, "#EEF7FA"],
+        [0.42, "#CFEAF0"],
+        [0.68, "#9D77BF"],
+        [1.00, "#660094"],
     ]
 
-    # Normalize data between 0 and 1 for the colorscale
-    z_values = pivot_df.values.astype(float)
-    z_min, z_max = z_values.min(), z_values.max()
-    z_norm = (z_values - z_min) / (z_max - z_min + 1e-6)  # avoid division by zero
+    fig = go.Figure(data=go.Heatmap(
+        z=plot_df.values,
+        x=plot_df.columns,
+        y=plot_df.index,
+        colorscale=colorscale,
+        zmin=0,
+        zmax=zmax if zmax > 0 else 1,
+        xgap=2,
+        ygap=2,
+        hovertemplate="<b>%{y}</b><br>↳ <b>%{x}</b><br><span style='color:#64748B'>Alerts:</span> <b>%{z}</b><extra></extra>",
+        colorbar=dict(
+            title=dict(text="Alerts", font=dict(size=11, family=CHART_FONT, color="#52616B")),
+            tickfont=dict(size=10, family=CHART_FONT, color="#52616B"),
+            thickness=9,
+            len=0.70,
+            outlinewidth=0,
+            bgcolor="rgba(255,255,255,0)",
+        ),
+    ))
 
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=pivot_df.values,
-            x=pivot_df.columns,
-            y=pivot_df.index,
-            colorscale=colorscale,
-            hovertemplate="<b>%{y}</b> → <b>%{x}</b><br>Count: %{z}<extra></extra>",
-            colorbar=dict(
-                title=dict(text="Count", font=dict(size=11, family=CHART_FONT)),
-                tickfont=dict(size=10, family=CHART_FONT),
-                thickness=10,
-                len=0.72,
-                outlinewidth=0,
-            )
-        )
-    )
+    if plot_df.shape[0] <= 8 and plot_df.shape[1] <= 8:
+        annotations = []
+        for iy, yv in enumerate(plot_df.index):
+            for ix, xv in enumerate(plot_df.columns):
+                val = plot_df.values[iy][ix]
+                if val > 0:
+                    annotations.append(dict(
+                        x=xv, y=yv, text=str(int(val)), showarrow=False,
+                        font=dict(size=10, family=CHART_FONT, color="#FFFFFF" if val >= zmax * 0.55 else "#2D0055")
+                    ))
+        fig.update_layout(annotations=annotations)
 
     fig.update_layout(
-        title=dict(text=title, x=0.02, xanchor="left", font=dict(size=14, family=CHART_FONT, color=CHART_TITLE_COLOR)),
-        xaxis_title="",
-        yaxis_title="",
-        xaxis_tickangle=-35,
-        margin=dict(l=90, r=34, t=58, b=115),
-        height=max(330, len(pivot_df)*34),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=CHART_FONT, size=10, color=CHART_TEXT_COLOR),
-        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E2E8F0", font=dict(color=CHART_TEXT_COLOR, family=CHART_FONT)),
+        title=dict(text=title, x=0.02, xanchor="left", font=dict(size=13.5, family=CHART_FONT, color=CHART_TITLE_COLOR)),
+        xaxis_title=x_label,
+        yaxis_title=y_label,
+        height=max(340, min(560, 275 + plot_df.shape[0] * 34)),
+        margin=dict(l=105, r=30, t=58, b=105),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        font=dict(family=CHART_FONT, size=10.5, color=CHART_TEXT_COLOR),
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D9E2EC", font=dict(color=CHART_TEXT_COLOR, family=CHART_FONT, size=11)),
     )
-    fig.update_xaxes(showgrid=False, zeroline=False, showline=True, linecolor=CHART_AXIS_COLOR, ticks="")
-    fig.update_yaxes(showgrid=False, zeroline=False, showline=True, linecolor=CHART_AXIS_COLOR, ticks="")
-   
+    fig.update_xaxes(
+        tickangle=-30, showgrid=False, zeroline=False, showline=False, ticks="",
+        tickfont=dict(size=9.8, family=CHART_FONT, color="#52616B"),
+        titlefont=dict(size=10.5, family=CHART_FONT, color="#64748B"),
+    )
+    fig.update_yaxes(
+        autorange="reversed", showgrid=False, zeroline=False, showline=False, ticks="",
+        tickfont=dict(size=9.8, family=CHART_FONT, color="#52616B"),
+        titlefont=dict(size=10.5, family=CHART_FONT, color="#64748B"),
+    )
     return fig
+
+
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
-    """
-    Returns a list of top-N items in a column based on frequency.
-    If top_n is None, returns all items.
-    """
     counts = df[col].value_counts()
     if top_n is not None:
         counts = counts.head(top_n)
     return counts.index.tolist()
 
-# ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
-def render_heatmaps(df, top_n=5):
-    """
-    Renders three heatmaps for Negative Events tab, handling multi-valued fields safely:
-    - Actor → Mechanism
-    - Subject → Mechanism
-    - Actor → Subject
 
-    Parameters:
-        df (DataFrame): Filtered data (Negative Events)
-        top_n (int or None): Number of top items to show per axis. Use None for all.
-    """
+# ---------------- PROFESSIONAL HEATMAP RENDER FUNCTION ----------------
+def render_heatmaps(df, top_n=5):
     if df.empty:
         st.warning("No data available for heatmaps.")
         return
@@ -1381,43 +1464,34 @@ def render_heatmaps(df, top_n=5):
     def safe_split(x):
         if pd.isna(x):
             return []
-
         x = str(x).strip()
         if not x:
             return []
-
         x = x.replace(protected_label, placeholder)
         parts = [i.strip() for i in x.split(",") if str(i).strip()]
-        parts = [p.replace(placeholder, protected_label) for p in parts]
-        return parts
+        return [p.replace(placeholder, protected_label) for p in parts]
 
-    # Explode multi-valued columns safely
     df_exploded = df.copy()
-
-    explode_cols = [
-        "Actor of repression",
-        "Subject of repression",
-        "Mechanism of repression"
-    ]
-
+    explode_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression"]
     for col in explode_cols:
         df_exploded[col] = df_exploded[col].apply(safe_split)
         df_exploded = df_exploded.explode(col)
         df_exploded[col] = df_exploded[col].astype(str).str.strip()
 
-    # Remove blanks created during splitting/exploding
     df_exploded = df_exploded[
         (df_exploded["Actor of repression"] != "") &
         (df_exploded["Subject of repression"] != "") &
         (df_exploded["Mechanism of repression"] != "")
     ].copy()
 
-    # Determine Top-N items
+    if df_exploded.empty:
+        st.info("No actor–mechanism–subject relationship data are available under the current filters.")
+        return
+
     top_actors = get_top_n_items(df_exploded, "Actor of repression", top_n)
     top_subjects = get_top_n_items(df_exploded, "Subject of repression", top_n)
     top_mechanisms = get_top_n_items(df_exploded, "Mechanism of repression", top_n)
 
-    # Filter to Top-N items
     df_top = df_exploded[
         df_exploded["Actor of repression"].isin(top_actors) &
         df_exploded["Subject of repression"].isin(top_subjects) &
@@ -1425,232 +1499,167 @@ def render_heatmaps(df, top_n=5):
     ].copy()
 
     if df_top.empty:
-        st.warning("No heatmap data available after applying Top-N filters.")
+        st.warning("No heatmap data available after applying the Top-N selection.")
         return
 
-    # Create pivot tables
-    actor_mechanism_pivot = filter_top_n(
-        df_top, "Actor of repression", "Mechanism of repression", top_n
-    )
-    subject_mechanism_pivot = filter_top_n(
-        df_top, "Subject of repression", "Mechanism of repression", top_n
-    )
-    actor_subject_pivot = filter_top_n(
-        df_top, "Actor of repression", "Subject of repression", top_n
+    actor_mechanism_pivot = filter_top_n(df_top, "Actor of repression", "Mechanism of repression", top_n)
+    subject_mechanism_pivot = filter_top_n(df_top, "Subject of repression", "Mechanism of repression", top_n)
+    actor_subject_pivot = filter_top_n(df_top, "Actor of repression", "Subject of repression", top_n)
+
+    all_values = pd.concat([actor_mechanism_pivot.stack(), subject_mechanism_pivot.stack(), actor_subject_pivot.stack()])
+    zmax = float(all_values.max()) if not all_values.empty else 1
+
+    render_analytics_module_header(
+        "Relationship Heatmaps",
+        "Use these matrices to identify concentrated pathways between restrictive actors, mechanisms, and affected civil society groups. Darker cells indicate higher alert counts under the current filters.",
+        badges=[f"Records: {len(df_top):,}", f"View: {'All' if top_n is None else 'Top ' + str(top_n)}", "Hover cells for counts"]
     )
 
-    # Consistent color scale
-    all_values = pd.concat([
-        actor_mechanism_pivot.stack(),
-        subject_mechanism_pivot.stack(),
-        actor_subject_pivot.stack()
-    ])
-    zmax = all_values.max() if not all_values.empty else 1
-
-    # Render heatmaps in 3 columns
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        fig1 = create_heatmap(
-            actor_mechanism_pivot,
-            title="What are the mechanisms used<br>by restrictive actors?"
-        )
+    c1, c2, c3 = st.columns(3, gap="medium")
+    with c1:
+        fig1 = create_heatmap(actor_mechanism_pivot, title="Actor → Mechanism", x_label="Mechanism", y_label="Actor")
         fig1.update_traces(zmin=0, zmax=zmax)
-        fig1.update_layout(
-            xaxis=dict(tickfont=dict(size=10, family="Arial")),
-            yaxis=dict(tickfont=dict(size=10, family="Arial")),
-            title=dict(
-                text=fig1.layout.title.text,
-                x=0.5,
-                xanchor="center",
-                font=dict(size=12, family="Arial black")
-            )
-        )
-        st.plotly_chart(fig1, use_container_width=True, key="heatmap_actor_mechanism")
-
-    with col2:
-        fig2 = create_heatmap(
-            subject_mechanism_pivot,
-            title="What are the restrictive mechanisms<br>affecting civil society actors?"
-        )
+        st.plotly_chart(fig1, use_container_width=True, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro")
+        st.markdown('<div class="chart-card-caption">Shows which restrictive actors are most associated with each mechanism.</div>', unsafe_allow_html=True)
+    with c2:
+        fig2 = create_heatmap(subject_mechanism_pivot, title="Affected Group → Mechanism", x_label="Mechanism", y_label="Affected group")
         fig2.update_traces(zmin=0, zmax=zmax)
-        fig2.update_layout(
-            xaxis=dict(tickfont=dict(size=10, family="Arial")),
-            yaxis=dict(tickfont=dict(size=10, family="Arial")),
-            title=dict(
-                text=fig2.layout.title.text,
-                x=0.5,
-                xanchor="center",
-                font=dict(size=12, family="Arial black")
-            )
-        )
-        st.plotly_chart(fig2, use_container_width=True, key="heatmap_subject_mechanism")
-
-    with col3:
-        fig3 = create_heatmap(
-            actor_subject_pivot,
-            title="Who are the actors restricting<br>civil society?"
-        )
+        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro")
+        st.markdown('<div class="chart-card-caption">Shows which mechanisms most frequently affect specific civil society groups.</div>', unsafe_allow_html=True)
+    with c3:
+        fig3 = create_heatmap(actor_subject_pivot, title="Actor → Affected Group", x_label="Affected group", y_label="Actor")
         fig3.update_traces(zmin=0, zmax=zmax)
-        fig3.update_layout(
-            xaxis=dict(tickfont=dict(size=10, family="Arial")),
-            yaxis=dict(tickfont=dict(size=10, family="Arial")),
-            title=dict(
-                text=fig3.layout.title.text,
-                x=0.5,
-                xanchor="center",
-                font=dict(size=12, family="Arial black")
-            )
-        )
-        st.plotly_chart(fig3, use_container_width=True, key="heatmap_actor_subject")
+        st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False}, key="heatmap_actor_subject_pro")
+        st.markdown('<div class="chart-card-caption">Shows which actors are most frequently linked to affected groups.</div>', unsafe_allow_html=True)
 
-# ---------------- HELPER: Get Top-N Items ----------------
-def get_top_n_items(df, col, top_n):
-    """
-    Returns a list of top-N items in a column based on frequency.
-    If top_n is None, returns all items.
-    """
-    counts = df[col].value_counts()
-    if top_n is not None:
-        counts = counts.head(top_n)
-    return counts.index.tolist()
 
-# ---------------- UPDATED HEATMAP RENDER FUNCTION ----------------
-def render_sankey(df, top_n=None, width=900, wrap_width=25):
-    """
-    Render a Sankey diagram for Negative Events:
-    Actor → Mechanism → Subject
-    Wraps long labels to display fully.
-    
-    Parameters:
-        df (DataFrame): Filtered negative events data
-        top_n (int or None): Number of top items to show per axis. Use None for all.
-        wrap_width (int): Maximum characters per line before wrapping
-    """
+# ---------------- PROFESSIONAL SANKEY FUNCTION ----------------
+def render_sankey(df, top_n=None, width=900, wrap_width=22):
     if df.empty:
-        st.warning("No data available for Sankey")
-        return go.Figure()
+        fig = go.Figure()
+        fig.add_annotation(text="No data available for flow analysis", x=0.5, y=0.5, showarrow=False)
+        fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
+        return fig
 
-    # Helper: wrap long labels
-    def wrap_label(label):
-        words = str(label).split()
-        lines = []
-        line = ""
+    protected_label = "Journalists, media and influencers"
+    placeholder = "Journalists__MEDIA__and__influencers"
+
+    def split_values(x):
+        if pd.isna(x):
+            return []
+        x = str(x).strip().replace(protected_label, placeholder)
+        parts = [i.strip() for i in x.split(",") if i.strip()]
+        return [p.replace(placeholder, protected_label) for p in parts]
+
+    flow_df = df.copy()
+    for col in ["Actor of repression", "Mechanism of repression", "Subject of repression"]:
+        flow_df[col] = flow_df[col].apply(split_values)
+        flow_df = flow_df.explode(col)
+        flow_df[col] = flow_df[col].astype(str).str.strip()
+
+    flow_df = flow_df[
+        (flow_df["Actor of repression"] != "") &
+        (flow_df["Mechanism of repression"] != "") &
+        (flow_df["Subject of repression"] != "")
+    ].copy()
+
+    if flow_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No complete actor–mechanism–subject flows available", x=0.5, y=0.5, showarrow=False)
+        fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
+        return fig
+
+    def top_nodes(col):
+        values = flow_df[col].value_counts()
+        return values.head(top_n).index.tolist() if top_n is not None else values.index.tolist()
+
+    top_actors = top_nodes("Actor of repression")
+    top_mechanisms = top_nodes("Mechanism of repression")
+    top_subjects = top_nodes("Subject of repression")
+
+    flow_df = flow_df[
+        flow_df["Actor of repression"].isin(top_actors) &
+        flow_df["Mechanism of repression"].isin(top_mechanisms) &
+        flow_df["Subject of repression"].isin(top_subjects)
+    ].copy()
+
+    if flow_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No flows remain after Top-N filtering", x=0.5, y=0.5, showarrow=False)
+        fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
+        return fig
+
+    def wrap_node(prefix, label):
+        label = str(label).strip()
+        words = label.split()
+        lines, line = [], ""
         for word in words:
-            if len(line + " " + word) <= wrap_width:
+            if len((line + " " + word).strip()) <= wrap_width:
                 line = (line + " " + word).strip()
             else:
-                lines.append(line)
+                if line:
+                    lines.append(line)
                 line = word
-        lines.append(line)
-        return "<br>".join(lines)
-    
+        if line:
+            lines.append(line)
+        wrapped = "<br>".join(lines[:3])
+        if len(lines) > 3:
+            wrapped += "…"
+        return f"<b>{prefix}</b><br>{wrapped}"
 
-    # Get top-N nodes
-    def get_top_nodes(col):
-        counts = df[col].value_counts()
-        if top_n is not None:
-            counts = counts.head(top_n)
-        return counts.index.tolist()
-
-    top_actors = get_top_nodes("Actor of repression")
-    top_mechanisms = get_top_nodes("Mechanism of repression")
-    top_subjects = get_top_nodes("Subject of repression")
-
-    # Build node labels (wrapped)
-    actor_nodes = [wrap_label(f"Actor: {a}") for a in top_actors]
-    mechanism_nodes = [wrap_label(f"Mechanism: {m}") for m in top_mechanisms]
-    subject_nodes = [wrap_label(f"Subject: {s}") for s in top_subjects]
-
+    actor_nodes = [wrap_node("Actor", a) for a in top_actors]
+    mechanism_nodes = [wrap_node("Mechanism", m) for m in top_mechanisms]
+    subject_nodes = [wrap_node("Affected group", s) for s in top_subjects]
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
 
-    node_colors = (
-        ["#FF5733"] * len(actor_nodes) +
-        ["#33C1FF"] * len(mechanism_nodes) +
-        ["#33FF8A"] * len(subject_nodes)
-    )
+    actor_color = "#FFDB58"
+    mechanism_color = "#660094"
+    subject_color = "#008CAA"
+    node_colors = ([actor_color] * len(actor_nodes) + [mechanism_color] * len(mechanism_nodes) + [subject_color] * len(subject_nodes))
 
     links = []
+    am = flow_df.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
+    for _, r in am.iterrows():
+        links.append(dict(source=node_index[wrap_node("Actor", r["Actor of repression"])], target=node_index[wrap_node("Mechanism", r["Mechanism of repression"])], value=int(r["value"]), color="rgba(102,0,148,0.18)"))
+    ms = flow_df.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
+    for _, r in ms.iterrows():
+        links.append(dict(source=node_index[wrap_node("Mechanism", r["Mechanism of repression"])], target=node_index[wrap_node("Affected group", r["Subject of repression"])], value=int(r["value"]), color="rgba(0,140,170,0.18)"))
 
-    # Actor → Mechanism
-    df_am = df[df["Actor of repression"].isin(top_actors) &
-               df["Mechanism of repression"].isin(top_mechanisms)]
-    for _, r in df_am.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value").iterrows():
-        links.append(dict(
-            source=node_index[wrap_label(f"Actor: {r['Actor of repression']}")],
-            target=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
-            value=r["value"]
-        ))
-
-    # Mechanism → Subject
-    df_ms = df[df["Mechanism of repression"].isin(top_mechanisms) &
-               df["Subject of repression"].isin(top_subjects)]
-    for _, r in df_ms.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value").iterrows():
-        links.append(dict(
-            source=node_index[wrap_label(f"Mechanism: {r['Mechanism of repression']}")],
-            target=node_index[wrap_label(f"Subject: {r['Subject of repression']}")],
-            value=r["value"]
-        ))
-
-    # Figure height scales with number of nodes
-    fig_height = max(500, len(nodes) * 40)
-
+    fig_height = max(460, min(760, 330 + len(nodes) * 22))
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=40,
-            thickness=35,
-            line=dict(color="black", width=0.5),
-            label=actor_nodes + mechanism_nodes + subject_nodes,  # plain text
+            pad=22,
+            thickness=18,
+            line=dict(color="rgba(45,0,85,0.18)", width=0.7),
+            label=nodes,
             color=node_colors,
-            hovertemplate="%{label}<extra></extra>"
+            hovertemplate="%{label}<extra></extra>",
         ),
         link=dict(
             source=[l["source"] for l in links],
             target=[l["target"] for l in links],
             value=[l["value"] for l in links],
-            hovertemplate="%{value} alerts<extra></extra>"
+            color=[l["color"] for l in links],
+            hovertemplate="<b>%{value}</b> linked alerts<extra></extra>",
         )
     ))
 
-    fig.update_layout(font=dict(family="Arial Black", size=12, color="black"))  # text color
+    for name, color in [("Restrictive actors", actor_color), ("Restrictive mechanisms", mechanism_color), ("Affected civil society groups", subject_color)]:
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", marker=dict(size=10, color=color), name=name))
 
-    # Optional legend as scatter
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#FF5733"),
-        name="Restrictive actor "
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33C1FF"),
-        name="Restrictive mechanism "
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers",
-        marker=dict(size=10, color="#33FF8A"),
-        name="Civil society actor affected "
-    ))
-
-    # Layout with consistent fonts
     fig.update_layout(
-        title=dict(
-            text="Flow of Negative Events",
-            x=0.5,
-            xanchor="center",
-            font=dict(size=12, family="Arial Black", color="#660094")  # Title font
-        ),
-        font=dict(size=10, family="Arial", color="black"),  # Axis, legend, hover font
+        title=dict(text="Flow of Negative Events: Actor → Mechanism → Affected Group", x=0.02, xanchor="left", font=dict(size=15, family=CHART_FONT, color=CHART_TITLE_COLOR)),
+        font=dict(size=10.5, family=CHART_FONT, color=CHART_TEXT_COLOR),
         height=fig_height,
         width=width,
-        xaxis=dict(showgrid=False, zeroline=False, visible=False),
-        yaxis=dict(showgrid=False, zeroline=False, visible=False),
-        margin=dict(l=50, r=50, t=50, b=50),
-        showlegend=True
+        margin=dict(l=18, r=18, t=60, b=28),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D9E2EC", font=dict(color=CHART_TEXT_COLOR, family=CHART_FONT)),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.08, xanchor="left", x=0, font=dict(size=10.5, family=CHART_FONT, color="#52616B")),
     )
-
-
     return fig
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
@@ -2853,26 +2862,39 @@ with tab_negative:
         # ---------------- TOP-N CONFIG ----------------
         if "top_n_option" not in st.session_state:
             st.session_state.top_n_option = "Top 5"
-            st.session_state.top_n = 5
-        
-        def update_top_n():
-            st.session_state.top_n = {
-                "Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None
-            }[st.session_state.top_n_option]
+        st.markdown("""
+        <style>
+        .relationship-control-card {
+            background: #FFFFFF;
+            border: 1px solid #E8E1F0;
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin: 10px 0 12px 0;
+            box-shadow: 0 6px 20px rgba(45, 0, 85, 0.045);
+        }
+        .relationship-control-title {
+            font-family: Inter, Arial, sans-serif;
+            font-size: 13px;
+            font-weight: 900;
+            color: #2D0055;
+            margin-bottom: 3px;
+        }
+        .relationship-control-note {
+            font-family: Inter, Arial, sans-serif;
+            font-size: 11.2px;
+            color: #64748B;
+            line-height: 1.35;
+            margin-bottom: 6px;
+        }
+        </style>
+        <div class="relationship-control-card">
+            <div class="relationship-control-title">Relationship analytics controls</div>
+            <div class="relationship-control-note">
+                Choose how many leading actors, mechanisms, and affected groups to display. Use smaller Top-N values for clearer executive review; use All for full analytical exploration.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown(
-            """
-            <style>
-            #top-n-select div[data-baseweb="select"] > div {
-                font-size: 30px;
-                font-weight: bold;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )  
-    
-        st.markdown('<div id="top-n-select">', unsafe_allow_html=True)
         top_n_map = {
             "Top 2": 2,
             "Top 3": 3,
@@ -2880,30 +2902,31 @@ with tab_negative:
             "Top 5": 5,
             "All": None
         }
-    
+
         selected = st.selectbox(
-            "Select a value from the drop-down menu to view the top mechanism used by restrictive actor, \n"
-            "restrictive mechanism affecting cicil society actors, and who are the actors restricting civil society",
+            "Relationship view depth",
             options=list(top_n_map.keys()),
-            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5"))
+            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
+            help="Controls the number of leading categories shown in the heatmaps and Sankey flow."
         )
-    
+
         st.session_state.top_n_option = selected
         st.session_state.top_n = top_n_map[selected]
-        st.markdown('</div>', unsafe_allow_html=True)
-    
         top_n = st.session_state.top_n
-    
-        # ---------------- HEATMAPS ----------------
-        #with st.expander("Show Heatmaps"):
-        #filtered_df['Subject of repression']= filtered_df['Subject of repression'].apply(safe_split)
 
         render_heatmaps(filtered_df, top_n=top_n)
-    
-        # ---------------- SANKEY DIAGRAM ----------------
-        #with st.expander("Show Flowchart (Sankey Diagram)"):
-        st.plotly_chart(render_sankey(filtered_df, top_n=top_n), use_container_width=True)
 
+        render_analytics_module_header(
+            "Flow Diagram",
+            "Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.",
+            badges=[f"View: {'All' if top_n is None else 'Top ' + str(top_n)}", "Hover flows for counts", "Actor → Mechanism → Group"]
+        )
+        st.plotly_chart(
+            render_sankey(filtered_df, top_n=top_n),
+            use_container_width=True,
+            config={"displayModeBar": False},
+            key="negative_events_sankey_professional"
+        )
         cols_to_keep = {
             "post_title": "Title of post",
             "summary": "Event summary",
