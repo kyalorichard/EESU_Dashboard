@@ -40,6 +40,16 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+# ---------------- AUTH ROUTING ----------------
+# Dashboard remains visible by default. When the user clicks
+# "Sign in / Access", this flag opens a dedicated login view.
+st.session_state.setdefault("auth_view", False)
+
+if st.session_state.get("auth_view") and not is_authenticated():
+    auth_ui()
+    st.stop()
+# ------------------------------------------------
+
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
