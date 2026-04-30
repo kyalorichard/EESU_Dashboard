@@ -1509,12 +1509,6 @@ def render_heatmaps(df, top_n=5):
     all_values = pd.concat([actor_mechanism_pivot.stack(), subject_mechanism_pivot.stack(), actor_subject_pivot.stack()])
     zmax = float(all_values.max()) if not all_values.empty else 1
 
-    render_analytics_module_header(
-        "Relationship Heatmaps",
-        "Use these matrices to identify concentrated pathways between restrictive actors, mechanisms, and affected civil society groups. Darker cells indicate higher alert counts under the current filters.",
-        badges=[f"Records: {len(df_top):,}", f"View: {'All' if top_n is None else 'Top ' + str(top_n)}", "Hover cells for counts"]
-    )
-
     c1, c2, c3 = st.columns(3, gap="medium")
     with c1:
         fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used<br>by restrictive actors?", x_label="Mechanism", y_label="Actor")
@@ -1694,6 +1688,93 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
         ),
     )
     return fig
+
+# ---------------- HIGH-END ANALYTICAL FLOW PANEL ----------------
+def render_analytical_flow_panel(df):
+    """Unified panel combining relationship heatmaps and Sankey flow."""
+    if "top_n_option" not in st.session_state:
+        st.session_state.top_n_option = "Top 5"
+
+    total_records = len(df) if df is not None else 0
+    top_n_map = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}
+    if st.session_state.get("top_n_option") not in top_n_map:
+        st.session_state.top_n_option = "Top 5"
+
+    st.markdown("""
+    <style>
+    .flow-panel-shell {
+        background: linear-gradient(180deg, #FFFFFF 0%, #FBF9FE 100%);
+        border: 1px solid #E7DDF2;
+        border-radius: 22px;
+        padding: 18px 18px 14px 18px;
+        margin: 18px 0 18px 0;
+        box-shadow: 0 12px 34px rgba(45, 0, 85, 0.075);
+    }
+    .flow-panel-eyebrow {font-family: Inter, Arial, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; color: #008CAA; margin-bottom: 4px;}
+    .flow-panel-title {font-family: Inter, Arial, sans-serif; font-size: 19px; font-weight: 950; color: #2D0055; margin-bottom: 4px;}
+    .flow-panel-subtitle {font-family: Inter, Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.45; max-width: 980px; margin-bottom: 12px;}
+    .flow-panel-badges {display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 4px 0;}
+    .flow-panel-badge {background: #F3ECF8; border: 1px solid #E1D2EC; border-radius: 999px; padding: 5px 9px; font-family: Inter, Arial, sans-serif; font-size: 10.8px; font-weight: 800; color: #4B006E;}
+    .flow-guide-card {background: #FFFFFF; border: 1px solid #E8EEF3; border-radius: 16px; padding: 11px 13px; min-height: 76px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.045);}
+    .flow-guide-title {font-family: Inter, Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
+    .flow-guide-text {font-family: Inter, Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
+    .flow-section-label {font-family: Inter, Arial, sans-serif; font-size: 13.2px; font-weight: 950; color: #2D0055; margin: 16px 0 2px 0;}
+    .flow-section-note {font-family: Inter, Arial, sans-serif; font-size: 11.2px; color: #64748B; margin-bottom: 8px;}
+    .flow-divider {height: 1px; background: linear-gradient(90deg, rgba(102,0,148,.22), rgba(0,140,170,.16), rgba(255,219,88,.10)); margin: 14px 0 10px 0;}
+    </style>
+    <div class="flow-panel-shell">
+        <div class="flow-panel-eyebrow">Negative events relationship intelligence</div>
+        <div class="flow-panel-title">Analytical Flow Panel</div>
+        <div class="flow-panel-subtitle">
+            A unified diagnostic view linking restrictive actors, restrictive mechanisms, and affected civil society groups. Use the heatmaps to identify concentrated relationships, then use the Sankey diagram to follow the end-to-end pathway.
+        </div>
+        <div class="flow-panel-badges">
+            <span class="flow-panel-badge">Actor → Mechanism → Affected group</span>
+            <span class="flow-panel-badge">Heatmaps + Sankey</span>
+            <span class="flow-panel-badge">Filter-aware analysis</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    g1, g2, g3 = st.columns(3, gap="medium")
+    with g1:
+        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">1. Diagnose concentration</div><div class="flow-guide-text">Start with heatmaps. Darker cells show where alerts are concentrated across actor, mechanism, and affected-group relationships.</div></div>', unsafe_allow_html=True)
+    with g2:
+        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">2. Follow the pathway</div><div class="flow-guide-text">Use the Sankey to trace how restrictive actors connect to mechanisms and then to affected civil society groups.</div></div>', unsafe_allow_html=True)
+    with g3:
+        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">3. Adjust complexity</div><div class="flow-guide-text">Use Top-N controls for executive readability. Smaller values simplify the view; All supports deeper analytical exploration.</div></div>', unsafe_allow_html=True)
+
+    ctrl_left, ctrl_right = st.columns([1.15, 2.85], gap="large")
+    with ctrl_left:
+        selected = st.selectbox(
+            "Relationship view depth",
+            options=list(top_n_map.keys()),
+            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
+            help="Controls the number of leading actors, mechanisms, and affected groups shown in the heatmaps and Sankey flow.",
+            key="flow_panel_top_n_select",
+        )
+        st.session_state.top_n_option = selected
+        top_n = top_n_map[selected]
+        st.session_state.top_n = top_n
+    with ctrl_right:
+        st.markdown(f"""
+        <div class="flow-panel-badges" style="margin-top: 27px;">
+            <span class="flow-panel-badge">Records: {total_records:,}</span>
+            <span class="flow-panel-badge">View: {'All categories' if top_n is None else 'Top ' + str(top_n)}</span>
+            <span class="flow-panel-badge">Tip: hover cells and flows for counts</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-label">Diagnostic heatmaps</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-note">Use these matrices to identify concentrated pairwise relationships before interpreting the full flow.</div>', unsafe_allow_html=True)
+    render_heatmaps(df, top_n=top_n)
+
+    st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-label">Integrated flow diagram</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-note">Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.</div>', unsafe_allow_html=True)
+    st.plotly_chart(render_sankey(df, top_n=top_n), use_container_width=True, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
+
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
     if col not in df.columns or df.empty:
@@ -2892,74 +2973,9 @@ with tab_negative:
 
         #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
-        # ---------------- TOP-N CONFIG ----------------
-        if "top_n_option" not in st.session_state:
-            st.session_state.top_n_option = "Top 5"
-        st.markdown("""
-        <style>
-        .relationship-control-card {
-            background: #FFFFFF;
-            border: 1px solid #E8E1F0;
-            border-radius: 16px;
-            padding: 12px 14px;
-            margin: 10px 0 12px 0;
-            box-shadow: 0 6px 20px rgba(45, 0, 85, 0.045);
-        }
-        .relationship-control-title {
-            font-family: Inter, Arial, sans-serif;
-            font-size: 13px;
-            font-weight: 900;
-            color: #2D0055;
-            margin-bottom: 3px;
-        }
-        .relationship-control-note {
-            font-family: Inter, Arial, sans-serif;
-            font-size: 11.2px;
-            color: #64748B;
-            line-height: 1.35;
-            margin-bottom: 6px;
-        }
-        </style>
-        <div class="relationship-control-card">
-            <div class="relationship-control-title">Relationship analytics controls</div>
-            <div class="relationship-control-note">
-                Choose how many leading actors, mechanisms, and affected groups to display. Use smaller Top-N values for clearer executive review; use All for full analytical exploration.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # ---------------- ANALYTICAL FLOW PANEL ----------------
+        render_analytical_flow_panel(filtered_df)
 
-        top_n_map = {
-            "Top 2": 2,
-            "Top 3": 3,
-            "Top 4": 4,
-            "Top 5": 5,
-            "All": None
-        }
-
-        selected = st.selectbox(
-            "Relationship view depth",
-            options=list(top_n_map.keys()),
-            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
-            help="Controls the number of leading categories shown in the heatmaps and Sankey flow."
-        )
-
-        st.session_state.top_n_option = selected
-        st.session_state.top_n = top_n_map[selected]
-        top_n = st.session_state.top_n
-
-        render_heatmaps(filtered_df, top_n=top_n)
-
-        render_analytics_module_header(
-            "Flow Diagram",
-            "Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.",
-            badges=[f"View: {'All' if top_n is None else 'Top ' + str(top_n)}", "Hover flows for counts", "Actor → Mechanism → Group"]
-        )
-        st.plotly_chart(
-            render_sankey(filtered_df, top_n=top_n),
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="negative_events_sankey_professional"
-        )
         cols_to_keep = {
             "post_title": "Title of post",
             "summary": "Event summary",
