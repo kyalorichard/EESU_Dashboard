@@ -936,7 +936,156 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
             </div>
             <div class="eusee-kpi-note">Filtered composition by alert impact</div>
         </div>
+
         """, unsafe_allow_html=True)
+
+
+def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
+    """Return the most frequent comma-separated item for a negative-alert intelligence card."""
+    if df is None or df.empty or col not in df.columns:
+        return "Not available", 0
+    placeholder = "Journalists__MEDIA__and__influencers"
+    s = df[col].dropna().astype(str).str.strip()
+    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+    s = s.str.replace(protected_label, placeholder, regex=False)
+    exploded = (
+        s.str.split(",")
+        .explode()
+        .astype(str)
+        .str.strip()
+        .str.replace(placeholder, protected_label, regex=False)
+    )
+    exploded = exploded[(exploded != "") & (exploded.str.lower() != "nan") & (exploded.str.lower() != "none")]
+    if exploded.empty:
+        return "Not available", 0
+    counts = exploded.value_counts()
+    return str(counts.index[0]), int(counts.iloc[0])
+
+
+def _compact_text_for_card(value, max_len=42):
+    value = str(value or "Not available").strip()
+    return value if len(value) <= max_len else value[: max_len - 1].rstrip() + "…"
+
+
+def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None, card_key="negative_intelligence"):
+    """Render a Negative Alerts-specific KPI/intelligence row.
+
+    This replaces the generic Negative/Positive/Context donut in the Negative Alerts tab,
+    where all records are already negative and a composition donut adds limited value.
+    """
+    negative_total = len(negative_df) if negative_df is not None else 0
+    all_total = len(all_filtered_df) if all_filtered_df is not None and not all_filtered_df.empty else negative_total
+    negative_share = round((negative_total / all_total) * 100, 1) if all_total else 0
+
+    top_actor, top_actor_count = _top_split_item_for_negative_card(negative_df, "Actor of repression")
+    top_mechanism, top_mechanism_count = _top_split_item_for_negative_card(negative_df, "Mechanism of repression")
+    top_subject, top_subject_count = _top_split_item_for_negative_card(negative_df, "Subject of repression")
+
+    top_country = "Not available"
+    top_country_count = 0
+    monitored_countries = 0
+    if negative_df is not None and not negative_df.empty and "alert-country" in negative_df.columns:
+        country_series = negative_df["alert-country"].dropna().astype(str).str.strip().replace("", np.nan).dropna()
+        monitored_countries = int(country_series.nunique()) if not country_series.empty else 0
+        country_counts = country_series.value_counts()
+        if not country_counts.empty:
+            top_country = str(country_counts.index[0])
+            top_country_count = int(country_counts.iloc[0])
+
+    actor_pct = round((top_actor_count / negative_total) * 100, 1) if negative_total else 0
+    mech_pct = round((top_mechanism_count / negative_total) * 100, 1) if negative_total else 0
+    subject_pct = round((top_subject_count / negative_total) * 100, 1) if negative_total else 0
+
+    st.markdown("""
+    <style>
+    .negintel-card {
+        height: 150px;
+        min-height: 150px;
+        background: radial-gradient(circle at 100% 0%, rgba(180,35,24,0.06), transparent 35%), linear-gradient(180deg, #FFFFFF 0%, #FFFCFB 100%);
+        border: 1px solid rgba(180, 35, 24, 0.12);
+        border-radius: 17px;
+        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
+        padding: 11px 14px 10px 14px;
+        margin: 2px 0 8px 0;
+        box-sizing: border-box;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+    }
+    .negintel-card::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,#B42318 0%,#FFDB58 55%,#660094 100%); opacity:.95; }
+    .negintel-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
+    .negintel-eyebrow { color:#9A6B66; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
+    .negintel-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
+    .negintel-icon { width:30px; height:30px; min-width:30px; border-radius:12px; background:linear-gradient(135deg, rgba(180,35,24,.12), rgba(255,219,88,.14)); color:#B42318; border:1px solid rgba(180,35,24,.10); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; }
+    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; color:#B42318; }
+    .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
+    .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
+    .negintel-row-list { display:flex; flex-direction:column; gap:5px; margin-top:5px; }
+    .negintel-row { display:grid; grid-template-columns: minmax(74px, 1fr) 44px 36px; align-items:center; gap:6px; padding:5px 7px; border-radius:10px; background:rgba(255,255,255,.72); border:1px solid rgba(102,0,148,.055); line-height:1; }
+    .negintel-row-label { color:#344054; font-size:9.7px; font-weight:950; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .negintel-row-pct { color:#101828; font-size:10.3px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; }
+    .negintel-row-count { color:#667085; font-size:9.4px; font-weight:850; text-align:right; white-space:nowrap; }
+    .negintel-compact-line { font-size:10.2px; color:#344054; line-height:1.22; font-weight:850; margin-top:5px; }
+    .negintel-compact-line strong { color:#2D0055; font-weight:950; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
+        countries_size = "34px" if is_privileged() else "21px"
+        st.markdown(f"""
+        <div class="negintel-card">
+            <div>
+                <div class="negintel-top">
+                    <div><div class="negintel-eyebrow">Coverage</div><div class="negintel-title">Monitored Countries</div></div>
+                    <div class="negintel-icon">🌍</div>
+                </div>
+                <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
+                <div class="negintel-pill" style="background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);">Negative-alert scope</div>
+            </div>
+            <div class="negintel-note">Countries represented by current negative-alert filters</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
+        st.markdown(f"""
+        <div class="negintel-card">
+            <div>
+                <div class="negintel-top">
+                    <div><div class="negintel-eyebrow">Negative alert scope</div><div class="negintel-title">Negative Alerts Intelligence</div></div>
+                    <div class="negintel-icon">⚠️</div>
+                </div>
+                <div class="negintel-value">{negative_total:,}</div>
+                <div class="negintel-pill">{negative_share}% of filtered alerts</div>
+                <div class="negintel-compact-line"><strong>Top country:</strong> {_compact_text_for_card(top_country, 34)} <span style="color:#667085;">({top_country_count:,})</span></div>
+            </div>
+            <div class="negintel-note">Focused diagnostic view for restrictive events only</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c3:
+        st.markdown(f"""
+        <div class="negintel-card">
+            <div>
+                <div class="negintel-top">
+                    <div><div class="negintel-eyebrow">Dominant pathway</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
+                    <div class="negintel-icon">⛓️</div>
+                </div>
+                <div class="negintel-row-list">
+                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label">Actor: {_compact_text_for_card(top_actor, 23)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">Mechanism: {_compact_text_for_card(top_mechanism, 19)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
+                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label">Subject: {_compact_text_for_card(top_subject, 21)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+                </div>
+            </div>
+            <div class="negintel-note">Use heatmaps and Sankey below to inspect the relationship structure</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 def normalize_label(label: str) -> str:
     """
@@ -2882,7 +3031,11 @@ with tab_negative:
             (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-        render_summary_cards(reactive_df_updated, show_breakdown=False, card_key="negative_events_summary")
+        render_negative_alerts_intelligence_cards(
+            reactive_df_updated,
+            all_filtered_df=filtered_global,
+            card_key="negative_events_summary"
+        )
 
         #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
 
