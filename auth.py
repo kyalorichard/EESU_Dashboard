@@ -491,27 +491,70 @@ def _render_auth_panel():
 # Authentication UI Entrypoint
 # -----------------------------
 def auth_ui():
+    """Non-blocking floating-left authentication launcher."""
     init_session()
     restore_session()
 
     if st.session_state.get("user"):
         with st.sidebar:
-            st.success(f"👋 {st.session_state.get('name') or 'User'}")
+            st.markdown("""
+            <style>
+            .auth-floating-card {
+                background: linear-gradient(135deg, rgba(102,0,148,0.18), rgba(255,255,255,0.06));
+                border: 1px solid rgba(255,255,255,0.18);
+                border-radius: 14px;
+                padding: 10px 12px;
+                margin: 8px 0 10px 0;
+                box-shadow: 0 8px 22px rgba(0,0,0,0.10);
+                font-family: Arial, sans-serif;
+            }
+            .auth-floating-title {font-size:12px;font-weight:800;color:#ffffff;margin-bottom:3px;}
+            .auth-floating-subtitle {font-size:10.5px;color:rgba(255,255,255,0.78);line-height:1.35;}
+            </style>
+            """, unsafe_allow_html=True)
+            st.markdown(f'''
+            <div class="auth-floating-card">
+                <div class="auth-floating-title">👋 {st.session_state.get('name') or 'Signed in'}</div>
+                <div class="auth-floating-subtitle">Authenticated EU SEE dashboard session</div>
+            </div>
+            ''', unsafe_allow_html=True)
             if not st.session_state.get("email_verified"):
                 st.warning("Email not verified. Please verify your email before accessing privileged dashboard features.")
-            if st.button("Logout", use_container_width=True):
+            if st.button("Logout", use_container_width=True, key="auth_sidebar_logout"):
                 logout()
         return
 
-    # Keep the login as a modal when Streamlit supports dialogs; otherwise use a centered fallback.
-    if hasattr(st, "dialog"):
-        @st.dialog("Sign in to EU SEE Dashboard", width="large")
-        def _login_dialog():
-            _render_auth_panel()
-        _login_dialog()
-    else:
-        st.warning("Please sign in to continue.")
-        _render_auth_panel()
-
-    # Prevent interaction with protected dashboard content until authenticated.
-    st.stop()
+    with st.sidebar:
+        st.markdown("""
+        <style>
+        div[data-testid="stPopover"] > button {
+            width: 100%;
+            border-radius: 14px !important;
+            border: 1px solid rgba(255,255,255,0.22) !important;
+            background: linear-gradient(135deg, #660094 0%, #3b075c 100%) !important;
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            box-shadow: 0 10px 24px rgba(102,0,148,0.28) !important;
+            min-height: 42px !important;
+        }
+        div[data-testid="stPopover"] > button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px rgba(102,0,148,0.34) !important;
+        }
+        .auth-left-note {
+            margin: 6px 0 10px 0;
+            font-family: Arial, sans-serif;
+            font-size: 10.5px;
+            color: rgba(255,255,255,0.72);
+            line-height: 1.35;
+        }
+        </style>
+        <div class="auth-left-note">Sign in only when you need privileged access. The dashboard remains visible.</div>
+        """, unsafe_allow_html=True)
+        if hasattr(st, "popover"):
+            with st.popover("🔐 Sign in / Access", use_container_width=True):
+                _render_auth_panel()
+        else:
+            with st.expander("🔐 Sign in / Access", expanded=False):
+                _render_auth_panel()
+    return
