@@ -233,7 +233,7 @@ def render_top_feedback_bar():
     </div>
     """, unsafe_allow_html=True)
 
-render_top_feedback_bar()
+# render_top_feedback_bar()  # Disabled: feedback is rendered as a floating callout instead.
 
 
 # ---------------- LOAD DATA ----------------
@@ -3297,8 +3297,11 @@ def render_feedback_callout():
     </div>
     """, unsafe_allow_html=True)
 
+# ---------------- FLOATING FEEDBACK CALLOUT ----------------
+render_feedback_callout()
+
 # ---------------- FOOTER ----------------
-# Feedback is rendered as a top-left bar under the dashboard title.
+# Feedback is rendered as a floating callout and does not push dashboard content downward.
 # Footer image
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
