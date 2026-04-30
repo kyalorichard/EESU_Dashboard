@@ -2268,54 +2268,53 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
 st.markdown(
     """
     <style>
-    /* Tabs container */
-    div[data-testid="stTabs"] {
-        display: flex !important;       /* flex container */
-        width: 100%;
-        gap: 0px;                        /* no extra gap */
-        background-color: #ffffff;
-        border-bottom: 1px solid #e6e6e6;
+    /* Stable tab styling: target only the tab bar, not the full tab component.
+       This prevents tab changes from causing continuous page scrolling/layout jumps. */
+    div[data-testid="stTabs"] [role="tablist"] {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        background: #ffffff;
+        border-bottom: 1px solid #E8E2EF;
+        padding: 0 0 8px 0;
+        position: sticky;
+        top: 0;
+        z-index: 20;
     }
 
-    /* Ensure each tab wrapper div expands */
-    div[data-testid="stTabs"] > div {
-        flex: 1 !important;             /* make wrapper div take equal space */
+    div[data-testid="stTabs"] [role="tab"] {
+        width: 100% !important;
+        min-height: 44px !important;
+        padding: 10px 12px !important;
+        margin: 0 !important;
+        border-radius: 12px 12px 8px 8px !important;
+        background: #F8F7FB !important;
+        color: #3E2B4F !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+        border: 1px solid #EEE7F4 !important;
+        border-bottom: 3px solid transparent !important;
+        box-shadow: none !important;
+        transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
     }
 
-    /* Tabs list: buttons inside wrapper div */
-    div[data-testid="stTabs"] button {
-        width: 100% !important;          /* fill the wrapper div completely */
-        font-size: 15px;
-        font-weight: 700;                /* bold text */
-        font-family: "Arial Black", Arial, sans-serif;
-        color: #444444;
-        padding: 10px 0;
-        margin: 0;                        /* remove default margin */
-        border-radius: 6px 6px 0 0;
-        background-color: #f8f9fa;
-        text-align: center;
-        border-bottom: 3px solid transparent; /* reserve space for hover underline */
-        transition: all 0.2s ease;
+    div[data-testid="stTabs"] [role="tab"]:hover {
+        background: #F1E8F8 !important;
+        color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #660094 !important;
     }
 
-    /* Hover effect: thicker underline */
-    div[data-testid="stTabs"] button:hover {
-        background-color: #660094;
-        color: white;
-        border-bottom: 5px solid #2d0055;
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, #660094, #7A1FA2) !important;
+        color: #FFFFFF !important;
+        border-color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #FFDB58 !important;
     }
 
-    /* Active tab */
-    div[data-testid="stTabs"] button[aria-selected="true"] {
-        background-color: #660094;
-        color: white;
-        font-weight: 700;
-        border-bottom: 5px solid #2d0055;
-    }
-
-    /* Tab content spacing */
-    div[data-testid="stTabs"] > div[role="tabpanel"] {
-        padding-top: 18px;
+    div[data-testid="stTabs"] [role="tabpanel"] {
+        padding-top: 18px !important;
     }
     </style>
     """,
