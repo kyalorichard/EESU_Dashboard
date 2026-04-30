@@ -121,6 +121,16 @@ def is_privileged():
     )
 
 
+def is_authenticated():
+    """Return True when the user has a verified authenticated session."""
+    init_session()
+    restore_session()
+    return (
+        st.session_state.get("user", False)
+        and bool(st.session_state.get("email_verified", False))
+    )
+
+
 # -----------------------------
 # Cookies
 # -----------------------------
@@ -422,6 +432,7 @@ def _render_auth_panel():
                     st.session_state.email_verified = verified
                     st.session_state.role = role
                     st.session_state.auth_remember = remember
+                    st.session_state.auth_view = False
                     _save_cookie_session(email, st.session_state.name, verified, role, remember)
                     st.rerun()
                 except Exception as e:
@@ -501,81 +512,282 @@ def _render_auth_panel():
 # Authentication UI Entrypoint
 # -----------------------------
 def auth_ui():
-    """Strictly non-blocking sidebar authentication."""
+    """Professional dedicated login view shown only after Sign in / Access is clicked."""
     init_session()
     restore_session()
 
-    # Safety reset: keep the dashboard clickable; do not use dialog/popover/expander.
+    if st.session_state.get("user") and st.session_state.get("email_verified"):
+        st.session_state.auth_view = False
+        st.rerun()
+
     st.markdown(
         """
         <style>
-        div[data-testid="stAppViewContainer"], div[data-testid="stApp"], section.main, .main {
-            filter: none !important;
-            opacity: 1 !important;
+        [data-testid="stSidebar"] {display: none !important;}
+        [data-testid="collapsedControl"] {display: none !important;}
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 1180px !important;
+        }
+        .eusee-login-page {
+            min-height: calc(100vh - 70px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+        }
+        .eusee-login-shell {
+            width: min(1040px, 96vw);
+            display: grid;
+            grid-template-columns: 0.95fr 1.05fr;
+            background: #ffffff;
+            border: 1px solid rgba(102,0,148,0.10);
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 28px 80px rgba(45,0,85,0.18);
+        }
+        .eusee-login-brand {
+            position: relative;
+            padding: 48px 44px;
+            background:
+                radial-gradient(circle at 88% 42%, rgba(255,219,88,0.22), transparent 22%),
+                radial-gradient(circle at 20% 85%, rgba(0,140,170,0.20), transparent 24%),
+                linear-gradient(145deg, #2d0055 0%, #660094 52%, #008CAA 130%);
+            color: #ffffff;
+            min-height: 560px;
+        }
+        .eusee-brand-logo {
+            font-size: 48px;
+            line-height: 0.95;
+            font-weight: 950;
+            letter-spacing: -1px;
+            margin-bottom: 10px;
+        }
+        .eusee-brand-kicker {
+            width: 220px;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.35;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.88);
+            margin-bottom: 48px;
+        }
+        .eusee-security-orb {
+            width: 210px;
+            height: 210px;
+            border-radius: 999px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.22);
+            box-shadow: inset 0 0 45px rgba(255,255,255,0.12);
+        }
+        .eusee-security-icon {
+            width: 92px;
+            height: 92px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.18);
+            font-size: 46px;
+            box-shadow: 0 18px 45px rgba(0,0,0,0.18);
+        }
+        .eusee-login-form-area {
+            padding: 42px 46px 36px 46px;
+            background:
+                linear-gradient(180deg, rgba(249,247,252,0.95), #ffffff 35%);
+        }
+        .eusee-login-topline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+        .eusee-login-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(102,0,148,0.08);
+            color: #660094;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .eusee-login-heading {
+            font-size: 29px;
+            font-weight: 950;
+            color: #231331;
+            letter-spacing: -0.3px;
+            margin: 0 0 6px 0;
+        }
+        .eusee-login-subheading {
+            font-size: 13px;
+            color: #6b6174;
+            line-height: 1.55;
+            margin-bottom: 22px;
+        }
+        .eusee-login-card {
+            background: rgba(255,255,255,0.92);
+            border: 1px solid rgba(102,0,148,0.10);
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 14px 34px rgba(45,0,85,0.08);
+        }
+        .eusee-login-card input {
+            border-radius: 13px !important;
+            min-height: 44px !important;
+            border: 1px solid rgba(102,0,148,0.14) !important;
+        }
+        .eusee-login-card button[kind="primaryFormSubmit"],
+        .eusee-login-card button[kind="formSubmit"] {
+            min-height: 45px !important;
+            border-radius: 13px !important;
+            font-weight: 900 !important;
+            background: linear-gradient(135deg, #660094 0%, #008CAA 100%) !important;
+            border: 0 !important;
+        }
+        .eusee-login-card .stButton > button {
+            border-radius: 13px !important;
+            min-height: 40px !important;
+            font-weight: 800 !important;
+        }
+        .eusee-login-footer-note {
+            margin-top: 18px;
+            color: #70667a;
+            font-size: 11.5px;
+            line-height: 1.45;
+        }
+        @media (max-width: 860px) {
+            .eusee-login-shell {grid-template-columns: 1fr;}
+            .eusee-login-brand {min-height: 300px; padding: 34px;}
+            .eusee-login-form-area {padding: 30px 24px;}
         }
         </style>
+        <div class="eusee-login-page">
+          <div class="eusee-login-shell">
+            <div class="eusee-login-brand">
+              <div class="eusee-brand-logo">EU SEE</div>
+              <div class="eusee-brand-kicker">Supporting an enabling environment for civil society</div>
+              <div class="eusee-security-orb"><div class="eusee-security-icon">🔐</div></div>
+            </div>
+            <div class="eusee-login-form-area">
+              <div class="eusee-login-topline">
+                <div class="eusee-login-pill">Secure dashboard access</div>
+              </div>
+              <div class="eusee-login-heading">Welcome back</div>
+              <div class="eusee-login-subheading">
+                Sign in to unlock privileged EU SEE dashboard features. You will be redirected back to the dashboard after successful login.
+              </div>
+              <div class="eusee-login-card">
         """,
         unsafe_allow_html=True,
     )
 
-    if "auth_sidebar_open" not in st.session_state:
-        st.session_state.auth_sidebar_open = False
+    mode = st.session_state.get("auth_mode", "Login")
 
-    if st.session_state.get("user"):
-        with st.sidebar:
-            st.markdown("""
-            <style>
-            .auth-floating-card {
-                background: linear-gradient(135deg, rgba(102,0,148,0.18), rgba(255,255,255,0.06));
-                border: 1px solid rgba(255,255,255,0.18);
-                border-radius: 14px;
-                padding: 10px 12px;
-                margin: 8px 0 10px 0;
-                box-shadow: 0 8px 22px rgba(0,0,0,0.10);
-                font-family: Arial, sans-serif;
-            }
-            .auth-floating-title {font-size:12px;font-weight:800;color:#ffffff;margin-bottom:3px;}
-            .auth-floating-subtitle {font-size:10.5px;color:rgba(255,255,255,0.78);line-height:1.35;}
-            </style>
-            """, unsafe_allow_html=True)
-            st.markdown(f'''
-            <div class="auth-floating-card">
-                <div class="auth-floating-title">👋 {st.session_state.get('name') or 'Signed in'}</div>
-                <div class="auth-floating-subtitle">Authenticated EU SEE dashboard session</div>
-            </div>
-            ''', unsafe_allow_html=True)
-            if not st.session_state.get("email_verified"):
-                st.warning("Email not verified. Please verify your email before accessing privileged dashboard features.")
-            if st.button("Logout", use_container_width=True, key="auth_sidebar_logout"):
-                logout()
-        return
+    if mode == "Login":
+        with st.form("eusee_login_route_form"):
+            email = st.text_input("Email", placeholder="Enter your email", key="route_login_email").strip()
+            password = st.text_input("Password", placeholder="Enter your password", type="password", key="route_login_password")
+            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", False), key="route_login_remember")
+            submitted = st.form_submit_button("Sign In", use_container_width=True)
 
-    with st.sidebar:
-        st.markdown("""
-        <style>
-        .auth-inline-launch-note {
-            margin: 8px 0 8px 0;
-            font-family: Arial, sans-serif;
-            font-size: 10.5px;
-            color: rgba(255,255,255,0.72);
-            line-height: 1.35;
-        }
-        div[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
-            border-radius: 14px !important;
-            min-height: 42px !important;
-            font-weight: 850 !important;
-        }
-        </style>
-        <div class="auth-inline-launch-note">
-            Sign in only when you need privileged access. This panel does not blur or block the dashboard.
-        </div>
-        """, unsafe_allow_html=True)
+            if submitted:
+                if not firebase_auth:
+                    st.error("Firebase authentication is not initialized.")
+                elif not email or not password:
+                    st.error("Enter email and password.")
+                elif PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Access is restricted to approved domains.")
+                else:
+                    try:
+                        user = firebase_auth.sign_in_with_email_and_password(email, password)
+                        info = firebase_auth.get_account_info(user["idToken"])
+                        verified = bool(info["users"][0].get("emailVerified", False))
+                        role = "privileged" if verified else "restricted"
 
-        label = "▾ Hide sign in" if st.session_state.auth_sidebar_open else "🔐 Sign in / Access"
-        if st.button(label, use_container_width=True, key="auth_inline_toggle_btn"):
-            st.session_state.auth_sidebar_open = not st.session_state.auth_sidebar_open
+                        st.session_state.user = True
+                        st.session_state.email = email
+                        st.session_state.name = email.split("@")[0].replace(".", " ").title()
+                        st.session_state.email_verified = verified
+                        st.session_state.role = role
+                        st.session_state.auth_remember = remember
+                        st.session_state.auth_view = False
+                        _save_cookie_session(email, st.session_state.name, verified, role, remember)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(parse_error(e))
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Create account", use_container_width=True, key="route_create_account_btn"):
+                st.session_state.auth_mode = "Register"
+                st.rerun()
+        with c2:
+            if st.button("Reset password", use_container_width=True, key="route_reset_toggle_btn"):
+                st.session_state.auth_reset_open = not st.session_state.get("auth_reset_open", False)
+                st.rerun()
+
+        if st.session_state.get("auth_reset_open", False):
+            with st.form("eusee_reset_route_form"):
+                reset_email = st.text_input("Reset email", placeholder="Enter your email", key="route_reset_email").strip()
+                reset_submit = st.form_submit_button("Send reset email", use_container_width=True)
+                if reset_submit:
+                    if not firebase_auth:
+                        st.error("Firebase authentication is not initialized.")
+                    elif not reset_email:
+                        st.warning("Enter your email first.")
+                    elif PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
+                        st.error("Password reset is restricted to approved domains.")
+                    else:
+                        try:
+                            firebase_auth.send_password_reset_email(reset_email)
+                            st.success("Password reset email sent.")
+                        except Exception as e:
+                            st.error(parse_error(e))
+
+    else:
+        with st.form("eusee_register_route_form"):
+            email = st.text_input("Email", placeholder="Enter your email", key="route_register_email").strip()
+            password = st.text_input("Password", placeholder="Create a password", type="password", key="route_register_password")
+            submitted = st.form_submit_button("Register", use_container_width=True)
+            if submitted:
+                if not firebase_auth:
+                    st.error("Firebase authentication is not initialized.")
+                elif not email or not password:
+                    st.error("Enter email and password.")
+                elif PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+                    st.error("Registration is restricted to approved domains.")
+                else:
+                    try:
+                        user = firebase_auth.create_user_with_email_and_password(email, password)
+                        firebase_auth.send_email_verification(user["idToken"])
+                        st.success("Registration successful. Check your email to verify your account, then sign in.")
+                    except Exception as e:
+                        st.error(parse_error(e))
+
+        if st.button("Back to sign in", use_container_width=True, key="route_back_login_btn"):
+            st.session_state.auth_mode = "Login"
             st.rerun()
 
-        if st.session_state.auth_sidebar_open:
-            _render_auth_panel()
-    return
+    st.markdown(
+        """
+              </div>
+              <div class="eusee-login-footer-note">
+                Access is limited to approved domains. The dashboard will remain the default view unless you choose to sign in.
+              </div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.button("← Back to dashboard", use_container_width=False, key="route_back_dashboard_btn"):
+        st.session_state.auth_view = False
+        st.rerun()
