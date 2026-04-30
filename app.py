@@ -2586,6 +2586,20 @@ def _save_ai_answer(question, df):
     st.session_state.ai_streaming = True
 
 
+
+def ai_priority_signal(summary: dict):
+    """Return a priority badge based on negative-alert share."""
+    total = summary.get("total_alerts", 0) or 0
+    negative = summary.get("negative", 0) or 0
+    if total == 0:
+        return "No data", "#6b7280", "No alerts are available under the current filters."
+    neg_share = negative / total
+    if neg_share >= 0.70:
+        return "High priority", "#dc2626", "Negative alerts dominate the current filtered dataset. Review country, actor, and mechanism patterns."
+    if neg_share >= 0.40:
+        return "Moderate priority", "#f59e0b", "Negative alerts are substantial under the current filters and may require closer review."
+    return "Low priority", "#16a34a", "Negative alerts are limited under the current filters. Continue monitoring for emerging shifts."
+
 def render_ai_assistant_panel(df):
     """Professional sidebar AI cockpit. It does not interfere with dashboard layout."""
     if "ai_messages" not in st.session_state:
