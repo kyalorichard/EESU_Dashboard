@@ -3004,131 +3004,323 @@ with tab_negative:
     
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
-    #st.subheader("Visualization Map")
+    # ---------------- PROFESSIONAL MAP INTELLIGENCE TAB ----------------
     render_summary_cards(filtered_global, card_key="map_summary")
+
+    MAP_FONT = "Arial"
+    st.markdown("""
+    <style>
+    .map-intel-hero {
+        background: linear-gradient(135deg, #ffffff 0%, #fbf7ff 100%);
+        border: 1px solid rgba(102,0,148,0.13);
+        border-radius: 18px;
+        padding: 16px 18px;
+        box-shadow: 0 10px 28px rgba(17,24,39,0.06);
+        margin: 10px 0 14px 0;
+    }
+    .map-intel-title {
+        font-family: Arial, sans-serif;
+        font-size: 18px;
+        font-weight: 900;
+        color: #2D0055;
+        margin-bottom: 4px;
+        letter-spacing: -0.2px;
+    }
+    .map-intel-subtitle {
+        font-family: Arial, sans-serif;
+        font-size: 12.5px;
+        color: #52616B;
+        line-height: 1.45;
+        max-width: 980px;
+    }
+    .map-chip-row {display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+    .map-chip {
+        display:inline-flex; align-items:center; gap:6px;
+        background:#ffffff;
+        border:1px solid #E6DFF2;
+        border-radius:999px;
+        padding:5px 10px;
+        font-family:Arial, sans-serif;
+        font-size:11px;
+        font-weight:800;
+        color:#2D0055;
+    }
+    .map-intel-card {
+        background:#ffffff;
+        border:1px solid #E8EAF0;
+        border-radius:16px;
+        padding:13px 14px;
+        min-height:92px;
+        box-shadow:0 8px 20px rgba(17,24,39,0.055);
+    }
+    .map-intel-card-label {
+        font-family:Arial, sans-serif;
+        font-size:10.5px;
+        font-weight:900;
+        color:#64748B;
+        text-transform:uppercase;
+        letter-spacing:.45px;
+        margin-bottom:5px;
+    }
+    .map-intel-card-value {
+        font-family:Arial Black, Arial, sans-serif;
+        font-size:24px;
+        color:#2D0055;
+        line-height:1.1;
+    }
+    .map-intel-card-note {
+        font-family:Arial, sans-serif;
+        font-size:11.3px;
+        color:#52616B;
+        margin-top:5px;
+        line-height:1.35;
+    }
+    .map-panel-card {
+        background:#ffffff;
+        border:1px solid #E8EAF0;
+        border-radius:18px;
+        padding:15px;
+        box-shadow:0 10px 26px rgba(17,24,39,0.06);
+        margin-top:12px;
+    }
+    .map-panel-title {
+        font-family:Arial Black, Arial, sans-serif;
+        font-size:13px;
+        color:#2D0055;
+        margin-bottom:4px;
+    }
+    .map-panel-help {
+        font-family:Arial, sans-serif;
+        font-size:11.8px;
+        color:#64748B;
+        margin-bottom:10px;
+        line-height:1.4;
+    }
+    .country-insight-box {
+        background:#F8FAFC;
+        border-left:4px solid #660094;
+        border-radius:13px;
+        padding:12px 14px;
+        font-family:Arial, sans-serif;
+        color:#334155;
+        font-size:12px;
+        line-height:1.45;
+        margin-top:10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     geo_file = Path.cwd() / "exports" / "countriess.geojson"
     if geo_file.exists():
-        with open(geo_file) as f: 
+        with open(geo_file, encoding="utf-8") as f:
             countries_gj = json.load(f)
-    
-        # Base map data
-        df_map = filtered_global.groupby("alert-country").size().reset_index(name="count")
-        map_df = filtered_global.groupby(["alert-country","iso_alpha3"]).size().reset_index(name="count")
 
-        geo_countries = [f['properties']['name'] for f in countries_gj['features']]
-        df_map = df_map[df_map['alert-country'].isin(geo_countries)]
-
-        # ----- Dynamic center & zoom -----
-        if not df_map.empty:
-            coords = []
-            for feature in countries_gj['features']:
-                if feature['properties']['name'] in df_map['alert-country'].values:
-                    geometry = feature['geometry']
-                    if geometry['type'] == "Polygon":
-                        coords.extend(geometry['coordinates'][0])
-                    elif geometry['type'] == "MultiPolygon":
-                        for poly in geometry['coordinates']:
-                            coords.extend(poly[0])
-
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": np.mean(lats), "lon": np.mean(lons)}
-                zoom = max(1, min(5, 2 / (max(lons)-min(lons) + 0.01)))
-            else:
-                center = {"lat":10,"lon":0}
-                zoom = 2
-        else:
-            center = {"lat":10,"lon":0}
-            zoom = 2
-
-        # ----- Add advanced hover stats -----
+        # ---------------- Base map data and intelligence metrics ----------------
         stats = (
             filtered_global
             .groupby("alert-country")
             .agg(
                 total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: (x == "Negative").sum()),
-                positive_alerts=("alert-impact", lambda x: (x == "Positive").sum()),
-                context_to_watch_alerts=("alert-impact", lambda x: (x == "Context to watch").sum())
+                negative_alerts=("alert-impact", lambda x: int((x == "Negative").sum())),
+                positive_alerts=("alert-impact", lambda x: int((x == "Positive").sum())),
+                context_to_watch_alerts=("alert-impact", lambda x: int((x == "Context to watch").sum())),
+                regions=("region", lambda x: ", ".join(sorted(set(x.dropna().astype(str)))[:2])),
             )
             .reset_index()
         )
 
-        df_map = df_map.merge(stats, on="alert-country", how="left")
+        geo_countries = [f["properties"].get("name") for f in countries_gj.get("features", [])]
+        df_map = stats[stats["alert-country"].isin(geo_countries)].copy()
 
-        # Ensure numeric
-        df_map["negative_alerts"] = pd.to_numeric(df_map["negative_alerts"], errors="coerce")
-        df_map["total_alerts"] = pd.to_numeric(df_map["total_alerts"], errors="coerce")
-    
-        # Compute percentage safely
-        df_map["perc_negative"] = ((df_map["negative_alerts"] / df_map["total_alerts"]) * 100).round(1)
-    
-        # Optional: handle NaN values if total_alerts was 0
-        df_map["perc_negative"] = df_map["perc_negative"].fillna(0)
-            
-        # ----- Main choropleth -----
-        map_height = max(400, len(df_map)*20)
+        for c in ["total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts"]:
+            df_map[c] = pd.to_numeric(df_map[c], errors="coerce").fillna(0).astype(int)
 
-        fig = px.choropleth_mapbox(
-            df_map,
-            geojson=countries_gj,
-            locations="alert-country",
-            featureidkey="properties.name",
-            color="count",
-            hover_name="alert-country",
-            hover_data={
-                "count": False,
-                "total_alerts": False,
-                "negative_alerts": False,
-                "positive_alerts": False,
-                "context_to_watch_alerts": False,
-                "perc_negative": False
-            },
-            color_continuous_scale="YlOrBr",
-            mapbox_style="open-street-map",
-            zoom=zoom,
-            center=center,
-            opacity=0.8
+        df_map["perc_negative"] = np.where(
+            df_map["total_alerts"] > 0,
+            (df_map["negative_alerts"] / df_map["total_alerts"] * 100).round(1),
+            0
         )
+        df_map["alert_balance"] = (df_map["positive_alerts"] - df_map["negative_alerts"]).astype(int)
+        df_map["priority_score"] = (df_map["negative_alerts"] * 0.65 + df_map["perc_negative"] * 0.35).round(1)
+        df_map["priority_level"] = pd.cut(
+            df_map["priority_score"],
+            bins=[-1, 20, 45, 70, float("inf")],
+            labels=["Watch", "Moderate", "High", "Very high"]
+        ).astype(str)
 
-        # ----- Card-style hover tooltip -----
-        fig.update_traces(
-            hovertemplate=(
-                "<b>%{location}</b><br>"
-                "<span style='color:#FFD700'>●</span> Total Alerts: %{customdata[0]}<br>"
-                "<span style='color:#FF4C4C'>●</span> Negative: %{customdata[1]}<br>"
-                "<span style='color:#00FFAA'>●</span> Positive: %{customdata[2]}<br>"
-                "<span style='color:#00FFAA'>●</span> Context to watch: %{customdata[3]}<br>"
-                "% Negative: %{customdata[4]}%<extra></extra>"
-            ),
-            customdata=df_map[["total_alerts","negative_alerts","positive_alerts","context_to_watch_alerts","perc_negative"]].values,
-            hoverlabel=dict(
-                bgcolor="#2D0055",
-                font_size=13,
-                font_family="Arial",
-                font_color="white",
-                bordercolor="#ffffff"
-            ),
-            marker_line_width=1,
-            marker_line_color="black"
-        )
+        total_mapped = int(df_map["total_alerts"].sum()) if not df_map.empty else 0
+        mapped_countries = int(df_map["alert-country"].nunique()) if not df_map.empty else 0
+        top_country = df_map.sort_values("total_alerts", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
+        avg_negative_share = round(df_map["perc_negative"].mean(), 1) if not df_map.empty else 0
 
-        # ----- Bubble density overlay -----
-    
+        st.markdown(f"""
+        <div class="map-intel-hero">
+            <div class="map-intel-title">Geographic Intelligence Map</div>
+            <div class="map-intel-subtitle">
+                Explore where alerts are concentrated across monitored countries. The map combines total alert volume,
+                negative-alert share, and country-level priority signals to support spatial interpretation and targeted review.
+            </div>
+            <div class="map-chip-row">
+                <span class="map-chip">🟫 Total alert intensity</span>
+                <span class="map-chip">⚠️ Negative-alert share</span>
+                <span class="map-chip">🎯 Priority signal</span>
+                <span class="map-chip">🖱️ Hover for country details</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        # ----- Final layout -----
-        fig.update_layout(
-            margin={"r":0,"t":0,"l":0,"b":0},
-            height=map_height
-        )
+        k1, k2, k3, k4 = st.columns(4)
+        with k1:
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Alerts with valid country geometry under current filters.</div></div>""", unsafe_allow_html=True)
+        with k2:
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the current spatial view.</div></div>""", unsafe_allow_html=True)
+        with k3:
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest alert volume</div><div class="map-intel-card-value" style="font-size:18px;">{top_country}</div><div class="map-intel-card-note">Country with the largest filtered alert count.</div></div>""", unsafe_allow_html=True)
+        with k4:
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Avg. negative share</div><div class="map-intel-card-value">{avg_negative_share}%</div><div class="map-intel-card-note">Mean negative-alert proportion across mapped countries.</div></div>""", unsafe_allow_html=True)
 
-        fig.update_xaxes(visible=False)
-        fig.update_yaxes(visible=False)
+        # ---------------- Dynamic center and zoom ----------------
+        if not df_map.empty:
+            coords = []
+            country_set = set(df_map["alert-country"].astype(str))
+            for feature in countries_gj.get("features", []):
+                if feature.get("properties", {}).get("name") in country_set:
+                    geometry = feature.get("geometry", {})
+                    if geometry.get("type") == "Polygon":
+                        coords.extend(geometry.get("coordinates", [[]])[0])
+                    elif geometry.get("type") == "MultiPolygon":
+                        for poly in geometry.get("coordinates", []):
+                            if poly:
+                                coords.extend(poly[0])
+            if coords:
+                lons, lats = zip(*coords)
+                center = {"lat": float(np.mean(lats)), "lon": float(np.mean(lons))}
+                lon_span = max(lons) - min(lons)
+                lat_span = max(lats) - min(lats)
+                span = max(lon_span, lat_span, 1)
+                zoom = max(1, min(4.2, 3.7 - np.log10(span + 1)))
+            else:
+                center, zoom = {"lat": 10, "lon": 0}, 1.6
+        else:
+            center, zoom = {"lat": 10, "lon": 0}, 1.6
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
+
+        if df_map.empty:
+            st.info("No mapped country records are available under the current filters.")
+        else:
+            fig = px.choropleth_mapbox(
+                df_map,
+                geojson=countries_gj,
+                locations="alert-country",
+                featureidkey="properties.name",
+                color="total_alerts",
+                hover_name="alert-country",
+                color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
+                mapbox_style="carto-positron",
+                zoom=zoom,
+                center=center,
+                opacity=0.88,
+            )
+
+            fig.update_traces(
+                customdata=df_map[[
+                    "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
+                    "perc_negative", "priority_level", "regions"
+                ]].values,
+                hovertemplate=(
+                    "<b>%{location}</b><br>"
+                    "Region: %{customdata[6]}<br>"
+                    "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[0]}<br>"
+                    "<span style='color:#FFDB58'>●</span> Negative: %{customdata[1]}<br>"
+                    "<span style='color:#660094'>●</span> Positive: %{customdata[2]}<br>"
+                    "<span style='color:#008CAA'>●</span> Context: %{customdata[3]}<br>"
+                    "Negative share: %{customdata[4]}%<br>"
+                    "Priority level: <b>%{customdata[5]}</b><extra></extra>"
+                ),
+                hoverlabel=dict(
+                    bgcolor="#2D0055",
+                    font_size=12,
+                    font_family=MAP_FONT,
+                    font_color="white",
+                    bordercolor="#ffffff"
+                ),
+                marker_line_width=0.65,
+                marker_line_color="rgba(45,0,85,0.55)",
+            )
+
+            fig.update_layout(
+                margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                height=560,
+                coloraxis_colorbar=dict(
+                    title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
+                    tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
+                    thickness=12,
+                    len=0.72,
+                    outlinewidth=0,
+                ),
+                font=dict(family=MAP_FONT, color="#334155"),
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ---------------- Supporting map intelligence panels ----------------
+        p1, p2 = st.columns([1.15, 1])
+        with p1:
+            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">Use this ranking to identify countries that may require deeper review in the charts, table, or AI assistant.</div>', unsafe_allow_html=True)
+            rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
+            if rank_df.empty:
+                st.info("No country ranking available for the current filters.")
+            else:
+                fig_rank = go.Figure(go.Bar(
+                    x=rank_df["total_alerts"],
+                    y=rank_df["alert-country"].astype(str),
+                    orientation="h",
+                    marker=dict(color="#660094", line=dict(color="rgba(45,0,85,0.25)", width=0.5)),
+                    text=rank_df["total_alerts"],
+                    textposition="outside",
+                    hovertemplate="<b>%{y}</b><br>Total alerts: %{x}<extra></extra>",
+                ))
+                fig_rank.update_layout(
+                    height=max(300, len(rank_df) * 34),
+                    margin=dict(l=20, r=35, t=5, b=20),
+                    xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
+                    yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
+                    font=dict(family=MAP_FONT, size=11, color="#334155"),
+                    plot_bgcolor="#ffffff",
+                    paper_bgcolor="#ffffff",
+                )
+                st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with p2:
+            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a compact interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
+            country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
+            selected_map_country = st.selectbox(
+                "Select country for map intelligence",
+                options=country_options,
+                index=0 if country_options else None,
+                key="map_country_intelligence_selector",
+                label_visibility="collapsed",
+                placeholder="Choose a mapped country"
+            ) if country_options else None
+
+            if selected_map_country:
+                row = df_map[df_map["alert-country"].astype(str) == selected_map_country].iloc[0]
+                st.markdown(f"""
+                <div class="country-insight-box">
+                    <b>{selected_map_country}</b><br>
+                    Total alerts: <b>{int(row['total_alerts']):,}</b> · Negative: <b>{int(row['negative_alerts']):,}</b> · Positive: <b>{int(row['positive_alerts']):,}</b> · Context: <b>{int(row['context_to_watch_alerts']):,}</b><br>
+                    Negative share: <b>{row['perc_negative']}%</b> · Priority level: <b>{row['priority_level']}</b><br><br>
+                    Interpretation: this country should be reviewed together with reporting coverage and qualitative context. Higher counts may reflect higher incident frequency, stronger reporting intensity, broader monitoring coverage, or a combination of these factors.
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("No mapped countries are available under the current filters.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
     else:
-        st.warning("GeoJSON file not found for map visualization.") 
+        st.warning("GeoJSON file not found for map visualization.")
 
 # -----------------USER MANUAL TAB-----------------
 
