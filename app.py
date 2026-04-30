@@ -46,8 +46,9 @@ st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 st.session_state.setdefault("auth_view", False)
 
 if st.session_state.get("auth_view") and not is_authenticated():
+    # Non-blocking inline login section. Do not stop the app:
+    # dashboard remains scrollable/clickable below the sign-in panel.
     auth_ui()
-    st.stop()
 # ------------------------------------------------
 
 ## ---------------- BASE DIRECTORIES ----------------
