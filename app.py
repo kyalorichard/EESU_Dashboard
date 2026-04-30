@@ -40,6 +40,23 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+# ---------------- AUTH ROUTING STATE ----------------
+# Dashboard opens normally. When the user clicks Sign in / Access,
+# this flag routes to the premium sign-in view.
+st.session_state.setdefault("auth_view", False)
+st.session_state.setdefault("auth_mode", "Login")
+st.session_state.setdefault("auth_reset_open", False)
+
+# If a valid session exists, never keep the login route open.
+if is_authenticated():
+    st.session_state.auth_view = False
+
+# Dedicated sign-in route. This is not a modal, so it does not blur or block the page.
+# The dashboard is rendered again immediately after successful login or Back to dashboard.
+if st.session_state.get("auth_view", False) and not is_authenticated():
+    auth_ui()
+    st.stop()
+
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
