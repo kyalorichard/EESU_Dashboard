@@ -179,7 +179,7 @@ def init_session():
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
-        "auth_remember": True,
+        "auth_remember": False,
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -407,7 +407,7 @@ def _render_auth_panel():
         with st.form("eusee_login_float_form"):
             email = st.text_input("Email", placeholder="Enter your email", key="float_login_email").strip()
             password = st.text_input("Password", placeholder="Enter your password", type="password", key="float_login_password")
-            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", True), key="float_login_remember")
+            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", False), key="float_login_remember")
             submitted = st.form_submit_button("Sign In", use_container_width=True)
 
             if submitted:
@@ -512,7 +512,7 @@ def _render_auth_panel():
 # Authentication UI Entrypoint
 # -----------------------------
 def auth_ui():
-    """Professional dedicated login view shown only after Sign in / Access is clicked."""
+    """Premium non-blocking sign-in view shown after Sign in / Access is clicked."""
     init_session()
     restore_session()
 
@@ -520,178 +520,74 @@ def auth_ui():
         st.session_state.auth_view = False
         st.rerun()
 
-    st.markdown(
-        """
-        <style>
-        /* Non-blocking login route: no modal, no blur, no disabled dashboard. */
-        .eusee-login-page {
-            min-height: auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: Arial, sans-serif;
-            margin: 4px 0 18px 0;
-        }
-        .eusee-login-shell {
-            width: min(1040px, 96vw);
-            display: grid;
-            grid-template-columns: 0.95fr 1.05fr;
-            background: #ffffff;
-            border: 1px solid rgba(102,0,148,0.10);
-            border-radius: 28px;
-            overflow: hidden;
-            box-shadow: 0 18px 48px rgba(45,0,85,0.14);
-        }
-        .eusee-login-brand {
-            position: relative;
-            padding: 48px 44px;
-            background:
-                radial-gradient(circle at 88% 42%, rgba(255,219,88,0.22), transparent 22%),
-                radial-gradient(circle at 20% 85%, rgba(0,140,170,0.20), transparent 24%),
-                linear-gradient(145deg, #2d0055 0%, #660094 52%, #008CAA 130%);
-            color: #ffffff;
-            min-height: 420px;
-        }
-        .eusee-brand-logo {
-            font-size: 48px;
-            line-height: 0.95;
-            font-weight: 950;
-            letter-spacing: -1px;
-            margin-bottom: 10px;
-        }
-        .eusee-brand-kicker {
-            width: 220px;
-            font-size: 12px;
-            font-weight: 800;
-            line-height: 1.35;
-            text-transform: uppercase;
-            color: rgba(255,255,255,0.88);
-            margin-bottom: 28px;
-        }
-        .eusee-security-orb {
-            width: 170px;
-            height: 170px;
-            border-radius: 999px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255,255,255,0.10);
-            border: 1px solid rgba(255,255,255,0.22);
-            box-shadow: inset 0 0 45px rgba(255,255,255,0.12);
-        }
-        .eusee-security-icon {
-            width: 92px;
-            height: 92px;
-            border-radius: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255,255,255,0.18);
-            font-size: 46px;
-            box-shadow: 0 18px 45px rgba(0,0,0,0.18);
-        }
-        .eusee-login-form-area {
-            padding: 32px 40px 30px 40px;
-            background:
-                linear-gradient(180deg, rgba(249,247,252,0.95), #ffffff 35%);
-        }
-        .eusee-login-topline {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-        }
-        .eusee-login-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(102,0,148,0.08);
-            color: #660094;
-            font-size: 12px;
-            font-weight: 900;
-        }
-        .eusee-login-heading {
-            font-size: 29px;
-            font-weight: 950;
-            color: #231331;
-            letter-spacing: -0.3px;
-            margin: 0 0 6px 0;
-        }
-        .eusee-login-subheading {
-            font-size: 13px;
-            color: #6b6174;
-            line-height: 1.55;
-            margin-bottom: 22px;
-        }
-        .eusee-login-card {
-            background: rgba(255,255,255,0.92);
-            border: 1px solid rgba(102,0,148,0.10);
-            border-radius: 20px;
-            padding: 22px;
-            box-shadow: 0 14px 34px rgba(45,0,85,0.08);
-        }
-        .eusee-login-card input {
-            border-radius: 13px !important;
-            min-height: 44px !important;
-            border: 1px solid rgba(102,0,148,0.14) !important;
-        }
-        .eusee-login-card button[kind="primaryFormSubmit"],
-        .eusee-login-card button[kind="formSubmit"] {
-            min-height: 45px !important;
-            border-radius: 13px !important;
-            font-weight: 900 !important;
-            background: linear-gradient(135deg, #660094 0%, #008CAA 100%) !important;
-            border: 0 !important;
-        }
-        .eusee-login-card .stButton > button {
-            border-radius: 13px !important;
-            min-height: 40px !important;
-            font-weight: 800 !important;
-        }
-        .eusee-login-footer-note {
-            margin-top: 18px;
-            color: #70667a;
-            font-size: 11.5px;
-            line-height: 1.45;
-        }
-        @media (max-width: 860px) {
-            .eusee-login-shell {grid-template-columns: 1fr;}
-            .eusee-login-brand {min-height: 300px; padding: 34px;}
-            .eusee-login-form-area {padding: 30px 24px;}
-        }
-        </style>
-        <div class="eusee-login-page">
-          <div class="eusee-login-shell">
-            <div class="eusee-login-brand">
-              <div class="eusee-brand-logo">EU SEE</div>
-              <div class="eusee-brand-kicker">Supporting an enabling environment for civil society</div>
-              <div class="eusee-security-orb"><div class="eusee-security-icon">🔐</div></div>
-            </div>
-            <div class="eusee-login-form-area">
-              <div class="eusee-login-topline">
-                <div class="eusee-login-pill">Secure dashboard access</div>
-              </div>
-              <div class="eusee-login-heading">Welcome back</div>
-              <div class="eusee-login-subheading">
-                Sign in to unlock privileged EU SEE dashboard features. After successful login, you will be redirected back to the main dashboard with an active session.
-              </div>
-              <div class="eusee-login-card">
-        """,
-        unsafe_allow_html=True,
+    mode = st.session_state.get("auth_mode", "Login")
+    mode_title = "Welcome back" if mode == "Login" else "Create account"
+    mode_copy = (
+        "Sign in to unlock privileged dashboard features and return with an active session."
+        if mode == "Login"
+        else "Register with an approved organisational email, then verify your email before access is enabled."
     )
 
-    mode = st.session_state.get("auth_mode", "Login")
+    st.markdown(f"""
+    <style>
+    .eusee-auth-wrap {{ width:100%; margin:8px 0 20px 0; font-family:Arial, sans-serif; }}
+    .eusee-auth-shell {{
+        width:min(1120px, 98vw); margin:0 auto; display:grid; grid-template-columns:0.95fr 1.05fr;
+        background:#fff; border:1px solid rgba(102,0,148,.12); border-radius:30px; overflow:hidden;
+        box-shadow:0 22px 60px rgba(45,0,85,.16);
+    }}
+    .eusee-auth-left {{
+        min-height:440px; padding:42px 42px 34px; color:#fff; position:relative;
+        background: radial-gradient(circle at 86% 18%, rgba(255,219,88,.34), transparent 22%),
+                    radial-gradient(circle at 18% 88%, rgba(0,140,170,.25), transparent 25%),
+                    linear-gradient(145deg,#2d0055 0%,#660094 55%,#008CAA 130%);
+    }}
+    .eusee-auth-left::after {{ content:""; position:absolute; inset:18px; border-radius:24px; border:1px solid rgba(255,255,255,.14); pointer-events:none; }}
+    .eusee-auth-brand {{ display:flex; align-items:center; gap:12px; position:relative; z-index:1; margin-bottom:34px; }}
+    .eusee-auth-mark {{ width:50px; height:50px; border-radius:17px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22); font-size:24px; box-shadow:0 16px 34px rgba(0,0,0,.18); }}
+    .eusee-auth-name {{ font-size:28px; font-weight:950; line-height:1; letter-spacing:-.6px; }}
+    .eusee-auth-subbrand {{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:rgba(255,255,255,.72); margin-top:5px; }}
+    .eusee-auth-hero {{ position:relative; z-index:1; max-width:410px; }}
+    .eusee-auth-hero h2 {{ margin:0 0 12px 0; font-size:31px; line-height:1.12; font-weight:950; color:#fff; }}
+    .eusee-auth-hero p {{ margin:0; font-size:13px; line-height:1.62; color:rgba(255,255,255,.84); }}
+    .eusee-auth-benefits {{ margin-top:28px; display:grid; gap:10px; position:relative; z-index:1; }}
+    .eusee-auth-benefit {{ width:fit-content; padding:9px 12px; border-radius:999px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.15); font-size:12px; font-weight:800; }}
+    .eusee-auth-right {{ padding:34px 42px; background:linear-gradient(180deg,rgba(249,247,252,.96),#fff 34%); }}
+    .eusee-auth-top {{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; }}
+    .eusee-auth-pill {{ padding:8px 12px; border-radius:999px; background:rgba(102,0,148,.08); color:#660094; font-size:12px; font-weight:950; }}
+    .eusee-auth-mode {{ padding:7px 10px; border-radius:999px; background:#fff9dc; color:#6f5200; border:1px solid rgba(255,219,88,.65); font-size:11px; font-weight:900; }}
+    .eusee-auth-heading {{ margin:0 0 6px 0; font-size:30px; font-weight:950; color:#231331; letter-spacing:-.4px; }}
+    .eusee-auth-copy {{ margin:0 0 18px 0; font-size:13px; color:#6b6174; line-height:1.55; max-width:560px; }}
+    .eusee-auth-card {{ background:rgba(255,255,255,.96); border:1px solid rgba(102,0,148,.10); border-radius:22px; padding:22px; box-shadow:0 16px 38px rgba(45,0,85,.09); }}
+    .eusee-auth-card label p {{ color:#332045!important; font-weight:900!important; font-size:12px!important; }}
+    .eusee-auth-card input {{ border-radius:14px!important; min-height:46px!important; border:1px solid rgba(102,0,148,.16)!important; font-size:13px!important; }}
+    .eusee-auth-card div[data-testid="stForm"] {{ border:0!important; padding:0!important; }}
+    .eusee-auth-card button[kind="primaryFormSubmit"], .eusee-auth-card button[kind="formSubmit"] {{ min-height:46px!important; border-radius:14px!important; font-weight:950!important; background:linear-gradient(135deg,#660094 0%,#008CAA 100%)!important; border:0!important; box-shadow:0 10px 22px rgba(102,0,148,.18)!important; }}
+    .eusee-auth-card .stButton>button {{ border-radius:14px!important; min-height:40px!important; font-weight:900!important; }}
+    .eusee-auth-notes {{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }}
+    .eusee-auth-note {{ background:#fbf8fe; border:1px solid #efe4f7; border-radius:15px; padding:10px 11px; color:#4d405d; font-size:11px; line-height:1.35; }}
+    .eusee-auth-note b {{ color:#660094; }}
+    .eusee-auth-footer {{ margin-top:14px; color:#70667a; font-size:11.5px; line-height:1.45; }}
+    @media(max-width:900px) {{ .eusee-auth-shell{{grid-template-columns:1fr}} .eusee-auth-left{{min-height:320px;padding:34px}} .eusee-auth-right{{padding:28px 22px}} .eusee-auth-notes{{grid-template-columns:1fr}} }}
+    </style>
+    <div class="eusee-auth-wrap"><div class="eusee-auth-shell">
+      <section class="eusee-auth-left">
+        <div class="eusee-auth-brand"><div class="eusee-auth-mark">🔐</div><div><div class="eusee-auth-name">EU SEE</div><div class="eusee-auth-subbrand">Dashboard Access</div></div></div>
+        <div class="eusee-auth-hero"><h2>Secure access to deeper dashboard intelligence.</h2><p>Sign in to access protected analytical features, country-level views, exports, and privileged indicators while keeping the public dashboard available.</p></div>
+        <div class="eusee-auth-benefits"><div class="eusee-auth-benefit">✓ Approved-domain access control</div><div class="eusee-auth-benefit">✓ Active session after login</div><div class="eusee-auth-benefit">✓ No pop-up overlay or dashboard blocking</div></div>
+      </section>
+      <section class="eusee-auth-right">
+        <div class="eusee-auth-top"><div class="eusee-auth-pill">Secure sign-in workspace</div><div class="eusee-auth-mode">{mode}</div></div>
+        <h2 class="eusee-auth-heading">{mode_title}</h2><p class="eusee-auth-copy">{mode_copy}</p>
+        <div class="eusee-auth-card">
+    """, unsafe_allow_html=True)
 
     if mode == "Login":
         with st.form("eusee_login_route_form"):
-            email = st.text_input("Email", placeholder="Enter your email", key="route_login_email").strip()
+            email = st.text_input("Email address", placeholder="name@organisation.org", key="route_login_email").strip()
             password = st.text_input("Password", placeholder="Enter your password", type="password", key="route_login_password")
-            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", True), key="route_login_remember")
-            submitted = st.form_submit_button("Sign In", use_container_width=True)
-
+            remember = st.checkbox("Keep me signed in on this device", value=st.session_state.get("auth_remember", True), key="route_login_remember")
+            submitted = st.form_submit_button("Sign in and return to dashboard", use_container_width=True)
             if submitted:
                 if not firebase_auth:
                     st.error("Firebase authentication is not initialized.")
@@ -705,7 +601,6 @@ def auth_ui():
                         info = firebase_auth.get_account_info(user["idToken"])
                         verified = bool(info["users"][0].get("emailVerified", False))
                         role = "privileged" if verified else "restricted"
-
                         st.session_state.user = True
                         st.session_state.email = email
                         st.session_state.name = email.split("@")[0].replace(".", " ").title()
@@ -717,20 +612,20 @@ def auth_ui():
                         st.rerun()
                     except Exception as e:
                         st.error(parse_error(e))
-
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Create account", use_container_width=True, key="route_create_account_btn"):
                 st.session_state.auth_mode = "Register"
+                st.session_state.auth_reset_open = False
                 st.rerun()
         with c2:
             if st.button("Reset password", use_container_width=True, key="route_reset_toggle_btn"):
                 st.session_state.auth_reset_open = not st.session_state.get("auth_reset_open", False)
                 st.rerun()
-
         if st.session_state.get("auth_reset_open", False):
+            st.markdown("---")
             with st.form("eusee_reset_route_form"):
-                reset_email = st.text_input("Reset email", placeholder="Enter your email", key="route_reset_email").strip()
+                reset_email = st.text_input("Password reset email", placeholder="name@organisation.org", key="route_reset_email").strip()
                 reset_submit = st.form_submit_button("Send reset email", use_container_width=True)
                 if reset_submit:
                     if not firebase_auth:
@@ -745,12 +640,11 @@ def auth_ui():
                             st.success("Password reset email sent.")
                         except Exception as e:
                             st.error(parse_error(e))
-
     else:
         with st.form("eusee_register_route_form"):
-            email = st.text_input("Email", placeholder="Enter your email", key="route_register_email").strip()
-            password = st.text_input("Password", placeholder="Create a password", type="password", key="route_register_password")
-            submitted = st.form_submit_button("Register", use_container_width=True)
+            email = st.text_input("Email address", placeholder="name@organisation.org", key="route_register_email").strip()
+            password = st.text_input("Password", placeholder="Create a strong password", type="password", key="route_register_password")
+            submitted = st.form_submit_button("Create account", use_container_width=True)
             if submitted:
                 if not firebase_auth:
                     st.error("Firebase authentication is not initialized.")
@@ -765,24 +659,20 @@ def auth_ui():
                         st.success("Registration successful. Check your email to verify your account, then sign in.")
                     except Exception as e:
                         st.error(parse_error(e))
-
         if st.button("Back to sign in", use_container_width=True, key="route_back_login_btn"):
             st.session_state.auth_mode = "Login"
             st.rerun()
 
-    st.markdown(
-        """
-              </div>
-              <div class="eusee-login-footer-note">
-                Access is limited to approved domains. Use “Back to dashboard” to return without signing in.
-              </div>
-            </div>
-          </div>
+    st.markdown("""
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        <div class="eusee-auth-notes"><div class="eusee-auth-note"><b>Access</b><br>Approved organisational domains only.</div><div class="eusee-auth-note"><b>Security</b><br>Email verification is required.</div><div class="eusee-auth-note"><b>Session</b><br>Remembered users return faster.</div></div>
+        <div class="eusee-auth-footer">Use the button below to return to the public dashboard without signing in.</div>
+      </section>
+    </div></div>
+    """, unsafe_allow_html=True)
 
     if st.button("← Back to dashboard", use_container_width=False, key="route_back_dashboard_btn"):
         st.session_state.auth_view = False
+        st.session_state.auth_mode = "Login"
+        st.session_state.auth_reset_open = False
         st.rerun()
