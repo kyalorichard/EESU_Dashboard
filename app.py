@@ -1452,6 +1452,15 @@ def local_ai_response(question, df):
     if any(k in q for k in ["mechanism", "mechanisms", "restriction"]):
         return "Top restrictive mechanisms among negative alerts in the current filtered records:\n\n" + _format_ranked(s["top_mechanisms"])
 
+    if any(k in q for k in ["policy brief", "briefing note"]):
+        return generate_ai_policy_brief(df)
+
+    if any(k in q for k in ["data quality", "missing", "completeness"]):
+        return ai_data_quality_report(df)
+
+    if any(k in q for k in ["next step", "recommend", "action"]):
+        return ai_recommended_next_steps(df)
+
     if any(k in q for k in ["summary", "summarise", "summarize", "overview", "brief"]):
         return generate_ai_executive_summary(df)
 
@@ -1488,85 +1497,282 @@ def render_ai_trend_chart(df):
     st.plotly_chart(fig, use_container_width=True, key="ai_trend_chart")
 
 
-def render_ai_assistant_panel(df):
-    st.markdown("""
-        <style>
-        .ai-card {background:#ffffff;border:1px solid #e8ddf5;border-radius:18px;padding:16px;box-shadow:0 10px 28px rgba(45,0,85,0.12);margin-bottom:12px;}
-        .ai-title {font-family:Arial,sans-serif;font-size:18px;font-weight:800;color:#2d0055;margin-bottom:4px;}
-        .ai-beta {font-size:11px;background:#eee5ff;color:#660094;padding:3px 8px;border-radius:12px;margin-left:6px;}
-        .ai-subtitle {font-family:Arial,sans-serif;font-size:12px;color:#666;line-height:1.35;}
-        .ai-message {background:#f7f2ff;border:1px solid #eee5ff;border-radius:14px;padding:11px 12px;font-size:13px;color:#222;margin-bottom:10px;line-height:1.45;white-space:pre-wrap;}
-        .ai-user {background:linear-gradient(135deg,#660094,#7b2cff);color:#ffffff;border-radius:14px;padding:11px 12px;font-size:13px;margin-bottom:10px;line-height:1.45;white-space:pre-wrap;}
-        .ai-small {font-size:12px;color:#666;line-height:1.35;}
-        </style>
-        """, unsafe_allow_html=True)
 
-    if "ai_messages" not in st.session_state:
-        st.session_state.ai_messages = [{"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me about alerts, countries, regions, actors, mechanisms, trends, or enabling principles."}]
-    if "ai_collapsed" not in st.session_state:
-        st.session_state.ai_collapsed = False
+# ---------------- AI ASSISTANT PROFESSIONAL UX HELPERS v3 ----------------
+def _pct(part, total):
+    return round((part / total) * 100, 1) if total else 0
 
-    title_col, toggle_col = st.columns([0.74, 0.26])
-    with title_col:
-        st.markdown("""<div class="ai-card"><div class="ai-title">🤖 AI Assistant <span class="ai-beta">Beta v2</span></div><div class="ai-subtitle">Context-aware answers from the current filters.</div></div>""", unsafe_allow_html=True)
-    with toggle_col:
-        if st.button("Hide" if not st.session_state.ai_collapsed else "Show", key="ai_toggle", use_container_width=True):
-            st.session_state.ai_collapsed = not st.session_state.ai_collapsed
-            st.rerun()
 
-    if st.session_state.ai_collapsed:
-        st.info("AI Assistant is collapsed.")
-        return
-
+def ai_priority_level(df):
+    """Returns a simple UX priority label based on negative-alert share."""
     s = summarize_for_ai(df)
+    neg_pct = s.get("negative_pct", 0)
+    if s.get("total_alerts", 0) == 0:
+        return "No data", "#999999", "No records match the current filters."
+    if neg_pct >= 70:
+        return "High attention", "#B42318", "Negative alerts dominate the current filtered view."
+    if neg_pct >= 45:
+        return "Moderate attention", "#B54708", "Negative alerts are substantial and should be reviewed with country and actor breakdowns."
+    return "Watch", "#027A48", "Negative-alert share is comparatively lower under the current filters."
+
+
+def ai_data_quality_report(df):
+    """Compact data-quality report for user trust and interpretation."""
+    if df is None or df.empty:
+        return "No records are available under the current filters."
+
+    cols = [
+        "creation_date", "alert-country", "region", "alert-impact", "alert-type",
+        "enabling-principle", "Actor of repression", "Subject of repression",
+        "Mechanism of repression", "Type of event"
+    ]
+    available = [c for c in cols if c in df.columns]
+    lines = [f"Records assessed: {len(df):,}"]
+    for c in available:
+        missing = int(df[c].isna().sum() + (df[c].astype(str).str.strip() == "").sum())
+        lines.append(f"- {c}: {missing:,} blank/missing values")
+    return "\n".join(lines)
+
+
+def ai_recommended_next_steps(df):
+    s = summarize_for_ai(df)
+    if s["total_alerts"] == 0:
+        return "Adjust the filters to include at least one region, country, year, or alert type."
+
+    steps = []
+    if s["negative_pct"] >= 50:
+        steps.append("Prioritize the Negative Alerts tab to inspect restrictive actors and mechanisms.")
+    if s["top_negative_countries"]:
+        top_country = next(iter(s["top_negative_countries"].keys()))
+        steps.append(f"Drill down into {top_country} to validate whether the high count reflects risk, reporting intensity, or both.")
+    if s["top_mechanisms"]:
+        top_mech = next(iter(s["top_mechanisms"].keys()))
+        steps.append(f"Review the mechanism pathway for '{top_mech}' using the heatmaps and Sankey flow.")
+    steps.append("Export the filtered summary for reporting and include the interpretation note on reporting coverage.")
+    return "\n".join([f"{i}. {x}" for i, x in enumerate(steps, start=1)])
+
+
+def generate_ai_policy_brief(df):
+    s = summarize_for_ai(df)
+    if s["total_alerts"] == 0:
+        return "EU SEE AI Policy Brief\n\nNo records are available under the current filters."
+
+    level, _, level_note = ai_priority_level(df)
+    return f"""EU SEE AI Policy Brief
+
+Priority signal: {level}
+{level_note}
+
+Scope
+The current filtered view contains {s['total_alerts']} alerts across {s['countries_count']} countries and {s['regions_count']} regions. Negative alerts account for {s['negative']} records ({s['negative_pct']}%), positive alerts account for {s['positive']} records ({s['positive_pct']}%), and context-to-watch alerts account for {s['context']} records ({s['context_pct']}%).
+
+Most represented countries
+{_format_ranked(s['top_countries'])}
+
+Most represented countries by negative alerts
+{_format_ranked(s['top_negative_countries'])}
+
+Dominant issue areas
+Top alert types:\n{_format_ranked(s['top_alert_types'])}
+
+Top enabling principles:\n{_format_ranked(s['top_principles'])}
+
+Negative-alert pathways
+Top restrictive actors:\n{_format_ranked(s['top_actors'])}
+
+Top restrictive mechanisms:\n{_format_ranked(s['top_mechanisms'])}
+
+Recommended analytical next steps
+{ai_recommended_next_steps(df)}
+
+Interpretation caveat
+Counts should be interpreted with care because they may reflect incident frequency, monitoring intensity, reporting coverage, network activity, or a combination of these factors.
+"""
+
+
+def render_ai_metric(label, value, note="", color="#660094"):
     st.markdown(
         f"""
-        <div class="ai-card">
-            <b style="color:#2d0055;">Current filter context</b><br>
-            <span class="ai-small">
-            Total: <b>{s['total_alerts']}</b> | Negative: <b>{s['negative']}</b> ({s['negative_pct']}%)<br>
-            Countries: <b>{s['countries_count']}</b> | Regions: <b>{s['regions_count']}</b>
-            </span>
+        <div class="ai-kpi">
+            <div class="ai-kpi-label">{label}</div>
+            <div class="ai-kpi-value" style="color:{color};">{value}</div>
+            <div class="ai-kpi-note">{note}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    quick_questions = {
-        "Top countries": "Which countries have the highest number of alerts?",
-        "Negative countries": "Which countries have the highest negative alerts?",
-        "Compare regions": "Compare regions under the current filters.",
-        "Trend": "Show trend of negative alerts over time.",
-        "Alert types": "What are the main alert types?",
-        "Mechanisms": "What are the top restrictive mechanisms?",
-        "Actors": "What are the top restrictive actors?",
-        "Summary": "Generate an executive summary."
-    }
 
-    st.markdown("<div class='ai-card'><b style='color:#2d0055;'>Quick prompts</b>", unsafe_allow_html=True)
-    qcols = st.columns(2)
-    for idx, (label, prompt) in enumerate(quick_questions.items()):
-        with qcols[idx % 2]:
-            if st.button(label, key=f"ai_quick_{label}", use_container_width=True):
-                st.session_state.ai_messages.append({"role": "user", "content": prompt})
-                st.session_state.ai_messages.append({"role": "assistant", "content": local_ai_response(prompt, df)})
+def render_ai_assistant_panel(df):
+    st.markdown("""
+        <style>
+        .ai-shell {background:linear-gradient(180deg,#ffffff 0%,#fbf8ff 100%);border:1px solid #e8ddf5;border-radius:22px;padding:14px;box-shadow:0 12px 34px rgba(45,0,85,0.14);margin-bottom:12px;}
+        .ai-header {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+        .ai-title {font-family:Arial,sans-serif;font-size:18px;font-weight:900;color:#2d0055;margin-bottom:2px;}
+        .ai-beta {font-size:11px;background:#eee5ff;color:#660094;padding:3px 8px;border-radius:12px;margin-left:6px;}
+        .ai-subtitle {font-family:Arial,sans-serif;font-size:12px;color:#666;line-height:1.35;}
+        .ai-card {background:#ffffff;border:1px solid #eee5ff;border-radius:16px;padding:13px;box-shadow:0 6px 18px rgba(45,0,85,0.07);margin-bottom:10px;}
+        .ai-message {background:#f7f2ff;border:1px solid #eee5ff;border-radius:14px;padding:11px 12px;font-size:13px;color:#222;margin-bottom:10px;line-height:1.45;white-space:pre-wrap;}
+        .ai-user {background:linear-gradient(135deg,#660094,#7b2cff);color:#ffffff;border-radius:14px;padding:11px 12px;font-size:13px;margin-bottom:10px;line-height:1.45;white-space:pre-wrap;}
+        .ai-small {font-size:12px;color:#666;line-height:1.35;}
+        .ai-kpi {background:#fff;border:1px solid #eee5ff;border-radius:14px;padding:10px;margin-bottom:8px;}
+        .ai-kpi-label {font-size:11px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+        .ai-kpi-value {font-size:22px;font-weight:900;margin-top:2px;}
+        .ai-kpi-note {font-size:11px;color:#777;line-height:1.3;}
+        .ai-status-pill {display:inline-block;font-size:12px;font-weight:800;color:#fff;padding:6px 10px;border-radius:999px;margin-top:4px;}
+        .ai-guide li {font-size:12px;margin-bottom:6px;color:#333;}
+        </style>
+        """, unsafe_allow_html=True)
+
+    if "ai_messages" not in st.session_state:
+        st.session_state.ai_messages = [{"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me about alerts, countries, regions, actors, mechanisms, trends, enabling principles, or data quality."}]
+    if "ai_collapsed" not in st.session_state:
+        st.session_state.ai_collapsed = False
+
+    s = summarize_for_ai(df)
+    level, level_color, level_note = ai_priority_level(df)
+
+    st.markdown(
+        f"""
+        <div class="ai-shell">
+            <div class="ai-header">
+                <div>
+                    <div class="ai-title">AI Assistant <span class="ai-beta">Pro v3</span></div>
+                    <div class="ai-subtitle">Context-aware analytical assistant linked to current filters.</div>
+                </div>
+            </div>
+            <div class="ai-status-pill" style="background:{level_color};">{level}</div>
+            <div class="ai-subtitle" style="margin-top:8px;">{level_note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.button("Collapse assistant" if not st.session_state.ai_collapsed else "Expand assistant", key="ai_toggle", use_container_width=True):
+        st.session_state.ai_collapsed = not st.session_state.ai_collapsed
+        st.rerun()
+
+    if st.session_state.ai_collapsed:
+        st.info("AI Assistant is collapsed.")
+        return
+
+    chat_tab, insight_tab, export_tab, guide_tab = st.tabs(["Chat", "Insights", "Export", "Guide"])
+
+    with chat_tab:
+        st.markdown("<div class='ai-card'><b style='color:#2d0055;'>Quick prompts</b>", unsafe_allow_html=True)
+        quick_questions = {
+            "Summary": "Generate an executive summary.",
+            "Top countries": "Which countries have the highest number of alerts?",
+            "Negative countries": "Which countries have the highest negative alerts?",
+            "Compare regions": "Compare regions under the current filters.",
+            "Trend": "Show trend of alerts over time.",
+            "Alert types": "What are the main alert types?",
+            "Mechanisms": "What are the top restrictive mechanisms?",
+            "Actors": "What are the top restrictive actors?",
+            "Data quality": "Show the data quality report.",
+            "Next steps": "What are the recommended next analytical steps?"
+        }
+        qcols = st.columns(2)
+        for idx, (label, prompt) in enumerate(quick_questions.items()):
+            with qcols[idx % 2]:
+                if st.button(label, key=f"ai_quick_v3_{label}", use_container_width=True):
+                    st.session_state.ai_messages.append({"role": "user", "content": prompt})
+                    if "data quality" in prompt.lower():
+                        answer = ai_data_quality_report(df)
+                    elif "next analytical" in prompt.lower():
+                        answer = ai_recommended_next_steps(df)
+                    else:
+                        answer = local_ai_response(prompt, df)
+                    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        for msg in st.session_state.ai_messages[-10:]:
+            css_class = "ai-user" if msg["role"] == "user" else "ai-message"
+            safe_content = str(msg["content"]).replace("<", "&lt;").replace(">", "&gt;")
+            st.markdown(f'<div class="{css_class}">{safe_content}</div>', unsafe_allow_html=True)
+
+        with st.form("ai_assistant_form_v3", clear_on_submit=True):
+            user_q = st.text_area(
+                "Ask a question",
+                placeholder="Example: explain the dominant restrictive mechanisms under the current filters",
+                height=85,
+                label_visibility="collapsed",
+            )
+            submitted = st.form_submit_button("Send", use_container_width=True)
+
+        if submitted and user_q.strip():
+            q = user_q.strip()
+            st.session_state.ai_messages.append({"role": "user", "content": q})
+            q_lower = q.lower()
+            if "data quality" in q_lower or "missing" in q_lower:
+                answer = ai_data_quality_report(df)
+            elif "next step" in q_lower or "recommend" in q_lower:
+                answer = ai_recommended_next_steps(df)
+            elif "policy brief" in q_lower or "briefing" in q_lower:
+                answer = generate_ai_policy_brief(df)
+            else:
+                answer = local_ai_response(q, df)
+            st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+            st.rerun()
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Clear chat", key="ai_clear_chat_v3", use_container_width=True):
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
                 st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+        with c2:
+            if st.button("Add brief", key="ai_add_brief_v3", use_container_width=True):
+                st.session_state.ai_messages.append({"role": "assistant", "content": generate_ai_policy_brief(df)})
+                st.rerun()
 
-    with st.expander("Mini trend chart", expanded=False):
-        render_ai_trend_chart(df)
+    with insight_tab:
+        k1, k2 = st.columns(2)
+        with k1:
+            render_ai_metric("Total alerts", f"{s['total_alerts']:,}", "Filtered records")
+            render_ai_metric("Negative share", f"{s['negative_pct']}%", f"{s['negative']:,} negative alerts", color=level_color)
+        with k2:
+            render_ai_metric("Countries", f"{s['countries_count']:,}", "Covered in current filter")
+            render_ai_metric("Regions", f"{s['regions_count']:,}", "Regional coverage")
 
-    with st.expander("Download AI summary", expanded=False):
+        st.markdown("<div class='ai-card'><b style='color:#2d0055;'>AI interpretation</b><br><span class='ai-small'>", unsafe_allow_html=True)
+        st.write(local_ai_response("interpret the current view", df))
+        st.markdown("</span></div>", unsafe_allow_html=True)
+
+        with st.expander("Mini trend chart", expanded=True):
+            render_ai_trend_chart(df)
+        with st.expander("Recommended next analytical steps", expanded=True):
+            st.text(ai_recommended_next_steps(df))
+        with st.expander("Data quality / completeness check", expanded=False):
+            st.text(ai_data_quality_report(df))
+
+    with export_tab:
         summary_text = generate_ai_executive_summary(df)
+        policy_text = generate_ai_policy_brief(df)
         st.download_button(
             label="Download executive summary (.txt)",
             data=summary_text,
-            file_name="eusee_ai_filtered_summary.txt",
+            file_name="eusee_ai_executive_summary.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+        st.download_button(
+            label="Download policy brief (.txt)",
+            data=policy_text,
+            file_name="eusee_ai_policy_brief.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+        chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
+        st.download_button(
+            label="Download chat transcript (.txt)",
+            data=chat_text,
+            file_name="eusee_ai_chat_transcript.txt",
             mime="text/plain",
             use_container_width=True,
         )
         if df is not None and not df.empty:
-            cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle"] if c in df.columns]
+            cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle", "Actor of repression", "Subject of repression", "Mechanism of repression"] if c in df.columns]
             csv_data = df[cols].to_csv(index=False).encode("utf-8") if cols else df.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="Download filtered records (.csv)",
@@ -1576,34 +1782,22 @@ def render_ai_assistant_panel(df):
                 use_container_width=True,
             )
 
-    for msg in st.session_state.ai_messages[-8:]:
-        css_class = "ai-user" if msg["role"] == "user" else "ai-message"
-        safe_content = str(msg["content"]).replace("<", "&lt;").replace(">", "&gt;")
-        st.markdown(f'<div class="{css_class}">{safe_content}</div>', unsafe_allow_html=True)
-
-    with st.form("ai_assistant_form", clear_on_submit=True):
-        user_q = st.text_area(
-            "Ask a question",
-            placeholder="Example: Which countries have the highest negative alerts?",
-            height=80,
-            label_visibility="collapsed",
+    with guide_tab:
+        st.markdown(
+            """
+            <div class="ai-card ai-guide">
+            <b style="color:#2d0055;">How to use this assistant</b>
+            <ul>
+                <li>Use dashboard filters first; the assistant answers from the filtered view.</li>
+                <li>Ask for countries, regions, alert types, trends, actors, mechanisms, or enabling principles.</li>
+                <li>Use the Insights tab for an instant interpretation and quality check.</li>
+                <li>Use Export to download a reporting-ready summary, policy brief, chat transcript, and filtered records.</li>
+                <li>Interpret counts carefully because reporting intensity and monitoring coverage can affect totals.</li>
+            </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        submitted = st.form_submit_button("Send ➜", use_container_width=True)
-
-    if submitted and user_q.strip():
-        st.session_state.ai_messages.append({"role": "user", "content": user_q.strip()})
-        st.session_state.ai_messages.append({"role": "assistant", "content": local_ai_response(user_q.strip(), df)})
-        st.rerun()
-
-    control_col1, control_col2 = st.columns(2)
-    with control_col1:
-        if st.button("Clear chat", key="ai_clear_chat", use_container_width=True):
-            st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
-            st.rerun()
-    with control_col2:
-        if st.button("Add summary", key="ai_add_summary", use_container_width=True):
-            st.session_state.ai_messages.append({"role": "assistant", "content": generate_ai_executive_summary(df)})
-            st.rerun()
 
 # ---------------- MAIN DASHBOARD + AI ASSISTANT LAYOUT ----------------
 dashboard_col, ai_col = st.columns([4.8, 1.35], gap="large")
