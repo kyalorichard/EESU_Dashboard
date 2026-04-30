@@ -1613,29 +1613,41 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
     nodes = actor_nodes + mechanism_nodes + subject_nodes
     node_index = {name: i for i, name in enumerate(nodes)}
 
-    actor_color = "#FFDB58"
-    mechanism_color = "#660094"
-    subject_color = "#008CAA"
+    # Sankey labels use one global font color in Plotly. To keep labels readable,
+    # use light, high-contrast node fills and a dark global label font.
+    actor_color = "#F7D95C"       # readable yellow with dark labels
+    mechanism_color = "#D9B8F2"   # light purple, keeps EUSEE identity without hiding text
+    subject_color = "#BFEAF2"     # light teal-blue, readable with dark labels
     node_colors = ([actor_color] * len(actor_nodes) + [mechanism_color] * len(mechanism_nodes) + [subject_color] * len(subject_nodes))
 
     links = []
     am = flow_df.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
     for _, r in am.iterrows():
-        links.append(dict(source=node_index[wrap_node("Actor", r["Actor of repression"])], target=node_index[wrap_node("Mechanism", r["Mechanism of repression"])], value=int(r["value"]), color="rgba(102,0,148,0.18)"))
+        links.append(dict(
+            source=node_index[wrap_node("Actor", r["Actor of repression"])],
+            target=node_index[wrap_node("Mechanism", r["Mechanism of repression"])],
+            value=int(r["value"]),
+            color="rgba(102,0,148,0.16)"
+        ))
     ms = flow_df.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
     for _, r in ms.iterrows():
-        links.append(dict(source=node_index[wrap_node("Mechanism", r["Mechanism of repression"])], target=node_index[wrap_node("Affected group", r["Subject of repression"])], value=int(r["value"]), color="rgba(0,140,170,0.18)"))
+        links.append(dict(
+            source=node_index[wrap_node("Mechanism", r["Mechanism of repression"])],
+            target=node_index[wrap_node("Affected group", r["Subject of repression"])],
+            value=int(r["value"]),
+            color="rgba(0,140,170,0.16)"
+        ))
 
-    fig_height = max(460, min(760, 330 + len(nodes) * 22))
+    fig_height = max(500, min(780, 350 + len(nodes) * 23))
     fig = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(
-            pad=22,
-            thickness=18,
-            line=dict(color="rgba(45,0,85,0.18)", width=0.7),
+            pad=26,
+            thickness=20,
+            line=dict(color="rgba(45,0,85,0.30)", width=0.8),
             label=nodes,
             color=node_colors,
-            hovertemplate="%{label}<extra></extra>",
+            hovertemplate="<b>%{label}</b><extra></extra>",
         ),
         link=dict(
             source=[l["source"] for l in links],
@@ -1647,18 +1659,39 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
     ))
 
     for name, color in [("Restrictive actors", actor_color), ("Restrictive mechanisms", mechanism_color), ("Affected civil society groups", subject_color)]:
-        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", marker=dict(size=10, color=color), name=name))
+        fig.add_trace(go.Scatter(
+            x=[None], y=[None], mode="markers",
+            marker=dict(size=11, color=color, line=dict(color="rgba(45,0,85,0.30)", width=0.8)),
+            name=name
+        ))
 
     fig.update_layout(
-        title=dict(text="Flow of Negative Events: Actor → Mechanism → Affected Group", x=0.02, xanchor="left", font=dict(size=15, family=CHART_FONT, color=CHART_TITLE_COLOR)),
-        font=dict(size=10.5, family=CHART_FONT, color=CHART_TEXT_COLOR),
+        title=dict(
+            text="Flow of Negative Events: Actor → Mechanism → Affected Group",
+            x=0.02,
+            xanchor="left",
+            font=dict(size=15, family=CHART_FONT, color=CHART_TITLE_COLOR)
+        ),
+        # Critical readability setting: dark labels on deliberately light node fills.
+        font=dict(size=11.2, family=CHART_FONT, color="#17212B"),
         height=fig_height,
         width=width,
-        margin=dict(l=18, r=18, t=60, b=28),
+        margin=dict(l=22, r=22, t=62, b=34),
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
-        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D9E2EC", font=dict(color=CHART_TEXT_COLOR, family=CHART_FONT)),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.08, xanchor="left", x=0, font=dict(size=10.5, family=CHART_FONT, color="#52616B")),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor="#D9E2EC",
+            font=dict(color="#17212B", family=CHART_FONT, size=12)
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.09,
+            xanchor="left",
+            x=0,
+            font=dict(size=10.8, family=CHART_FONT, color="#52616B")
+        ),
     )
     return fig
 # ---------------- TOP-N BAR HELPER ----------------
