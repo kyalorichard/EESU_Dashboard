@@ -40,6 +40,121 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+# ---------------- PROFESSIONAL CLASSIC DASHBOARD UX STYLING ----------------
+def inject_classic_dashboard_css():
+    """Central styling layer for a clean, classic analytical dashboard look."""
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-purple: #660094;
+        --eusee-purple-dark: #3b005f;
+        --eusee-teal: #008CAA;
+        --eusee-yellow: #FFDB58;
+        --eusee-bg: #F7F8FB;
+        --eusee-border: #E6E8EF;
+        --eusee-text: #232633;
+        --eusee-muted: #667085;
+    }
+    .main .block-container { padding-top: 1.5rem; padding-bottom: 2.2rem; max-width: 1500px; }
+    section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
+    section[data-testid="stSidebar"] > div { padding-top: 1rem; }
+    section[data-testid="stSidebar"] label {
+        font-family: Arial, sans-serif !important; font-size: 11px !important; font-weight: 800 !important;
+        color: #344054 !important; letter-spacing: .01em; margin-bottom: 4px !important;
+    }
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] {
+        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: #FFFFFF !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important; min-height: 38px !important;
+    }
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background: #F4EAF8 !important; color: var(--eusee-purple) !important; border-radius: 999px !important;
+        border: 1px solid #E7D4F1 !important; font-size: 10px !important; font-weight: 700 !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button {
+        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: #FFFFFF !important;
+        color: #344054 !important; font-weight: 800 !important; font-size: 12px !important; height: 38px !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover { border-color: var(--eusee-purple) !important; color: var(--eusee-purple) !important; background: #FBF7FD !important; }
+    .classic-filter-header {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%); border: 1px solid #E7D4F1; border-radius: 15px;
+        padding: 12px 13px; margin: 10px 0 12px 0; box-shadow: 0 8px 20px rgba(102,0,148,.08);
+    }
+    .classic-filter-eyebrow { font-size: 9.5px; font-weight: 900; color: var(--eusee-purple); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 4px; }
+    .classic-filter-title { font-size: 14px; font-weight: 900; color: #23152F; line-height: 1.15; }
+    .classic-filter-note { font-size: 10.5px; color: var(--eusee-muted); line-height: 1.35; margin-top: 5px; }
+    .classic-filter-status {
+        background: #FFFFFF; border: 1px solid var(--eusee-border); border-radius: 13px; padding: 10px 11px;
+        margin: 10px 0 12px 0; box-shadow: 0 4px 12px rgba(16,24,40,.05);
+    }
+    .classic-filter-status .status-row { display:flex; justify-content:space-between; align-items:center; padding: 3px 0; font-family: Arial, sans-serif; font-size: 10.5px; color: var(--eusee-muted); }
+    .classic-filter-status .status-value { color: var(--eusee-purple); font-weight: 900; }
+    div[data-testid="stExpander"] { border: 1px solid var(--eusee-border) !important; border-radius: 16px !important; box-shadow: 0 8px 22px rgba(16,24,40,.06) !important; background: #FFFFFF !important; overflow: hidden !important; }
+    div[data-testid="stExpander"] summary { font-family: Arial, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #23152F !important; background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important; border-bottom: 1px solid #EEF0F4 !important; padding: 10px 14px !important; }
+    .data-preview-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #EEF0F4; border-radius: 14px; padding: 11px 13px; margin: 4px 0 12px 0; font-family: Arial, sans-serif; }
+    .data-preview-title { font-size: 13px; font-weight: 900; color: #23152F; line-height: 1.15; }
+    .data-preview-subtitle { font-size: 10.5px; color: var(--eusee-muted); margin-top: 3px; }
+    .data-preview-pill-row { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
+    .data-preview-pill { background:#F4EAF8; color: var(--eusee-purple); border:1px solid #E7D4F1; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; white-space:nowrap; }
+    .data-preview-footnote { font-size: 10.5px; color: var(--eusee-muted); line-height:1.4; margin-top:8px; padding: 8px 10px; background:#FFFCED; border:1px solid #F8E9A1; border-radius:11px; }
+    div[data-testid="stDataFrame"] { border-radius: 14px !important; overflow: hidden !important; border: 1px solid #E6E8EF !important; box-shadow: 0 6px 16px rgba(16,24,40,.05) !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def render_classic_filter_header():
+    st.sidebar.markdown("""
+    <div class="classic-filter-header">
+        <div class="classic-filter-eyebrow">Dashboard controls</div>
+        <div class="classic-filter-title">🌍 Global Filters</div>
+        <div class="classic-filter-note">Refine the analytical view by geography, alert characteristics, enabling principle, and time period.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_filter_status_card(df):
+    total = len(df) if df is not None else 0
+    countries = df['alert-country'].nunique() if df is not None and not df.empty and 'alert-country' in df.columns else 0
+    years = df['year'].nunique() if df is not None and not df.empty and 'year' in df.columns else 0
+    st.sidebar.markdown(f"""
+    <div class="classic-filter-status">
+        <div class="status-row"><span>Filtered records</span><span class="status-value">{total:,}</span></div>
+        <div class="status-row"><span>Countries</span><span class="status-value">{countries:,}</span></div>
+        <div class="status-row"><span>Years</span><span class="status-value">{years:,}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
+    """Render a compact, professional data preview without changing table contents."""
+    if df is None or df.empty:
+        st.info("No records are available for the current filter selection.")
+        return
+    display_df = df.copy()
+    if "Date of submission" in display_df.columns:
+        display_df["Date of submission"] = pd.to_datetime(display_df["Date of submission"], errors="coerce").dt.strftime("%Y-%m-%d")
+    n_rows, n_cols = display_df.shape
+    with st.expander(f"📋 {title}", expanded=False):
+        st.markdown(f"""
+        <div class="data-preview-toolbar">
+            <div>
+                <div class="data-preview-title">Filtered records preview</div>
+                <div class="data-preview-subtitle">A structured preview of the records currently represented in the active dashboard view.</div>
+            </div>
+            <div class="data-preview-pill-row">
+                <span class="data-preview-pill">{n_rows:,} rows</span>
+                <span class="data-preview-pill">{n_cols:,} columns</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.dataframe(display_df, use_container_width=True, hide_index=True, height=min(420, max(240, 38 * min(n_rows, 8) + 72)), key=key)
+        st.markdown("""
+        <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, or event frequency.</div>
+        """, unsafe_allow_html=True)
+
+inject_classic_dashboard_css()
+
 # ---------------- AUTH ROUTING STATE ----------------
 # Dashboard opens normally. When the user clicks Sign in / Access,
 # this flag routes to the premium sign-in view.
@@ -406,10 +521,7 @@ st.sidebar.image("assets/eu-see-logo.png", width=400)
 AI_ASSISTANT_SLOT = st.sidebar.container()
 
 # Global Filters
-st.sidebar.markdown(
-    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🌍 Global Filters</div>',
-    unsafe_allow_html=True
-)
+render_classic_filter_header()
 
 # Apply global CSS to sidebar to remove spacing between label and dropdown
 st.markdown("""
@@ -483,9 +595,11 @@ filtered_global = data[
     (data['year'].isin(selected_years))
 ]
 
+render_filter_status_card(filtered_global)
+
 # Login / Access
 st.sidebar.markdown(
-    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🔐 Login / Access</div>',
+    '<div style="font-family: Arial; font-size: 12px; font-weight: 900; color: #23152F; margin: 14px 0 8px 0; padding-top:10px; border-top:1px solid #E6E8EF;">🔐 Login / Access</div>',
     unsafe_allow_html=True
 )
 
@@ -2420,8 +2534,7 @@ with tab_overview:
    
         # ---------------- Tab two data preview ------------------
 
-    with st.expander("Summary Data preview"):
-        st.write(filtered_global_prev)  
+    render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
     #else:
         #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -2706,8 +2819,7 @@ with tab_negative:
         
         # ---------------- Tab two data preview ----------------
         #if is_privileged():        
-        with st.expander("Summary Data preview"):
-            st.write(reactive_df_updated_prev)
+        render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
     
