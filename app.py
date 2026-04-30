@@ -497,11 +497,26 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     .eusee-donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1; color:#2D0055; font-weight:950; line-height:1; pointer-events:none; font-family:Arial Black, Arial, sans-serif; }
     .eusee-donut-center .num { font-size:14px; letter-spacing:-.03em; }
     .eusee-donut-center .lab { font-size:7.8px; color:#667085; margin-top:2px; font-family:Arial, sans-serif; font-weight:800; }
-    .eusee-chip-row { display:flex; align-items:center; justify-content:space-between; gap:7px; padding:3px 0; border-bottom:1px solid rgba(102,0,148,.065); font-size:9.7px; line-height:1.05; }
-    .eusee-chip-row:last-child { border-bottom:none; }
-    .eusee-chip-label { display:flex; align-items:center; gap:5px; color:#344054; font-weight:900; min-width:0; }
+    .eusee-breakdown-list { display:flex; flex-direction:column; gap:5px; }
+    .eusee-breakdown-row {
+        display:grid;
+        grid-template-columns: 10px minmax(48px, 1fr) 42px 42px;
+        align-items:center;
+        gap:6px;
+        padding:4px 6px;
+        border-radius:10px;
+        background:rgba(255,255,255,.68);
+        border:1px solid rgba(102,0,148,.055);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.72);
+        line-height:1;
+    }
+    .eusee-breakdown-row:hover { background:#FFFFFF; border-color:rgba(102,0,148,.12); }
+    .eusee-breakdown-label { color:#344054; font-size:9.8px; font-weight:950; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .eusee-breakdown-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; }
+    .eusee-breakdown-count { color:#667085; font-size:9.5px; font-weight:850; text-align:right; white-space:nowrap; }
     .eusee-dot { width:8px; height:8px; min-width:8px; border-radius:999px; display:inline-block; box-shadow:0 0 0 2px rgba(255,255,255,.85), 0 1px 3px rgba(17,24,39,.14); }
-    .eusee-chip-value { color:#101828; font-weight:950; white-space:nowrap; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.02em; }
+    .eusee-breakdown-bar { grid-column: 2 / 5; height:3px; background:#F2F4F7; border-radius:999px; overflow:hidden; margin-top:-1px; }
+    .eusee-breakdown-fill { height:100%; border-radius:999px; width:var(--bar-width); background:var(--bar-color); opacity:.92; }
     .eusee-tooltip { color:#008CAA; font-size:10px; font-weight:950; cursor:help; margin-left:3px; border:1px solid rgba(0,140,170,.25); border-radius:50%; padding:0 4px; background:rgba(0,140,170,.06); }
     </style>
     """, unsafe_allow_html=True)
@@ -553,18 +568,27 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                         <div class="lab">alerts</div>
                     </div>
                 </div>
-                <div>
-                    <div class="eusee-chip-row">
-                        <div class="eusee-chip-label"><span class="eusee-dot" style="background:#FFDB58;"></span>Negative</div>
-                        <div class="eusee-chip-value">{negative:,} · {neg_pct}%</div>
+                <div class="eusee-breakdown-list">
+                    <div class="eusee-breakdown-row" title="Negative alerts: {negative:,} records, {neg_pct}% of filtered alerts">
+                        <span class="eusee-dot" style="background:#FFDB58;"></span>
+                        <span class="eusee-breakdown-label">Negative</span>
+                        <span class="eusee-breakdown-pct">{neg_pct}%</span>
+                        <span class="eusee-breakdown-count">{negative:,}</span>
+                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{neg_pct}%; --bar-color:#FFDB58;"></div></div>
                     </div>
-                    <div class="eusee-chip-row">
-                        <div class="eusee-chip-label"><span class="eusee-dot" style="background:#660094;"></span>Positive</div>
-                        <div class="eusee-chip-value">{positive:,} · {pos_pct}%</div>
+                    <div class="eusee-breakdown-row" title="Positive alerts: {positive:,} records, {pos_pct}% of filtered alerts">
+                        <span class="eusee-dot" style="background:#660094;"></span>
+                        <span class="eusee-breakdown-label">Positive</span>
+                        <span class="eusee-breakdown-pct">{pos_pct}%</span>
+                        <span class="eusee-breakdown-count">{positive:,}</span>
+                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{pos_pct}%; --bar-color:#660094;"></div></div>
                     </div>
-                    <div class="eusee-chip-row">
-                        <div class="eusee-chip-label"><span class="eusee-dot" style="background:#008CAA;"></span>Context</div>
-                        <div class="eusee-chip-value">{context:,} · {context_pct}%</div>
+                    <div class="eusee-breakdown-row" title="Context to watch alerts: {context:,} records, {context_pct}% of filtered alerts">
+                        <span class="eusee-dot" style="background:#008CAA;"></span>
+                        <span class="eusee-breakdown-label">Context</span>
+                        <span class="eusee-breakdown-pct">{context_pct}%</span>
+                        <span class="eusee-breakdown-count">{context:,}</span>
+                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{context_pct}%; --bar-color:#008CAA;"></div></div>
                     </div>
                 </div>
             </div>
