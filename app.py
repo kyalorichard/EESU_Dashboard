@@ -135,107 +135,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- TOP-LEFT FEEDBACK BAR ----------------
-def render_top_feedback_bar():
-    """Render a slim top-left feedback callout below the dashboard title."""
-    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
-    st.markdown(f"""
-    <style>
-    .eusee-feedback-topbar {{
-        width: min(760px, 100%);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
-        border: 1px solid rgba(102, 0, 148, 0.14);
-        border-left: 5px solid #660094;
-        border-radius: 14px;
-        padding: 9px 12px;
-        margin: -6px 0 14px 0;
-        box-shadow: 0 8px 22px rgba(17, 24, 39, 0.075), inset 0 1px 0 rgba(255,255,255,0.96);
-        font-family: Arial, sans-serif;
-        box-sizing: border-box;
-    }}
-    .eusee-feedback-topbar-left {{
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        min-width: 0;
-    }}
-    .eusee-feedback-topbar-icon {{
-        width: 28px;
-        height: 28px;
-        min-width: 28px;
-        border-radius: 11px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
-        color: #660094;
-        border: 1px solid rgba(102,0,148,.10);
-        font-size: 14px;
-        font-weight: 900;
-    }}
-    .eusee-feedback-topbar-text {{
-        color: #344054;
-        font-size: 12px;
-        line-height: 1.25;
-        font-weight: 750;
-        white-space: normal;
-    }}
-    .eusee-feedback-topbar-text strong {{
-        color: #2D0055;
-        font-weight: 950;
-    }}
-    .eusee-feedback-topbar-button {{
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
-        color: #FFFFFF !important;
-        text-decoration: none !important;
-        font-size: 11px;
-        font-weight: 900;
-        white-space: nowrap;
-        box-shadow: 0 6px 14px rgba(102, 0, 148, .18);
-    }}
-    .eusee-feedback-topbar-button:hover {{
-        filter: brightness(1.04);
-        transform: translateY(-1px);
-        transition: all .16s ease;
-    }}
-    @media (max-width: 700px) {{
-        .eusee-feedback-topbar {{
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 0;
-        }}
-        .eusee-feedback-topbar-button {{
-            width: 100%;
-        }}
-    }}
-    </style>
-
-    <div class="eusee-feedback-topbar">
-        <div class="eusee-feedback-topbar-left">
-            <div class="eusee-feedback-topbar-icon">💬</div>
-            <div class="eusee-feedback-topbar-text">
-                <strong>Share your feedback</strong> on usability, insights, and dashboard improvements using the feedback form.
-            </div>
-        </div>
-        <a class="eusee-feedback-topbar-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
-            Formular ausfüllen
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
-
-# render_top_feedback_bar()  # Disabled: feedback is rendered as a floating callout instead.
-
-
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=0)
 def load_data():
@@ -3297,11 +3196,9 @@ def render_feedback_callout():
     </div>
     """, unsafe_allow_html=True)
 
-# ---------------- FLOATING FEEDBACK CALLOUT ----------------
+# ---------------- FOOTER ----------------
 render_feedback_callout()
 
-# ---------------- FOOTER ----------------
-# Feedback is rendered as a floating callout and does not push dashboard content downward.
 # Footer image
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
