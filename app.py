@@ -3096,6 +3096,12 @@ with tab_map:
         margin-bottom:10px;
         line-height:1.4;
     }
+
+    .geo-insight-strip {display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; margin:12px 0 14px 0;}
+    .geo-insight-item {background:#FFFFFF; border:1px solid #E8EAF0; border-radius:15px; padding:12px 14px; box-shadow:0 8px 22px rgba(17,24,39,0.055); font-family:Arial, sans-serif;}
+    .geo-insight-title {font-size:10.5px; color:#64748B; font-weight:900; text-transform:uppercase; letter-spacing:.45px; margin-bottom:5px;}
+    .geo-insight-text {font-size:12px; color:#334155; line-height:1.42; font-weight:650;}
+    .geo-method-note {background:#FFFBEB; border:1px solid #FDE68A; border-left:4px solid #FFDB58; border-radius:14px; padding:11px 13px; color:#4A3B00; font-family:Arial, sans-serif; font-size:11.8px; line-height:1.45; margin:12px 0;}
     .country-insight-box {
         background:#F8FAFC;
         border-left:4px solid #660094;
@@ -3151,20 +3157,28 @@ with tab_map:
         total_mapped = int(df_map["total_alerts"].sum()) if not df_map.empty else 0
         mapped_countries = int(df_map["alert-country"].nunique()) if not df_map.empty else 0
         top_country = df_map.sort_values("total_alerts", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
+        top_priority_country = df_map.sort_values("priority_score", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
         avg_negative_share = round(df_map["perc_negative"].mean(), 1) if not df_map.empty else 0
+        very_high_count = int((df_map["priority_level"] == "Very high").sum()) if not df_map.empty else 0
+        high_count = int((df_map["priority_level"] == "High").sum()) if not df_map.empty else 0
+        mapped_negative = int(df_map["negative_alerts"].sum()) if not df_map.empty else 0
+        mapped_positive = int(df_map["positive_alerts"].sum()) if not df_map.empty else 0
+        mapped_context = int(df_map["context_to_watch_alerts"].sum()) if not df_map.empty else 0
+        dominant_signal = "Negative alerts dominate the mapped profile" if mapped_negative >= max(mapped_positive, mapped_context) else ("Positive alerts dominate the mapped profile" if mapped_positive >= mapped_context else "Context-to-watch alerts dominate the mapped profile")
 
         st.markdown(f"""
         <div class="map-intel-hero">
-            <div class="map-intel-title">Geographic Intelligence Map</div>
+            <div class="map-intel-title">Geospatial Intelligence Panel</div>
             <div class="map-intel-subtitle">
-                Explore where alerts are concentrated across monitored countries. The map combines total alert volume,
-                negative-alert share, and country-level priority signals to support spatial interpretation and targeted review.
+                A decision-ready geospatial workspace for interpreting country-level alert concentration, negative-alert intensity, priority signals, and spatial monitoring coverage under the current filters.
             </div>
             <div class="map-chip-row">
                 <span class="map-chip">🟫 Total alert intensity</span>
                 <span class="map-chip">⚠️ Negative-alert share</span>
                 <span class="map-chip">🎯 Priority signal</span>
                 <span class="map-chip">🖱️ Hover for country details</span>
+                <span class="map-chip">📊 Review country rankings</span>
+                <span class="map-chip">🧠 Use interpretation notes</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -3178,6 +3192,15 @@ with tab_map:
             st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest alert volume</div><div class="map-intel-card-value" style="font-size:18px;">{top_country}</div><div class="map-intel-card-note">Country with the largest filtered alert count.</div></div>""", unsafe_allow_html=True)
         with k4:
             st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Avg. negative share</div><div class="map-intel-card-value">{avg_negative_share}%</div><div class="map-intel-card-note">Mean negative-alert proportion across mapped countries.</div></div>""", unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="geo-insight-strip">
+            <div class="geo-insight-item"><div class="geo-insight-title">Executive spatial signal</div><div class="geo-insight-text">{dominant_signal}. Highest alert volume: <b>{top_country}</b>. Highest priority score: <b>{top_priority_country}</b>.</div></div>
+            <div class="geo-insight-item"><div class="geo-insight-title">Priority watchlist</div><div class="geo-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries under current filters.</div></div>
+            <div class="geo-insight-item"><div class="geo-insight-title">Mapped composition</div><div class="geo-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b></div></div>
+        </div>
+        <div class="geo-method-note"><b>Interpretation note:</b> the spatial priority signal combines negative-alert volume and negative-alert share. It is intended for analytical triage, not as a standalone country ranking. Always interpret alongside reporting coverage, monitoring intensity, and qualitative evidence.</div>
+        """, unsafe_allow_html=True)
 
         # ---------------- Dynamic center and zoom ----------------
         if not df_map.empty:
