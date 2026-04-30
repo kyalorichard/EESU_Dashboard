@@ -1434,12 +1434,12 @@ def create_heatmap(pivot_df, title="Heatmap", x_label="", y_label=""):
     fig.update_xaxes(
         tickangle=-30, showgrid=False, zeroline=False, showline=False, ticks="",
         tickfont=dict(size=9.8, family=CHART_FONT, color="#52616B"),
-        titlefont=dict(size=10.5, family=CHART_FONT, color="#64748B"),
+        title_font=dict(size=10.5, family=CHART_FONT, color="#64748B"),
     )
     fig.update_yaxes(
         autorange="reversed", showgrid=False, zeroline=False, showline=False, ticks="",
         tickfont=dict(size=9.8, family=CHART_FONT, color="#52616B"),
-        titlefont=dict(size=10.5, family=CHART_FONT, color="#64748B"),
+        title_font=dict(size=10.5, family=CHART_FONT, color="#64748B"),
     )
     return fig
 
