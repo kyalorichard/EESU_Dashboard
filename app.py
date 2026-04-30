@@ -449,14 +449,18 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
     card_style = """
     background: #FFFFFF;
     border-radius: 16px;
-    padding: 20px;
+    padding: 18px 18px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.08);
     margin: 5px;
+    min-height: 255px;
+    height: 255px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     transition: transform 0.2s;
+    overflow: hidden;
     """
 
     icon_style = """
@@ -598,31 +602,36 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 text="Alerts Breakdown",
                 x=0.5,
                 xanchor="center",
-                font=dict(size=14, color="#555555", family="Arial Black")
+                font=dict(size=1, color="rgba(0,0,0,0)", family="Arial")
             ),
-            height=245,
-            margin=dict(l=0, r=0, t=36, b=0),
+            height=150,
+            margin=dict(l=0, r=0, t=0, b=0),
             showlegend=False,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=dict(family="Arial", size=11, color="#333333"),
         )
 
-        st.markdown(f'<div style="{card_style}; padding:10px 10px 8px 10px;">', unsafe_allow_html=True)
+        st.markdown(f'<div style="{card_style}; padding:10px 10px 8px 10px; justify-content:flex-start;">', unsafe_allow_html=True)
+        st.markdown('''
+            <div style="font-size:16px; font-weight:700; color:#555; margin:2px 0 0 0; text-align:center; line-height:1.15;">
+                Alerts Breakdown
+            </div>
+        ''', unsafe_allow_html=True)
         st.plotly_chart(fig_breakdown, use_container_width=True, config={"displayModeBar": False})
         st.markdown(f'''
-            <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:-8px; width:100%; font-size:12px; font-weight:700;">
-                <div style="display:flex; align-items:center; gap:6px; background:#fff9dc; border-radius:999px; padding:5px 9px;">
+            <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:-18px; width:100%; font-size:10.5px; font-weight:700; line-height:1.1;">
+                <div style="display:flex; align-items:center; gap:6px; background:#fff9dc; border-radius:999px; padding:4px 7px;">
                     <span style="width:10px; height:10px; background:#FFDB58; border-radius:50%; display:inline-block;"></span>
                     <span style="color:#555;">Negative</span>
                     <span style="color:#8a6f00;">{negative:,} ({neg_pct}%)</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; background:#f5e9fb; border-radius:999px; padding:5px 9px;">
+                <div style="display:flex; align-items:center; gap:6px; background:#f5e9fb; border-radius:999px; padding:4px 7px;">
                     <span style="width:10px; height:10px; background:#660094; border-radius:50%; display:inline-block;"></span>
                     <span style="color:#555;">Positive</span>
                     <span style="color:#660094;">{positive:,} ({pos_pct}%)</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; background:#e8f8fb; border-radius:999px; padding:5px 9px;">
+                <div style="display:flex; align-items:center; gap:6px; background:#e8f8fb; border-radius:999px; padding:4px 7px;">
                     <span style="width:10px; height:10px; background:#008CAA; border-radius:50%; display:inline-block;"></span>
                     <span style="color:#555;">Context</span>
                     <span style="color:#008CAA;">{context:,} ({context_pct}%)</span>
