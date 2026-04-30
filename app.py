@@ -412,7 +412,7 @@ def info_tooltip(message: str) -> str:
     return f'<span style="font-weight:bold; cursor: help; color: #660094;" title="{message}">❓</span>'
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
-def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
+def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="summary"):
     """
     Render three summary cards with gradient background:
     1. Monitored Countries
@@ -618,7 +618,12 @@ def render_summary_cards(df, base_bar_height=25,show_breakdown=True):
                 Alerts Breakdown
             </div>
         ''', unsafe_allow_html=True)
-        st.plotly_chart(fig_breakdown, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(
+            fig_breakdown,
+            use_container_width=True,
+            config={"displayModeBar": False},
+            key=f"{card_key}_alerts_breakdown_donut"
+        )
         st.markdown(f'''
             <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:-18px; width:100%; font-size:10.5px; font-weight:700; line-height:1.1;">
                 <div style="display:flex; align-items:center; gap:6px; background:#fff9dc; border-radius:999px; padding:4px 7px;">
@@ -2159,7 +2164,7 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
 # ---------------- TAB 1 ------------------------
 with tab_overview:
     #st.subheader("Overview Metrics")
-    render_summary_cards(filtered_global)
+    render_summary_cards(filtered_global, card_key="overview_summary")
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
     df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
     df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
@@ -2354,7 +2359,7 @@ with tab_negative:
             (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
             (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
         ]
-        render_summary_cards(reactive_df_updated,show_breakdown=False)
+        render_summary_cards(reactive_df_updated, show_breakdown=False, card_key="negative_events_summary")
 
         #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
 
@@ -2529,7 +2534,7 @@ with tab_negative:
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
     #st.subheader("Visualization Map")
-    render_summary_cards(filtered_global)
+    render_summary_cards(filtered_global, card_key="map_summary")
     geo_file = Path.cwd() / "exports" / "countriess.geojson"
     if geo_file.exists():
         with open(geo_file) as f: 
