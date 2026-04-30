@@ -179,7 +179,7 @@ def init_session():
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
-        "auth_remember": False,
+        "auth_remember": True,
     }
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
@@ -407,7 +407,7 @@ def _render_auth_panel():
         with st.form("eusee_login_float_form"):
             email = st.text_input("Email", placeholder="Enter your email", key="float_login_email").strip()
             password = st.text_input("Password", placeholder="Enter your password", type="password", key="float_login_password")
-            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", False), key="float_login_remember")
+            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", True), key="float_login_remember")
             submitted = st.form_submit_button("Sign In", use_container_width=True)
 
             if submitted:
@@ -676,7 +676,7 @@ def auth_ui():
               </div>
               <div class="eusee-login-heading">Welcome back</div>
               <div class="eusee-login-subheading">
-                Sign in to unlock privileged EU SEE dashboard features. The dashboard remains available below while this sign-in section is open.
+                Sign in to unlock privileged EU SEE dashboard features. After successful login, you will be redirected back to the main dashboard with an active session.
               </div>
               <div class="eusee-login-card">
         """,
@@ -689,7 +689,7 @@ def auth_ui():
         with st.form("eusee_login_route_form"):
             email = st.text_input("Email", placeholder="Enter your email", key="route_login_email").strip()
             password = st.text_input("Password", placeholder="Enter your password", type="password", key="route_login_password")
-            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", False), key="route_login_remember")
+            remember = st.checkbox("Remember me", value=st.session_state.get("auth_remember", True), key="route_login_remember")
             submitted = st.form_submit_button("Sign In", use_container_width=True)
 
             if submitted:
@@ -774,7 +774,7 @@ def auth_ui():
         """
               </div>
               <div class="eusee-login-footer-note">
-                Access is limited to approved domains. Use “Back to dashboard” to collapse this sign-in section.
+                Access is limited to approved domains. Use “Back to dashboard” to return without signing in.
               </div>
             </div>
           </div>
