@@ -2031,6 +2031,183 @@ def extract_country_from_plotly_click(clicked_events):
             return str(val)
     return None
 
+
+
+# ---------------- PROFESSIONAL SUMMARY DATA EXPLORER + AUTO REPORT ----------------
+def _safe_top_counts(df, col, n=5):
+    if df is None or df.empty or col not in df.columns:
+        return {}
+    series = df[col].dropna().astype(str).str.strip()
+    series = series[series.ne("") & series.str.lower().ne("nan")]
+    return series.value_counts().head(n).to_dict()
+
+
+def _find_col(df, candidates):
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
+
+def _ranked_lines(items):
+    if not items:
+        return "- Not available"
+    return "\n".join([f"- {k}: {v}" for k, v in items.items()])
+
+
+def generate_table_insight_report(df, title="Summary Data Explorer"):
+    """Generate a compact narrative report from the currently displayed table."""
+    if df is None or df.empty:
+        return f"{title}\n\nNo records are available for the current table filters."
+
+    country_col = _find_col(df, ["Country", "alert-country"])
+    impact_col = _find_col(df, ["Impact of alert", "alert-impact"])
+    type_col = _find_col(df, ["Type of alert", "alert-type"])
+    principle_col = _find_col(df, ["Enabling principles", "enabling-principle"])
+    date_col = _find_col(df, ["Date of submission", "creation_date"])
+    actor_col = _find_col(df, ["Types of restrictive actors", "Actor of repression"])
+    mechanism_col = _find_col(df, ["Types of restrictive mechanisms", "Mechanism of repression"])
+    subject_col = _find_col(df, ["Types of civil society actors affected", "Subject of repression"])
+
+    total = len(df)
+    countries = df[country_col].nunique() if country_col else 0
+    impact_counts = _safe_top_counts(df, impact_col, 10) if impact_col else {}
+    negative = int(df[impact_col].astype(str).str.strip().str.lower().eq("negative").sum()) if impact_col else 0
+    negative_pct = round((negative / total) * 100, 1) if total else 0
+
+    date_note = "Date range not available"
+    if date_col:
+        dates = pd.to_datetime(df[date_col], errors="coerce")
+        if dates.notna().any():
+            date_note = f"{dates.min().date()} to {dates.max().date()}"
+
+    priority = "Low / watch"
+    if negative_pct >= 70:
+        priority = "High attention"
+    elif negative_pct >= 40:
+        priority = "Moderate attention"
+
+    lines = [
+        f"{title}",
+        "=" * len(title),
+        "",
+        "Executive summary",
+        f"The current table view contains {total:,} records covering {countries:,} countries. The date coverage is {date_note}. Negative alerts represent {negative:,} records ({negative_pct}%), giving this filtered view a '{priority}' signal.",
+        "",
+        "Impact breakdown", _ranked_lines(impact_counts),
+        "",
+        "Top countries represented", _ranked_lines(_safe_top_counts(df, country_col, 5) if country_col else {}),
+        "",
+        "Top alert types", _ranked_lines(_safe_top_counts(df, type_col, 5) if type_col else {}),
+        "",
+        "Top enabling principles / issue areas", _ranked_lines(_safe_top_counts(df, principle_col, 5) if principle_col else {}),
+    ]
+    if actor_col or mechanism_col or subject_col:
+        lines.extend([
+            "", "Negative-alert pathway signals",
+            "Restrictive actors:", _ranked_lines(_safe_top_counts(df, actor_col, 5) if actor_col else {}),
+            "", "Restrictive mechanisms:", _ranked_lines(_safe_top_counts(df, mechanism_col, 5) if mechanism_col else {}),
+            "", "Civil society actors affected:", _ranked_lines(_safe_top_counts(df, subject_col, 5) if subject_col else {}),
+        ])
+    lines.extend([
+        "", "Suggested interpretation",
+        "Use this table report as a screening layer. Counts should be interpreted together with reporting coverage, network activity, monitoring intensity, and qualitative country context.",
+        "", "Recommended next steps",
+        "1. Validate high-count countries against qualitative EUSEE country evidence.",
+        "2. Review negative-alert pathways using the heatmap and Sankey modules.",
+        "3. Export this filtered table and report for documentation or briefing use.",
+        "", "For a broader overview and additional qualitative insights, please visit the EUSEE website.",
+        f"Open EUSEE: {EUSEE_URL}",
+    ])
+    return "\n".join(lines)
+
+
+def render_professional_data_explorer(df, title="Summary Data Explorer", key_prefix="summary"):
+    """Interactive table with search, sorting, pagination, quick chart, export, and auto report."""
+    if df is None or df.empty:
+        st.info("No records are available for the selected filters.")
+        return
+
+    work = df.copy()
+    for c in work.columns:
+        if pd.api.types.is_datetime64_any_dtype(work[c]):
+            work[c] = work[c].dt.strftime("%Y-%m-%d")
+
+    st.markdown(f"### {title}")
+    st.caption("Search, filter, sort, review, export, and generate a short insight report from the currently visible records.")
+
+    total_records = len(work)
+    impact_col = _find_col(work, ["Impact of alert", "alert-impact"])
+    country_col = _find_col(work, ["Country", "alert-country"])
+    neg_count = int(work[impact_col].astype(str).str.lower().eq("negative").sum()) if impact_col else 0
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Visible records", f"{total_records:,}")
+    k2.metric("Countries", f"{work[country_col].nunique():,}" if country_col else "N/A")
+    k3.metric("Negative alerts", f"{neg_count:,}")
+    k4.metric("Negative share", f"{round((neg_count / max(total_records, 1)) * 100, 1)}%" if impact_col else "N/A")
+
+    c1, c2, c3, c4 = st.columns([2.2, 1.2, 1.2, 1.1])
+    with c1:
+        search = st.text_input("Search table", placeholder="Search country, summary, alert type, principle...", key=f"{key_prefix}_search")
+    with c2:
+        rows_per_page = st.selectbox("Rows/page", [10, 25, 50, 100, 250], index=1, key=f"{key_prefix}_rows")
+    with c3:
+        sort_col = st.selectbox("Sort by", work.columns.tolist(), index=0, key=f"{key_prefix}_sort_col")
+    with c4:
+        sort_order = st.selectbox("Order", ["Descending", "Ascending"], key=f"{key_prefix}_sort_order")
+
+    df_view = work.copy()
+    if search:
+        mask = df_view.astype(str).apply(lambda row: row.str.contains(search, case=False, na=False).any(), axis=1)
+        df_view = df_view[mask]
+
+    selected_cols = st.multiselect("Columns to display", options=work.columns.tolist(), default=work.columns.tolist(), key=f"{key_prefix}_cols")
+    if selected_cols:
+        df_view = df_view[selected_cols]
+    if sort_col in df_view.columns:
+        df_view = df_view.sort_values(by=sort_col, ascending=(sort_order == "Ascending"), kind="mergesort")
+
+    total_filtered = len(df_view)
+    total_pages = max(1, math.ceil(total_filtered / rows_per_page))
+    page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1, key=f"{key_prefix}_page")
+    start = (page - 1) * rows_per_page
+    end = start + rows_per_page
+    df_page = df_view.iloc[start:end]
+
+    st.dataframe(df_page, use_container_width=True, height=420, hide_index=True)
+    st.caption(f"Showing rows {start + 1 if total_filtered else 0}–{min(end, total_filtered)} of {total_filtered:,} filtered records. Original table size: {total_records:,} records.")
+
+    chart_tab, report_tab, export_tab = st.tabs(["Quick chart", "Auto insight report", "Export"])
+    with chart_tab:
+        candidate_cols = [c for c in df_view.columns if df_view[c].nunique(dropna=True) <= 100] or df_view.columns.tolist()
+        chart_col = st.selectbox("Create quick chart from column", options=candidate_cols, key=f"{key_prefix}_chart_col")
+        top_n = st.slider("Top categories", 5, 30, 10, step=5, key=f"{key_prefix}_topn")
+        chart_df = df_view[chart_col].dropna().astype(str).str.strip()
+        chart_df = chart_df[chart_df.ne("")].value_counts().head(top_n).reset_index()
+        chart_df.columns = [chart_col, "count"]
+        if not chart_df.empty:
+            fig = px.bar(chart_df, x="count", y=chart_col, orientation="h", text="count", title=f"Top {min(top_n, len(chart_df))}: {chart_col}")
+            fig.update_layout(height=max(320, len(chart_df) * 32), margin=dict(l=20, r=20, t=45, b=20), title_font=dict(size=14, color="#660094"))
+            fig.update_yaxes(autorange="reversed")
+            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_quick_chart")
+    with report_tab:
+        report = generate_table_insight_report(df_view, title=title)
+        st.text_area("Generated narrative report", value=report, height=360, key=f"{key_prefix}_report_text")
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            st.download_button("Download report (.txt)", data=report.encode("utf-8"), file_name=f"{key_prefix}_auto_insight_report.txt", mime="text/plain", use_container_width=True, key=f"{key_prefix}_download_report")
+        with rc2:
+            if st.button("Send report to AI Copilot", use_container_width=True, key=f"{key_prefix}_send_report_ai"):
+                if "ai_messages" not in st.session_state:
+                    st.session_state.ai_messages = []
+                st.session_state.ai_messages.append({"role": "user", "content": f"Review this auto insight report from the table:\n\n{report}"})
+                st.session_state.ai_messages.append({"role": "assistant", "content": append_eusee_redirect("I have received the table insight report. Use it to support briefing, validation, or follow-up analysis. The strongest next step is to compare these table signals with the map, heatmap, and Sankey views.")})
+                st.success("Report sent to AI Copilot chat history.")
+    with export_tab:
+        st.download_button("Download filtered table (.csv)", data=df_view.to_csv(index=False).encode("utf-8"), file_name=f"{key_prefix}_filtered_table.csv", mime="text/csv", use_container_width=True, key=f"{key_prefix}_download_csv")
+        st.caption("Export reflects current search, column selection, and sorting.")
+
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
@@ -2196,8 +2373,8 @@ with tab_overview:
    
         # ---------------- Tab two data preview ------------------
 
-    with st.expander("Summary Data preview"):
-        st.write(filtered_global_prev)  
+    with st.expander("📊 Summary Data Explorer + Auto Insight Report", expanded=False):
+        render_professional_data_explorer(filtered_global_prev, title="Overview Summary Data Explorer", key_prefix="overview_table")  
     #else:
         #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -2482,8 +2659,8 @@ with tab_negative:
         
         # ---------------- Tab two data preview ----------------
         #if is_privileged():        
-        with st.expander("Summary Data preview"):
-            st.write(reactive_df_updated_prev)
+        with st.expander("📊 Negative Alerts Data Explorer + Auto Insight Report", expanded=False):
+            render_professional_data_explorer(reactive_df_updated_prev, title="Negative Alerts Data Explorer", key_prefix="negative_table")
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
     
