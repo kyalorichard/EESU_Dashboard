@@ -40,25 +40,6 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-# ---------------- AUTH ROUTING ----------------
-# Flow:
-# 1) Dashboard opens normally.
-# 2) User clicks "Sign in / Access" in the sidebar.
-# 3) App switches to a dedicated login view.
-# 4) Successful login restores an active session and returns to the dashboard.
-#
-# IMPORTANT: no st.dialog, st.popover, or overlay is used; therefore no blur/disabled dashboard.
-st.session_state.setdefault("auth_view", False)
-
-if st.session_state.get("auth_view") and not is_authenticated():
-    auth_ui()
-    st.stop()
-
-if st.session_state.get("auth_view") and is_authenticated():
-    st.session_state.auth_view = False
-    st.rerun()
-# ------------------------------------------------
-
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
