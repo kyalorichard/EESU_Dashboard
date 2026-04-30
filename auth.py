@@ -261,234 +261,59 @@ def _auth_page_css():
     st.markdown(
         """
         <style>
+        section[data-testid="stSidebar"] { display: none !important; }
+        header[data-testid="stHeader"] { background: transparent !important; }
         .block-container {
-            padding-top: 1.3rem !important;
-            max-width: 1220px !important;
+            max-width: 1120px !important;
+            padding-top: 2.5rem !important;
+            padding-bottom: 2.5rem !important;
         }
-        section[data-testid="stSidebar"] {
-            display: none !important;
+        .auth-page-title { text-align: center; margin-bottom: 18px; font-family: Arial, sans-serif; }
+        .auth-page-title h1 {
+            margin: 0; color: #231942; font-size: 32px;
+            font-family: Arial Black, Arial, sans-serif; letter-spacing: -0.6px;
         }
-        .auth-shell {
-            min-height: 82vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 18px 8px 26px 8px;
-            background:
-                radial-gradient(circle at 12% 18%, rgba(255,219,88,0.20), transparent 28%),
-                radial-gradient(circle at 88% 12%, rgba(0,140,170,0.14), transparent 28%),
-                linear-gradient(135deg, #faf7fd 0%, #ffffff 48%, #f5fbfd 100%);
-            border-radius: 24px;
-        }
-        .auth-card {
-            width: 100%;
-            max-width: 1040px;
-            min-height: 575px;
-            display: grid;
-            grid-template-columns: 1.03fr 0.97fr;
-            background: rgba(255,255,255,0.96);
-            border: 1px solid rgba(102,0,148,0.10);
-            border-radius: 26px;
-            overflow: hidden;
-            box-shadow: 0 28px 85px rgba(35,25,66,0.16);
-        }
-        .auth-brand {
-            position: relative;
-            padding: 42px 42px 34px 42px;
-            background:
-                linear-gradient(155deg, rgba(102,0,148,0.96) 0%, rgba(80,0,118,0.96) 58%, rgba(0,140,170,0.88) 100%);
+        .auth-page-title p { margin: 8px 0 0 0; color: #6f667a; font-size: 13px; }
+        .auth-brand-card {
+            min-height: 520px; height: 100%; border-radius: 26px; padding: 38px 36px 30px 36px;
             color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            background: radial-gradient(circle at 88% 16%, rgba(255,219,88,0.34), transparent 25%),
+                        radial-gradient(circle at 20% 88%, rgba(255,255,255,0.15), transparent 30%),
+                        linear-gradient(155deg, #660094 0%, #4b006f 55%, #008CAA 100%);
+            box-shadow: 0 24px 70px rgba(35,25,66,0.22);
+            display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;
         }
-        .auth-brand:before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at 85% 18%, rgba(255,219,88,0.32), transparent 24%),
-                radial-gradient(circle at 22% 80%, rgba(255,255,255,0.14), transparent 28%);
-            pointer-events: none;
-        }
-        .auth-brand-content, .auth-brand-footer { position: relative; z-index: 1; }
-        .brand-eyebrow {
-            font-size: 11px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            font-weight: 900;
-            color: #FFDB58;
-            margin-bottom: 10px;
-            font-family: Arial, sans-serif;
-        }
-        .brand-title {
-            font-family: Arial Black, Arial, sans-serif;
-            font-size: 48px;
-            line-height: 0.95;
-            letter-spacing: -1.5px;
-            margin-bottom: 16px;
-        }
-        .brand-text {
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            line-height: 1.62;
-            max-width: 420px;
-            color: rgba(255,255,255,0.92);
-        }
-        .brand-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 24px;
-        }
-        .brand-badge {
-            border: 1px solid rgba(255,255,255,0.24);
-            background: rgba(255,255,255,0.12);
-            backdrop-filter: blur(8px);
-            border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 11px;
-            font-weight: 800;
-            font-family: Arial, sans-serif;
-            color: white;
-        }
-        .auth-brand-footer {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-top: 30px;
-        }
-        .mini-stat {
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.18);
-            border-radius: 16px;
-            padding: 12px;
-        }
-        .mini-stat-value {
-            color: #FFDB58;
-            font-size: 18px;
-            font-weight: 900;
-            font-family: Arial Black, Arial, sans-serif;
-        }
-        .mini-stat-label {
-            color: rgba(255,255,255,0.82);
-            font-size: 10px;
-            font-family: Arial, sans-serif;
-            margin-top: 3px;
-        }
-        .auth-form-panel {
-            padding: 38px 46px 32px 46px;
-            background: #ffffff;
-        }
-        .auth-top-actions {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 22px;
-        }
-        .auth-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            background: #f7f0fb;
-            color: #660094;
-            border: 1px solid #eadcf3;
-            border-radius: 999px;
-            padding: 7px 11px;
-            font-size: 11px;
-            font-weight: 900;
-            font-family: Arial, sans-serif;
-        }
-        .form-title {
-            font-family: Arial Black, Arial, sans-serif;
-            color: #231942;
-            font-size: 28px;
-            letter-spacing: -0.3px;
-            margin: 0 0 8px 0;
-        }
-        .form-subtitle {
-            font-family: Arial, sans-serif;
-            color: #6f667a;
-            font-size: 13px;
-            line-height: 1.55;
-            margin-bottom: 20px;
-        }
-        .mode-card {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            background: #f8f5fb;
-            border: 1px solid #eee6f6;
-            border-radius: 14px;
-            padding: 4px;
-            margin-bottom: 18px;
-            gap: 4px;
-        }
-        .mode-active, .mode-inactive {
-            text-align: center;
-            border-radius: 11px;
-            padding: 9px 10px;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            font-weight: 900;
-        }
-        .mode-active {
-            color: white;
-            background: linear-gradient(135deg, #660094, #008CAA);
-            box-shadow: 0 8px 20px rgba(102,0,148,0.20);
-        }
+        .brand-eyebrow { font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 900; color: #FFDB58; margin-bottom: 12px; font-family: Arial, sans-serif; }
+        .brand-title { font-family: Arial Black, Arial, sans-serif; font-size: 46px; line-height: 0.96; letter-spacing: -1.4px; margin-bottom: 16px; }
+        .brand-text { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.62; max-width: 440px; color: rgba(255,255,255,0.93); }
+        .brand-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+        .brand-badge { border: 1px solid rgba(255,255,255,0.26); background: rgba(255,255,255,0.13); border-radius: 999px; padding: 8px 12px; font-size: 11px; font-weight: 800; font-family: Arial, sans-serif; color: white; }
+        .auth-brand-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 30px; }
+        .mini-stat { background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.19); border-radius: 16px; padding: 12px; }
+        .mini-stat-value { color: #FFDB58; font-size: 18px; font-weight: 900; font-family: Arial Black, Arial, sans-serif; }
+        .mini-stat-label { color: rgba(255,255,255,0.84); font-size: 10px; font-family: Arial, sans-serif; margin-top: 3px; }
+        div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 26px !important; border: 1px solid rgba(102,0,148,0.12) !important; box-shadow: 0 24px 70px rgba(35,25,66,0.14) !important; background: #ffffff !important; }
+        div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 32px 36px 28px 36px !important; }
+        .auth-pill { display: inline-flex; align-items: center; gap: 7px; background: #f7f0fb; color: #660094; border: 1px solid #eadcf3; border-radius: 999px; padding: 7px 11px; font-size: 11px; font-weight: 900; font-family: Arial, sans-serif; }
+        .form-title { font-family: Arial Black, Arial, sans-serif; color: #231942; font-size: 28px; letter-spacing: -0.3px; margin: 18px 0 6px 0; }
+        .form-subtitle { font-family: Arial, sans-serif; color: #6f667a; font-size: 13px; line-height: 1.55; margin-bottom: 18px; }
+        .mode-card { display: grid; grid-template-columns: 1fr 1fr; background: #f8f5fb; border: 1px solid #eee6f6; border-radius: 14px; padding: 4px; margin-bottom: 16px; gap: 4px; }
+        .mode-active, .mode-inactive { text-align: center; border-radius: 11px; padding: 9px 10px; font-family: Arial, sans-serif; font-size: 12px; font-weight: 900; }
+        .mode-active { color: white; background: linear-gradient(135deg, #660094, #008CAA); box-shadow: 0 8px 20px rgba(102,0,148,0.20); }
         .mode-inactive { color: #6f667a; }
-        .auth-note {
-            background: #fffaf0;
-            border: 1px solid rgba(255,219,88,0.55);
-            border-left: 4px solid #FFDB58;
-            border-radius: 14px;
-            padding: 11px 13px;
-            color: #4b3b14;
-            font-size: 11.5px;
-            line-height: 1.42;
-            font-family: Arial, sans-serif;
-            margin-top: 14px;
-        }
-        label p {
-            font-size: 12px !important;
-            font-weight: 900 !important;
-            color: #332045 !important;
-        }
-        div[data-testid="stTextInput"] input {
-            border-radius: 12px !important;
-            min-height: 44px !important;
-            font-size: 13px !important;
-            border: 1px solid #e7ddec !important;
-            background: #fcfbfd !important;
-        }
-        div[data-testid="stTextInput"] input:focus {
-            border-color: #660094 !important;
-            box-shadow: 0 0 0 2px rgba(102,0,148,0.10) !important;
-        }
-        button[kind="primaryFormSubmit"], button[kind="formSubmit"] {
-            border-radius: 12px !important;
-            min-height: 45px !important;
-            font-weight: 900 !important;
-            background: linear-gradient(135deg, #660094, #008CAA) !important;
-            border: 0 !important;
-        }
-        div[data-testid="stForm"] {
-            border: 0 !important;
-            padding: 0 !important;
-        }
-        .small-footer {
-            text-align: center;
-            color: #91869b;
-            font-size: 10.5px;
-            font-family: Arial, sans-serif;
-            margin-top: 16px;
-        }
+        .auth-note { background: #fffaf0; border: 1px solid rgba(255,219,88,0.55); border-left: 4px solid #FFDB58; border-radius: 14px; padding: 11px 13px; color: #4b3b14; font-size: 11.5px; line-height: 1.42; font-family: Arial, sans-serif; margin-top: 14px; }
+        label p { font-size: 12px !important; font-weight: 900 !important; color: #332045 !important; }
+        div[data-testid="stTextInput"] input { border-radius: 12px !important; min-height: 44px !important; font-size: 13px !important; border: 1px solid #e7ddec !important; background: #fcfbfd !important; }
+        div[data-testid="stTextInput"] input:focus { border-color: #660094 !important; box-shadow: 0 0 0 2px rgba(102,0,148,0.10) !important; }
+        div[data-testid="stForm"] { border: 0 !important; padding: 0 !important; }
+        button[kind="primaryFormSubmit"], button[kind="formSubmit"] { border-radius: 12px !important; min-height: 45px !important; font-weight: 900 !important; background: linear-gradient(135deg, #660094, #008CAA) !important; border: 0 !important; }
+        .small-footer { text-align: center; color: #91869b; font-size: 10.5px; font-family: Arial, sans-serif; margin-top: 16px; }
         @media (max-width: 900px) {
-            .auth-card { grid-template-columns: 1fr; }
-            .auth-brand { padding: 30px; }
-            .auth-brand-footer { grid-template-columns: 1fr; }
+            .block-container { padding-top: 1.2rem !important; }
+            .auth-brand-card { min-height: auto; padding: 28px; }
             .brand-title { font-size: 36px; }
-            .auth-form-panel { padding: 30px 24px; }
+            .auth-brand-footer { grid-template-columns: 1fr; }
+            div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 24px !important; }
         }
         </style>
         """,
@@ -617,14 +442,23 @@ def _render_premium_auth_page():
         "Reset": "Enter your approved email address and we will send a password reset link.",
     }.get(mode, "Access the EU SEE Dashboard.")
 
-    st.markdown('<div class="auth-shell"><div class="auth-card">', unsafe_allow_html=True)
-    left, right = st.columns([1.03, 0.97], gap="large")
+    st.markdown(
+        """
+        <div class="auth-page-title">
+            <h1>EU SEE Dashboard Access</h1>
+            <p>Secure sign-in for authorized users. Return to the dashboard at any time.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns([1.0, 1.05], gap="large")
 
     with left:
         st.markdown(
             """
-            <div class="auth-brand">
-                <div class="auth-brand-content">
+            <div class="auth-brand-card">
+                <div>
                     <div class="brand-eyebrow">Secure access portal</div>
                     <div class="brand-title">EU SEE<br>Dashboard</div>
                     <div class="brand-text">
@@ -648,38 +482,35 @@ def _render_premium_auth_page():
         )
 
     with right:
-        st.markdown('<div class="auth-form-panel">', unsafe_allow_html=True)
-        top_a, top_b = st.columns([1.25, 0.75])
-        with top_a:
-            st.markdown('<div class="auth-pill">🔐 Authorized users only</div>', unsafe_allow_html=True)
-        with top_b:
-            if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
-                _back_to_dashboard()
+        with st.container(border=True):
+            top_a, top_b = st.columns([1.25, 0.75])
+            with top_a:
+                st.markdown('<div class="auth-pill">🔐 Authorized users only</div>', unsafe_allow_html=True)
+            with top_b:
+                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
+                    _back_to_dashboard()
 
-        st.markdown(f'<div class="form-title">{mode_title}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="form-subtitle">{mode_subtitle}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="form-title">{mode_title}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="form-subtitle">{mode_subtitle}</div>', unsafe_allow_html=True)
 
-        if mode == "Login":
-            st.markdown('<div class="mode-card"><div class="mode-active">Sign in</div><div class="mode-inactive">Register</div></div>', unsafe_allow_html=True)
-            _login_form()
-        elif mode == "Register":
-            st.markdown('<div class="mode-card"><div class="mode-inactive">Sign in</div><div class="mode-active">Register</div></div>', unsafe_allow_html=True)
-            _register_form()
-        else:
-            st.markdown('<div class="mode-card"><div class="mode-active">Password reset</div><div class="mode-inactive">Secure email link</div></div>', unsafe_allow_html=True)
-            _reset_form()
+            if mode == "Login":
+                st.markdown('<div class="mode-card"><div class="mode-active">Sign in</div><div class="mode-inactive">Register</div></div>', unsafe_allow_html=True)
+                _login_form()
+            elif mode == "Register":
+                st.markdown('<div class="mode-card"><div class="mode-inactive">Sign in</div><div class="mode-active">Register</div></div>', unsafe_allow_html=True)
+                _register_form()
+            else:
+                st.markdown('<div class="mode-card"><div class="mode-active">Password reset</div><div class="mode-inactive">Secure email link</div></div>', unsafe_allow_html=True)
+                _reset_form()
 
-        domain_note = "Approved organizational domains only."
-        if PRIVILEGED_DOMAINS:
-            domain_note = "Approved domains: " + ", ".join(sorted(PRIVILEGED_DOMAINS))
-        st.markdown(
-            f'<div class="auth-note">💡 {domain_note}<br>After successful sign-in, you will return automatically to the dashboard with an active session.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown('<div class="small-footer">EU SEE Dashboard · Secure authentication · Protected access</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('</div></div>', unsafe_allow_html=True)
+            domain_note = "Approved organizational domains only."
+            if PRIVILEGED_DOMAINS:
+                domain_note = "Approved domains: " + ", ".join(sorted(PRIVILEGED_DOMAINS))
+            st.markdown(
+                f'<div class="auth-note">💡 {domain_note}<br>After successful sign-in, you will return automatically to the dashboard with an active session.</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown('<div class="small-footer">EU SEE Dashboard · Secure authentication · Protected access</div>', unsafe_allow_html=True)
 
 
 # -----------------------------
