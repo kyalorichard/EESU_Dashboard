@@ -2208,6 +2208,204 @@ def render_professional_data_explorer(df, title="Summary Data Explorer", key_pre
         st.download_button("Download filtered table (.csv)", data=df_view.to_csv(index=False).encode("utf-8"), file_name=f"{key_prefix}_filtered_table.csv", mime="text/csv", use_container_width=True, key=f"{key_prefix}_download_csv")
         st.caption("Export reflects current search, column selection, and sorting.")
 
+
+
+# ---------------- COUNTRY INTELLIGENCE PANEL ----------------
+def _ci_split_values(series):
+    """Split comma-separated fields safely and return a cleaned Series."""
+    if series is None:
+        return pd.Series(dtype=str)
+    tmp = series.fillna("").astype(str).str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+    tmp = tmp.str.split(",").explode().astype(str).str.strip()
+    return tmp[tmp.ne("") & tmp.str.lower().ne("nan")]
+
+
+def _ci_top_items(df, col, top_n=5):
+    if df is None or df.empty or col not in df.columns:
+        return pd.DataFrame(columns=["Category", "Count"])
+    values = _ci_split_values(df[col])
+    if values.empty:
+        return pd.DataFrame(columns=["Category", "Count"])
+    out = values.value_counts().head(top_n).reset_index()
+    out.columns = ["Category", "Count"]
+    return out
+
+
+def _ci_country_metrics(df, country):
+    country_df = df[df["alert-country"].astype(str).str.strip().eq(str(country).strip())].copy()
+    total = len(country_df)
+    negative = int((country_df.get("alert-impact", pd.Series(dtype=str)) == "Negative").sum()) if total else 0
+    positive = int((country_df.get("alert-impact", pd.Series(dtype=str)) == "Positive").sum()) if total else 0
+    context = int((country_df.get("alert-impact", pd.Series(dtype=str)) == "Context to watch").sum()) if total else 0
+    neg_share = (negative / total * 100) if total else 0
+    activity_score = min(100, total * 3)
+    risk_score = round((0.75 * neg_share) + (0.25 * activity_score), 1) if total else 0
+    if total == 0:
+        level, color = "No data", "#6b7280"
+    elif risk_score >= 70:
+        level, color = "High attention", "#dc2626"
+    elif risk_score >= 40:
+        level, color = "Moderate attention", "#f59e0b"
+    else:
+        level, color = "Low attention", "#16a34a"
+    return country_df, {
+        "total": total,
+        "negative": negative,
+        "positive": positive,
+        "context": context,
+        "neg_share": round(neg_share, 1),
+        "risk_score": risk_score,
+        "level": level,
+        "color": color,
+    }
+
+
+def _ci_country_narrative(country, metrics, top_alert_types, top_actors, top_mechanisms):
+    if metrics["total"] == 0:
+        return f"No records are available for {country} under the current filters. Adjust filters to broaden the country profile."
+    alert_type_txt = ", ".join(top_alert_types["Category"].head(3).astype(str).tolist()) if not top_alert_types.empty else "not clearly classified"
+    actor_txt = ", ".join(top_actors["Category"].head(3).astype(str).tolist()) if not top_actors.empty else "not clearly identified"
+    mechanism_txt = ", ".join(top_mechanisms["Category"].head(3).astype(str).tolist()) if not top_mechanisms.empty else "not clearly identified"
+    return (
+        f"{country} has {metrics['total']} alerts under the current filters, of which "
+        f"{metrics['negative']} are negative ({metrics['neg_share']}%). The current country attention level is "
+        f"{metrics['level']} with a risk score of {metrics['risk_score']}/100. Dominant alert types include {alert_type_txt}. "
+        f"Key restrictive actors include {actor_txt}, while frequently reported mechanisms include {mechanism_txt}. "
+        "Interpret this profile alongside reporting coverage and qualitative EUSEE evidence."
+    )
+
+
+def render_country_intelligence_panel(df, default_country=None):
+    """Decision-style country profile panel for the Map tab."""
+    if df is None or df.empty or "alert-country" not in df.columns:
+        st.info("No country-level data are available for the current filters.")
+        return
+
+    st.markdown("""
+    <style>
+    .ci-card {background:#fff; border:1px solid #ece7f5; border-radius:16px; padding:16px; box-shadow:0 6px 18px rgba(45,0,85,.06); margin-bottom:10px;}
+    .ci-title {font-family:Arial Black, Arial; color:#2d0055; font-size:18px; margin-bottom:4px;}
+    .ci-sub {font-family:Arial; color:#666; font-size:12px; margin-bottom:10px;}
+    .ci-kpi {background:#faf7ff; border:1px solid #eee4ff; border-radius:14px; padding:12px; text-align:center; min-height:86px;}
+    .ci-kpi-label {font-size:11px; color:#666; font-weight:700; text-transform:uppercase;}
+    .ci-kpi-value {font-size:24px; color:#660094; font-weight:900; margin-top:4px;}
+    .ci-note {background:#f8fafc; border-left:5px solid #660094; border-radius:10px; padding:12px; color:#222; font-size:13px; line-height:1.45;}
+    </style>
+    """, unsafe_allow_html=True)
+
+    countries = sorted(df["alert-country"].dropna().astype(str).str.strip().loc[lambda x: x.ne("")].unique().tolist())
+    if not countries:
+        st.info("No country names are available under the current filters.")
+        return
+
+    # Rank countries by negative burden to provide a useful default.
+    country_rank = (
+        df.groupby("alert-country")
+        .agg(
+            total_alerts=("alert-impact", "size"),
+            negative_alerts=("alert-impact", lambda x: (x == "Negative").sum())
+        )
+        .reset_index()
+    )
+    country_rank["negative_share"] = (country_rank["negative_alerts"] / country_rank["total_alerts"].replace(0, np.nan) * 100).fillna(0)
+    country_rank["risk_score"] = (0.75 * country_rank["negative_share"] + 0.25 * np.minimum(100, country_rank["total_alerts"] * 3)).round(1)
+    country_rank = country_rank.sort_values(["risk_score", "negative_alerts", "total_alerts"], ascending=False)
+    suggested_country = default_country if default_country in countries else (country_rank.iloc[0]["alert-country"] if not country_rank.empty else countries[0])
+
+    st.markdown('<div class="ci-card"><div class="ci-title">🌍 Country Intelligence Panel</div><div class="ci-sub">Select a country to generate a decision-ready country profile based on the current dashboard filters.</div></div>', unsafe_allow_html=True)
+
+    csel, caction = st.columns([3, 1])
+    with csel:
+        country = st.selectbox("Select country profile", countries, index=countries.index(suggested_country), key="ci_selected_country")
+    with caction:
+        st.write("")
+        st.write("")
+        send_to_ai = st.button("🧠 Send to AI", key="ci_send_to_ai")
+
+    country_df, metrics = _ci_country_metrics(df, country)
+    top_alert_types = _ci_top_items(country_df, "alert-type", 5)
+    top_actors = _ci_top_items(country_df, "Actor of repression", 5)
+    top_mechanisms = _ci_top_items(country_df, "Mechanism of repression", 5)
+    narrative = _ci_country_narrative(country, metrics, top_alert_types, top_actors, top_mechanisms)
+
+    st.markdown(f"""
+    <div class="ci-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div>
+          <div style="font-size:20px;font-weight:900;color:#2d0055;">{country}</div>
+          <div style="font-size:12px;color:#666;">Country profile generated from the active filters.</div>
+        </div>
+        <div style="background:{metrics['color']}22;color:{metrics['color']};border:1px solid {metrics['color']}55;border-radius:999px;padding:7px 12px;font-weight:900;font-size:12px;">
+          {metrics['level']}
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+    kpis = [
+        (k1, "Total alerts", metrics["total"]),
+        (k2, "Negative", metrics["negative"]),
+        (k3, "Positive", metrics["positive"]),
+        (k4, "% negative", f"{metrics['neg_share']}%"),
+        (k5, "Risk score", f"{metrics['risk_score']}/100"),
+    ]
+    for col, label, value in kpis:
+        with col:
+            st.markdown(f'<div class="ci-kpi"><div class="ci-kpi-label">{label}</div><div class="ci-kpi-value">{value}</div></div>', unsafe_allow_html=True)
+
+    st.markdown(f'<div class="ci-note"><b>AI-style country interpretation:</b><br>{narrative}<br><br>🌐 For a broader overview and additional qualitative insights, please visit the EUSEE website.</div>', unsafe_allow_html=True)
+
+    p1, p2 = st.columns(2)
+    with p1:
+        if not top_alert_types.empty:
+            fig_types = px.bar(top_alert_types.sort_values("Count"), x="Count", y="Category", orientation="h", text="Count", title="Dominant alert types")
+            fig_types.update_traces(marker_color="#660094", textposition="outside")
+            fig_types.update_layout(height=320, margin=dict(l=10, r=10, t=45, b=20), title_font=dict(size=13, color="#2d0055"))
+            st.plotly_chart(fig_types, use_container_width=True, key="ci_alert_types")
+        else:
+            st.info("No alert-type breakdown available for this country.")
+    with p2:
+        if not top_mechanisms.empty:
+            fig_mech = px.bar(top_mechanisms.sort_values("Count"), x="Count", y="Category", orientation="h", text="Count", title="Frequent restrictive mechanisms")
+            fig_mech.update_traces(marker_color="#008CAA", textposition="outside")
+            fig_mech.update_layout(height=320, margin=dict(l=10, r=10, t=45, b=20), title_font=dict(size=13, color="#2d0055"))
+            st.plotly_chart(fig_mech, use_container_width=True, key="ci_mechanisms")
+        else:
+            st.info("No mechanism breakdown available for this country.")
+
+    if "creation_date" in country_df.columns and not country_df.empty:
+        trend_df = country_df.copy()
+        trend_df["creation_date"] = pd.to_datetime(trend_df["creation_date"], errors="coerce")
+        trend_df = trend_df.dropna(subset=["creation_date"])
+        if not trend_df.empty:
+            trend_df["month"] = trend_df["creation_date"].dt.to_period("M").dt.to_timestamp()
+            trend = trend_df.groupby(["month", "alert-impact"]).size().reset_index(name="alerts")
+            fig_trend = px.line(trend, x="month", y="alerts", color="alert-impact", markers=True, title=f"Monthly alert trend: {country}")
+            fig_trend.update_layout(height=330, margin=dict(l=10, r=10, t=45, b=35), title_font=dict(size=13, color="#2d0055"))
+            st.plotly_chart(fig_trend, use_container_width=True, key="ci_trend")
+
+    with st.expander("Priority country ranking", expanded=False):
+        st.dataframe(
+            country_rank.rename(columns={
+                "alert-country": "Country",
+                "total_alerts": "Total alerts",
+                "negative_alerts": "Negative alerts",
+                "negative_share": "% negative",
+                "risk_score": "Risk score"
+            }).head(20),
+            use_container_width=True,
+            height=320
+        )
+
+    if send_to_ai:
+        if "ai_messages" not in st.session_state:
+            st.session_state.ai_messages = []
+        st.session_state.ai_messages.append({"role": "user", "content": f"Explain the country profile for {country}."})
+        st.session_state.ai_messages.append({"role": "assistant", "content": narrative})
+        st.success("Country intelligence profile sent to the AI Copilot chat.")
+
+
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
@@ -2373,8 +2571,7 @@ with tab_overview:
    
         # ---------------- Tab two data preview ------------------
 
-    with st.expander("📊 Summary Data Explorer + Auto Insight Report", expanded=False):
-        render_professional_data_explorer(filtered_global_prev, title="Overview Summary Data Explorer", key_prefix="overview_table")  
+    # Summary Data Explorer removed for a cleaner overview UX.
     #else:
         #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -2659,8 +2856,7 @@ with tab_negative:
         
         # ---------------- Tab two data preview ----------------
         #if is_privileged():        
-        with st.expander("📊 Negative Alerts Data Explorer + Auto Insight Report", expanded=False):
-            render_professional_data_explorer(reactive_df_updated_prev, title="Negative Alerts Data Explorer", key_prefix="negative_table")
+        # Negative Alerts Data Explorer removed for a cleaner analysis UX.
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
     
@@ -2788,6 +2984,9 @@ with tab_map:
         fig.update_yaxes(visible=False)
 
         st.plotly_chart(fig, use_container_width=True)
+
+        # ---------------- COUNTRY INTELLIGENCE PANEL ----------------
+        render_country_intelligence_panel(filtered_global)
 
     else:
         st.warning("GeoJSON file not found for map visualization.") 
