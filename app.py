@@ -1240,11 +1240,27 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 
 
-# ---------------- AI ASSISTANT HELPERS ----------------
+# ---------------- AI ASSISTANT HELPERS v2 ----------------
+def _clean_text_value(x):
+    if pd.isna(x):
+        return ""
+    return str(x).strip()
+
+
 def _safe_series_counts(df, col, top=5):
     if df is None or df.empty or col not in df.columns:
         return {}
-    return df[col].dropna().astype(str).str.strip().replace("", np.nan).dropna().value_counts().head(top).to_dict()
+    return (
+        df[col]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .replace("", np.nan)
+        .dropna()
+        .value_counts()
+        .head(top)
+        .to_dict()
+    )
 
 
 def _safe_exploded_counts(df, col, top=5):
@@ -1253,31 +1269,17 @@ def _safe_exploded_counts(df, col, top=5):
     s = df[col].dropna().astype(str)
     if col == "Actor of repression":
         s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-    return s.str.split(",").explode().str.strip().replace("", np.nan).dropna().value_counts().head(top).to_dict()
-
-
-def summarize_for_ai(df):
-    if df is None or df.empty:
-        return {"total_alerts": 0, "negative": 0, "positive": 0, "context": 0, "negative_pct": 0,
-                "top_countries": {}, "top_regions": {}, "top_alert_types": {}, "top_principles": {},
-                "top_actors": {}, "top_mechanisms": {}}
-    total = len(df)
-    negative = int((df["alert-impact"] == "Negative").sum()) if "alert-impact" in df.columns else 0
-    positive = int((df["alert-impact"] == "Positive").sum()) if "alert-impact" in df.columns else 0
-    context = int((df["alert-impact"] == "Context to watch").sum()) if "alert-impact" in df.columns else 0
-    return {
-        "total_alerts": int(total),
-        "negative": negative,
-        "positive": positive,
-        "context": context,
-        "negative_pct": round((negative / total) * 100, 1) if total else 0,
-        "top_countries": _safe_series_counts(df, "alert-country", 5),
-        "top_regions": _safe_series_counts(df, "region", 5),
-        "top_alert_types": _safe_series_counts(df, "alert-type", 5),
-        "top_principles": _safe_exploded_counts(df, "enabling-principle", 5),
-        "top_actors": _safe_exploded_counts(df, "Actor of repression", 5),
-        "top_mechanisms": _safe_exploded_counts(df, "Mechanism of repression", 5),
-    }
+    return (
+        s.str.split(",")
+        .explode()
+        .astype(str)
+        .str.strip()
+        .replace("", np.nan)
+        .dropna()
+        .value_counts()
+        .head(top)
+        .to_dict()
+    )
 
 
 def _format_ranked(items, label="alerts"):
@@ -1286,30 +1288,204 @@ def _format_ranked(items, label="alerts"):
     return "\n".join([f"{i}. {k} — {v} {label}" for i, (k, v) in enumerate(items.items(), start=1)])
 
 
+def _month_trend(df):
+    if df is None or df.empty or "creation_date" not in df.columns:
+        return pd.DataFrame(columns=["month", "total", "negative", "positive", "context"])
+    tmp = df.copy()
+    tmp["creation_date"] = pd.to_datetime(tmp["creation_date"], errors="coerce")
+    tmp = tmp.dropna(subset=["creation_date"])
+    if tmp.empty:
+        return pd.DataFrame(columns=["month", "total", "negative", "positive", "context"])
+    tmp["month"] = tmp["creation_date"].dt.to_period("M").astype(str)
+    out = (
+        tmp.groupby("month")
+        .agg(
+            total=("alert-impact", "size"),
+            negative=("alert-impact", lambda x: int((x == "Negative").sum())),
+            positive=("alert-impact", lambda x: int((x == "Positive").sum())),
+            context=("alert-impact", lambda x: int((x == "Context to watch").sum())),
+        )
+        .reset_index()
+        .sort_values("month")
+    )
+    return out
+
+
+def _trend_sentence(df):
+    trend = _month_trend(df)
+    if trend.shape[0] < 2:
+        return "A monthly trend cannot be calculated because fewer than two time periods are available under the current filters."
+    first = int(trend.iloc[0]["total"])
+    last = int(trend.iloc[-1]["total"])
+    diff = last - first
+    pct = round((diff / first) * 100, 1) if first else 0
+    direction = "increased" if diff > 0 else "decreased" if diff < 0 else "remained stable"
+    return f"Total alerts {direction} from {first} in {trend.iloc[0]['month']} to {last} in {trend.iloc[-1]['month']} ({diff:+d}, {pct:+.1f}%)."
+
+
+def summarize_for_ai(df):
+    if df is None or df.empty:
+        return {
+            "total_alerts": 0,
+            "negative": 0,
+            "positive": 0,
+            "context": 0,
+            "negative_pct": 0,
+            "positive_pct": 0,
+            "context_pct": 0,
+            "countries_count": 0,
+            "regions_count": 0,
+            "top_countries": {},
+            "top_negative_countries": {},
+            "top_regions": {},
+            "top_alert_types": {},
+            "top_principles": {},
+            "top_actors": {},
+            "top_mechanisms": {},
+            "trend_sentence": "No data are available under the current filters.",
+        }
+
+    total = len(df)
+    negative = int((df["alert-impact"] == "Negative").sum()) if "alert-impact" in df.columns else 0
+    positive = int((df["alert-impact"] == "Positive").sum()) if "alert-impact" in df.columns else 0
+    context = int((df["alert-impact"] == "Context to watch").sum()) if "alert-impact" in df.columns else 0
+    neg_df = df[df["alert-impact"] == "Negative"] if "alert-impact" in df.columns else df.iloc[0:0]
+
+    return {
+        "total_alerts": int(total),
+        "negative": negative,
+        "positive": positive,
+        "context": context,
+        "negative_pct": round((negative / total) * 100, 1) if total else 0,
+        "positive_pct": round((positive / total) * 100, 1) if total else 0,
+        "context_pct": round((context / total) * 100, 1) if total else 0,
+        "countries_count": int(df["alert-country"].nunique()) if "alert-country" in df.columns else 0,
+        "regions_count": int(df["region"].nunique()) if "region" in df.columns else 0,
+        "top_countries": _safe_series_counts(df, "alert-country", 5),
+        "top_negative_countries": _safe_series_counts(neg_df, "alert-country", 5),
+        "top_regions": _safe_series_counts(df, "region", 5),
+        "top_alert_types": _safe_series_counts(df, "alert-type", 5),
+        "top_principles": _safe_exploded_counts(df, "enabling-principle", 5),
+        "top_actors": _safe_exploded_counts(neg_df, "Actor of repression", 5),
+        "top_mechanisms": _safe_exploded_counts(neg_df, "Mechanism of repression", 5),
+        "trend_sentence": _trend_sentence(df),
+    }
+
+
+def generate_ai_executive_summary(df):
+    s = summarize_for_ai(df)
+    if s["total_alerts"] == 0:
+        return "EU SEE AI Assistant Summary\n\nNo data are available under the current filters."
+
+    return f"""EU SEE AI Assistant Summary
+
+Filtered dashboard scope
+- Total alerts: {s['total_alerts']}
+- Countries represented: {s['countries_count']}
+- Regions represented: {s['regions_count']}
+- Negative alerts: {s['negative']} ({s['negative_pct']}%)
+- Positive alerts: {s['positive']} ({s['positive_pct']}%)
+- Context to watch: {s['context']} ({s['context_pct']}%)
+
+Trend signal
+{s['trend_sentence']}
+
+Top countries
+{_format_ranked(s['top_countries'])}
+
+Top countries by negative alerts
+{_format_ranked(s['top_negative_countries'])}
+
+Top alert types
+{_format_ranked(s['top_alert_types'])}
+
+Top enabling principles
+{_format_ranked(s['top_principles'])}
+
+Top restrictive actors among negative alerts
+{_format_ranked(s['top_actors'])}
+
+Top restrictive mechanisms among negative alerts
+{_format_ranked(s['top_mechanisms'])}
+
+Interpretation note
+These results reflect the currently selected filters and reporting coverage. Higher counts may reflect either more incidents, stronger reporting intensity, broader monitoring coverage, or a combination of these factors.
+"""
+
+
 def local_ai_response(question, df):
     q = (question or "").lower().strip()
     s = summarize_for_ai(df)
     if s["total_alerts"] == 0:
         return "No data are available under the current filters. Please adjust the filters and try again."
+
+    if any(k in q for k in ["negative countr", "highest negative", "top negative countr"]):
+        return "Top countries by negative alerts under the current filters:\n\n" + _format_ranked(s["top_negative_countries"])
+
     if any(k in q for k in ["country", "countries"]):
         return "Top countries under the current filters:\n\n" + _format_ranked(s["top_countries"])
+
+    if any(k in q for k in ["compare region", "regional comparison", "regions compare"]):
+        return "Regional comparison under the current filters:\n\n" + _format_ranked(s["top_regions"])
+
     if any(k in q for k in ["region", "regions"]):
         return "Regional distribution under the current filters:\n\n" + _format_ranked(s["top_regions"])
+
+    if any(k in q for k in ["trend", "over time", "time", "increase", "decrease"]):
+        return s["trend_sentence"]
+
     if "negative" in q:
         return f"There are {s['negative']} negative alerts out of {s['total_alerts']} total alerts under the current filters. This represents {s['negative_pct']}% of the filtered records."
+
     if "positive" in q:
-        return f"There are {s['positive']} positive alerts out of {s['total_alerts']} total alerts under the current filters."
+        return f"There are {s['positive']} positive alerts out of {s['total_alerts']} total alerts under the current filters. This represents {s['positive_pct']}% of the filtered records."
+
     if any(k in q for k in ["alert type", "type", "types"]):
         return "Main alert types under the current filters:\n\n" + _format_ranked(s["top_alert_types"])
+
     if any(k in q for k in ["principle", "principles", "enabling"]):
         return "Top enabling principles represented in the current filters:\n\n" + _format_ranked(s["top_principles"])
+
     if any(k in q for k in ["actor", "actors", "repression"]):
-        return "Top restrictive actors in the current filtered records:\n\n" + _format_ranked(s["top_actors"])
+        return "Top restrictive actors among negative alerts in the current filtered records:\n\n" + _format_ranked(s["top_actors"])
+
     if any(k in q for k in ["mechanism", "mechanisms", "restriction"]):
-        return "Top restrictive mechanisms in the current filtered records:\n\n" + _format_ranked(s["top_mechanisms"])
-    if any(k in q for k in ["summary", "summarise", "summarize", "overview"]):
-        return (f"Current filtered dashboard summary:\n\n- Total alerts: {s['total_alerts']}\n- Negative alerts: {s['negative']} ({s['negative_pct']}%)\n- Positive alerts: {s['positive']}\n- Context to watch: {s['context']}\n\nTop countries:\n{_format_ranked(s['top_countries'])}")
-    return "I can answer questions from the currently filtered dashboard data. Try asking about top countries, negative alerts, regions, alert types, enabling principles, restrictive actors, or mechanisms."
+        return "Top restrictive mechanisms among negative alerts in the current filtered records:\n\n" + _format_ranked(s["top_mechanisms"])
+
+    if any(k in q for k in ["summary", "summarise", "summarize", "overview", "brief"]):
+        return generate_ai_executive_summary(df)
+
+    if any(k in q for k in ["interpret", "meaning", "explain", "insight"]):
+        return (
+            f"Main interpretation from the current filters:\n\n"
+            f"The filtered dataset contains {s['total_alerts']} alerts across {s['countries_count']} countries. "
+            f"Negative alerts account for {s['negative_pct']}% of records. "
+            f"The most represented countries are:\n{_format_ranked(s['top_countries'])}\n\n"
+            f"Important caution: alert counts should be interpreted alongside reporting intensity and monitoring coverage."
+        )
+
+    return (
+        "I can answer questions from the currently filtered dashboard data. Try asking about:\n\n"
+        "- top countries\n- top countries with negative alerts\n- regional comparison\n- trends over time\n- alert types\n- enabling principles\n- restrictive actors\n- restrictive mechanisms\n- executive summary"
+    )
+
+
+def render_ai_trend_chart(df):
+    trend = _month_trend(df)
+    if trend.empty or trend.shape[0] < 2:
+        st.info("Trend chart unavailable for the current filter selection.")
+        return
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=trend["month"], y=trend["total"], mode="lines+markers", name="Total"))
+    fig.add_trace(go.Scatter(x=trend["month"], y=trend["negative"], mode="lines+markers", name="Negative"))
+    fig.update_layout(
+        title=dict(text="Filtered Alert Trend", font=dict(size=12, color="#660094")),
+        height=240,
+        margin=dict(l=10, r=10, t=40, b=20),
+        font=dict(size=10),
+        legend=dict(orientation="h", y=-0.2),
+    )
+    st.plotly_chart(fig, use_container_width=True, key="ai_trend_chart")
 
 
 def render_ai_assistant_panel(df):
@@ -1321,20 +1497,53 @@ def render_ai_assistant_panel(df):
         .ai-subtitle {font-family:Arial,sans-serif;font-size:12px;color:#666;line-height:1.35;}
         .ai-message {background:#f7f2ff;border:1px solid #eee5ff;border-radius:14px;padding:11px 12px;font-size:13px;color:#222;margin-bottom:10px;line-height:1.45;white-space:pre-wrap;}
         .ai-user {background:linear-gradient(135deg,#660094,#7b2cff);color:#ffffff;border-radius:14px;padding:11px 12px;font-size:13px;margin-bottom:10px;line-height:1.45;white-space:pre-wrap;}
+        .ai-small {font-size:12px;color:#666;line-height:1.35;}
         </style>
         """, unsafe_allow_html=True)
+
     if "ai_messages" not in st.session_state:
-        st.session_state.ai_messages = [{"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me about alerts, countries, regions, actors, mechanisms, or enabling principles."}]
-    st.markdown("""<div class="ai-card"><div class="ai-title">🤖 AI Assistant <span class="ai-beta">Beta</span></div><div class="ai-subtitle">Answers are generated from the currently filtered dashboard data.</div></div>""", unsafe_allow_html=True)
+        st.session_state.ai_messages = [{"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me about alerts, countries, regions, actors, mechanisms, trends, or enabling principles."}]
+    if "ai_collapsed" not in st.session_state:
+        st.session_state.ai_collapsed = False
+
+    title_col, toggle_col = st.columns([0.74, 0.26])
+    with title_col:
+        st.markdown("""<div class="ai-card"><div class="ai-title">🤖 AI Assistant <span class="ai-beta">Beta v2</span></div><div class="ai-subtitle">Context-aware answers from the current filters.</div></div>""", unsafe_allow_html=True)
+    with toggle_col:
+        if st.button("Hide" if not st.session_state.ai_collapsed else "Show", key="ai_toggle", use_container_width=True):
+            st.session_state.ai_collapsed = not st.session_state.ai_collapsed
+            st.rerun()
+
+    if st.session_state.ai_collapsed:
+        st.info("AI Assistant is collapsed.")
+        return
+
+    s = summarize_for_ai(df)
+    st.markdown(
+        f"""
+        <div class="ai-card">
+            <b style="color:#2d0055;">Current filter context</b><br>
+            <span class="ai-small">
+            Total: <b>{s['total_alerts']}</b> | Negative: <b>{s['negative']}</b> ({s['negative_pct']}%)<br>
+            Countries: <b>{s['countries_count']}</b> | Regions: <b>{s['regions_count']}</b>
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     quick_questions = {
         "Top countries": "Which countries have the highest number of alerts?",
-        "Negative alerts": "How many negative alerts are there?",
-        "Top regions": "Which regions have the most alerts?",
+        "Negative countries": "Which countries have the highest negative alerts?",
+        "Compare regions": "Compare regions under the current filters.",
+        "Trend": "Show trend of negative alerts over time.",
         "Alert types": "What are the main alert types?",
         "Mechanisms": "What are the top restrictive mechanisms?",
-        "Summary": "Summarize the current dashboard filters."
+        "Actors": "What are the top restrictive actors?",
+        "Summary": "Generate an executive summary."
     }
-    st.markdown("<div class='ai-card'><b style='color:#2d0055;'>Quick prompts</b><br>", unsafe_allow_html=True)
+
+    st.markdown("<div class='ai-card'><b style='color:#2d0055;'>Quick prompts</b>", unsafe_allow_html=True)
     qcols = st.columns(2)
     for idx, (label, prompt) in enumerate(quick_questions.items()):
         with qcols[idx % 2]:
@@ -1343,20 +1552,58 @@ def render_ai_assistant_panel(df):
                 st.session_state.ai_messages.append({"role": "assistant", "content": local_ai_response(prompt, df)})
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
+
+    with st.expander("Mini trend chart", expanded=False):
+        render_ai_trend_chart(df)
+
+    with st.expander("Download AI summary", expanded=False):
+        summary_text = generate_ai_executive_summary(df)
+        st.download_button(
+            label="Download executive summary (.txt)",
+            data=summary_text,
+            file_name="eusee_ai_filtered_summary.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+        if df is not None and not df.empty:
+            cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle"] if c in df.columns]
+            csv_data = df[cols].to_csv(index=False).encode("utf-8") if cols else df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Download filtered records (.csv)",
+                data=csv_data,
+                file_name="eusee_filtered_records.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+
     for msg in st.session_state.ai_messages[-8:]:
         css_class = "ai-user" if msg["role"] == "user" else "ai-message"
         safe_content = str(msg["content"]).replace("<", "&lt;").replace(">", "&gt;")
         st.markdown(f'<div class="{css_class}">{safe_content}</div>', unsafe_allow_html=True)
+
     with st.form("ai_assistant_form", clear_on_submit=True):
-        user_q = st.text_area("Ask a question", placeholder="Example: Which countries have the highest negative alerts?", height=80, label_visibility="collapsed")
+        user_q = st.text_area(
+            "Ask a question",
+            placeholder="Example: Which countries have the highest negative alerts?",
+            height=80,
+            label_visibility="collapsed",
+        )
         submitted = st.form_submit_button("Send ➜", use_container_width=True)
+
     if submitted and user_q.strip():
         st.session_state.ai_messages.append({"role": "user", "content": user_q.strip()})
         st.session_state.ai_messages.append({"role": "assistant", "content": local_ai_response(user_q.strip(), df)})
         st.rerun()
-    if st.button("Clear chat", key="ai_clear_chat", use_container_width=True):
-        st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
-        st.rerun()
+
+    control_col1, control_col2 = st.columns(2)
+    with control_col1:
+        if st.button("Clear chat", key="ai_clear_chat", use_container_width=True):
+            st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
+            st.rerun()
+    with control_col2:
+        if st.button("Add summary", key="ai_add_summary", use_container_width=True):
+            st.session_state.ai_messages.append({"role": "assistant", "content": generate_ai_executive_summary(df)})
+            st.rerun()
 
 # ---------------- MAIN DASHBOARD + AI ASSISTANT LAYOUT ----------------
 dashboard_col, ai_col = st.columns([4.8, 1.35], gap="large")
