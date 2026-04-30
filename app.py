@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged
+from auth import auth_ui, is_privileged, is_authenticated
 import math
 import paramiko
 import logging
@@ -472,13 +472,16 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-auth_ui()
-
-if st.session_state.get("user") and st.session_state.get("email_verified"):
-    st.write(f"Hello, {st.session_state.name}!")
-   
+if is_authenticated():
+    st.sidebar.success(f"Signed in: {st.session_state.get('name', 'User')}")
+    if st.sidebar.button("Logout", use_container_width=True, key="sidebar_logout_btn"):
+        from auth import logout
+        logout()
 else:
-    st.info("")
+    st.sidebar.caption("Sign in only when privileged access is needed.")
+    if st.sidebar.button("🔐 Sign in / Access", use_container_width=True, key="open_auth_view_btn"):
+        st.session_state.auth_view = True
+        st.rerun()
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
