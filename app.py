@@ -1,23 +1,59 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-import json
-from pathlib import Path
-import streamlit.components.v1 as components
-import plotly.graph_objects as go
+"""
+EU SEE Dashboard — Premium UX Refactor
+=================================================
+Production-oriented Streamlit architecture aligned to the final deployment wireframe:
+1) Header + live context strip
+2) Grouped sidebar filters
+3) KPI intelligence row
+4) Analytical Flow Panel: Actor → Mechanism → Subject heatmaps + Sankey
+5) Map Intelligence Panel with country drill-down and AI-style local insight
+6) Negative Alerts deep analytics
+7) Global AI Copilot shell
+8) Evidence & Records table
+
+Drop this file in your Streamlit app root as app.py.
+Expected project structure:
+    app.py
+    auth.py                       optional, if you already use authentication
+    assets/eu-see-logo.png        optional
+    assets/footer_logo.png        optional
+    exports/output_final.parquet  required data file, or data/output_final.parquet fallback
+    exports/countries_metadata.json or data/countries_metadata.json optional
+"""
+
+from __future__ import annotations
+
 import base64
-from auth import auth_ui, is_privileged, is_authenticated
+import json
 import math
-import paramiko
-import logging
-import tempfile  
 import os
 import re
+from pathlib import Path
+from textwrap import shorten
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-# Optional dependency for real Plotly map click events.
-# If not installed, the app falls back to the country drill-down dropdown.
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+import streamlit.components.v1 as components
+
+# -----------------------------------------------------------------------------
+# Optional authentication layer: uses your existing auth.py when available.
+# -----------------------------------------------------------------------------
+try:
+    from auth import auth_ui, is_authenticated, is_privileged
+except Exception:  # pragma: no cover - safe fallback for local testing
+    def is_authenticated() -> bool:
+        return False
+
+    def is_privileged() -> bool:
+        return True
+
+    def auth_ui():
+        st.info("Authentication module not available in this environment.")
+
 try:
     from streamlit_plotly_events import plotly_events
     HAS_PLOTLY_EVENTS = True
@@ -25,4356 +61,1092 @@ except Exception:
     plotly_events = None
     HAS_PLOTLY_EVENTS = False
 
-# --- SFTP CONFIG ---
-#sftp_secrets = st.secrets.get("sftp", {})
-#SFTP_HOST = sftp_secrets.get("host")
-#SFTP_PORT = 22
-#SFTP_USERNAME = sftp_secrets.get("username")
-#SFTP_PASSWORD = sftp_secrets.get("password")
-#REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
+# -----------------------------------------------------------------------------
+# App configuration
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="EU SEE Dashboard",
+    page_icon="🌍",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-#st.write("SFTP_HOST:", sftp_secrets.get("host"))
-#st.write("SFTP_USERNAME:", sftp_secrets.get("username"))
-#st.write("SFTP_PASSWORD:", sftp_secrets.get("password"))
-#st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
-
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
-
-# ---------------- PROFESSIONAL CLASSIC DASHBOARD UX STYLING ----------------
-def inject_classic_dashboard_css():
-    """Central styling layer for a clean, classic analytical dashboard look."""
-    st.markdown("""
-    <style>
-    :root {
-        --eusee-purple: #660094;
-        --eusee-purple-dark: #3b005f;
-        --eusee-teal: #008CAA;
-        --eusee-yellow: #FFDB58;
-        --eusee-bg: #F7F8FB;
-        --eusee-border: #E6E8EF;
-        --eusee-text: #232633;
-        --eusee-muted: #667085;
-    }
-    .main .block-container { padding-top: 1.5rem; padding-bottom: 2.2rem; max-width: 1500px; }
-    section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
-    section[data-testid="stSidebar"] > div { padding-top: 1rem; }
-    section[data-testid="stSidebar"] label {
-        font-family: Arial, sans-serif !important; font-size: 11px !important; font-weight: 800 !important;
-        color: #344054 !important; letter-spacing: .01em; margin-bottom: 4px !important;
-    }
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
-    section[data-testid="stSidebar"] [data-baseweb="input"] {
-        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: #FFFFFF !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important; min-height: 38px !important;
-    }
-    section[data-testid="stSidebar"] [data-baseweb="tag"] {
-        background: #F4EAF8 !important; color: var(--eusee-purple) !important; border-radius: 999px !important;
-        border: 1px solid #E7D4F1 !important; font-size: 10px !important; font-weight: 700 !important;
-    }
-    section[data-testid="stSidebar"] .stButton > button {
-        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: #FFFFFF !important;
-        color: #344054 !important; font-weight: 800 !important; font-size: 12px !important; height: 38px !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
-    }
-    section[data-testid="stSidebar"] .stButton > button:hover { border-color: var(--eusee-purple) !important; color: var(--eusee-purple) !important; background: #FBF7FD !important; }
-    .classic-filter-header {
-        background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%); border: 1px solid #E7D4F1; border-radius: 15px;
-        padding: 12px 13px; margin: 10px 0 12px 0; box-shadow: 0 8px 20px rgba(102,0,148,.08);
-    }
-    .classic-filter-eyebrow { font-size: 9.5px; font-weight: 900; color: var(--eusee-purple); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 4px; }
-    .classic-filter-title { font-size: 14px; font-weight: 900; color: #23152F; line-height: 1.15; }
-    .classic-filter-note { font-size: 10.5px; color: var(--eusee-muted); line-height: 1.35; margin-top: 5px; }
-    .classic-filter-status {
-        background: #FFFFFF; border: 1px solid var(--eusee-border); border-radius: 13px; padding: 10px 11px;
-        margin: 10px 0 12px 0; box-shadow: 0 4px 12px rgba(16,24,40,.05);
-    }
-    .classic-filter-status .status-row { display:flex; justify-content:space-between; align-items:center; padding: 3px 0; font-family: Arial, sans-serif; font-size: 10.5px; color: var(--eusee-muted); }
-    .classic-filter-status .status-value { color: var(--eusee-purple); font-weight: 900; }
-    div[data-testid="stExpander"] { border: 1px solid var(--eusee-border) !important; border-radius: 16px !important; box-shadow: 0 8px 22px rgba(16,24,40,.06) !important; background: #FFFFFF !important; overflow: hidden !important; }
-    div[data-testid="stExpander"] summary { font-family: Arial, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #23152F !important; background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important; border-bottom: 1px solid #EEF0F4 !important; padding: 10px 14px !important; }
-    .data-preview-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #EEF0F4; border-radius: 14px; padding: 11px 13px; margin: 4px 0 12px 0; font-family: Arial, sans-serif; }
-    .data-preview-title { font-size: 13px; font-weight: 900; color: #23152F; line-height: 1.15; }
-    .data-preview-subtitle { font-size: 10.5px; color: var(--eusee-muted); margin-top: 3px; }
-    .data-preview-pill-row { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
-    .data-preview-pill { background:#F4EAF8; color: var(--eusee-purple); border:1px solid #E7D4F1; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; white-space:nowrap; }
-    .data-preview-footnote { font-size: 10.5px; color: var(--eusee-muted); line-height:1.4; margin-top:8px; padding: 8px 10px; background:#FFFCED; border:1px solid #F8E9A1; border-radius:11px; }
-    div[data-testid="stDataFrame"] { border-radius: 14px !important; overflow: hidden !important; border: 1px solid #E6E8EF !important; box-shadow: 0 6px 16px rgba(16,24,40,.05) !important; }
-    .executive-table-shell {
-        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-        border: 1px solid #E6E8EF;
-        border-radius: 18px;
-        padding: 14px;
-        margin: 4px 0 14px 0;
-        box-shadow: 0 10px 24px rgba(16,24,40,.06);
-        font-family: Arial, sans-serif;
-    }
-    .executive-table-header { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:12px; }
-    .executive-table-eyebrow { font-size:9.5px; font-weight:900; color:var(--eusee-purple); letter-spacing:.13em; text-transform:uppercase; margin-bottom:4px; }
-    .executive-table-title { font-size:15px; font-weight:900; color:#23152F; line-height:1.15; }
-    .executive-table-subtitle { font-size:11px; color:var(--eusee-muted); margin-top:4px; line-height:1.35; }
-    .executive-table-badge { background:#F4EAF8; color:var(--eusee-purple); border:1px solid #E7D4F1; border-radius:999px; padding:6px 10px; font-size:10px; font-weight:900; white-space:nowrap; }
-    .executive-metric-grid { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:8px; }
-    .executive-mini-kpi { background:#FFFFFF; border:1px solid #EEF0F4; border-radius:13px; padding:9px 10px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
-    .executive-mini-kpi span { display:block; font-size:10px; color:var(--eusee-muted); font-weight:800; margin-bottom:3px; }
-    .executive-mini-kpi strong { font-size:15px; color:#23152F; font-weight:900; }
-    .executive-table-status { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#F9FAFB; border:1px solid #EEF0F4; border-radius:13px; padding:9px 11px; margin:9px 0 10px 0; font-size:11px; color:#344054; font-family:Arial, sans-serif; }
-    .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
-    .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
-    @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_classic_filter_header():
-    st.sidebar.markdown("""
-    <div class="classic-filter-header">
-        <div class="classic-filter-eyebrow">Dashboard controls</div>
-        <div class="classic-filter-title">🌍 Global Filters</div>
-        <div class="classic-filter-note">Refine the analytical view by geography, alert characteristics, enabling principle, and time period.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_filter_status_card(df):
-    total = len(df) if df is not None else 0
-    countries = df['alert-country'].nunique() if df is not None and not df.empty and 'alert-country' in df.columns else 0
-    years = df['year'].nunique() if df is not None and not df.empty and 'year' in df.columns else 0
-    st.sidebar.markdown(f"""
-    <div class="classic-filter-status">
-        <div class="status-row"><span>Filtered records</span><span class="status-value">{total:,}</span></div>
-        <div class="status-row"><span>Countries</span><span class="status-value">{countries:,}</span></div>
-        <div class="status-row"><span>Years</span><span class="status-value">{years:,}</span></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
-    """Render an executive-grade analytics table without changing the underlying records."""
-    if df is None or df.empty:
-        st.info("No records are available for the current filter selection.")
-        return
-
-    display_df = df.copy()
-
-    # Preserve content, only improve display formatting for date-like columns.
-    for date_col in ["Date of submission", "creation_date"]:
-        if date_col in display_df.columns:
-            display_df[date_col] = pd.to_datetime(display_df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
-
-    n_rows, n_cols = display_df.shape
-    countries = display_df["alert-country"].nunique() if "alert-country" in display_df.columns else 0
-    impacts = display_df["alert-impact"].nunique() if "alert-impact" in display_df.columns else 0
-    years = display_df["year"].nunique() if "year" in display_df.columns else 0
-
-    with st.expander(f"📋 {title}", expanded=False):
-        st.markdown(f"""
-        <div class="executive-table-shell">
-            <div class="executive-table-header">
-                <div>
-                    <div class="executive-table-eyebrow">Executive analytics table</div>
-                    <div class="executive-table-title">Filtered records preview</div>
-                    <div class="executive-table-subtitle">Search, inspect, and export the records represented in the active dashboard view.</div>
-                </div>
-                <div class="executive-table-badge">Live filtered view</div>
-            </div>
-            <div class="executive-metric-grid">
-                <div class="executive-mini-kpi"><span>Rows</span><strong>{n_rows:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Columns</span><strong>{n_cols:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Countries</span><strong>{countries:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Categories</span><strong>{impacts:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Years</span><strong>{years:,}</strong></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        control_col1, control_col2, control_col3 = st.columns([1.4, 1.1, 0.8])
-        with control_col1:
-            search_text = st.text_input(
-                "Search table",
-                value="",
-                placeholder="Search country, alert type, actor, principle...",
-                key=f"{key}_search",
-            )
-        with control_col2:
-            all_columns = list(display_df.columns)
-            selected_columns = st.multiselect(
-                "Columns",
-                options=all_columns,
-                default=all_columns,
-                key=f"{key}_columns",
-            )
-        with control_col3:
-            max_rows = st.selectbox(
-                "Rows shown",
-                options=[25, 50, 100, 250, 500, "All"],
-                index=1,
-                key=f"{key}_row_limit",
-            )
-
-        if not selected_columns:
-            selected_columns = list(display_df.columns)
-
-        table_df = display_df[selected_columns].copy()
-
-        # Executive search across visible columns only; underlying data remain unchanged.
-        if search_text.strip():
-            query = search_text.strip().lower()
-            mask = table_df.astype(str).apply(
-                lambda row: row.str.lower().str.contains(query, na=False).any(),
-                axis=1,
-            )
-            table_df = table_df.loc[mask]
-
-        filtered_rows = len(table_df)
-        if max_rows != "All":
-            table_view = table_df.head(int(max_rows)).copy()
-        else:
-            table_view = table_df.copy()
-
-        st.markdown(f"""
-        <div class="executive-table-status">
-            <div><strong>{filtered_rows:,}</strong> matching rows displayed from <strong>{n_rows:,}</strong> active records.</div>
-            <div class="executive-table-status-note">Tip: use search and column controls for quick executive review.</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.dataframe(
-            table_view,
-            use_container_width=True,
-            hide_index=True,
-            height=min(520, max(260, 34 * min(len(table_view), 10) + 88)),
-            key=key,
-        )
-
-        csv = table_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "⬇️ Download filtered table as CSV",
-            data=csv,
-            file_name=f"{key}.csv",
-            mime="text/csv",
-            use_container_width=True,
-            key=f"{key}_download",
-        )
-
-        st.markdown("""
-        <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, event frequency, or a combination of these factors.</div>
-        """, unsafe_allow_html=True)
-
-inject_classic_dashboard_css()
-
-# ---------------- AUTH ROUTING STATE ----------------
-# Dashboard opens normally. When the user clicks Sign in / Access,
-# this flag routes to the premium sign-in view.
-st.session_state.setdefault("auth_view", False)
-st.session_state.setdefault("auth_mode", "Login")
-st.session_state.setdefault("auth_reset_open", False)
-
-# If a valid session exists, never keep the login route open.
-if is_authenticated():
-    st.session_state.auth_view = False
-
-# Dedicated sign-in route. This is not a modal, so it does not blur or block the page.
-# The dashboard is rendered again immediately after successful login or Back to dashboard.
-if st.session_state.get("auth_view", False) and not is_authenticated():
-    auth_ui()
-    st.stop()
-
-## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-
-# ---------------- EXPORT DIRECTORY ----------------
-# Use /exports if it exists (Docker volume mapping)
 EXPORT_DIR = Path("/exports") if Path("/exports").exists() else BASE_DIR / "exports"
+ASSETS_DIR = BASE_DIR / "assets"
+DOCS_DIR = BASE_DIR / "docs"
 
-# Ensure folders exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
-USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
+# -----------------------------------------------------------------------------
+# Theme constants
+# -----------------------------------------------------------------------------
+PURPLE = "#660094"
+PURPLE_DARK = "#2D0055"
+TEAL = "#008CAA"
+YELLOW = "#FFDB58"
+NEGATIVE = "#D92D20"
+POSITIVE = PURPLE
+CONTEXT = TEAL
+BG = "#F7F8FB"
+BORDER = "#E6E8EF"
+MUTED = "#667085"
+TEXT = "#232633"
+GRID = "#EEF1F6"
+FONT = "Inter, Arial, sans-serif"
 
-# ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
-st.markdown("""
-<!-- Container for animations -->
-<div style="overflow: hidden;">
-
-<h1 class="animated-title">
-    EU SEE Dashboard
-</h1>
-
-<!-- Animated divider -->
-<div class="animated-divider"></div>
-
-<div class="animated-subtitle">
-    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
-    in the enabling environment for civil society.
-</div>
-
-</div>
-
-<style>
-/* ---------------- Title ---------------- */
-.animated-title {
-    margin: 0 0 6px 0;
-    line-height: 1.1;
-    color: #660094;
-    font-size: 48px;
-    font-family: Arial, sans-serif;
-    font-weight: 700;
-    opacity: 0;
-    transform: translateY(-20px);
-    animation: titleFadeSlide 0.8s ease-out forwards;
-    animation-delay: 0.2s;
+IMPACT_COLORS = {
+    "Negative": NEGATIVE,
+    "Positive": POSITIVE,
+    "Postive": POSITIVE,
+    "Context to watch": CONTEXT,
+    "Mixed": "#71717A",
 }
 
-/* Title animation */
-@keyframes titleFadeSlide {
-    from { opacity: 0; transform: translateY(-20px); }
-    to   { opacity: 1; transform: translateY(0); }
+REQUIRED_COLUMNS = [
+    "alert-country",
+    "alert-impact",
+    "alert-type",
+    "enabling-principle",
+    "creation_date",
+    "Actor of repression",
+    "Subject of repression",
+    "Mechanism of repression",
+    "Type of event",
+]
+
+ENABLING_PRINCIPLE_LABEL_MAP = {
+    "association": "Freedom of association",
+    "assembly": "Freedom of peaceful assembly",
+    "expression": "Freedom of expression",
+    "access to information": "Access to information",
+    "participation": "Participation in public affairs",
+    "resources": "Access to resources",
+    "protection": "Protection from interference",
 }
 
-/* ---------------- Divider ---------------- */
-.animated-divider {
-    width: 15%;
-    max-width: 120px;
-    height: 4px;
-    background: linear-gradient(to right, #FFDB58, #660094);
-    border-radius: 2px;
-    margin-bottom: 16px;
-    opacity: 0;
-    transform: translateX(-120%);
-    animation: dividerSlide 1s ease-out forwards;
-    animation-delay: 0.6s;
-}
-
-@keyframes dividerSlide {
-    from { transform: translateX(-120%); opacity: 0; }
-    to   { transform: translateX(0); opacity: 1; }
-}
-
-/* ---------------- Subtitle ---------------- */
-.animated-subtitle {
-    font-size: 14px;
-    font-family: Arial, sans-serif;
-    color: #333333;
-    margin-bottom: 20px;
-    max-width: 900px;
-    line-height: 1.5;
-    opacity: 0;
-    animation: subtitleFade 0.8s ease-out forwards;
-    animation-delay: 1.0s;
-}
-
-@keyframes subtitleFade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- TOP-LEFT FEEDBACK BAR ----------------
-def render_top_feedback_bar():
-    """Render a slim top-left feedback callout below the dashboard title."""
-    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
-    st.markdown(f"""
-    <style>
-    .eusee-feedback-topbar {{
-        width: min(760px, 100%);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
-        border: 1px solid rgba(102, 0, 148, 0.14);
-        border-left: 5px solid #660094;
-        border-radius: 14px;
-        padding: 9px 12px;
-        margin: -6px 0 14px 0;
-        box-shadow: 0 8px 22px rgba(17, 24, 39, 0.075), inset 0 1px 0 rgba(255,255,255,0.96);
-        font-family: Arial, sans-serif;
-        box-sizing: border-box;
-    }}
-    .eusee-feedback-topbar-left {{
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        min-width: 0;
-    }}
-    .eusee-feedback-topbar-icon {{
-        width: 28px;
-        height: 28px;
-        min-width: 28px;
-        border-radius: 11px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
-        color: #660094;
-        border: 1px solid rgba(102,0,148,.10);
-        font-size: 14px;
-        font-weight: 900;
-    }}
-    .eusee-feedback-topbar-text {{
-        color: #344054;
-        font-size: 12px;
-        line-height: 1.25;
-        font-weight: 750;
-        white-space: normal;
-    }}
-    .eusee-feedback-topbar-text strong {{
-        color: #2D0055;
-        font-weight: 950;
-    }}
-    .eusee-feedback-topbar-button {{
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
-        color: #FFFFFF !important;
-        text-decoration: none !important;
-        font-size: 11px;
-        font-weight: 900;
-        white-space: nowrap;
-        box-shadow: 0 6px 14px rgba(102, 0, 148, .18);
-    }}
-    .eusee-feedback-topbar-button:hover {{
-        filter: brightness(1.04);
-        transform: translateY(-1px);
-        transition: all .16s ease;
-    }}
-    @media (max-width: 700px) {{
-        .eusee-feedback-topbar {{
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 0;
+# -----------------------------------------------------------------------------
+# Global CSS
+# -----------------------------------------------------------------------------
+def inject_premium_css() -> None:
+    st.markdown(
+        f"""
+        <style>
+        :root {{
+            --purple: {PURPLE};
+            --purple-dark: {PURPLE_DARK};
+            --teal: {TEAL};
+            --negative: {NEGATIVE};
+            --yellow: {YELLOW};
+            --bg: {BG};
+            --border: {BORDER};
+            --text: {TEXT};
+            --muted: {MUTED};
         }}
-        .eusee-feedback-topbar-button {{
-            width: 100%;
+
+        html, body, [class*="css"] {{ font-family: {FONT}; }}
+        .stApp {{ background: radial-gradient(circle at top left, rgba(102,0,148,.055), transparent 28%), {BG}; }}
+        .main .block-container {{ max-width: 1560px; padding-top: 1.2rem; padding-bottom: 8rem; }}
+
+        section[data-testid="stSidebar"] {{
+            background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+            border-right: 1px solid var(--border);
         }}
-    }}
-    </style>
+        section[data-testid="stSidebar"] label {{
+            font-size: 11px !important; font-weight: 850 !important; color: #344054 !important;
+        }}
+        section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+        section[data-testid="stSidebar"] [data-baseweb="input"] {{
+            border-radius: 12px !important; border: 1px solid #D0D5DD !important;
+            background: #FFFFFF !important; box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+        }}
+        section[data-testid="stSidebar"] [data-baseweb="tag"] {{
+            background: #F4EAF8 !important; color: var(--purple) !important;
+            border-radius: 999px !important; border: 1px solid #E7D4F1 !important;
+            font-size: 10px !important; font-weight: 800 !important;
+        }}
+        .stButton > button, .stDownloadButton > button {{
+            border-radius: 12px !important; font-weight: 850 !important;
+            border: 1px solid #D0D5DD !important;
+            box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+        }}
+        .stButton > button:hover, .stDownloadButton > button:hover {{
+            border-color: var(--purple) !important; color: var(--purple) !important;
+            transform: translateY(-1px); transition: all .16s ease;
+        }}
 
-    <div class="eusee-feedback-topbar">
-        <div class="eusee-feedback-topbar-left">
-            <div class="eusee-feedback-topbar-icon">💬</div>
-            <div class="eusee-feedback-topbar-text">
-                <strong>Share your feedback</strong> on usability, insights, and dashboard improvements using the feedback form.
-            </div>
-        </div>
-        <a class="eusee-feedback-topbar-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
-            Formular ausfüllen
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
+        .app-header {{
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 18px;
+            padding: 8px 2px 14px 2px; margin-bottom: 6px;
+        }}
+        .app-title {{ font-size: 36px; line-height: 1.05; font-weight: 950; color: #121527; letter-spacing: -.035em; }}
+        .app-title span {{ color: var(--purple); }}
+        .app-subtitle {{ font-size: 13px; color: #475467; margin-top: 7px; max-width: 780px; line-height: 1.45; }}
+        .context-strip {{
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+            background:#FFFFFF; border:1px solid #E9DDF2; border-radius:999px; padding:8px 12px;
+            box-shadow: 0 8px 20px rgba(45,0,85,.06); color: var(--purple-dark);
+            font-size: 11px; font-weight: 900; white-space: nowrap;
+        }}
+        .context-dot {{ width:4px; height:4px; border-radius:50%; background: var(--purple); opacity:.55; }}
 
-# render_top_feedback_bar()  # Disabled: feedback is rendered as a floating callout instead.
+        .section-title-row {{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 18px 0 10px 0; }}
+        .section-kicker {{ font-size: 10px; font-weight: 950; color: var(--purple); letter-spacing:.13em; text-transform:uppercase; }}
+        .section-title {{ font-size: 17px; font-weight: 950; color: #111827; line-height:1.15; }}
+        .section-subtitle {{ font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.35; }}
+        .section-badge {{
+            border: 1px solid #E7D4F1; color: var(--purple); background:#FBF7FD; border-radius:999px;
+            padding: 6px 10px; font-size:10px; font-weight:900; white-space:nowrap;
+        }}
+        .panel-card {{
+            background:#FFFFFF; border:1px solid #E9E2F2; border-radius:20px;
+            box-shadow: 0 14px 34px rgba(45,0,85,.055); padding: 14px; margin-bottom: 18px;
+        }}
+        .mini-note {{ font-size:10.5px; color: var(--muted); line-height:1.35; }}
+        .filter-header {{
+            background: linear-gradient(135deg,#FFFFFF 0%,#F5EAF8 100%); border:1px solid #E7D4F1;
+            border-radius:16px; padding:13px; margin:8px 0 12px 0; box-shadow:0 8px 20px rgba(102,0,148,.08);
+        }}
+        .filter-eyebrow {{ font-size:9.5px; color:var(--purple); font-weight:950; letter-spacing:.12em; text-transform:uppercase; }}
+        .filter-title {{ font-size:15px; font-weight:950; color:#23152F; margin-top:3px; }}
+        .filter-note {{ font-size:10.5px; color:var(--muted); margin-top:5px; line-height:1.35; }}
+        .active-filter-box {{
+            background:#FFFFFF; border:1px solid var(--border); border-radius:14px; padding:10px 11px;
+            margin: 10px 0 12px 0; box-shadow:0 4px 12px rgba(16,24,40,.05);
+        }}
+        .active-filter-line {{ font-size:10.5px; color:#475467; line-height:1.4; }}
+        .active-filter-line strong {{ color:var(--purple); }}
+        .chip-row {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }}
+        .chip {{ background:#F4EAF8; color:var(--purple); border:1px solid #E7D4F1; border-radius:999px; padding:4px 8px; font-size:9.5px; font-weight:900; }}
+
+        .kpi-card {{
+            height: 158px; min-height: 158px; background: radial-gradient(circle at 100% 0%, rgba(102,0,148,.06), transparent 32%), linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
+            border:1px solid rgba(102,0,148,.12); border-radius:18px; padding:14px;
+            box-shadow:0 12px 26px rgba(17,24,39,.07), inset 0 1px 0 rgba(255,255,255,.95);
+            display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden;
+        }}
+        .kpi-card::before {{ content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--purple),var(--teal),var(--yellow)); }}
+        .kpi-top {{ display:flex; justify-content:space-between; align-items:center; gap:10px; }}
+        .kpi-eyebrow {{ color:#8A6AA0; font-size:9px; font-weight:950; letter-spacing:.11em; text-transform:uppercase; }}
+        .kpi-title {{ color:#2D0055; font-size:13px; font-weight:950; line-height:1.08; margin-top:4px; }}
+        .kpi-icon {{ width:34px; height:34px; border-radius:13px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,rgba(102,0,148,.12),rgba(0,140,170,.10)); color:var(--purple); border:1px solid rgba(102,0,148,.10); font-size:17px; }}
+        .kpi-value {{ font-size:36px; font-weight:950; letter-spacing:-.045em; line-height:1; color:#111827; margin-top:8px; }}
+        .kpi-note {{ font-size:10.5px; color:var(--muted); font-weight:700; line-height:1.25; }}
+        .kpi-pill {{ display:inline-flex; width:fit-content; align-items:center; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; margin-top:6px; background:#FBF7FD; border:1px solid #E7D4F1; color:var(--purple); }}
+
+        div[data-testid="stPlotlyChart"] {{
+            background:#FFFFFF; border:1px solid #E9E2F2; border-radius:18px; padding:8px 10px 4px 10px;
+            box-shadow:0 10px 28px rgba(45,0,85,.055); margin-bottom:14px;
+        }}
+        div[data-testid="stDataFrame"] {{
+            border-radius:16px !important; overflow:hidden !important; border:1px solid #E6E8EF !important;
+            box-shadow:0 8px 20px rgba(16,24,40,.055) !important;
+        }}
+        div[data-testid="stTabs"] [role="tab"] {{
+            border-radius: 999px !important; padding: 8px 16px !important; font-weight: 900 !important;
+            border: 1px solid #E7D4F1 !important; background:#FFFFFF !important; color:var(--purple-dark) !important;
+        }}
+        div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
+            background: linear-gradient(90deg,var(--purple),#7A1FA2) !important; color:#FFFFFF !important;
+            box-shadow: inset 0 -3px 0 var(--yellow) !important;
+        }}
+        .country-panel {{
+            background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%); border:1px solid #E9DDF2;
+            border-radius:18px; padding:15px; min-height:460px; box-shadow:0 12px 28px rgba(45,0,85,.06);
+        }}
+        .country-row {{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; border-bottom:1px solid #EEF0F4; padding:10px 0; font-size:12px; color:#475467; }}
+        .country-row strong {{ color:#111827; font-size:13px; text-align:right; }}
+        .ai-box {{
+            background:#FBF7FD; border:1px solid #E7D4F1; border-radius:15px; padding:12px; margin-top:14px;
+            color:#344054; font-size:11.5px; line-height:1.45;
+        }}
+        .ai-box-title {{ color:var(--purple); font-weight:950; margin-bottom:6px; font-size:12px; }}
+        .footer-spacer {{ height: 120px; }}
+        @media (max-width: 900px) {{
+            .app-header {{ flex-direction:column; }}
+            .context-strip {{ justify-content:flex-start; }}
+            .kpi-card {{ height:auto; min-height:140px; }}
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+def clean_text(value: object) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    value = str(value).strip()
+    value = re.sub(r"\s+", " ", value)
+    return value
 
 
-# ---------------- LOAD DATA ----------------
-@st.cache_data(ttl=0)
-def load_data():
-    parquet_file = EXPORT_DIR / "output_final.parquet"
-    
-    meta_file = EXPORT_DIR / "countries_metadata.json"
+def title_case_soft(value: object) -> str:
+    value = clean_text(value)
+    if not value:
+        return "Not available"
+    return value[:1].upper() + value[1:]
 
-   # parquet_file = Path.cwd() / "data" / "output_final.parquet"
-    #meta_file = Path.cwd() / "data" / "countries_metadata.json"
 
-    # --- Step 1: Load Parquet file safely ---
-    if not parquet_file.exists():
-        st.error(f"Parquet file not found: {parquet_file}")
-        return pd.DataFrame()
+def compact(value: object, width: int = 42) -> str:
+    return shorten(clean_text(value) or "Not available", width=width, placeholder="…")
+
+
+def split_multi(value: object, protected_label: str = "Journalists, media and influencers") -> List[str]:
+    text = clean_text(value)
+    if not text:
+        return []
+    text = text.replace("VNSAs", "Violent non-state actors")
+    placeholder = "Journalists__MEDIA__and__influencers"
+    text = text.replace(protected_label, placeholder)
+    parts = [p.strip().replace(placeholder, protected_label) for p in text.split(",")]
+    return [p for p in parts if p and p.lower() not in {"nan", "none", "error"}]
+
+
+def contains_any(value: object, selected_values: Sequence[str]) -> bool:
+    if not selected_values:
+        return True
+    selected_clean = {clean_text(v).lower() for v in selected_values if clean_text(v)}
+    if not selected_clean:
+        return True
+    items = {i.lower() for i in split_multi(value)} or {clean_text(value).lower()}
+    return bool(items.intersection(selected_clean))
+
+
+def count_unique(df: pd.DataFrame, col: str) -> int:
+    if df is None or df.empty or col not in df.columns:
+        return 0
+    return int(df[col].dropna().astype(str).str.strip().replace("", np.nan).dropna().nunique())
+
+
+def top_value(df: pd.DataFrame, col: str, exploded: bool = False) -> Tuple[str, int, float]:
+    if df is None or df.empty or col not in df.columns:
+        return "Not available", 0, 0.0
+    if exploded:
+        values = df[col].dropna().apply(split_multi).explode().dropna().astype(str).str.strip()
+    else:
+        values = df[col].dropna().astype(str).str.strip()
+    values = values[(values != "") & (values.str.lower() != "nan") & (values.str.lower() != "none")]
+    if values.empty:
+        return "Not available", 0, 0.0
+    counts = values.value_counts()
+    label, count = str(counts.index[0]), int(counts.iloc[0])
+    pct = round((count / max(len(df), 1)) * 100, 1)
+    return label, count, pct
+
+
+def metric_pct(part: int, total: int) -> float:
+    return round((part / total) * 100, 1) if total else 0.0
+
+# -----------------------------------------------------------------------------
+# Data loading
+# -----------------------------------------------------------------------------
+@st.cache_data(show_spinner=False)
+def load_data() -> pd.DataFrame:
+    parquet_candidates = [EXPORT_DIR / "output_final.parquet", DATA_DIR / "output_final.parquet"]
+    meta_candidates = [EXPORT_DIR / "countries_metadata.json", DATA_DIR / "countries_metadata.json"]
+
+    parquet_file = next((p for p in parquet_candidates if p.exists()), None)
+    if parquet_file is None:
+        st.error("Data file not found. Expected exports/output_final.parquet or data/output_final.parquet.")
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
 
     try:
         df = pd.read_parquet(parquet_file)
-    except Exception as e:
-        st.error(f"Failed to read Parquet file: {e}")
-        return pd.DataFrame()
+    except Exception as exc:
+        st.error(f"Failed to read Parquet file: {exc}")
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
 
-    if df.empty:
-        st.warning("Loaded Parquet file is empty.")
-        return df
-
-    # --- Step 2: Basic cleaning ---
-    for col in ['alert-country', 'alert-impact', 'Actor of repression']:
+    for col in REQUIRED_COLUMNS:
         if col not in df.columns:
-            st.warning(f"Column '{col}' not found in dataset.")
-            df[col] = ""
+            df[col] = np.nan
 
-    df['alert-country'] = df['alert-country'].astype(str).str.strip()
-    df = df[df['alert-country'].str.lower() != "jose"]
-    df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
-
-    # Clean country names
-    
-    df['alert-country'] = df['alert-country'].replace({
+    df["alert-country"] = df["alert-country"].astype(str).str.strip().replace({
         "Lebanon NAR": "Lebanon",
-        "Democratic Republic of Congo 2": "Democratic Republic of the Congo"
+        "Democratic Republic of Congo 2": "Democratic Republic of the Congo",
+        "jose": np.nan,
+        "Jose": np.nan,
     })
+    df = df[df["alert-country"].notna()]
+    df["alert-impact"] = df["alert-impact"].astype(str).str.strip()
+    df["alert-type"] = df["alert-type"].astype(str).str.strip()
+    df = df[(df["alert-impact"] != "") & (df["alert-type"].str.lower() != "event") & (df["alert-type"] != "")]
 
-    # ❗ REMOVE alert-type == "event"    
-    df['alert-type'] = df['alert-type'].astype(str).str.strip()
+    df["Actor of repression"] = df["Actor of repression"].astype(str).str.strip().str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
 
-    df = df[
-        (df['alert-type'].str.lower() != "event") & 
-        (df['alert-type'] != "")
-    ]
-
-    # Clean Actor of repression
-    df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
-    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent non-state actors"})
-
-    # --- Step 3: Load metadata ---
-    country_meta = {}
-    if meta_file.exists():
+    country_meta: Dict[str, Dict[str, str]] = {}
+    meta_file = next((p for p in meta_candidates if p.exists()), None)
+    if meta_file is not None:
         try:
-            with open(meta_file, encoding="utf-8") as f:
-                country_meta = json.load(f)
-        except Exception as e:
-            st.warning(f"Failed to load countries metadata: {e}")
-    else:
-        st.warning(f"Countries metadata JSON not found: {meta_file}")
+            country_meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        except Exception as exc:
+            st.warning(f"Could not load country metadata: {exc}")
 
-    # --- Step 4: Map ISO codes and continent ---
-    df['iso_alpha3'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3", None))
-    df['continent'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
+    df["iso_alpha3"] = df["alert-country"].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3"))
+    df["continent"] = df["alert-country"].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
 
-    # --- Step 5: Map continent to region ---
-    def continent_to_region(continent):
+    def continent_to_region(continent: str) -> str:
         if continent == "Africa":
             return "Africa"
-        elif continent in ["Asia", "Oceania"]:
+        if continent in ["Asia", "Oceania"]:
             return "Asia and the Pacific"
-        elif continent in ["Europe", "Middle East"]:
+        if continent in ["Europe", "Middle East"]:
             return "The Middle East"
-        elif continent in ["Americas", "North America", "South America", "Caribbean"]:
+        if continent in ["Americas", "North America", "South America", "Caribbean"]:
             return "Americas and the Caribbean"
-        else:
-            return "Unknown"
+        return "Unknown"
 
-    df['region'] = df['continent'].apply(continent_to_region)
+    df["region"] = df["continent"].apply(continent_to_region)
 
-    # --- Step 6: Warn about missing ISO codes ---
-    missing_countries = (
-        df.loc[df['iso_alpha3'].isna(), 'alert-country']
-        .dropna()
-        .astype(str)
-        .str.strip()
-        .loc[lambda s: s.str.lower() != "none"]
-        .unique()
-    )
+    df["creation_date"] = pd.to_datetime(df["creation_date"], errors="coerce")
+    df["year"] = df["creation_date"].dt.year
+    df["month_name"] = df["creation_date"].dt.strftime("%B")
 
-    if len(missing_countries) > 0:
-        st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
+    context_mask = df["alert-type"].astype(str).str.strip().str.lower().eq("context to watch")
+    df.loc[context_mask, "alert-impact"] = "Context to watch"
 
-    # --- Step 7: Process dates ---
-    if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
-        df['year'] = df['creation_date'].dt.year
-        df['month_name'] = df['creation_date'].dt.strftime('%B')
-    else:
-        st.warning("No 'creation_date' column found in dataset.")
-    
-    # --- Step 8: Update alert-impact based on alert-type ---
-    
-    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
-        mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
-        df.loc[mask, 'alert-impact'] = 'Context to watch'
+    return df.reset_index(drop=True)
 
-    return df
-
-# --- Load data safely ---
-data = load_data()
-
-
-# ---------------- MULTISELECT WITH SELECT ALL ----------------
-def safe_multiselect(label, options, session_key, sidebar=True):
-    options = sorted(list(options))
-    
-    # Always keep "Select All" as first dropdown option
-    options_with_all = ["Select all"] + options
-
-    # Initialize session_state if not present
-    if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # internally select all
-
-    # Determine what to display in the widget
-    displayed_default = []  # show nothing selected in the dropdown
-    try:
-        if sidebar:
-            selected = st.sidebar.multiselect(label, options_with_all, default=displayed_default)
-        else:
-            selected = st.multiselect(label, options_with_all, default=displayed_default)
-    except Exception:
-        selected = []
-
-    # If user selects "Select All" or nothing, internally select all options
-    if "Select all" in selected or len(selected) == 0:
-        st.session_state[session_key] = options.copy()
-        return options
-    else:
-        st.session_state[session_key] = selected
-        return selected
-        
-# ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
-st.sidebar.image("assets/eu-see-logo.png", width=400)
-
-# Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
-AI_ASSISTANT_SLOT = st.sidebar.container()
-
-# Global Filters
-render_classic_filter_header()
-
-# Apply global CSS to sidebar to remove spacing between label and dropdown
-st.markdown("""
-    <style>
-    /* Sidebar dropdown text */
-    .css-1hwfws3 {  /* The selected item in multiselect/selectbox */
-        font-family: Arial !important;
-        font-size: 12px !important;
-        color: purple !important;
-    }
-
-    /* Dropdown options list */
-    .css-1n76uvr div[role="option"] {
-        font-family: Arial !important;
-        font-size: 12px !important;
-        color: purple !important;
-    }
-
-    /* Placeholder text in dropdown */
-    .css-1wa3eu0-placeholder {
-        font-family: Arial !important;
-        font-size: 12px !important;
-        color: purple !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Sidebar filters (no separate markdown)
-regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
-selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
-
-filtered_countries = data[data['region'].isin(selected_regions)] if "Select all" not in selected_regions else data
-selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
-
-selected_alert_impacts = safe_multiselect("Select nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
-
-selected_enabling_principle = safe_multiselect(
-    "Select enabling principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().str.capitalize().unique(),
-    "selected_enabling_principle"
-)
-selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
-
-available_months = sorted(
-    data['month_name'].dropna().unique(),
-    key=lambda m: pd.to_datetime(m, format='%B').month
-) if "Select All" in selected_years else sorted(
-    data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
-    key=lambda m: pd.to_datetime(m, format='%B').month
-)
-selected_months = safe_multiselect("Select month", available_months, "selected_months")
-# Reset button
-if st.sidebar.button("🔄 Reset Filters"):
-    for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
-                "selected_alert_impacts","selected_months","selected_years"]:
-        st.session_state[key] = ["Select all"]
-
-# ---------------- FILTER DATA ----------------
-def contains_any(cell_value, selected_values):
-    if pd.isna(cell_value): return False
-    return any(sel in str(cell_value) for sel in selected_values)
-
-filtered_global = data[
-    (data['region'].isin(selected_regions)) &
-    (data['alert-country'].isin(selected_countries)) &
-    (data['alert-type'].isin(selected_alert_types)) &
-    (data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
-    (data['alert-impact'].isin(selected_alert_impacts)) &
-    (data['month_name'].isin(selected_months)) &
-    (data['year'].isin(selected_years))
-]
-
-render_filter_status_card(filtered_global)
-
-# Login / Access
-st.sidebar.markdown(
-    '<div style="font-family: Arial; font-size: 12px; font-weight: 900; color: #23152F; margin: 14px 0 8px 0; padding-top:10px; border-top:1px solid #E6E8EF;">🔐 Login / Access</div>',
-    unsafe_allow_html=True
-)
-
-if is_authenticated():
-    st.sidebar.success(f"Signed in: {st.session_state.get('name', 'User')}")
-    if st.sidebar.button("Logout", use_container_width=True, key="sidebar_logout_btn"):
-        from auth import logout
-        logout()
-else:
-    st.sidebar.caption("Sign in only when privileged access is needed.")
-    if st.sidebar.button("🔐 Sign in / Access", use_container_width=True, key="open_auth_view_btn"):
-        st.session_state.auth_view = True
-        st.rerun()
-
-# ---------------- TAB 2: Negative Events ----------------
-# Filter negative alerts
-reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
-
-# Ensure all required columns exist
-required_columns = [
-    'Actor of repression',
-    'Subject of repression',
-    'Mechanism of repression',
-    'Type of event',
-    'alert-type',
-    'enabling-principle'
-]
-
-for col in required_columns:
-    if col not in reactive_df.columns:
-        reactive_df[col] = np.nan
-        st.warning(f"Column '{col}' was missing and has been added as empty.")
-
-# ---------------- LABEL WRAPPING ----------------
-def wrap_label_by_words(label, words_per_line=4):
-    words = str(label).split()
-    lines = [" ".join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
-    return "<br>".join(lines)
-
-def info_tooltip(message: str) -> str:
-    """
-    Returns a question mark HTML with tooltip.
-    Use with st.markdown(..., unsafe_allow_html=True)
-    """
-    return f'<span style="font-weight:bold; cursor: help; color: #660094;" title="{message}">❓</span>'
-
-# ---------------- RESPONSIVE SUMMARY CARDS ----------------
-def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="summary"):
-    """
-    Render compact, equal-height professional KPI cards:
-    1. Monitored Countries
-    2. Total Alerts
-    3. Alerts Breakdown as a contained donut plot
-    """
-    total_countries = df['alert-country'].nunique() if not df.empty else 0
-    total_alerts = len(df) if not df.empty else 0
-    negative = int((df['alert-impact'] == "Negative").sum()) if not df.empty else 0
-    positive = int((df['alert-impact'] == "Positive").sum()) if not df.empty else 0
-    context = int((df['alert-impact'] == "Context to watch").sum()) if not df.empty else 0
-    total_np = negative + positive + context
-
-    neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
-    pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
-    context_pct = round((context / total_np) * 100, 1) if total_np else 0
-
-    neg_stop = neg_pct
-    pos_stop = neg_pct + pos_pct
-
-    if total_np:
-        donut_gradient = (
-            f"conic-gradient(#FFDB58 0% {neg_stop}%, "
-            f"#660094 {neg_stop}% {pos_stop}%, "
-            f"#008CAA {pos_stop}% 100%)"
-        )
-    else:
-        donut_gradient = "conic-gradient(#E5E7EB 0% 100%)"
-
-    st.markdown("""
-    <style>
-    .eusee-kpi-card {
-        height: 150px;
-        min-height: 150px;
-        background: radial-gradient(circle at 100% 0%, rgba(102,0,148,0.055), transparent 34%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
-        border: 1px solid rgba(102, 0, 148, 0.115);
-        border-radius: 17px;
-        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
-        padding: 11px 14px 10px 14px;
-        margin: 2px 0 8px 0;
-        box-sizing: border-box;
-        overflow: hidden;
-        font-family: Arial, sans-serif;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        position: relative;
-    }
-    .eusee-kpi-card::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #660094 0%, #008CAA 52%, #FFDB58 100%);
-        opacity: .92;
-    }
-    .eusee-kpi-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 15px 32px rgba(17, 24, 39, 0.090), inset 0 1px 0 rgba(255,255,255,0.95);
-        transition: all .18s ease;
-    }
-    .eusee-kpi-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
-    .eusee-kpi-eyebrow { color:#8A6AA0; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
-    .eusee-kpi-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
-    .eusee-kpi-icon {
-        width:30px; height:30px; min-width:30px; border-radius:12px;
-        background:linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
-        color:#660094; border:1px solid rgba(102,0,148,.10);
-        display:flex; align-items:center; justify-content:center;
-        font-size:16px; font-weight:900; box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
-    }
-    .eusee-kpi-value { font-size:36px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; }
-    .eusee-kpi-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
-    .eusee-microline { height:4px; width:54px; border-radius:999px; background:linear-gradient(90deg, currentColor, rgba(255,255,255,0)); opacity:.32; margin-top:8px; }
-    .eusee-donut-layout { display:grid; grid-template-columns:76px 1fr; align-items:center; gap:9px; margin-top:4px; }
-    .eusee-donut {
-        width:72px; height:72px; border-radius:50%; position:relative; background:var(--donut-gradient);
-        box-shadow:inset 0 0 0 1px rgba(255,255,255,.95), 0 6px 14px rgba(17,24,39,.10);
-    }
-    .eusee-donut::before { content:""; position:absolute; inset:-3px; border-radius:50%; background:linear-gradient(135deg, rgba(102,0,148,.16), rgba(0,140,170,.10)); z-index:-1; }
-    .eusee-donut::after { content:""; position:absolute; inset:17px; border-radius:50%; background:#FFFFFF; box-shadow:inset 0 0 0 1px rgba(102,0,148,.09); }
-    .eusee-donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1; color:#2D0055; font-weight:950; line-height:1; pointer-events:none; font-family:Arial Black, Arial, sans-serif; }
-    .eusee-donut-center .num { font-size:14px; letter-spacing:-.03em; }
-    .eusee-donut-center .lab { font-size:7.8px; color:#667085; margin-top:2px; font-family:Arial, sans-serif; font-weight:800; }
-    .eusee-breakdown-list { display:flex; flex-direction:column; gap:5px; }
-    .eusee-breakdown-row {
-        display:grid;
-        grid-template-columns: 10px minmax(48px, 1fr) 42px 42px;
-        align-items:center;
-        gap:6px;
-        padding:4px 6px;
-        border-radius:10px;
-        background:rgba(255,255,255,.68);
-        border:1px solid rgba(102,0,148,.055);
-        box-shadow:inset 0 1px 0 rgba(255,255,255,.72);
-        line-height:1;
-    }
-    .eusee-breakdown-row:hover { background:#FFFFFF; border-color:rgba(102,0,148,.12); }
-    .eusee-breakdown-label { color:#344054; font-size:9.8px; font-weight:950; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .eusee-breakdown-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; }
-    .eusee-breakdown-count { color:#667085; font-size:9.5px; font-weight:850; text-align:right; white-space:nowrap; }
-    .eusee-dot { width:8px; height:8px; min-width:8px; border-radius:999px; display:inline-block; box-shadow:0 0 0 2px rgba(255,255,255,.85), 0 1px 3px rgba(17,24,39,.14); }
-    .eusee-breakdown-bar { grid-column: 2 / 5; height:3px; background:#F2F4F7; border-radius:999px; overflow:hidden; margin-top:-1px; }
-    .eusee-breakdown-fill { height:100%; border-radius:999px; width:var(--bar-width); background:var(--bar-color); opacity:.92; }
-    .eusee-tooltip { color:#008CAA; font-size:10px; font-weight:950; cursor:help; margin-left:3px; border:1px solid rgba(0,140,170,.25); border-radius:50%; padding:0 4px; background:rgba(0,140,170,.06); }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns(3)
-
-    countries_value = f"{total_countries:,}" if is_privileged() else "On request"
-    countries_size = "38px" if is_privileged() else "21px"
-
-    with col1:
-        st.markdown(f"""
-        <div class="eusee-kpi-card">
-            <div>
-                <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-eyebrow">Coverage</div><div class="eusee-kpi-title">Monitored Countries</div></div>
-                    <div class="eusee-kpi-icon">🌍</div>
-                </div>
-                <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
-            </div>
-            <div class="eusee-kpi-note">Countries represented by current filters</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-        <div class="eusee-kpi-card">
-            <div>
-                <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-eyebrow">Monitoring volume</div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" title="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
-                    <div class="eusee-kpi-icon">⚠️</div>
-                </div>
-                <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
-            </div>
-            <div class="eusee-kpi-note">Filtered records after selected region, country, year and alert filters</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"""
-        <div class="eusee-kpi-card">
-            <div class="eusee-kpi-top">
-                <div><div class="eusee-kpi-eyebrow">Composition</div><div class="eusee-kpi-title">Alerts Breakdown</div></div>
-                <div class="eusee-kpi-icon">◔</div>
-            </div>
-            <div class="eusee-donut-layout">
-                <div class="eusee-donut" style="--donut-gradient:{donut_gradient};" title="Negative: {negative:,} ({neg_pct}%) | Positive: {positive:,} ({pos_pct}%) | Context to watch: {context:,} ({context_pct}%)">
-                    <div class="eusee-donut-center">
-                        <div class="num">{total_np:,}</div>
-                        <div class="lab">alerts</div>
-                    </div>
-                </div>
-                <div class="eusee-breakdown-list">
-                    <div class="eusee-breakdown-row" title="Negative alerts: {negative:,} records, {neg_pct}% of filtered alerts">
-                        <span class="eusee-dot" style="background:#FFDB58;"></span>
-                        <span class="eusee-breakdown-label">Negative</span>
-                        <span class="eusee-breakdown-pct">{neg_pct}%</span>
-                        <span class="eusee-breakdown-count">{negative:,}</span>
-                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{neg_pct}%; --bar-color:#FFDB58;"></div></div>
-                    </div>
-                    <div class="eusee-breakdown-row" title="Positive alerts: {positive:,} records, {pos_pct}% of filtered alerts">
-                        <span class="eusee-dot" style="background:#660094;"></span>
-                        <span class="eusee-breakdown-label">Positive</span>
-                        <span class="eusee-breakdown-pct">{pos_pct}%</span>
-                        <span class="eusee-breakdown-count">{positive:,}</span>
-                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{pos_pct}%; --bar-color:#660094;"></div></div>
-                    </div>
-                    <div class="eusee-breakdown-row" title="Context to watch alerts: {context:,} records, {context_pct}% of filtered alerts">
-                        <span class="eusee-dot" style="background:#008CAA;"></span>
-                        <span class="eusee-breakdown-label">Context</span>
-                        <span class="eusee-breakdown-pct">{context_pct}%</span>
-                        <span class="eusee-breakdown-count">{context:,}</span>
-                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{context_pct}%; --bar-color:#008CAA;"></div></div>
-                    </div>
-                </div>
-            </div>
-            <div class="eusee-kpi-note">Filtered composition by alert impact</div>
-        </div>
-
-        """, unsafe_allow_html=True)
-
-
-def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
-    """Return the most frequent comma-separated item for a negative-alert intelligence card."""
-    if df is None or df.empty or col not in df.columns:
-        return "Not available", 0
-    placeholder = "Journalists__MEDIA__and__influencers"
-    s = df[col].dropna().astype(str).str.strip()
-    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-    s = s.str.replace(protected_label, placeholder, regex=False)
-    exploded = (
-        s.str.split(",")
-        .explode()
-        .astype(str)
-        .str.strip()
-        .str.replace(placeholder, protected_label, regex=False)
-    )
-    exploded = exploded[(exploded != "") & (exploded.str.lower() != "nan") & (exploded.str.lower() != "none")]
-    if exploded.empty:
-        return "Not available", 0
-    counts = exploded.value_counts()
-    return str(counts.index[0]), int(counts.iloc[0])
-
-
-def _compact_text_for_card(value, max_len=42):
-    value = str(value or "Not available").strip()
-    return value if len(value) <= max_len else value[: max_len - 1].rstrip() + "…"
-
-
-def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None, card_key="negative_intelligence"):
-    """Render a Negative Alerts-specific KPI/intelligence row.
-
-    This replaces the generic Negative/Positive/Context donut in the Negative Alerts tab,
-    where all records are already negative and a composition donut adds limited value.
-    """
-    negative_total = len(negative_df) if negative_df is not None else 0
-    all_total = len(all_filtered_df) if all_filtered_df is not None and not all_filtered_df.empty else negative_total
-    negative_share = round((negative_total / all_total) * 100, 1) if all_total else 0
-
-    top_actor, top_actor_count = _top_split_item_for_negative_card(negative_df, "Actor of repression")
-    top_mechanism, top_mechanism_count = _top_split_item_for_negative_card(negative_df, "Mechanism of repression")
-    top_subject, top_subject_count = _top_split_item_for_negative_card(negative_df, "Subject of repression")
-
-    top_country = "Not available"
-    top_country_count = 0
-    monitored_countries = 0
-    if negative_df is not None and not negative_df.empty and "alert-country" in negative_df.columns:
-        country_series = negative_df["alert-country"].dropna().astype(str).str.strip().replace("", np.nan).dropna()
-        monitored_countries = int(country_series.nunique()) if not country_series.empty else 0
-        country_counts = country_series.value_counts()
-        if not country_counts.empty:
-            top_country = str(country_counts.index[0])
-            top_country_count = int(country_counts.iloc[0])
-
-    actor_pct = round((top_actor_count / negative_total) * 100, 1) if negative_total else 0
-    mech_pct = round((top_mechanism_count / negative_total) * 100, 1) if negative_total else 0
-    subject_pct = round((top_subject_count / negative_total) * 100, 1) if negative_total else 0
-
-    st.markdown("""
-    <style>
-    .negintel-card {
-        height: 150px;
-        min-height: 150px;
-        background: radial-gradient(circle at 100% 0%, rgba(180,35,24,0.06), transparent 35%), linear-gradient(180deg, #FFFFFF 0%, #FFFCFB 100%);
-        border: 1px solid rgba(180, 35, 24, 0.12);
-        border-radius: 17px;
-        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
-        padding: 11px 14px 10px 14px;
-        margin: 2px 0 8px 0;
-        box-sizing: border-box;
-        overflow: hidden;
-        font-family: Arial, sans-serif;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        position: relative;
-    }
-    .negintel-card::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,#B42318 0%,#FFDB58 55%,#660094 100%); opacity:.95; }
-    .negintel-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
-    .negintel-eyebrow { color:#9A6B66; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
-    .negintel-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
-    .negintel-icon { width:30px; height:30px; min-width:30px; border-radius:12px; background:linear-gradient(135deg, rgba(180,35,24,.12), rgba(255,219,88,.14)); color:#B42318; border:1px solid rgba(180,35,24,.10); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; }
-    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; color:#B42318; }
-    .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
-    .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
-    .negintel-row-list { display:flex; flex-direction:column; gap:5px; margin-top:5px; }
-    .negintel-row { display:grid; grid-template-columns: minmax(74px, 1fr) 44px 36px; align-items:center; gap:6px; padding:5px 7px; border-radius:10px; background:rgba(255,255,255,.72); border:1px solid rgba(102,0,148,.055); line-height:1; }
-    .negintel-row-label { color:#344054; font-size:9.7px; font-weight:950; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .negintel-row-pct { color:#101828; font-size:10.3px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; }
-    .negintel-row-count { color:#667085; font-size:9.4px; font-weight:850; text-align:right; white-space:nowrap; }
-    .negintel-compact-line { font-size:10.2px; color:#344054; line-height:1.22; font-weight:850; margin-top:5px; }
-    .negintel-compact-line strong { color:#2D0055; font-weight:950; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
-        countries_size = "34px" if is_privileged() else "21px"
-        st.markdown(f"""
-        <div class="negintel-card">
-            <div>
-                <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Coverage</div><div class="negintel-title">Monitored Countries</div></div>
-                    <div class="negintel-icon">🌍</div>
-                </div>
-                <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
-                <div class="negintel-pill" style="background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);">Negative-alert scope</div>
-            </div>
-            <div class="negintel-note">Countries represented by current negative-alert filters</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(f"""
-        <div class="negintel-card">
-            <div>
-                <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Negative alert scope</div><div class="negintel-title">Negative Alerts Intelligence</div></div>
-                    <div class="negintel-icon">⚠️</div>
-                </div>
-                <div class="negintel-value">{negative_total:,}</div>
-                <div class="negintel-pill">{negative_share}% of filtered alerts</div>
-                <div class="negintel-compact-line"><strong>Top country:</strong> {_compact_text_for_card(top_country, 34)} <span style="color:#667085;">({top_country_count:,})</span></div>
-            </div>
-            <div class="negintel-note">Focused diagnostic view for restrictive events only</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c3:
-        st.markdown(f"""
-        <div class="negintel-card">
-            <div>
-                <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Dominant pathway</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
-                    <div class="negintel-icon">⛓️</div>
-                </div>
-                <div class="negintel-row-list">
-                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label">Actor: {_compact_text_for_card(top_actor, 23)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">Mechanism: {_compact_text_for_card(top_mechanism, 19)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label">Subject: {_compact_text_for_card(top_subject, 21)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
-                </div>
-            </div>
-            <div class="negintel-note">Use heatmaps and Sankey below to inspect the relationship structure</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-def normalize_label(label: str) -> str:
-    """
-    Capitalize first character only, lowercase remaining characters.
-    Safe for None/NaN.
-    """
-    if pd.isna(label):
-        return ""
-    label = str(label).strip()
-    if len(label) == 0:
-        return ""
-    return label[0].upper() + label[1:].lower()
-
-def wrap_label_by_words(label, words_per_line=3):
-    """Wrap long labels for better display"""
-    words = label.split()
-    lines = [' '.join(words[i:i+words_per_line]) for i in range(0, len(words), words_per_line)]
-    return '<br>'.join(lines)
-
-def safe_wrap_label(label, axis="y", words_per_line=4):
-    """
-    Wrap labels ONLY for y-axis.
-    X-axis wrapping breaks Plotly font rendering.
-    """
-    if axis == "x":
-        return normalize_label(label)
-    return wrap_label_by_words(normalize_label(label), words_per_line)
-
-
-# ---------------- PROFESSIONAL CHART UX THEME ----------------
-CHART_COLORS = {
-    "Positive": "#660094",
-    "Postive": "#660094",
-    "Negative": "#FFDB58",
-    "Context to watch": "#008CAA",
-    "Default": "#FFDB58",
-}
-
-CHART_FONT = "Inter, Arial, sans-serif"
-CHART_TITLE_COLOR = "#2D0055"
-CHART_TEXT_COLOR = "#263238"
-CHART_GRID_COLOR = "#EEF1F6"
-CHART_AXIS_COLOR = "#D8DEE9"
-
-
-def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, showlegend=True):
-    """Apply one professional, classic dashboard style without changing chart data."""
+# -----------------------------------------------------------------------------
+# Plot theme
+# -----------------------------------------------------------------------------
+def apply_chart_theme(fig: go.Figure, title: str = "", height: int = 360, horizontal: bool = False, showlegend: bool = True) -> go.Figure:
     fig.update_layout(
         template="plotly_white",
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
-        title=dict(
-            text=title if title is not None else fig.layout.title.text,
-            x=0.02,
-            xanchor="left",
-            y=0.98,
-            yanchor="top",
-            font=dict(family=CHART_FONT, size=14, color=CHART_TITLE_COLOR),
-        ),
-        margin=dict(l=135 if horizontal else 46, r=28, t=58, b=58),
-        hoverlabel=dict(
-            bgcolor="#FFFFFF",
-            bordercolor="#E2E8F0",
-            font=dict(family=CHART_FONT, size=12, color=CHART_TEXT_COLOR),
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor="rgba(255,255,255,0.85)",
-            bordercolor="#EEF1F6",
-            borderwidth=1,
-            font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
-            title=None,
-        ),
+        font=dict(family=FONT, size=11, color=TEXT),
+        title=dict(text=title, x=0.02, xanchor="left", y=0.96, font=dict(size=14, color=PURPLE_DARK, family=FONT)),
+        margin=dict(l=130 if horizontal else 48, r=28, t=58, b=56),
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E2E8F0", font=dict(color=TEXT, family=FONT, size=12)),
+        legend=dict(orientation="h", y=1.02, x=1, xanchor="right", yanchor="bottom", title=None, font=dict(size=10), bgcolor="rgba(255,255,255,.84)", bordercolor="#EEF1F6", borderwidth=1),
         showlegend=showlegend,
     )
-    fig.update_xaxes(
-        title=None,
-        showgrid=True,
-        gridwidth=1,
-        gridcolor=CHART_GRID_COLOR,
-        zeroline=False,
-        showline=True,
-        linewidth=1,
-        linecolor=CHART_AXIS_COLOR,
-        ticks="",
-        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
-    )
-    fig.update_yaxes(
-        title=None,
-        showgrid=False if horizontal else True,
-        gridwidth=1,
-        gridcolor=CHART_GRID_COLOR,
-        zeroline=False,
-        showline=True,
-        linewidth=1,
-        linecolor=CHART_AXIS_COLOR,
-        ticks="",
-        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
-    )
+    fig.update_xaxes(showgrid=True, gridcolor=GRID, zeroline=False, showline=True, linecolor="#D8DEE9", ticks="", title=None)
+    fig.update_yaxes(showgrid=False if horizontal else True, gridcolor=GRID, zeroline=False, showline=True, linecolor="#D8DEE9", ticks="", title=None)
     return fig
 
 
-def render_chart_shell():
-    """Global chart container polish: subtle cards, spacing and consistent dashboard feel."""
-    st.markdown(
+def add_watermark(fig: go.Figure) -> go.Figure:
+    fig.add_annotation(
+        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
+        xref="paper", yref="paper", x=.5, y=.5, showarrow=False,
+        font=dict(size=20, color="black"), opacity=.035, xanchor="center", yanchor="middle",
+    )
+    return fig
+
+# -----------------------------------------------------------------------------
+# Sidebar filters
+# -----------------------------------------------------------------------------
+def sidebar_multiselect(label: str, options: Iterable, key: str) -> List:
+    options = [o for o in sorted(pd.Series(list(options)).dropna().unique().tolist(), key=lambda x: str(x)) if clean_text(o)]
+    options_with_all = ["Select all"] + options
+    default = st.session_state.get(key, ["Select all"])
+    selected = st.multiselect(label, options_with_all, default=[v for v in default if v in options_with_all], key=f"widget_{key}")
+    if not selected or "Select all" in selected:
+        st.session_state[key] = ["Select all"]
+        return options
+    st.session_state[key] = selected
+    return selected
+
+
+def render_sidebar(data: pd.DataFrame) -> Dict[str, List]:
+    logo_path = ASSETS_DIR / "eu-see-logo.png"
+    if logo_path.exists():
+        st.sidebar.image(str(logo_path), use_container_width=True)
+    else:
+        st.sidebar.markdown("### EU SEE Dashboard")
+
+    st.sidebar.markdown(
         """
-        <style>
-        div[data-testid="stPlotlyChart"] {
-            background: #FFFFFF;
-            border: 1px solid #E9E2F2;
-            border-radius: 18px;
-            padding: 8px 10px 4px 10px;
-            box-shadow: 0 10px 28px rgba(45, 0, 85, 0.055);
-            margin-bottom: 18px;
-            transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
-        }
-        div[data-testid="stPlotlyChart"]:hover {
-            transform: translateY(-1px);
-            border-color: #D8C7E6;
-            box-shadow: 0 14px 34px rgba(45, 0, 85, 0.09);
-        }
-        div[data-testid="stPlotlyChart"] svg.main-svg {
-            border-radius: 14px;
-        }
-        </style>
+        <div class="filter-header">
+            <div class="filter-eyebrow">Dashboard controls</div>
+            <div class="filter-title">Global Filters</div>
+            <div class="filter-note">Refine the analytical view by geography, alert characteristics, enabling principle, and time period.</div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
-render_chart_shell()
-
-# ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,normalize_labels=True):
-   
-    df = df.copy()
-
-    # ---------------- Safe numeric conversion for y ----------------
-    #df[y] = pd.to_numeric(df[y], errors='coerce').fillna(0)
-
-    num_bars = df.shape[0]
-    height = max(330, min(520, num_bars * 24 + 120))  # Professional compact auto-height
-    font_size = max(10, min(12, 13 - int(num_bars / 8)))
-
-    # Optional: wrap labels (assuming wrap_label_by_words exists)
-    
-    # ---------------- Label handling ----------------
-    if normalize_labels:
-        df[x] = df[x].apply(
-            lambda l: wrap_label_by_words(
-                normalize_label(l) if x not in ["alert-country", "region"] else str(l),
-                words_per_line=3
-            )
-        )
-    else:
-        df[x] = df[x].astype(str).apply(
-            lambda l: wrap_label_by_words(l, words_per_line=3)
-        )
-        
-    # Move "Other" category to the end if present
-    if "Other" in df[x].values:
-        df_other = df[df[x] == "Other"]
-        df_main = df[df[x] != "Other"]
-        df = pd.concat([df_main, df_other], ignore_index=True)
-        
-    # For horizontal charts, reverse order so "Other" is at bottom
-        if horizontal:
-            df = df[::-1].reset_index(drop=True)
-    # Create bar chart
-    fig = px.bar(
-        df,
-        x=x if not horizontal else y,
-        y=y if not horizontal else x,
-        orientation='h' if horizontal else 'v',
-        color=color_col,
-        #color_discrete_map=COLOR_MAPPING if color_col else None,
-        color_discrete_sequence=[CHART_COLORS['Default']],
-        text=y
-    )
-
-    # Text positions (inside if large enough, otherwise outside)
-    fig.update_traces(
-        textposition=['inside' if val > 25 else 'outside' for val in df[y]],
-        insidetextanchor='end',
-        texttemplate="%{text}",
-        textfont=dict(size=11, color="#1F2937", family=CHART_FONT),
-        marker_line=dict(color="rgba(255,255,255,0.75)", width=0.8),
-        hovertemplate="<b>%{label}</b><br>Count: %{text}<extra></extra>"
-    )
-
-    # Bold axis lines
-    if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
-    else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-
-    # Grid and axis
-    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-
-    # Professional chart theme
-    fig = apply_classic_chart_theme(
-        fig,
-        title=title,
-        height=height,
-        horizontal=horizontal,
-        showlegend=bool(color_col),
-    )
-
-    # ---------------- Dynamic download-only source ----------------
-    if horizontal:
-        # For horizontal bars, find max x for positioning
-        max_val = df[x].sum()
-    else:
-        # For vertical bars, find max y for positioning
-        max_val = df[x].sum()
-   
-    # ---------------- WATERMARK ----------------
-    fig.add_annotation(
-        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=0.5,
-        showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
-        opacity=0.035,
-        xanchor="center",
-        yanchor="middle"
-    )  
-    return fig
-
-# ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
-    categories = sorted(df[color_col].unique())
-    #color_sequence = ['#008CAA','#660094','#FFDB58']
-
-    # ---------------- Define category-to-color mapping ----------------
-    category_colors = CHART_COLORS
-    
-    categories = sorted(df[color_col].unique())
-   
-    fig = go.Figure()
-    for i, cat in enumerate(categories):
-        df_cat = df[df[color_col]==cat].copy()
-         # ---------------- Label handling ----------------
-        if normalize_labels:
-            df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
-        else:
-            df_cat[y] = df_cat[y].apply(
-                lambda l: wrap_label_by_words(l, words_per_line=4)
-            )                  
-        
-        fig.add_trace(go.Bar(
-            x=df_cat[y] if not horizontal else df_cat[x],
-            y=df_cat[x] if not horizontal else df_cat[y],
-            name=cat,
-            orientation='h' if horizontal else 'v',
-            marker_color=category_colors.get(cat, "#660094"),  # fallback color if category missing
-            text=df_cat[x],
-            textposition='inside',
-            insidetextanchor='end',
-            textfont=dict(color='#1F2937' if category_colors.get(cat)==CHART_COLORS['Negative'] else 'white', size=11, family=CHART_FONT),
-            marker_line=dict(color="rgba(255,255,255,0.72)", width=0.8),
-            hovertemplate=f"<b>%{{y}}</b><br>{cat}: %{{x}} alerts<extra></extra>"
-        ))
-    num_bars = df.shape[0]
-    height = 350
-    # Bold axis line
-    if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')     
-        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
-        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
-    else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-              
-    fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
-    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig = apply_classic_chart_theme(
-        fig,
-        title=title,
-        height=height,
-        horizontal=horizontal,
-        showlegend=True,
-    )
-    fig.update_layout(barmode='stack')
-
-    # ---------------- Dynamic download-only source ----------------
-    if horizontal:
-        # For horizontal bars, find max x for positioning
-        max_val = df[x].sum()
-    else:
-        # For vertical bars, find max y for positioning
-        max_val = df[x].sum()
-  
-    # ---------------- WATERMARK ----------------
-    fig.add_annotation(
-        text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=0.5,
-        showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
-        opacity=0.035,
-        xanchor="center",
-        yanchor="middle"
-    )
-
-    return fig
-
-# ---------------- HELPER FUNCTIONS ----------------
-def filter_top_n(df, row_col, col_col, top_n=None):
-    """
-    Creates a pivot table for heatmaps, keeping only top-N rows if specified.
-    """
-    pivot_df = (
-        df.groupby([row_col, col_col])
-        .size()
-        .reset_index(name='count')
-    )
-
-    if top_n is not None:
-        top_rows = (
-            pivot_df.groupby(row_col)['count']
-            .sum()
-            .sort_values(ascending=False)
-            .head(top_n)
-            .index
-        )
-        pivot_df = pivot_df[pivot_df[row_col].isin(top_rows)]
-
-    heatmap_df = pivot_df.pivot(index=row_col, columns=col_col, values='count').fillna(0)
-    return heatmap_df
-
-# ---------------- PROFESSIONAL RELATIONSHIP ANALYTICS HELPERS ----------------
-def _safe_chart_label(label, words_per_line=3, max_chars=42):
-    """Readable compact label for dense heatmaps/Sankey nodes."""
-    text = normalize_label(label) if 'normalize_label' in globals() else str(label)
-    text = str(text).strip()
-    if len(text) > max_chars:
-        text = text[: max_chars - 1].rstrip() + "…"
-    return wrap_label_by_words(text, words_per_line=words_per_line)
-
-
-def render_analytics_module_header(title, subtitle, badges=None):
-    """Consistent executive-style header for complex analytical modules."""
-    badges = badges or []
-    badge_html = "".join([f'<span class="analytics-badge">{b}</span>' for b in badges])
-    st.markdown(f"""
-    <style>
-    .analytics-panel {{
-        background: linear-gradient(180deg, #FFFFFF 0%, #FBFAFD 100%);
-        border: 1px solid #E8E1F0;
-        border-radius: 18px;
-        padding: 14px 16px 12px 16px;
-        margin: 12px 0 14px 0;
-        box-shadow: 0 8px 26px rgba(45, 0, 85, 0.055);
-    }}
-    .analytics-panel-title {{
-        font-family: Inter, Arial, sans-serif;
-        font-size: 15px;
-        font-weight: 900;
-        color: #2D0055;
-        margin-bottom: 4px;
-        letter-spacing: -0.01em;
-    }}
-    .analytics-panel-subtitle {{
-        font-family: Inter, Arial, sans-serif;
-        font-size: 11.8px;
-        color: #52616B;
-        line-height: 1.45;
-        max-width: 980px;
-    }}
-    .analytics-badge {{
-        display: inline-block;
-        background: #F5EFFA;
-        color: #660094;
-        border: 1px solid #E6D7F0;
-        border-radius: 999px;
-        padding: 4px 9px;
-        margin: 7px 6px 0 0;
-        font-family: Inter, Arial, sans-serif;
-        font-size: 10.5px;
-        font-weight: 800;
-    }}
-    .chart-card-caption {{
-        font-family: Inter, Arial, sans-serif;
-        font-size: 10.8px;
-        color: #6B7280;
-        line-height: 1.35;
-        margin-top: -8px;
-        margin-bottom: 6px;
-    }}
-    </style>
-    <div class="analytics-panel">
-        <div class="analytics-panel-title">{title}</div>
-        <div class="analytics-panel-subtitle">{subtitle}</div>
-        <div>{badge_html}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def create_heatmap(pivot_df, title="Heatmap", x_label="", y_label=""):
-    """Professional Plotly heatmap for relationship matrices."""
-    if pivot_df.empty:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="No matching relationship data",
-            x=0.5, y=0.5, xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(size=13, color="#64748B", family=CHART_FONT)
-        )
-        fig.update_layout(
-            height=320,
-            margin=dict(l=20, r=20, t=48, b=20),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            title=dict(text=title, x=0.02, xanchor="left", font=dict(size=13, family=CHART_FONT, color=CHART_TITLE_COLOR))
-        )
-        return fig
-
-    plot_df = pivot_df.copy()
-    plot_df.index = [_safe_chart_label(i, words_per_line=2, max_chars=36) for i in plot_df.index]
-    plot_df.columns = [_safe_chart_label(i, words_per_line=2, max_chars=34) for i in plot_df.columns]
-
-    z_values = plot_df.values.astype(float)
-    zmax = float(np.nanmax(z_values)) if z_values.size else 1
-
-    colorscale = [
-        [0.00, "#F8FAFC"],
-        [0.18, "#EEF7FA"],
-        [0.42, "#CFEAF0"],
-        [0.68, "#9D77BF"],
-        [1.00, "#660094"],
-    ]
-
-    fig = go.Figure(data=go.Heatmap(
-        z=plot_df.values,
-        x=plot_df.columns,
-        y=plot_df.index,
-        colorscale=colorscale,
-        zmin=0,
-        zmax=zmax if zmax > 0 else 1,
-        xgap=2,
-        ygap=2,
-        hovertemplate="<b>%{y}</b><br>↳ <b>%{x}</b><br><span style='color:#64748B'>Alerts:</span> <b>%{z}</b><extra></extra>",
-        colorbar=dict(
-            title=dict(text="Alerts", font=dict(size=11, family=CHART_FONT, color="#52616B")),
-            tickfont=dict(size=10, family=CHART_FONT, color="#52616B"),
-            thickness=9,
-            len=0.70,
-            outlinewidth=0,
-            bgcolor="rgba(255,255,255,0)",
-        ),
-    ))
-
-    if plot_df.shape[0] <= 8 and plot_df.shape[1] <= 8:
-        annotations = []
-        for iy, yv in enumerate(plot_df.index):
-            for ix, xv in enumerate(plot_df.columns):
-                val = plot_df.values[iy][ix]
-                if val > 0:
-                    annotations.append(dict(
-                        x=xv, y=yv, text=str(int(val)), showarrow=False,
-                        font=dict(size=10, family=CHART_FONT, color="#FFFFFF" if val >= zmax * 0.55 else "#2D0055")
-                    ))
-        fig.update_layout(annotations=annotations)
-
-    fig.update_layout(
-        title=dict(text=title, x=0.02, xanchor="left", font=dict(size=13.5, family=CHART_FONT, color=CHART_TITLE_COLOR)),
-        xaxis_title=x_label,
-        yaxis_title=y_label,
-        height=max(340, min(560, 275 + plot_df.shape[0] * 34)),
-        margin=dict(l=105, r=30, t=58, b=105),
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
-        font=dict(family=CHART_FONT, size=10.5, color=CHART_TEXT_COLOR),
-        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D9E2EC", font=dict(color=CHART_TEXT_COLOR, family=CHART_FONT, size=11)),
-    )
-    fig.update_xaxes(
-        tickangle=-30, showgrid=False, zeroline=False, showline=False, ticks="",
-        tickfont=dict(size=9.8, family=CHART_FONT, color="#52616B"),
-        title_font=dict(size=10.5, family=CHART_FONT, color="#64748B"),
-    )
-    fig.update_yaxes(
-        autorange="reversed", showgrid=False, zeroline=False, showline=False, ticks="",
-        tickfont=dict(size=9.8, family=CHART_FONT, color="#52616B"),
-        title_font=dict(size=10.5, family=CHART_FONT, color="#64748B"),
-    )
-    return fig
-
-
-# ---------------- HELPER: Get Top-N Items ----------------
-def get_top_n_items(df, col, top_n):
-    counts = df[col].value_counts()
-    if top_n is not None:
-        counts = counts.head(top_n)
-    return counts.index.tolist()
-
-
-# ---------------- PROFESSIONAL HEATMAP RENDER FUNCTION ----------------
-def render_heatmaps(df, top_n=5):
-    if df.empty:
-        st.warning("No data available for heatmaps.")
-        return
-
-    protected_label = "Journalists, media and influencers"
-    placeholder = "Journalists__MEDIA__and__influencers"
-
-    def safe_split(x):
-        if pd.isna(x):
-            return []
-        x = str(x).strip()
-        if not x:
-            return []
-        x = x.replace(protected_label, placeholder)
-        parts = [i.strip() for i in x.split(",") if str(i).strip()]
-        return [p.replace(placeholder, protected_label) for p in parts]
-
-    df_exploded = df.copy()
-    explode_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression"]
-    for col in explode_cols:
-        df_exploded[col] = df_exploded[col].apply(safe_split)
-        df_exploded = df_exploded.explode(col)
-        df_exploded[col] = df_exploded[col].astype(str).str.strip()
-
-    df_exploded = df_exploded[
-        (df_exploded["Actor of repression"] != "") &
-        (df_exploded["Subject of repression"] != "") &
-        (df_exploded["Mechanism of repression"] != "")
-    ].copy()
-
-    if df_exploded.empty:
-        st.info("No actor–mechanism–subject relationship data are available under the current filters.")
-        return
-
-    top_actors = get_top_n_items(df_exploded, "Actor of repression", top_n)
-    top_subjects = get_top_n_items(df_exploded, "Subject of repression", top_n)
-    top_mechanisms = get_top_n_items(df_exploded, "Mechanism of repression", top_n)
-
-    df_top = df_exploded[
-        df_exploded["Actor of repression"].isin(top_actors) &
-        df_exploded["Subject of repression"].isin(top_subjects) &
-        df_exploded["Mechanism of repression"].isin(top_mechanisms)
-    ].copy()
-
-    if df_top.empty:
-        st.warning("No heatmap data available after applying the Top-N selection.")
-        return
-
-    actor_mechanism_pivot = filter_top_n(df_top, "Actor of repression", "Mechanism of repression", top_n)
-    subject_mechanism_pivot = filter_top_n(df_top, "Subject of repression", "Mechanism of repression", top_n)
-    actor_subject_pivot = filter_top_n(df_top, "Actor of repression", "Subject of repression", top_n)
-
-    all_values = pd.concat([actor_mechanism_pivot.stack(), subject_mechanism_pivot.stack(), actor_subject_pivot.stack()])
-    zmax = float(all_values.max()) if not all_values.empty else 1
-
-    c1, c2, c3 = st.columns(3, gap="medium")
-    with c1:
-        fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used<br>by restrictive actors?", x_label="Mechanism", y_label="Actor")
-        fig1.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig1, use_container_width=True, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro")
-        st.markdown('<div class="chart-card-caption">Shows which restrictive actors are most associated with each mechanism.</div>', unsafe_allow_html=True)
-    with c2:
-        fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms<br>affecting civil society actors?", x_label="Mechanism", y_label="Affected group")
-        fig2.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro")
-        st.markdown('<div class="chart-card-caption">Shows which mechanisms most frequently affect specific civil society groups.</div>', unsafe_allow_html=True)
-    with c3:
-        fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting<br>civil society?", x_label="Affected group", y_label="Actor")
-        fig3.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False}, key="heatmap_actor_subject_pro")
-        st.markdown('<div class="chart-card-caption">Shows which actors are most frequently linked to affected groups.</div>', unsafe_allow_html=True)
-
-
-# ---------------- PROFESSIONAL SANKEY FUNCTION ----------------
-def render_sankey(df, top_n=None, width=900, wrap_width=22):
-    if df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No data available for flow analysis", x=0.5, y=0.5, showarrow=False)
-        fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
-        return fig
-
-    protected_label = "Journalists, media and influencers"
-    placeholder = "Journalists__MEDIA__and__influencers"
-
-    def split_values(x):
-        if pd.isna(x):
-            return []
-        x = str(x).strip().replace(protected_label, placeholder)
-        parts = [i.strip() for i in x.split(",") if i.strip()]
-        return [p.replace(placeholder, protected_label) for p in parts]
-
-    flow_df = df.copy()
-    for col in ["Actor of repression", "Mechanism of repression", "Subject of repression"]:
-        flow_df[col] = flow_df[col].apply(split_values)
-        flow_df = flow_df.explode(col)
-        flow_df[col] = flow_df[col].astype(str).str.strip()
-
-    flow_df = flow_df[
-        (flow_df["Actor of repression"] != "") &
-        (flow_df["Mechanism of repression"] != "") &
-        (flow_df["Subject of repression"] != "")
-    ].copy()
-
-    if flow_df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No complete actor–mechanism–subject flows available", x=0.5, y=0.5, showarrow=False)
-        fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
-        return fig
-
-    def top_nodes(col):
-        values = flow_df[col].value_counts()
-        return values.head(top_n).index.tolist() if top_n is not None else values.index.tolist()
-
-    top_actors = top_nodes("Actor of repression")
-    top_mechanisms = top_nodes("Mechanism of repression")
-    top_subjects = top_nodes("Subject of repression")
-
-    flow_df = flow_df[
-        flow_df["Actor of repression"].isin(top_actors) &
-        flow_df["Mechanism of repression"].isin(top_mechanisms) &
-        flow_df["Subject of repression"].isin(top_subjects)
-    ].copy()
-
-    if flow_df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No flows remain after Top-N filtering", x=0.5, y=0.5, showarrow=False)
-        fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
-        return fig
-
-    def wrap_node(prefix, label):
-        label = str(label).strip()
-        words = label.split()
-        lines, line = [], ""
-        for word in words:
-            if len((line + " " + word).strip()) <= wrap_width:
-                line = (line + " " + word).strip()
-            else:
-                if line:
-                    lines.append(line)
-                line = word
-        if line:
-            lines.append(line)
-        wrapped = "<br>".join(lines[:3])
-        if len(lines) > 3:
-            wrapped += "…"
-        return f"<b>{prefix}</b><br>{wrapped}"
-
-    actor_nodes = [wrap_node("Actor", a) for a in top_actors]
-    mechanism_nodes = [wrap_node("Mechanism", m) for m in top_mechanisms]
-    subject_nodes = [wrap_node("Affected group", s) for s in top_subjects]
-    nodes = actor_nodes + mechanism_nodes + subject_nodes
-    node_index = {name: i for i, name in enumerate(nodes)}
-
-    # Sankey labels use one global font color in Plotly. To keep labels readable,
-    # use light, high-contrast node fills and a dark global label font.
-    actor_color = "#F7D95C"       # readable yellow with dark labels
-    mechanism_color = "#D9B8F2"   # light purple, keeps EUSEE identity without hiding text
-    subject_color = "#BFEAF2"     # light teal-blue, readable with dark labels
-    node_colors = ([actor_color] * len(actor_nodes) + [mechanism_color] * len(mechanism_nodes) + [subject_color] * len(subject_nodes))
-
-    links = []
-    am = flow_df.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="value")
-    for _, r in am.iterrows():
-        links.append(dict(
-            source=node_index[wrap_node("Actor", r["Actor of repression"])],
-            target=node_index[wrap_node("Mechanism", r["Mechanism of repression"])],
-            value=int(r["value"]),
-            color="rgba(102,0,148,0.16)"
-        ))
-    ms = flow_df.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="value")
-    for _, r in ms.iterrows():
-        links.append(dict(
-            source=node_index[wrap_node("Mechanism", r["Mechanism of repression"])],
-            target=node_index[wrap_node("Affected group", r["Subject of repression"])],
-            value=int(r["value"]),
-            color="rgba(0,140,170,0.16)"
-        ))
-
-    fig_height = max(500, min(780, 350 + len(nodes) * 23))
-    fig = go.Figure(go.Sankey(
-        arrangement="snap",
-        node=dict(
-            pad=26,
-            thickness=20,
-            line=dict(color="rgba(45,0,85,0.30)", width=0.8),
-            label=nodes,
-            color=node_colors,
-            hovertemplate="<b>%{label}</b><extra></extra>",
-        ),
-        link=dict(
-            source=[l["source"] for l in links],
-            target=[l["target"] for l in links],
-            value=[l["value"] for l in links],
-            color=[l["color"] for l in links],
-            hovertemplate="<b>%{value}</b> linked alerts<extra></extra>",
-        )
-    ))
-
-    for name, color in [("Restrictive actors", actor_color), ("Restrictive mechanisms", mechanism_color), ("Affected civil society groups", subject_color)]:
-        fig.add_trace(go.Scatter(
-            x=[None], y=[None], mode="markers",
-            marker=dict(size=11, color=color, line=dict(color="rgba(45,0,85,0.30)", width=0.8)),
-            name=name
-        ))
-
-    fig.update_layout(
-        title=dict(
-            text="Flow of Negative Events: Actor → Mechanism → Affected Group",
-            x=0.02,
-            xanchor="left",
-            font=dict(size=15, family=CHART_FONT, color=CHART_TITLE_COLOR)
-        ),
-        # Critical readability setting: dark labels on deliberately light node fills.
-        font=dict(size=11.2, family=CHART_FONT, color="#17212B"),
-        height=fig_height,
-        width=width,
-        margin=dict(l=22, r=22, t=62, b=34),
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
-        hoverlabel=dict(
-            bgcolor="#FFFFFF",
-            bordercolor="#D9E2EC",
-            font=dict(color="#17212B", family=CHART_FONT, size=12)
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.09,
-            xanchor="left",
-            x=0,
-            font=dict(size=10.8, family=CHART_FONT, color="#52616B")
-        ),
-    )
-    return fig
-
-# ---------------- HIGH-END ANALYTICAL FLOW PANEL ----------------
-def render_analytical_flow_panel(df):
-    """Unified panel combining relationship heatmaps and Sankey flow."""
-    if "top_n_option" not in st.session_state:
-        st.session_state.top_n_option = "Top 5"
-
-    total_records = len(df) if df is not None else 0
-    top_n_map = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}
-    if st.session_state.get("top_n_option") not in top_n_map:
-        st.session_state.top_n_option = "Top 5"
-
-    st.markdown("""
-    <style>
-    .flow-panel-shell {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FBF9FE 100%);
-        border: 1px solid #E7DDF2;
-        border-radius: 22px;
-        padding: 18px 18px 14px 18px;
-        margin: 18px 0 18px 0;
-        box-shadow: 0 12px 34px rgba(45, 0, 85, 0.075);
-    }
-    .flow-panel-eyebrow {font-family: Inter, Arial, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; color: #008CAA; margin-bottom: 4px;}
-    .flow-panel-title {font-family: Inter, Arial, sans-serif; font-size: 19px; font-weight: 950; color: #2D0055; margin-bottom: 4px;}
-    .flow-panel-subtitle {font-family: Inter, Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.45; max-width: 980px; margin-bottom: 12px;}
-    .flow-panel-badges {display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 4px 0;}
-    .flow-panel-badge {background: #F3ECF8; border: 1px solid #E1D2EC; border-radius: 999px; padding: 5px 9px; font-family: Inter, Arial, sans-serif; font-size: 10.8px; font-weight: 800; color: #4B006E;}
-    .flow-guide-card {background: #FFFFFF; border: 1px solid #E8EEF3; border-radius: 16px; padding: 11px 13px; min-height: 76px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.045);}
-    .flow-guide-title {font-family: Inter, Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
-    .flow-guide-text {font-family: Inter, Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
-    .flow-section-label {font-family: Inter, Arial, sans-serif; font-size: 13.2px; font-weight: 950; color: #2D0055; margin: 16px 0 2px 0;}
-    .flow-section-note {font-family: Inter, Arial, sans-serif; font-size: 11.2px; color: #64748B; margin-bottom: 8px;}
-    .flow-divider {height: 1px; background: linear-gradient(90deg, rgba(102,0,148,.22), rgba(0,140,170,.16), rgba(255,219,88,.10)); margin: 14px 0 10px 0;}
-    </style>
-    <div class="flow-panel-shell">
-        <div class="flow-panel-eyebrow">Negative events relationship intelligence</div>
-        <div class="flow-panel-title">Analytical Flow Panel</div>
-        <div class="flow-panel-subtitle">
-            A unified diagnostic view linking restrictive actors, restrictive mechanisms, and affected civil society groups. Use the heatmaps to identify concentrated relationships, then use the Sankey diagram to follow the end-to-end pathway.
-        </div>
-        <div class="flow-panel-badges">
-            <span class="flow-panel-badge">Actor → Mechanism → Affected group</span>
-            <span class="flow-panel-badge">Heatmaps + Sankey</span>
-            <span class="flow-panel-badge">Filter-aware analysis</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    g1, g2, g3 = st.columns(3, gap="medium")
-    with g1:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">1. Diagnose concentration</div><div class="flow-guide-text">Start with heatmaps. Darker cells show where alerts are concentrated across actor, mechanism, and affected-group relationships.</div></div>', unsafe_allow_html=True)
-    with g2:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">2. Follow the pathway</div><div class="flow-guide-text">Use the Sankey to trace how restrictive actors connect to mechanisms and then to affected civil society groups.</div></div>', unsafe_allow_html=True)
-    with g3:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">3. Adjust complexity</div><div class="flow-guide-text">Use Top-N controls for executive readability. Smaller values simplify the view; All supports deeper analytical exploration.</div></div>', unsafe_allow_html=True)
-
-    ctrl_left, ctrl_right = st.columns([1.15, 2.85], gap="large")
-    with ctrl_left:
-        selected = st.selectbox(
-            "Relationship view depth",
-            options=list(top_n_map.keys()),
-            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
-            help="Controls the number of leading actors, mechanisms, and affected groups shown in the heatmaps and Sankey flow.",
-            key="flow_panel_top_n_select",
-        )
-        st.session_state.top_n_option = selected
-        top_n = top_n_map[selected]
-        st.session_state.top_n = top_n
-    with ctrl_right:
-        st.markdown(f"""
-        <div class="flow-panel-badges" style="margin-top: 27px;">
-            <span class="flow-panel-badge">Records: {total_records:,}</span>
-            <span class="flow-panel-badge">View: {'All categories' if top_n is None else 'Top ' + str(top_n)}</span>
-            <span class="flow-panel-badge">Tip: hover cells and flows for counts</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-label">Diagnostic heatmaps</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Use these matrices to identify concentrated pairwise relationships before interpreting the full flow.</div>', unsafe_allow_html=True)
-    render_heatmaps(df, top_n=top_n)
-
-    st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-label">Integrated flow diagram</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.</div>', unsafe_allow_html=True)
-    st.plotly_chart(render_sankey(df, top_n=top_n), use_container_width=True, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
-
-# ---------------- TOP-N BAR HELPER ----------------
-def top_n_bar(df, col, top_n=None):
-    if col not in df.columns or df.empty:
-        return pd.DataFrame(columns=[col, "count"])
-    
-    counts = df[col].value_counts().reset_index()
-    counts.columns = [col, "count"]
-    
-    if top_n is not None:
-        counts = counts.head(top_n)    
-    return counts
-# ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
-def explode_multi_valued_columns(df, cols):
-    """
-    Explodes comma-separated values in specified columns.
-    Each comma-separated value becomes a separate row.
-    """
-    df_exploded = df.copy()
-    for col in cols:
-        if col in df_exploded.columns:
-            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
-            df_exploded = df_exploded.explode(col)
-            df_exploded[col] = df_exploded[col].str.strip()
-    return df_exploded
-
-#### --------prepare enabling principles to be ordered-------------------------------------------
-ENABLING_PRINCIPLE_ORDER = [
-    "1. Respect and protection of fundamental freedoms",
-    "2. Supportive legal and regulatory framework",
-    "3. Accessible and sustainable resources",
-    "4. Open and responsive State",
-    "5. Supportive public culture and discourses on civil society",
-    "6. Access to a secure digital environment"
-]
-
-ENABLING_PRINCIPLE_LABEL_MAP = {
-    "Respect and protection of fundamental freedoms":"1. Respect and protection of fundamental freedoms",
-    "Supportive legal and regulatory framework":"2. Supportive legal and regulatory framework",
-    "Accessible and sustainable resources":"3. Accessible and sustainable resources",
-    "State openness and responsiveness to civil society":"4. Open and responsive State",
-    "Civic Culture and Public Discourses on Civil Society":"5. Supportive public culture and discourses on civil society",
-    "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
-}
-
-
-
-# ---------------- AI ASSISTANT HELPERS v2 ----------------
-def _clean_text_value(x):
-    if pd.isna(x):
-        return ""
-    return str(x).strip()
-
-
-def _safe_series_counts(df, col, top=5):
-    if df is None or df.empty or col not in df.columns:
-        return {}
-    return (
-        df[col]
-        .dropna()
-        .astype(str)
-        .str.strip()
-        .replace("", np.nan)
-        .dropna()
-        .value_counts()
-        .head(top)
-        .to_dict()
-    )
-
-
-def _safe_exploded_counts(df, col, top=5):
-    if df is None or df.empty or col not in df.columns:
-        return {}
-    s = df[col].dropna().astype(str)
-    if col == "Actor of repression":
-        s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-    return (
-        s.str.split(",")
-        .explode()
-        .astype(str)
-        .str.strip()
-        .replace("", np.nan)
-        .dropna()
-        .value_counts()
-        .head(top)
-        .to_dict()
-    )
-
-
-def _format_ranked(items, label="alerts"):
-    if not items:
-        return "No matching records are available under the current filters."
-    return "\n".join([f"{i}. {k} — {v} {label}" for i, (k, v) in enumerate(items.items(), start=1)])
-
-
-def _month_trend(df):
-    if df is None or df.empty or "creation_date" not in df.columns:
-        return pd.DataFrame(columns=["month", "total", "negative", "positive", "context"])
-    tmp = df.copy()
-    tmp["creation_date"] = pd.to_datetime(tmp["creation_date"], errors="coerce")
-    tmp = tmp.dropna(subset=["creation_date"])
-    if tmp.empty:
-        return pd.DataFrame(columns=["month", "total", "negative", "positive", "context"])
-    tmp["month"] = tmp["creation_date"].dt.to_period("M").astype(str)
-    out = (
-        tmp.groupby("month")
-        .agg(
-            total=("alert-impact", "size"),
-            negative=("alert-impact", lambda x: int((x == "Negative").sum())),
-            positive=("alert-impact", lambda x: int((x == "Positive").sum())),
-            context=("alert-impact", lambda x: int((x == "Context to watch").sum())),
-        )
-        .reset_index()
-        .sort_values("month")
-    )
-    return out
-
-
-def _trend_sentence(df):
-    trend = _month_trend(df)
-    if trend.shape[0] < 2:
-        return "A monthly trend cannot be calculated because fewer than two time periods are available under the current filters."
-    first = int(trend.iloc[0]["total"])
-    last = int(trend.iloc[-1]["total"])
-    diff = last - first
-    pct = round((diff / first) * 100, 1) if first else 0
-    direction = "increased" if diff > 0 else "decreased" if diff < 0 else "remained stable"
-    return f"Total alerts {direction} from {first} in {trend.iloc[0]['month']} to {last} in {trend.iloc[-1]['month']} ({diff:+d}, {pct:+.1f}%)."
-
-
-def summarize_for_ai(df):
-    if df is None or df.empty:
-        return {
-            "total_alerts": 0,
-            "negative": 0,
-            "positive": 0,
-            "context": 0,
-            "negative_pct": 0,
-            "positive_pct": 0,
-            "context_pct": 0,
-            "countries_count": 0,
-            "regions_count": 0,
-            "top_countries": {},
-            "top_negative_countries": {},
-            "top_regions": {},
-            "top_alert_types": {},
-            "top_principles": {},
-            "top_actors": {},
-            "top_mechanisms": {},
-            "trend_sentence": "No data are available under the current filters.",
-        }
-
-    total = len(df)
-    negative = int((df["alert-impact"] == "Negative").sum()) if "alert-impact" in df.columns else 0
-    positive = int((df["alert-impact"] == "Positive").sum()) if "alert-impact" in df.columns else 0
-    context = int((df["alert-impact"] == "Context to watch").sum()) if "alert-impact" in df.columns else 0
-    neg_df = df[df["alert-impact"] == "Negative"] if "alert-impact" in df.columns else df.iloc[0:0]
+    with st.sidebar.expander("🌍 Geography", expanded=True):
+        regions = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
+        selected_regions = sidebar_multiselect("Region", [r for r in regions if r in data["region"].unique()], "selected_regions")
+        country_scope = data[data["region"].isin(selected_regions)] if selected_regions else data
+        selected_countries = sidebar_multiselect("Country", country_scope["alert-country"].dropna().unique(), "selected_countries")
+
+    with st.sidebar.expander("⚠️ Alert Structure", expanded=True):
+        selected_impacts = sidebar_multiselect("Impact", data["alert-impact"].dropna().unique(), "selected_alert_impacts")
+        selected_types = sidebar_multiselect("Type", data["alert-type"].dropna().unique(), "selected_alert_types")
+        principles = data["enabling-principle"].dropna().astype(str).str.split(",").explode().str.strip()
+        principles = principles.replace(ENABLING_PRINCIPLE_LABEL_MAP).dropna().unique()
+        selected_principles = sidebar_multiselect("Enabling Principle", principles, "selected_enabling_principles")
+
+    with st.sidebar.expander("📅 Time", expanded=True):
+        selected_years = sidebar_multiselect("Year", data["year"].dropna().astype(int).unique(), "selected_years")
+        month_scope = data[data["year"].isin(selected_years)] if selected_years else data
+        month_order = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"], 1)}
+        months = sorted(month_scope["month_name"].dropna().unique(), key=lambda m: month_order.get(m, 99))
+        selected_months = sidebar_multiselect("Month", months, "selected_months")
+
+    if st.sidebar.button("🔄 Reset Filters", use_container_width=True):
+        for k in ["selected_regions", "selected_countries", "selected_alert_impacts", "selected_alert_types", "selected_enabling_principles", "selected_years", "selected_months"]:
+            st.session_state[k] = ["Select all"]
+        st.rerun()
 
     return {
-        "total_alerts": int(total),
-        "negative": negative,
-        "positive": positive,
-        "context": context,
-        "negative_pct": round((negative / total) * 100, 1) if total else 0,
-        "positive_pct": round((positive / total) * 100, 1) if total else 0,
-        "context_pct": round((context / total) * 100, 1) if total else 0,
-        "countries_count": int(df["alert-country"].nunique()) if "alert-country" in df.columns else 0,
-        "regions_count": int(df["region"].nunique()) if "region" in df.columns else 0,
-        "top_countries": _safe_series_counts(df, "alert-country", 5),
-        "top_negative_countries": _safe_series_counts(neg_df, "alert-country", 5),
-        "top_regions": _safe_series_counts(df, "region", 5),
-        "top_alert_types": _safe_series_counts(df, "alert-type", 5),
-        "top_principles": _safe_exploded_counts(df, "enabling-principle", 5),
-        "top_actors": _safe_exploded_counts(neg_df, "Actor of repression", 5),
-        "top_mechanisms": _safe_exploded_counts(neg_df, "Mechanism of repression", 5),
-        "trend_sentence": _trend_sentence(df),
+        "regions": selected_regions,
+        "countries": selected_countries,
+        "impacts": selected_impacts,
+        "types": selected_types,
+        "principles": selected_principles,
+        "years": selected_years,
+        "months": selected_months,
     }
 
 
+def filter_data(data: pd.DataFrame, filters: Dict[str, List]) -> pd.DataFrame:
+    if data.empty:
+        return data
 
-# ---------------- EUSEE WEBSITE REDIRECT ----------------
-# Update this URL if the official EUSEE website uses a different domain.
-try:
-    EUSEE_URL = st.secrets.get("eusee", {}).get("website_url", "https://eusee.org")
-except Exception:
-    EUSEE_URL = "https://eusee.org"
+    def principle_matches(value: object) -> bool:
+        selected = filters["principles"]
+        if not selected:
+            return True
+        raw_items = split_multi(value)
+        mapped = [ENABLING_PRINCIPLE_LABEL_MAP.get(i.lower(), title_case_soft(i)) for i in raw_items]
+        return bool(set(mapped).intersection(set(selected)))
 
-EUSEE_REDIRECT_TEXT = (
-    "For a broader overview and additional qualitative insights, "
-    "please visit the EUSEE website."
-)
+    mask = (
+        data["region"].isin(filters["regions"]) &
+        data["alert-country"].isin(filters["countries"]) &
+        data["alert-impact"].isin(filters["impacts"]) &
+        data["alert-type"].isin(filters["types"]) &
+        data["year"].isin(filters["years"]) &
+        data["month_name"].isin(filters["months"]) &
+        data["enabling-principle"].apply(principle_matches)
+    )
+    return data.loc[mask].copy()
 
-def append_eusee_redirect(response: str) -> str:
-    """Append a standard EUSEE website redirect to every chatbot answer."""
-    response = str(response or "").strip()
-    if EUSEE_REDIRECT_TEXT in response:
-        return response
-    return (
-        f"{response}\n\n"
-        f"🌐 {EUSEE_REDIRECT_TEXT}\n"
-        f"Open EUSEE: {EUSEE_URL}"
+
+def render_sidebar_status(df: pd.DataFrame, filters: Dict[str, List]) -> None:
+    chips = []
+    for label, vals in [("Region", filters["regions"]), ("Country", filters["countries"]), ("Impact", filters["impacts"]), ("Year", filters["years"]), ("Month", filters["months"] )]:
+        visible = "All" if len(vals) > 4 else ", ".join(map(str, vals[:4]))
+        chips.append(f"<span class='chip'>{label}: {compact(visible, 28)}</span>")
+    st.sidebar.markdown(
+        f"""
+        <div class="active-filter-box">
+            <div class="active-filter-line"><strong>{len(df):,}</strong> active records</div>
+            <div class="active-filter-line"><strong>{count_unique(df, 'alert-country'):,}</strong> countries · <strong>{count_unique(df, 'year'):,}</strong> years</div>
+            <div class="chip-row">{''.join(chips)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-def generate_ai_executive_summary(df):
-    s = summarize_for_ai(df)
-    if s["total_alerts"] == 0:
-        return "EU SEE AI Assistant Summary\n\nNo data are available under the current filters."
-
-    return f"""EU SEE AI Assistant Summary
-
-Filtered dashboard scope
-- Total alerts: {s['total_alerts']}
-- Countries represented: {s['countries_count']}
-- Regions represented: {s['regions_count']}
-- Negative alerts: {s['negative']} ({s['negative_pct']}%)
-- Positive alerts: {s['positive']} ({s['positive_pct']}%)
-- Context to watch: {s['context']} ({s['context_pct']}%)
-
-Trend signal
-{s['trend_sentence']}
-
-Top countries
-{_format_ranked(s['top_countries'])}
-
-Top countries by negative alerts
-{_format_ranked(s['top_negative_countries'])}
-
-Top alert types
-{_format_ranked(s['top_alert_types'])}
-
-Top enabling principles
-{_format_ranked(s['top_principles'])}
-
-Top restrictive actors among negative alerts
-{_format_ranked(s['top_actors'])}
-
-Top restrictive mechanisms among negative alerts
-{_format_ranked(s['top_mechanisms'])}
-
-Interpretation note
-These results reflect the currently selected filters and reporting coverage. Higher counts may reflect either more incidents, stronger reporting intensity, broader monitoring coverage, or a combination of these factors.
-"""
-
-
-def _local_ai_response_core(question, df):
-    q = (question or "").lower().strip()
-    s = summarize_for_ai(df)
-    if s["total_alerts"] == 0:
-        return "No data are available under the current filters. Please adjust the filters and try again."
-
-    if any(k in q for k in ["negative countr", "highest negative", "top negative countr"]):
-        return "Top countries by negative alerts under the current filters:\n\n" + _format_ranked(s["top_negative_countries"])
-
-    if any(k in q for k in ["country", "countries"]):
-        return "Top countries under the current filters:\n\n" + _format_ranked(s["top_countries"])
-
-    if any(k in q for k in ["compare region", "regional comparison", "regions compare"]):
-        return "Regional comparison under the current filters:\n\n" + _format_ranked(s["top_regions"])
-
-    if any(k in q for k in ["region", "regions"]):
-        return "Regional distribution under the current filters:\n\n" + _format_ranked(s["top_regions"])
-
-    if any(k in q for k in ["trend", "over time", "time", "increase", "decrease"]):
-        return s["trend_sentence"]
-
-    if "negative" in q:
-        return f"There are {s['negative']} negative alerts out of {s['total_alerts']} total alerts under the current filters. This represents {s['negative_pct']}% of the filtered records."
-
-    if "positive" in q:
-        return f"There are {s['positive']} positive alerts out of {s['total_alerts']} total alerts under the current filters. This represents {s['positive_pct']}% of the filtered records."
-
-    if any(k in q for k in ["alert type", "type", "types"]):
-        return "Main alert types under the current filters:\n\n" + _format_ranked(s["top_alert_types"])
-
-    if any(k in q for k in ["principle", "principles", "enabling"]):
-        return "Top enabling principles represented in the current filters:\n\n" + _format_ranked(s["top_principles"])
-
-    if any(k in q for k in ["actor", "actors", "repression"]):
-        return "Top restrictive actors among negative alerts in the current filtered records:\n\n" + _format_ranked(s["top_actors"])
-
-    if any(k in q for k in ["mechanism", "mechanisms", "restriction"]):
-        return "Top restrictive mechanisms among negative alerts in the current filtered records:\n\n" + _format_ranked(s["top_mechanisms"])
-
-    if any(k in q for k in ["policy brief", "briefing note"]):
-        return generate_ai_policy_brief(df)
-
-    if any(k in q for k in ["data quality", "missing", "completeness"]):
-        return ai_data_quality_report(df)
-
-    if any(k in q for k in ["auto insight", "automatic insight", "key insight", "main insight", "insights"]):
-        return generate_auto_insights_text(df)
-
-    if any(k in q for k in ["next step", "recommend", "action"]):
-        return ai_recommended_next_steps(df)
-
-    if any(k in q for k in ["summary", "summarise", "summarize", "overview", "brief"]):
-        return generate_ai_executive_summary(df)
-
-    if any(k in q for k in ["interpret", "meaning", "explain", "insight"]):
-        return (
-            f"Main interpretation from the current filters:\n\n"
-            f"The filtered dataset contains {s['total_alerts']} alerts across {s['countries_count']} countries. "
-            f"Negative alerts account for {s['negative_pct']}% of records. "
-            f"The most represented countries are:\n{_format_ranked(s['top_countries'])}\n\n"
-            f"Important caution: alert counts should be interpreted alongside reporting intensity and monitoring coverage."
-        )
-
-    return (
-        "I can answer questions from the currently filtered dashboard data. Try asking about:\n\n"
-        "- top countries\n- top countries with negative alerts\n- regional comparison\n- trends over time\n- alert types\n- enabling principles\n- restrictive actors\n- restrictive mechanisms\n- executive summary"
-    )
-
-
-
-def local_ai_response(question, df):
-    """Chatbot-facing response wrapper with EUSEE website redirect."""
-    return append_eusee_redirect(_local_ai_response_core(question, df))
-
-def ai_auto_insights(df):
-    '''Generate automatic, filter-aware insights for the Copilot Insights tab.'''
-    s = summarize_for_ai(df)
-    if s["total_alerts"] == 0:
-        return [
-            {"title": "No matching records", "body": "The current filter selection returns no records. Broaden the filters to generate insights.", "tone": "neutral"}
-        ]
-
-    insights = []
-    total = s["total_alerts"]
-
-    if s["negative_pct"] >= 70:
-        insights.append({
-            "title": "High negative-alert concentration",
-            "body": f"Negative alerts account for {s['negative_pct']}% of the current filtered records ({s['negative']:,} of {total:,}). Prioritize deeper review of actors, mechanisms, and affected groups.",
-            "tone": "high"
-        })
-    elif s["negative_pct"] >= 40:
-        insights.append({
-            "title": "Moderate negative-alert concentration",
-            "body": f"Negative alerts represent {s['negative_pct']}% of the filtered records. This warrants closer interpretation alongside geography and reporting coverage.",
-            "tone": "moderate"
-        })
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**🔐 Login / Access**")
+    if is_authenticated():
+        st.sidebar.success(f"Signed in: {st.session_state.get('name', 'User')}")
+        if st.sidebar.button("Logout", use_container_width=True):
+            try:
+                from auth import logout
+                logout()
+            except Exception:
+                st.session_state.clear()
+            st.rerun()
     else:
-        insights.append({
-            "title": "Lower negative-alert share",
-            "body": f"Negative alerts represent {s['negative_pct']}% of the filtered records. Continue monitoring for emerging shifts across countries and mechanisms.",
-            "tone": "low"
-        })
+        st.sidebar.caption("Sign in only when privileged access is needed.")
+        if st.sidebar.button("🔐 Sign in / Access", use_container_width=True):
+            st.session_state.auth_view = True
+            st.rerun()
 
-    top_countries = s.get("top_countries", {})
-    if top_countries:
-        top_country, top_count = next(iter(top_countries.items()))
-        top_share = round((top_count / total) * 100, 1) if total else 0
-        insights.append({
-            "title": "Geographic concentration",
-            "body": f"{top_country} has the highest number of alerts under the current filters ({top_count:,}, {top_share}% of filtered records). Use the map or country chart to validate spatial concentration.",
-            "tone": "info"
-        })
-
-    neg_countries = s.get("top_negative_countries", {})
-    if neg_countries:
-        neg_country, neg_count = next(iter(neg_countries.items()))
-        insights.append({
-            "title": "Negative-alert hotspot",
-            "body": f"{neg_country} leads the filtered negative-alert count ({neg_count:,}). Review whether this reflects elevated restriction patterns, stronger reporting intensity, or both.",
-            "tone": "moderate" if s["negative_pct"] < 70 else "high"
-        })
-
-    top_types = s.get("top_alert_types", {})
-    if top_types:
-        top_type, type_count = next(iter(top_types.items()))
-        insights.append({
-            "title": "Dominant alert type",
-            "body": f"The most frequent alert type is '{top_type}' ({type_count:,} records). Compare this with alert impact to understand whether it is mainly negative, positive, or context-to-watch.",
-            "tone": "info"
-        })
-
-    if s.get("top_mechanisms"):
-        mech, mech_count = next(iter(s["top_mechanisms"].items()))
-        insights.append({
-            "title": "Main restrictive mechanism",
-            "body": f"Among negative alerts, the leading restrictive mechanism is '{mech}' ({mech_count:,}). Use the heatmaps and Sankey flow to inspect actor-to-mechanism pathways.",
-            "tone": "info"
-        })
-    elif s.get("top_actors"):
-        actor, actor_count = next(iter(s["top_actors"].items()))
-        insights.append({
-            "title": "Main restrictive actor",
-            "body": f"Among negative alerts, the leading restrictive actor category is '{actor}' ({actor_count:,}). Review affected groups before drawing conclusions.",
-            "tone": "info"
-        })
-
-    insights.append({
-        "title": "Trend signal",
-        "body": s.get("trend_sentence", "Trend information is not available for the selected filters."),
-        "tone": "neutral"
-    })
-
-    insights.append({
-        "title": "Interpretation caution",
-        "body": "Counts indicate reported/monitored alerts under the selected filters. They should be interpreted together with reporting coverage, submission intensity, and qualitative context.",
-        "tone": "caution"
-    })
-    return insights
-
-
-def render_auto_insights_cards(df):
-    '''Render auto-generated insights as compact cards inside the AI Copilot.'''
-    tone_styles = {
-        "high": ("#fff1f2", "#dc2626"),
-        "moderate": ("#fffbeb", "#f59e0b"),
-        "low": ("#ecfdf5", "#16a34a"),
-        "info": ("#f0f9ff", "#008CAA"),
-        "neutral": ("#f8fafc", "#64748b"),
-        "caution": ("#fff9dc", "#FFDB58"),
-    }
-    st.markdown('<div class="copilot-section">Auto insights from current filters</div>', unsafe_allow_html=True)
-    for ins in ai_auto_insights(df):
-        bg, border = tone_styles.get(ins.get("tone", "neutral"), tone_styles["neutral"])
-        card_html = f'''
-            <div style="background:{bg};border-left:5px solid {border};border-radius:13px;padding:10px 12px;margin:8px 0;">
-                <div style="font-size:12px;font-weight:900;color:#2d0055;margin-bottom:4px;">{ins['title']}</div>
-                <div style="font-size:11.5px;color:#333;line-height:1.42;">{ins['body']}</div>
-            </div>
-        '''
-        st.markdown(card_html, unsafe_allow_html=True)
-
-
-def generate_auto_insights_text(df):
-    '''Plain-text version for chat/export.'''
-    insights = ai_auto_insights(df)
-    lines = ["Auto insights from current filters"]
-    for i, ins in enumerate(insights, start=1):
-        lines.append(f"{i}. {ins['title']}: {ins['body']}")
-    return "\n".join(lines)
-
-def render_ai_trend_chart(df):
-    trend = _month_trend(df)
-    if trend.empty or trend.shape[0] < 2:
-        st.info("Trend chart unavailable for the current filter selection.")
-        return
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=trend["month"], y=trend["total"], mode="lines+markers", name="Total"))
-    fig.add_trace(go.Scatter(x=trend["month"], y=trend["negative"], mode="lines+markers", name="Negative"))
-    fig.update_layout(
-        title=dict(text="Filtered Alert Trend", font=dict(size=12, color="#660094")),
-        height=240,
-        margin=dict(l=10, r=10, t=40, b=20),
-        font=dict(size=10),
-        legend=dict(orientation="h", y=-0.2),
-    )
-    st.plotly_chart(fig, use_container_width=True, key="ai_trend_chart")
-
-
-
-# ---------------- AI ASSISTANT PROFESSIONAL UX HELPERS v3 ----------------
-def _pct(part, total):
-    return round((part / total) * 100, 1) if total else 0
-
-
-def ai_priority_level(df):
-    """Returns a simple UX priority label based on negative-alert share."""
-    s = summarize_for_ai(df)
-    neg_pct = s.get("negative_pct", 0)
-    if s.get("total_alerts", 0) == 0:
-        return "No data", "#999999", "No records match the current filters."
-    if neg_pct >= 70:
-        return "High attention", "#B42318", "Negative alerts dominate the current filtered view."
-    if neg_pct >= 45:
-        return "Moderate attention", "#B54708", "Negative alerts are substantial and should be reviewed with country and actor breakdowns."
-    return "Watch", "#027A48", "Negative-alert share is comparatively lower under the current filters."
-
-
-def ai_data_quality_report(df):
-    """Compact data-quality report for user trust and interpretation."""
-    if df is None or df.empty:
-        return "No records are available under the current filters."
-
-    cols = [
-        "creation_date", "alert-country", "region", "alert-impact", "alert-type",
-        "enabling-principle", "Actor of repression", "Subject of repression",
-        "Mechanism of repression", "Type of event"
-    ]
-    available = [c for c in cols if c in df.columns]
-    lines = [f"Records assessed: {len(df):,}"]
-    for c in available:
-        missing = int(df[c].isna().sum() + (df[c].astype(str).str.strip() == "").sum())
-        lines.append(f"- {c}: {missing:,} blank/missing values")
-    return "\n".join(lines)
-
-
-def ai_recommended_next_steps(df):
-    s = summarize_for_ai(df)
-    if s["total_alerts"] == 0:
-        return "Adjust the filters to include at least one region, country, year, or alert type."
-
-    steps = []
-    if s["negative_pct"] >= 50:
-        steps.append("Prioritize the Negative Alerts tab to inspect restrictive actors and mechanisms.")
-    if s["top_negative_countries"]:
-        top_country = next(iter(s["top_negative_countries"].keys()))
-        steps.append(f"Drill down into {top_country} to validate whether the high count reflects risk, reporting intensity, or both.")
-    if s["top_mechanisms"]:
-        top_mech = next(iter(s["top_mechanisms"].keys()))
-        steps.append(f"Review the mechanism pathway for '{top_mech}' using the heatmaps and Sankey flow.")
-    steps.append("Export the filtered summary for reporting and include the interpretation note on reporting coverage.")
-    return "\n".join([f"{i}. {x}" for i, x in enumerate(steps, start=1)])
-
-
-def generate_ai_policy_brief(df):
-    s = summarize_for_ai(df)
-    if s["total_alerts"] == 0:
-        return "EU SEE AI Policy Brief\n\nNo records are available under the current filters."
-
-    level, _, level_note = ai_priority_level(df)
-    return f"""EU SEE AI Policy Brief
-
-Priority signal: {level}
-{level_note}
-
-Scope
-The current filtered view contains {s['total_alerts']} alerts across {s['countries_count']} countries and {s['regions_count']} regions. Negative alerts account for {s['negative']} records ({s['negative_pct']}%), positive alerts account for {s['positive']} records ({s['positive_pct']}%), and context-to-watch alerts account for {s['context']} records ({s['context_pct']}%).
-
-Most represented countries
-{_format_ranked(s['top_countries'])}
-
-Most represented countries by negative alerts
-{_format_ranked(s['top_negative_countries'])}
-
-Dominant issue areas
-Top alert types:\n{_format_ranked(s['top_alert_types'])}
-
-Top enabling principles:\n{_format_ranked(s['top_principles'])}
-
-Negative-alert pathways
-Top restrictive actors:\n{_format_ranked(s['top_actors'])}
-
-Top restrictive mechanisms:\n{_format_ranked(s['top_mechanisms'])}
-
-Recommended analytical next steps
-{ai_recommended_next_steps(df)}
-
-Interpretation caveat
-Counts should be interpreted with care because they may reflect incident frequency, monitoring intensity, reporting coverage, network activity, or a combination of these factors.
-"""
-
-
-def render_ai_metric(label, value, note="", color="#660094"):
+# -----------------------------------------------------------------------------
+# Header and cards
+# -----------------------------------------------------------------------------
+def render_header(df: pd.DataFrame, filters: Dict[str, List]) -> None:
+    region_label = "Multiple regions" if len(filters["regions"]) != 1 else str(filters["regions"][0])
+    year_label = "Multiple years" if len(filters["years"]) != 1 else str(int(filters["years"][0]))
     st.markdown(
         f"""
-        <div class="ai-kpi">
-            <div class="ai-kpi-label">{label}</div>
-            <div class="ai-kpi-value" style="color:{color};">{value}</div>
-            <div class="ai-kpi-note">{note}</div>
+        <div class="app-header">
+            <div>
+                <div class="app-title"><span>EU SEE</span> Dashboard</div>
+                <div class="app-subtitle">Interactive monitoring of civic space alerts across countries, enabling rapid exploration of alert patterns, restrictive pathways, geographic signals, and supporting evidence.</div>
+            </div>
+            <div class="context-strip">
+                <span>{compact(region_label, 26)}</span><span class="context-dot"></span>
+                <span>{year_label}</span><span class="context-dot"></span>
+                <span>{len(df):,} alerts</span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-
-def _render_chat_content_html(content):
-    """Escape chatbot text while rendering the EUSEE redirect as a trusted clickable link."""
-    import html as _html
-    text = str(content or "")
-    redirect_line = f"Open EUSEE: {EUSEE_URL}"
-    if redirect_line in text:
-        main_text = text.replace(f"\n{redirect_line}", "").replace(redirect_line, "").strip()
-        main_html = _html.escape(main_text).replace("\n", "<br>")
-        redirect_html = f"""
-        <div style="margin-top:10px;padding:10px 12px;border-left:4px solid #660094;background:#fbf8ff;border-radius:10px;">
-            <div style="font-size:12px;line-height:1.35;color:#333;">🌐 <b>{EUSEE_REDIRECT_TEXT}</b></div>
-            <a href="{EUSEE_URL}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;background:#660094;color:#ffffff;padding:6px 10px;border-radius:8px;text-decoration:none;font-weight:800;font-size:12px;">
-                Open EUSEE →
-            </a>
-        </div>
-        """
-        return main_html + redirect_html
-    return _html.escape(text).replace("\n", "<br>")
-
-def _ai_stream_response_text(text: str):
-    """Yield words to create a ChatGPT-style streaming response."""
-    words = str(text or "").split(" ")
-    for word in words:
-        yield word + " "
-
-
-def _save_ai_answer(question, df):
-    """Generate and store an answer using the local assistant engine."""
-    q = str(question or "").strip()
-    if not q:
-        return
-    st.session_state.ai_messages.append({"role": "user", "content": q})
-    q_lower = q.lower()
-    if "data quality" in q_lower or "missing" in q_lower:
-        answer = append_eusee_redirect(ai_data_quality_report(df))
-    elif "next step" in q_lower or "recommend" in q_lower:
-        answer = append_eusee_redirect(ai_recommended_next_steps(df))
-    elif "policy brief" in q_lower or "briefing" in q_lower:
-        answer = append_eusee_redirect(generate_ai_policy_brief(df))
-    else:
-        answer = local_ai_response(q, df)
-    st.session_state.ai_pending_answer = answer
-    st.session_state.ai_is_typing = True
-
-
-def render_ai_assistant_panel(df):
-    """Render a professional floating ChatGPT-style assistant."""
-    st.markdown("""
-        <style>
-        .eusee-ai-shell {position: fixed; right: 22px; bottom: 22px; width: min(430px, calc(100vw - 34px)); height: min(720px, calc(100vh - 44px)); background:#fff; border:1px solid #eadff8; border-radius:24px; box-shadow:0 24px 70px rgba(45,0,85,.28); z-index:999999; overflow:hidden; display:flex; flex-direction:column;}
-        .eusee-ai-mini {position:fixed; right:24px; bottom:24px; z-index:999999; background:linear-gradient(135deg,#660094,#7b2cff); color:#fff; border-radius:999px; padding:12px 18px; box-shadow:0 16px 38px rgba(45,0,85,.28); font-family:Arial,sans-serif; font-weight:900; font-size:14px;}
-        .eusee-ai-head {background:linear-gradient(135deg,#2d0055,#660094 55%,#7b2cff); color:#fff; padding:14px 16px 12px 16px;}
-        .eusee-ai-title {font-family:Arial,sans-serif; font-size:17px; font-weight:900;}
-        .eusee-ai-badge {font-size:10px; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.25); padding:3px 8px; border-radius:999px; margin-left:6px;}
-        .eusee-ai-sub {font-size:12px; line-height:1.35; color:#f1e8ff; margin-top:4px;}
-        .eusee-ai-context {display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
-        .eusee-ai-pill {background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); padding:4px 8px; border-radius:999px; font-size:11px; font-weight:800; color:#fff;}
-        .eusee-ai-body {padding:12px; background:linear-gradient(180deg,#ffffff 0%,#fbf8ff 100%); height:calc(100% - 96px); overflow-y:auto;}
-        .eusee-ai-card {background:#fff; border:1px solid #eee5ff; border-radius:16px; padding:12px; box-shadow:0 6px 18px rgba(45,0,85,.07); margin-bottom:8px;}
-        .eusee-ai-msg {background:#f7f2ff; border:1px solid #eee5ff; border-radius:16px 16px 16px 5px; padding:10px 12px; font-size:13px; color:#222; margin:8px 28px 10px 0; line-height:1.45; white-space:pre-wrap;}
-        .eusee-ai-user {background:linear-gradient(135deg,#660094,#7b2cff); color:#fff; border-radius:16px 16px 5px 16px; padding:10px 12px; font-size:13px; margin:8px 0 10px 42px; line-height:1.45; white-space:pre-wrap;}
-        .eusee-ai-kpi {background:#fff; border:1px solid #eee5ff; border-radius:14px; padding:10px; margin-bottom:8px;}
-        .eusee-ai-kpi-label {font-size:11px; color:#666; font-weight:700; text-transform:uppercase; letter-spacing:.03em;}
-        .eusee-ai-kpi-value {font-size:22px; font-weight:900; margin-top:2px;}
-        .eusee-ai-kpi-note {font-size:11px; color:#777; line-height:1.3;}
-        .eusee-ai-status {display:inline-block; font-size:11px; font-weight:900; color:#fff; padding:5px 9px; border-radius:999px;}
-        .eusee-typing {display:inline-flex; gap:4px; align-items:center; padding:6px 0;}
-        .eusee-typing span {width:6px; height:6px; background:#660094; border-radius:50%; display:block; animation:euseeTyping 1.1s infinite ease-in-out;}
-        .eusee-typing span:nth-child(2){animation-delay:.15s}.eusee-typing span:nth-child(3){animation-delay:.3s}
-        @keyframes euseeTyping {0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
-        .eusee-ai-guide li {font-size:12px; margin-bottom:6px; color:#333;}
-        .eusee-ai-shell div[data-testid="stButton"] button, .eusee-ai-mini-wrap div[data-testid="stButton"] button {border-radius:999px !important; font-weight:800 !important; min-height:34px !important;}
-        .eusee-ai-shell textarea {font-size:13px !important;}
-        .eusee-ai-shell div[data-testid="stTabs"] button {font-size:12px !important; font-weight:800 !important; padding:7px 0 !important;}
-        @media (max-width:900px){.eusee-ai-shell{right:10px;bottom:10px;width:calc(100vw - 20px);height:min(720px, calc(100vh - 20px));}}
-        </style>
-        """, unsafe_allow_html=True)
-
-    if "ai_messages" not in st.session_state:
-        st.session_state.ai_messages = [{"role": "assistant", "content": "Hello. I am your EU SEE AI assistant. Ask me about alerts, countries, regions, actors, mechanisms, trends, enabling principles, or data quality."}]
-    if "ai_floating_open" not in st.session_state:
-        st.session_state.ai_floating_open = True
-    if "ai_is_typing" not in st.session_state:
-        st.session_state.ai_is_typing = False
-    if "ai_pending_answer" not in st.session_state:
-        st.session_state.ai_pending_answer = None
-
-    s = summarize_for_ai(df)
-    level, level_color, level_note = ai_priority_level(df)
-
-    if not st.session_state.ai_floating_open:
-        st.markdown('<div class="eusee-ai-mini-wrap"><div class="eusee-ai-mini">💬 EUSEE AI Assistant</div></div>', unsafe_allow_html=True)
-        if st.button("Open AI Assistant", key="ai_open_floating", use_container_width=False):
-            st.session_state.ai_floating_open = True
-            st.rerun()
-        return
-
-    st.markdown('<div class="eusee-ai-shell">', unsafe_allow_html=True)
-    st.markdown(f'''
-        <div class="eusee-ai-head">
-            <div class="eusee-ai-title">🤖 EUSEE AI Assistant <span class="eusee-ai-badge">Pro</span></div>
-            <div class="eusee-ai-sub">ChatGPT-style assistant linked to current dashboard filters.</div>
-            <div class="eusee-ai-context">
-                <span class="eusee-ai-status" style="background:{level_color};">{level}</span>
-                <span class="eusee-ai-pill">{s['total_alerts']:,} alerts</span>
-                <span class="eusee-ai-pill">{s['countries_count']:,} countries</span>
-                <span class="eusee-ai-pill">{s['negative_pct']}% negative</span>
+def section_header(title: str, subtitle: str = "", badge: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="section-title-row">
+            <div>
+                <div class="section-kicker">EU SEE Intelligence</div>
+                <div class="section-title">{title}</div>
+                {f'<div class="section-subtitle">{subtitle}</div>' if subtitle else ''}
             </div>
-        </div><div class="eusee-ai-body">
-        ''', unsafe_allow_html=True)
-
-    top_controls = st.columns([1, 1, 1])
-    with top_controls[0]:
-        if st.button("Minimize", key="ai_minimize_float", use_container_width=True):
-            st.session_state.ai_floating_open = False
-            st.rerun()
-    with top_controls[1]:
-        if st.button("Clear", key="ai_clear_float_top", use_container_width=True):
-            st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
-            st.session_state.ai_pending_answer = None
-            st.session_state.ai_is_typing = False
-            st.rerun()
-    with top_controls[2]:
-        if st.button("Brief", key="ai_brief_float_top", use_container_width=True):
-            _save_ai_answer("Generate a policy brief.", df)
-            st.rerun()
-
-    chat_tab, insight_tab, export_tab, guide_tab = st.tabs(["Chat", "Insights", "Export", "Guide"])
-
-    with chat_tab:
-        st.markdown('<div class="eusee-ai-card"><b style="color:#2d0055;">Quick prompts</b>', unsafe_allow_html=True)
-        quick_questions = {
-            "Summary": "Generate an executive summary.", "Top countries": "Which countries have the highest number of alerts?",
-            "Negative": "Which countries have the highest negative alerts?", "Regions": "Compare regions under the current filters.",
-            "Trend": "Show trend of alerts over time.", "Types": "What are the main alert types?",
-            "Mechanisms": "What are the top restrictive mechanisms?", "Actors": "What are the top restrictive actors?",
-            "Quality": "Show the data quality report.", "Next steps": "What are the recommended next analytical steps?",
-        }
-        qcols = st.columns(2)
-        for idx, (label, prompt) in enumerate(quick_questions.items()):
-            with qcols[idx % 2]:
-                if st.button(label, key=f"ai_float_quick_{label}", use_container_width=True):
-                    _save_ai_answer(prompt, df)
-                    st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        for msg in st.session_state.ai_messages[-10:]:
-            css_class = "eusee-ai-user" if msg["role"] == "user" else "eusee-ai-msg"
-            safe_content = _render_chat_content_html(msg["content"])
-            st.markdown(f'<div class="{css_class}">{safe_content}</div>', unsafe_allow_html=True)
-
-        if st.session_state.ai_is_typing and st.session_state.ai_pending_answer:
-            st.markdown('<div class="eusee-ai-msg"><div class="eusee-typing"><span></span><span></span><span></span></div><br><b>AI is preparing the answer...</b></div>', unsafe_allow_html=True)
-            stream_box = st.empty()
-            streamed = ""
-            for chunk in _ai_stream_response_text(st.session_state.ai_pending_answer):
-                streamed += chunk
-                stream_box.markdown(f'<div class="eusee-ai-msg">{_render_chat_content_html(streamed)}</div>', unsafe_allow_html=True)
-            st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
-            st.session_state.ai_pending_answer = None
-            st.session_state.ai_is_typing = False
-            st.rerun()
-
-        with st.form("ai_assistant_floating_form", clear_on_submit=True):
-            user_q = st.text_area("Ask EUSEE AI", placeholder="Ask about countries, regions, trends, actors, mechanisms, or data quality...", height=78, label_visibility="collapsed")
-            submitted = st.form_submit_button("Send message", use_container_width=True)
-        if submitted and user_q.strip():
-            _save_ai_answer(user_q, df)
-            st.rerun()
-
-    with insight_tab:
-        st.markdown(f'<div class="eusee-ai-card"><b style="color:#2d0055;">Priority signal</b><br><span class="eusee-ai-status" style="background:{level_color};margin-top:8px;">{level}</span><div style="font-size:12px;color:#666;margin-top:8px;">{level_note}</div></div>', unsafe_allow_html=True)
-        k1, k2 = st.columns(2)
-        with k1:
-            render_ai_metric("Total alerts", f"{s['total_alerts']:,}", "Filtered records")
-            render_ai_metric("Negative share", f"{s['negative_pct']}%", f"{s['negative']:,} negative alerts", color=level_color)
-        with k2:
-            render_ai_metric("Countries", f"{s['countries_count']:,}", "Covered in current filter")
-            render_ai_metric("Regions", f"{s['regions_count']:,}", "Regional coverage")
-        with st.expander("AI interpretation", expanded=True):
-            st.markdown(_render_chat_content_html(local_ai_response("interpret the current view", df)), unsafe_allow_html=True)
-        with st.expander("Mini trend chart", expanded=True):
-            render_ai_trend_chart(df)
-        with st.expander("Recommended next analytical steps", expanded=False):
-            st.text(ai_recommended_next_steps(df))
-        with st.expander("Data quality / completeness check", expanded=False):
-            st.text(ai_data_quality_report(df))
-
-    with export_tab:
-        summary_text = generate_ai_executive_summary(df)
-        policy_text = generate_ai_policy_brief(df)
-        chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
-        st.download_button("Download executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True)
-        st.download_button("Download policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True)
-        st.download_button("Download chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True)
-        if df is not None and not df.empty:
-            cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle", "Actor of repression", "Subject of repression", "Mechanism of repression"] if c in df.columns]
-            csv_data = df[cols].to_csv(index=False).encode("utf-8") if cols else df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download filtered records (.csv)", data=csv_data, file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True)
-
-    with guide_tab:
-        st.markdown("""
-            <div class="eusee-ai-card eusee-ai-guide"><b style="color:#2d0055;">How to use this assistant</b>
-            <ul><li>Use dashboard filters first; answers are generated from the filtered view.</li>
-            <li>Use Chat for natural-language questions and quick prompts.</li>
-            <li>Use Insights for priority signal, interpretation, trend and data-quality checks.</li>
-            <li>Use Export for executive summaries, policy briefs, transcripts and filtered records.</li>
-            <li>Every answer links users back to the EUSEE website for broader qualitative context.</li></ul></div>
-            """, unsafe_allow_html=True)
-
-    st.markdown('</div></div>', unsafe_allow_html=True)
-# ---------------- MAIN DASHBOARD + AI ASSISTANT LAYOUT ----------------
-
-
-
-# ---------------- MAP CLICK → AI EXPLANATION HELPERS ----------------
-def explain_country_map_signal(map_df, country_name):
-    """Generate a clear AI-ready explanation for a selected country on the map."""
-    if map_df is None or map_df.empty or not country_name:
-        return "No country-level map intelligence is available under the current filters."
-
-    row = map_df[map_df["alert-country"].astype(str) == str(country_name)]
-    if row.empty:
-        return f"No mapped records are available for {country_name} under the current filters."
-
-    r = row.iloc[0]
-    total = int(r.get("total_alerts", 0) or 0)
-    negative = int(r.get("negative_alerts", 0) or 0)
-    positive = int(r.get("positive_alerts", 0) or 0)
-    context = int(r.get("context_to_watch_alerts", 0) or 0)
-    neg_share = float(r.get("negative_share", 0) or 0)
-    risk = str(r.get("risk_level", "No signal"))
-    region = str(r.get("region", "Unknown"))
-
-    if risk in ["Critical", "High"]:
-        action = "This country should be prioritized for closer qualitative review, partner verification, and monitoring follow-up."
-    elif risk == "Moderate":
-        action = "This country shows a moderate signal and should be monitored for escalation or concentration in specific mechanisms."
-    else:
-        action = "This country currently shows a lower-priority signal, but the result should still be interpreted alongside reporting coverage."
-
-    return (
-        f"🗺️ Map click explanation for {country_name}:\n\n"
-        f"- Region: {region}\n"
-        f"- Total mapped alerts: {total}\n"
-        f"- Negative alerts: {negative} ({neg_share:.1f}%)\n"
-        f"- Positive alerts: {positive}\n"
-        f"- Context-to-watch alerts: {context}\n"
-        f"- Priority signal: {risk}\n\n"
-        f"Interpretation: {country_name} is classified as {risk} because the map intelligence layer combines negative-alert volume with the share of negative alerts. "
-        f"{action}\n\n"
-        f"Caution: this is a monitoring signal, not a prevalence estimate. Differences may reflect reporting coverage, monitoring intensity, or partner submission patterns."
+            {f'<div class="section-badge">{badge}</div>' if badge else ''}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
-def extract_country_from_plotly_click(clicked_events):
-    """Extract country name from streamlit-plotly-events click payload."""
-    if not clicked_events:
-        return None
-    event = clicked_events[0]
-    for key in ["location", "hovertext", "label", "text"]:
-        val = event.get(key)
-        if val:
-            return str(val)
-    return None
+def render_kpi_row(df: pd.DataFrame) -> None:
+    total = len(df)
+    countries = count_unique(df, "alert-country")
+    negative = int((df["alert-impact"] == "Negative").sum()) if not df.empty else 0
+    positive = int((df["alert-impact"] == "Positive").sum()) if not df.empty else 0
+    context = int((df["alert-impact"] == "Context to watch").sum()) if not df.empty else 0
+    top_country, top_country_count, _ = top_value(df, "alert-country")
 
-# ---------------- TABS ----------------
-tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
-    [
-        "📊 Overview",
-        "⚠️ Negative Alerts",
-        "🗺️ Visualization Map",
-        "📘 User Manual",
-    ]
-)
-st.markdown(
-    """
-    <style>
-    /* Stable tab styling: target only the tab bar, not the full tab component.
-       This prevents tab changes from causing continuous page scrolling/layout jumps. */
-    div[data-testid="stTabs"] [role="tablist"] {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-        background: #ffffff;
-        border-bottom: 1px solid #E8E2EF;
-        padding: 0 0 8px 0;
-        position: sticky;
-        top: 0;
-        z-index: 20;
-    }
-
-    div[data-testid="stTabs"] [role="tab"] {
-        width: 100% !important;
-        min-height: 44px !important;
-        padding: 10px 12px !important;
-        margin: 0 !important;
-        border-radius: 12px 12px 8px 8px !important;
-        background: #F8F7FB !important;
-        color: #3E2B4F !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 14px !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        border: 1px solid #EEE7F4 !important;
-        border-bottom: 3px solid transparent !important;
-        box-shadow: none !important;
-        transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
-    }
-
-    div[data-testid="stTabs"] [role="tab"]:hover {
-        background: #F1E8F8 !important;
-        color: #660094 !important;
-        box-shadow: inset 0 -3px 0 #660094 !important;
-    }
-
-    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-        background: linear-gradient(90deg, #660094, #7A1FA2) !important;
-        color: #FFFFFF !important;
-        border-color: #660094 !important;
-        box-shadow: inset 0 -3px 0 #FFDB58 !important;
-    }
-
-    div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 18px !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
-def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
-    """
-    Adds a source line below the chart.
-    - y_offset: vertical position (negative values go below the plot)
-    """
-    fig.add_annotation(
-        xref="paper",
-        yref="paper",
-        x=0.5,
-        y=y_offset,
-        showarrow=False,
-        text=SOURCE_TEXT,
-        font=dict(size=font_size, color=font_color),
-        xanchor="center",
-        yanchor="top"
-    )
-    return fig
-
-
-# ---------------- TAB 1 ------------------------
-with tab_overview:
-    #st.subheader("Overview Metrics")
-    render_summary_cards(filtered_global, card_key="overview_summary")
-    a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-    df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-    a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(20)
-    r1c1,r1c2 = st.columns(2)
-    r2c1,r2c2 = st.columns(2)
-
-
-    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
-
-    fig12 = create_h_stacked_bar(
-        a2,
-        y="enabling-principle",
-        x="count",
-        color_col="alert-impact",
-        title="Alert distribution across enabling principles", 
-        horizontal=True,
-        normalize_labels=False
-    )
-
-        # Add "?" tooltip icon immediately after title
-    fig12.add_annotation(
-        xref='paper', yref='paper',
-        x=0.42,  # adjust so it sits right after the title
-        y=1.05,
-        text="❔",  # unicode "?" inside a circle
-        showarrow=False,
-        font=dict(color="white", size=10, family="Arial", weight="bold"),
-        align="center",
-        bordercolor="black",
-        borderwidth=0.8,
-        borderpad=3,
-        bgcolor="#660094",
-        opacity=0.9,
-        hovertext=(
-            "Alerts may be classified under more than one enabling principle "
-            "<br>and can therefore be counted in multiple principles."
-        ),
-        hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
-    )
-
-    # Add source line if needed
-    fig12 = add_source_line(fig12)
-
-    # Render chart in Streamlit
-    r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
-  
-    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-
-    #if is_privileged():
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
-
-    
-    cols_rename_map  = {
-        "post_title": "Title of post",
-        "summary": "Event summary",
-        "creation_date": "Date of submission",
-        "alert-country": "Country",
-        "enabling-principle": "Enabling principles",
-        "alert-impact": "Impact of alert",
-        "alert-type": "Type of alert"
-    }
-        # keep only existing columns, then rename
-    filtered_global_prev = (
-        filtered_global
-        .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
-        .rename(columns=cols_rename_map)
-    )
-   
-        # ---------------- Tab two data preview ------------------
-
-    render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
-    #else:
-        #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
-        
-# ---------------- Negative Events ----------------
-with tab_negative:
-    #st.subheader("Negative Alerts")
-    # Filter negative events
-    reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
-
-
-    if reactive_df.empty:
-        st.warning("No negative events available for the selected filters.")
-        
-    else:
-        # Initialize Top-N selection in session state
-        if "neg_top_n" not in st.session_state:
-            st.session_state["neg_top_n"] = 5  # default Top 5
-            
-        # ---------------- SPELL OUT "VNSAs" ----------------
-   
-        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent non-state actors', regex=True))
-        
-        # ---------------- SUMMARY CARDS ----------------
-        # Show totals BEFORE exploding multi-valued columns
-
-        protected_label = "Journalists, media and influencers"
-        placeholder = "Journalists__MEDIA__and__influencers"
-    
-        def safe_split(x):
-            if pd.isna(x):
-                return []
-
-            x = x.strip()
-
-            # Temporarily replace protected label
-            x = x.replace(protected_label, placeholder)
-
-            # Split normally
-            parts = [i.strip() for i in x.split(",")]
-
-            # Restore protected label
-            parts = [p.replace(placeholder, protected_label) for p in parts]
-
-            return parts
-
-        
-        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
-        cols_to_explode = [
-            "Actor of repression",
-            "Subject of repression",
-            "Mechanism of repression",
-            "Type of event"
-        ]
-
-        df_exploded = reactive_df.copy()
-
-        df_exploded = df_exploded[(df_exploded['Type of event'] != "Error")]
-
-        for col in cols_to_explode:
-            df_exploded[col] = df_exploded[col].apply(safe_split)
-            df_exploded = df_exploded.explode(col)
-            df_exploded[col] = df_exploded[col].astype(str).str.strip()
-
-        def cap_first(s):
-            if pd.isna(s):
-                return None
-            s = str(s).strip()
-            if not s:
-                return None
-            return s[:1].upper() + s[1:]
-
-        def formatted_options(series):
-            s = series.dropna().astype(str).str.strip()
-            s = s[s.ne("")]
-            return sorted(s.map(cap_first).dropna().unique())
-    
-
-        # ---------------- INLINE FILTERS ----------------
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            selected_actor_types = safe_multiselect(
-                "Types of restrictive actors",
-                formatted_options(df_exploded["Actor of repression"]),
-                "selected_actor_types",
-                sidebar=False
-            )
-
-        with col2:
-            selected_subject_types = safe_multiselect(
-                "Types of civil society actors affected",
-                formatted_options(df_exploded["Subject of repression"]),
-                "selected_subject_types",
-                sidebar=False
-            )
-
-        with col3:
-            selected_mechanism_types = safe_multiselect(
-                "Types of restrictive mechanisms",
-                formatted_options(df_exploded["Mechanism of repression"]),
-                "selected_mechanism_types",
-                sidebar=False
-            )
-
-        with col4:
-            selected_event_types = safe_multiselect(
-                "Types of negative events",
-                formatted_options(df_exploded["Type of event"]),
-                "selected_event_types",
-                sidebar=False
-            )
-        ##### -------- Tab 2 Summary card totals--------------------------
-        reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
-        render_negative_alerts_intelligence_cards(
-            reactive_df_updated,
-            all_filtered_df=filtered_global,
-            card_key="negative_events_summary"
-        )
-
-        #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
-
-        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
-    
-        filtered_df1 = df_exploded.copy()
-        #filtered_df = reactive_df_updated.copy()
-    
-        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-    
-        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
-
-        #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-    
-        tab2_subj = (
-            reactive_df_updated
-            .assign(**{
-                "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
-            })
-            .explode("Subject of repression")
-        )
-       
-        tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
-        m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
-
-        tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
-        tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
-        m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
-
-        tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
-        tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
-        m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
-
-        tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
-        tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
-        m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    
-        tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
-        tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-        tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-    
-        # ---------------- BAR CHARTS ----------------
-        r1c1, r1c2, r1c3 = st.columns(3)
-        r2c1, r2c2, r2c3 = st.columns(3)
-
-    
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
-          
-        fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
-
-          
-        # Add the "?" tooltip icon immediately after the title
-        fig23.add_annotation(
-            xref='paper', yref='paper',
-            x=0.42,         # adjust so it's at the end of the title
-            y=1.05,         # same vertical alignment as title
-            text="❔",       # Unicode circle with question mark
-            showarrow=False,
-            font=dict(color="white", size=10, family="Arial black", weight="bold"),
-            align="center",
-            bordercolor="black",
-            borderwidth=1.3,
-            borderpad=3,
-            bgcolor="#660094",
-            opacity=1.0,
-            hovertext=(
-                "Alerts may be classified under more than one enabling principle "
-                "<br>and can therefore be counted in multiple principles."
-            ),
-            hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
-        )
-
-        # Add source line if needed
-        fig23 = add_source_line(fig23)
-
-        # Render the chart in Streamlit
-        r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
-
-        #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
-
-        # ---------------- ANALYTICAL FLOW PANEL ----------------
-        render_analytical_flow_panel(filtered_df)
-
-        cols_to_keep = {
-            "post_title": "Title of post",
-            "summary": "Event summary",
-            "creation_date": "Date of submission",
-            "alert-country": "Country",
-            "enabling-principle": "Enabling principles",
-            "alert-impact": "Impact of alert",
-            "alert-type": "Type of alert",
-            "Actor of repression": "Types of restrictive actors",
-            "Subject of repression": "Types of civil society actors affected",
-            "Mechanism of repression": "Types of restrictive mechanisms",
-            "Type of event": "Types of negative events"           
-        }
-        # keep only existing columns, then rename
-        reactive_df_updated_prev = (
-            reactive_df_updated
-            .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
-            .rename(columns=cols_to_keep)
-        )
-        
-        # ---------------- Tab two data preview ----------------
-        #if is_privileged():        
-        render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
-        #else:
-            #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
-    
-        # ---------------- TAB 3 (MAP) ----------------
-with tab_map:
-    # ---------------- PROFESSIONAL MAP INTELLIGENCE TAB ----------------
-    render_summary_cards(filtered_global, card_key="map_summary")
-
-    MAP_FONT = "Arial"
-    st.markdown("""
-    <style>
-    .map-intel-hero {
-        background: linear-gradient(135deg, #ffffff 0%, #fbf7ff 100%);
-        border: 1px solid rgba(102,0,148,0.13);
-        border-radius: 18px;
-        padding: 16px 18px;
-        box-shadow: 0 10px 28px rgba(17,24,39,0.06);
-        margin: 10px 0 14px 0;
-    }
-    .map-intel-title {
-        font-family: Arial, sans-serif;
-        font-size: 18px;
-        font-weight: 900;
-        color: #2D0055;
-        margin-bottom: 4px;
-        letter-spacing: -0.2px;
-    }
-    .map-intel-subtitle {
-        font-family: Arial, sans-serif;
-        font-size: 12.5px;
-        color: #52616B;
-        line-height: 1.45;
-        max-width: 980px;
-    }
-    .map-chip-row {display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
-    .map-chip {
-        display:inline-flex; align-items:center; gap:6px;
-        background:#ffffff;
-        border:1px solid #E6DFF2;
-        border-radius:999px;
-        padding:5px 10px;
-        font-family:Arial, sans-serif;
-        font-size:11px;
-        font-weight:800;
-        color:#2D0055;
-    }
-    .map-intel-card {
-        background:#ffffff;
-        border:1px solid #E8EAF0;
-        border-radius:16px;
-        padding:13px 14px;
-        min-height:92px;
-        box-shadow:0 8px 20px rgba(17,24,39,0.055);
-    }
-    .map-intel-card-label {
-        font-family:Arial, sans-serif;
-        font-size:10.5px;
-        font-weight:900;
-        color:#64748B;
-        text-transform:uppercase;
-        letter-spacing:.45px;
-        margin-bottom:5px;
-    }
-    .map-intel-card-value {
-        font-family:Arial Black, Arial, sans-serif;
-        font-size:24px;
-        color:#2D0055;
-        line-height:1.1;
-    }
-    .map-intel-card-note {
-        font-family:Arial, sans-serif;
-        font-size:11.3px;
-        color:#52616B;
-        margin-top:5px;
-        line-height:1.35;
-    }
-    .map-panel-card {
-        background:#ffffff;
-        border:1px solid #E8EAF0;
-        border-radius:18px;
-        padding:15px;
-        box-shadow:0 10px 26px rgba(17,24,39,0.06);
-        margin-top:12px;
-    }
-    .map-panel-title {
-        font-family:Arial Black, Arial, sans-serif;
-        font-size:13px;
-        color:#2D0055;
-        margin-bottom:4px;
-    }
-    .map-panel-help {
-        font-family:Arial, sans-serif;
-        font-size:11.8px;
-        color:#64748B;
-        margin-bottom:10px;
-        line-height:1.4;
-    }
-
-    .geo-insight-strip {display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; margin:12px 0 14px 0;}
-    .geo-insight-item {background:#FFFFFF; border:1px solid #E8EAF0; border-radius:15px; padding:12px 14px; box-shadow:0 8px 22px rgba(17,24,39,0.055); font-family:Arial, sans-serif;}
-    .geo-insight-title {font-size:10.5px; color:#64748B; font-weight:900; text-transform:uppercase; letter-spacing:.45px; margin-bottom:5px;}
-    .geo-insight-text {font-size:12px; color:#334155; line-height:1.42; font-weight:650;}
-    .geo-method-note {background:#FFFBEB; border:1px solid #FDE68A; border-left:4px solid #FFDB58; border-radius:14px; padding:11px 13px; color:#4A3B00; font-family:Arial, sans-serif; font-size:11.8px; line-height:1.45; margin:12px 0;}
-    .country-insight-box {
-        background:#F8FAFC;
-        border-left:4px solid #660094;
-        border-radius:13px;
-        padding:12px 14px;
-        font-family:Arial, sans-serif;
-        color:#334155;
-        font-size:12px;
-        line-height:1.45;
-        margin-top:10px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    geo_file = Path.cwd() / "exports" / "countriess.geojson"
-    if geo_file.exists():
-        with open(geo_file, encoding="utf-8") as f:
-            countries_gj = json.load(f)
-
-        # ---------------- Base map data and intelligence metrics ----------------
-        stats = (
-            filtered_global
-            .groupby("alert-country")
-            .agg(
-                total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: int((x == "Negative").sum())),
-                positive_alerts=("alert-impact", lambda x: int((x == "Positive").sum())),
-                context_to_watch_alerts=("alert-impact", lambda x: int((x == "Context to watch").sum())),
-                regions=("region", lambda x: ", ".join(sorted(set(x.dropna().astype(str)))[:2])),
-            )
-            .reset_index()
-        )
-
-        geo_countries = [f["properties"].get("name") for f in countries_gj.get("features", [])]
-        df_map = stats[stats["alert-country"].isin(geo_countries)].copy()
-
-        for c in ["total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts"]:
-            df_map[c] = pd.to_numeric(df_map[c], errors="coerce").fillna(0).astype(int)
-
-        df_map["perc_negative"] = np.where(
-            df_map["total_alerts"] > 0,
-            (df_map["negative_alerts"] / df_map["total_alerts"] * 100).round(1),
-            0
-        )
-        df_map["alert_balance"] = (df_map["positive_alerts"] - df_map["negative_alerts"]).astype(int)
-        df_map["priority_score"] = (df_map["negative_alerts"] * 0.65 + df_map["perc_negative"] * 0.35).round(1)
-        df_map["priority_level"] = pd.cut(
-            df_map["priority_score"],
-            bins=[-1, 20, 45, 70, float("inf")],
-            labels=["Watch", "Moderate", "High", "Very high"]
-        ).astype(str)
-
-        total_mapped = int(df_map["total_alerts"].sum()) if not df_map.empty else 0
-        mapped_countries = int(df_map["alert-country"].nunique()) if not df_map.empty else 0
-        top_country = df_map.sort_values("total_alerts", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
-        top_priority_country = df_map.sort_values("priority_score", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
-        avg_negative_share = round(df_map["perc_negative"].mean(), 1) if not df_map.empty else 0
-        very_high_count = int((df_map["priority_level"] == "Very high").sum()) if not df_map.empty else 0
-        high_count = int((df_map["priority_level"] == "High").sum()) if not df_map.empty else 0
-        mapped_negative = int(df_map["negative_alerts"].sum()) if not df_map.empty else 0
-        mapped_positive = int(df_map["positive_alerts"].sum()) if not df_map.empty else 0
-        mapped_context = int(df_map["context_to_watch_alerts"].sum()) if not df_map.empty else 0
-        dominant_signal = "Negative alerts dominate the mapped profile" if mapped_negative >= max(mapped_positive, mapped_context) else ("Positive alerts dominate the mapped profile" if mapped_positive >= mapped_context else "Context-to-watch alerts dominate the mapped profile")
-
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        value = f"{countries:,}" if is_privileged() else "On request"
         st.markdown(f"""
-        <div class="map-intel-hero">
-            <div class="map-intel-title">Geospatial Intelligence Panel</div>
-            <div class="map-intel-subtitle">
-                A decision-ready geospatial workspace for interpreting country-level alert concentration, negative-alert intensity, priority signals, and spatial monitoring coverage under the current filters.
-            </div>
-            <div class="map-chip-row">
-                <span class="map-chip">🟫 Total alert intensity</span>
-                <span class="map-chip">⚠️ Negative-alert share</span>
-                <span class="map-chip">🎯 Priority signal</span>
-                <span class="map-chip">🖱️ Hover for country details</span>
-                <span class="map-chip">📊 Review country rankings</span>
-                <span class="map-chip">🧠 Use interpretation notes</span>
-            </div>
+        <div class="kpi-card">
+            <div><div class="kpi-top"><div><div class="kpi-eyebrow">Coverage</div><div class="kpi-title">Monitored Countries</div></div><div class="kpi-icon">🌍</div></div>
+            <div class="kpi-value" style="color:{TEAL};">{value}</div><div class="kpi-pill">Active geographic scope</div></div>
+            <div class="kpi-note">Countries represented by the current filters</div>
         </div>
         """, unsafe_allow_html=True)
-
-        k1, k2, k3, k4 = st.columns(4)
-        with k1:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Alerts with valid country geometry under current filters.</div></div>""", unsafe_allow_html=True)
-        with k2:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the current spatial view.</div></div>""", unsafe_allow_html=True)
-        with k3:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest alert volume</div><div class="map-intel-card-value" style="font-size:18px;">{top_country}</div><div class="map-intel-card-note">Country with the largest filtered alert count.</div></div>""", unsafe_allow_html=True)
-        with k4:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Avg. negative share</div><div class="map-intel-card-value">{avg_negative_share}%</div><div class="map-intel-card-note">Mean negative-alert proportion across mapped countries.</div></div>""", unsafe_allow_html=True)
-
+    with c2:
         st.markdown(f"""
-        <div class="geo-insight-strip">
-            <div class="geo-insight-item"><div class="geo-insight-title">Executive spatial signal</div><div class="geo-insight-text">{dominant_signal}. Highest alert volume: <b>{top_country}</b>. Highest priority score: <b>{top_priority_country}</b>.</div></div>
-            <div class="geo-insight-item"><div class="geo-insight-title">Priority watchlist</div><div class="geo-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries under current filters.</div></div>
-            <div class="geo-insight-item"><div class="geo-insight-title">Mapped composition</div><div class="geo-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b></div></div>
+        <div class="kpi-card">
+            <div><div class="kpi-top"><div><div class="kpi-eyebrow">Monitoring volume</div><div class="kpi-title">Total Alerts</div></div><div class="kpi-icon">⚠️</div></div>
+            <div class="kpi-value" style="color:{PURPLE};">{total:,}</div><div class="kpi-pill">Top country: {compact(top_country, 25)} ({top_country_count:,})</div></div>
+            <div class="kpi-note">Filtered records after geography, alert structure, and time filters</div>
         </div>
-        <div class="geo-method-note"><b>Interpretation note:</b> the spatial priority signal combines negative-alert volume and negative-alert share. It is intended for analytical triage, not as a standalone country ranking. Always interpret alongside reporting coverage, monitoring intensity, and qualitative evidence.</div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div><div class="kpi-top"><div><div class="kpi-eyebrow">Composition</div><div class="kpi-title">Alerts Breakdown</div></div><div class="kpi-icon">◔</div></div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+                <div class="country-row" style="padding:4px 0;"><span>Negative</span><strong style="color:{NEGATIVE};">{negative:,} ({metric_pct(negative,total)}%)</strong></div>
+                <div class="country-row" style="padding:4px 0;"><span>Positive</span><strong style="color:{POSITIVE};">{positive:,} ({metric_pct(positive,total)}%)</strong></div>
+                <div class="country-row" style="padding:4px 0;border-bottom:0;"><span>Context</span><strong style="color:{CONTEXT};">{context:,} ({metric_pct(context,total)}%)</strong></div>
+            </div></div>
+            <div class="kpi-note">Composition by alert impact category</div>
+        </div>
         """, unsafe_allow_html=True)
 
-        # ---------------- Dynamic center and zoom ----------------
-        if not df_map.empty:
-            coords = []
-            country_set = set(df_map["alert-country"].astype(str))
-            for feature in countries_gj.get("features", []):
-                if feature.get("properties", {}).get("name") in country_set:
-                    geometry = feature.get("geometry", {})
-                    if geometry.get("type") == "Polygon":
-                        coords.extend(geometry.get("coordinates", [[]])[0])
-                    elif geometry.get("type") == "MultiPolygon":
-                        for poly in geometry.get("coordinates", []):
-                            if poly:
-                                coords.extend(poly[0])
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": float(np.mean(lats)), "lon": float(np.mean(lons))}
-                lon_span = max(lons) - min(lons)
-                lat_span = max(lats) - min(lats)
-                span = max(lon_span, lat_span, 1)
-                zoom = max(1, min(4.2, 3.7 - np.log10(span + 1)))
-            else:
-                center, zoom = {"lat": 10, "lon": 0}, 1.6
-        else:
-            center, zoom = {"lat": 10, "lon": 0}, 1.6
-
-        st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
-
-        if df_map.empty:
-            st.info("No mapped country records are available under the current filters.")
-        else:
-            fig = px.choropleth_mapbox(
-                df_map,
-                geojson=countries_gj,
-                locations="alert-country",
-                featureidkey="properties.name",
-                color="total_alerts",
-                hover_name="alert-country",
-                color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
-                mapbox_style="carto-positron",
-                zoom=zoom,
-                center=center,
-                opacity=0.88,
-            )
-
-            fig.update_traces(
-                customdata=df_map[[
-                    "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
-                    "perc_negative", "priority_level", "regions"
-                ]].values,
-                hovertemplate=(
-                    "<b>%{location}</b><br>"
-                    "Region: %{customdata[6]}<br>"
-                    "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[0]}<br>"
-                    "<span style='color:#FFDB58'>●</span> Negative: %{customdata[1]}<br>"
-                    "<span style='color:#660094'>●</span> Positive: %{customdata[2]}<br>"
-                    "<span style='color:#008CAA'>●</span> Context: %{customdata[3]}<br>"
-                    "Negative share: %{customdata[4]}%<br>"
-                    "Priority level: <b>%{customdata[5]}</b><extra></extra>"
-                ),
-                hoverlabel=dict(
-                    bgcolor="#2D0055",
-                    font_size=12,
-                    font_family=MAP_FONT,
-                    font_color="white",
-                    bordercolor="#ffffff"
-                ),
-                marker_line_width=0.65,
-                marker_line_color="rgba(45,0,85,0.55)",
-            )
-
-            fig.update_layout(
-                margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                height=560,
-                coloraxis_colorbar=dict(
-                    title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
-                    tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
-                    thickness=12,
-                    len=0.72,
-                    outlinewidth=0,
-                ),
-                font=dict(family=MAP_FONT, color="#334155"),
-            )
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---------------- Supporting map intelligence panels ----------------
-        p1, p2 = st.columns([1.15, 1])
-        with p1:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">Use this ranking to identify countries that may require deeper review in the charts, table, or AI assistant.</div>', unsafe_allow_html=True)
-            rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
-            if rank_df.empty:
-                st.info("No country ranking available for the current filters.")
-            else:
-                fig_rank = go.Figure(go.Bar(
-                    x=rank_df["total_alerts"],
-                    y=rank_df["alert-country"].astype(str),
-                    orientation="h",
-                    marker=dict(color="#660094", line=dict(color="rgba(45,0,85,0.25)", width=0.5)),
-                    text=rank_df["total_alerts"],
-                    textposition="outside",
-                    hovertemplate="<b>%{y}</b><br>Total alerts: %{x}<extra></extra>",
-                ))
-                fig_rank.update_layout(
-                    height=max(300, len(rank_df) * 34),
-                    margin=dict(l=20, r=35, t=5, b=20),
-                    xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
-                    yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
-                    font=dict(family=MAP_FONT, size=11, color="#334155"),
-                    plot_bgcolor="#ffffff",
-                    paper_bgcolor="#ffffff",
-                )
-                st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with p2:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a compact interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
-            country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
-            selected_map_country = st.selectbox(
-                "Select country for map intelligence",
-                options=country_options,
-                index=0 if country_options else None,
-                key="map_country_intelligence_selector",
-                label_visibility="collapsed",
-                placeholder="Choose a mapped country"
-            ) if country_options else None
-
-            if selected_map_country:
-                row = df_map[df_map["alert-country"].astype(str) == selected_map_country].iloc[0]
-                st.markdown(f"""
-                <div class="country-insight-box">
-                    <b>{selected_map_country}</b><br>
-                    Total alerts: <b>{int(row['total_alerts']):,}</b> · Negative: <b>{int(row['negative_alerts']):,}</b> · Positive: <b>{int(row['positive_alerts']):,}</b> · Context: <b>{int(row['context_to_watch_alerts']):,}</b><br>
-                    Negative share: <b>{row['perc_negative']}%</b> · Priority level: <b>{row['priority_level']}</b><br><br>
-                    Interpretation: this country should be reviewed together with reporting coverage and qualitative context. Higher counts may reflect higher incident frequency, stronger reporting intensity, broader monitoring coverage, or a combination of these factors.
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.info("No mapped countries are available under the current filters.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    else:
-        st.warning("GeoJSON file not found for map visualization.")
-
-# -----------------USER MANUAL TAB-----------------
-
-with tab_manual:
-    def _pdf_download_card(title, subtitle, audience, pdf_path: Path, icon="📄"):
-        """Professional document card for dashboard manuals/briefs."""
-        st.markdown(
-            f"""
-            <div class="manual-doc-card">
-                <div class="manual-doc-icon">{icon}</div>
-                <div class="manual-doc-body">
-                    <div class="manual-doc-title">{title}</div>
-                    <div class="manual-doc-subtitle">{subtitle}</div>
-                    <div class="manual-doc-audience">{audience}</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if pdf_path.exists():
-            st.download_button(
-                label=f"⬇ Download {title}",
-                data=pdf_path.read_bytes(),
-                file_name=pdf_path.name,
-                mime="application/pdf",
-                use_container_width=True,
-                key=f"download_{pdf_path.name}",
-            )
-        else:
-            st.warning(f"{title} PDF not found: {pdf_path.name}")
-
-    st.markdown(
-        """
-        <style>
-        .manual-hero {
-            background: linear-gradient(135deg, #FFFFFF 0%, #F8F3FB 56%, #FFF9DC 100%);
-            border: 1px solid #E8DFF0;
-            border-radius: 20px;
-            padding: 24px 26px;
-            box-shadow: 0 12px 34px rgba(54, 26, 83, 0.10);
-            margin-bottom: 18px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #F1E8F8;
-            color: #660094;
-            border: 1px solid #E2D2EC;
-            border-radius: 999px;
-            padding: 6px 10px;
-            font-size: 11px;
-            font-weight: 900;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-        .manual-title {
-            color: #2D0055;
-            font-size: 28px;
-            font-weight: 900;
-            margin: 0 0 8px 0;
-            line-height: 1.15;
-        }
-        .manual-lead {
-            color: #475569;
-            font-size: 13px;
-            line-height: 1.55;
-            max-width: 980px;
-            margin: 0;
-        }
-        .manual-kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
-            margin: 14px 0 18px 0;
-        }
-        .manual-mini-card {
-            background: #FFFFFF;
-            border: 1px solid #ECE5F3;
-            border-radius: 15px;
-            padding: 13px 14px;
-            box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
-            min-height: 92px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-mini-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #F8F3FB;
-            color: #660094;
-            font-size: 16px;
-            margin-bottom: 8px;
-        }
-        .manual-mini-title {
-            color: #2D0055;
-            font-size: 12px;
-            font-weight: 900;
-            margin-bottom: 4px;
-        }
-        .manual-mini-text {
-            color: #64748B;
-            font-size: 11px;
-            line-height: 1.35;
-        }
-        .manual-section-card {
-            background: #FFFFFF;
-            border: 1px solid #ECE5F3;
-            border-radius: 18px;
-            padding: 18px;
-            box-shadow: 0 10px 28px rgba(54, 26, 83, 0.08);
-            margin-bottom: 16px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-section-title {
-            color: #2D0055;
-            font-size: 16px;
-            font-weight: 900;
-            margin-bottom: 4px;
-        }
-        .manual-section-note {
-            color: #64748B;
-            font-size: 12px;
-            line-height: 1.45;
-            margin-bottom: 12px;
-        }
-        .manual-step {
-            display: grid;
-            grid-template-columns: 30px 1fr;
-            gap: 10px;
-            align-items: start;
-            padding: 10px 0;
-            border-bottom: 1px solid #F1EEF5;
-        }
-        .manual-step:last-child { border-bottom: none; }
-        .manual-step-num {
-            background: #660094;
-            color: white;
-            width: 26px;
-            height: 26px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 900;
-        }
-        .manual-step-title {
-            color: #334155;
-            font-size: 12px;
-            font-weight: 900;
-            margin-bottom: 2px;
-        }
-        .manual-step-text {
-            color: #64748B;
-            font-size: 11.5px;
-            line-height: 1.38;
-        }
-        .manual-doc-card {
-            display: grid;
-            grid-template-columns: 46px 1fr;
-            gap: 12px;
-            align-items: center;
-            background: #FFFFFF;
-            border: 1px solid #ECE5F3;
-            border-left: 5px solid #660094;
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
-            margin-bottom: 10px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-doc-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #660094, #8A2DB2);
-            color: #FFFFFF;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-        }
-        .manual-doc-title {
-            color: #2D0055;
-            font-size: 13px;
-            font-weight: 900;
-            margin-bottom: 3px;
-        }
-        .manual-doc-subtitle {
-            color: #475569;
-            font-size: 11.5px;
-            line-height: 1.35;
-            margin-bottom: 5px;
-        }
-        .manual-doc-audience {
-            color: #660094;
-            font-size: 10.5px;
-            font-weight: 800;
-            background: #F8F3FB;
-            border: 1px solid #E8DFF0;
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 999px;
-        }
-        .manual-tip {
-            background: #FFF9DC;
-            border: 1px solid #F2E7A8;
-            border-radius: 14px;
-            padding: 12px 14px;
-            color: #55420A;
-            font-size: 11.5px;
-            line-height: 1.45;
-            font-family: Arial, sans-serif;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
+# -----------------------------------------------------------------------------
+# Chart builders
+# -----------------------------------------------------------------------------
+def grouped_bar(df: pd.DataFrame, group_col: str, color_col: str, title: str, top_n: int = 15, horizontal: bool = True) -> go.Figure:
+    if df.empty or group_col not in df.columns or color_col not in df.columns:
+        fig = go.Figure()
+        return apply_chart_theme(fig, title, height=360, horizontal=horizontal)
+    base_counts = df[group_col].dropna().astype(str).value_counts().head(top_n).index.tolist()
+    d = df[df[group_col].isin(base_counts)].groupby([group_col, color_col]).size().reset_index(name="count")
+    fig = px.bar(
+        d,
+        x="count" if horizontal else group_col,
+        y=group_col if horizontal else "count",
+        color=color_col,
+        orientation="h" if horizontal else "v",
+        color_discrete_map=IMPACT_COLORS,
+        text="count",
     )
-
-    st.markdown(
-        """
-        <div class="manual-hero">
-            <div class="manual-eyebrow">📘 Dashboard user guidance</div>
-            <div class="manual-title">EU SEE Dashboard User Manual</div>
-            <p class="manual-lead">
-                A concise, decision-ready help centre for navigating filters, charts, maps, negative-alert analytics,
-                data preview tables, exports, and AI-assisted interpretation. Use this section to onboard new users,
-                support stakeholder demonstrations, and standardize dashboard interpretation.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="manual-kpi-grid">
-            <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand EU SEE monitoring outputs and interpret alert patterns.</div></div>
-            <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Use Overview, Negative Alerts, Map, and Manual tabs as guided workflows.</div></div>
-            <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Apply filters, inspect charts, explore flows, and review summary records.</div></div>
-            <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download briefs, manuals, filtered tables, and export-ready evidence.</div></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    guide_col, docs_col = st.columns([1.35, 1], gap="large")
-
-    with guide_col:
-        st.markdown(
-            """
-            <div class="manual-section-card">
-                <div class="manual-section-title">Quick-start workflow</div>
-                <div class="manual-section-note">Recommended path for first-time users and stakeholder demonstrations.</div>
-                <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">Set the analytical scope</div><div class="manual-step-text">Use the Global Filters to select region, country, alert impact, alert type, enabling principle, year, and month.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Read the KPI cards first</div><div class="manual-step-text">Start with monitored countries, total alerts, and the Alerts Breakdown donut to understand the filtered context.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Move from overview to diagnosis</div><div class="manual-step-text">Use Overview charts for distribution patterns, then open Negative Alerts for restrictive actor, mechanism, and affected group analysis.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use maps for spatial interpretation</div><div class="manual-step-text">Inspect geographic concentration and country-level patterns, while interpreting counts alongside reporting coverage.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Export or document evidence</div><div class="manual-step-text">Use the Summary Data Preview export and downloadable PDF resources for reporting, validation, and follow-up.</div></div></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            """
-            <div class="manual-section-card">
-                <div class="manual-section-title">Interpretation standards</div>
-                <div class="manual-section-note">Use these principles when presenting dashboard outputs.</div>
-                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect incident volume, reporting intensity, network coverage, or a combination of these factors.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">Always state the selected region, period, alert impact, and alert type when sharing charts or tables.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Triangulate charts</div><div class="manual-step-text">Combine KPI cards, distribution charts, heatmaps, Sankey flow, map, and table records before drawing conclusions.</div></div></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with docs_col:
-        st.markdown(
-            """
-            <div class="manual-section-card">
-                <div class="manual-section-title">Documentation downloads</div>
-                <div class="manual-section-note">Use the executive brief for quick stakeholder reporting and the full manual for analyst onboarding.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        _pdf_download_card(
-            "Executive Brief",
-            "One-page dashboard overview for senior leadership, donors, and policy reporting.",
-            "Best for: executives and external briefings",
-            EXEC_BRIEF_PATH,
-            icon="📌",
-        )
-
-        _pdf_download_card(
-            "Full User Manual",
-            "Detailed guide covering navigation, filters, charts, map interpretation, data preview, and exports.",
-            "Best for: analysts and advanced users",
-            USER_MANUAL_PATH,
-            icon="📘",
-        )
-
-        st.markdown(
-            """
-            <div class="manual-tip">
-                <strong>Recommended reporting note:</strong><br>
-                Dashboard findings should be interpreted as reported monitoring evidence, not as direct prevalence estimates.
-                Always pair quantitative outputs with contextual review and partner validation.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    fig.update_traces(textposition="outside", texttemplate="%{text:,}", marker_line=dict(color="rgba(255,255,255,.8)", width=.6), hovertemplate="%{y}<br>%{x:,}<extra></extra>")
+    fig.update_layout(barmode="stack")
+    return add_watermark(apply_chart_theme(fig, title, height=max(360, min(560, 140 + 28 * len(base_counts))), horizontal=horizontal))
 
 
-# ---------------- AI ASSISTANT v5: POLISHED UX + CHATBOT PLOT BUILDER ----------------
-def _ai_get_available_plot_dimensions(df):
-    dims = []
-    candidates = [
-        ("alert-country", "Country"), ("region", "Region"), ("alert-impact", "Alert impact"),
-        ("alert-type", "Alert type"), ("enabling-principle", "Enabling principle"),
-        ("Actor of repression", "Restrictive actor"), ("Subject of repression", "Affected civil society actor"),
-        ("Mechanism of repression", "Restrictive mechanism"), ("Type of event", "Negative event type"),
-        ("year", "Year"), ("month_name", "Month"),
-    ]
-    for col, label in candidates:
-        if df is not None and not df.empty and col in df.columns:
-            dims.append((label, col))
-    return dims
+def make_heatmap(df: pd.DataFrame, row_col: str, col_col: str, title: str, top_n: int = 8) -> go.Figure:
+    if df.empty or row_col not in df.columns or col_col not in df.columns:
+        return apply_chart_theme(go.Figure(), title, height=310)
+    xdf = explode_columns(df, [row_col, col_col])
+    row_top = xdf[row_col].value_counts().head(top_n).index.tolist()
+    col_top = xdf[col_col].value_counts().head(top_n).index.tolist()
+    xdf = xdf[xdf[row_col].isin(row_top) & xdf[col_col].isin(col_top)]
+    pivot = pd.crosstab(xdf[row_col], xdf[col_col]).reindex(index=row_top, columns=col_top, fill_value=0)
+    fig = go.Figure(data=go.Heatmap(
+        z=pivot.values,
+        x=[compact(c, 22) for c in pivot.columns],
+        y=[compact(r, 24) for r in pivot.index],
+        colorscale=[[0, "#F7ECFA"], [.45, "#B48AD0"], [1, PURPLE]],
+        hovertemplate="<b>%{y}</b><br>%{x}<br>Count: %{z:,}<extra></extra>",
+        colorbar=dict(title="Alerts", thickness=10, len=.72),
+    ))
+    return apply_chart_theme(fig, title, height=330, horizontal=True, showlegend=False)
 
 
-def _ai_clean_count_df(df, col, top_n=10):
-    if df is None or df.empty or col not in df.columns:
-        return pd.DataFrame(columns=[col, "count"])
-    tmp = df.copy()
-    multi_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event", "enabling-principle", "alert-type"]
-    if col in multi_cols:
-        tmp[col] = tmp[col].fillna("").astype(str).str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-        tmp = tmp.assign(**{col: tmp[col].str.split(",")}).explode(col)
-    tmp[col] = tmp[col].fillna("").astype(str).str.strip()
-    tmp = tmp[tmp[col] != ""]
-    out = tmp[col].value_counts().head(top_n).reset_index()
-    out.columns = [col, "count"]
+def explode_columns(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
+    out = df.copy()
+    for col in columns:
+        if col not in out.columns:
+            out[col] = "Not available"
+        out[col] = out[col].apply(split_multi)
+        out = out.explode(col)
+        out[col] = out[col].astype(str).str.strip()
+        out = out[(out[col] != "") & (out[col].str.lower() != "nan") & (out[col].str.lower() != "none")]
     return out
 
 
-def _ai_make_plot(df, dimension_col, chart_type="Horizontal bar", top_n=10, title=None):
-    plot_df = _ai_clean_count_df(df, dimension_col, top_n=top_n)
-    if plot_df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No data available for this plot under the current filters.", x=0.5, y=0.5, showarrow=False)
-        fig.update_layout(height=320, margin=dict(l=20, r=20, t=40, b=20))
-        return fig
-    title = title or f"Top {min(top_n, len(plot_df))} records by {dimension_col}"
-    if chart_type == "Horizontal bar":
-        plot_df = plot_df.sort_values("count", ascending=True)
-        fig = px.bar(plot_df, x="count", y=dimension_col, orientation="h", text="count", title=title)
-        fig.update_traces(marker_color="#660094", textposition="outside")
-    elif chart_type == "Donut":
-        fig = px.pie(plot_df, values="count", names=dimension_col, hole=0.55, title=title)
-        fig.update_traces(textposition="inside", textinfo="percent+label")
-    elif chart_type == "Treemap":
-        fig = px.treemap(plot_df, path=[dimension_col], values="count", title=title)
-    else:
-        fig = px.bar(plot_df, x=dimension_col, y="count", text="count", title=title)
-        fig.update_traces(marker_color="#008CAA", textposition="outside")
-        fig.update_xaxes(tickangle=-35)
-    fig.update_layout(
-        height=360, margin=dict(l=10, r=10, t=55, b=65),
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(font=dict(size=13, family="Arial Black", color="#2d0055"), x=0.02),
-        font=dict(family="Arial", size=11, color="#222"), showlegend=True,
+def make_sankey(df: pd.DataFrame, top_n: int = 8) -> go.Figure:
+    required = ["Actor of repression", "Mechanism of repression", "Subject of repression"]
+    if df.empty or any(c not in df.columns for c in required):
+        return apply_chart_theme(go.Figure(), "Actor → Mechanism → Subject Sankey Flow", height=420, showlegend=False)
+    xdf = explode_columns(df, required)
+    if xdf.empty:
+        return apply_chart_theme(go.Figure(), "Actor → Mechanism → Subject Sankey Flow", height=420, showlegend=False)
+
+    actor_top = xdf["Actor of repression"].value_counts().head(top_n).index.tolist()
+    mech_top = xdf["Mechanism of repression"].value_counts().head(top_n).index.tolist()
+    subj_top = xdf["Subject of repression"].value_counts().head(top_n).index.tolist()
+    xdf = xdf[xdf["Actor of repression"].isin(actor_top) & xdf["Mechanism of repression"].isin(mech_top) & xdf["Subject of repression"].isin(subj_top)]
+
+    actor_nodes = [f"Actor: {compact(x, 28)}" for x in actor_top]
+    mech_nodes = [f"Mechanism: {compact(x, 28)}" for x in mech_top]
+    subj_nodes = [f"Subject: {compact(x, 28)}" for x in subj_top]
+    nodes = actor_nodes + mech_nodes + subj_nodes
+    node_idx = {node: i for i, node in enumerate(nodes)}
+
+    sources, targets, values, labels = [], [], [], []
+    a_m = xdf.groupby(["Actor of repression", "Mechanism of repression"]).size().reset_index(name="count")
+    for _, row in a_m.iterrows():
+        s = f"Actor: {compact(row['Actor of repression'], 28)}"
+        t = f"Mechanism: {compact(row['Mechanism of repression'], 28)}"
+        if s in node_idx and t in node_idx:
+            sources.append(node_idx[s]); targets.append(node_idx[t]); values.append(int(row["count"])); labels.append(f"{s} → {t}")
+
+    m_s = xdf.groupby(["Mechanism of repression", "Subject of repression"]).size().reset_index(name="count")
+    for _, row in m_s.iterrows():
+        s = f"Mechanism: {compact(row['Mechanism of repression'], 28)}"
+        t = f"Subject: {compact(row['Subject of repression'], 28)}"
+        if s in node_idx and t in node_idx:
+            sources.append(node_idx[s]); targets.append(node_idx[t]); values.append(int(row["count"])); labels.append(f"{s} → {t}")
+
+    fig = go.Figure(data=[go.Sankey(
+        arrangement="snap",
+        node=dict(
+            pad=16, thickness=18, line=dict(color="#FFFFFF", width=.8),
+            label=nodes,
+            color=[PURPLE] * len(actor_nodes) + [TEAL] * len(mech_nodes) + [NEGATIVE] * len(subj_nodes),
+            hovertemplate="%{label}<extra></extra>",
+        ),
+        link=dict(
+            source=sources,
+            target=targets,
+            value=values,
+            label=labels,
+            color="rgba(102,0,148,.18)",
+            hovertemplate="%{label}<br>Alerts: %{value:,}<extra></extra>",
+        ),
+    )])
+    fig.update_layout(title="Actor → Mechanism → Subject Sankey Flow")
+    return apply_chart_theme(fig, "Actor → Mechanism → Subject Sankey Flow", height=430, showlegend=False)
+
+# -----------------------------------------------------------------------------
+# Analytical panels
+# -----------------------------------------------------------------------------
+def render_analytical_flow_panel(df: pd.DataFrame, top_n: int = 8) -> None:
+    section_header(
+        "Analytical Flow Panel",
+        "Core pathway engine showing how restrictive actors, mechanisms, and affected subjects relate under the active filters.",
+        badge="Actor → Mechanism → Subject",
     )
-    fig.add_annotation(text="EUSEE Dashboard | filtered view", xref="paper", yref="paper", x=0.5, y=-0.22, showarrow=False, font=dict(size=10, color="#777"))
-    return fig
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.plotly_chart(make_heatmap(df, "Actor of repression", "Mechanism of repression", "Actor × Mechanism Heatmap", top_n=top_n), use_container_width=True)
+    with c2:
+        st.plotly_chart(make_heatmap(df, "Mechanism of repression", "Subject of repression", "Mechanism × Subject Heatmap", top_n=top_n), use_container_width=True)
+    with c3:
+        st.plotly_chart(make_heatmap(df, "Actor of repression", "Subject of repression", "Actor × Subject Heatmap", top_n=top_n), use_container_width=True)
+    st.plotly_chart(make_sankey(df, top_n=top_n), use_container_width=True)
 
 
-def _ai_plot_intent_to_dimension(question, df):
-    q = str(question).lower()
-    mapping = [
-        (["country", "countries"], "alert-country", "Horizontal bar"),
-        (["region", "regional"], "region", "Bar"),
-        (["impact", "negative", "positive"], "alert-impact", "Donut"),
-        (["alert type", "type"], "alert-type", "Horizontal bar"),
-        (["principle", "enabling"], "enabling-principle", "Horizontal bar"),
-        (["actor", "actors"], "Actor of repression", "Horizontal bar"),
-        (["subject", "affected", "civil society"], "Subject of repression", "Horizontal bar"),
-        (["mechanism", "mechanisms"], "Mechanism of repression", "Horizontal bar"),
-        (["event"], "Type of event", "Horizontal bar"),
-        (["year", "annual"], "year", "Bar"),
-        (["month", "monthly"], "month_name", "Bar"),
-    ]
-    for keys, col, ctype in mapping:
-        if any(k in q for k in keys) and col in getattr(df, "columns", []):
-            return col, ctype
-    dims = _ai_get_available_plot_dimensions(df)
-    return (dims[0][1], "Horizontal bar") if dims else (None, "Bar")
+def render_overview_charts(df: pd.DataFrame) -> None:
+    section_header("Overview Diagnostics", "High-level distribution of alerts by type, enabling principle, region, and country.", badge="Overview")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.plotly_chart(grouped_bar(df, "alert-type", "alert-impact", "Alert Type Distribution", top_n=12, horizontal=True), use_container_width=True)
+    with c2:
+        edf = df.copy()
+        edf["enabling-principle-clean"] = edf["enabling-principle"].apply(split_multi)
+        edf = edf.explode("enabling-principle-clean")
+        edf["enabling-principle-clean"] = edf["enabling-principle-clean"].str.lower().map(ENABLING_PRINCIPLE_LABEL_MAP).fillna(edf["enabling-principle-clean"].apply(title_case_soft))
+        st.plotly_chart(grouped_bar(edf, "enabling-principle-clean", "alert-impact", "Alerts Across Enabling Principles", top_n=10, horizontal=True), use_container_width=True)
+    c3, c4 = st.columns(2)
+    with c3:
+        st.plotly_chart(grouped_bar(df, "region", "alert-impact", "Alert Distribution Across Regions", top_n=10, horizontal=False), use_container_width=True)
+    with c4:
+        st.plotly_chart(grouped_bar(df, "alert-country", "alert-impact", "Alert Distribution Across Countries", top_n=15, horizontal=True), use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# Map intelligence
+# -----------------------------------------------------------------------------
+def map_data(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["alert-country", "iso_alpha3", "total_alerts", "negative", "positive", "context", "negative_share"])
+    d = df.groupby(["alert-country", "iso_alpha3"], dropna=False).agg(
+        total_alerts=("alert-country", "size"),
+        negative=("alert-impact", lambda s: int((s == "Negative").sum())),
+        positive=("alert-impact", lambda s: int((s == "Positive").sum())),
+        context=("alert-impact", lambda s: int((s == "Context to watch").sum())),
+    ).reset_index()
+    d = d[d["iso_alpha3"].notna()]
+    d["negative_share"] = d.apply(lambda r: metric_pct(int(r["negative"]), int(r["total_alerts"])), axis=1)
+    return d
 
 
-def _save_ai_answer(question, df):
-    q = str(question).strip()
-    st.session_state.ai_messages.append({"role": "user", "content": q})
-    answer = local_ai_response(q, df)
-    plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw", "show me a chart"]
-    if any(w in q.lower() for w in plot_words):
-        dim, ctype = _ai_plot_intent_to_dimension(q, df)
-        if dim:
-            st.session_state.ai_last_plot = {"dimension_col": dim, "chart_type": ctype, "top_n": 10, "title": f"Chatbot-generated plot: {dim}"}
-            answer += "\n\n📊 I generated an additional plot from the current filtered dashboard data. Open the **Plot** tab in the assistant to view or modify it."
-    st.session_state.ai_pending_answer = answer
-    st.session_state.ai_streaming = True
+def make_map(df: pd.DataFrame) -> go.Figure:
+    md = map_data(df)
+    if md.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No geocoded country data available", x=.5, y=.5, xref="paper", yref="paper", showarrow=False)
+        return apply_chart_theme(fig, "Global Map Intelligence", height=540, showlegend=False)
+    fig = px.choropleth(
+        md,
+        locations="iso_alpha3",
+        color="total_alerts",
+        hover_name="alert-country",
+        hover_data={"total_alerts": ":,", "negative_share": ":.1f", "negative": ":,", "positive": ":,", "context": ":,", "iso_alpha3": False},
+        color_continuous_scale=[[0, "#F4EAF8"], [.5, "#B48AD0"], [1, PURPLE]],
+        projection="natural earth",
+    )
+    fig.update_geos(showframe=False, showcoastlines=True, coastlinecolor="#CDD5DF", showcountries=True, countrycolor="#D0D5DD", bgcolor="rgba(0,0,0,0)")
+    fig.update_layout(coloraxis_colorbar=dict(title="Alerts", thickness=12, len=.62))
+    return apply_chart_theme(fig, "Global Alerts Density Map", height=560, showlegend=False)
 
 
-
-def ai_priority_signal(summary: dict):
-    """Return a priority badge based on negative-alert share."""
-    total = summary.get("total_alerts", 0) or 0
-    negative = summary.get("negative", 0) or 0
-    if total == 0:
-        return "No data", "#6b7280", "No alerts are available under the current filters."
-    neg_share = negative / total
-    if neg_share >= 0.70:
-        return "High priority", "#dc2626", "Negative alerts dominate the current filtered dataset. Review country, actor, and mechanism patterns."
-    if neg_share >= 0.40:
-        return "Moderate priority", "#f59e0b", "Negative alerts are substantial under the current filters and may require closer review."
-    return "Low priority", "#16a34a", "Negative alerts are limited under the current filters. Continue monitoring for emerging shifts."
-
-
-
-def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
-    """Generate a compact explanation for a selected dashboard or chatbot chart."""
-    s = summarize_for_ai(df)
-    if df is None or df.empty or s.get("total_alerts", 0) == 0:
-        return append_eusee_redirect(
-            "No records are available under the current filters, so there is no chart pattern to explain. Adjust the filters and try again."
-        )
-
-    ctx = str(chart_context or "current dashboard view")
-    lines = [f"Chart explanation — {ctx}", ""]
-    lines.append(f"The current filtered view contains {s['total_alerts']:,} alerts across {s['countries_count']:,} countries and {s['regions_count']:,} regions.")
-    lines.append(f"Negative alerts represent {s['negative_pct']}% of the filtered records, compared with {s['positive_pct']}% positive alerts and {s['context_pct']}% context-to-watch alerts.")
-
-    q = ctx.lower()
-    if any(k in q for k in ["country", "countries", "map"]):
-        lines.append("\nWhat the country pattern shows:")
-        lines.append(_format_ranked(s.get("top_countries", {})))
-        if s.get("top_negative_countries"):
-            lines.append("\nCountries with the highest negative-alert counts:")
-            lines.append(_format_ranked(s.get("top_negative_countries", {})))
-    elif any(k in q for k in ["region", "regional"]):
-        lines.append("\nRegional concentration:")
-        lines.append(_format_ranked(s.get("top_regions", {})))
-    elif any(k in q for k in ["actor", "actors"]):
-        lines.append("\nMain restrictive actors visible in the current filtered negative-alert records:")
-        lines.append(_format_ranked(s.get("top_actors", {})))
-    elif any(k in q for k in ["mechanism", "mechanisms"]):
-        lines.append("\nMain restrictive mechanisms visible in the current filtered negative-alert records:")
-        lines.append(_format_ranked(s.get("top_mechanisms", {})))
-    elif any(k in q for k in ["principle", "enabling"]):
-        lines.append("\nMost represented enabling principles:")
-        lines.append(_format_ranked(s.get("top_principles", {})))
-    elif any(k in q for k in ["trend", "time", "month", "year"]):
-        lines.append("\nTrend signal:")
-        lines.append(s.get("trend_sentence", "Trend information is not available for the selected filters."))
-    else:
-        lines.append("\nMain visible distributions:")
-        lines.append("Top countries:\n" + _format_ranked(s.get("top_countries", {})))
-        lines.append("\nTop alert types:\n" + _format_ranked(s.get("top_alert_types", {})))
-
-    lines.append("\nInterpretation caution: alert counts should not be read as direct prevalence alone. They may also reflect reporting intensity, monitoring coverage, and partner submission patterns.")
-    return append_eusee_redirect("\n".join(lines))
+def country_insight(df: pd.DataFrame, country: str) -> str:
+    cdf = df[df["alert-country"].astype(str).eq(country)] if country else df
+    if cdf.empty:
+        return "No records are available for this country under the current filters."
+    total = len(cdf)
+    neg = int((cdf["alert-impact"] == "Negative").sum())
+    actor, _, actor_pct = top_value(cdf, "Actor of repression", exploded=True)
+    mech, _, mech_pct = top_value(cdf, "Mechanism of repression", exploded=True)
+    subj, _, subj_pct = top_value(cdf, "Subject of repression", exploded=True)
+    return (
+        f"Recent alerts in {country} are concentrated around **{compact(actor, 42)}** as the dominant actor "
+        f"({actor_pct}% of records), mainly through **{compact(mech, 42)}** ({mech_pct}%), "
+        f"affecting **{compact(subj, 42)}** ({subj_pct}%). Negative alerts represent "
+        f"**{metric_pct(neg, total)}%** of this country view."
+    )
 
 
-def ai_try_llm_response(question, df):
-    """Optional LLM response. Uses OpenAI only when OPENAI_API_KEY is present; otherwise falls back locally."""
-    use_llm = False
-    try:
-        use_llm = bool(st.secrets.get("openai", {}).get("api_key") or st.secrets.get("OPENAI_API_KEY"))
-    except Exception:
-        use_llm = False
-    if not use_llm:
-        return local_ai_response(question, df)
+def render_map_intelligence(df: pd.DataFrame) -> None:
+    section_header("Map Intelligence Panel", "Geographic distribution of alerts with country-level diagnostic context.", badge="Clickable country view")
+    md = map_data(df)
+    default_country = md.sort_values("total_alerts", ascending=False)["alert-country"].iloc[0] if not md.empty else ""
 
-    # Safe fallback-first implementation: avoids hard dependency crashes if openai package is unavailable.
-    try:
-        from openai import OpenAI
-        api_key = st.secrets.get("openai", {}).get("api_key", st.secrets.get("OPENAI_API_KEY"))
-        client = OpenAI(api_key=api_key)
-        s = summarize_for_ai(df)
-        prompt = f"""
-You are the EU SEE Dashboard AI Copilot. Answer only from this filtered dashboard summary.
-Keep the answer concise, analytical, and cautious about reporting coverage.
-Always include the EUSEE redirect message at the end.
+    map_col, panel_col = st.columns([2.4, 1])
+    with map_col:
+        fig = make_map(df)
+        selected_country = default_country
+        clicked = None
+        if HAS_PLOTLY_EVENTS:
+            clicked = plotly_events(fig, click_event=True, hover_event=False, select_event=False, override_height=560, key="country_map_click")
+            if clicked:
+                loc = clicked[0].get("location")
+                match = md.loc[md["iso_alpha3"].eq(loc), "alert-country"]
+                if not match.empty:
+                    selected_country = match.iloc[0]
+        else:
+            st.plotly_chart(fig, use_container_width=True, key="map_no_click")
 
-Filtered summary:
-{s}
-
-User question: {question}
-"""
-        resp = client.chat.completions.create(
-            model=st.secrets.get("openai", {}).get("model", "gpt-4o-mini"),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=550,
-        )
-        return append_eusee_redirect(resp.choices[0].message.content)
-    except Exception:
-        return local_ai_response(question, df)
-
-
-def _copilot_stream_text(text, chunk_size=8):
-    """Small deterministic streaming generator for Streamlit write_stream."""
-    import time
-    words = str(text or "").split(" ")
-    for i in range(0, len(words), chunk_size):
-        yield " ".join(words[i:i + chunk_size]) + " "
-        time.sleep(0.015)
-
-
-def _copilot_queue_answer(question, df):
-    q = str(question or "").strip()
-    if not q:
-        return
-    st.session_state.ai_messages.append({"role": "user", "content": q})
-    answer = ai_try_llm_response(q, df)
-    plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw"]
-    explain_words = ["explain chart", "explain this chart", "interpret chart", "what does this chart"]
-    if any(w in q.lower() for w in plot_words):
-        dim, ctype = _ai_plot_intent_to_dimension(q, df)
-        if dim:
-            st.session_state.ai_last_plot = {
-                "dimension_col": dim,
-                "chart_type": ctype,
-                "top_n": 10,
-                "title": f"Chatbot-generated plot: {dim}",
-            }
-            answer += "\n\n📊 I prepared a chart from the current filtered data. Open the Plot tab to view, adjust, explain, or download it."
-    if any(w in q.lower() for w in explain_words):
-        answer = ai_generate_chart_explanation(df, q)
-    st.session_state.ai_pending_answer = answer
-    st.session_state.ai_streaming = True
-
-
-def render_ai_assistant_panel(df):
-    """Professional independent right-side AI Copilot with streaming, tabs, chart explanation, plotting, and exports."""
-    if "ai_messages" not in st.session_state:
-        st.session_state.ai_messages = [
-            {"role": "assistant", "content": "Hello. I am your EU SEE AI Copilot. Ask me for insights, request extra plots, or ask me to explain a dashboard chart."}
-        ]
-    if "ai_streaming" not in st.session_state:
-        st.session_state.ai_streaming = False
-    if "ai_pending_answer" not in st.session_state:
-        st.session_state.ai_pending_answer = ""
-    if "ai_last_plot" not in st.session_state:
-        st.session_state.ai_last_plot = None
-    if "ai_right_sidebar_open" not in st.session_state:
-        st.session_state.ai_right_sidebar_open = True
-
-    s = summarize_for_ai(df)
-    level, level_color, level_note = ai_priority_signal(s)
-
-    st.markdown("""
-    <style>
-    .st-key-eusee_ai_right_sidebar {
-        position: fixed !important; top: 74px !important; right: 16px !important;
-        width: 410px !important; max-width: calc(100vw - 32px) !important;
-        max-height: calc(100vh - 94px) !important; overflow-y: auto !important; overflow-x: hidden !important;
-        z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
-        border-radius: 22px !important; box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
-        padding: 12px 12px 14px 12px !important;
-    }
-    .st-key-eusee_ai_right_sidebar_collapsed {
-        position: fixed !important; top: 44% !important; right: 0 !important; width: 72px !important;
-        z-index: 999999 !important; background: linear-gradient(180deg,#2d0055,#660094) !important;
-        color: white !important; border-radius: 16px 0 0 16px !important;
-        box-shadow: 0 18px 45px rgba(45,0,85,.28) !important; padding: 10px 8px !important;
-    }
-    .copilot-brand{background:linear-gradient(135deg,#2d0055,#660094 55%,#008CAA);color:white;padding:14px;border-radius:18px;margin-bottom:8px;}
-    .copilot-title{font-size:17px;font-weight:900;line-height:1.15;}
-    .copilot-sub{font-size:11px;opacity:.92;margin-top:4px;}
-    .copilot-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
-    .copilot-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;}
-    .copilot-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;}
-    .copilot-metric{border:1px solid #eee6f5;border-radius:14px;padding:9px;background:#fbf9ff;}
-    .copilot-label{font-size:10px;color:#666;font-weight:800;text-transform:uppercase;letter-spacing:.03em;}
-    .copilot-value{font-size:18px;color:#2d0055;font-weight:900;}
-    .copilot-msg{background:#f6f2ff;border-left:4px solid #660094;padding:10px;border-radius:13px;margin:8px 0;font-size:12px;line-height:1.48;}
-    .copilot-user{background:#2d0055;color:white;padding:10px;border-radius:13px;margin:8px 0;font-size:12px;line-height:1.48;}
-    .copilot-note{font-size:11px;color:#555;background:#fff9dc;border-left:4px solid #FFDB58;padding:8px;border-radius:11px;margin:8px 0;}
-    .copilot-section{font-size:12px;color:#2d0055;font-weight:900;margin:8px 0 4px 0;}
-    .copilot-small{font-size:11px;color:#666;line-height:1.38;}
-    .copilot-typing{display:inline-flex;gap:4px;align-items:center;padding:4px 0;}
-    .copilot-typing span{width:6px;height:6px;background:#660094;border-radius:50%;display:block;animation:copilotTyping 1.1s infinite ease-in-out;}
-    .copilot-typing span:nth-child(2){animation-delay:.15s}.copilot-typing span:nth-child(3){animation-delay:.3s}
-    @keyframes copilotTyping{0%,80%,100%{opacity:.35;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
-    .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button{font-size:11px!important;font-weight:900!important;padding:7px 2px!important;}
-    @media (max-width: 760px){.st-key-eusee_ai_right_sidebar{left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}}
-    </style>
-    """, unsafe_allow_html=True)
-
-    if not st.session_state.ai_right_sidebar_open:
-        with st.container(key="eusee_ai_right_sidebar_collapsed"):
-            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:13px;line-height:1.15;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
-            if st.button("Open", key="copilot_open_btn", use_container_width=True, help="Open EU SEE AI Copilot"):
-                st.session_state.ai_right_sidebar_open = True
-                st.rerun()
-        return
-
-    with st.container(key="eusee_ai_right_sidebar"):
-        top_l, top_r = st.columns([0.72, 0.28], vertical_alignment="center")
-        with top_l:
-            st.markdown("""
-            <div class="copilot-brand">
-                <div class="copilot-title">🤖 EU SEE AI Copilot</div>
-                <div class="copilot-sub">Streaming chat, chart explanation, extra plots and policy-ready exports</div>
-                <div class="copilot-chip-row"><span class="copilot-chip">Chat</span><span class="copilot-chip">Explain</span><span class="copilot-chip">Plot</span><span class="copilot-chip">Export</span></div>
-            </div>
-            """, unsafe_allow_html=True)
-        with top_r:
-            if st.button("◂ Collapse", key="copilot_collapse_btn", use_container_width=True, help="Collapse AI Copilot but keep launcher visible"):
-                st.session_state.ai_right_sidebar_open = False
-                st.rerun()
-
+    with panel_col:
+        countries = md.sort_values("total_alerts", ascending=False)["alert-country"].tolist() if not md.empty else []
+        if countries:
+            selected_country = st.selectbox("Country drill-down", countries, index=countries.index(default_country) if default_country in countries else 0, key="country_drilldown")
+        cdf = df[df["alert-country"].astype(str).eq(selected_country)] if selected_country else df.iloc[0:0]
+        total = len(cdf)
+        neg = int((cdf["alert-impact"] == "Negative").sum()) if not cdf.empty else 0
+        actor, _, _ = top_value(cdf, "Actor of repression", exploded=True)
+        mech, _, _ = top_value(cdf, "Mechanism of repression", exploded=True)
+        subj, _, _ = top_value(cdf, "Subject of repression", exploded=True)
         st.markdown(f"""
-        <div class="copilot-metric-grid">
-            <div class="copilot-metric"><div class="copilot-label">Alerts</div><div class="copilot-value">{s['total_alerts']:,}</div></div>
-            <div class="copilot-metric"><div class="copilot-label">Negative</div><div class="copilot-value">{s['negative_pct']}%</div></div>
-            <div class="copilot-metric"><div class="copilot-label">Countries</div><div class="copilot-value">{s['countries_count']:,}</div></div>
-            <div class="copilot-metric"><div class="copilot-label">Priority</div><div class="copilot-value" style="color:{level_color};">{level}</div></div>
+        <div class="country-panel">
+            <div class="section-kicker">Country intelligence</div>
+            <div class="section-title" style="margin-top:4px;">{selected_country or 'No country selected'}</div>
+            <div class="country-row"><span>Total alerts</span><strong>{total:,}</strong></div>
+            <div class="country-row"><span>Negative share</span><strong style="color:{NEGATIVE};">{metric_pct(neg,total)}%</strong></div>
+            <div class="country-row"><span>Top actor</span><strong>{compact(actor, 24)}</strong></div>
+            <div class="country-row"><span>Top mechanism</span><strong>{compact(mech, 24)}</strong></div>
+            <div class="country-row"><span>Top subject</span><strong>{compact(subj, 24)}</strong></div>
+            <div class="ai-box"><div class="ai-box-title">✦ AI Insight</div>{country_insight(df, selected_country)}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        chat_tab, explain_tab, plot_tab, insight_tab, export_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Export"])
+# -----------------------------------------------------------------------------
+# Negative alerts deep analytics
+# -----------------------------------------------------------------------------
+def render_negative_filters(negative_df: pd.DataFrame) -> pd.DataFrame:
+    if negative_df.empty:
+        return negative_df
+    xdf = explode_columns(negative_df, ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event"])
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        actors = st.multiselect("Restrictive actors", sorted(xdf["Actor of repression"].dropna().unique()), key="neg_actor_filter")
+    with c2:
+        mechanisms = st.multiselect("Restrictive mechanisms", sorted(xdf["Mechanism of repression"].dropna().unique()), key="neg_mechanism_filter")
+    with c3:
+        subjects = st.multiselect("Affected actors", sorted(xdf["Subject of repression"].dropna().unique()), key="neg_subject_filter")
+    with c4:
+        events = st.multiselect("Negative event types", sorted(xdf["Type of event"].dropna().unique()), key="neg_event_filter")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        with chat_tab:
-            st.markdown("<div class='copilot-small'>Ask naturally, e.g. <b>summarise the current view</b>, <b>plot top countries</b>, or <b>explain the regional chart</b>.</div>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Summarise", key="copilot_q_summary", use_container_width=True):
-                    _copilot_queue_answer("summarise the current view", df); st.rerun()
-                if st.button("Auto insights", key="copilot_q_auto_insights", use_container_width=True):
-                    _copilot_queue_answer("auto insights from current filters", df); st.rerun()
-                if st.button("Plot countries", key="copilot_q_plot_countries", use_container_width=True):
-                    _copilot_queue_answer("plot top countries", df); st.rerun()
-                if st.button("Explain map", key="copilot_q_explain_map", use_container_width=True):
-                    _copilot_queue_answer("explain chart: map / country distribution", df); st.rerun()
-            with c2:
-                if st.button("Priority", key="copilot_q_priority", use_container_width=True):
-                    _copilot_queue_answer("what is the priority signal and why", df); st.rerun()
-                if st.button("Plot impacts", key="copilot_q_plot_impacts", use_container_width=True):
-                    _copilot_queue_answer("chart alert impacts", df); st.rerun()
-                if st.button("Next steps", key="copilot_q_next", use_container_width=True):
-                    _copilot_queue_answer("recommended next analytical steps", df); st.rerun()
-            if st.button("Clear chat", key="copilot_clear_chat", use_container_width=True):
-                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about filtered data, request a plot, or ask me to explain a chart."}]
-                st.session_state.ai_last_plot = None
-                st.session_state.ai_pending_answer = ""
-                st.session_state.ai_streaming = False
+    filtered = negative_df.copy()
+    if actors:
+        filtered = filtered[filtered["Actor of repression"].apply(lambda x: contains_any(x, actors))]
+    if mechanisms:
+        filtered = filtered[filtered["Mechanism of repression"].apply(lambda x: contains_any(x, mechanisms))]
+    if subjects:
+        filtered = filtered[filtered["Subject of repression"].apply(lambda x: contains_any(x, subjects))]
+    if events:
+        filtered = filtered[filtered["Type of event"].apply(lambda x: contains_any(x, events))]
+    return filtered
+
+
+def render_negative_kpis(negative_df: pd.DataFrame, all_df: pd.DataFrame) -> None:
+    total = len(negative_df)
+    all_total = len(all_df)
+    countries = count_unique(negative_df, "alert-country")
+    actor, actor_count, actor_pct = top_value(negative_df, "Actor of repression", exploded=True)
+    mech, mech_count, mech_pct = top_value(negative_df, "Mechanism of repression", exploded=True)
+    subj, subj_count, subj_pct = top_value(negative_df, "Subject of repression", exploded=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(f"""
+        <div class="kpi-card"><div><div class="kpi-top"><div><div class="kpi-eyebrow">Coverage</div><div class="kpi-title">Countries with Negative Alerts</div></div><div class="kpi-icon">🌍</div></div>
+        <div class="kpi-value" style="color:{TEAL};">{countries:,}</div><div class="kpi-pill">Negative-alert scope</div></div><div class="kpi-note">Countries represented by current negative filters</div></div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""
+        <div class="kpi-card"><div><div class="kpi-top"><div><div class="kpi-eyebrow">Negative alert scope</div><div class="kpi-title">Negative Alerts</div></div><div class="kpi-icon">⚠️</div></div>
+        <div class="kpi-value" style="color:{NEGATIVE};">{total:,}</div><div class="kpi-pill">{metric_pct(total, all_total)}% of filtered alerts</div></div><div class="kpi-note">Focused diagnostic view for restrictive events only</div></div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"""
+        <div class="kpi-card"><div><div class="kpi-top"><div><div class="kpi-eyebrow">Dominant pathway</div><div class="kpi-title">Actor → Mechanism → Subject</div></div><div class="kpi-icon">⛓️</div></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;">
+            <div class="country-row" style="padding:3px 0;"><span>Actor</span><strong>{compact(actor, 22)} · {actor_pct}%</strong></div>
+            <div class="country-row" style="padding:3px 0;"><span>Mechanism</span><strong>{compact(mech, 22)} · {mech_pct}%</strong></div>
+            <div class="country-row" style="padding:3px 0;border-bottom:0;"><span>Subject</span><strong>{compact(subj, 22)} · {subj_pct}%</strong></div>
+        </div></div><div class="kpi-note">Use the flow panel below to inspect relationships</div></div>
+        """, unsafe_allow_html=True)
+
+
+def render_negative_deep_analytics(df: pd.DataFrame) -> None:
+    negative_df = df[df["alert-impact"] == "Negative"].copy()
+    section_header("Negative Alerts Deep Analytics", "Dedicated restrictive-events workspace with local filters and pathway diagnostics.", badge="Deep analytics")
+    if negative_df.empty:
+        st.warning("No negative alerts are available under the current global filters.")
+        return
+    filtered_negative = render_negative_filters(negative_df)
+    render_negative_kpis(filtered_negative, df)
+    render_analytical_flow_panel(filtered_negative, top_n=8)
+    render_map_intelligence(filtered_negative)
+    render_evidence_table(filtered_negative, key="negative_evidence", title="Negative Evidence & Records")
+
+# -----------------------------------------------------------------------------
+# AI Copilot local layer
+# -----------------------------------------------------------------------------
+def local_ai_answer(question: str, df: pd.DataFrame) -> str:
+    q = question.lower().strip()
+    total = len(df)
+    if total == 0:
+        return "No records are available under the current filters. Adjust filters and try again."
+    top_country, country_count, _ = top_value(df, "alert-country")
+    top_actor, _, actor_pct = top_value(df, "Actor of repression", exploded=True)
+    top_mech, _, mech_pct = top_value(df, "Mechanism of repression", exploded=True)
+    top_subj, _, subj_pct = top_value(df, "Subject of repression", exploded=True)
+    negative_count = int((df["alert-impact"] == "Negative").sum())
+
+    if "country" in q or "where" in q or "high" in q:
+        return f"The strongest geographic signal is **{top_country}** with **{country_count:,}** alerts. Negative alerts make up **{metric_pct(negative_count,total)}%** of the current view."
+    if "driver" in q or "why" in q or "pathway" in q:
+        return f"The dominant pathway is **{top_actor} → {top_mech} → {top_subj}**. Actor concentration is {actor_pct}%, mechanism concentration is {mech_pct}%, and subject concentration is {subj_pct}% within the active view."
+    if "compare" in q or "region" in q:
+        region_counts = df["region"].value_counts().head(4)
+        return "Regional comparison: " + "; ".join([f"**{idx}**: {val:,} alerts" for idx, val in region_counts.items()]) + "."
+    return (
+        f"Current view contains **{total:,}** alerts across **{count_unique(df, 'alert-country')}** countries. "
+        f"Top country: **{top_country}**. Dominant pathway: **{top_actor} → {top_mech} → {top_subj}**. "
+        f"Negative share: **{metric_pct(negative_count,total)}%**."
+    )
+
+
+def render_ai_copilot(df: pd.DataFrame) -> None:
+    section_header("AI Copilot", "Ask questions about the current filtered view, request explanations, or generate quick interpretive summaries.", badge="Context-aware")
+    if "ai_messages" not in st.session_state:
+        st.session_state.ai_messages = []
+    c1, c2 = st.columns([1.2, 1])
+    with c1:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        st.markdown("**Ask the dashboard**")
+        examples = ["Why is the top country high?", "What are the top drivers of repression?", "Compare civic space trends across regions", "Which countries need attention?"]
+        for ex in examples:
+            if st.button(ex, use_container_width=True, key=f"ex_{abs(hash(ex))}"):
+                st.session_state.ai_messages.append((ex, local_ai_answer(ex, df)))
                 st.rerun()
-
-            chat_box = st.container(height=330)
-            with chat_box:
-                for msg in st.session_state.ai_messages[-10:]:
-                    css = "copilot-user" if msg["role"] == "user" else "copilot-msg"
-                    st.markdown(f'<div class="{css}">{_render_chat_content_html(msg["content"])}</div>', unsafe_allow_html=True)
-                if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
-                    st.markdown('<div class="copilot-msg"><div class="copilot-typing"><span></span><span></span><span></span></div><br><b>AI Copilot is typing...</b></div>', unsafe_allow_html=True)
-                    streamed = st.write_stream(_copilot_stream_text(st.session_state.ai_pending_answer))
-                    st.session_state.ai_messages.append({"role": "assistant", "content": st.session_state.ai_pending_answer})
-                    st.session_state.ai_pending_answer = ""
-                    st.session_state.ai_streaming = False
-                    st.rerun()
-
-            with st.form("copilot_chat_form", clear_on_submit=True):
-                user_q = st.text_area("Message", placeholder="Ask a question or request a chart explanation...", height=70, label_visibility="collapsed")
-                submitted = st.form_submit_button("Send", use_container_width=True)
-            if submitted and user_q.strip():
-                _copilot_queue_answer(user_q, df)
+        question = st.text_input("Ask anything about the current data", placeholder="e.g., Explain the dominant restrictive pathway", key="ai_question")
+        if st.button("Ask Copilot", type="primary", use_container_width=True):
+            if question.strip():
+                st.session_state.ai_messages.append((question, local_ai_answer(question, df)))
                 st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        st.markdown("**Latest insight**")
+        if st.session_state.ai_messages:
+            q, a = st.session_state.ai_messages[-1]
+            st.markdown(f"**Q:** {q}")
+            st.markdown(a)
+        else:
+            st.markdown(local_ai_answer("summarize", df))
+        st.download_button("Download current AI summary", data=local_ai_answer("summarize", df), file_name="eusee_ai_summary.txt", mime="text/plain", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        with explain_tab:
-            st.markdown('<div class="copilot-section">Explain a dashboard chart</div>', unsafe_allow_html=True)
-            chart_context = st.selectbox(
-                "Select chart to explain",
-                [
-                    "Overview: alert type distribution",
-                    "Overview: enabling principles distribution",
-                    "Overview: regional distribution",
-                    "Overview: country distribution",
-                    "Map: country-level geographic distribution",
-                    "Negative alerts: restrictive actors",
-                    "Negative alerts: affected civil society actors",
-                    "Negative alerts: restrictive mechanisms",
-                    "Negative alerts: types of negative events",
-                    "Advanced: heatmaps and Sankey flow",
-                    "Chatbot-generated plot",
-                ],
-                key="copilot_chart_context",
-            )
-            if st.button("Generate chart explanation", key="copilot_explain_btn", use_container_width=True):
-                explanation = ai_generate_chart_explanation(df, chart_context)
-                st.session_state.ai_messages.append({"role": "user", "content": f"Explain chart: {chart_context}"})
-                st.session_state.ai_pending_answer = explanation
-                st.session_state.ai_streaming = True
-                st.rerun()
-            st.markdown('<div class="copilot-note">Tip: explanation uses the current dashboard filters and includes interpretation cautions on monitoring/reporting coverage.</div>', unsafe_allow_html=True)
-            with st.expander("Preview explanation now", expanded=True):
-                st.markdown(_render_chat_content_html(ai_generate_chart_explanation(df, chart_context)), unsafe_allow_html=True)
+# -----------------------------------------------------------------------------
+# Evidence table and footer
+# -----------------------------------------------------------------------------
+def render_evidence_table(df: pd.DataFrame, key: str = "evidence", title: str = "Evidence & Records") -> None:
+    section_header(title, "Search, inspect, and export the filtered records supporting the dashboard visuals.", badge="Live filtered view")
+    if df.empty:
+        st.info("No records are available for the current selection.")
+        return
 
-        with plot_tab:
-            st.markdown('<div class="copilot-section">Create additional plots from filtered data</div>', unsafe_allow_html=True)
-            dims = _ai_get_available_plot_dimensions(df)
-            if dims:
-                dim_labels = [d[0] for d in dims]
-                dim_map = {label: col for label, col in dims}
-                selected_label = st.selectbox("Dimension", dim_labels, index=0, key="copilot_plot_dim")
-                chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=0, key="copilot_plot_type")
-                top_n = st.slider("Top N", 3, 30, 10, key="copilot_plot_topn")
-                selected_col = dim_map[selected_label]
-                fig = _ai_make_plot(df, selected_col, chart_type=chart_type, top_n=top_n, title=f"{selected_label} distribution")
-                st.plotly_chart(fig, use_container_width=True, key="copilot_plot_builder")
-                p1, p2 = st.columns(2)
-                with p1:
-                    if st.button("Explain this plot", key="copilot_explain_generated_plot", use_container_width=True):
-                        explanation = ai_generate_chart_explanation(df, f"Chatbot-generated plot: {selected_label}")
-                        st.session_state.ai_messages.append({"role": "user", "content": f"Explain generated plot: {selected_label}"})
-                        st.session_state.ai_pending_answer = explanation
-                        st.session_state.ai_streaming = True
-                        st.rerun()
-                with p2:
-                    if st.button("Save to chat", key="copilot_save_generated_plot", use_container_width=True):
-                        st.session_state.ai_last_plot = {"dimension_col": selected_col, "chart_type": chart_type, "top_n": top_n, "title": f"{selected_label} distribution"}
-                        st.session_state.ai_messages.append({"role": "assistant", "content": f"📊 Saved a {chart_type.lower()} plot for **{selected_label}** using the current filters."})
-                        st.rerun()
-                plot_df = _ai_clean_count_df(df, selected_col, top_n=top_n)
-                st.download_button("Download plot data (.csv)", data=plot_df.to_csv(index=False).encode("utf-8"), file_name="eusee_ai_plot_data.csv", mime="text/csv", use_container_width=True, key="copilot_download_plot_data")
-                if isinstance(st.session_state.ai_last_plot, dict):
-                    st.markdown('<div class="copilot-section">Last chatbot-generated plot</div>', unsafe_allow_html=True)
-                    lp = st.session_state.ai_last_plot
-                    st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="copilot_last_plot")
-            else:
-                st.info("No suitable fields are available for plotting under the current filters.")
+    rename_map = {
+        "post_title": "Title",
+        "summary": "Event summary",
+        "creation_date": "Date",
+        "alert-country": "Country",
+        "alert-impact": "Impact",
+        "alert-type": "Type",
+        "Actor of repression": "Actor",
+        "Mechanism of repression": "Mechanism",
+        "Subject of repression": "Subject",
+        "enabling-principle": "Enabling principles",
+    }
+    cols = [c for c in rename_map if c in df.columns]
+    display_df = df[cols].rename(columns=rename_map).copy()
+    if "Date" in display_df.columns:
+        display_df["Date"] = pd.to_datetime(display_df["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
-        with insight_tab:
-            st.markdown(f"**Priority signal:** <span style='color:{level_color};font-weight:900;'>{level}</span>", unsafe_allow_html=True)
-            st.caption(level_note)
-            render_auto_insights_cards(df)
-            if st.button("Send auto insights to chat", key="copilot_send_auto_insights", use_container_width=True):
-                st.session_state.ai_messages.append({"role": "user", "content": "Auto insights from current filters"})
-                st.session_state.ai_pending_answer = append_eusee_redirect(generate_auto_insights_text(df))
-                st.session_state.ai_streaming = True
-                st.rerun()
-            with st.expander("Mini trend chart", expanded=True):
-                render_ai_trend_chart(df)
-            with st.expander("Interpret current view", expanded=False):
-                st.markdown(_render_chat_content_html(local_ai_response("interpret the current view", df)), unsafe_allow_html=True)
-            with st.expander("Recommended next steps", expanded=False):
-                st.text(ai_recommended_next_steps(df))
-            with st.expander("Data quality report", expanded=False):
-                st.text(ai_data_quality_report(df))
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1.4, 1.2, .8])
+    with c1:
+        search = st.text_input("Search records", placeholder="Search country, actor, mechanism, subject...", key=f"{key}_search")
+    with c2:
+        selected_cols = st.multiselect("Columns", display_df.columns.tolist(), default=display_df.columns.tolist(), key=f"{key}_cols")
+    with c3:
+        row_limit = st.selectbox("Rows", [25, 50, 100, 250, 500, "All"], index=1, key=f"{key}_rows")
 
-        with export_tab:
-            summary_text = generate_ai_executive_summary(df)
-            policy_text = generate_ai_policy_brief(df)
-            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
-            auto_insights_text = generate_auto_insights_text(df)
-            st.download_button("Auto insights (.txt)", data=auto_insights_text, file_name="eusee_ai_auto_insights.txt", mime="text/plain", use_container_width=True, key="copilot_export_auto_insights")
-            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="copilot_export_summary")
-            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="copilot_export_policy")
-            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="copilot_export_chat")
-            if df is not None and not df.empty:
-                st.download_button("Filtered data (.csv)", data=df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_dashboard_data.csv", mime="text/csv", use_container_width=True, key="copilot_export_data")
+    table_df = display_df[selected_cols] if selected_cols else display_df
+    if search.strip():
+        q = search.strip().lower()
+        table_df = table_df[table_df.astype(str).apply(lambda r: r.str.lower().str.contains(q, na=False).any(), axis=1)]
+    view_df = table_df if row_limit == "All" else table_df.head(int(row_limit))
 
-render_ai_assistant_panel(filtered_global)
+    st.caption(f"Showing {len(view_df):,} rows from {len(table_df):,} matching records and {len(df):,} active records.")
+    st.dataframe(view_df, use_container_width=True, hide_index=True, height=min(560, max(280, 36 * min(len(view_df), 12) + 80)))
+    st.download_button("⬇️ Download filtered table as CSV", data=table_df.to_csv(index=False).encode("utf-8"), file_name=f"{key}.csv", mime="text/csv", use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
-
-# ---------------- FEEDBACK CALLOUT ----------------
-def render_feedback_callout():
-    """Render a compact floating feedback callout above the footer logos."""
+def render_feedback_and_footer() -> None:
     feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
-    st.markdown(f"""
-    <style>
-    .eusee-feedback-floating {{
-        position: fixed;
-        right: 24px;
-        bottom: 118px;
-        width: 292px;
-        max-width: calc(100vw - 48px);
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
-        border: 1px solid rgba(102, 0, 148, 0.14);
-        border-left: 5px solid #660094;
-        border-radius: 16px;
-        padding: 13px 14px 12px 14px;
-        box-shadow: 0 14px 32px rgba(17, 24, 39, 0.16), inset 0 1px 0 rgba(255,255,255,0.96);
-        z-index: 10002;
-        font-family: Arial, sans-serif;
-        box-sizing: border-box;
-    }}
-    .eusee-feedback-floating:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 18px 38px rgba(17, 24, 39, 0.20), inset 0 1px 0 rgba(255,255,255,0.96);
-        transition: all .18s ease;
-    }}
-    .eusee-feedback-top {{ display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }}
-    .eusee-feedback-icon {{
-        width: 30px; height: 30px; min-width: 30px; border-radius: 12px;
-        background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
-        color: #660094; border: 1px solid rgba(102,0,148,.10);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 15px; font-weight: 900;
-    }}
-    .eusee-feedback-title {{ color: #2D0055; font-size: 12.5px; font-weight: 900; line-height: 1.1; }}
-    .eusee-feedback-text {{ color: #475467; font-size: 11px; line-height: 1.35; font-weight: 650; margin-bottom: 10px; }}
-    .eusee-feedback-actions {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }}
-    .eusee-feedback-button {{
-        display: inline-flex; align-items: center; justify-content: center;
-        padding: 7px 12px; border-radius: 999px;
-        background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
-        color: #FFFFFF !important; text-decoration: none !important;
-        font-size: 11px; font-weight: 900;
-        box-shadow: 0 6px 14px rgba(102, 0, 148, .20); white-space: nowrap;
-    }}
-    .eusee-feedback-button:hover {{ filter: brightness(1.04); transform: scale(1.02); transition: all .16s ease; }}
-    .eusee-feedback-linknote {{ color: #8A6AA0; font-size: 9.5px; font-weight: 800; line-height: 1.1; text-align: right; }}
-    @media (max-width: 900px) {{
-        .eusee-feedback-floating {{ right: 12px; left: 12px; width: auto; bottom: 92px; }}
-        .eusee-feedback-linknote {{ display: none; }}
-    }}
-    </style>
-
-    <div class="eusee-feedback-floating">
-        <div class="eusee-feedback-top">
-            <div class="eusee-feedback-icon">💬</div>
-            <div class="eusee-feedback-title">Help us improve the EUSEE Dashboard</div>
+    st.markdown(
+        f"""
+        <div class="panel-card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div><strong style="color:{PURPLE_DARK};">Help improve the EUSEE Dashboard</strong><br><span class="mini-note">Share feedback on usability, insights, and deployment readiness.</span></div>
+            <a href="{feedback_url}" target="_blank" style="background:linear-gradient(90deg,{PURPLE},{TEAL});color:white;text-decoration:none;border-radius:999px;padding:9px 14px;font-size:12px;font-weight:900;">Formular ausfüllen</a>
         </div>
-        <div class="eusee-feedback-text">
-            Share your feedback on usability, insights, and dashboard improvements using the feedback form.
-        </div>
-        <div class="eusee-feedback-actions">
-            <a class="eusee-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">Formular ausfüllen</a>
-            <div class="eusee-feedback-linknote">opens Microsoft Forms</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-# ---------------- FLOATING FEEDBACK CALLOUT ----------------
-render_feedback_callout()
+    footer_path = ASSETS_DIR / "footer_logo.png"
+    if footer_path.exists():
+        try:
+            b64 = base64.b64encode(footer_path.read_bytes()).decode()
+            components.html(
+                f"""
+                <div style="position:fixed;bottom:0;left:0;width:100%;text-align:center;padding:8px 0;background:white;border-top:1px solid #E6E8EF;z-index:9999;">
+                    <img src="data:image/png;base64,{b64}" style="max-width:900px;width:80%;height:auto;">
+                </div>
+                """,
+                height=80,
+            )
+        except Exception:
+            pass
+    st.markdown("<div class='footer-spacer'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center;color:gray;font-size:11px;'>© 2026 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
 
-# ---------------- FOOTER ----------------
-# Feedback is rendered as a floating callout and does not push dashboard content downward.
-# Footer image
-# --- Load image and convert to base64 ---
-footer_image_path = "assets/footer_logo.png"
-with open(footer_image_path, "rb") as f:
-    data = f.read()
-b64 = base64.b64encode(data).decode()
+# -----------------------------------------------------------------------------
+# Main app
+# -----------------------------------------------------------------------------
+def main() -> None:
+    inject_premium_css()
 
-# --- Render fixed footer using components.html ---
-components.html(f"""
-<div style="
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    text-align: center;
-    padding: 10px 0;
-    background-color:'white';
-    z-index: 9999;    
-">    
-    <img src="data:image/png;base64,{b64}" width="900">
-</div>
-""", height=200)
-st.markdown("<div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
+    st.session_state.setdefault("auth_view", False)
+    if is_authenticated():
+        st.session_state.auth_view = False
+    if st.session_state.get("auth_view", False) and not is_authenticated():
+        auth_ui()
+        st.stop()
+
+    data = load_data()
+    if data.empty:
+        st.stop()
+
+    filters = render_sidebar(data)
+    filtered = filter_data(data, filters)
+    render_sidebar_status(filtered, filters)
+
+    render_header(filtered, filters)
+    render_kpi_row(filtered)
+
+    tabs = st.tabs([
+        "1  Main Dashboard",
+        "2  Negative Alerts",
+        "3  Map Intelligence",
+        "4  AI Copilot",
+        "5  Evidence & Records",
+    ])
+
+    with tabs[0]:
+        render_analytical_flow_panel(filtered, top_n=8)
+        render_overview_charts(filtered)
+        render_map_intelligence(filtered)
+        render_evidence_table(filtered, key="overview_evidence", title="Evidence & Records")
+
+    with tabs[1]:
+        render_negative_deep_analytics(filtered)
+
+    with tabs[2]:
+        render_map_intelligence(filtered)
+        render_overview_charts(filtered)
+
+    with tabs[3]:
+        render_ai_copilot(filtered)
+
+    with tabs[4]:
+        render_evidence_table(filtered, key="all_evidence", title="Evidence & Records")
+
+    render_feedback_and_footer()
+
+
+if __name__ == "__main__":
+    main()
