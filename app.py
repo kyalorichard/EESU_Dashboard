@@ -3131,58 +3131,325 @@ with tab_map:
         st.warning("GeoJSON file not found for map visualization.") 
 
 # -----------------USER MANUAL TAB-----------------
-    
+
 with tab_manual:
-    def display_pdf_link(title, description, pdf_path: Path):
-        st.markdown(f"""
-            <div style="font-family: Arial; color: #660094; font-size: 14px;">
-                <h2 style="font-size: 20px;">{title}</h2>
-                <p style="font-size: 12px;">{description}</p>
+    def _pdf_download_card(title, subtitle, audience, pdf_path: Path, icon="📄"):
+        """Professional document card for dashboard manuals/briefs."""
+        st.markdown(
+            f"""
+            <div class="manual-doc-card">
+                <div class="manual-doc-icon">{icon}</div>
+                <div class="manual-doc-body">
+                    <div class="manual-doc-title">{title}</div>
+                    <div class="manual-doc-subtitle">{subtitle}</div>
+                    <div class="manual-doc-audience">{audience}</div>
+                </div>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
         if pdf_path.exists():
-            # Download button
             st.download_button(
-                f"Download {title} (PDF)",
-                pdf_path.read_bytes(),
+                label=f"⬇ Download {title}",
+                data=pdf_path.read_bytes(),
                 file_name=pdf_path.name,
-                mime="application/pdf"
-            )
-
-            # Open in new tab
-            st.markdown(
-                f'<a href="{pdf_path.as_posix()}" target="_blank">Open {title} in new tab</a>',
-                unsafe_allow_html=True
+                mime="application/pdf",
+                use_container_width=True,
+                key=f"download_{pdf_path.name}",
             )
         else:
-            st.warning(f"{title} PDF not found.")
+            st.warning(f"{title} PDF not found: {pdf_path.name}")
 
-
-    # --- Dashboard Header ---
-    st.markdown("""
-    <div style="font-family: Arial; color: #660094; font-size: 14px;">
-        <h1 style="font-size: 24px;">EU SEE Dashboard – Quick Start</h1>
-        <p>This section provides concise, decision-ready documentation for executives,
-        donors, and policy stakeholders.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # --- Executive Brief ---
-    display_pdf_link(
-        "Executive Brief (1 Page)",
-        "For senior leadership, donors, and policy reporting.",
-        EXEC_BRIEF_PATH
+    st.markdown(
+        """
+        <style>
+        .manual-hero {
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8F3FB 56%, #FFF9DC 100%);
+            border: 1px solid #E8DFF0;
+            border-radius: 20px;
+            padding: 24px 26px;
+            box-shadow: 0 12px 34px rgba(54, 26, 83, 0.10);
+            margin-bottom: 18px;
+            font-family: Arial, sans-serif;
+        }
+        .manual-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #F1E8F8;
+            color: #660094;
+            border: 1px solid #E2D2EC;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .manual-title {
+            color: #2D0055;
+            font-size: 28px;
+            font-weight: 900;
+            margin: 0 0 8px 0;
+            line-height: 1.15;
+        }
+        .manual-lead {
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.55;
+            max-width: 980px;
+            margin: 0;
+        }
+        .manual-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin: 14px 0 18px 0;
+        }
+        .manual-mini-card {
+            background: #FFFFFF;
+            border: 1px solid #ECE5F3;
+            border-radius: 15px;
+            padding: 13px 14px;
+            box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
+            min-height: 92px;
+            font-family: Arial, sans-serif;
+        }
+        .manual-mini-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #F8F3FB;
+            color: #660094;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .manual-mini-title {
+            color: #2D0055;
+            font-size: 12px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .manual-mini-text {
+            color: #64748B;
+            font-size: 11px;
+            line-height: 1.35;
+        }
+        .manual-section-card {
+            background: #FFFFFF;
+            border: 1px solid #ECE5F3;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 10px 28px rgba(54, 26, 83, 0.08);
+            margin-bottom: 16px;
+            font-family: Arial, sans-serif;
+        }
+        .manual-section-title {
+            color: #2D0055;
+            font-size: 16px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .manual-section-note {
+            color: #64748B;
+            font-size: 12px;
+            line-height: 1.45;
+            margin-bottom: 12px;
+        }
+        .manual-step {
+            display: grid;
+            grid-template-columns: 30px 1fr;
+            gap: 10px;
+            align-items: start;
+            padding: 10px 0;
+            border-bottom: 1px solid #F1EEF5;
+        }
+        .manual-step:last-child { border-bottom: none; }
+        .manual-step-num {
+            background: #660094;
+            color: white;
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 900;
+        }
+        .manual-step-title {
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+            margin-bottom: 2px;
+        }
+        .manual-step-text {
+            color: #64748B;
+            font-size: 11.5px;
+            line-height: 1.38;
+        }
+        .manual-doc-card {
+            display: grid;
+            grid-template-columns: 46px 1fr;
+            gap: 12px;
+            align-items: center;
+            background: #FFFFFF;
+            border: 1px solid #ECE5F3;
+            border-left: 5px solid #660094;
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
+            margin-bottom: 10px;
+            font-family: Arial, sans-serif;
+        }
+        .manual-doc-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #660094, #8A2DB2);
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        .manual-doc-title {
+            color: #2D0055;
+            font-size: 13px;
+            font-weight: 900;
+            margin-bottom: 3px;
+        }
+        .manual-doc-subtitle {
+            color: #475569;
+            font-size: 11.5px;
+            line-height: 1.35;
+            margin-bottom: 5px;
+        }
+        .manual-doc-audience {
+            color: #660094;
+            font-size: 10.5px;
+            font-weight: 800;
+            background: #F8F3FB;
+            border: 1px solid #E8DFF0;
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 999px;
+        }
+        .manual-tip {
+            background: #FFF9DC;
+            border: 1px solid #F2E7A8;
+            border-radius: 14px;
+            padding: 12px 14px;
+            color: #55420A;
+            font-size: 11.5px;
+            line-height: 1.45;
+            font-family: Arial, sans-serif;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.divider()
-
-    # --- Full User Manual ---
-    display_pdf_link(
-        "Full User Manual",
-        "<em>Detailed guidance for analysts and advanced users</em>",
-        USER_MANUAL_PATH
+    st.markdown(
+        """
+        <div class="manual-hero">
+            <div class="manual-eyebrow">📘 Dashboard user guidance</div>
+            <div class="manual-title">EU SEE Dashboard User Manual</div>
+            <p class="manual-lead">
+                A concise, decision-ready help centre for navigating filters, charts, maps, negative-alert analytics,
+                data preview tables, exports, and AI-assisted interpretation. Use this section to onboard new users,
+                support stakeholder demonstrations, and standardize dashboard interpretation.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+
+    st.markdown(
+        """
+        <div class="manual-kpi-grid">
+            <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand EU SEE monitoring outputs and interpret alert patterns.</div></div>
+            <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Use Overview, Negative Alerts, Map, and Manual tabs as guided workflows.</div></div>
+            <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Apply filters, inspect charts, explore flows, and review summary records.</div></div>
+            <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download briefs, manuals, filtered tables, and export-ready evidence.</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    guide_col, docs_col = st.columns([1.35, 1], gap="large")
+
+    with guide_col:
+        st.markdown(
+            """
+            <div class="manual-section-card">
+                <div class="manual-section-title">Quick-start workflow</div>
+                <div class="manual-section-note">Recommended path for first-time users and stakeholder demonstrations.</div>
+                <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">Set the analytical scope</div><div class="manual-step-text">Use the Global Filters to select region, country, alert impact, alert type, enabling principle, year, and month.</div></div></div>
+                <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Read the KPI cards first</div><div class="manual-step-text">Start with monitored countries, total alerts, and the Alerts Breakdown donut to understand the filtered context.</div></div></div>
+                <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Move from overview to diagnosis</div><div class="manual-step-text">Use Overview charts for distribution patterns, then open Negative Alerts for restrictive actor, mechanism, and affected group analysis.</div></div></div>
+                <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use maps for spatial interpretation</div><div class="manual-step-text">Inspect geographic concentration and country-level patterns, while interpreting counts alongside reporting coverage.</div></div></div>
+                <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Export or document evidence</div><div class="manual-step-text">Use the Summary Data Preview export and downloadable PDF resources for reporting, validation, and follow-up.</div></div></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="manual-section-card">
+                <div class="manual-section-title">Interpretation standards</div>
+                <div class="manual-section-note">Use these principles when presenting dashboard outputs.</div>
+                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect incident volume, reporting intensity, network coverage, or a combination of these factors.</div></div></div>
+                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">Always state the selected region, period, alert impact, and alert type when sharing charts or tables.</div></div></div>
+                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Triangulate charts</div><div class="manual-step-text">Combine KPI cards, distribution charts, heatmaps, Sankey flow, map, and table records before drawing conclusions.</div></div></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with docs_col:
+        st.markdown(
+            """
+            <div class="manual-section-card">
+                <div class="manual-section-title">Documentation downloads</div>
+                <div class="manual-section-note">Use the executive brief for quick stakeholder reporting and the full manual for analyst onboarding.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        _pdf_download_card(
+            "Executive Brief",
+            "One-page dashboard overview for senior leadership, donors, and policy reporting.",
+            "Best for: executives and external briefings",
+            EXEC_BRIEF_PATH,
+            icon="📌",
+        )
+
+        _pdf_download_card(
+            "Full User Manual",
+            "Detailed guide covering navigation, filters, charts, map interpretation, data preview, and exports.",
+            "Best for: analysts and advanced users",
+            USER_MANUAL_PATH,
+            icon="📘",
+        )
+
+        st.markdown(
+            """
+            <div class="manual-tip">
+                <strong>Recommended reporting note:</strong><br>
+                Dashboard findings should be interpreted as reported monitoring evidence, not as direct prevalence estimates.
+                Always pair quantitative outputs with contextual review and partner validation.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 # ---------------- AI ASSISTANT v5: POLISHED UX + CHATBOT PLOT BUILDER ----------------
