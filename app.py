@@ -467,7 +467,11 @@ filtered_global = data[
 ]
 
 # Login / Access
-# Authentication now opens as a floating modal overlay; the sidebar heading is intentionally hidden.
+st.sidebar.markdown(
+    '<div style="font-family: Arial; font-size: 14px; font-weight: bold; color: purple;">🔐 Login / Access</div>',
+    unsafe_allow_html=True
+)
+
 auth_ui()
 
 if st.session_state.get("user") and st.session_state.get("email_verified"):
