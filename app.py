@@ -5524,6 +5524,267 @@ def render_ai_assistant_panel(df):
 
 
 
+# ---------------- OPENAI-LIKE CHATBOT OVERRIDE: fully working grounded chat ----------------
+def _ai_get_openai_config():
+    """Read OpenAI config from Streamlit secrets or environment variables."""
+    import os
+    api_key = None
+    model = "gpt-4o-mini"
+    try:
+        openai_cfg = st.secrets.get("openai", {})
+        if isinstance(openai_cfg, dict):
+            api_key = openai_cfg.get("api_key") or openai_cfg.get("OPENAI_API_KEY")
+            model = openai_cfg.get("model") or model
+        api_key = api_key or st.secrets.get("OPENAI_API_KEY")
+        model = st.secrets.get("OPENAI_MODEL", model)
+    except Exception:
+        pass
+    api_key = api_key or os.environ.get("OPENAI_API_KEY")
+    model = os.environ.get("OPENAI_MODEL", model)
+    return api_key, model
+
+
+def _ai_compact_dashboard_context(df, question=""):
+    """Small, reliable context package from current filters and cleaned data only."""
+    s = summarize_for_ai(df)
+    context = {
+        "scope": "Current active dashboard filters applied to the cleaned EU SEE dataset only.",
+        "user_question": str(question or "").strip(),
+        "summary": s,
+        "proactive_insights": _ai_proactive_insights(df) if "_ai_proactive_insights" in globals() else [],
+        "available_columns": list(df.columns) if df is not None and not df.empty else [],
+    }
+    try:
+        context["focused_context"] = _ai_build_focused_context(question, df)
+    except Exception:
+        context["focused_context"] = {}
+    try:
+        anom = detect_alert_anomalies(df).head(8)
+        context["anomaly_flags"] = anom.to_dict("records") if anom is not None and not anom.empty else []
+    except Exception:
+        context["anomaly_flags"] = []
+    return context
+
+
+def _ai_answer_with_openai(question, df):
+    """OpenAI-first chatbot answer. Falls back cleanly if key/package/API call is unavailable."""
+    api_key, model = _ai_get_openai_config()
+    if not api_key:
+        return None, "OpenAI key not configured."
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        context = _ai_compact_dashboard_context(df, question)
+        recent = st.session_state.get("ai_messages", [])[-10:]
+        chat_turns = []
+        for m in recent:
+            role = "assistant" if m.get("role") == "assistant" else "user"
+            content = str(m.get("content", ""))[:1600]
+            if content:
+                chat_turns.append({"role": role, "content": content})
+
+        instructions = """
+You are the EU SEE Dashboard AI Copilot, operating like a ChatGPT-style assistant inside a Streamlit dashboard.
+You must answer only using the supplied dashboard_context, focused_context, active filters, chart/map summaries, and cleaned dataset summaries.
+Do not use outside knowledge. Do not invent values. If a value is missing, say it is not available in the current filtered dashboard data.
+Be specific to the user's exact question; avoid generic dashboard summaries unless requested.
+Keep the answer concise and useful. Use this format when appropriate:
+1. Direct answer
+2. Supporting evidence from the dashboard
+3. Interpretation
+4. Scope note
+For comparisons, use a clear country-by-country structure. For map/chart questions, explain what the visible pattern means and what caution applies.
+""".strip()
+
+        input_messages = [
+            {"role": "developer", "content": instructions},
+            {"role": "user", "content": "dashboard_context:\n" + repr(context)},
+        ] + chat_turns + [
+            {"role": "user", "content": str(question).strip()}
+        ]
+
+        try:
+            response = client.responses.create(
+                model=model,
+                input=input_messages,
+                max_output_tokens=700,
+            )
+            text = getattr(response, "output_text", "") or ""
+        except Exception:
+            response = client.chat.completions.create(
+                model=model,
+                messages=input_messages,
+                temperature=0.1,
+                max_tokens=700,
+            )
+            text = response.choices[0].message.content or ""
+
+        text = text.strip()
+        if not text:
+            return None, "OpenAI returned an empty response."
+        return append_eusee_redirect(text), None
+    except Exception as e:
+        return None, f"OpenAI call failed: {e}"
+
+
+def ai_try_llm_response(question, df):
+    """OpenAI-first response, with deterministic dashboard-only fallback."""
+    text, err = _ai_answer_with_openai(question, df)
+    if text:
+        return text
+    fallback = _ai_specific_local_answer(question, df) or local_ai_response(question, df)
+    if err:
+        fallback += f"\n\n_OpenAI status: {err}_"
+    return append_eusee_redirect(fallback)
+
+
+def _copilot_queue_answer(question, df):
+    """Queue a user question and answer, preserving chat memory and smart output."""
+    q = str(question or "").strip()
+    if not q:
+        return
+    st.session_state.setdefault("ai_messages", [])
+    st.session_state.setdefault("ai_user_memory", [])
+    st.session_state.ai_user_memory.append({"question": q, "records": len(df) if df is not None else 0})
+    st.session_state.ai_user_memory = st.session_state.ai_user_memory[-30:]
+
+    applied, note = _ai_apply_natural_language_filter(q, df)
+    st.session_state.ai_messages.append({"role": "user", "content": q})
+    if applied:
+        answer = f"{note}. The dashboard filters were updated. Ask a follow-up such as 'explain this country' or 'compare it with another country'."
+    else:
+        answer = ai_try_llm_response(q, df)
+
+    if any(w in q.lower() for w in ["plot", "chart", "graph", "visualize", "draw"]):
+        try:
+            dim, ctype = _ai_plot_intent_to_dimension(q, df)
+            if dim:
+                st.session_state.ai_last_plot = {"dimension_col": dim, "chart_type": ctype, "top_n": 10, "title": f"Chatbot-generated plot: {dim}"}
+                answer += "\n\n📊 I prepared a chart from the current filtered data in the Smart Output area."
+        except Exception:
+            pass
+
+    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+    st.session_state.ai_smart_output = {"type": "answer", "title": "Latest AI answer", "content": answer}
+
+
+def render_ai_assistant_panel(df):
+    """ChatGPT-style Streamlit chatbot grounded in the dashboard dataset."""
+    st.session_state.setdefault("ai_messages", [
+        {"role": "assistant", "content": "Hello. Ask me anything about the current dashboard filters, map, charts, anomalies, country comparisons, actors, mechanisms, trends, or cleaned dataset."}
+    ])
+    st.session_state.setdefault("ai_last_plot", None)
+    st.session_state.setdefault("ai_smart_output", {"type": "welcome", "title": "Smart output", "content": "Ask a question and I will answer using only the active dashboard data."})
+    st.session_state.setdefault("ai_user_memory", [])
+
+    api_key, model = _ai_get_openai_config()
+    s = summarize_for_ai(df)
+
+    st.markdown("""
+    <style>
+    .chatbot-status-card{background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);border:1px solid #E7D4F1;border-radius:16px;padding:10px 12px;margin:6px 0 10px 0;font-family:Arial,sans-serif;box-shadow:0 8px 22px rgba(45,0,85,.07)}
+    .chatbot-status-title{font-size:13px;font-weight:950;color:#2D0055;margin-bottom:3px}.chatbot-status-sub{font-size:10.5px;color:#667085;line-height:1.35}.chatbot-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.chatbot-kpi{background:#fff;border:1px solid #EEF0F4;border-radius:10px;padding:6px}.chatbot-kpi span{display:block;font-size:8.8px;color:#667085;font-weight:800}.chatbot-kpi strong{font-size:12px;color:#2D0055;font-weight:950}.chatbot-online{display:inline-block;border-radius:999px;padding:3px 7px;font-size:9.5px;font-weight:900;background:#ECFDF3;color:#027A48;border:1px solid #ABEFC6}.chatbot-local{display:inline-block;border-radius:999px;padding:3px 7px;font-size:9.5px;font-weight:900;background:#FFF7E6;color:#B54708;border:1px solid #FEDF89}.chatbot-smart{background:#fff;border:1px solid #E6E8EF;border-radius:14px;padding:9px 10px;margin:10px 0;font-size:11px;color:#344054;line-height:1.4}.chatbot-smart-title{font-size:12px;font-weight:950;color:#2D0055;margin-bottom:5px}
+    </style>
+    """, unsafe_allow_html=True)
+
+    status_badge = f"<span class='chatbot-online'>OpenAI connected · {model}</span>" if api_key else "<span class='chatbot-local'>Local fallback · add OpenAI key</span>"
+    st.markdown(f"""
+    <div class='chatbot-status-card'>
+      <div class='chatbot-status-title'>OpenAI-style dashboard chatbot {status_badge}</div>
+      <div class='chatbot-status-sub'>Answers are grounded only in the current filters and cleaned EU SEE dashboard dataset.</div>
+      <div class='chatbot-kpis'>
+        <div class='chatbot-kpi'><span>Records</span><strong>{s.get('total_alerts',0):,}</strong></div>
+        <div class='chatbot-kpi'><span>Countries</span><strong>{s.get('countries_count',0):,}</strong></div>
+        <div class='chatbot-kpi'><span>Negative</span><strong>{s.get('negative',0):,}</strong></div>
+        <div class='chatbot-kpi'><span>Neg. share</span><strong>{s.get('negative_pct',0)}%</strong></div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    qcols = st.columns(2)
+    quicks = [
+        ("What is the main insight in the current dashboard view?", "Main insight"),
+        ("Explain the map and all visible chart patterns.", "Explain visuals"),
+        ("Flag anomalies and unusual spikes.", "Anomalies"),
+        ("Compare the top three countries.", "Compare top 3"),
+    ]
+    for idx_q, (prompt, label) in enumerate(quicks):
+        with qcols[idx_q % 2]:
+            if st.button(label, key=f"openai_chat_quick_{idx_q}", use_container_width=True):
+                _track_ai_event("quick_prompt", label) if "_track_ai_event" in globals() else None
+                _copilot_queue_answer(prompt, df)
+                st.rerun()
+
+    chat_area = st.container(height=360)
+    with chat_area:
+        for m in st.session_state.ai_messages[-12:]:
+            role = "assistant" if m.get("role") == "assistant" else "user"
+            with st.chat_message(role):
+                st.markdown(str(m.get("content", "")))
+
+    with st.form("openai_like_chat_form", clear_on_submit=True):
+        user_q = st.text_area(
+            "Ask the AI Copilot",
+            placeholder="Example: Why is the top country high priority? Compare Kenya and Uganda. Explain the Sankey. What changed by year?",
+            height=78,
+            key="openai_like_chat_textarea",
+        )
+        submitted = st.form_submit_button("Send", use_container_width=True)
+
+    if submitted and user_q.strip():
+        _track_ai_event("chat_question", user_q.strip()) if "_track_ai_event" in globals() else None
+        with st.spinner("Generating dashboard-grounded answer..."):
+            _copilot_queue_answer(user_q.strip(), df)
+        st.rerun()
+
+    smart = st.session_state.get("ai_smart_output", {})
+    st.markdown(f"""
+    <div class='chatbot-smart'>
+      <div class='chatbot-smart-title'>🧠 {smart.get('title','Smart output')}</div>
+      {_render_chat_content_html(str(smart.get('content','No output yet.'))[:3000])}
+    </div>
+    """, unsafe_allow_html=True)
+
+    if isinstance(st.session_state.get("ai_last_plot"), dict):
+        try:
+            lp = st.session_state.ai_last_plot
+            st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="openai_chat_smart_plot")
+        except Exception:
+            pass
+
+    with st.expander("Advanced tools", expanded=False):
+        t1, t2, t3, t4 = st.tabs(["Compare", "Anomalies", "Export", "Memory"])
+        with t1:
+            options = sorted(df["alert-country"].dropna().astype(str).unique().tolist()) if df is not None and not df.empty and "alert-country" in df.columns else []
+            selected = st.multiselect("Select 2–3 countries", options, default=options[:3], max_selections=3, key="openai_compare_countries")
+            comp = compare_selected_countries(df, selected)
+            if comp is not None and not comp.empty:
+                st.dataframe(comp, use_container_width=True, hide_index=True, height=220)
+        with t2:
+            anom = detect_alert_anomalies(df).head(15)
+            if anom is None or anom.empty:
+                st.info("No anomaly flags found with the current threshold.")
+            else:
+                st.dataframe(anom, use_container_width=True, hide_index=True, height=240)
+        with t3:
+            brief = generate_ai_executive_summary(df)
+            st.download_button("Download AI brief", brief, "eusee_ai_brief.txt", "text/plain", use_container_width=True)
+            if df is not None and not df.empty:
+                st.download_button("Download filtered data", df.to_csv(index=False).encode("utf-8"), "eusee_filtered_data.csv", "text/csv", use_container_width=True)
+        with t4:
+            mem = pd.DataFrame(st.session_state.get("ai_user_memory", []))
+            if mem.empty:
+                st.info("No previous searches in this session yet.")
+            else:
+                st.dataframe(mem.tail(30), use_container_width=True, hide_index=True, height=180)
+            if st.button("Clear chat and memory", use_container_width=True, key="openai_clear_chat_memory"):
+                st.session_state.ai_user_memory = []
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a specific question about the current dashboard view."}]
+                st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Chat cleared."}
+                st.rerun()
+
+# ---------------- END OPENAI-LIKE CHATBOT OVERRIDE ----------------
 # ---------------- RIGHT AI COPILOT DRAWER ----------------
 def render_right_ai_copilot_drawer(df):
     """Render a premium right-side floating AI Copilot drawer.
