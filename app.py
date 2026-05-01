@@ -511,11 +511,43 @@ def load_data():
     df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
 
     # Clean country names
+    COUNTRY_FIXES = {
+        "Guinea-Bissau": "Guinea Bissau",
+        "Democratic Republic of Congo": "Democratic Republic of the Congo",
+        "Democratic Republic of Congo 2": "Democratic Republic of the Congo",
+        "Congo (Brazzaville)": "Republic of Congo",
+        "Congo Brazzaville": "Republic of Congo",
+        "Congo-Brazzaville": "Republic of Congo",
+        "Congo": "Republic of Congo",
+        "Cote d'Ivoire": "Côte d'Ivoire",
+        "CÃ´te d'Ivoire": "Côte d'Ivoire",
+        "Ivory Coast": "Côte d'Ivoire",
+        "Tanzania, United Republic of": "Tanzania",
+        "United Republic of Tanzania": "Tanzania",
+        "Lao People's Democratic Republic": "Laos",
+        "Lao PDR": "Laos",
+        "Timor-Leste": "Timor Leste",
+        "The Gambia": "The Gambia",
+        "Gambia": "The Gambia",
+        "Hong Kong SAR": "Hong Kong",
+        "Lebanon NAR": "Lebanon"
+    }
+
+    df["alert-country"] = (
+        df["alert-country"]
+        .astype(str)
+        .str.strip()
+        .replace(COUNTRY_FIXES)
+    )
+
+    df["iso_alpha3"] = df["alert-country"].apply(
+        lambda x: country_meta.get(x, {}).get("iso_alpha3", None)
+    )
+
+    df["continent"] = df["alert-country"].apply(
+        lambda x: country_meta.get(x, {}).get("continent", "Unknown")
+    )
     
-    df['alert-country'] = df['alert-country'].replace({
-        "Lebanon NAR": "Lebanon",
-        "Democratic Republic of Congo 2": "Democratic Republic of the Congo"
-    })
 
     # ❗ REMOVE alert-type == "event"    
     df['alert-type'] = df['alert-type'].astype(str).str.strip()
