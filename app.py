@@ -4784,8 +4784,8 @@ def render_feedback_callout():
         style.innerHTML = `
         #eusee-feedback-floating {
             position: fixed;
-            left: 22px;
-            top: 76px;
+            left: 350px;
+            top: 46px;
             width: 304px;
             max-width: calc(100vw - 36px);
             background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
