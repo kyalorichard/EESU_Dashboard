@@ -64,7 +64,7 @@ def inject_classic_dashboard_css():
     }
     section[data-testid="stSidebar"] [data-baseweb="select"] > div,
     section[data-testid="stSidebar"] [data-baseweb="input"] {
-        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: #FFFFFF !important;
+        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: radial-gradient(circle at 95% 0%, rgba(102,0,148,.08), transparent 30%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important;
         box-shadow: 0 1px 2px rgba(16,24,40,.04) !important; min-height: 38px !important;
     }
     section[data-testid="stSidebar"] [data-baseweb="tag"] {
@@ -72,14 +72,14 @@ def inject_classic_dashboard_css():
         border: 1px solid #E7D4F1 !important; font-size: 10px !important; font-weight: 700 !important;
     }
     section[data-testid="stSidebar"] .stButton > button {
-        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: #FFFFFF !important;
+        border-radius: 11px !important; border: 1px solid #D0D5DD !important; background: radial-gradient(circle at 95% 0%, rgba(102,0,148,.08), transparent 30%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important;
         color: #344054 !important; font-weight: 800 !important; font-size: 12px !important; height: 38px !important;
         box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
     }
     section[data-testid="stSidebar"] .stButton > button:hover { border-color: var(--eusee-purple) !important; color: var(--eusee-purple) !important; background: #FBF7FD !important; }
     .classic-filter-header {
         background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%); border: 1px solid #E7D4F1; border-radius: 15px;
-        padding: 12px 13px; margin: 10px 0 12px 0; box-shadow: 0 8px 20px rgba(102,0,148,.08);
+        padding: 13px 14px; margin: 10px 0 12px 0; box-shadow: 0 8px 20px rgba(102,0,148,.08);
     }
     .classic-filter-eyebrow { font-size: 9.5px; font-weight: 900; color: var(--eusee-purple); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 4px; }
     .classic-filter-title { font-size: 14px; font-weight: 900; color: #23152F; line-height: 1.15; }
@@ -90,7 +90,7 @@ def inject_classic_dashboard_css():
     }
     .classic-filter-status .status-row { display:flex; justify-content:space-between; align-items:center; padding: 3px 0; font-family: Arial, sans-serif; font-size: 10.5px; color: var(--eusee-muted); }
     .classic-filter-status .status-value { color: var(--eusee-purple); font-weight: 900; }
-    div[data-testid="stExpander"] { border: 1px solid var(--eusee-border) !important; border-radius: 16px !important; box-shadow: 0 8px 22px rgba(16,24,40,.06) !important; background: #FFFFFF !important; overflow: hidden !important; }
+    div[data-testid="stExpander"] { border: 1px solid var(--eusee-border) !important; border-radius: 16px !important; box-shadow: 0 8px 22px rgba(16,24,40,.06) !important; background: radial-gradient(circle at 95% 0%, rgba(102,0,148,.08), transparent 30%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important; overflow: hidden !important; }
     div[data-testid="stExpander"] summary { font-family: Arial, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #23152F !important; background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important; border-bottom: 1px solid #EEF0F4 !important; padding: 10px 14px !important; }
     .data-preview-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #EEF0F4; border-radius: 14px; padding: 11px 13px; margin: 4px 0 12px 0; font-family: Arial, sans-serif; }
     .data-preview-title { font-size: 13px; font-weight: 900; color: #23152F; line-height: 1.15; }
@@ -821,7 +821,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         min-height: 150px;
         background: radial-gradient(circle at 100% 0%, rgba(102,0,148,0.055), transparent 34%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
         border: 1px solid rgba(102, 0, 148, 0.115);
-        border-radius: 17px;
+        border-radius: 19px;
         box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
         padding: 11px 14px 10px 14px;
         margin: 2px 0 8px 0;
@@ -1033,7 +1033,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         min-height: 150px;
         background: radial-gradient(circle at 100% 0%, rgba(180,35,24,0.06), transparent 35%), linear-gradient(180deg, #FFFFFF 0%, #FFFCFB 100%);
         border: 1px solid rgba(180, 35, 24, 0.12);
-        border-radius: 17px;
+        border-radius: 19px;
         box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
         padding: 11px 14px 10px 14px;
         margin: 2px 0 8px 0;
@@ -2821,7 +2821,7 @@ st.markdown(
         text-align: center !important;
         border: 1px solid #EEE7F4 !important;
         border-bottom: 3px solid transparent !important;
-        box-shadow: none !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.16) !important
         transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
     }
 
@@ -3273,7 +3273,7 @@ with tab_map:
         height: 128px;
         background: #FFFFFF;
         border: 1px solid #E8EAF0;
-        border-radius: 17px;
+        border-radius: 19px;
         padding: 13px 14px;
         box-shadow: 0 10px 24px rgba(17,24,39,0.055);
         font-family: Arial, sans-serif;
@@ -4813,7 +4813,7 @@ def render_ai_assistant_panel(df):
         width: 430px !important; max-width: calc(100vw - 32px) !important;
         max-height: calc(100vh - 94px) !important; overflow-y: auto !important; overflow-x: hidden !important;
         z-index: 999999 !important; background: #ffffff !important; border: 1px solid #eadff5 !important;
-        border-radius: 22px !important; box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
+        border-radius: 24px !important box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
         padding: 12px 12px 14px 12px !important;
     }
     .st-key-eusee_ai_right_sidebar_collapsed {
@@ -5524,34 +5524,34 @@ def render_ai_assistant_panel(df):
 
 
 
-# ---------------- LEFT AI COPILOT DRAWER ----------------
-def render_left_ai_copilot_drawer(df):
-    """Render a true left-side floating AI Copilot drawer.
+# ---------------- RIGHT AI COPILOT DRAWER ----------------
+def render_right_ai_copilot_drawer(df):
+    """Render a premium right-side floating AI Copilot drawer.
 
     This version is not placed inside the Streamlit sidebar. It uses keyed Streamlit
     containers styled as fixed-position UI so the launcher is always visible on the
-    left edge and the assistant slides out when opened.
+    right edge and the assistant slides out when opened.
     """
-    st.session_state.setdefault("left_ai_drawer_open", False)
+    st.session_state.setdefault("right_ai_drawer_open", False)
 
     st.markdown("""
     <style>
-    .st-key-eusee_left_ai_launcher {
+    .st-key-eusee_right_ai_launcher {
         position: fixed !important;
-        left: 0 !important;
+        right: 0 !important;
         top: 42% !important;
-        width: 58px !important;
+        width: 62px !important;
         z-index: 999998 !important;
         background: linear-gradient(180deg, #660094 0%, #008CAA 100%) !important;
-        border-radius: 0 18px 18px 0 !important;
+        border-radius: 20px 0 0 20px !important;
         box-shadow: 0 16px 38px rgba(45,0,85,.24) !important;
         padding: 10px 7px !important;
         border: 1px solid rgba(255,255,255,.28) !important;
     }
-    .st-key-eusee_left_ai_launcher .stButton > button {
-        min-height: 104px !important;
+    .st-key-eusee_right_ai_launcher .stButton > button {
+        min-height: 112px !important;
         width: 100% !important;
-        border-radius: 13px !important;
+        border-radius: 15px !important;
         border: 1px solid rgba(255,255,255,.28) !important;
         background: rgba(255,255,255,.10) !important;
         color: #FFFFFF !important;
@@ -5560,57 +5560,57 @@ def render_left_ai_copilot_drawer(df):
         line-height: 1.15 !important;
         writing-mode: vertical-rl !important;
         text-orientation: mixed !important;
-        box-shadow: none !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.16) !important;
     }
-    .st-key-eusee_left_ai_launcher .stButton > button:hover {
+    .st-key-eusee_right_ai_launcher .stButton > button:hover {
         background: rgba(255,255,255,.18) !important;
-        transform: translateX(2px) !important;
+        transform: translateX(-2px) !important;
     }
-    .st-key-eusee_left_ai_drawer {
+    .st-key-eusee_right_ai_drawer {
         position: fixed !important;
-        left: 14px !important;
+        right: 18px !important;
         top: 74px !important;
-        width: 440px !important;
-        max-width: calc(100vw - 28px) !important;
+        width: 470px !important;
+        max-width: calc(100vw - 36px) !important;
         max-height: calc(100vh - 98px) !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         z-index: 999999 !important;
-        background: #FFFFFF !important;
+        background: radial-gradient(circle at 95% 0%, rgba(102,0,148,.08), transparent 30%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important;
         border: 1px solid #E7D4F1 !important;
-        border-radius: 22px !important;
-        box-shadow: 0 28px 76px rgba(45,0,85,.26) !important;
+        border-radius: 24px !important;
+        box-shadow: 0 30px 82px rgba(45,0,85,.28), 0 8px 24px rgba(16,24,40,.12) !important;
         padding: 13px 13px 16px 13px !important;
-        animation: euseeLeftDrawerSlide .22s ease-out both;
+        animation: euseeRightDrawerSlide .24s cubic-bezier(.2,.8,.2,1) both;
     }
-    @keyframes euseeLeftDrawerSlide {
-        from { transform: translateX(-26px); opacity: .25; }
+    @keyframes euseeRightDrawerSlide {
+        from { transform: translateX(32px); opacity: .25; }
         to   { transform: translateX(0); opacity: 1; }
     }
-    .left-ai-drawer-header {
-        background: linear-gradient(135deg,#660094 0%,#008CAA 100%);
+    .right-ai-drawer-header {
+        background: linear-gradient(135deg,#2D0055 0%,#660094 52%,#008CAA 100%);
         color: #FFFFFF;
-        border-radius: 17px;
-        padding: 12px 13px;
+        border-radius: 19px;
+        padding: 13px 14px;
         margin: 0 0 10px 0;
-        box-shadow: 0 10px 22px rgba(45,0,85,.18);
+        box-shadow: 0 12px 26px rgba(45,0,85,.20);
         font-family: Arial, sans-serif;
     }
-    .left-ai-drawer-title { font-size: 15px; font-weight: 950; margin-bottom: 3px; }
-    .left-ai-drawer-sub { font-size: 10.5px; line-height: 1.35; opacity: .92; }
-    .st-key-eusee_left_ai_drawer .stButton > button {
+    .right-ai-drawer-title { font-size: 15.5px; font-weight: 950; margin-bottom: 3px; }
+    .right-ai-drawer-sub { font-size: 10.8px; line-height: 1.35; opacity: .92; }
+    .st-key-eusee_right_ai_drawer .stButton > button {
         border-radius: 12px !important;
         font-size: 12px !important;
         font-weight: 850 !important;
     }
-    .st-key-eusee_left_ai_drawer textarea,
-    .st-key-eusee_left_ai_drawer input { font-size: 12px !important; }
-    .st-key-eusee_left_ai_drawer div[data-testid="stTabs"] button {
+    .st-key-eusee_right_ai_drawer textarea,
+    .st-key-eusee_right_ai_drawer input { font-size: 12px !important; }
+    .st-key-eusee_right_ai_drawer div[data-testid="stTabs"] button {
         font-size: 11px !important;
         font-weight: 850 !important;
     }
     @media (max-width: 760px) {
-        .st-key-eusee_left_ai_drawer {
+        .st-key-eusee_right_ai_drawer {
             left: 8px !important;
             right: 8px !important;
             top: 66px !important;
@@ -5621,32 +5621,32 @@ def render_left_ai_copilot_drawer(df):
     </style>
     """, unsafe_allow_html=True)
 
-    if not st.session_state.left_ai_drawer_open:
-        with st.container(key="eusee_left_ai_launcher"):
-            if st.button("🤖 AI Copilot", key="left_ai_open_btn", use_container_width=True, help="Open EU SEE AI Copilot"):
-                st.session_state.left_ai_drawer_open = True
+    if not st.session_state.right_ai_drawer_open:
+        with st.container(key="eusee_right_ai_launcher"):
+            if st.button("🤖 AI Copilot", key="right_ai_open_btn", use_container_width=True, help="Open EU SEE AI Copilot"):
+                st.session_state.right_ai_drawer_open = True
                 st.rerun()
     else:
-        with st.container(key="eusee_left_ai_drawer"):
+        with st.container(key="eusee_right_ai_drawer"):
             st.markdown("""
-            <div class="left-ai-drawer-header">
-                <div class="left-ai-drawer-title">🤖 EU SEE AI Copilot</div>
-                <div class="left-ai-drawer-sub">Dashboard-grounded assistant for current filters, charts, map, anomalies, country comparisons, and the cleaned dataset.</div>
+            <div class="right-ai-drawer-header">
+                <div class="right-ai-drawer-title">🤖 EU SEE AI Copilot</div>
+                <div class="right-ai-drawer-sub">Ask specific questions about current filters, charts, map patterns, anomalies, country comparisons, and the cleaned EU SEE dataset.</div>
             </div>
             """, unsafe_allow_html=True)
             c1, c2 = st.columns([1, 1])
             with c1:
-                if st.button("◀ Collapse", key="left_ai_collapse_btn", use_container_width=True):
-                    st.session_state.left_ai_drawer_open = False
+                if st.button("Collapse", key="right_ai_collapse_btn", use_container_width=True):
+                    st.session_state.right_ai_drawer_open = False
                     st.rerun()
             with c2:
-                if st.button("Clear chat", key="left_ai_clear_chat_btn", use_container_width=True):
+                if st.button("Clear chat", key="right_ai_clear_chat_btn", use_container_width=True):
                     st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a specific question about the current dashboard view."}]
                     st.rerun()
             render_ai_assistant_panel(df)
 
 
-render_left_ai_copilot_drawer(filtered_global)
+render_right_ai_copilot_drawer(filtered_global)
 
 
 # ---------------- FEEDBACK CALLOUT ----------------
