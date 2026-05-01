@@ -479,11 +479,7 @@ def render_top_feedback_bar():
 @st.cache_data(ttl=0)
 def load_data():
     parquet_file = EXPORT_DIR / "output_final.parquet"
-    
     meta_file = EXPORT_DIR / "countries_metadata.json"
-
-   # parquet_file = Path.cwd() / "data" / "output_final.parquet"
-    #meta_file = Path.cwd() / "data" / "countries_metadata.json"
 
     # --- Step 1: Load Parquet file safely ---
     if not parquet_file.exists():
@@ -500,17 +496,33 @@ def load_data():
         st.warning("Loaded Parquet file is empty.")
         return df
 
-    # --- Step 2: Basic cleaning ---
-    for col in ['alert-country', 'alert-impact', 'Actor of repression']:
+    # --- Step 2: Ensure required columns exist ---
+    for col in ["alert-country", "alert-impact", "alert-type", "Actor of repression"]:
         if col not in df.columns:
             st.warning(f"Column '{col}' not found in dataset.")
             df[col] = ""
 
-    df['alert-country'] = df['alert-country'].astype(str).str.strip()
-    df = df[df['alert-country'].str.lower() != "jose"]
-    df = df[df['alert-impact'].notna() & (df['alert-impact'].str.strip() != '')]
+    # --- Step 3: Load country metadata BEFORE ISO mapping ---
+    country_meta = {}
+    if meta_file.exists():
+        try:
+            with open(meta_file, encoding="utf-8") as f:
+                country_meta = json.load(f)
+        except Exception as e:
+            st.warning(f"Failed to load countries metadata: {e}")
+            country_meta = {}
+    else:
+        st.warning(f"Countries metadata JSON not found: {meta_file}")
+        country_meta = {}
 
-    # Clean country names
+    # --- Step 4: Basic country and alert cleaning ---
+    df["alert-country"] = df["alert-country"].astype(str).str.strip()
+    df = df[df["alert-country"].str.lower() != "jose"]
+
+    df["alert-impact"] = df["alert-impact"].astype(str).str.strip()
+    df = df[df["alert-impact"].notna() & (df["alert-impact"] != "") & (df["alert-impact"].str.lower() != "nan")]
+
+    # Normalize country names before ISO mapping.
     COUNTRY_FIXES = {
         "Guinea-Bissau": "Guinea Bissau",
         "Democratic Republic of Congo": "Democratic Republic of the Congo",
@@ -527,10 +539,9 @@ def load_data():
         "Lao People's Democratic Republic": "Laos",
         "Lao PDR": "Laos",
         "Timor-Leste": "Timor Leste",
-        "The Gambia": "The Gambia",
         "Gambia": "The Gambia",
         "Hong Kong SAR": "Hong Kong",
-        "Lebanon NAR": "Lebanon"
+        "Lebanon NAR": "Lebanon",
     }
 
     df["alert-country"] = (
@@ -540,6 +551,19 @@ def load_data():
         .replace(COUNTRY_FIXES)
     )
 
+    # --- Step 5: Clean alert type and remove non-alert event rows ---
+    df["alert-type"] = df["alert-type"].astype(str).str.strip()
+    df = df[
+        (df["alert-type"].str.lower() != "event") &
+        (df["alert-type"] != "") &
+        (df["alert-type"].str.lower() != "nan")
+    ]
+
+    # Clean Actor of repression.
+    df["Actor of repression"] = df["Actor of repression"].astype(str).str.strip()
+    df["Actor of repression"] = df["Actor of repression"].replace({"VNSAs": "Violent non-state actors"})
+
+    # --- Step 6: Map ISO codes and continent using cleaned country names ---
     df["iso_alpha3"] = df["alert-country"].apply(
         lambda x: country_meta.get(x, {}).get("iso_alpha3", None)
     )
@@ -547,36 +571,8 @@ def load_data():
     df["continent"] = df["alert-country"].apply(
         lambda x: country_meta.get(x, {}).get("continent", "Unknown")
     )
-    
 
-    # ❗ REMOVE alert-type == "event"    
-    df['alert-type'] = df['alert-type'].astype(str).str.strip()
-
-    df = df[
-        (df['alert-type'].str.lower() != "event") & 
-        (df['alert-type'] != "")
-    ]
-
-    # Clean Actor of repression
-    df['Actor of repression'] = df['Actor of repression'].astype(str).str.strip()
-    df['Actor of repression'] = df['Actor of repression'].replace({"VNSAs": "Violent non-state actors"})
-
-    # --- Step 3: Load metadata ---
-    country_meta = {}
-    if meta_file.exists():
-        try:
-            with open(meta_file, encoding="utf-8") as f:
-                country_meta = json.load(f)
-        except Exception as e:
-            st.warning(f"Failed to load countries metadata: {e}")
-    else:
-        st.warning(f"Countries metadata JSON not found: {meta_file}")
-
-    # --- Step 4: Map ISO codes and continent ---
-    df['iso_alpha3'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("iso_alpha3", None))
-    df['continent'] = df['alert-country'].apply(lambda x: country_meta.get(x, {}).get("continent", "Unknown"))
-
-    # --- Step 5: Map continent to region ---
+    # --- Step 7: Map continent to dashboard region ---
     def continent_to_region(continent):
         if continent == "Africa":
             return "Africa"
@@ -589,34 +585,36 @@ def load_data():
         else:
             return "Unknown"
 
-    df['region'] = df['continent'].apply(continent_to_region)
+    df["region"] = df["continent"].apply(continent_to_region)
 
-    # --- Step 6: Warn about missing ISO codes ---
+    # --- Step 8: Warn about missing ISO codes after normalization ---
     missing_countries = (
-        df.loc[df['iso_alpha3'].isna(), 'alert-country']
+        df.loc[df["iso_alpha3"].isna(), "alert-country"]
         .dropna()
         .astype(str)
         .str.strip()
-        .loc[lambda s: s.str.lower() != "none"]
+        .loc[lambda s: (s.str.lower() != "none") & (s.str.lower() != "nan") & (s != "")]
         .unique()
     )
 
     if len(missing_countries) > 0:
-        st.warning(f"Countries missing ISO codes: {', '.join(missing_countries)}")
+        st.warning(
+            "Countries missing ISO codes after metadata normalization: "
+            + ", ".join(sorted(missing_countries))
+        )
 
-    # --- Step 7: Process dates ---
-    if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
-        df['year'] = df['creation_date'].dt.year
-        df['month_name'] = df['creation_date'].dt.strftime('%B')
+    # --- Step 9: Process dates ---
+    if "creation_date" in df.columns:
+        df["creation_date"] = pd.to_datetime(df["creation_date"], errors="coerce")
+        df["year"] = df["creation_date"].dt.year
+        df["month_name"] = df["creation_date"].dt.strftime("%B")
     else:
         st.warning("No 'creation_date' column found in dataset.")
-    
-    # --- Step 8: Update alert-impact based on alert-type ---
-    
-    if 'alert-type' in df.columns and 'alert-impact' in df.columns:
-        mask = df['alert-type'].astype(str).str.strip().str.lower() == 'context to watch'
-        df.loc[mask, 'alert-impact'] = 'Context to watch'
+
+    # --- Step 10: Update alert-impact based on alert-type ---
+    if "alert-type" in df.columns and "alert-impact" in df.columns:
+        mask = df["alert-type"].astype(str).str.strip().str.lower() == "context to watch"
+        df.loc[mask, "alert-impact"] = "Context to watch"
 
     return df
 
