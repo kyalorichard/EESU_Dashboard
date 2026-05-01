@@ -5079,6 +5079,449 @@ def render_ai_assistant_panel(df):
                     st.rerun()
 
 
+
+
+# ---------------- PRODUCTION AI INTELLIGENCE LAYER OVERRIDE ----------------
+# This override keeps the assistant dashboard-grounded while making chat primary,
+# adding proactive insight cards, WHY-mode, confidence/scope notes, anomaly flags,
+# comparison mode, natural-language filter handling, and a smarter output area.
+
+AI_SCOPE_NOTE = "Based only on the current dashboard filters and cleaned EUSEE dataset."
+
+
+def _ai_safe_pct(num, den):
+    try:
+        return round((float(num) / float(den)) * 100, 1) if den else 0
+    except Exception:
+        return 0
+
+
+def _ai_scope_footer(df, confidence="High"):
+    records = len(df) if df is not None else 0
+    countries = df["alert-country"].nunique() if df is not None and not df.empty and "alert-country" in df.columns else 0
+    return f"\n\n**Confidence:** {confidence}  \n**Scope:** {records:,} filtered records across {countries:,} countries. {AI_SCOPE_NOTE}"
+
+
+def _ai_rank_text(title, counts, limit=5):
+    if not counts:
+        return f"**{title}:** No matching records in the current filtered view."
+    lines = [f"**{title}:**"]
+    for i, (k, v) in enumerate(list(counts.items())[:limit], start=1):
+        lines.append(f"{i}. {k}: {int(v):,}")
+    return "\n".join(lines)
+
+
+def _ai_split_terms(df, col, top_n=5):
+    if df is None or df.empty or col not in df.columns:
+        return {}
+    s = df[col].dropna().astype(str).str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+    s = s.str.split(",").explode().astype(str).str.strip()
+    s = s[(s != "") & (s.str.lower() != "nan") & (s.str.lower() != "none")]
+    return s.value_counts().head(top_n).to_dict() if not s.empty else {}
+
+
+def detect_alert_anomalies(df, group_col="alert-country", period_col="year", min_current=3, threshold_pct=50):
+    """Flag countries/years with large increases compared with the previous available period."""
+    if df is None or df.empty or group_col not in df.columns:
+        return pd.DataFrame(columns=["country", "period", "previous_period", "current_alerts", "previous_alerts", "change", "change_pct", "signal"])
+    tmp = df.copy()
+    if period_col not in tmp.columns:
+        if "creation_date" in tmp.columns:
+            tmp["year"] = pd.to_datetime(tmp["creation_date"], errors="coerce").dt.year
+            period_col = "year"
+        else:
+            return pd.DataFrame(columns=["country", "period", "previous_period", "current_alerts", "previous_alerts", "change", "change_pct", "signal"])
+    tmp = tmp.dropna(subset=[group_col, period_col])
+    if tmp.empty:
+        return pd.DataFrame(columns=["country", "period", "previous_period", "current_alerts", "previous_alerts", "change", "change_pct", "signal"])
+    counts = tmp.groupby([group_col, period_col]).size().reset_index(name="alerts").sort_values([group_col, period_col])
+    rows = []
+    for country, g in counts.groupby(group_col):
+        g = g.sort_values(period_col).reset_index(drop=True)
+        for i in range(1, len(g)):
+            prev = int(g.loc[i-1, "alerts"])
+            curr = int(g.loc[i, "alerts"])
+            change = curr - prev
+            pct = _ai_safe_pct(change, prev) if prev else (100.0 if curr else 0.0)
+            if curr >= min_current and change > 0 and pct >= threshold_pct:
+                rows.append({
+                    "country": str(country),
+                    "period": g.loc[i, period_col],
+                    "previous_period": g.loc[i-1, period_col],
+                    "current_alerts": curr,
+                    "previous_alerts": prev,
+                    "change": change,
+                    "change_pct": pct,
+                    "signal": "High spike" if pct >= 100 else "Moderate spike",
+                })
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return pd.DataFrame(columns=["country", "period", "previous_period", "current_alerts", "previous_alerts", "change", "change_pct", "signal"])
+    return out.sort_values(["change_pct", "change", "current_alerts"], ascending=False).reset_index(drop=True)
+
+
+def compare_selected_countries(df, selected_countries):
+    """Country comparison table grounded in the filtered dashboard data."""
+    if df is None or df.empty or "alert-country" not in df.columns or not selected_countries:
+        return pd.DataFrame()
+    rows = []
+    for country in selected_countries[:3]:
+        cdf = df[df["alert-country"].astype(str).str.lower() == str(country).lower()].copy()
+        if cdf.empty:
+            continue
+        neg = cdf[cdf["alert-impact"] == "Negative"] if "alert-impact" in cdf.columns else cdf.iloc[0:0]
+        rows.append({
+            "country": str(country),
+            "total_alerts": int(len(cdf)),
+            "negative_alerts": int(len(neg)),
+            "negative_share_pct": _ai_safe_pct(len(neg), len(cdf)),
+            "top_alert_type": next(iter(_safe_series_counts(cdf, "alert-type", 1).keys()), "Not available"),
+            "top_actor": next(iter(_ai_split_terms(neg, "Actor of repression", 1).keys()), "Not available"),
+            "top_mechanism": next(iter(_ai_split_terms(neg, "Mechanism of repression", 1).keys()), "Not available"),
+            "top_subject": next(iter(_ai_split_terms(neg, "Subject of repression", 1).keys()), "Not available"),
+        })
+    return pd.DataFrame(rows)
+
+
+def country_comparison_text(df, selected_countries):
+    comp = compare_selected_countries(df, selected_countries)
+    if comp.empty:
+        return "No comparable country records are available under the current filters." + _ai_scope_footer(df, "Medium")
+    lines = ["### Country comparison", ""]
+    for _, r in comp.iterrows():
+        lines.append(
+            f"**{r['country']}** — {int(r['total_alerts']):,} alerts; "
+            f"{int(r['negative_alerts']):,} negative ({r['negative_share_pct']}%). "
+            f"Top actor: {r['top_actor']}; mechanism: {r['top_mechanism']}; subject: {r['top_subject']}."
+        )
+    if len(comp) >= 2:
+        leader = comp.sort_values(["negative_alerts", "negative_share_pct"], ascending=False).iloc[0]
+        lines.append(f"\n**Interpretation:** {leader['country']} has the strongest negative-alert signal among the selected countries in the current filtered view.")
+    return "\n".join(lines) + _ai_scope_footer(df)
+
+
+def ai_build_visual_context(df):
+    s = summarize_for_ai(df)
+    neg_df = df[df["alert-impact"] == "Negative"] if df is not None and not df.empty and "alert-impact" in df.columns else pd.DataFrame()
+    return {
+        "map": {
+            "top_countries": s.get("top_countries", {}),
+            "top_negative_countries": s.get("top_negative_countries", {}),
+            "negative_share_pct": s.get("negative_pct", 0),
+        },
+        "charts": {
+            "alert_types": s.get("top_alert_types", {}),
+            "regions": s.get("top_regions", {}),
+            "principles": s.get("top_principles", {}),
+            "trend_sentence": s.get("trend_sentence", ""),
+        },
+        "relationship_view": {
+            "actors": _ai_split_terms(neg_df, "Actor of repression", 5),
+            "mechanisms": _ai_split_terms(neg_df, "Mechanism of repression", 5),
+            "subjects": _ai_split_terms(neg_df, "Subject of repression", 5),
+        },
+    }
+
+
+def _ai_requested_countries_any(question, df):
+    if df is None or df.empty or "alert-country" not in df.columns:
+        return []
+    q = str(question or "").lower()
+    countries = sorted(df["alert-country"].dropna().astype(str).unique().tolist(), key=len, reverse=True)
+    return [c for c in countries if str(c).lower() in q][:3]
+
+
+def _ai_country_why(df, country):
+    if df is None or df.empty or "alert-country" not in df.columns:
+        return None
+    cdf = df[df["alert-country"].astype(str).str.lower() == str(country).lower()].copy()
+    if cdf.empty:
+        return f"{country} is not present in the current filtered dashboard view." + _ai_scope_footer(df, "Medium")
+    neg = cdf[cdf["alert-impact"] == "Negative"] if "alert-impact" in cdf.columns else cdf.iloc[0:0]
+    top_actor = next(iter(_ai_split_terms(neg, "Actor of repression", 1).keys()), "Not available")
+    top_mech = next(iter(_ai_split_terms(neg, "Mechanism of repression", 1).keys()), "Not available")
+    top_subject = next(iter(_ai_split_terms(neg, "Subject of repression", 1).keys()), "Not available")
+    top_type = next(iter(_safe_series_counts(cdf, "alert-type", 1).keys()), "Not available")
+    neg_share = _ai_safe_pct(len(neg), len(cdf))
+    return (
+        f"### Why {country} stands out\n"
+        f"**Direct answer:** {country} stands out because it has {len(cdf):,} filtered alerts, including {len(neg):,} negative alerts ({neg_share}%).\n\n"
+        f"**Key drivers**\n"
+        f"1. Dominant alert type: {top_type}\n"
+        f"2. Leading restrictive actor: {top_actor}\n"
+        f"3. Leading mechanism: {top_mech}\n"
+        f"4. Main affected subject: {top_subject}\n\n"
+        f"**Interpretation:** read this as a dashboard signal, not a causal diagnosis. The pattern may reflect restriction intensity, reporting coverage, or both."
+        + _ai_scope_footer(df)
+    )
+
+
+def _ai_proactive_insights(df, max_items=3):
+    if df is None or df.empty:
+        return ["No proactive insight is available because the current filters return no records."]
+    s = summarize_for_ai(df)
+    insights = []
+    if s.get("negative_pct", 0) >= 60:
+        insights.append(f"Negative alerts dominate the current view: {s['negative']:,} of {s['total_alerts']:,} records ({s['negative_pct']}%).")
+    if s.get("top_negative_countries"):
+        c, v = next(iter(s["top_negative_countries"].items()))
+        insights.append(f"{c} is the leading negative-alert country with {int(v):,} negative records.")
+    anom = detect_alert_anomalies(df).head(1)
+    if not anom.empty:
+        r = anom.iloc[0]
+        insights.append(f"Spike detected: {r['country']} increased from {int(r['previous_alerts'])} to {int(r['current_alerts'])} alerts between {r['previous_period']} and {r['period']}.")
+    if s.get("top_mechanisms"):
+        m, v = next(iter(s["top_mechanisms"].items()))
+        insights.append(f"Most frequent negative-alert mechanism: {m} ({int(v):,} records).")
+    if not insights:
+        insights.append("No dominant spike or concentration is visible; review broader trends and country rankings.")
+    return insights[:max_items]
+
+
+def _ai_specific_local_answer(question, df):
+    q = str(question or "").lower().strip()
+    s = summarize_for_ai(df)
+    if s.get("total_alerts", 0) == 0:
+        return "No records are available under the current filters. Try broadening region, country, year, or alert filters." + _ai_scope_footer(df, "High")
+
+    countries = _ai_requested_countries_any(question, df)
+    if countries and any(k in q for k in ["why", "reason", "stand", "priority", "high"]):
+        return _ai_country_why(df, countries[0])
+    if "compare" in q and countries:
+        return country_comparison_text(df, countries)
+    if any(k in q for k in ["anomaly", "spike", "unusual", "surge"]):
+        anom = detect_alert_anomalies(df).head(5)
+        if anom.empty:
+            return "No alert spikes above the current anomaly threshold are visible in the filtered dashboard data." + _ai_scope_footer(df, "Medium")
+        lines = ["### Alert anomaly flags", ""]
+        for _, r in anom.iterrows():
+            lines.append(f"- **{r['country']}**: {int(r['previous_alerts'])} → {int(r['current_alerts'])} alerts from {r['previous_period']} to {r['period']} ({r['change_pct']}%).")
+        return "\n".join(lines) + _ai_scope_footer(df)
+    if any(k in q for k in ["map", "priority countries", "hotspot"]):
+        return _ai_rank_text("Map priority signal: top negative-alert countries", s.get("top_negative_countries", {})) + _ai_scope_footer(df)
+    if any(k in q for k in ["actor", "actors"]):
+        return _ai_rank_text("Restrictive actors among negative alerts", s.get("top_actors", {})) + _ai_scope_footer(df)
+    if any(k in q for k in ["mechanism", "mechanisms"]):
+        return _ai_rank_text("Restrictive mechanisms among negative alerts", s.get("top_mechanisms", {})) + _ai_scope_footer(df)
+    if any(k in q for k in ["subject", "target", "affected"]):
+        neg_df = df[df["alert-impact"] == "Negative"] if "alert-impact" in df.columns else pd.DataFrame()
+        return _ai_rank_text("Affected subjects among negative alerts", _ai_split_terms(neg_df, "Subject of repression", 5)) + _ai_scope_footer(df)
+    if any(k in q for k in ["trend", "time", "year", "month", "increase", "decrease"]):
+        return f"### Trend signal\n{s.get('trend_sentence', 'Trend information is not available.')}" + _ai_scope_footer(df)
+    if any(k in q for k in ["top country", "top countries", "country ranking"]):
+        return _ai_rank_text("Top countries", s.get("top_countries", {})) + _ai_scope_footer(df)
+    if any(k in q for k in ["summary", "overview", "brief"]):
+        return generate_ai_executive_summary(df) + _ai_scope_footer(df)
+    return None
+
+
+def _ai_apply_natural_language_filter(question, df):
+    """Apply simple country-only commands from chat, e.g. 'show Kenya only'."""
+    q = str(question or "").lower()
+    if not any(k in q for k in ["show", "filter", "only", "focus"]):
+        return False, None
+    countries = _ai_requested_countries_any(question, df)
+    if countries:
+        st.session_state["selected_countries"] = countries[:1]
+        return True, f"Applied country filter: {countries[0]}"
+    return False, None
+
+
+def ai_try_llm_response(question, df):
+    """Specific, grounded answer with OpenAI fallback. Local deterministic answer is preferred when sufficient."""
+    local = _ai_specific_local_answer(question, df)
+    if local:
+        return append_eusee_redirect(local)
+
+    api_key, model = _ai_get_openai_config()
+    if not api_key:
+        return local_ai_response(question, df)
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        context = _ai_build_focused_context(question, df)
+        context["proactive_insights"] = _ai_proactive_insights(df)
+        developer_instructions = """
+You are the EU SEE Dashboard AI Copilot. Answer only from the supplied focused_context.
+Be specific to the user's exact question. Do not give a generic dashboard summary unless asked.
+Use a structured format: Direct answer, Supporting data, Interpretation.
+Use exact counts and names from focused_context. Do not invent facts or use outside knowledge.
+If evidence is missing, say what is missing from the current filtered dashboard data.
+Limit answers to 3-6 bullets unless the user asks for a full brief.
+End with a confidence/scope note using the supplied record counts.
+""".strip()
+        messages = [
+            {"role": "developer", "content": developer_instructions},
+            {"role": "user", "content": f"focused_context:\n{context}\n\nUser question:\n{str(question).strip()}"},
+        ]
+        try:
+            resp = client.responses.create(model=model, input=messages, temperature=0.1, max_output_tokens=520)
+            txt = getattr(resp, "output_text", "").strip()
+        except Exception:
+            resp = client.chat.completions.create(model=model, messages=messages, temperature=0.1, max_tokens=520)
+            txt = resp.choices[0].message.content
+        return append_eusee_redirect(txt + _ai_scope_footer(df))
+    except Exception:
+        return local_ai_response(question, df)
+
+
+def _copilot_queue_answer(question, df):
+    q = str(question or "").strip()
+    if not q:
+        return
+    st.session_state.setdefault("ai_user_memory", [])
+    st.session_state.ai_user_memory.append({"question": q, "records": len(df) if df is not None else 0})
+    st.session_state.ai_user_memory = st.session_state.ai_user_memory[-20:]
+    applied, note = _ai_apply_natural_language_filter(q, df)
+    st.session_state.ai_messages.append({"role": "user", "content": q})
+    if applied:
+        answer = f"{note}. The dashboard will refresh with this focus. Ask 'why is this country high priority?' for a country-specific explanation."
+    else:
+        answer = ai_try_llm_response(q, df)
+    if any(w in q.lower() for w in ["plot", "chart", "graph", "visualize", "draw"]):
+        dim, ctype = _ai_plot_intent_to_dimension(q, df)
+        if dim:
+            st.session_state.ai_last_plot = {"dimension_col": dim, "chart_type": ctype, "top_n": 10, "title": f"Chatbot-generated plot: {dim}"}
+            answer += "\n\n📊 I also prepared a chart from the current filtered data in the Smart Output area."
+    st.session_state.ai_pending_answer = answer
+    st.session_state.ai_streaming = True
+    st.session_state.ai_smart_output = {"type": "answer", "title": "Smart output", "content": answer}
+
+
+def render_ai_assistant_panel(df):
+    """Production-grade chat-first intelligence layer with low cognitive load."""
+    st.session_state.setdefault("ai_right_sidebar_open", True)
+    st.session_state.setdefault("ai_messages", [{"role": "assistant", "content": "Ask me a specific question about the current dashboard view. I use only the active filters, charts, map summaries, and cleaned dataset."}])
+    st.session_state.setdefault("ai_streaming", False)
+    st.session_state.setdefault("ai_pending_answer", "")
+    st.session_state.setdefault("ai_last_plot", None)
+    st.session_state.setdefault("ai_smart_output", {"type": "welcome", "title": "Smart output", "content": "Answers, anomaly flags, comparison tables, generated plots, and exports appear here."})
+    st.session_state.setdefault("ai_user_memory", [])
+
+    s = summarize_for_ai(df)
+    proactive = _ai_proactive_insights(df)
+
+    with AI_ASSISTANT_SLOT:
+        st.markdown("""
+        <style>
+        .copilot-shell {background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);border:1px solid #E7D4F1;border-radius:18px;padding:12px;margin:10px 0 14px 0;box-shadow:0 10px 24px rgba(45,0,85,.08);font-family:Arial,sans-serif;}
+        .copilot-title {font-size:15px;font-weight:950;color:#2D0055;margin-bottom:4px;}
+        .copilot-sub {font-size:10.5px;color:#667085;line-height:1.35;margin-bottom:9px;}
+        .copilot-context {display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:8px 0;}
+        .copilot-kpi {background:#FFFFFF;border:1px solid #EEF0F4;border-radius:12px;padding:7px 8px;}
+        .copilot-kpi span {display:block;font-size:9px;color:#667085;font-weight:800;}
+        .copilot-kpi strong {font-size:14px;color:#2D0055;font-weight:950;}
+        .copilot-insight {background:#F8FAFC;border:1px solid #EEF0F4;border-left:4px solid #660094;border-radius:12px;padding:7px 9px;margin:6px 0;font-size:10.5px;line-height:1.35;color:#344054;}
+        .copilot-chip-note {font-size:10px;color:#667085;margin:4px 0 6px 0;}
+        .copilot-smart {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:14px;padding:10px;margin:10px 0;box-shadow:0 4px 12px rgba(16,24,40,.04);}
+        .copilot-smart-title {font-size:12px;font-weight:950;color:#2D0055;margin-bottom:5px;}
+        .copilot-small {font-size:10px;color:#667085;line-height:1.35;}
+        .copilot-msg {background:#FFFFFF;border:1px solid #EEF0F4;border-radius:13px;padding:8px 9px;margin-bottom:7px;font-size:11px;line-height:1.4;color:#344054;}
+        .copilot-msg-user {background:#F4EAF8;border-color:#E7D4F1;color:#23152F;}
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class='copilot-shell'>
+          <div class='copilot-title'>🤖 EU SEE AI Copilot</div>
+          <div class='copilot-sub'>Chat-first intelligence layer grounded only in the current dashboard view.</div>
+          <div class='copilot-context'>
+            <div class='copilot-kpi'><span>Records</span><strong>{s.get('total_alerts',0):,}</strong></div>
+            <div class='copilot-kpi'><span>Countries</span><strong>{s.get('countries_count',0):,}</strong></div>
+            <div class='copilot-kpi'><span>Negative</span><strong>{s.get('negative',0):,}</strong></div>
+            <div class='copilot-kpi'><span>Neg. share</span><strong>{s.get('negative_pct',0)}%</strong></div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("💡 Proactive insights", expanded=True):
+            for item in proactive:
+                st.markdown(f"<div class='copilot-insight'>{item}</div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='copilot-chip-note'>Intent actions. Keep visible actions limited; use Advanced tools for everything else.</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        c3, c4 = st.columns(2)
+        c5, _ = st.columns(2)
+        def _intent(prompt, label, key):
+            if st.button(label, key=key, use_container_width=True):
+                _track_ai_event("intent_action", label) if "_track_ai_event" in globals() else None
+                _copilot_queue_answer(prompt, df)
+                st.rerun()
+        with c1: _intent("What are the main insights in the current dashboard view?", "Main insight", "ai_intent_main_insight_v2")
+        with c2: _intent("Explain why the top priority country stands out.", "Explain why", "ai_intent_why_v2")
+        with c3: _intent("Flag alert anomalies and unusual spikes.", "Anomalies", "ai_intent_anomaly_v2")
+        with c4: _intent("Compare the top three countries.", "Compare", "ai_intent_compare_v2")
+        with c5: _intent("Explain the map and chart patterns.", "Explain visuals", "ai_intent_visuals_v2")
+
+        chat_box = st.container(height=280)
+        with chat_box:
+            for msg in st.session_state.ai_messages[-8:]:
+                css = "copilot-msg-user" if msg.get("role") == "user" else "copilot-msg"
+                st.markdown(f"<div class='{css}'>{_render_chat_content_html(msg.get('content',''))}</div>", unsafe_allow_html=True)
+            if st.session_state.ai_streaming and st.session_state.ai_pending_answer:
+                answer = st.session_state.ai_pending_answer
+                st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+                st.session_state.ai_pending_answer = ""
+                st.session_state.ai_streaming = False
+                st.rerun()
+
+        with st.form("ai_primary_chat_form_v2", clear_on_submit=True):
+            user_q = st.text_input("Ask the dashboard", placeholder="Example: Why is Kenya high priority? Compare Kenya and Uganda. Flag anomalies.", key="ai_primary_input_v2")
+            submitted = st.form_submit_button("Ask", use_container_width=True)
+        if submitted and user_q.strip():
+            _track_ai_event("chat_question", user_q.strip()) if "_track_ai_event" in globals() else None
+            _copilot_queue_answer(user_q.strip(), df)
+            st.rerun()
+
+        smart = st.session_state.get("ai_smart_output", {})
+        st.markdown(f"""
+        <div class='copilot-smart'>
+          <div class='copilot-smart-title'>🧠 {smart.get('title','Smart output')}</div>
+          <div class='copilot-small'>{_render_chat_content_html(str(smart.get('content','No output yet.'))[:3500])}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if isinstance(st.session_state.get("ai_last_plot"), dict):
+            try:
+                lp = st.session_state.ai_last_plot
+                st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="ai_smart_plot_v2")
+            except Exception:
+                pass
+
+        with st.expander("Advanced tools", expanded=False):
+            t1, t2, t3, t4 = st.tabs(["Compare", "Anomalies", "Export", "Memory"])
+            with t1:
+                options = sorted(df["alert-country"].dropna().astype(str).unique().tolist()) if df is not None and not df.empty and "alert-country" in df.columns else []
+                selected = st.multiselect("Select 2–3 countries", options, default=options[:3], max_selections=3, key="ai_compare_countries_v2")
+                comp = compare_selected_countries(df, selected)
+                if not comp.empty:
+                    st.dataframe(comp, use_container_width=True, hide_index=True, height=220)
+                    st.download_button("Download comparison CSV", comp.to_csv(index=False).encode("utf-8"), "eusee_country_comparison.csv", "text/csv", use_container_width=True)
+            with t2:
+                anom = detect_alert_anomalies(df).head(15)
+                if anom.empty:
+                    st.info("No anomaly flags found with the current threshold.")
+                else:
+                    st.dataframe(anom, use_container_width=True, hide_index=True, height=240)
+                    st.download_button("Download anomalies CSV", anom.to_csv(index=False).encode("utf-8"), "eusee_alert_anomalies.csv", "text/csv", use_container_width=True)
+            with t3:
+                brief = generate_ai_executive_summary(df) + "\n\n" + "\n".join(["- " + x for x in proactive])
+                st.download_button("Download AI brief", brief, "eusee_ai_intelligence_brief.txt", "text/plain", use_container_width=True)
+                if df is not None and not df.empty:
+                    st.download_button("Download filtered data", df.to_csv(index=False).encode("utf-8"), "eusee_filtered_data.csv", "text/csv", use_container_width=True)
+            with t4:
+                mem = pd.DataFrame(st.session_state.get("ai_user_memory", []))
+                if mem.empty:
+                    st.info("No previous searches in this session yet.")
+                else:
+                    st.dataframe(mem.tail(20), use_container_width=True, hide_index=True, height=180)
+                if st.button("Clear chat memory", use_container_width=True, key="ai_clear_memory_v2"):
+                    st.session_state.ai_user_memory = []
+                    st.session_state.ai_messages = [{"role": "assistant", "content": "Memory cleared. Ask a specific question about the current dashboard view."}]
+                    st.rerun()
+
+# ---------------- END PRODUCTION AI INTELLIGENCE LAYER OVERRIDE ----------------
+
 render_ai_assistant_panel(filtered_global)
 
 
