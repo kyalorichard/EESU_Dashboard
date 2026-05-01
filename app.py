@@ -113,7 +113,7 @@ def inject_classic_dashboard_css():
     .executive-table-title { font-size:15px; font-weight:900; color:#23152F; line-height:1.15; }
     .executive-table-subtitle { font-size:11px; color:var(--eusee-muted); margin-top:4px; line-height:1.35; }
     .executive-table-badge { background:#F4EAF8; color:var(--eusee-purple); border:1px solid #E7D4F1; border-radius:999px; padding:6px 10px; font-size:10px; font-weight:900; white-space:nowrap; }
-    .executive-metric-grid { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:8px; }
+    .executive-metric-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:8px; }
     .executive-mini-kpi { background:#FFFFFF; border:1px solid #EEF0F4; border-radius:13px; padding:9px 10px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
     .executive-mini-kpi span { display:block; font-size:10px; color:var(--eusee-muted); font-weight:800; margin-bottom:3px; }
     .executive-mini-kpi strong { font-size:15px; color:#23152F; font-weight:900; }
@@ -2797,7 +2797,7 @@ st.markdown(
        This prevents tab changes from causing continuous page scrolling/layout jumps. */
     div[data-testid="stTabs"] [role="tablist"] {
         display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         background: #ffffff;
         border-bottom: 1px solid #E8E2EF;
@@ -4047,7 +4047,7 @@ with tab_manual:
         }
         .manual-kpi-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 12px;
             margin: 14px 0 18px 0;
         }
@@ -5401,7 +5401,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     proactive = _ai_proactive_insights(df)
 
-    with AI_ASSISTANT_SLOT:
+    with st.container():
         st.markdown("""
         <style>
         .copilot-shell {background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);border:1px solid #E7D4F1;border-radius:18px;padding:12px;margin:10px 0 14px 0;box-shadow:0 10px 24px rgba(45,0,85,.08);font-family:Arial,sans-serif;}
@@ -5522,7 +5522,96 @@ def render_ai_assistant_panel(df):
 
 # ---------------- END PRODUCTION AI INTELLIGENCE LAYER OVERRIDE ----------------
 
-render_ai_assistant_panel(filtered_global)
+
+
+# ---------------- LEFT AI COPILOT DRAWER ----------------
+def render_left_ai_copilot_drawer(df):
+    """Render AI Copilot as a left-side collapsible drawer instead of a main dashboard tab."""
+    st.session_state.setdefault("left_ai_drawer_open", False)
+
+    st.markdown("""
+    <style>
+    .left-ai-launcher-note {
+        background: linear-gradient(135deg,#FFFFFF 0%,#FAF7FC 100%);
+        border: 1px solid #E7D4F1;
+        border-radius: 14px;
+        padding: 10px 11px;
+        margin: 10px 0 10px 0;
+        box-shadow: 0 8px 18px rgba(45,0,85,.07);
+        font-family: Arial, sans-serif;
+    }
+    .left-ai-launcher-title {
+        font-size: 12.5px;
+        font-weight: 950;
+        color: #2D0055;
+        line-height: 1.15;
+    }
+    .left-ai-launcher-sub {
+        font-size: 10px;
+        color: #667085;
+        line-height: 1.3;
+        margin-top: 4px;
+    }
+    .left-ai-drawer-header {
+        background: linear-gradient(135deg,#660094 0%,#008CAA 100%);
+        color: #FFFFFF;
+        border-radius: 16px;
+        padding: 12px 13px;
+        margin: 8px 0 10px 0;
+        box-shadow: 0 10px 22px rgba(45,0,85,.18);
+        font-family: Arial, sans-serif;
+    }
+    .left-ai-drawer-title {
+        font-size: 15px;
+        font-weight: 950;
+        margin-bottom: 3px;
+    }
+    .left-ai-drawer-sub {
+        font-size: 10.5px;
+        line-height: 1.35;
+        opacity: .92;
+    }
+    .left-ai-collapsed-pill {
+        background: #FFFFFF;
+        border: 1px solid #E7D4F1;
+        border-radius: 999px;
+        padding: 7px 10px;
+        margin: 8px 0;
+        color: #660094;
+        font-size: 11px;
+        font-weight: 900;
+        text-align: center;
+        box-shadow: 0 6px 16px rgba(45,0,85,.07);
+        font-family: Arial, sans-serif;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    with AI_ASSISTANT_SLOT:
+        if not st.session_state.left_ai_drawer_open:
+            st.markdown("""
+            <div class="left-ai-launcher-note">
+                <div class="left-ai-launcher-title">🤖 AI Copilot</div>
+                <div class="left-ai-launcher-sub">Open the dashboard-grounded assistant from the left panel.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("🤖 Open AI Copilot", key="left_ai_open_btn", use_container_width=True):
+                st.session_state.left_ai_drawer_open = True
+                st.rerun()
+        else:
+            st.markdown("""
+            <div class="left-ai-drawer-header">
+                <div class="left-ai-drawer-title">🤖 EU SEE AI Copilot</div>
+                <div class="left-ai-drawer-sub">Ask questions about the active filters, charts, map, anomalies, country comparisons, and cleaned dataset only.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("◀ Collapse AI Copilot", key="left_ai_collapse_btn", use_container_width=True):
+                st.session_state.left_ai_drawer_open = False
+                st.rerun()
+            render_ai_assistant_panel(df)
+
+
+render_left_ai_copilot_drawer(filtered_global)
 
 
 
