@@ -520,7 +520,11 @@ def load_data():
     df = df[df["alert-country"].str.lower() != "jose"]
 
     df["alert-impact"] = df["alert-impact"].astype(str).str.strip()
-    df = df[df["alert-impact"].notna() & (df["alert-impact"] != "") & (df["alert-impact"].str.lower() != "nan")]
+    df = df[
+        df["alert-impact"].notna()
+        & (df["alert-impact"] != "")
+        & (df["alert-impact"].str.lower() != "nan")
+    ]
 
     # Normalize country names before ISO mapping.
     COUNTRY_FIXES = {
@@ -554,9 +558,9 @@ def load_data():
     # --- Step 5: Clean alert type and remove non-alert event rows ---
     df["alert-type"] = df["alert-type"].astype(str).str.strip()
     df = df[
-        (df["alert-type"].str.lower() != "event") &
-        (df["alert-type"] != "") &
-        (df["alert-type"].str.lower() != "nan")
+        (df["alert-type"].str.lower() != "event")
+        & (df["alert-type"] != "")
+        & (df["alert-type"].str.lower() != "nan")
     ]
 
     # Clean Actor of repression.
@@ -587,7 +591,7 @@ def load_data():
 
     df["region"] = df["continent"].apply(continent_to_region)
 
-    # --- Step 8: Warn about missing ISO codes after normalization ---
+    # --- Step 8: Warn about countries missing ISO metadata ---
     missing_countries = (
         df.loc[df["iso_alpha3"].isna(), "alert-country"]
         .dropna()
@@ -3299,16 +3303,22 @@ with tab_map:
     </style>
     """, unsafe_allow_html=True)
 
-    geo_file = Path.cwd() / "exports" / "countriess.geojson"
-    if geo_file.exists():
+    geo_file_candidates = [
+        Path("/exports") / "countries.geojson",
+        Path.cwd() / "exports" / "countries.geojson",
+        Path.cwd() / "exports" / "countriess.geojson",  # legacy typo fallback
+    ]
+    geo_file = next((p for p in geo_file_candidates if p.exists()), None)
+    if geo_file is not None and geo_file.exists():
         with open(geo_file, encoding="utf-8") as f:
             countries_gj = json.load(f)
 
         # ---------------- Base map data and intelligence metrics ----------------
         stats = (
             filtered_global
-            .groupby("alert-country")
+            .groupby("alert-country", dropna=False)
             .agg(
+                iso_alpha3=("iso_alpha3", lambda x: next((v for v in x.dropna().astype(str) if v.strip()), None)),
                 total_alerts=("alert-impact", "size"),
                 negative_alerts=("alert-impact", lambda x: int((x == "Negative").sum())),
                 positive_alerts=("alert-impact", lambda x: int((x == "Positive").sum())),
@@ -3318,8 +3328,29 @@ with tab_map:
             .reset_index()
         )
 
-        geo_countries = [f["properties"].get("name") for f in countries_gj.get("features", [])]
-        df_map = stats[stats["alert-country"].isin(geo_countries)].copy()
+        # ISO3-based map matching avoids country-name mismatches between dataset labels
+        # and GeoJSON labels, e.g. Republic of Congo vs Congo.
+        geo_iso3 = {
+            str(f.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip()
+            for f in countries_gj.get("features", [])
+        }
+        geo_iso3 = {x for x in geo_iso3 if x and x.lower() != "none"}
+
+        df_map = stats[
+            stats["iso_alpha3"].notna()
+            & stats["iso_alpha3"].astype(str).isin(geo_iso3)
+        ].copy()
+
+        unmapped_map_countries = sorted(
+            set(stats.loc[stats["iso_alpha3"].notna(), "alert-country"].astype(str))
+            - set(df_map["alert-country"].astype(str))
+        )
+        if unmapped_map_countries:
+            st.warning(
+                "Countries with ISO metadata but no matching GeoJSON geometry: "
+                + ", ".join(unmapped_map_countries[:25])
+                + (" ..." if len(unmapped_map_countries) > 25 else "")
+            )
 
         for c in ["total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts"]:
             df_map[c] = pd.to_numeric(df_map[c], errors="coerce").fillna(0).astype(int)
@@ -3388,9 +3419,9 @@ with tab_map:
         # ---------------- Dynamic center and zoom ----------------
         if not df_map.empty:
             coords = []
-            country_set = set(df_map["alert-country"].astype(str))
+            country_iso_set = set(df_map["iso_alpha3"].dropna().astype(str))
             for feature in countries_gj.get("features", []):
-                if feature.get("properties", {}).get("name") in country_set:
+                if str(feature.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip() in country_iso_set:
                     geometry = feature.get("geometry", {})
                     if geometry.get("type") == "Polygon":
                         coords.extend(geometry.get("coordinates", [[]])[0])
@@ -3418,8 +3449,8 @@ with tab_map:
             fig = px.choropleth_mapbox(
                 df_map,
                 geojson=countries_gj,
-                locations="alert-country",
-                featureidkey="properties.name",
+                locations="iso_alpha3",
+                featureidkey="properties.ISO3166-1-Alpha-3",
                 color="total_alerts",
                 hover_name="alert-country",
                 color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
@@ -3431,18 +3462,18 @@ with tab_map:
 
             fig.update_traces(
                 customdata=df_map[[
-                    "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
-                    "perc_negative", "priority_level", "regions"
+                    "alert-country", "total_alerts", "negative_alerts", "positive_alerts",
+                    "context_to_watch_alerts", "perc_negative", "priority_level", "regions"
                 ]].values,
                 hovertemplate=(
-                    "<b>%{location}</b><br>"
-                    "Region: %{customdata[6]}<br>"
-                    "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[0]}<br>"
-                    "<span style='color:#FFDB58'>●</span> Negative: %{customdata[1]}<br>"
-                    "<span style='color:#660094'>●</span> Positive: %{customdata[2]}<br>"
-                    "<span style='color:#008CAA'>●</span> Context: %{customdata[3]}<br>"
-                    "Negative share: %{customdata[4]}%<br>"
-                    "Priority level: <b>%{customdata[5]}</b><extra></extra>"
+                    "<b>%{customdata[0]}</b><br>"
+                    "Region: %{customdata[7]}<br>"
+                    "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
+                    "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
+                    "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
+                    "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
+                    "Negative share: %{customdata[5]}%<br>"
+                    "Priority level: <b>%{customdata[6]}</b><extra></extra>"
                 ),
                 hoverlabel=dict(
                     bgcolor="#2D0055",
