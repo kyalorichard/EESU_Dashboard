@@ -520,11 +520,7 @@ def load_data():
     df = df[df["alert-country"].str.lower() != "jose"]
 
     df["alert-impact"] = df["alert-impact"].astype(str).str.strip()
-    df = df[
-        df["alert-impact"].notna()
-        & (df["alert-impact"] != "")
-        & (df["alert-impact"].str.lower() != "nan")
-    ]
+    df = df[df["alert-impact"].notna() & (df["alert-impact"] != "") & (df["alert-impact"].str.lower() != "nan")]
 
     # Normalize country names before ISO mapping.
     COUNTRY_FIXES = {
@@ -558,9 +554,9 @@ def load_data():
     # --- Step 5: Clean alert type and remove non-alert event rows ---
     df["alert-type"] = df["alert-type"].astype(str).str.strip()
     df = df[
-        (df["alert-type"].str.lower() != "event")
-        & (df["alert-type"] != "")
-        & (df["alert-type"].str.lower() != "nan")
+        (df["alert-type"].str.lower() != "event") &
+        (df["alert-type"] != "") &
+        (df["alert-type"].str.lower() != "nan")
     ]
 
     # Clean Actor of repression.
@@ -591,7 +587,7 @@ def load_data():
 
     df["region"] = df["continent"].apply(continent_to_region)
 
-    # --- Step 8: Warn about countries missing ISO metadata ---
+    # --- Step 8: Warn about missing ISO codes after normalization ---
     missing_countries = (
         df.loc[df["iso_alpha3"].isna(), "alert-country"]
         .dropna()
@@ -3191,117 +3187,259 @@ with tab_negative:
     
         # ---------------- TAB 3 (MAP) ----------------
 with tab_map:
-    # ---------------- PROFESSIONAL MAP INTELLIGENCE TAB ----------------
+    # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
     render_summary_cards(filtered_global, card_key="map_summary")
 
-    MAP_FONT = "Arial"
+    MAP_FONT = "Arial, sans-serif"
+
     st.markdown("""
     <style>
+    .map-page-shell {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid #E6E8EF;
+        border-radius: 22px;
+        padding: 18px;
+        margin: 8px 0 18px 0;
+        box-shadow: 0 16px 38px rgba(17,24,39,0.065);
+        font-family: Arial, sans-serif;
+    }
     .map-intel-hero {
-        background: linear-gradient(135deg, #ffffff 0%, #fbf7ff 100%);
-        border: 1px solid rgba(102,0,148,0.13);
-        border-radius: 18px;
-        padding: 16px 18px;
-        box-shadow: 0 10px 28px rgba(17,24,39,0.06);
+        background:
+            radial-gradient(circle at 96% 10%, rgba(0,140,170,.10), transparent 28%),
+            linear-gradient(135deg, #FFFFFF 0%, #FBF7FF 100%);
+        border: 1px solid rgba(102,0,148,0.14);
+        border-radius: 20px;
+        padding: 17px 19px;
+        box-shadow: 0 12px 30px rgba(17,24,39,0.06);
         margin: 10px 0 14px 0;
     }
+    .map-hero-top {
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:16px;
+        flex-wrap:wrap;
+    }
+    .map-intel-eyebrow {
+        font-size: 10px;
+        font-weight: 950;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        color: #660094;
+        margin-bottom: 5px;
+    }
     .map-intel-title {
-        font-family: Arial, sans-serif;
-        font-size: 18px;
-        font-weight: 900;
+        font-size: 20px;
+        font-weight: 950;
         color: #2D0055;
-        margin-bottom: 4px;
-        letter-spacing: -0.2px;
+        margin-bottom: 5px;
+        letter-spacing: -0.3px;
+        line-height:1.12;
     }
     .map-intel-subtitle {
-        font-family: Arial, sans-serif;
-        font-size: 12.5px;
+        font-size: 12.7px;
         color: #52616B;
-        line-height: 1.45;
+        line-height: 1.48;
         max-width: 980px;
     }
-    .map-chip-row {display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
-    .map-chip {
-        display:inline-flex; align-items:center; gap:6px;
-        background:#ffffff;
-        border:1px solid #E6DFF2;
+    .map-legend-chip {
+        background:#FFFFFF;
+        border:1px solid #E9E2F2;
         border-radius:999px;
-        padding:5px 10px;
-        font-family:Arial, sans-serif;
+        padding:7px 11px;
+        color:#344054;
         font-size:11px;
-        font-weight:800;
-        color:#2D0055;
+        font-weight:850;
+        box-shadow:0 4px 10px rgba(17,24,39,.045);
+        white-space:nowrap;
+    }
+    .map-chip-row {display:flex; flex-wrap:wrap; gap:8px; margin-top:11px;}
+    .map-chip {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        background:#FFFFFF;
+        border:1px solid #E8EAF0;
+        color:#334155;
+        border-radius:999px;
+        padding:6px 10px;
+        font-size:11px;
+        font-weight:850;
+        box-shadow:0 3px 9px rgba(17,24,39,0.045);
     }
     .map-intel-card {
-        background:#ffffff;
-        border:1px solid #E8EAF0;
-        border-radius:16px;
-        padding:13px 14px;
-        min-height:92px;
-        box-shadow:0 8px 20px rgba(17,24,39,0.055);
+        height: 128px;
+        background: #FFFFFF;
+        border: 1px solid #E8EAF0;
+        border-radius: 17px;
+        padding: 13px 14px;
+        box-shadow: 0 10px 24px rgba(17,24,39,0.055);
+        font-family: Arial, sans-serif;
+        overflow:hidden;
+        position:relative;
+    }
+    .map-intel-card::before {
+        content:"";
+        position:absolute;
+        left:0; right:0; top:0;
+        height:4px;
+        background:linear-gradient(90deg, #660094 0%, #008CAA 55%, #FFDB58 100%);
     }
     .map-intel-card-label {
-        font-family:Arial, sans-serif;
-        font-size:10.5px;
-        font-weight:900;
-        color:#64748B;
-        text-transform:uppercase;
-        letter-spacing:.45px;
-        margin-bottom:5px;
+        font-size: 10px;
+        font-weight: 950;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        margin-bottom: 6px;
     }
     .map-intel-card-value {
-        font-family:Arial Black, Arial, sans-serif;
-        font-size:24px;
-        color:#2D0055;
-        line-height:1.1;
+        font-size: 27px;
+        font-weight: 950;
+        color: #2D0055;
+        line-height:1.05;
+        letter-spacing:-.035em;
     }
     .map-intel-card-note {
+        font-size: 10.8px;
+        color: #667085;
+        line-height:1.32;
+        margin-top: 7px;
+    }
+    .map-insight-grid {
+        display:grid;
+        grid-template-columns: 1.25fr 1fr 1fr;
+        gap:12px;
+        margin:13px 0 14px 0;
+    }
+    .map-insight-card {
+        background:#FFFFFF;
+        border:1px solid #E8EAF0;
+        border-radius:17px;
+        padding:13px 14px;
+        box-shadow:0 10px 24px rgba(17,24,39,.055);
+        min-height:100px;
+    }
+    .map-insight-title {
+        font-size:10px;
+        color:#660094;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.11em;
+        margin-bottom:6px;
+    }
+    .map-insight-text {
+        font-size:12.4px;
+        color:#334155;
+        line-height:1.5;
+        font-weight:650;
+    }
+    .map-insight-text b {color:#2D0055; font-weight:950;}
+    .map-method-note {
+        background:#FFFBEB;
+        border:1px solid #FDE68A;
+        border-left:4px solid #FFDB58;
+        border-radius:15px;
+        padding:11px 13px;
+        color:#4A3B00;
+        font-size:11.8px;
+        line-height:1.48;
+        margin:12px 0;
         font-family:Arial, sans-serif;
-        font-size:11.3px;
-        color:#52616B;
-        margin-top:5px;
-        line-height:1.35;
     }
     .map-panel-card {
-        background:#ffffff;
+        background:#FFFFFF;
         border:1px solid #E8EAF0;
         border-radius:18px;
-        padding:15px;
-        box-shadow:0 10px 26px rgba(17,24,39,0.06);
-        margin-top:12px;
+        padding:14px;
+        box-shadow:0 12px 28px rgba(17,24,39,.058);
+        margin: 12px 0 16px 0;
+        font-family:Arial, sans-serif;
     }
     .map-panel-title {
-        font-family:Arial Black, Arial, sans-serif;
-        font-size:13px;
         color:#2D0055;
+        font-size:15px;
+        font-weight:950;
         margin-bottom:4px;
+        letter-spacing:-.15px;
     }
     .map-panel-help {
-        font-family:Arial, sans-serif;
-        font-size:11.8px;
         color:#64748B;
+        font-size:11.5px;
+        line-height:1.45;
         margin-bottom:10px;
-        line-height:1.4;
     }
-
-    .geo-insight-strip {display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; margin:12px 0 14px 0;}
-    .geo-insight-item {background:#FFFFFF; border:1px solid #E8EAF0; border-radius:15px; padding:12px 14px; box-shadow:0 8px 22px rgba(17,24,39,0.055); font-family:Arial, sans-serif;}
-    .geo-insight-title {font-size:10.5px; color:#64748B; font-weight:900; text-transform:uppercase; letter-spacing:.45px; margin-bottom:5px;}
-    .geo-insight-text {font-size:12px; color:#334155; line-height:1.42; font-weight:650;}
-    .geo-method-note {background:#FFFBEB; border:1px solid #FDE68A; border-left:4px solid #FFDB58; border-radius:14px; padding:11px 13px; color:#4A3B00; font-family:Arial, sans-serif; font-size:11.8px; line-height:1.45; margin:12px 0;}
     .country-insight-box {
-        background:#F8FAFC;
+        background:linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+        border:1px solid #E8EAF0;
         border-left:4px solid #660094;
-        border-radius:13px;
-        padding:12px 14px;
-        font-family:Arial, sans-serif;
+        border-radius:15px;
+        padding:13px 14px;
         color:#334155;
         font-size:12px;
-        line-height:1.45;
+        line-height:1.52;
         margin-top:10px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    }
+    .country-insight-box b {color:#2D0055;}
+    .country-mini-grid {
+        display:grid;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap:8px;
+        margin:10px 0;
+    }
+    .country-mini-kpi {
+        background:#F8FAFC;
+        border:1px solid #EEF2F6;
+        border-radius:12px;
+        padding:8px 9px;
+    }
+    .country-mini-kpi span {
+        display:block;
+        color:#64748B;
+        font-size:9.5px;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        margin-bottom:3px;
+    }
+    .country-mini-kpi strong {
+        color:#2D0055;
+        font-size:15px;
+        font-weight:950;
+    }
+    .map-action-list {
+        margin: 8px 0 0 0;
+        padding-left: 18px;
+        color:#334155;
+        font-size:11.8px;
+        line-height:1.5;
+        font-weight:650;
+    }
+    .map-quality-strip {
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin:8px 0 0 0;
+    }
+    .map-quality-pill {
+        background:#F8FAFC;
+        border:1px solid #E8EAF0;
+        color:#475467;
+        border-radius:999px;
+        padding:5px 9px;
+        font-size:10.5px;
+        font-weight:850;
+    }
+    @media (max-width: 980px) {
+        .map-insight-grid {grid-template-columns:1fr;}
+        .map-intel-card {height:auto; min-height:118px;}
+        .country-mini-grid {grid-template-columns:1fr;}
     }
     </style>
     """, unsafe_allow_html=True)
+
+    st.markdown('<div class="map-page-shell">', unsafe_allow_html=True)
 
     geo_file_candidates = [
         Path("/exports") / "countries.geojson",
@@ -3309,6 +3447,7 @@ with tab_map:
         Path.cwd() / "exports" / "countriess.geojson",  # legacy typo fallback
     ]
     geo_file = next((p for p in geo_file_candidates if p.exists()), None)
+
     if geo_file is not None and geo_file.exists():
         with open(geo_file, encoding="utf-8") as f:
             countries_gj = json.load(f)
@@ -3328,8 +3467,6 @@ with tab_map:
             .reset_index()
         )
 
-        # ISO3-based map matching avoids country-name mismatches between dataset labels
-        # and GeoJSON labels, e.g. Republic of Congo vs Congo.
         geo_iso3 = {
             str(f.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip()
             for f in countries_gj.get("features", [])
@@ -3340,17 +3477,6 @@ with tab_map:
             stats["iso_alpha3"].notna()
             & stats["iso_alpha3"].astype(str).isin(geo_iso3)
         ].copy()
-
-        unmapped_map_countries = sorted(
-            set(stats.loc[stats["iso_alpha3"].notna(), "alert-country"].astype(str))
-            - set(df_map["alert-country"].astype(str))
-        )
-        if unmapped_map_countries:
-            st.warning(
-                "Countries with ISO metadata but no matching GeoJSON geometry: "
-                + ", ".join(unmapped_map_countries[:25])
-                + (" ..." if len(unmapped_map_countries) > 25 else "")
-            )
 
         for c in ["total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts"]:
             df_map[c] = pd.to_numeric(df_map[c], errors="coerce").fillna(0).astype(int)
@@ -3368,7 +3494,10 @@ with tab_map:
             labels=["Watch", "Moderate", "High", "Very high"]
         ).astype(str)
 
+        total_filtered_records = int(len(filtered_global)) if filtered_global is not None else 0
         total_mapped = int(df_map["total_alerts"].sum()) if not df_map.empty else 0
+        unmapped_alerts = max(total_filtered_records - total_mapped, 0)
+        mapping_coverage = round((total_mapped / total_filtered_records) * 100, 1) if total_filtered_records else 0
         mapped_countries = int(df_map["alert-country"].nunique()) if not df_map.empty else 0
         top_country = df_map.sort_values("total_alerts", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
         top_priority_country = df_map.sort_values("priority_score", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
@@ -3378,43 +3507,91 @@ with tab_map:
         mapped_negative = int(df_map["negative_alerts"].sum()) if not df_map.empty else 0
         mapped_positive = int(df_map["positive_alerts"].sum()) if not df_map.empty else 0
         mapped_context = int(df_map["context_to_watch_alerts"].sum()) if not df_map.empty else 0
-        dominant_signal = "Negative alerts dominate the mapped profile" if mapped_negative >= max(mapped_positive, mapped_context) else ("Positive alerts dominate the mapped profile" if mapped_positive >= mapped_context else "Context-to-watch alerts dominate the mapped profile")
+
+        if mapped_negative >= max(mapped_positive, mapped_context):
+            dominant_signal = "Negative alerts are the dominant mapped signal"
+            dominant_next_step = "prioritize restrictive-event pathways and review affected actors."
+        elif mapped_positive >= mapped_context:
+            dominant_signal = "Positive alerts are the dominant mapped signal"
+            dominant_next_step = "identify enabling-pattern examples and potential comparative lessons."
+        else:
+            dominant_signal = "Context-to-watch alerts are the dominant mapped signal"
+            dominant_next_step = "monitor emerging situations before they shift into restrictive or enabling events."
+
+        priority_share = round(((very_high_count + high_count) / mapped_countries) * 100, 1) if mapped_countries else 0
+
+        unmapped_meta = sorted(
+            set(stats.loc[stats["iso_alpha3"].isna(), "alert-country"].dropna().astype(str))
+        )
+        unmapped_geo = sorted(
+            set(stats.loc[stats["iso_alpha3"].notna(), "alert-country"].astype(str))
+            - set(df_map["alert-country"].astype(str))
+        )
 
         st.markdown(f"""
         <div class="map-intel-hero">
-            <div class="map-intel-title">Geospatial Intelligence Panel</div>
-            <div class="map-intel-subtitle">
-                A decision-ready geospatial workspace for interpreting country-level alert concentration, negative-alert intensity, priority signals, and spatial monitoring coverage under the current filters.
+            <div class="map-hero-top">
+                <div>
+                    <div class="map-intel-eyebrow">Geospatial intelligence workspace</div>
+                    <div class="map-intel-title">Visualization Map: Spatial Alert Intelligence</div>
+                    <div class="map-intel-subtitle">
+                        This panel translates the active filters into a country-level spatial view. Use it to identify where alerts concentrate, how negative/positive/context signals are distributed, which countries require closer review, and how much of the filtered dataset is represented on the map.
+                    </div>
+                </div>
+                <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
             </div>
             <div class="map-chip-row">
-                <span class="map-chip">🟫 Total alert intensity</span>
-                <span class="map-chip">⚠️ Negative-alert share</span>
-                <span class="map-chip">🎯 Priority signal</span>
-                <span class="map-chip">🖱️ Hover for country details</span>
-                <span class="map-chip">📊 Review country rankings</span>
-                <span class="map-chip">🧠 Use interpretation notes</span>
+                <span class="map-chip">🟫 Color intensity = alert volume</span>
+                <span class="map-chip">⚠️ Priority = negative volume + negative share</span>
+                <span class="map-chip">🖱️ Hover countries for details</span>
+                <span class="map-chip">📊 Rankings support deeper review</span>
+                <span class="map-chip">🧭 Interpret with reporting coverage</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        k1, k2, k3, k4 = st.columns(4)
+        k1, k2, k3, k4, k5 = st.columns(5)
         with k1:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Alerts with valid country geometry under current filters.</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Filtered records linked to ISO3 country geometry.</div></div>""", unsafe_allow_html=True)
         with k2:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the current spatial view.</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Map coverage</div><div class="map-intel-card-value">{mapping_coverage}%</div><div class="map-intel-card-note">{unmapped_alerts:,} filtered alerts are not currently mapped.</div></div>""", unsafe_allow_html=True)
         with k3:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest alert volume</div><div class="map-intel-card-value" style="font-size:18px;">{top_country}</div><div class="map-intel-card-note">Country with the largest filtered alert count.</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the spatial view.</div></div>""", unsafe_allow_html=True)
         with k4:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Avg. negative share</div><div class="map-intel-card-value">{avg_negative_share}%</div><div class="map-intel-card-note">Mean negative-alert proportion across mapped countries.</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest volume</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_country}</div><div class="map-intel-card-note">Largest filtered alert count.</div></div>""", unsafe_allow_html=True)
+        with k5:
+            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Priority focus</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_priority_country}</div><div class="map-intel-card-note">Highest combined negative-alert priority score.</div></div>""", unsafe_allow_html=True)
 
         st.markdown(f"""
-        <div class="geo-insight-strip">
-            <div class="geo-insight-item"><div class="geo-insight-title">Executive spatial signal</div><div class="geo-insight-text">{dominant_signal}. Highest alert volume: <b>{top_country}</b>. Highest priority score: <b>{top_priority_country}</b>.</div></div>
-            <div class="geo-insight-item"><div class="geo-insight-title">Priority watchlist</div><div class="geo-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries under current filters.</div></div>
-            <div class="geo-insight-item"><div class="geo-insight-title">Mapped composition</div><div class="geo-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b></div></div>
+        <div class="map-insight-grid">
+            <div class="map-insight-card">
+                <div class="map-insight-title">Executive spatial signal</div>
+                <div class="map-insight-text"><b>{dominant_signal}</b>. Highest alert volume is <b>{top_country}</b>, while the highest priority score is <b>{top_priority_country}</b>. For interpretation, {dominant_next_step}</div>
+            </div>
+            <div class="map-insight-card">
+                <div class="map-insight-title">Priority watchlist</div>
+                <div class="map-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries are flagged. This equals <b>{priority_share}%</b> of mapped countries under the current filters.</div>
+            </div>
+            <div class="map-insight-card">
+                <div class="map-insight-title">Mapped composition</div>
+                <div class="map-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b>. Average country-level negative share is <b>{avg_negative_share}%</b>.</div>
+            </div>
         </div>
-        <div class="geo-method-note"><b>Interpretation note:</b> the spatial priority signal combines negative-alert volume and negative-alert share. It is intended for analytical triage, not as a standalone country ranking. Always interpret alongside reporting coverage, monitoring intensity, and qualitative evidence.</div>
+        <div class="map-method-note">
+            <b>Interpretation note:</b> the spatial priority score combines negative-alert volume and negative-alert share. It is a triage indicator for analytical review, not a standalone country ranking. High counts may reflect incident frequency, monitoring intensity, reporting coverage, or a combination of these factors.
+        </div>
         """, unsafe_allow_html=True)
+
+        if unmapped_meta or unmapped_geo:
+            issue_bits = []
+            if unmapped_meta:
+                issue_bits.append("Missing metadata: " + ", ".join(unmapped_meta[:12]) + (" ..." if len(unmapped_meta) > 12 else ""))
+            if unmapped_geo:
+                issue_bits.append("No GeoJSON geometry match: " + ", ".join(unmapped_geo[:12]) + (" ..." if len(unmapped_geo) > 12 else ""))
+            st.markdown(
+                f"""<div class="map-quality-strip"><span class="map-quality-pill">Data quality check</span><span class="map-quality-pill">{' | '.join(issue_bits)}</span></div>""",
+                unsafe_allow_html=True
+            )
 
         # ---------------- Dynamic center and zoom ----------------
         if not df_map.empty:
@@ -3441,70 +3618,102 @@ with tab_map:
         else:
             center, zoom = {"lat": 10, "lon": 0}, 1.6
 
-        st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
+        # ---------------- Map + guided reading panel ----------------
+        map_col, guide_col = st.columns([1.55, 0.8])
 
-        if df_map.empty:
-            st.info("No mapped country records are available under the current filters.")
-        else:
-            fig = px.choropleth_mapbox(
-                df_map,
-                geojson=countries_gj,
-                locations="iso_alpha3",
-                featureidkey="properties.ISO3166-1-Alpha-3",
-                color="total_alerts",
-                hover_name="alert-country",
-                color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
-                mapbox_style="carto-positron",
-                zoom=zoom,
-                center=center,
-                opacity=0.88,
-            )
+        with map_col:
+            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of filtered alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
 
-            fig.update_traces(
-                customdata=df_map[[
-                    "alert-country", "total_alerts", "negative_alerts", "positive_alerts",
-                    "context_to_watch_alerts", "perc_negative", "priority_level", "regions"
-                ]].values,
-                hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>"
-                    "Region: %{customdata[7]}<br>"
-                    "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
-                    "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
-                    "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
-                    "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
-                    "Negative share: %{customdata[5]}%<br>"
-                    "Priority level: <b>%{customdata[6]}</b><extra></extra>"
-                ),
-                hoverlabel=dict(
-                    bgcolor="#2D0055",
-                    font_size=12,
-                    font_family=MAP_FONT,
-                    font_color="white",
-                    bordercolor="#ffffff"
-                ),
-                marker_line_width=0.65,
-                marker_line_color="rgba(45,0,85,0.55)",
-            )
+            if df_map.empty:
+                st.info("No mapped country records are available under the current filters.")
+            else:
+                fig = px.choropleth_mapbox(
+                    df_map,
+                    geojson=countries_gj,
+                    locations="iso_alpha3",
+                    featureidkey="properties.ISO3166-1-Alpha-3",
+                    color="total_alerts",
+                    hover_name="alert-country",
+                    color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
+                    mapbox_style="carto-positron",
+                    zoom=zoom,
+                    center=center,
+                    opacity=0.90,
+                )
 
-            fig.update_layout(
-                margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                height=560,
-                coloraxis_colorbar=dict(
-                    title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
-                    tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
-                    thickness=12,
-                    len=0.72,
-                    outlinewidth=0,
-                ),
-                font=dict(family=MAP_FONT, color="#334155"),
-            )
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
-        st.markdown('</div>', unsafe_allow_html=True)
+                fig.update_traces(
+                    customdata=df_map[[
+                        "alert-country", "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
+                        "perc_negative", "priority_level", "regions", "priority_score"
+                    ]].values,
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b><br>"
+                        "Region: %{customdata[7]}<br>"
+                        "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
+                        "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
+                        "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
+                        "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
+                        "Negative share: %{customdata[5]}%<br>"
+                        "Priority score: %{customdata[8]}<br>"
+                        "Priority level: <b>%{customdata[6]}</b><extra></extra>"
+                    ),
+                    hoverlabel=dict(
+                        bgcolor="#2D0055",
+                        font_size=12,
+                        font_family=MAP_FONT,
+                        font_color="white",
+                        bordercolor="#ffffff"
+                    ),
+                    marker_line_width=0.65,
+                    marker_line_color="rgba(45,0,85,0.55)",
+                )
+
+                fig.update_layout(
+                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                    height=590,
+                    coloraxis_colorbar=dict(
+                        title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
+                        tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
+                        thickness=12,
+                        len=0.72,
+                        outlinewidth=0,
+                    ),
+                    font=dict(family=MAP_FONT, color="#334155"),
+                )
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with guide_col:
+            st.markdown(f"""
+            <div class="map-panel-card">
+                <div class="map-panel-title">How to read this map</div>
+                <div class="map-panel-help">Use this guide to move from spatial pattern to analytical interpretation.</div>
+                <ol class="map-action-list">
+                    <li><b>Start with color intensity:</b> darker countries have more filtered alerts.</li>
+                    <li><b>Check the hover details:</b> compare negative, positive, and context-to-watch counts.</li>
+                    <li><b>Use priority level carefully:</b> it highlights countries with both negative volume and negative share.</li>
+                    <li><b>Validate in rankings:</b> compare high-volume countries with high-priority countries.</li>
+                    <li><b>Interpret with context:</b> reporting coverage and monitoring intensity can affect counts.</li>
+                </ol>
+            </div>
+            """, unsafe_allow_html=True)
+
+            priority_df = df_map.sort_values("priority_score", ascending=False).head(5).copy() if not df_map.empty else pd.DataFrame()
+            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Top priority countries</div><div class="map-panel-help">Ranked by the combined negative-alert priority score.</div>', unsafe_allow_html=True)
+            if priority_df.empty:
+                st.info("No priority ranking available.")
+            else:
+                for _, r in priority_df.iterrows():
+                    st.markdown(
+                        f"""<div class="country-insight-box"><b>{r['alert-country']}</b><br>Priority: <b>{r['priority_level']}</b> · Score: <b>{r['priority_score']}</b><br>Negative: <b>{int(r['negative_alerts']):,}</b> · Negative share: <b>{r['perc_negative']}%</b></div>""",
+                        unsafe_allow_html=True
+                    )
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # ---------------- Supporting map intelligence panels ----------------
         p1, p2 = st.columns([1.15, 1])
         with p1:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">Use this ranking to identify countries that may require deeper review in the charts, table, or AI assistant.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">This chart ranks countries by total filtered alert volume. Use it to identify where reporting or event concentration is highest.</div>', unsafe_allow_html=True)
             rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
             if rank_df.empty:
                 st.info("No country ranking available for the current filters.")
@@ -3516,11 +3725,20 @@ with tab_map:
                     marker=dict(color="#660094", line=dict(color="rgba(45,0,85,0.25)", width=0.5)),
                     text=rank_df["total_alerts"],
                     textposition="outside",
-                    hovertemplate="<b>%{y}</b><br>Total alerts: %{x}<extra></extra>",
+                    customdata=rank_df[["negative_alerts", "positive_alerts", "context_to_watch_alerts", "perc_negative", "priority_level"]].values,
+                    hovertemplate=(
+                        "<b>%{y}</b><br>"
+                        "Total alerts: %{x}<br>"
+                        "Negative: %{customdata[0]}<br>"
+                        "Positive: %{customdata[1]}<br>"
+                        "Context: %{customdata[2]}<br>"
+                        "Negative share: %{customdata[3]}%<br>"
+                        "Priority: %{customdata[4]}<extra></extra>"
+                    ),
                 ))
                 fig_rank.update_layout(
-                    height=max(300, len(rank_df) * 34),
-                    margin=dict(l=20, r=35, t=5, b=20),
+                    height=max(320, len(rank_df) * 35),
+                    margin=dict(l=20, r=45, t=5, b=24),
                     xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
                     yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
                     font=dict(family=MAP_FONT, size=11, color="#334155"),
@@ -3531,7 +3749,7 @@ with tab_map:
             st.markdown('</div>', unsafe_allow_html=True)
 
         with p2:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a compact interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a clear interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
             country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
             selected_map_country = st.selectbox(
                 "Select country for map intelligence",
@@ -3544,12 +3762,18 @@ with tab_map:
 
             if selected_map_country:
                 row = df_map[df_map["alert-country"].astype(str) == selected_map_country].iloc[0]
+                dominant_country_signal = "negative" if row["negative_alerts"] >= max(row["positive_alerts"], row["context_to_watch_alerts"]) else ("positive" if row["positive_alerts"] >= row["context_to_watch_alerts"] else "context-to-watch")
                 st.markdown(f"""
                 <div class="country-insight-box">
                     <b>{selected_map_country}</b><br>
-                    Total alerts: <b>{int(row['total_alerts']):,}</b> · Negative: <b>{int(row['negative_alerts']):,}</b> · Positive: <b>{int(row['positive_alerts']):,}</b> · Context: <b>{int(row['context_to_watch_alerts']):,}</b><br>
-                    Negative share: <b>{row['perc_negative']}%</b> · Priority level: <b>{row['priority_level']}</b><br><br>
-                    Interpretation: this country should be reviewed together with reporting coverage and qualitative context. Higher counts may reflect higher incident frequency, stronger reporting intensity, broader monitoring coverage, or a combination of these factors.
+                    <div class="country-mini-grid">
+                        <div class="country-mini-kpi"><span>Total alerts</span><strong>{int(row['total_alerts']):,}</strong></div>
+                        <div class="country-mini-kpi"><span>Priority level</span><strong>{row['priority_level']}</strong></div>
+                        <div class="country-mini-kpi"><span>Negative share</span><strong>{row['perc_negative']}%</strong></div>
+                        <div class="country-mini-kpi"><span>Priority score</span><strong>{row['priority_score']}</strong></div>
+                    </div>
+                    <b>Signal composition:</b> Negative {int(row['negative_alerts']):,} · Positive {int(row['positive_alerts']):,} · Context {int(row['context_to_watch_alerts']):,}.<br><br>
+                    <b>Interpretation:</b> the dominant mapped signal is <b>{dominant_country_signal}</b>. Review this country alongside the pathway charts, evidence table, and qualitative context before drawing conclusions about severity or trend direction.
                 </div>
                 """, unsafe_allow_html=True)
             else:
@@ -3557,7 +3781,9 @@ with tab_map:
             st.markdown('</div>', unsafe_allow_html=True)
 
     else:
-        st.warning("GeoJSON file not found for map visualization.")
+        st.warning("GeoJSON file not found for map visualization. Add countries.geojson to the exports folder.")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------USER MANUAL TAB-----------------
 
