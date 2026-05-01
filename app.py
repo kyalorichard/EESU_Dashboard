@@ -2913,7 +2913,7 @@ with tab_overview:
     )
 
     # Add source line if needed
-    fig12 = add_source_line(fig12)
+    #fig12 = add_source_line(fig12)
 
     # Render chart in Streamlit
     r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
@@ -3149,7 +3149,7 @@ with tab_negative:
         )
 
         # Add source line if needed
-        fig23 = add_source_line(fig23)
+        #fig23 = add_source_line(fig23)
 
         # Render the chart in Streamlit
         r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
