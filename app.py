@@ -5526,93 +5526,127 @@ def render_ai_assistant_panel(df):
 
 # ---------------- LEFT AI COPILOT DRAWER ----------------
 def render_left_ai_copilot_drawer(df):
-    """Render AI Copilot as a left-side collapsible drawer instead of a main dashboard tab."""
+    """Render a true left-side floating AI Copilot drawer.
+
+    This version is not placed inside the Streamlit sidebar. It uses keyed Streamlit
+    containers styled as fixed-position UI so the launcher is always visible on the
+    left edge and the assistant slides out when opened.
+    """
     st.session_state.setdefault("left_ai_drawer_open", False)
 
     st.markdown("""
     <style>
-    .left-ai-launcher-note {
-        background: linear-gradient(135deg,#FFFFFF 0%,#FAF7FC 100%);
-        border: 1px solid #E7D4F1;
-        border-radius: 14px;
-        padding: 10px 11px;
-        margin: 10px 0 10px 0;
-        box-shadow: 0 8px 18px rgba(45,0,85,.07);
-        font-family: Arial, sans-serif;
+    .st-key-eusee_left_ai_launcher {
+        position: fixed !important;
+        left: 0 !important;
+        top: 42% !important;
+        width: 58px !important;
+        z-index: 999998 !important;
+        background: linear-gradient(180deg, #660094 0%, #008CAA 100%) !important;
+        border-radius: 0 18px 18px 0 !important;
+        box-shadow: 0 16px 38px rgba(45,0,85,.24) !important;
+        padding: 10px 7px !important;
+        border: 1px solid rgba(255,255,255,.28) !important;
     }
-    .left-ai-launcher-title {
-        font-size: 12.5px;
-        font-weight: 950;
-        color: #2D0055;
-        line-height: 1.15;
+    .st-key-eusee_left_ai_launcher .stButton > button {
+        min-height: 104px !important;
+        width: 100% !important;
+        border-radius: 13px !important;
+        border: 1px solid rgba(255,255,255,.28) !important;
+        background: rgba(255,255,255,.10) !important;
+        color: #FFFFFF !important;
+        font-size: 11px !important;
+        font-weight: 950 !important;
+        line-height: 1.15 !important;
+        writing-mode: vertical-rl !important;
+        text-orientation: mixed !important;
+        box-shadow: none !important;
     }
-    .left-ai-launcher-sub {
-        font-size: 10px;
-        color: #667085;
-        line-height: 1.3;
-        margin-top: 4px;
+    .st-key-eusee_left_ai_launcher .stButton > button:hover {
+        background: rgba(255,255,255,.18) !important;
+        transform: translateX(2px) !important;
+    }
+    .st-key-eusee_left_ai_drawer {
+        position: fixed !important;
+        left: 14px !important;
+        top: 74px !important;
+        width: 440px !important;
+        max-width: calc(100vw - 28px) !important;
+        max-height: calc(100vh - 98px) !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        z-index: 999999 !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E7D4F1 !important;
+        border-radius: 22px !important;
+        box-shadow: 0 28px 76px rgba(45,0,85,.26) !important;
+        padding: 13px 13px 16px 13px !important;
+        animation: euseeLeftDrawerSlide .22s ease-out both;
+    }
+    @keyframes euseeLeftDrawerSlide {
+        from { transform: translateX(-26px); opacity: .25; }
+        to   { transform: translateX(0); opacity: 1; }
     }
     .left-ai-drawer-header {
         background: linear-gradient(135deg,#660094 0%,#008CAA 100%);
         color: #FFFFFF;
-        border-radius: 16px;
+        border-radius: 17px;
         padding: 12px 13px;
-        margin: 8px 0 10px 0;
+        margin: 0 0 10px 0;
         box-shadow: 0 10px 22px rgba(45,0,85,.18);
         font-family: Arial, sans-serif;
     }
-    .left-ai-drawer-title {
-        font-size: 15px;
-        font-weight: 950;
-        margin-bottom: 3px;
+    .left-ai-drawer-title { font-size: 15px; font-weight: 950; margin-bottom: 3px; }
+    .left-ai-drawer-sub { font-size: 10.5px; line-height: 1.35; opacity: .92; }
+    .st-key-eusee_left_ai_drawer .stButton > button {
+        border-radius: 12px !important;
+        font-size: 12px !important;
+        font-weight: 850 !important;
     }
-    .left-ai-drawer-sub {
-        font-size: 10.5px;
-        line-height: 1.35;
-        opacity: .92;
+    .st-key-eusee_left_ai_drawer textarea,
+    .st-key-eusee_left_ai_drawer input { font-size: 12px !important; }
+    .st-key-eusee_left_ai_drawer div[data-testid="stTabs"] button {
+        font-size: 11px !important;
+        font-weight: 850 !important;
     }
-    .left-ai-collapsed-pill {
-        background: #FFFFFF;
-        border: 1px solid #E7D4F1;
-        border-radius: 999px;
-        padding: 7px 10px;
-        margin: 8px 0;
-        color: #660094;
-        font-size: 11px;
-        font-weight: 900;
-        text-align: center;
-        box-shadow: 0 6px 16px rgba(45,0,85,.07);
-        font-family: Arial, sans-serif;
+    @media (max-width: 760px) {
+        .st-key-eusee_left_ai_drawer {
+            left: 8px !important;
+            right: 8px !important;
+            top: 66px !important;
+            width: auto !important;
+            max-width: calc(100vw - 16px) !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    with AI_ASSISTANT_SLOT:
-        if not st.session_state.left_ai_drawer_open:
-            st.markdown("""
-            <div class="left-ai-launcher-note">
-                <div class="left-ai-launcher-title">🤖 AI Copilot</div>
-                <div class="left-ai-launcher-sub">Open the dashboard-grounded assistant from the left panel.</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("🤖 Open AI Copilot", key="left_ai_open_btn", use_container_width=True):
+    if not st.session_state.left_ai_drawer_open:
+        with st.container(key="eusee_left_ai_launcher"):
+            if st.button("🤖 AI Copilot", key="left_ai_open_btn", use_container_width=True, help="Open EU SEE AI Copilot"):
                 st.session_state.left_ai_drawer_open = True
                 st.rerun()
-        else:
+    else:
+        with st.container(key="eusee_left_ai_drawer"):
             st.markdown("""
             <div class="left-ai-drawer-header">
                 <div class="left-ai-drawer-title">🤖 EU SEE AI Copilot</div>
-                <div class="left-ai-drawer-sub">Ask questions about the active filters, charts, map, anomalies, country comparisons, and cleaned dataset only.</div>
+                <div class="left-ai-drawer-sub">Dashboard-grounded assistant for current filters, charts, map, anomalies, country comparisons, and the cleaned dataset.</div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button("◀ Collapse AI Copilot", key="left_ai_collapse_btn", use_container_width=True):
-                st.session_state.left_ai_drawer_open = False
-                st.rerun()
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                if st.button("◀ Collapse", key="left_ai_collapse_btn", use_container_width=True):
+                    st.session_state.left_ai_drawer_open = False
+                    st.rerun()
+            with c2:
+                if st.button("Clear chat", key="left_ai_clear_chat_btn", use_container_width=True):
+                    st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a specific question about the current dashboard view."}]
+                    st.rerun()
             render_ai_assistant_panel(df)
 
 
 render_left_ai_copilot_drawer(filtered_global)
-
 
 
 # ---------------- FEEDBACK CALLOUT ----------------
