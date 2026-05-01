@@ -2047,6 +2047,223 @@ def _format_ranked(items, label="alerts"):
     return "\n".join([f"{i}. {k} — {v} {label}" for i, (k, v) in enumerate(items.items(), start=1)])
 
 
+
+# ---------------- AI MEMORY + DASHBOARD VISUAL CONTEXT ----------------
+def _ai_current_user_key():
+    """Return a stable in-session memory key for the current viewer."""
+    for key in ["email", "user_email", "username", "name"]:
+        val = st.session_state.get(key)
+        if val:
+            return re.sub(r"[^a-zA-Z0-9_.@-]", "_", str(val).strip().lower())
+    return "anonymous_session"
+
+
+def _ai_memory_key():
+    return f"eusee_ai_memory::{_ai_current_user_key()}"
+
+
+def _ai_get_memory():
+    key = _ai_memory_key()
+    if key not in st.session_state:
+        st.session_state[key] = {
+            "questions": [],
+            "searches": [],
+            "last_chart_context": None,
+            "last_country": None,
+            "last_plot": None,
+        }
+    return st.session_state[key]
+
+
+def _ai_extract_country_from_question(question, df):
+    if df is None or df.empty or "alert-country" not in df.columns:
+        return None
+    q = str(question or "").lower()
+    countries = sorted(df["alert-country"].dropna().astype(str).unique(), key=len, reverse=True)
+    for country in countries:
+        if country.lower() in q:
+            return country
+    return None
+
+
+def _ai_remember_interaction(question, df=None, answer=None, chart_context=None, plot_context=None):
+    """Store lightweight per-viewer chatbot memory in Streamlit session_state."""
+    mem = _ai_get_memory()
+    q = str(question or "").strip()
+    if not q:
+        return
+    country = _ai_extract_country_from_question(q, df) if df is not None else None
+    entry = {
+        "question": q,
+        "answer_preview": str(answer or "")[:260],
+        "country": country,
+        "chart_context": chart_context,
+        "plot_context": plot_context,
+        "scope_alerts": int(len(df)) if df is not None and not df.empty else 0,
+    }
+    mem["questions"].append(entry)
+    mem["questions"] = mem["questions"][-25:]
+    search_words = ["search", "find", "show", "country", "map", "chart", "plot", "explain", "interpret", "trend", "mechanism", "actor", "principle"]
+    if any(w in q.lower() for w in search_words):
+        mem["searches"].append(entry)
+        mem["searches"] = mem["searches"][-15:]
+    if country:
+        mem["last_country"] = country
+    if chart_context:
+        mem["last_chart_context"] = chart_context
+    if plot_context:
+        mem["last_plot"] = plot_context
+
+
+def _ai_memory_summary_text():
+    mem = _ai_get_memory()
+    searches = mem.get("searches", [])[-5:]
+    if not searches:
+        return "No previous searches are stored for this dashboard session yet."
+    lines = ["Recent remembered searches for this viewer:"]
+    for i, item in enumerate(reversed(searches), start=1):
+        suffix = []
+        if item.get("country"):
+            suffix.append(f"country: {item['country']}")
+        if item.get("chart_context"):
+            suffix.append(f"chart: {item['chart_context']}")
+        suffix_txt = f" ({'; '.join(suffix)})" if suffix else ""
+        lines.append(f"{i}. {item.get('question','')}{suffix_txt}")
+    return "\n".join(lines)
+
+
+def _ai_split_count(df, col, top=10):
+    return _safe_exploded_counts(df, col, top=top)
+
+
+def ai_build_visual_context(df):
+    """Summarise every major visible dashboard chart/map from the active cleaned and filtered dataset."""
+    s = summarize_for_ai(df)
+    if df is None or df.empty:
+        return {"available": False, "message": "No filtered records are available."}
+    neg_df = df[df["alert-impact"] == "Negative"].copy() if "alert-impact" in df.columns else df.iloc[0:0].copy()
+    visual = {
+        "available": True,
+        "kpi_cards": {
+            "total_alerts": s.get("total_alerts", 0),
+            "negative_alerts": s.get("negative", 0),
+            "positive_alerts": s.get("positive", 0),
+            "context_to_watch_alerts": s.get("context", 0),
+            "negative_share_pct": s.get("negative_pct", 0),
+            "countries": s.get("countries_count", 0),
+            "regions": s.get("regions_count", 0),
+        },
+        "overview_charts": {
+            "alert_type_distribution": s.get("top_alert_types", {}),
+            "enabling_principles_distribution": s.get("top_principles", {}),
+            "regional_distribution": s.get("top_regions", {}),
+            "country_distribution": s.get("top_countries", {}),
+            "monthly_trend_sentence": s.get("trend_sentence", ""),
+        },
+        "map": {},
+        "negative_alert_charts": {
+            "restrictive_actors": s.get("top_actors", {}),
+            "restrictive_mechanisms": s.get("top_mechanisms", {}),
+            "negative_countries": s.get("top_negative_countries", {}),
+            "affected_subjects": _ai_split_count(neg_df, "Subject of repression", top=10),
+            "negative_event_types": _ai_split_count(neg_df, "Type of event", top=10),
+        },
+        "relationship_view": {},
+    }
+    if "alert-country" in df.columns and "alert-impact" in df.columns:
+        map_stats = df.groupby("alert-country").agg(
+            total_alerts=("alert-impact", "size"),
+            negative_alerts=("alert-impact", lambda x: int((x == "Negative").sum())),
+            positive_alerts=("alert-impact", lambda x: int((x == "Positive").sum())),
+            context_to_watch=("alert-impact", lambda x: int((x == "Context to watch").sum())),
+        ).reset_index()
+        if not map_stats.empty:
+            map_stats["negative_share_pct"] = np.where(map_stats["total_alerts"] > 0, (map_stats["negative_alerts"] / map_stats["total_alerts"] * 100).round(1), 0)
+            map_stats["priority_score"] = (map_stats["negative_alerts"] * 0.65 + map_stats["negative_share_pct"] * 0.35).round(1)
+            top_total = map_stats.sort_values("total_alerts", ascending=False).head(5)
+            top_priority = map_stats.sort_values("priority_score", ascending=False).head(5)
+            visual["map"] = {
+                "mapped_countries": int(map_stats["alert-country"].nunique()),
+                "total_mapped_alerts": int(map_stats["total_alerts"].sum()),
+                "top_by_total_alerts": dict(zip(top_total["alert-country"], top_total["total_alerts"].astype(int))),
+                "top_priority_countries": dict(zip(top_priority["alert-country"], top_priority["priority_score"])),
+                "average_negative_share_pct": round(float(map_stats["negative_share_pct"].mean()), 1),
+            }
+    rel_cols = ["Actor of repression", "Mechanism of repression", "Subject of repression", "Type of event"]
+    if not neg_df.empty and all(c in neg_df.columns for c in rel_cols):
+        visual["relationship_view"] = {
+            "relationship_ready_records": int(neg_df[rel_cols].replace("", np.nan).dropna(how="any").shape[0]),
+            "actor_mechanism_signal": {
+                "top_actors": _ai_split_count(neg_df, "Actor of repression", top=5),
+                "top_mechanisms": _ai_split_count(neg_df, "Mechanism of repression", top=5),
+            },
+            "actor_subject_signal": {
+                "top_actors": _ai_split_count(neg_df, "Actor of repression", top=5),
+                "top_subjects": _ai_split_count(neg_df, "Subject of repression", top=5),
+            },
+            "sankey_flow_basis": "Actor of repression → Mechanism of repression → Subject of repression using negative-alert records with available relationship fields.",
+        }
+    return visual
+
+
+def ai_interpret_dashboard_visual(question, df):
+    """Interpret all dashboard charts/maps using only active filtered data."""
+    q = str(question or "").lower()
+    visual = ai_build_visual_context(df)
+    if not visual.get("available"):
+        return append_eusee_redirect("No dashboard records are available under the current filters, so I cannot interpret the charts or map.")
+    lines = ["Dashboard visual interpretation", ""]
+    kpi = visual["kpi_cards"]
+    lines.append(f"Current filtered scope: {kpi['total_alerts']:,} alerts across {kpi['countries']:,} countries and {kpi['regions']:,} regions. Negative alerts account for {kpi['negative_alerts']:,} records ({kpi['negative_share_pct']}%).")
+    if any(w in q for w in ["all chart", "all visual", "dashboard", "everything", "full"]):
+        lines.append("\nOverview charts:")
+        lines.append("- Alert types:\n" + _format_ranked(visual["overview_charts"]["alert_type_distribution"]))
+        lines.append("- Enabling principles:\n" + _format_ranked(visual["overview_charts"]["enabling_principles_distribution"]))
+        lines.append("- Regions:\n" + _format_ranked(visual["overview_charts"]["regional_distribution"]))
+        lines.append("- Countries:\n" + _format_ranked(visual["overview_charts"]["country_distribution"]))
+        lines.append("\nMap signal:")
+        lines.append("- Top priority countries:\n" + _format_ranked(visual.get("map", {}).get("top_priority_countries", {}), label="priority score"))
+        lines.append("\nNegative-alert charts:")
+        lines.append("- Restrictive actors:\n" + _format_ranked(visual["negative_alert_charts"]["restrictive_actors"]))
+        lines.append("- Restrictive mechanisms:\n" + _format_ranked(visual["negative_alert_charts"]["restrictive_mechanisms"]))
+        lines.append("- Affected subjects:\n" + _format_ranked(visual["negative_alert_charts"]["affected_subjects"]))
+        lines.append("\nTrend:")
+        lines.append(visual["overview_charts"]["monthly_trend_sentence"])
+    elif "map" in q or "country" in q:
+        m = visual.get("map", {})
+        lines.append("\nMap interpretation:")
+        lines.append(f"- The map represents {m.get('total_mapped_alerts', 0):,} mapped alerts across {m.get('mapped_countries', 0):,} countries.")
+        lines.append("- Highest total alert concentrations:\n" + _format_ranked(m.get("top_by_total_alerts", {})))
+        lines.append("- Highest priority countries by combined negative count and negative share:\n" + _format_ranked(m.get("top_priority_countries", {}), label="priority score"))
+        lines.append(f"- Average country-level negative share: {m.get('average_negative_share_pct', 0)}%.")
+    elif "region" in q:
+        lines.append("\nRegional chart interpretation:\n" + _format_ranked(visual["overview_charts"]["regional_distribution"]))
+    elif "principle" in q or "enabling" in q:
+        lines.append("\nEnabling-principles chart interpretation:\n" + _format_ranked(visual["overview_charts"]["enabling_principles_distribution"]))
+    elif "actor" in q:
+        lines.append("\nRestrictive-actor chart interpretation:\n" + _format_ranked(visual["negative_alert_charts"]["restrictive_actors"]))
+    elif "mechanism" in q:
+        lines.append("\nRestrictive-mechanism chart interpretation:\n" + _format_ranked(visual["negative_alert_charts"]["restrictive_mechanisms"]))
+    elif "subject" in q or "affected" in q:
+        lines.append("\nAffected-subject chart interpretation:\n" + _format_ranked(visual["negative_alert_charts"]["affected_subjects"]))
+    elif "sankey" in q or "heatmap" in q or "relationship" in q or "flow" in q:
+        rv = visual.get("relationship_view", {})
+        lines.append("\nRelationship-view interpretation:")
+        lines.append(f"- Relationship-ready negative records: {rv.get('relationship_ready_records', 0):,}.")
+        lines.append(f"- Flow basis: {rv.get('sankey_flow_basis', 'Not available')}")
+        lines.append("- Main actors:\n" + _format_ranked(rv.get("actor_mechanism_signal", {}).get("top_actors", {})))
+        lines.append("- Main mechanisms:\n" + _format_ranked(rv.get("actor_mechanism_signal", {}).get("top_mechanisms", {})))
+        lines.append("- Main affected subjects:\n" + _format_ranked(rv.get("actor_subject_signal", {}).get("top_subjects", {})))
+    elif "trend" in q or "time" in q:
+        lines.append("\nTrend chart interpretation:")
+        lines.append(visual["overview_charts"]["monthly_trend_sentence"])
+    else:
+        lines.append("\nMain chart interpretation:")
+        lines.append("- Countries:\n" + _format_ranked(visual["overview_charts"]["country_distribution"]))
+        lines.append("- Alert types:\n" + _format_ranked(visual["overview_charts"]["alert_type_distribution"]))
+        lines.append("- Negative-alert mechanisms:\n" + _format_ranked(visual["negative_alert_charts"]["restrictive_mechanisms"]))
+    lines.append("\nInterpretation caution: dashboard visuals show filtered reporting patterns. Counts may reflect event frequency, reporting intensity, monitoring coverage, submission behavior, or a combination of these factors.")
+    return append_eusee_redirect("\n".join(lines))
 def _month_trend(df):
     if df is None or df.empty or "creation_date" not in df.columns:
         return pd.DataFrame(columns=["month", "total", "negative", "positive", "context"])
@@ -4464,18 +4681,21 @@ def _ai_get_openai_config():
 
 
 def _ai_build_grounded_context(df):
-    """Create a compact, dashboard-grounded context from the active cleaned/filtered dataset only."""
+    """Create dashboard-grounded context from the active cleaned/filtered dataset, visible charts, map summaries, and viewer memory."""
     s = summarize_for_ai(df)
     available_columns = list(df.columns) if df is not None and not df.empty else []
     return {
         "scope": "Current Streamlit dashboard filters applied to the cleaned EUSEE dataset",
         "available_columns": available_columns,
         "summary": s,
+        "visual_context": ai_build_visual_context(df),
+        "viewer_memory": _ai_get_memory(),
         "grounding_rules": [
-            "Use only this context and deterministic dashboard summaries.",
+            "Use only this context, the visible dashboard visual summaries, viewer session memory, and deterministic dashboard summaries.",
             "Do not use outside knowledge or invent facts, countries, dates, mechanisms, actors, causes, or recommendations.",
             "If the dashboard context is insufficient, say that the current dashboard view does not contain enough information.",
             "Counts reflect filtered records and may also reflect reporting intensity, monitoring coverage, or submission patterns.",
+            "Viewer memory is limited to this Streamlit session or authenticated user session; do not claim permanent storage beyond that.",
         ],
     }
 
@@ -4542,21 +4762,35 @@ def _copilot_queue_answer(question, df):
     if not q:
         return
     st.session_state.ai_messages.append({"role": "user", "content": q})
-    answer = ai_try_llm_response(q, df)
+
+    q_lower = q.lower()
     plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw"]
-    explain_words = ["explain chart", "explain this chart", "interpret chart", "what does this chart"]
-    if any(w in q.lower() for w in plot_words):
+    explain_words = [
+        "explain", "interpret", "read this", "what does this chart", "what does the chart",
+        "what does the map", "map", "heatmap", "sankey", "flow", "relationship",
+        "all charts", "all visuals", "dashboard visuals"
+    ]
+    memory_words = ["previous search", "last search", "recent search", "what did i search", "remember", "history"]
+
+    chart_context = None
+    plot_context = None
+
+    if any(w in q_lower for w in memory_words):
+        answer = append_eusee_redirect(_ai_memory_summary_text())
+    elif any(w in q_lower for w in explain_words):
+        chart_context = q
+        answer = ai_interpret_dashboard_visual(q, df)
+    else:
+        answer = ai_try_llm_response(q, df)
+
+    if any(w in q_lower for w in plot_words):
         dim, ctype = _ai_plot_intent_to_dimension(q, df)
         if dim:
-            st.session_state.ai_last_plot = {
-                "dimension_col": dim,
-                "chart_type": ctype,
-                "top_n": 10,
-                "title": f"Chatbot-generated plot: {dim}",
-            }
+            plot_context = {"dimension_col": dim, "chart_type": ctype, "top_n": 10, "title": f"Chatbot-generated plot: {dim}"}
+            st.session_state.ai_last_plot = plot_context
             answer += "\n\n📊 I prepared a chart from the current filtered data. Open the Plot tab to view, adjust, explain, or download it."
-    if any(w in q.lower() for w in explain_words):
-        answer = ai_generate_chart_explanation(df, q)
+
+    _ai_remember_interaction(q, df=df, answer=answer, chart_context=chart_context, plot_context=plot_context)
     st.session_state.ai_pending_answer = answer
     st.session_state.ai_streaming = True
 
@@ -4656,7 +4890,7 @@ def render_ai_assistant_panel(df):
 
 
 
-        chat_tab, explain_tab, plot_tab, insight_tab, export_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Export"])
+        chat_tab, explain_tab, plot_tab, insight_tab, memory_tab, export_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Memory", "Export"])
 
         with chat_tab:
             st.markdown("<div class='copilot-small'>Ask naturally. The assistant only uses the current filtered dashboard data: <b>summarise the current view</b>, <b>plot top countries</b>, <b>explain the map</b>, or <b>prepare a short brief</b>.</div>", unsafe_allow_html=True)
@@ -4670,6 +4904,8 @@ def render_ai_assistant_panel(df):
                     _copilot_queue_answer("plot top countries", df); st.rerun()
                 if st.button("Explain map", key="copilot_q_explain_map", use_container_width=True):
                     _copilot_queue_answer("explain chart: map / country distribution", df); st.rerun()
+                if st.button("Explain all charts", key="copilot_q_explain_all_charts", use_container_width=True):
+                    _copilot_queue_answer("interpret all dashboard visuals, charts, map, heatmaps and sankey", df); st.rerun()
             with c2:
                 if st.button("Priority", key="copilot_q_priority", use_container_width=True):
                     _copilot_queue_answer("what is the priority signal and why", df); st.rerun()
@@ -4677,6 +4913,8 @@ def render_ai_assistant_panel(df):
                     _copilot_queue_answer("chart alert impacts", df); st.rerun()
                 if st.button("Next steps", key="copilot_q_next", use_container_width=True):
                     _copilot_queue_answer("recommended next analytical steps", df); st.rerun()
+                if st.button("Previous searches", key="copilot_q_previous_searches", use_container_width=True):
+                    _copilot_queue_answer("show my previous search history", df); st.rerun()
             if st.button("Clear chat", key="copilot_clear_chat", use_container_width=True):
                 st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about filtered data, request a plot, or ask me to explain a chart."}]
                 st.session_state.ai_last_plot = None
@@ -4784,6 +5022,27 @@ def render_ai_assistant_panel(df):
                 st.text(ai_recommended_next_steps(df))
             with st.expander("Data quality report", expanded=False):
                 st.text(ai_data_quality_report(df))
+
+        with memory_tab:
+            st.markdown('<div class="copilot-section">Viewer search memory</div>', unsafe_allow_html=True)
+            st.markdown('<div class="copilot-small">The assistant remembers recent questions and searches for this individual dashboard session or signed-in viewer. It does not use external information.</div>', unsafe_allow_html=True)
+            st.text(_ai_memory_summary_text())
+            mem = _ai_get_memory()
+            last_country = mem.get("last_country") or "None yet"
+            last_chart = mem.get("last_chart_context") or "None yet"
+            st.markdown(f"<div class='copilot-note'><b>Last country searched:</b> {last_country}<br><b>Last chart/map interpretation:</b> {last_chart}</div>", unsafe_allow_html=True)
+            m1, m2 = st.columns(2)
+            with m1:
+                if st.button("Send memory to chat", key="copilot_memory_to_chat", use_container_width=True):
+                    st.session_state.ai_messages.append({"role": "user", "content": "Show my previous searches"})
+                    st.session_state.ai_pending_answer = append_eusee_redirect(_ai_memory_summary_text())
+                    st.session_state.ai_streaming = True
+                    st.rerun()
+            with m2:
+                if st.button("Clear memory", key="copilot_clear_memory", use_container_width=True):
+                    st.session_state[_ai_memory_key()] = {"questions": [], "searches": [], "last_chart_context": None, "last_country": None, "last_plot": None}
+                    st.success("AI memory cleared for this viewer session.")
+                    st.rerun()
 
         with export_tab:
             summary_text = generate_ai_executive_summary(df)
