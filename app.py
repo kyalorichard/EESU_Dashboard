@@ -4700,6 +4700,259 @@ def _ai_build_grounded_context(df):
     }
 
 
+
+# ---------------- ADVANCED INTELLIGENCE MODULES: ANOMALIES, COUNTRY COMPARISON, EXPORTS, ADMIN ANALYTICS ----------------
+def _eusee_now_iso():
+    """Small timestamp helper for session analytics."""
+    try:
+        from datetime import datetime
+        return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    except Exception:
+        return ""
+
+
+def _admin_track_event(event_type, detail="", df=None):
+    """Track lightweight dashboard/copilot usage in the current Streamlit session.
+
+    This avoids external tracking and stores only dashboard interaction metadata.
+    """
+    if "admin_usage_events" not in st.session_state:
+        st.session_state.admin_usage_events = []
+    try:
+        event = {
+            "timestamp": _eusee_now_iso(),
+            "event_type": str(event_type or "event"),
+            "detail": str(detail or "")[:300],
+            "filtered_records": int(len(df)) if df is not None else None,
+            "filtered_countries": int(df["alert-country"].nunique()) if df is not None and not df.empty and "alert-country" in df.columns else None,
+        }
+        st.session_state.admin_usage_events.append(event)
+        st.session_state.admin_usage_events = st.session_state.admin_usage_events[-300:]
+    except Exception:
+        pass
+
+
+def _admin_usage_dataframe():
+    events = st.session_state.get("admin_usage_events", [])
+    return pd.DataFrame(events) if events else pd.DataFrame(columns=["timestamp", "event_type", "detail", "filtered_records", "filtered_countries"])
+
+
+def detect_alert_anomalies(df, group_col="alert-country", period_col="year", min_current=3, min_delta=2, pct_threshold=75):
+    """Flag unusual spikes by country/year compared with the previous available period.
+
+    The result is deterministic and based only on the active cleaned/filtered dashboard dataframe.
+    """
+    required = {group_col, period_col}
+    if df is None or df.empty or not required.issubset(set(df.columns)):
+        return pd.DataFrame(columns=[group_col, period_col, "current_alerts", "previous_alerts", "absolute_change", "percent_change", "anomaly_level"])
+
+    work = df[[group_col, period_col]].dropna().copy()
+    work[group_col] = work[group_col].astype(str).str.strip()
+    work[period_col] = pd.to_numeric(work[period_col], errors="coerce")
+    work = work.dropna(subset=[group_col, period_col])
+    if work.empty:
+        return pd.DataFrame(columns=[group_col, period_col, "current_alerts", "previous_alerts", "absolute_change", "percent_change", "anomaly_level"])
+
+    counts = (
+        work.groupby([group_col, period_col]).size().reset_index(name="current_alerts")
+        .sort_values([group_col, period_col])
+    )
+    counts["previous_alerts"] = counts.groupby(group_col)["current_alerts"].shift(1).fillna(0).astype(int)
+    counts["absolute_change"] = counts["current_alerts"] - counts["previous_alerts"]
+    counts["percent_change"] = np.where(
+        counts["previous_alerts"] > 0,
+        (counts["absolute_change"] / counts["previous_alerts"] * 100).round(1),
+        np.where(counts["current_alerts"] > 0, 100.0, 0.0),
+    )
+
+    def _level(row):
+        if row["current_alerts"] >= max(min_current * 2, 6) and row["absolute_change"] >= max(min_delta * 2, 4) and row["percent_change"] >= 150:
+            return "High spike"
+        if row["current_alerts"] >= min_current and row["absolute_change"] >= min_delta and row["percent_change"] >= pct_threshold:
+            return "Moderate spike"
+        return "Normal"
+
+    counts["anomaly_level"] = counts.apply(_level, axis=1)
+    anomalies = counts[counts["anomaly_level"] != "Normal"].copy()
+    return anomalies.sort_values(["anomaly_level", "absolute_change", "percent_change"], ascending=[True, False, False]).reset_index(drop=True)
+
+
+def anomaly_summary_text(df, top_n=8):
+    anomalies = detect_alert_anomalies(df).head(top_n)
+    if anomalies.empty:
+        return "No unusual country-year spikes were detected under the current filters using the dashboard anomaly rule."
+    lines = ["Alert anomaly detection — country/year spikes", ""]
+    for _, r in anomalies.iterrows():
+        pct = r.get("percent_change", 0)
+        pct_txt = f"{pct:.1f}%" if np.isfinite(pct) else "not available"
+        lines.append(
+            f"- {r['alert-country']} ({int(r['year'])}): {int(r['current_alerts'])} alerts vs {int(r['previous_alerts'])} previous-period alerts; "
+            f"change +{int(r['absolute_change'])}, {pct_txt}; level: {r['anomaly_level']}"
+        )
+    lines.append("\nInterpretation caution: anomaly flags are monitoring signals, not proof of prevalence or causality. Confirm with qualitative review and reporting-coverage context.")
+    return "\n".join(lines)
+
+
+def compare_selected_countries(df, countries):
+    """Build a compact comparison table for 2–3 countries from the filtered data."""
+    countries = [str(c).strip() for c in (countries or []) if str(c).strip()]
+    if df is None or df.empty or "alert-country" not in df.columns or not countries:
+        return pd.DataFrame()
+
+    rows = []
+    for country in countries[:3]:
+        cdf = df[df["alert-country"].astype(str).str.strip() == country].copy()
+        neg = int((cdf["alert-impact"] == "Negative").sum()) if "alert-impact" in cdf.columns else 0
+        pos = int((cdf["alert-impact"] == "Positive").sum()) if "alert-impact" in cdf.columns else 0
+        ctx = int((cdf["alert-impact"] == "Context to watch").sum()) if "alert-impact" in cdf.columns else 0
+        total = int(len(cdf))
+        top_actor = next(iter(_safe_exploded_counts(cdf[cdf["alert-impact"] == "Negative"] if "alert-impact" in cdf.columns else cdf, "Actor of repression", 1).keys()), "Not available")
+        top_mech = next(iter(_safe_exploded_counts(cdf[cdf["alert-impact"] == "Negative"] if "alert-impact" in cdf.columns else cdf, "Mechanism of repression", 1).keys()), "Not available")
+        top_subject = next(iter(_safe_exploded_counts(cdf[cdf["alert-impact"] == "Negative"] if "alert-impact" in cdf.columns else cdf, "Subject of repression", 1).keys()), "Not available")
+        top_type = next(iter(_safe_series_counts(cdf, "alert-type", 1).keys()), "Not available")
+        years = int(cdf["year"].nunique()) if "year" in cdf.columns and not cdf.empty else 0
+        rows.append({
+            "Country": country,
+            "Total alerts": total,
+            "Negative alerts": neg,
+            "Negative share (%)": round((neg / total) * 100, 1) if total else 0,
+            "Positive alerts": pos,
+            "Context to watch": ctx,
+            "Years covered": years,
+            "Top alert type": top_type,
+            "Top restrictive actor": top_actor,
+            "Top restrictive mechanism": top_mech,
+            "Top affected subject": top_subject,
+        })
+    return pd.DataFrame(rows)
+
+
+def country_comparison_text(df, countries):
+    comp = compare_selected_countries(df, countries)
+    if comp.empty:
+        return "No country comparison is available for the selected countries under the current filters."
+    lines = ["Country comparison from current filtered dashboard data", ""]
+    for _, r in comp.iterrows():
+        lines.append(
+            f"- {r['Country']}: {int(r['Total alerts'])} total alerts; {int(r['Negative alerts'])} negative alerts "
+            f"({r['Negative share (%)']}%); top actor: {r['Top restrictive actor']}; top mechanism: {r['Top restrictive mechanism']}; top subject: {r['Top affected subject']}."
+        )
+    lead = comp.sort_values(["Negative alerts", "Negative share (%)"], ascending=False).iloc[0]
+    lines.append(f"\nHighest negative-alert signal among selected countries: {lead['Country']}.")
+    lines.append("Interpretation caution: compare countries alongside reporting coverage, network activity, and partner submission patterns.")
+    return "\n".join(lines)
+
+
+def make_professional_export_text(df, selected_countries=None):
+    """Create a single export-ready text brief using only dashboard summaries."""
+    parts = [
+        "EU SEE Dashboard Export Package",
+        "Generated from active dashboard filters and cleaned dataset summaries only.",
+        "",
+        generate_ai_executive_summary(df),
+        "\n---\n",
+        "Anomaly detection",
+        anomaly_summary_text(df),
+    ]
+    if selected_countries:
+        parts.extend(["\n---\n", "Country comparison", country_comparison_text(df, selected_countries)])
+    parts.extend(["\n---\n", "Data-quality note", ai_data_quality_report(df)])
+    return "\n".join(parts)
+
+
+def render_anomaly_detection_panel(df):
+    st.markdown('<div class="copilot-section">Alert anomaly detection</div>', unsafe_allow_html=True)
+    st.markdown('<div class="copilot-small">Flags countries or years with unusual alert spikes compared with the previous available period in the current filtered dataset.</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        min_current = st.number_input("Minimum current alerts", min_value=1, max_value=50, value=3, step=1, key="anomaly_min_current")
+    with c2:
+        min_delta = st.number_input("Minimum absolute increase", min_value=1, max_value=50, value=2, step=1, key="anomaly_min_delta")
+    with c3:
+        pct_threshold = st.number_input("Minimum % increase", min_value=10, max_value=1000, value=75, step=5, key="anomaly_pct_threshold")
+    anomalies = detect_alert_anomalies(df, min_current=min_current, min_delta=min_delta, pct_threshold=pct_threshold)
+    if anomalies.empty:
+        st.info("No unusual spikes detected under the selected anomaly thresholds.")
+    else:
+        st.dataframe(anomalies, use_container_width=True, hide_index=True, height=min(360, 70 + 34 * min(len(anomalies), 8)))
+        st.download_button("Download anomaly flags (.csv)", anomalies.to_csv(index=False).encode("utf-8"), "eusee_alert_anomaly_flags.csv", "text/csv", use_container_width=True, key="download_anomaly_flags")
+        if st.button("Send anomaly summary to chat", use_container_width=True, key="send_anomaly_to_chat"):
+            _copilot_queue_answer("Show alert anomaly detection summary.", df)
+            st.rerun()
+
+
+def render_country_compare_panel(df):
+    st.markdown('<div class="copilot-section">Compare countries mode</div>', unsafe_allow_html=True)
+    st.markdown('<div class="copilot-small">Select 2–3 countries to compare trends, alert types, actors, mechanisms, and affected subjects using the active filters.</div>', unsafe_allow_html=True)
+    options = sorted(df["alert-country"].dropna().astype(str).unique().tolist()) if df is not None and not df.empty and "alert-country" in df.columns else []
+    selected = st.multiselect("Countries to compare", options=options, default=options[:2] if len(options) >= 2 else options, max_selections=3, key="country_compare_selection")
+    comp = compare_selected_countries(df, selected)
+    if comp.empty:
+        st.info("Select at least one country available under the current filters.")
+    else:
+        st.dataframe(comp, use_container_width=True, hide_index=True)
+        st.markdown(_render_chat_content_html(append_eusee_redirect(country_comparison_text(df, selected))), unsafe_allow_html=True)
+        st.download_button("Download country comparison (.csv)", comp.to_csv(index=False).encode("utf-8"), "eusee_country_comparison.csv", "text/csv", use_container_width=True, key="download_country_comparison")
+        if st.button("Send country comparison to chat", use_container_width=True, key="send_country_comparison_to_chat"):
+            _copilot_queue_answer("Compare selected countries: " + ", ".join(selected), df)
+            st.rerun()
+    return selected
+
+
+def render_admin_analytics_panel(df):
+    st.markdown('<div class="copilot-section">Admin analytics</div>', unsafe_allow_html=True)
+    st.markdown('<div class="copilot-small">Session-only usage analytics for searched questions, chatbot actions, and dashboard interaction signals.</div>', unsafe_allow_html=True)
+    usage_df = _admin_usage_dataframe()
+    q_history = _ai_get_memory()
+    a1, a2, a3 = st.columns(3)
+    with a1:
+        render_ai_metric("Tracked actions", f"{len(usage_df):,}", "Current session")
+    with a2:
+        render_ai_metric("Remembered searches", f"{len(q_history):,}", "Viewer memory")
+    with a3:
+        top_event = usage_df["event_type"].value_counts().idxmax() if not usage_df.empty else "None"
+        render_ai_metric("Top action", top_event, "Session signal")
+    if not usage_df.empty:
+        st.dataframe(usage_df.tail(50).iloc[::-1], use_container_width=True, hide_index=True, height=260)
+        st.download_button("Download admin analytics (.csv)", usage_df.to_csv(index=False).encode("utf-8"), "eusee_admin_usage_analytics.csv", "text/csv", use_container_width=True, key="download_admin_analytics")
+    else:
+        st.info("No usage events have been tracked yet in this session.")
+
+
+def render_professional_export_center(df, selected_countries=None):
+    st.markdown('<div class="copilot-section">Professional export center</div>', unsafe_allow_html=True)
+    st.markdown('<div class="copilot-small">Export filtered data, anomaly flags, AI summaries, country comparison, chat transcript, and generated chart outputs where available.</div>', unsafe_allow_html=True)
+    export_text = make_professional_export_text(df, selected_countries=selected_countries)
+    anomalies = detect_alert_anomalies(df)
+    comp = compare_selected_countries(df, selected_countries or [])
+    chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])])
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button("Full export brief (.txt)", export_text, "eusee_dashboard_export_brief.txt", "text/plain", use_container_width=True, key="export_center_full_brief")
+        if df is not None and not df.empty:
+            st.download_button("Filtered cleaned data (.csv)", df.to_csv(index=False).encode("utf-8"), "eusee_filtered_cleaned_data.csv", "text/csv", use_container_width=True, key="export_center_filtered_csv")
+        st.download_button("Chat transcript (.txt)", chat_text, "eusee_chat_transcript.txt", "text/plain", use_container_width=True, key="export_center_chat")
+    with col2:
+        st.download_button("Anomaly flags (.csv)", anomalies.to_csv(index=False).encode("utf-8"), "eusee_anomaly_flags.csv", "text/csv", use_container_width=True, key="export_center_anomaly_csv")
+        if not comp.empty:
+            st.download_button("Country comparison (.csv)", comp.to_csv(index=False).encode("utf-8"), "eusee_country_comparison.csv", "text/csv", use_container_width=True, key="export_center_compare_csv")
+        usage_df = _admin_usage_dataframe()
+        st.download_button("Admin analytics (.csv)", usage_df.to_csv(index=False).encode("utf-8"), "eusee_admin_analytics.csv", "text/csv", use_container_width=True, key="export_center_admin_csv")
+
+    if st.session_state.get("ai_last_plot"):
+        lp = st.session_state.ai_last_plot
+        try:
+            fig = _ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title"))
+            png = fig.to_image(format="png", scale=2)
+            st.download_button("Last AI chart (.png)", png, "eusee_last_ai_chart.png", "image/png", use_container_width=True, key="export_center_last_chart_png")
+        except Exception:
+            try:
+                html = fig.to_html(include_plotlyjs="cdn")
+                st.download_button("Last AI chart (.html)", html, "eusee_last_ai_chart.html", "text/html", use_container_width=True, key="export_center_last_chart_html")
+                st.caption("PNG export requires the optional Plotly Kaleido package; HTML export is available as fallback.")
+            except Exception:
+                st.caption("No chart export is available for the last AI plot in this environment.")
+
 def ai_try_llm_response(question, df):
     """Grounded OpenAI response. Falls back to deterministic local answers when no API key/package is available."""
     api_key, model = _ai_get_openai_config()
@@ -4764,6 +5017,7 @@ def _copilot_queue_answer(question, df):
     st.session_state.ai_messages.append({"role": "user", "content": q})
 
     q_lower = q.lower()
+    _admin_track_event("chat_question", q, df)
     plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw"]
     explain_words = [
         "explain", "interpret", "read this", "what does this chart", "what does the chart",
@@ -4777,6 +5031,13 @@ def _copilot_queue_answer(question, df):
 
     if any(w in q_lower for w in memory_words):
         answer = append_eusee_redirect(_ai_memory_summary_text())
+    elif any(w in q_lower for w in ["anomaly", "spike", "unusual", "surge"]):
+        answer = append_eusee_redirect(anomaly_summary_text(df))
+    elif "compare" in q_lower and ("countr" in q_lower or "countries" in q_lower):
+        selected = st.session_state.get("country_compare_selection", [])
+        if not selected and df is not None and not df.empty and "alert-country" in df.columns:
+            selected = df["alert-country"].value_counts().head(3).index.astype(str).tolist()
+        answer = append_eusee_redirect(country_comparison_text(df, selected))
     elif any(w in q_lower for w in explain_words):
         chart_context = q
         answer = ai_interpret_dashboard_visual(q, df)
@@ -4890,7 +5151,7 @@ def render_ai_assistant_panel(df):
 
 
 
-        chat_tab, explain_tab, plot_tab, insight_tab, memory_tab, export_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Memory", "Export"])
+        chat_tab, explain_tab, plot_tab, insight_tab, anomaly_tab, compare_tab, memory_tab, export_tab, admin_tab = st.tabs(["Chat", "Explain", "Plot", "Insights", "Anomaly", "Compare", "Memory", "Export", "Admin"])
 
         with chat_tab:
             st.markdown("<div class='copilot-small'>Ask naturally. The assistant only uses the current filtered dashboard data: <b>summarise the current view</b>, <b>plot top countries</b>, <b>explain the map</b>, or <b>prepare a short brief</b>.</div>", unsafe_allow_html=True)
@@ -4906,6 +5167,8 @@ def render_ai_assistant_panel(df):
                     _copilot_queue_answer("explain chart: map / country distribution", df); st.rerun()
                 if st.button("Explain all charts", key="copilot_q_explain_all_charts", use_container_width=True):
                     _copilot_queue_answer("interpret all dashboard visuals, charts, map, heatmaps and sankey", df); st.rerun()
+                if st.button("Detect anomalies", key="copilot_q_anomalies", use_container_width=True):
+                    _copilot_queue_answer("show alert anomaly detection summary", df); st.rerun()
             with c2:
                 if st.button("Priority", key="copilot_q_priority", use_container_width=True):
                     _copilot_queue_answer("what is the priority signal and why", df); st.rerun()
@@ -4915,6 +5178,8 @@ def render_ai_assistant_panel(df):
                     _copilot_queue_answer("recommended next analytical steps", df); st.rerun()
                 if st.button("Previous searches", key="copilot_q_previous_searches", use_container_width=True):
                     _copilot_queue_answer("show my previous search history", df); st.rerun()
+                if st.button("Compare countries", key="copilot_q_compare_countries", use_container_width=True):
+                    _copilot_queue_answer("compare countries under the current filters", df); st.rerun()
             if st.button("Clear chat", key="copilot_clear_chat", use_container_width=True):
                 st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about filtered data, request a plot, or ask me to explain a chart."}]
                 st.session_state.ai_last_plot = None
@@ -5023,6 +5288,12 @@ def render_ai_assistant_panel(df):
             with st.expander("Data quality report", expanded=False):
                 st.text(ai_data_quality_report(df))
 
+        with anomaly_tab:
+            render_anomaly_detection_panel(df)
+
+        with compare_tab:
+            selected_compare_countries = render_country_compare_panel(df)
+
         with memory_tab:
             st.markdown('<div class="copilot-section">Viewer search memory</div>', unsafe_allow_html=True)
             st.markdown('<div class="copilot-small">The assistant remembers recent questions and searches for this individual dashboard session or signed-in viewer. It does not use external information.</div>', unsafe_allow_html=True)
@@ -5045,16 +5316,11 @@ def render_ai_assistant_panel(df):
                     st.rerun()
 
         with export_tab:
-            summary_text = generate_ai_executive_summary(df)
-            policy_text = generate_ai_policy_brief(df)
-            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.ai_messages])
-            auto_insights_text = generate_auto_insights_text(df)
-            st.download_button("Auto insights (.txt)", data=auto_insights_text, file_name="eusee_ai_auto_insights.txt", mime="text/plain", use_container_width=True, key="copilot_export_auto_insights")
-            st.download_button("Executive summary (.txt)", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="copilot_export_summary")
-            st.download_button("Policy brief (.txt)", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="copilot_export_policy")
-            st.download_button("Chat transcript (.txt)", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="copilot_export_chat")
-            if df is not None and not df.empty:
-                st.download_button("Filtered data (.csv)", data=df.to_csv(index=False).encode("utf-8"), file_name="eusee_filtered_dashboard_data.csv", mime="text/csv", use_container_width=True, key="copilot_export_data")
+            selected_for_export = st.session_state.get("country_compare_selection", [])
+            render_professional_export_center(df, selected_countries=selected_for_export)
+
+        with admin_tab:
+            render_admin_analytics_panel(df)
 
 render_ai_assistant_panel(filtered_global)
 
