@@ -7232,6 +7232,583 @@ def render_ai_assistant_panel(df):
 
 # ---------------- END PREMIUM CHATBOT UX OVERRIDE ----------------
 
+# ---------------- PREMIUM CHATBOT UX + ANALYTICS ENGINE OVERRIDE ----------------
+# Replaces the previous AI panel/engine with a cleaner dashboard-grade assistant,
+# stronger natural-language plotting, and detailed country/variable comparison.
+
+AI_DIMENSION_ALIASES = {
+    "country": "alert-country", "countries": "alert-country", "nation": "alert-country", "geography": "alert-country",
+    "region": "region", "continent": "continent",
+    "year": "year", "years": "year", "time": "year", "trend": "year",
+    "month": "month_name", "months": "month_name",
+    "impact": "alert-impact", "impacts": "alert-impact", "nature": "alert-impact", "negative": "alert-impact", "positive": "alert-impact",
+    "alert type": "alert-type", "type": "alert-type", "event type": "Type of event",
+    "actor": "Actor of repression", "actors": "Actor of repression",
+    "mechanism": "Mechanism of repression", "mechanisms": "Mechanism of repression",
+    "subject": "Subject of repression", "subjects": "Subject of repression",
+    "principle": "enabling-principle", "enabling principle": "enabling-principle",
+}
+
+AI_SPLIT_COLUMNS = [
+    "Actor of repression", "Mechanism of repression", "Subject of repression", "enabling-principle", "Type of event"
+]
+
+
+def _ai_clean_label(value):
+    value = str(value).strip()
+    if not value or value.lower() in ["nan", "none", "not available"]:
+        return "Not available"
+    return value
+
+
+def _ai_explode_dimension(df, col):
+    """Return a one-column dataframe for a dimension, safely splitting comma-separated multi-value fields."""
+    if df is None or df.empty or col not in df.columns:
+        return pd.DataFrame(columns=[col])
+    tmp = df[[col]].copy()
+    tmp[col] = tmp[col].astype(str).str.replace("VNSAs", "Violent non-state actors", regex=False)
+    if col in AI_SPLIT_COLUMNS:
+        tmp[col] = tmp[col].str.split(",")
+        tmp = tmp.explode(col)
+    tmp[col] = tmp[col].astype(str).str.strip()
+    tmp = tmp[(tmp[col] != "") & (~tmp[col].str.lower().isin(["nan", "none"]))]
+    return tmp
+
+
+def _ai_detect_columns_in_query(df, query, max_cols=2):
+    if df is None or df.empty:
+        return []
+    q = str(query or "").lower()
+    detected = []
+    # Long aliases first so "alert type" wins before "type".
+    for alias, col in sorted(AI_DIMENSION_ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if alias in q and col in df.columns and col not in detected:
+            detected.append(col)
+    for col in df.columns:
+        if str(col).lower() in q and col not in detected:
+            detected.append(col)
+    return detected[:max_cols]
+
+
+def _ai_apply_query_filters(df, query):
+    """Temporary filtering for natural-language requests; does not change sidebar filters."""
+    if df is None or df.empty:
+        return pd.DataFrame(), []
+    tmp = df.copy()
+    q = str(query or "").lower()
+    countries = _ai_extract_countries_from_query(tmp, query)
+    if countries and "alert-country" in tmp.columns:
+        tmp = tmp[tmp["alert-country"].isin(countries)].copy()
+    if "negative" in q and "alert-impact" in tmp.columns:
+        tmp = tmp[tmp["alert-impact"].astype(str).str.lower().eq("negative")].copy()
+    elif "positive" in q and "alert-impact" in tmp.columns:
+        tmp = tmp[tmp["alert-impact"].astype(str).str.lower().eq("positive")].copy()
+    elif "context" in q and "alert-impact" in tmp.columns:
+        tmp = tmp[tmp["alert-impact"].astype(str).str.lower().str.contains("context", na=False)].copy()
+    return tmp, countries
+
+
+def _ai_top_value(df, col):
+    if df is None or df.empty or col not in df.columns:
+        return "Not available", 0
+    exploded = _ai_explode_dimension(df, col)
+    if exploded.empty:
+        return "Not available", 0
+    vc = exploded[col].value_counts()
+    return str(vc.index[0]), int(vc.iloc[0])
+
+
+def _ai_compact_value(value, max_len=52):
+    value = _ai_clean_label(value)
+    return value if len(value) <= max_len else value[:max_len - 1].rstrip() + "…"
+
+
+def _ai_make_clean_bar(data_plot, x_col, y_col="count", title="AI-generated chart", horizontal=True, color_col=None):
+    plot_data = data_plot.copy()
+    if horizontal:
+        plot_data = plot_data.sort_values(y_col, ascending=True)
+        fig = px.bar(plot_data, x=y_col, y=x_col, orientation="h", color=color_col, text=y_col, title=title)
+    else:
+        fig = px.bar(plot_data, x=x_col, y=y_col, color=color_col, text=y_col, title=title)
+    fig.update_traces(
+        texttemplate="%{text:,}",
+        textposition="outside",
+        marker_line_color="rgba(255,255,255,.85)",
+        marker_line_width=0.8,
+        hovertemplate="<b>%{y}</b><br>Records: %{x:,}<extra></extra>" if horizontal else "<b>%{x}</b><br>Records: %{y:,}<extra></extra>",
+    )
+    fig.update_layout(
+        template="plotly_white",
+        height=max(360, min(620, 110 + 32 * len(plot_data))),
+        margin=dict(l=160 if horizontal else 58, r=34, t=68, b=70),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        title=dict(text=title, x=0.02, xanchor="left", font=dict(size=15, color="#2D0055", family="Arial")),
+        font=dict(family="Arial", size=11, color="#344054"),
+        showlegend=bool(color_col),
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E6E8EF", font=dict(size=12, color="#344054")),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="#EEF1F6", zeroline=False, title=None)
+    fig.update_yaxes(showgrid=False, zeroline=False, title=None)
+    return fig
+
+
+def ai_generate_plot_from_query(df, query):
+    """Generate clean Plotly charts from natural language using the current filtered dataset."""
+    if df is None or df.empty:
+        return None, "No records are available under the current filters.", pd.DataFrame()
+
+    working, countries = _ai_apply_query_filters(df, query)
+    if working.empty:
+        return None, "No records match the request within the current filters.", pd.DataFrame()
+
+    q = str(query or "").lower()
+    detected_cols = _ai_detect_columns_in_query(working, query, max_cols=2)
+
+    # Pick default dimension.
+    if any(k in q for k in ["trend", "over time", "by year", "year"]):
+        dim = "year" if "year" in working.columns else (detected_cols[0] if detected_cols else None)
+        chart_type = "line"
+    elif any(k in q for k in ["month", "monthly"]):
+        dim = "month_name" if "month_name" in working.columns else (detected_cols[0] if detected_cols else None)
+        chart_type = "bar"
+    elif detected_cols:
+        dim = detected_cols[0]
+        chart_type = "donut" if any(k in q for k in ["pie", "donut", "composition", "share"]) else "bar"
+    elif "alert-country" in working.columns:
+        dim = "alert-country"
+        chart_type = "bar"
+    else:
+        dim = working.columns[0]
+        chart_type = "bar"
+
+    if not dim or dim not in working.columns:
+        return None, "I could not identify a valid dashboard variable to plot.", pd.DataFrame()
+
+    group_col = None
+    if len(detected_cols) > 1 and detected_cols[1] != dim:
+        group_col = detected_cols[1]
+    elif any(k in q for k in ["by impact", "negative and positive", "group by impact"]) and "alert-impact" in working.columns and dim != "alert-impact":
+        group_col = "alert-impact"
+    elif any(k in q for k in ["by country", "group by country"]) and "alert-country" in working.columns and dim != "alert-country":
+        group_col = "alert-country"
+
+    # Prevent unreadable grouped charts.
+    if group_col and working[group_col].nunique(dropna=True) > 12:
+        group_col = None
+
+    if group_col:
+        tmp = working[[dim, group_col]].copy()
+        if dim in AI_SPLIT_COLUMNS:
+            tmp[dim] = tmp[dim].astype(str).str.split(",")
+            tmp = tmp.explode(dim)
+        if group_col in AI_SPLIT_COLUMNS:
+            tmp[group_col] = tmp[group_col].astype(str).str.split(",")
+            tmp = tmp.explode(group_col)
+        for c in [dim, group_col]:
+            tmp[c] = tmp[c].astype(str).str.strip()
+            tmp = tmp[(tmp[c] != "") & (~tmp[c].str.lower().isin(["nan", "none"]))]
+        data_plot = tmp.groupby([dim, group_col]).size().reset_index(name="count")
+        top_dim = data_plot.groupby(dim)["count"].sum().sort_values(ascending=False).head(12).index
+        data_plot = data_plot[data_plot[dim].isin(top_dim)]
+        fig = px.bar(
+            data_plot.sort_values("count", ascending=False),
+            x=dim,
+            y="count",
+            color=group_col,
+            text="count",
+            title=f"AI chart: {dim} by {group_col}",
+        )
+        fig.update_traces(texttemplate="%{text:,}", textposition="outside")
+        fig.update_layout(
+            template="plotly_white", height=430, margin=dict(l=58, r=28, t=68, b=95),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            title=dict(x=0.02, xanchor="left", font=dict(size=15, color="#2D0055", family="Arial")),
+            font=dict(family="Arial", size=11, color="#344054"), legend_title_text=None,
+        )
+        fig.update_xaxes(title=None, tickangle=-25, showgrid=False)
+        fig.update_yaxes(title=None, showgrid=True, gridcolor="#EEF1F6")
+    else:
+        exploded = _ai_explode_dimension(working, dim)
+        if exploded.empty:
+            return None, f"The variable **{dim}** has no usable values under the current filters.", pd.DataFrame()
+        if dim == "year":
+            data_plot = exploded.groupby(dim).size().reset_index(name="count").sort_values(dim)
+            fig = px.line(data_plot, x=dim, y="count", markers=True, title="AI trend: alerts by year")
+            fig.update_traces(line=dict(width=3), marker=dict(size=8), hovertemplate="Year: %{x}<br>Records: %{y:,}<extra></extra>")
+            fig.update_layout(
+                template="plotly_white", height=390, margin=dict(l=58, r=28, t=68, b=58),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                title=dict(x=0.02, xanchor="left", font=dict(size=15, color="#2D0055", family="Arial")),
+                font=dict(family="Arial", size=11, color="#344054"),
+            )
+            fig.update_xaxes(title=None, showgrid=False)
+            fig.update_yaxes(title=None, showgrid=True, gridcolor="#EEF1F6")
+        elif chart_type == "donut":
+            data_plot = exploded[dim].value_counts().head(10).reset_index()
+            data_plot.columns = [dim, "count"]
+            fig = px.pie(data_plot, names=dim, values="count", hole=0.58, title=f"AI composition: {dim}")
+            fig.update_traces(textposition="inside", textinfo="percent+label", hovertemplate="%{label}<br>Records: %{value:,}<br>Share: %{percent}<extra></extra>")
+            fig.update_layout(
+                template="plotly_white", height=390, margin=dict(l=30, r=30, t=68, b=30),
+                paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Arial", size=11, color="#344054"),
+                title=dict(x=0.02, xanchor="left", font=dict(size=15, color="#2D0055", family="Arial")),
+                legend=dict(orientation="h", y=-0.08, x=0),
+            )
+        else:
+            data_plot = exploded[dim].value_counts().head(15).reset_index()
+            data_plot.columns = [dim, "count"]
+            fig = _ai_make_clean_bar(data_plot, dim, title=f"AI chart: top {dim}", horizontal=True)
+
+    top_label = "Not available"
+    top_count = 0
+    if data_plot is not None and not data_plot.empty and "count" in data_plot.columns:
+        top_row = data_plot.sort_values("count", ascending=False).iloc[0]
+        label_cols = [c for c in data_plot.columns if c != "count"]
+        top_label = " × ".join([str(top_row[c]) for c in label_cols[:2]])
+        top_count = int(top_row["count"])
+    text = f"Generated a clean dashboard plot for **{dim}**. Highest category: **{top_label}** (**{top_count:,}** records)."
+    if countries:
+        text += f" Temporary country focus: **{', '.join(countries)}**."
+    return fig, text, data_plot
+
+
+def ai_compare_from_query(df, query):
+    """Detailed country or variable comparison with clean summary table and supporting charts."""
+    if df is None or df.empty:
+        return pd.DataFrame(), "No records are available under the current filters.", []
+
+    q = str(query or "")
+    countries = _ai_extract_countries_from_query(df, q)
+    figs = []
+
+    # If no countries are named but user asks to compare countries, compare top 3 by priority/volume.
+    if len(countries) < 2 and any(k in q.lower() for k in ["countries", "country", "top priority"]):
+        if "alert-country" in df.columns:
+            countries = df["alert-country"].value_counts().head(3).index.astype(str).tolist()
+
+    if len(countries) >= 2 and "alert-country" in df.columns:
+        comp = df[df["alert-country"].isin(countries)].copy()
+        rows = []
+        for country in countries:
+            cdf = comp[comp["alert-country"] == country]
+            if cdf.empty:
+                continue
+            total = len(cdf)
+            neg = int((cdf["alert-impact"].astype(str).str.lower() == "negative").sum()) if "alert-impact" in cdf.columns else 0
+            pos = int((cdf["alert-impact"].astype(str).str.lower() == "positive").sum()) if "alert-impact" in cdf.columns else 0
+            ctx = int(cdf["alert-impact"].astype(str).str.lower().str.contains("context", na=False).sum()) if "alert-impact" in cdf.columns else 0
+            peak_year = "Not available"
+            if "year" in cdf.columns and not cdf["year"].dropna().empty:
+                peak_year = str(cdf["year"].value_counts().index[0])
+            actor, actor_n = _ai_top_value(cdf, "Actor of repression")
+            mech, mech_n = _ai_top_value(cdf, "Mechanism of repression")
+            subj, subj_n = _ai_top_value(cdf, "Subject of repression")
+            atype, atype_n = _ai_top_value(cdf, "alert-type")
+            rows.append({
+                "Country": country,
+                "Total alerts": total,
+                "Negative": neg,
+                "Positive": pos,
+                "Context to watch": ctx,
+                "Negative share (%)": round((neg / total) * 100, 1) if total else 0,
+                "Dominant alert type": _ai_compact_value(atype),
+                "Top actor": _ai_compact_value(actor),
+                "Top mechanism": _ai_compact_value(mech),
+                "Top subject": _ai_compact_value(subj),
+                "Peak year": peak_year,
+            })
+        out = pd.DataFrame(rows)
+        if not out.empty:
+            fig1 = _ai_make_clean_bar(out[["Country", "Total alerts"]].rename(columns={"Country": "country", "Total alerts": "count"}), "country", title="Comparison: total alerts by country", horizontal=True)
+            figs.append(fig1)
+            impact_cols = [c for c in ["Negative", "Positive", "Context to watch"] if c in out.columns]
+            if impact_cols:
+                long_df = out.melt(id_vars="Country", value_vars=impact_cols, var_name="Impact", value_name="count")
+                fig2 = px.bar(long_df, x="Country", y="count", color="Impact", text="count", title="Comparison: alert-impact composition")
+                fig2.update_traces(texttemplate="%{text:,}", textposition="outside")
+                fig2.update_layout(template="plotly_white", height=390, margin=dict(l=55, r=25, t=65, b=70), title=dict(x=0.02, font=dict(size=15, color="#2D0055", family="Arial")), font=dict(family="Arial", size=11), legend_title_text=None)
+                fig2.update_xaxes(title=None)
+                fig2.update_yaxes(title=None, showgrid=True, gridcolor="#EEF1F6")
+                figs.append(fig2)
+        # Generate narrative.
+        if not out.empty:
+            highest = out.sort_values("Total alerts", ascending=False).iloc[0]
+            highest_neg = out.sort_values("Negative share (%)", ascending=False).iloc[0]
+            text = (
+                f"Detailed comparison generated for **{', '.join(out['Country'].tolist())}**. "
+                f"**{highest['Country']}** has the highest total alert volume (**{int(highest['Total alerts']):,}**), while "
+                f"**{highest_neg['Country']}** has the highest negative-alert share (**{highest_neg['Negative share (%)']}%**). "
+                "Use the table to compare dominant actors, mechanisms, subjects, and peak year."
+            )
+        else:
+            text = "The requested countries are not available under the current filters."
+        return out, text, figs
+
+    # Variable comparison.
+    cols = _ai_detect_columns_in_query(df, q, max_cols=2)
+    if len(cols) < 2:
+        # Infer common useful default.
+        if "Actor of repression" in df.columns and "Mechanism of repression" in df.columns:
+            cols = ["Actor of repression", "Mechanism of repression"]
+        elif "alert-country" in df.columns and "alert-impact" in df.columns:
+            cols = ["alert-country", "alert-impact"]
+    if len(cols) < 2:
+        return pd.DataFrame(), "I could not identify two dashboard variables to compare. Try: 'compare actor and mechanism' or 'compare country and impact'.", []
+
+    a, b = cols[0], cols[1]
+    tmp = df[[a, b]].copy()
+    for c in [a, b]:
+        if c in AI_SPLIT_COLUMNS:
+            tmp[c] = tmp[c].astype(str).str.split(",")
+            tmp = tmp.explode(c)
+        tmp[c] = tmp[c].astype(str).str.strip()
+        tmp = tmp[(tmp[c] != "") & (~tmp[c].str.lower().isin(["nan", "none"]))]
+    if tmp.empty:
+        return pd.DataFrame(), f"No usable values are available for **{a}** and **{b}** under current filters.", []
+
+    out = tmp.groupby([a, b]).size().reset_index(name="count").sort_values("count", ascending=False).head(50)
+    top = out.iloc[0]
+    text = f"Compared **{a}** against **{b}**. Strongest observed relationship: **{top[a]} → {top[b]}** with **{int(top['count']):,}** records."
+    fig = _ai_make_clean_bar(out.head(15).assign(pair=out.head(15)[a].astype(str) + " → " + out.head(15)[b].astype(str)), "pair", title=f"Top relationships: {a} × {b}", horizontal=True)
+    figs.append(fig)
+    return out, text, figs
+
+
+def ai_handle_chat(query, df):
+    """Unified chat/action handler with detailed comparison and clean plotting."""
+    q = str(query or "").strip()
+    intent = ai_parse_user_intent(q)
+    if intent == "empty":
+        return {"type": "text", "title": "Ready", "content": "Ask a specific dashboard-grounded question."}
+
+    st.session_state.setdefault("ai_usage_log", [])
+    st.session_state.ai_usage_log.append({"query": q, "intent": intent, "records": len(df) if df is not None else 0})
+    st.session_state.ai_usage_log = st.session_state.ai_usage_log[-250:]
+
+    if intent == "out_of_scope":
+        return {"type": "text", "title": "Dataset boundary", "content": ai_format_response("I can only answer from the cleaned EU SEE dashboard dataset and the active filters.", df, confidence="High")}
+
+    if intent == "plot":
+        fig, text, plot_data = ai_generate_plot_from_query(df, q)
+        if fig is None:
+            return {"type": "text", "title": "Plot request", "content": ai_format_response(text, df, confidence="High")}
+        return {"type": "plot", "title": "AI-generated plot", "content": ai_format_response(text, df, title="Clean plot generated", confidence="High"), "fig": fig, "data": plot_data}
+
+    if intent == "compare":
+        comp_df, text, figs = ai_compare_from_query(df, q)
+        return {"type": "comparison", "title": "Detailed comparative analysis", "content": ai_format_response(text, df, title="Comparative analysis", confidence="High" if not comp_df.empty else "Medium"), "data": comp_df, "figs": figs}
+
+    if intent == "anomaly":
+        out, text = ai_detect_anomalies(df)
+        fig = None
+        if isinstance(out, pd.DataFrame) and not out.empty and "alerts" in out.columns:
+            label_col = "alert-country" if "alert-country" in out.columns else ("year" if "year" in out.columns else None)
+            if label_col:
+                chart_df = out.copy().head(12)
+                chart_df["label"] = chart_df[label_col].astype(str) + (" (" + chart_df["year"].astype(str) + ")" if "year" in chart_df.columns and label_col != "year" else "")
+                fig = _ai_make_clean_bar(chart_df.rename(columns={"alerts": "count"}), "label", title="Anomaly scan: strongest alert increases", horizontal=True)
+        return {"type": "comparison", "title": "Alert anomaly detection", "content": ai_format_response(text, df, title="Anomaly scan", confidence="Medium"), "data": out, "figs": [fig] if fig is not None else []}
+
+    if intent == "explain_all":
+        try:
+            text = _ai_explain_all_visuals(df)
+        except Exception:
+            text = ai_specific_local_answer(q, df)
+        return {"type": "text", "title": "Dashboard visuals explained", "content": ai_format_response(text, df, title="Visual interpretation", confidence="High")}
+
+    if intent == "brief":
+        try:
+            text = generate_ai_executive_summary(df)
+        except Exception:
+            text = ai_specific_local_answer(q, df)
+        return {"type": "text", "title": "Executive brief", "content": ai_format_response(text, df, title="Executive brief", confidence="High")}
+
+    target_df, countries = _ai_filter_for_query_entities(df, q)
+    working_df = target_df if target_df is not None and not target_df.empty else df
+    openai_text = ai_call_openai_structured(q, working_df)
+    if openai_text:
+        return {"type": "text", "title": "Dashboard-grounded answer", "content": openai_text}
+    return {"type": "text", "title": "Dashboard-grounded answer", "content": ai_specific_local_answer(q, working_df)}
+
+
+def ai_render_result(result):
+    """Render the Smart Output area for text, clean plots, and detailed comparisons."""
+    if not result:
+        return
+    content = str(result.get("content", ""))
+    st.markdown(content)
+
+    figs = []
+    if result.get("type") == "plot" and result.get("fig") is not None:
+        figs.append(result.get("fig"))
+    if result.get("figs"):
+        figs.extend([f for f in result.get("figs", []) if f is not None])
+
+    for i, fig in enumerate(figs):
+        st.plotly_chart(fig, use_container_width=True, key=f"ai_engine_visual_{i}")
+
+    data = result.get("data")
+    if isinstance(data, pd.DataFrame) and not data.empty:
+        st.markdown("#### Analytical table")
+        st.dataframe(data, use_container_width=True, hide_index=True, height=min(360, 80 + 32 * min(len(data), 10)), key="ai_engine_output_table_premium")
+        st.download_button(
+            "Download table (.csv)",
+            data=data.to_csv(index=False).encode("utf-8"),
+            file_name="eusee_ai_analysis_table.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="ai_engine_table_download_premium",
+        )
+
+
+def render_ai_assistant_panel(df):
+    """Professional dashboard-grade AI drawer content."""
+    st.session_state.setdefault("ai_messages", [{"role": "assistant", "content": "Welcome. Ask me to explain visuals, generate a plot, or compare countries/variables using the current dashboard data."}])
+    st.session_state.setdefault("ai_current_result", {"type": "text", "title": "Ready", "content": ai_format_response("I am ready to analyze the active dashboard view.", df, title="AI Copilot ready", confidence="High")})
+    st.session_state.setdefault("ai_user_memory", [])
+
+    st.markdown("""
+    <style>
+    .st-key-eusee_right_ai_drawer { width: 560px !important; max-width: calc(100vw - 32px) !important; padding: 14px !important; }
+    @media (max-width: 760px) { .st-key-eusee_right_ai_drawer { right: 8px !important; left: 8px !important; width: auto !important; top: 64px !important; max-height: calc(100vh - 82px) !important; } }
+    .ai-pro-hero {
+        background: radial-gradient(circle at 96% 4%, rgba(255,219,88,.32), transparent 30%), linear-gradient(135deg,#240044 0%,#660094 58%,#008CAA 100%);
+        color:#fff; border-radius:22px; padding:15px 16px; margin:3px 0 12px 0;
+        box-shadow:0 18px 42px rgba(45,0,85,.24); font-family:Arial,sans-serif;
+    }
+    .ai-pro-title { font-size:17px; font-weight:950; letter-spacing:-.03em; margin-bottom:4px; }
+    .ai-pro-sub { font-size:11.2px; line-height:1.38; opacity:.92; max-width:430px; }
+    .ai-pro-scope-row { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin:8px 0 11px 0; }
+    .ai-pro-kpi { background:#fff; border:1px solid #E7D4F1; border-radius:15px; padding:9px 10px; box-shadow:0 6px 16px rgba(16,24,40,.045); font-family:Arial,sans-serif; }
+    .ai-pro-kpi span { display:block; font-size:9.5px; color:#667085; font-weight:850; margin-bottom:2px; }
+    .ai-pro-kpi strong { font-size:16px; color:#2D0055; font-weight:950; }
+    .ai-pro-section { background:#fff; border:1px solid #E6E8EF; border-radius:18px; padding:11px 12px; margin:10px 0; box-shadow:0 8px 22px rgba(16,24,40,.055); font-family:Arial,sans-serif; }
+    .ai-pro-section-title { font-size:13px; font-weight:950; color:#2D0055; margin-bottom:4px; }
+    .ai-pro-note { font-size:10.6px; color:#667085; line-height:1.38; }
+    .ai-pro-output-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+    .ai-pro-pill { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:4px 8px; background:#EFFBFE; color:#008CAA; border:1px solid #D3F3FA; font-size:9.5px; font-weight:900; }
+    .ai-pro-examples { background:#F9FAFB; border:1px dashed #D0D5DD; border-radius:14px; padding:9px 10px; font-size:10.7px; color:#344054; line-height:1.42; margin:8px 0; }
+    .st-key-ai_pro_chat_window { background:#FFFFFF !important; border:1px solid #E6E8EF !important; border-radius:18px !important; padding:8px !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.8) !important; }
+    .stChatMessage { border-radius:16px !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    records = len(df) if df is not None else 0
+    countries = df["alert-country"].nunique() if df is not None and not df.empty and "alert-country" in df.columns else 0
+    years = df["year"].nunique() if df is not None and not df.empty and "year" in df.columns else 0
+
+    st.markdown(f"""
+    <div class="ai-pro-hero">
+      <div class="ai-pro-title">🤖 EU SEE AI Copilot</div>
+      <div class="ai-pro-sub">Professional dashboard assistant for grounded explanations, clean plots, detailed comparisons, anomaly checks, and executive summaries.</div>
+    </div>
+    <div class="ai-pro-scope-row">
+      <div class="ai-pro-kpi"><span>Active records</span><strong>{records:,}</strong></div>
+      <div class="ai-pro-kpi"><span>Countries</span><strong>{countries:,}</strong></div>
+      <div class="ai-pro-kpi"><span>Years</span><strong>{years:,}</strong></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='ai-pro-section'><div class='ai-pro-section-title'>Quick actions</div><div class='ai-pro-note'>Five common tasks. You can also type a more specific instruction.</div></div>", unsafe_allow_html=True)
+    chips = [
+        ("Explain visuals", "Explain all dashboard charts, maps, heatmaps, Sankey flows, and anomaly panels."),
+        ("Clean plot", "Plot negative alerts by year using the current filtered dataset."),
+        ("Compare countries", "Compare the top 3 countries by alert volume, impact composition, actor, mechanism, subject, and peak year."),
+        ("Compare variables", "Compare actor and mechanism and show the strongest relationships."),
+        ("Find anomalies", "Flag countries or years with unusual alert spikes compared with previous periods."),
+    ]
+    c1, c2, c3 = st.columns([1,1,1])
+    chip_cols = [c1, c2, c3, c1, c2]
+    for i, (label, prompt) in enumerate(chips):
+        with chip_cols[i]:
+            if st.button(label, key=f"ai_pro_chip_{i}", use_container_width=True):
+                result = ai_handle_chat(prompt, df)
+                st.session_state.ai_current_result = result
+                st.session_state.ai_messages.append({"role": "user", "content": prompt})
+                st.session_state.ai_messages.append({"role": "assistant", "content": result.get("content", "")})
+                st.session_state.ai_user_memory.append({"question": prompt, "intent": ai_parse_user_intent(prompt), "records": records})
+                st.rerun()
+
+    st.markdown("""
+    <div class="ai-pro-examples">
+      <b>Try:</b> “compare Kenya and Uganda”, “plot actor by impact”, “compare country and alert impact”,
+      “show top mechanisms”, “why is Kenya high priority?”, “plot alert types as donut”.
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.container(height=250, key="ai_pro_chat_window"):
+        for m in st.session_state.ai_messages[-8:]:
+            with st.chat_message("assistant" if m.get("role") == "assistant" else "user"):
+                st.markdown(str(m.get("content", "")))
+
+    user_q = st.chat_input("Ask the AI Copilot to explain, plot, or compare…", key="ai_pro_chat_input")
+    if user_q:
+        result = ai_handle_chat(user_q, df)
+        st.session_state.ai_current_result = result
+        st.session_state.ai_messages.append({"role": "user", "content": user_q})
+        st.session_state.ai_messages.append({"role": "assistant", "content": result.get("content", "")})
+        st.session_state.ai_user_memory.append({"question": user_q, "intent": ai_parse_user_intent(user_q), "records": records})
+        st.session_state.ai_user_memory = st.session_state.ai_user_memory[-50:]
+        st.rerun()
+
+    result = st.session_state.get("ai_current_result", {})
+    st.markdown(f"""
+    <div class="ai-pro-section">
+      <div class="ai-pro-output-head">
+        <div class="ai-pro-section-title">🧠 Smart Output Area</div>
+        <div class="ai-pro-pill">{result.get('type', 'text')}</div>
+      </div>
+      <div class="ai-pro-note">Outputs appear here as clean charts, comparison tables, or grounded explanations.</div>
+    </div>
+    """, unsafe_allow_html=True)
+    ai_render_result(result)
+
+    with st.expander("Advanced tools", expanded=False):
+        tab1, tab2, tab3 = st.tabs(["Plot builder", "Compare variables", "Memory & export"])
+        cols_available = _ai_categorical_columns(df) if "_ai_categorical_columns" in globals() else _ai_safe_cols(df)
+        with tab1:
+            if cols_available:
+                p1, p2 = st.columns(2)
+                with p1:
+                    x_col = st.selectbox("Variable", cols_available, key="ai_pro_adv_plot_var")
+                with p2:
+                    chart_type = st.selectbox("Chart type", ["bar", "donut", "trend", "grouped by impact"], key="ai_pro_adv_plot_type")
+                if st.button("Generate clean plot", use_container_width=True, key="ai_pro_adv_plot_btn"):
+                    result = ai_handle_chat(f"plot {x_col} as {chart_type}", df)
+                    st.session_state.ai_current_result = result
+                    st.rerun()
+            else:
+                st.info("No variables are available under current filters.")
+        with tab2:
+            if cols_available:
+                v1, v2 = st.columns(2)
+                with v1:
+                    a = st.selectbox("Variable A", cols_available, key="ai_pro_adv_compare_a")
+                with v2:
+                    b = st.selectbox("Variable B", cols_available, key="ai_pro_adv_compare_b")
+                if st.button("Run detailed comparison", use_container_width=True, key="ai_pro_adv_compare_btn"):
+                    result = ai_handle_chat(f"compare {a} and {b}", df)
+                    st.session_state.ai_current_result = result
+                    st.rerun()
+            else:
+                st.info("No comparable variables are available.")
+        with tab3:
+            transcript = "\n\n".join([f"{m.get('role','').upper()}: {m.get('content','')}" for m in st.session_state.get("ai_messages", [])])
+            st.download_button("Download chat transcript", transcript, "eusee_ai_chat_transcript.txt", "text/plain", use_container_width=True, key="ai_pro_transcript_download")
+            latest = st.session_state.get("ai_current_result", {}).get("content", "")
+            st.download_button("Download latest output", latest, "eusee_ai_latest_output.txt", "text/plain", use_container_width=True, key="ai_pro_latest_download")
+            mem = pd.DataFrame(st.session_state.get("ai_user_memory", []))
+            if not mem.empty:
+                st.dataframe(mem.tail(30), use_container_width=True, hide_index=True, height=160, key="ai_pro_memory_table")
+            if st.button("Clear AI chat", use_container_width=True, key="ai_pro_clear"):
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a dashboard-grounded question."}]
+                st.session_state.ai_current_result = {"type": "text", "title": "Ready", "content": ai_format_response("Chat cleared. I am ready for a new analysis request.", df)}
+                st.session_state.ai_user_memory = []
+                st.rerun()
+
+# ---------------- END PREMIUM CHATBOT UX + ANALYTICS ENGINE OVERRIDE ----------------
+
 render_right_ai_copilot_drawer(filtered_global)
 
 
