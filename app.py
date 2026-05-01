@@ -3416,6 +3416,157 @@ with tab_map:
         line-height:1.5;
         font-weight:650;
     }
+    .map-guide-card {
+        background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);
+        border:1px solid #E7D4F1;
+        border-radius:18px;
+        padding:15px 16px;
+        box-shadow:0 10px 24px rgba(45,0,85,.07);
+        margin:12px 0 16px 0;
+        font-family:Arial, sans-serif;
+    }
+    .map-guide-title {
+        color:#2D0055;
+        font-size:15.5px;
+        font-weight:950;
+        letter-spacing:-.15px;
+        margin-bottom:5px;
+    }
+    .map-guide-sub {
+        color:#64748B;
+        font-size:11.5px;
+        line-height:1.45;
+        margin-bottom:12px;
+    }
+    .map-guide-step {
+        display:grid;
+        grid-template-columns:26px 1fr;
+        gap:8px;
+        align-items:flex-start;
+        padding:8px 0;
+        border-top:1px solid #EEF0F4;
+    }
+    .map-guide-num {
+        width:23px;
+        height:23px;
+        border-radius:9px;
+        background:#F4EAF8;
+        color:#660094;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:10px;
+        font-weight:950;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
+    }
+    .map-guide-text {
+        font-size:11.3px;
+        color:#344054;
+        line-height:1.38;
+        font-weight:650;
+    }
+    .map-guide-text b {color:#23152F; font-weight:950;}
+    .priority-country-panel {
+        background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
+        border:1px solid #E7D4F1;
+        border-radius:18px;
+        padding:15px 16px;
+        box-shadow:0 10px 24px rgba(45,0,85,.07);
+        margin:12px 0 16px 0;
+        font-family:Arial, sans-serif;
+    }
+    .priority-title {
+        color:#2D0055;
+        font-size:15.5px;
+        font-weight:950;
+        letter-spacing:-.15px;
+        margin-bottom:5px;
+    }
+    .priority-sub {
+        color:#64748B;
+        font-size:11.5px;
+        line-height:1.45;
+        margin-bottom:12px;
+    }
+    .priority-row {
+        display:grid;
+        grid-template-columns:30px minmax(0,1fr) auto;
+        align-items:center;
+        gap:9px;
+        padding:9px 10px;
+        margin-bottom:8px;
+        border-radius:14px;
+        background:#FFFFFF;
+        border:1px solid #EEF0F4;
+        box-shadow:0 4px 10px rgba(16,24,40,.045);
+    }
+    .priority-rank {
+        width:25px;
+        height:25px;
+        border-radius:10px;
+        background:linear-gradient(135deg,#660094 0%,#008CAA 100%);
+        color:#FFFFFF;
+        font-size:10px;
+        font-weight:950;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+    }
+    .priority-country {
+        font-size:12.2px;
+        font-weight:950;
+        color:#23152F;
+        line-height:1.15;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+    }
+    .priority-meta {
+        font-size:10.5px;
+        color:#667085;
+        margin-top:3px;
+        line-height:1.25;
+    }
+    .priority-meta b {color:#2D0055; font-weight:950;}
+    .priority-score {
+        text-align:right;
+        color:#660094;
+        font-size:11px;
+        font-weight:950;
+        line-height:1.12;
+        white-space:nowrap;
+    }
+    .priority-score span {
+        display:block;
+        color:#667085;
+        font-size:9.5px;
+        font-weight:850;
+        margin-bottom:2px;
+    }
+    .priority-badge {
+        display:inline-block;
+        margin-top:5px;
+        padding:3px 8px;
+        border-radius:999px;
+        background:#FFF4ED;
+        color:#B42318;
+        border:1px solid rgba(180,35,24,.16);
+        font-size:9.5px;
+        font-weight:950;
+    }
+    .priority-badge.priority-watch {background:#F8FAFC;color:#475467;border-color:#E8EAF0;}
+    .priority-badge.priority-moderate {background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);}
+    .priority-badge.priority-high {background:#FFFBEB;color:#7A3E00;border-color:#FDE68A;}
+    .priority-badge.priority-very-high {background:#FFF4ED;color:#B42318;border-color:rgba(180,35,24,.16);}
+    .priority-footnote {
+        margin-top:8px;
+        padding-top:9px;
+        border-top:1px solid #EEF0F4;
+        color:#667085;
+        font-size:10.5px;
+        line-height:1.35;
+        font-weight:650;
+    }
     .map-quality-strip {
         display:flex;
         gap:8px;
@@ -3684,30 +3835,65 @@ with tab_map:
             st.markdown('</div>', unsafe_allow_html=True)
 
         with guide_col:
-            st.markdown(f"""
-            <div class="map-panel-card">
-                <div class="map-panel-title">How to read this map</div>
-                <div class="map-panel-help">Use this guide to move from spatial pattern to analytical interpretation.</div>
-                <ol class="map-action-list">
-                    <li><b>Start with color intensity:</b> darker countries have more filtered alerts.</li>
-                    <li><b>Check the hover details:</b> compare negative, positive, and context-to-watch counts.</li>
-                    <li><b>Use priority level carefully:</b> it highlights countries with both negative volume and negative share.</li>
-                    <li><b>Validate in rankings:</b> compare high-volume countries with high-priority countries.</li>
-                    <li><b>Interpret with context:</b> reporting coverage and monitoring intensity can affect counts.</li>
-                </ol>
+            st.markdown("""
+            <div class="map-guide-card">
+                <div class="map-guide-title">🧭 How to read this map</div>
+                <div class="map-guide-sub">Use this guide to interpret spatial alert patterns consistently and avoid over-reading raw counts.</div>
+                <div class="map-guide-step">
+                    <div class="map-guide-num">1</div>
+                    <div class="map-guide-text"><b>Start with intensity:</b> darker countries indicate higher filtered alert volume.</div>
+                </div>
+                <div class="map-guide-step">
+                    <div class="map-guide-num">2</div>
+                    <div class="map-guide-text"><b>Check hover details:</b> compare total, negative, positive, and context-to-watch alerts.</div>
+                </div>
+                <div class="map-guide-step">
+                    <div class="map-guide-num">3</div>
+                    <div class="map-guide-text"><b>Use priority carefully:</b> priority combines negative-alert volume and negative share.</div>
+                </div>
+                <div class="map-guide-step">
+                    <div class="map-guide-num">4</div>
+                    <div class="map-guide-text"><b>Validate with rankings:</b> high alert counts may reflect event frequency, monitoring coverage, or reporting intensity.</div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
             priority_df = df_map.sort_values("priority_score", ascending=False).head(5).copy() if not df_map.empty else pd.DataFrame()
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Top priority countries</div><div class="map-panel-help">Ranked by the combined negative-alert priority score.</div>', unsafe_allow_html=True)
+            st.markdown("""
+            <div class="priority-country-panel">
+                <div class="priority-title">🌍 Top Priority Countries</div>
+                <div class="priority-sub">Countries ranked by combined negative-alert priority score under the active filters.</div>
+            """, unsafe_allow_html=True)
+
             if priority_df.empty:
                 st.info("No priority ranking available.")
             else:
-                for _, r in priority_df.iterrows():
+                for rank, (_, r) in enumerate(priority_df.iterrows(), start=1):
+                    priority_label = str(r["priority_level"])
+                    priority_class = priority_label.lower().replace(" ", "-")
                     st.markdown(
-                        f"""<div class="country-insight-box"><b>{r['alert-country']}</b><br>Priority: <b>{r['priority_level']}</b> · Score: <b>{r['priority_score']}</b><br>Negative: <b>{int(r['negative_alerts']):,}</b> · Negative share: <b>{r['perc_negative']}%</b></div>""",
+                        f"""
+                        <div class="priority-row">
+                            <div class="priority-rank">{rank}</div>
+                            <div>
+                                <div class="priority-country" title="{r['alert-country']}">{r['alert-country']}</div>
+                                <div class="priority-meta">
+                                    Negative <b>{int(r['negative_alerts']):,}</b> · Negative share <b>{r['perc_negative']}%</b>
+                                </div>
+                                <span class="priority-badge priority-{priority_class}">{priority_label}</span>
+                            </div>
+                            <div class="priority-score"><span>Score</span>{r['priority_score']}</div>
+                        </div>
+                        """,
                         unsafe_allow_html=True
                     )
+
+                st.markdown("""
+                    <div class="priority-footnote">
+                        Priority is a triage signal for analytical review. It should be interpreted together with the map hover details, country ranking, and qualitative context.
+                    </div>
+                """, unsafe_allow_html=True)
+
             st.markdown('</div>', unsafe_allow_html=True)
 
         # ---------------- Supporting map intelligence panels ----------------
