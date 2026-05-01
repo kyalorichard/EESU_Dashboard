@@ -41,270 +41,7 @@ except Exception:
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 # ---------------- PROFESSIONAL CLASSIC DASHBOARD UX STYLING ----------------
-
-def inject_standard_layout_system_css():
-    """Final deployment layout and typography standardization layer.
-
-    This layer does not change dashboard logic. It enforces a consistent visual
-    scale across tabs, cards, filters, charts, tables, and Streamlit controls.
-    """
-    st.markdown("""
-    <style>
-    :root {
-        --ux-purple: #660094;
-        --ux-purple-dark: #2D0055;
-        --ux-teal: #008CAA;
-        --ux-yellow: #FFDB58;
-        --ux-bg: #F7F8FB;
-        --ux-card: #FFFFFF;
-        --ux-border: #E6E8EF;
-        --ux-border-soft: #EEF2F6;
-        --ux-text: #263238;
-        --ux-muted: #667085;
-        --ux-radius-sm: 10px;
-        --ux-radius-md: 14px;
-        --ux-radius-lg: 18px;
-        --ux-shadow-card: 0 10px 26px rgba(17,24,39,.055);
-        --ux-shadow-panel: 0 16px 38px rgba(17,24,39,.065);
-
-        --fs-caption: 10px;
-        --fs-label: 11px;
-        --fs-body: 12.5px;
-        --fs-body-lg: 13px;
-        --fs-card-title: 13px;
-        --fs-section: 17px;
-        --fs-page-title: 34px;
-        --fs-kpi: 30px;
-    }
-
-    html, body, [class*="css"], .stApp {
-        font-family: Arial, Helvetica, sans-serif !important;
-        color: var(--ux-text);
-        background: var(--ux-bg);
-        font-size: var(--fs-body);
-    }
-
-    .main .block-container {
-        max-width: 1480px !important;
-        padding-top: 1.15rem !important;
-        padding-left: 1.55rem !important;
-        padding-right: 1.55rem !important;
-        padding-bottom: 2.25rem !important;
-    }
-
-    /* Page title standardization */
-    .animated-title {
-        font-size: var(--fs-page-title) !important;
-        line-height: 1.08 !important;
-        font-weight: 900 !important;
-        letter-spacing: -0.45px !important;
-        margin-bottom: 8px !important;
-    }
-    .animated-subtitle {
-        font-size: 13px !important;
-        line-height: 1.48 !important;
-        max-width: 1040px !important;
-        color: var(--ux-muted) !important;
-        margin-bottom: 16px !important;
-    }
-    .animated-divider {
-        height: 3px !important;
-        margin-bottom: 12px !important;
-    }
-
-    /* Streamlit tabs */
-    div[data-testid="stTabs"] [role="tablist"] {
-        gap: 6px !important;
-        border-bottom: 1px solid var(--ux-border) !important;
-        margin-bottom: 14px !important;
-    }
-    div[data-testid="stTabs"] [role="tab"] {
-        font-family: Arial, Helvetica, sans-serif !important;
-        font-size: 12.5px !important;
-        font-weight: 850 !important;
-        color: #475467 !important;
-        padding: 9px 12px !important;
-        border-radius: 999px 999px 0 0 !important;
-    }
-    div[data-testid="stTabs"] [aria-selected="true"] {
-        color: var(--ux-purple-dark) !important;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FBF7FF 100%) !important;
-        border: 1px solid var(--ux-border) !important;
-        border-bottom-color: #FFFFFF !important;
-    }
-
-    /* Unified section blocks */
-    .ux-section-header {
-        background: linear-gradient(135deg, #FFFFFF 0%, #FBF7FF 100%);
-        border: 1px solid rgba(102,0,148,.12);
-        border-radius: var(--ux-radius-lg);
-        padding: 14px 16px;
-        margin: 14px 0 12px 0;
-        box-shadow: var(--ux-shadow-card);
-        font-family: Arial, Helvetica, sans-serif;
-    }
-    .ux-section-eyebrow {
-        color: var(--ux-purple);
-        font-size: var(--fs-caption);
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        font-weight: 950;
-        margin-bottom: 4px;
-    }
-    .ux-section-title {
-        color: var(--ux-purple-dark);
-        font-size: var(--fs-section);
-        line-height: 1.16;
-        font-weight: 950;
-        letter-spacing: -0.25px;
-    }
-    .ux-section-subtitle {
-        color: var(--ux-muted);
-        font-size: var(--fs-body);
-        line-height: 1.46;
-        margin-top: 5px;
-        max-width: 1080px;
-    }
-
-    /* Cards / panels */
-    .eusee-kpi-card,
-    .negintel-card,
-    .map-intel-card,
-    .map-insight-card,
-    .map-panel-card,
-    .executive-table-shell,
-    div[data-testid="stPlotlyChart"],
-    div[data-testid="stExpander"] {
-        border-radius: var(--ux-radius-lg) !important;
-        box-shadow: var(--ux-shadow-card) !important;
-    }
-
-    .eusee-kpi-title,
-    .negintel-title {
-        font-size: var(--fs-card-title) !important;
-        line-height: 1.12 !important;
-        font-weight: 950 !important;
-    }
-    .eusee-kpi-eyebrow,
-    .negintel-eyebrow,
-    .map-intel-card-label,
-    .executive-table-eyebrow {
-        font-size: var(--fs-caption) !important;
-        letter-spacing: .10em !important;
-        font-weight: 950 !important;
-    }
-    .eusee-kpi-value,
-    .negintel-value {
-        font-size: var(--fs-kpi) !important;
-        line-height: 1.0 !important;
-    }
-    .eusee-kpi-note,
-    .negintel-note,
-    .map-intel-card-note,
-    .executive-table-subtitle,
-    .map-panel-help {
-        font-size: 11.2px !important;
-        line-height: 1.38 !important;
-        color: var(--ux-muted) !important;
-    }
-
-    /* Chart container consistency */
-    div[data-testid="stPlotlyChart"] {
-        padding: 10px 12px 6px 12px !important;
-        border: 1px solid var(--ux-border) !important;
-        margin: 10px 0 16px 0 !important;
-        background: #FFFFFF !important;
-    }
-
-    /* Sidebar standardization */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
-        border-right: 1px solid var(--ux-border) !important;
-    }
-    section[data-testid="stSidebar"] label {
-        font-size: var(--fs-label) !important;
-        line-height: 1.2 !important;
-        font-weight: 900 !important;
-        color: #344054 !important;
-    }
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
-    section[data-testid="stSidebar"] [data-baseweb="input"],
-    div[data-baseweb="select"] > div,
-    div[data-baseweb="input"] {
-        border-radius: var(--ux-radius-md) !important;
-        min-height: 38px !important;
-        font-size: 12px !important;
-    }
-    section[data-testid="stSidebar"] .stButton > button,
-    .stButton > button,
-    .stDownloadButton > button {
-        border-radius: var(--ux-radius-md) !important;
-        font-size: 12px !important;
-        font-weight: 850 !important;
-        min-height: 38px !important;
-    }
-
-    /* Table consistency */
-    div[data-testid="stDataFrame"] {
-        border: 1px solid var(--ux-border) !important;
-        border-radius: var(--ux-radius-lg) !important;
-        box-shadow: var(--ux-shadow-card) !important;
-        overflow: hidden !important;
-    }
-
-    /* Reduce excessive vertical jitter */
-    .stMarkdown, .stPlotlyChart, .stDataFrame {
-        margin-top: 0 !important;
-    }
-
-    /* Map page refinement */
-    .map-page-shell {
-        padding: 16px !important;
-        margin-top: 8px !important;
-    }
-    .map-intel-title {
-        font-size: 19px !important;
-        line-height: 1.14 !important;
-    }
-    .map-intel-subtitle,
-    .map-insight-text,
-    .country-insight-box,
-    .map-action-list {
-        font-size: 12.2px !important;
-        line-height: 1.48 !important;
-    }
-
-    @media (max-width: 980px) {
-        .main .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-        }
-        .animated-title {
-            font-size: 28px !important;
-        }
-        .eusee-kpi-card,
-        .negintel-card,
-        .map-intel-card {
-            height: auto !important;
-            min-height: 118px !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_ux_section_header(eyebrow: str, title: str, subtitle: str = ""):
-    """Reusable standard section header for consistent tab layout."""
-    st.markdown(f"""
-    <div class="ux-section-header">
-        <div class="ux-section-eyebrow">{eyebrow}</div>
-        <div class="ux-section-title">{title}</div>
-        {f'<div class="ux-section-subtitle">{subtitle}</div>' if subtitle else ''}
-    </div>
-    """, unsafe_allow_html=True)
-
-inject_classic_dashboard_css()
-inject_standard_layout_system_css():
+def inject_classic_dashboard_css():
     """Central styling layer for a clean, classic analytical dashboard look."""
     st.markdown("""
     <style>
@@ -523,7 +260,227 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
         <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, event frequency, or a combination of these factors.</div>
         """, unsafe_allow_html=True)
 
+def inject_standard_layout_system_css():
+    """Final deployment layout and typography standardization layer."""
+    st.markdown("""
+    <style>
+    :root {
+        --ux-purple: #660094;
+        --ux-purple-dark: #2D0055;
+        --ux-teal: #008CAA;
+        --ux-yellow: #FFDB58;
+        --ux-bg: #F7F8FB;
+        --ux-border: #E6E8EF;
+        --ux-text: #263238;
+        --ux-muted: #667085;
+        --ux-radius-md: 14px;
+        --ux-radius-lg: 18px;
+        --ux-shadow-card: 0 10px 26px rgba(17,24,39,.055);
+        --fs-caption: 10px;
+        --fs-label: 11px;
+        --fs-body: 12.5px;
+        --fs-card-title: 13px;
+        --fs-section: 17px;
+        --fs-page-title: 34px;
+        --fs-kpi: 30px;
+    }
+
+    html, body, [class*="css"], .stApp {
+        font-family: Arial, Helvetica, sans-serif !important;
+        color: var(--ux-text);
+        background: var(--ux-bg);
+        font-size: var(--fs-body);
+    }
+
+    .main .block-container {
+        max-width: 1480px !important;
+        padding-top: 1.15rem !important;
+        padding-left: 1.55rem !important;
+        padding-right: 1.55rem !important;
+        padding-bottom: 2.25rem !important;
+    }
+
+    .animated-title {
+        font-size: var(--fs-page-title) !important;
+        line-height: 1.08 !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.45px !important;
+        margin-bottom: 8px !important;
+    }
+    .animated-subtitle {
+        font-size: 13px !important;
+        line-height: 1.48 !important;
+        max-width: 1040px !important;
+        color: var(--ux-muted) !important;
+        margin-bottom: 16px !important;
+    }
+    .animated-divider {
+        height: 3px !important;
+        margin-bottom: 12px !important;
+    }
+
+    div[data-testid="stTabs"] [role="tablist"] {
+        gap: 6px !important;
+        border-bottom: 1px solid var(--ux-border) !important;
+        margin-bottom: 14px !important;
+    }
+    div[data-testid="stTabs"] [role="tab"] {
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12.5px !important;
+        font-weight: 850 !important;
+        color: #475467 !important;
+        padding: 9px 12px !important;
+        border-radius: 999px 999px 0 0 !important;
+    }
+    div[data-testid="stTabs"] [aria-selected="true"] {
+        color: var(--ux-purple-dark) !important;
+        background: linear-gradient(180deg, #FFFFFF 0%, #FBF7FF 100%) !important;
+        border: 1px solid var(--ux-border) !important;
+        border-bottom-color: #FFFFFF !important;
+    }
+
+    .ux-section-header {
+        background: linear-gradient(135deg, #FFFFFF 0%, #FBF7FF 100%);
+        border: 1px solid rgba(102,0,148,.12);
+        border-radius: var(--ux-radius-lg);
+        padding: 14px 16px;
+        margin: 14px 0 12px 0;
+        box-shadow: var(--ux-shadow-card);
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .ux-section-eyebrow {
+        color: var(--ux-purple);
+        font-size: var(--fs-caption);
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        font-weight: 950;
+        margin-bottom: 4px;
+    }
+    .ux-section-title {
+        color: var(--ux-purple-dark);
+        font-size: var(--fs-section);
+        line-height: 1.16;
+        font-weight: 950;
+        letter-spacing: -0.25px;
+    }
+    .ux-section-subtitle {
+        color: var(--ux-muted);
+        font-size: var(--fs-body);
+        line-height: 1.46;
+        margin-top: 5px;
+        max-width: 1080px;
+    }
+
+    .eusee-kpi-card,
+    .negintel-card,
+    .map-intel-card,
+    .map-insight-card,
+    .map-panel-card,
+    .executive-table-shell,
+    div[data-testid="stPlotlyChart"],
+    div[data-testid="stExpander"] {
+        border-radius: var(--ux-radius-lg) !important;
+        box-shadow: var(--ux-shadow-card) !important;
+    }
+
+    .eusee-kpi-title,
+    .negintel-title {
+        font-size: var(--fs-card-title) !important;
+        line-height: 1.12 !important;
+        font-weight: 950 !important;
+    }
+    .eusee-kpi-eyebrow,
+    .negintel-eyebrow,
+    .map-intel-card-label,
+    .executive-table-eyebrow {
+        font-size: var(--fs-caption) !important;
+        letter-spacing: .10em !important;
+        font-weight: 950 !important;
+    }
+    .eusee-kpi-value,
+    .negintel-value {
+        font-size: var(--fs-kpi) !important;
+        line-height: 1.0 !important;
+    }
+    .eusee-kpi-note,
+    .negintel-note,
+    .map-intel-card-note,
+    .executive-table-subtitle,
+    .map-panel-help {
+        font-size: 11.2px !important;
+        line-height: 1.38 !important;
+        color: var(--ux-muted) !important;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        padding: 10px 12px 6px 12px !important;
+        border: 1px solid var(--ux-border) !important;
+        margin: 10px 0 16px 0 !important;
+        background: #FFFFFF !important;
+    }
+
+    section[data-testid="stSidebar"] label {
+        font-size: var(--fs-label) !important;
+        line-height: 1.2 !important;
+        font-weight: 900 !important;
+        color: #344054 !important;
+    }
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"],
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] {
+        border-radius: var(--ux-radius-md) !important;
+        min-height: 38px !important;
+        font-size: 12px !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button,
+    .stButton > button,
+    .stDownloadButton > button {
+        border-radius: var(--ux-radius-md) !important;
+        font-size: 12px !important;
+        font-weight: 850 !important;
+        min-height: 38px !important;
+    }
+
+    div[data-testid="stDataFrame"] {
+        border: 1px solid var(--ux-border) !important;
+        border-radius: var(--ux-radius-lg) !important;
+        box-shadow: var(--ux-shadow-card) !important;
+        overflow: hidden !important;
+    }
+
+    @media (max-width: 980px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        .animated-title {
+            font-size: 28px !important;
+        }
+        .eusee-kpi-card,
+        .negintel-card,
+        .map-intel-card {
+            height: auto !important;
+            min-height: 118px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def render_ux_section_header(eyebrow: str, title: str, subtitle: str = ""):
+    """Reusable standard section header for consistent tab layout."""
+    subtitle_html = f'<div class="ux-section-subtitle">{subtitle}</div>' if subtitle else ''
+    st.markdown(f"""
+    <div class="ux-section-header">
+        <div class="ux-section-eyebrow">{eyebrow}</div>
+        <div class="ux-section-title">{title}</div>
+        {subtitle_html}
+    </div>
+    """, unsafe_allow_html=True)
+
 inject_classic_dashboard_css()
+inject_standard_layout_system_css()
 
 # ---------------- AUTH ROUTING STATE ----------------
 # Dashboard opens normally. When the user clicks Sign in / Access,
@@ -3129,12 +3086,6 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
-    render_ux_section_header(
-        "Executive overview",
-        "Dashboard Summary & Alert Composition",
-        "Review filtered monitoring volume, alert composition, and high-level patterns before moving into detailed analysis."
-    )
-
     #st.subheader("Overview Metrics")
     render_summary_cards(filtered_global, card_key="overview_summary")
     a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
@@ -3218,12 +3169,6 @@ with tab_overview:
         
 # ---------------- Negative Events ----------------
 with tab_negative:
-    render_ux_section_header(
-        "Restrictive events",
-        "Negative Alerts Diagnostic View",
-        "Inspect actor, mechanism, subject, and pathway-level patterns driving restrictive civic-space alerts."
-    )
-
     #st.subheader("Negative Alerts")
     # Filter negative events
     reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -3464,11 +3409,6 @@ with tab_negative:
 with tab_map:
     # ---------------- PROFESSIONAL MAP INTELLIGENCE TAB ----------------
     render_summary_cards(filtered_global, card_key="map_summary")
-    render_ux_section_header(
-        "Geospatial analysis",
-        "Visualization Map & Country Intelligence",
-        "Explore spatial alert concentration, mapping coverage, country priority, and country-level interpretation under the current filters."
-    )
 
     MAP_FONT = "Arial"
     st.markdown("""
