@@ -15,6 +15,7 @@ import logging
 import tempfile  
 import os
 import re
+import openai
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
