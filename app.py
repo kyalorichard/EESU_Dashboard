@@ -1938,7 +1938,7 @@ def render_analytical_flow_panel(df):
     with ctrl_right:
         st.markdown(f"""
         <div class="flow-panel-badges" style="margin-top: 27px;">
-            <span class="flow-panel-badge">Records: {total_records:,}</span>
+            #<span class="flow-panel-badge">Records: {total_records:,}</span>
             <span class="flow-panel-badge">View: {'All categories' if top_n is None else 'Top ' + str(top_n)}</span>
             <span class="flow-panel-badge">Tip: hover cells and flows for counts</span>
         </div>
