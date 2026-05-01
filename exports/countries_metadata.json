@@ -141,5 +141,11 @@
   "Côte d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"},
   "Cote d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"},
   "Ivory Coast": {"iso_alpha3": "CIV", "continent": "Africa"},
-  "Papua New Guinea": {"iso_alpha3": "PNG", "continent": "Oceania"}
+  "Papua New Guinea": {"iso_alpha3": "PNG", "continent": "Oceania"},
+  "Namibia": {"iso_alpha3": "NAM", "continent": "Africa"},
+"Chad": {"iso_alpha3": "TCD", "continent": "Africa"},
+"Malawi": {"iso_alpha3": "MWI", "continent": "Africa"},
+"Burundi": {"iso_alpha3": "BDI", "continent": "Africa"},
+"Guatemala": {"iso_alpha3": "GTM", "continent": "North America"},
+"CÃ´te d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"}
 }
