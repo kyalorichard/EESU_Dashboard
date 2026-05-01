@@ -41,7 +41,7 @@ except Exception:
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 # ---------------- PROFESSIONAL CLASSIC DASHBOARD UX STYLING ----------------
-def 
+
 def inject_standard_layout_system_css():
     """Final deployment layout and typography standardization layer.
 
