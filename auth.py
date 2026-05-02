@@ -263,21 +263,11 @@ def _auth_page_css():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-        :root {
-            --bg0: #020617;
-            --bg1: #071126;
-            --ink: #0b102f;
-            --muted: #475569;
-            --violet: #6d28d9;
-            --violet2: #7c3aed;
-            --cyan: #0891b2;
-            --blue: #2563eb;
-        }
-
         section[data-testid="stSidebar"],
         header[data-testid="stHeader"],
         div[data-testid="stToolbar"],
-        div[data-testid="stDecoration"] {
+        div[data-testid="stDecoration"],
+        footer {
             display: none !important;
         }
 
@@ -304,63 +294,44 @@ def _auth_page_css():
             margin: 0;
         }
 
-        .auth-topbar {
+        /* Global page spacing */
+        .auth-shell-pad {
+            padding: 28px 52px 18px 52px;
+        }
+
+        /* Top bar */
+        .auth-topbar-box {
             height: 76px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             padding: 0 42px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.16);
             background: rgba(2, 6, 23, 0.50);
             backdrop-filter: blur(18px);
+            display: flex;
+            align-items: center;
             box-sizing: border-box;
         }
 
-        .brand-head {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .brand-badge {
-            width: 46px;
-            height: 46px;
-            border-radius: 999px;
-            display: grid;
-            place-items: center;
+        .auth-brand-mark {
             color: #facc15;
-            font-size: 26px;
-            letter-spacing: -6px;
-            transform: rotate(-8deg);
+            font-size: 25px;
+            font-weight: 900;
+            letter-spacing: -3px;
+            margin-right: 12px;
         }
 
-        .brand-title {
-            display: flex;
-            align-items: baseline;
-            gap: 16px;
-        }
-
-        .brand-title strong {
-            color: white;
+        .auth-brand-name {
             font-size: 27px;
             font-weight: 900;
             letter-spacing: -0.045em;
+            color: white;
+            margin-right: 14px;
         }
 
-        .brand-title span {
+        .auth-brand-sub {
             color: rgba(226, 232, 240, 0.78);
             font-size: 15px;
             letter-spacing: 0.045em;
-            font-weight: 500;
-        }
-
-        .top-actions {
-            display: flex;
-            align-items: center;
-            gap: 28px;
-            color: rgba(255,255,255,0.92);
-            font-size: 16px;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .status-pill {
@@ -371,7 +342,10 @@ def _auth_page_css():
             border-radius: 999px;
             background: rgba(15, 23, 42, 0.78);
             border: 1px solid rgba(148, 163, 184, 0.12);
+            color: white;
+            font-size: 15px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+            white-space: nowrap;
         }
 
         .status-dot {
@@ -380,19 +354,18 @@ def _auth_page_css():
             border-radius: 50%;
             background: #10b981;
             box-shadow: 0 0 18px rgba(16, 185, 129, 0.80);
+            display: inline-block;
         }
 
-        .auth-page {
-            padding: 28px 52px 18px 52px;
-            box-sizing: border-box;
+        .top-link {
+            color: rgba(255,255,255,0.92);
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
         }
 
-        /* Main Streamlit column row should vertically align like the target image */
-        .auth-page div[data-testid="stHorizontalBlock"] {
-            align-items: center !important;
-        }
-
-        .left-card {
+        /* Left panel */
+        .left-frame {
             position: relative;
             min-height: 742px;
             overflow: hidden;
@@ -402,7 +375,7 @@ def _auth_page_css():
             box-sizing: border-box;
         }
 
-        .left-card::after {
+        .left-frame::after {
             content: "";
             position: absolute;
             right: -58px;
@@ -418,7 +391,7 @@ def _auth_page_css():
             pointer-events: none;
         }
 
-        .left-card::before {
+        .left-frame::before {
             content: "";
             position: absolute;
             right: -20px;
@@ -434,29 +407,33 @@ def _auth_page_css():
             pointer-events: none;
         }
 
-        .left-inner {
+        .left-content-native {
             position: relative;
             z-index: 2;
             max-width: 610px;
         }
 
-        .left-main-title {
-            margin: 0 0 18px 0;
-            font-size: 52px;
-            line-height: 1.08;
-            font-weight: 950;
-            letter-spacing: -0.05em;
-            color: #ffffff;
+        .left-content-native h1 {
+            font-size: 52px !important;
+            line-height: 1.08 !important;
+            font-weight: 950 !important;
+            letter-spacing: -0.05em !important;
+            color: #ffffff !important;
+            margin: 0 0 4px 0 !important;
         }
 
-        .left-main-title .gradient {
-            display: block;
+        .left-content-native h2 {
+            font-size: 44px !important;
+            line-height: 1.10 !important;
+            font-weight: 950 !important;
+            letter-spacing: -0.05em !important;
+            margin: 0 0 18px 0 !important;
             background: linear-gradient(90deg, #a855f7 0%, #38bdf8 76%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .left-desc {
+        .left-lead {
             max-width: 525px;
             margin-bottom: 34px;
             color: rgba(226, 232, 240, 0.88);
@@ -465,21 +442,11 @@ def _auth_page_css():
             font-weight: 500;
         }
 
-        .features {
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
-            margin-bottom: 34px;
+        .feature-row {
+            margin-bottom: 22px;
         }
 
-        .feature {
-            display: grid;
-            grid-template-columns: 62px 1fr;
-            gap: 18px;
-            align-items: center;
-        }
-
-        .feature-ico {
+        .feature-icon-native {
             width: 58px;
             height: 58px;
             border-radius: 13px;
@@ -491,37 +458,29 @@ def _auth_page_css():
             box-shadow: 0 16px 34px rgba(0,0,0,0.16);
         }
 
-        .feature h3 {
-            margin: 0 0 6px 0;
+        .feature-title-native {
             color: #ffffff;
             font-size: 20px;
             font-weight: 850;
             letter-spacing: -0.02em;
+            margin: 0 0 5px 0;
         }
 
-        .feature p {
-            margin: 0;
+        .feature-desc-native {
             color: rgba(226, 232, 240, 0.78);
             font-size: 15.5px;
             line-height: 1.35;
+            margin: 0;
         }
 
-        .left-line {
+        .left-rule {
             width: 86%;
             height: 1px;
             background: rgba(148, 163, 184, 0.22);
             margin: 20px 0 28px 0;
         }
 
-        .security {
-            display: grid;
-            grid-template-columns: 76px 1fr;
-            gap: 18px;
-            align-items: center;
-            max-width: 550px;
-        }
-
-        .security-ico {
+        .security-icon-native {
             width: 72px;
             height: 72px;
             border-radius: 24px;
@@ -532,21 +491,21 @@ def _auth_page_css():
             font-size: 31px;
         }
 
-        .security h3 {
+        .security-title-native {
             margin: 0 0 8px 0;
             color: #22d3ee;
             font-size: 18px;
             font-weight: 850;
         }
 
-        .security p {
+        .security-desc-native {
             margin: 0;
             color: rgba(226, 232, 240, 0.80);
             line-height: 1.58;
             font-size: 15.5px;
         }
 
-        .copyright {
+        .copyright-native {
             position: absolute;
             left: 0;
             bottom: 0;
@@ -555,7 +514,7 @@ def _auth_page_css():
             font-size: 13px;
         }
 
-        /* Login card: Streamlit bordered container */
+        /* Right card */
         .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] {
             width: min(760px, 100%) !important;
             min-height: 750px !important;
@@ -573,20 +532,6 @@ def _auth_page_css():
             padding: 28px 48px 30px 48px !important;
         }
 
-        .back-holder {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 18px;
-        }
-
-        .back-holder + div {
-            margin-top: 0 !important;
-        }
-
-        .back-holder .fake-space {
-            height: 0;
-        }
-
         .auth-login-card .stButton > button {
             border-radius: 8px !important;
             border: 1px solid #cbd5e1 !important;
@@ -594,10 +539,6 @@ def _auth_page_css():
             color: #0f172a !important;
             font-weight: 750 !important;
             min-height: 42px !important;
-        }
-
-        .auth-login-card div[data-testid="stHorizontalBlock"] .stButton > button {
-            width: 100% !important;
         }
 
         .auth-back-btn .stButton > button {
@@ -612,15 +553,23 @@ def _auth_page_css():
             box-shadow: 0 6px 16px rgba(124,58,237,0.10) !important;
         }
 
-        .login-title-row {
-            display: grid;
-            grid-template-columns: 78px 1fr;
-            gap: 22px;
-            align-items: center;
-            margin: 6px 0 34px 0;
+        .login-heading-native h1 {
+            margin: 0 0 9px 0 !important;
+            color: #0b102f !important;
+            font-size: 34px !important;
+            line-height: 1.10 !important;
+            font-weight: 950 !important;
+            letter-spacing: -0.04em !important;
         }
 
-        .login-lock {
+        .login-heading-native p {
+            margin: 0 !important;
+            color: #475569 !important;
+            font-size: 17px !important;
+            font-weight: 500 !important;
+        }
+
+        .login-lock-native {
             width: 74px;
             height: 74px;
             border-radius: 50%;
@@ -629,37 +578,22 @@ def _auth_page_css():
             background: #f1e9ff;
             color: #6d28d9;
             font-size: 32px;
+            margin-top: 6px;
         }
 
-        .login-title-row h1 {
-            margin: 0 0 9px 0;
-            color: #0b102f;
-            font-size: 34px;
-            line-height: 1.10;
-            font-weight: 950;
-            letter-spacing: -0.04em;
-        }
-
-        .login-title-row p {
-            margin: 0;
-            color: #475569;
-            font-size: 17px;
-            font-weight: 500;
-        }
-
-        .or-row {
+        .or-native {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
             gap: 18px;
             align-items: center;
             color: #64748b;
             font-weight: 750;
-            margin: 16px 0 24px 0;
+            margin: 28px 0 24px 0;
             font-size: 16px;
         }
 
-        .or-row::before,
-        .or-row::after {
+        .or-native::before,
+        .or-native::after {
             content: "";
             height: 1px;
             background: #cbd5e1;
@@ -715,13 +649,7 @@ def _auth_page_css():
             box-shadow: 0 14px 26px rgba(37,99,235,0.28) !important;
         }
 
-        .auth-login-card button[kind="primaryFormSubmit"]:hover,
-        .auth-login-card button[kind="formSubmit"]:hover {
-            filter: brightness(1.03);
-            transform: translateY(-1px);
-        }
-
-        .below-form-link {
+        .below-form-link-native {
             text-align: center;
             margin: 20px 0 14px 0;
             color: #475569;
@@ -729,50 +657,41 @@ def _auth_page_css():
             font-weight: 500;
         }
 
-        .below-form-link span {
+        .below-form-link-native strong {
             color: #4f46e5;
             font-weight: 850;
             margin-left: 14px;
         }
 
-        .notice-box {
+        .notice-native {
             margin-top: 22px;
             border: 1px solid rgba(245, 158, 11, 0.50);
             background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
             border-radius: 10px;
             padding: 18px 22px;
             color: #1f2937;
-            display: grid;
-            grid-template-columns: 36px 1fr;
-            gap: 14px;
         }
 
-        .notice-icon {
-            color: #f59e0b;
-            font-size: 25px;
-            margin-top: 2px;
+        .notice-native h3 {
+            margin: 0 0 8px 0 !important;
+            color: #3b2f0b !important;
+            font-size: 16px !important;
+            font-weight: 850 !important;
         }
 
-        .notice-box h3 {
-            margin: 0 0 8px 0;
-            color: #3b2f0b;
-            font-size: 16px;
-            font-weight: 850;
+        .notice-native p {
+            margin: 5px 0 !important;
+            color: #111827 !important;
+            font-size: 14px !important;
         }
 
-        .notice-box p {
-            margin: 5px 0;
-            color: #111827;
-            font-size: 14px;
-        }
-
-        .notice-box .check {
+        .notice-check {
             color: #16a34a;
             font-weight: 900;
             margin-right: 8px;
         }
 
-        .bottom-footer {
+        .bottom-footer-native {
             text-align: center;
             color: rgba(226,232,240,0.70);
             font-size: 14px;
@@ -780,7 +699,6 @@ def _auth_page_css():
             font-weight: 500;
         }
 
-        /* Hide Streamlit's extra blank spacing in this page */
         .auth-login-card div[data-testid="stForm"] {
             border: 0 !important;
             padding: 0 !important;
@@ -791,12 +709,16 @@ def _auth_page_css():
         }
 
         @media (max-width: 1200px) {
-            .auth-page {
+            .auth-shell-pad {
                 padding: 28px 32px 18px 32px;
             }
 
-            .left-main-title {
-                font-size: 46px;
+            .left-content-native h1 {
+                font-size: 46px !important;
+            }
+
+            .left-content-native h2 {
+                font-size: 38px !important;
             }
 
             .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
@@ -805,16 +727,12 @@ def _auth_page_css():
         }
 
         @media (max-width: 980px) {
-            .auth-page div[data-testid="stHorizontalBlock"] {
-                display: block !important;
-            }
-
-            .left-card {
+            .left-frame {
                 min-height: auto;
                 padding: 36px 0;
             }
 
-            .copyright {
+            .copyright-native {
                 position: static;
                 margin-top: 38px;
             }
@@ -823,31 +741,27 @@ def _auth_page_css():
                 min-height: auto !important;
                 margin-top: 24px !important;
             }
-
-            .top-actions {
-                display: none;
-            }
         }
 
         @media (max-width: 640px) {
-            .auth-topbar {
+            .auth-topbar-box {
                 padding: 0 18px;
             }
 
-            .brand-title span {
+            .auth-brand-sub {
                 display: none;
             }
 
-            .auth-page {
+            .auth-shell-pad {
                 padding: 20px 18px;
             }
 
-            .left-main-title {
-                font-size: 38px;
+            .left-content-native h1 {
+                font-size: 38px !important;
             }
 
-            .login-title-row {
-                grid-template-columns: 1fr;
+            .left-content-native h2 {
+                font-size: 34px !important;
             }
 
             .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
@@ -861,125 +775,109 @@ def _auth_page_css():
 
 
 # ============================================================
-# Static HTML sections
+# Render components
 # ============================================================
 def _render_topbar():
-    st.markdown(
-        """
-        <div class="auth-topbar">
-            <div class="brand-head">
-                <div class="brand-badge">✦✦✦</div>
-                <div class="brand-title">
-                    <strong>EU SEE</strong>
-                    <span>INTELLIGENCE PLATFORM</span>
-                </div>
-            </div>
+    st.markdown('<div class="auth-topbar-box">', unsafe_allow_html=True)
+    left, right = st.columns([0.52, 0.48], vertical_alignment="center")
 
-            <div class="top-actions">
-                <div class="status-pill">
-                    <span class="status-dot"></span>
-                    <span>System Status: <strong>Operational</strong></span>
-                </div>
-                <span>ⓘ Help</span>
-                <span>▤ Docs</span>
-                <span>◎ English⌄</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    with left:
+        st.markdown(
+            '<span class="auth-brand-mark">✦✦✦</span>'
+            '<span class="auth-brand-name">EU SEE</span>'
+            '<span class="auth-brand-sub">INTELLIGENCE PLATFORM</span>',
+            unsafe_allow_html=True,
+        )
+
+    with right:
+        c1, c2, c3, c4 = st.columns([1.6, 0.55, 0.55, 0.75], vertical_alignment="center")
+        with c1:
+            st.markdown(
+                '<span class="status-pill"><span class="status-dot"></span>'
+                'System Status: <strong>Operational</strong></span>',
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown('<span class="top-link">ⓘ Help</span>', unsafe_allow_html=True)
+        with c3:
+            st.markdown('<span class="top-link">▤ Docs</span>', unsafe_allow_html=True)
+        with c4:
+            st.markdown('<span class="top-link">◎ English⌄</span>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _feature_item(icon, title, desc):
+    icon_col, text_col = st.columns([0.15, 0.85], vertical_alignment="center")
+    with icon_col:
+        st.markdown(f'<div class="feature-icon-native">{icon}</div>', unsafe_allow_html=True)
+    with text_col:
+        st.markdown(f'<p class="feature-title-native">{title}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="feature-desc-native">{desc}</p>', unsafe_allow_html=True)
 
 
 def _render_left_panel():
+    st.markdown('<div class="left-frame"><div class="left-content-native">', unsafe_allow_html=True)
+
+    st.markdown("# EU SEE")
+    st.markdown("## Intelligence Platform")
+
     st.markdown(
         """
-        <div class="left-card">
-            <div class="left-inner">
-                <div class="left-main-title">
-                    EU SEE
-                    <span class="gradient">Intelligence Platform</span>
-                </div>
-
-                <div class="left-desc">
-                    Secure access to real-time geopolitical analytics,
-                    risk signals, and cross-country monitoring across
-                    South East Europe and beyond.
-                </div>
-
-                <div class="features">
-                    <div class="feature">
-                        <div class="feature-ico">◎</div>
-                        <div>
-                            <h3>86 Countries Monitored</h3>
-                            <p>Comprehensive coverage and real-time updates</p>
-                        </div>
-                    </div>
-
-                    <div class="feature">
-                        <div class="feature-ico">▮</div>
-                        <div>
-                            <h3>Real-time Signal Processing</h3>
-                            <p>AI-powered detection and analytics engine</p>
-                        </div>
-                    </div>
-
-                    <div class="feature">
-                        <div class="feature-ico">◇</div>
-                        <div>
-                            <h3>AI-driven Risk Classification</h3>
-                            <p>Advanced models for early risk identification</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="left-line"></div>
-
-                <div class="security">
-                    <div class="security-ico">🔐</div>
-                    <div>
-                        <h3>Enterprise-grade security</h3>
-                        <p>Your data is protected with end-to-end encryption and strict access controls.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="copyright">
-                © 2024 EU SEE Intelligence Platform. All rights reserved.
-            </div>
+        <div class="left-lead">
+        Secure access to real-time geopolitical analytics,
+        risk signals, and cross-country monitoring across
+        South East Europe and beyond.
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    _feature_item("◎", "86 Countries Monitored", "Comprehensive coverage and real-time updates")
+    _feature_item("▮", "Real-time Signal Processing", "AI-powered detection and analytics engine")
+    _feature_item("◇", "AI-driven Risk Classification", "Advanced models for early risk identification")
+
+    st.markdown('<div class="left-rule"></div>', unsafe_allow_html=True)
+
+    sec_icon, sec_text = st.columns([0.17, 0.83], vertical_alignment="center")
+    with sec_icon:
+        st.markdown('<div class="security-icon-native">🔐</div>', unsafe_allow_html=True)
+    with sec_text:
+        st.markdown('<p class="security-title-native">Enterprise-grade security</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<p class="security-desc-native">Your data is protected with end-to-end encryption and strict access controls.</p>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('</div><div class="copyright-native">© 2024 EU SEE Intelligence Platform. All rights reserved.</div></div>', unsafe_allow_html=True)
 
 
 def _render_login_header(mode_title, mode_subtitle):
-    st.markdown(
-        f"""
-        <div class="login-title-row">
-            <div class="login-lock">▣</div>
-            <div>
+    lock_col, text_col = st.columns([0.13, 0.87], vertical_alignment="center")
+    with lock_col:
+        st.markdown('<div class="login-lock-native">▣</div>', unsafe_allow_html=True)
+    with text_col:
+        st.markdown(
+            f"""
+            <div class="login-heading-native">
                 <h1>{mode_title}</h1>
                 <p>{mode_subtitle}</p>
             </div>
-        </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        <div class="or-row">OR</div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="or-native">OR</div>', unsafe_allow_html=True)
 
 
 def _render_notice():
     st.markdown(
         """
-        <div class="notice-box">
-            <div class="notice-icon">🛡️</div>
-            <div>
-                <h3>Secure Access Notice</h3>
-                <p><span class="check">✓</span>Access restricted to verified institutional domains</p>
-                <p><span class="check">✓</span>All activity is logged and monitored</p>
-                <p><span class="check">✓</span>Session protected with enterprise-grade encryption</p>
-            </div>
+        <div class="notice-native">
+            <h3>🛡️ Secure Access Notice</h3>
+            <p><span class="notice-check">✓</span>Access restricted to verified institutional domains</p>
+            <p><span class="notice-check">✓</span>All activity is logged and monitored</p>
+            <p><span class="notice-check">✓</span>Session protected with enterprise-grade encryption</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1058,11 +956,7 @@ def _login_form():
             st.error(parse_error(e))
 
     st.markdown(
-        """
-        <div class="below-form-link">
-            Don’t have an account? <span>Create account</span>
-        </div>
-        """,
+        '<div class="below-form-link-native">Don’t have an account? <strong>Create account</strong></div>',
         unsafe_allow_html=True,
     )
 
@@ -1170,9 +1064,9 @@ def _render_auth_page():
         "Reset": "Enter your approved email address to receive a password reset link.",
     }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
 
-    st.markdown('<div class="auth-page">', unsafe_allow_html=True)
+    st.markdown('<div class="auth-shell-pad">', unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([0.445, 0.555], gap="large")
+    left_col, right_col = st.columns([0.445, 0.555], gap="large", vertical_alignment="center")
 
     with left_col:
         _render_left_panel()
@@ -1181,9 +1075,8 @@ def _render_auth_page():
         st.markdown('<div class="auth-login-card">', unsafe_allow_html=True)
 
         with st.container(border=True):
-            # Right-aligned button using columns, not open HTML around the button
-            b1, b2 = st.columns([0.70, 0.30])
-            with b2:
+            back_left, back_right = st.columns([0.70, 0.30])
+            with back_right:
                 st.markdown('<div class="auth-back-btn">', unsafe_allow_html=True)
                 if st.button("←  Back to dashboard", key="back_to_dashboard_auth"):
                     _back_to_dashboard()
@@ -1205,11 +1098,7 @@ def _render_auth_page():
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(
-        """
-        <div class="bottom-footer">
-            🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready
-        </div>
-        """,
+        '<div class="bottom-footer-native">🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready</div>',
         unsafe_allow_html=True,
     )
 
