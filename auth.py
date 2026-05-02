@@ -1,7 +1,6 @@
 # auth.py
 import json
 import time
-import html
 import streamlit as st
 
 DEBUG = False
@@ -258,6 +257,9 @@ def parse_error(e):
 
 # -----------------------------
 # Styling
+# IMPORTANT:
+# This version avoids wrapping Streamlit widgets inside open HTML <div> blocks.
+# That is what caused raw HTML to appear and pushed inputs/buttons outside the card.
 # -----------------------------
 def _auth_page_css():
     st.markdown(
@@ -284,11 +286,6 @@ def _auth_page_css():
             padding: 0 !important;
         }
 
-        .auth-shell {
-            min-height: 100vh;
-            font-family: Inter, Arial, sans-serif;
-        }
-
         .auth-topbar {
             height: 72px;
             display: flex;
@@ -298,6 +295,7 @@ def _auth_page_css():
             border-bottom: 1px solid rgba(148, 163, 184, 0.18);
             background: rgba(2, 6, 23, 0.58);
             backdrop-filter: blur(18px);
+            font-family: Inter, Arial, sans-serif;
         }
 
         .brand-head {
@@ -354,25 +352,22 @@ def _auth_page_css():
             box-shadow: 0 0 18px rgba(16, 185, 129, 0.75);
         }
 
-        .auth-body {
-            min-height: calc(100vh - 72px);
-            display: grid;
-            grid-template-columns: 45% 55%;
-            align-items: center;
-            gap: 38px;
+        .auth-spacer {
             padding: 32px 58px 26px 58px;
         }
 
-        .left-panel {
+        .left-panel-card {
             position: relative;
             min-height: 760px;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            overflow: hidden;
+            font-family: Inter, Arial, sans-serif;
         }
 
-        .map-orb {
+        .left-panel-card::after {
+            content: "";
             position: absolute;
             right: -40px;
             top: 145px;
@@ -386,7 +381,7 @@ def _auth_page_css():
             -webkit-mask-image: radial-gradient(circle, black 0%, transparent 72%);
         }
 
-        .left-content {
+        .left-panel-inner {
             position: relative;
             z-index: 2;
             max-width: 620px;
@@ -499,20 +494,25 @@ def _auth_page_css():
             bottom: 8px;
             color: rgba(226, 232, 240, 0.62);
             font-size: 13px;
+            z-index: 2;
         }
 
-        .login-card {
-            width: min(760px, 100%);
-            min-height: 720px;
-            margin: 0 auto;
+        /* Style Streamlit bordered containers as the white login panel */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
             background:
                 radial-gradient(circle at 90% 8%, rgba(124, 58, 237, 0.08), transparent 22%),
-                #ffffff;
-            color: #0f172a;
-            border-radius: 14px;
-            padding: 28px 48px 28px 48px;
-            box-shadow: 0 32px 90px rgba(0,0,0,0.38);
-            border: 1px solid rgba(255,255,255,0.70);
+                #ffffff !important;
+            color: #0f172a !important;
+            border-radius: 14px !important;
+            border: 1px solid rgba(255,255,255,0.70) !important;
+            box-shadow: 0 32px 90px rgba(0,0,0,0.38) !important;
+            min-height: 720px !important;
+            max-width: 760px !important;
+            margin: 0 auto !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] > div {
+            padding: 28px 48px 28px 48px !important;
         }
 
         .back-row {
@@ -538,6 +538,7 @@ def _auth_page_css():
             gap: 22px;
             align-items: center;
             margin-bottom: 32px;
+            font-family: Inter, Arial, sans-serif;
         }
 
         .login-lock {
@@ -574,6 +575,7 @@ def _auth_page_css():
             color: #64748b;
             font-weight: 700;
             margin: 12px 0 24px 0;
+            font-family: Inter, Arial, sans-serif;
         }
 
         .or-row::before,
@@ -633,6 +635,7 @@ def _auth_page_css():
             margin: 22px 0 12px 0;
             color: #475569;
             font-size: 15px;
+            font-family: Inter, Arial, sans-serif;
         }
 
         .form-link-row span {
@@ -647,6 +650,7 @@ def _auth_page_css():
             border-radius: 10px;
             padding: 18px 22px;
             color: #1f2937;
+            font-family: Inter, Arial, sans-serif;
         }
 
         .secure-notice h3 {
@@ -670,16 +674,16 @@ def _auth_page_css():
             text-align: center;
             color: rgba(226,232,240,0.70);
             font-size: 14px;
-            margin-top: 18px;
+            margin: 18px 0 24px 0;
+            font-family: Inter, Arial, sans-serif;
         }
 
         @media (max-width: 1100px) {
-            .auth-body {
-                grid-template-columns: 1fr;
+            .auth-spacer {
                 padding: 24px;
             }
 
-            .left-panel {
+            .left-panel-card {
                 min-height: auto;
                 padding: 40px 0;
             }
@@ -689,8 +693,8 @@ def _auth_page_css():
                 margin-top: 40px;
             }
 
-            .login-card {
-                min-height: auto;
+            div[data-testid="stVerticalBlockBorderWrapper"] {
+                min-height: auto !important;
             }
         }
 
@@ -711,8 +715,8 @@ def _auth_page_css():
                 font-size: 40px;
             }
 
-            .login-card {
-                padding: 24px;
+            div[data-testid="stVerticalBlockBorderWrapper"] > div {
+                padding: 24px !important;
             }
 
             .login-heading {
@@ -726,11 +730,11 @@ def _auth_page_css():
 
 
 # -----------------------------
-# HTML blocks
+# Render blocks
 # -----------------------------
-def _topbar_html():
-    return """
-    <div class="auth-shell">
+def _render_topbar():
+    st.markdown(
+        """
         <div class="auth-topbar">
             <div class="brand-head">
                 <div class="brand-stars">✦✦✦</div>
@@ -750,14 +754,16 @@ def _topbar_html():
                 <span>◎ English⌄</span>
             </div>
         </div>
-    """
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def _left_panel_html():
-    return """
-        <div class="left-panel">
-            <div class="map-orb"></div>
-            <div class="left-content">
+def _render_left_panel():
+    st.markdown(
+        """
+        <div class="left-panel-card">
+            <div class="left-panel-inner">
                 <div class="left-title">
                     EU SEE
                     <span class="gradient">Intelligence Platform</span>
@@ -810,32 +816,40 @@ def _left_panel_html():
                 © 2024 EU SEE Intelligence Platform. All rights reserved.
             </div>
         </div>
-    """
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def _login_header_html(mode_title, mode_subtitle):
-    return f"""
+def _render_login_header(mode_title, mode_subtitle):
+    st.markdown(
+        f"""
         <div class="login-heading">
             <div class="login-lock">🔒</div>
             <div>
-                <h1>{html.escape(mode_title)}</h1>
-                <p>{html.escape(mode_subtitle)}</p>
+                <h1>{mode_title}</h1>
+                <p>{mode_subtitle}</p>
             </div>
         </div>
 
         <div class="or-row">OR</div>
-    """
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def _secure_notice_html():
-    return """
+def _render_secure_notice():
+    st.markdown(
+        """
         <div class="secure-notice">
             <h3>🛡️ Secure Access Notice</h3>
             <p><span class="check">✓</span>Access restricted to verified institutional domains</p>
             <p><span class="check">✓</span>All activity is logged and monitored</p>
             <p><span class="check">✓</span>Session protected with enterprise-grade encryption</p>
         </div>
-    """
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # -----------------------------
@@ -919,6 +933,7 @@ def _login_form():
     )
 
     c1, c2 = st.columns(2)
+
     with c1:
         if st.button("Create account", use_container_width=True, key="switch_register"):
             _set_auth_mode("Register")
@@ -1007,6 +1022,7 @@ def _reset_form():
 # -----------------------------
 def _render_auth_page():
     _auth_page_css()
+    _render_topbar()
 
     mode = st.session_state.get("auth_mode", "Login")
 
@@ -1022,41 +1038,39 @@ def _render_auth_page():
         "Reset": "Enter your approved email address to receive a password reset link.",
     }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
 
-    st.markdown(_topbar_html(), unsafe_allow_html=True)
+    st.markdown('<div class="auth-spacer">', unsafe_allow_html=True)
 
-    body_left, body_right = st.columns([0.45, 0.55], gap="large")
+    left_col, right_col = st.columns([0.45, 0.55], gap="large")
 
-    with body_left:
-        st.markdown(_left_panel_html(), unsafe_allow_html=True)
+    with left_col:
+        _render_left_panel()
 
-    with body_right:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    with right_col:
+        with st.container(border=True):
+            back_col_1, back_col_2 = st.columns([0.68, 0.32])
+            with back_col_2:
+                st.markdown('<div class="auth-back-button">', unsafe_allow_html=True)
+                if st.button("←  Back to dashboard", key="back_to_dashboard_auth"):
+                    _back_to_dashboard()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="back-row"><div class="auth-back-button">', unsafe_allow_html=True)
-        if st.button("←  Back to dashboard", key="back_to_dashboard_auth"):
-            _back_to_dashboard()
-        st.markdown('</div></div>', unsafe_allow_html=True)
+            _render_login_header(mode_title, mode_subtitle)
 
-        st.markdown(
-            _login_header_html(mode_title, mode_subtitle),
-            unsafe_allow_html=True
-        )
+            if mode == "Login":
+                _login_form()
+            elif mode == "Register":
+                _register_form()
+            else:
+                _reset_form()
 
-        if mode == "Login":
-            _login_form()
-        elif mode == "Register":
-            _register_form()
-        else:
-            _reset_form()
+            _render_secure_notice()
 
-        st.markdown(_secure_notice_html(), unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(
         """
         <div class="bottom-footer">
             🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready
-        </div>
         </div>
         """,
         unsafe_allow_html=True,
