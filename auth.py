@@ -263,57 +263,309 @@ def _auth_page_css():
         <style>
         section[data-testid="stSidebar"] { display: none !important; }
         header[data-testid="stHeader"] { background: transparent !important; }
+
+        html, body, .stApp {
+            background:
+                radial-gradient(circle at 8% 12%, rgba(102, 0, 148, 0.12), transparent 28%),
+                radial-gradient(circle at 94% 18%, rgba(0, 140, 170, 0.14), transparent 28%),
+                radial-gradient(circle at 50% 100%, rgba(255, 219, 88, 0.15), transparent 30%),
+                linear-gradient(135deg, #FBF8FD 0%, #F7FBFD 45%, #FFFAF0 100%) !important;
+        }
+
         .block-container {
             max-width: 1120px !important;
-            padding-top: 2.5rem !important;
-            padding-bottom: 2.5rem !important;
+            padding-top: 1.7rem !important;
+            padding-bottom: 1.7rem !important;
         }
-        .auth-page-title { text-align: center; margin-bottom: 18px; font-family: Arial, sans-serif; }
+
+        .auth-page-title {
+            text-align: center;
+            margin-bottom: 18px;
+            font-family: Arial, sans-serif;
+        }
+
         .auth-page-title h1 {
-            margin: 0; color: #231942; font-size: 32px;
-            font-family: Arial Black, Arial, sans-serif; letter-spacing: -0.6px;
+            margin: 0;
+            color: #231942;
+            font-size: 32px;
+            font-family: Arial Black, Arial, sans-serif;
+            letter-spacing: -0.6px;
         }
-        .auth-page-title p { margin: 8px 0 0 0; color: #6f667a; font-size: 13px; }
+
+        .auth-page-title p {
+            margin: 8px 0 0 0;
+            color: #6f667a;
+            font-size: 13px;
+        }
+
+        /* Equal height Streamlit columns */
+        div[data-testid="stHorizontalBlock"] {
+            align-items: stretch !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] > div {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] > div > div {
+            flex: 1 1 auto !important;
+        }
+
         .auth-brand-card {
-            min-height: 520px; height: 100%; border-radius: 26px; padding: 38px 36px 30px 36px;
+            height: 100% !important;
+            min-height: 560px;
+            border-radius: 28px;
+            padding: 38px 36px 30px 36px;
             color: white;
-            background: radial-gradient(circle at 88% 16%, rgba(255,219,88,0.34), transparent 25%),
-                        radial-gradient(circle at 20% 88%, rgba(255,255,255,0.15), transparent 30%),
-                        linear-gradient(155deg, #660094 0%, #4b006f 55%, #008CAA 100%);
+            background:
+                radial-gradient(circle at 88% 16%, rgba(255,219,88,0.34), transparent 25%),
+                radial-gradient(circle at 20% 88%, rgba(255,255,255,0.15), transparent 30%),
+                linear-gradient(155deg, #660094 0%, #4b006f 55%, #008CAA 100%);
             box-shadow: 0 24px 70px rgba(35,25,66,0.22);
-            display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            overflow: hidden;
         }
-        .brand-eyebrow { font-size: 11px; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 900; color: #FFDB58; margin-bottom: 12px; font-family: Arial, sans-serif; }
-        .brand-title { font-family: Arial Black, Arial, sans-serif; font-size: 46px; line-height: 0.96; letter-spacing: -1.4px; margin-bottom: 16px; }
-        .brand-text { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.62; max-width: 440px; color: rgba(255,255,255,0.93); }
-        .brand-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
-        .brand-badge { border: 1px solid rgba(255,255,255,0.26); background: rgba(255,255,255,0.13); border-radius: 999px; padding: 8px 12px; font-size: 11px; font-weight: 800; font-family: Arial, sans-serif; color: white; }
-        .auth-brand-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 30px; }
-        .mini-stat { background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.19); border-radius: 16px; padding: 12px; }
-        .mini-stat-value { color: #FFDB58; font-size: 18px; font-weight: 900; font-family: Arial Black, Arial, sans-serif; }
-        .mini-stat-label { color: rgba(255,255,255,0.84); font-size: 10px; font-family: Arial, sans-serif; margin-top: 3px; }
-        div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 26px !important; border: 1px solid rgba(102,0,148,0.12) !important; box-shadow: 0 24px 70px rgba(35,25,66,0.14) !important; background: #ffffff !important; }
-        div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 32px 36px 28px 36px !important; }
-        .auth-pill { display: inline-flex; align-items: center; gap: 7px; background: #f7f0fb; color: #660094; border: 1px solid #eadcf3; border-radius: 999px; padding: 7px 11px; font-size: 11px; font-weight: 900; font-family: Arial, sans-serif; }
-        .form-title { font-family: Arial Black, Arial, sans-serif; color: #231942; font-size: 28px; letter-spacing: -0.3px; margin: 18px 0 6px 0; }
-        .form-subtitle { font-family: Arial, sans-serif; color: #6f667a; font-size: 13px; line-height: 1.55; margin-bottom: 18px; }
-        .mode-card { display: grid; grid-template-columns: 1fr 1fr; background: #f8f5fb; border: 1px solid #eee6f6; border-radius: 14px; padding: 4px; margin-bottom: 16px; gap: 4px; }
-        .mode-active, .mode-inactive { text-align: center; border-radius: 11px; padding: 9px 10px; font-family: Arial, sans-serif; font-size: 12px; font-weight: 900; }
-        .mode-active { color: white; background: linear-gradient(135deg, #660094, #008CAA); box-shadow: 0 8px 20px rgba(102,0,148,0.20); }
-        .mode-inactive { color: #6f667a; }
-        .auth-note { background: #fffaf0; border: 1px solid rgba(255,219,88,0.55); border-left: 4px solid #FFDB58; border-radius: 14px; padding: 11px 13px; color: #4b3b14; font-size: 11.5px; line-height: 1.42; font-family: Arial, sans-serif; margin-top: 14px; }
-        label p { font-size: 12px !important; font-weight: 900 !important; color: #332045 !important; }
-        div[data-testid="stTextInput"] input { border-radius: 12px !important; min-height: 44px !important; font-size: 13px !important; border: 1px solid #e7ddec !important; background: #fcfbfd !important; }
-        div[data-testid="stTextInput"] input:focus { border-color: #660094 !important; box-shadow: 0 0 0 2px rgba(102,0,148,0.10) !important; }
-        div[data-testid="stForm"] { border: 0 !important; padding: 0 !important; }
-        button[kind="primaryFormSubmit"], button[kind="formSubmit"] { border-radius: 12px !important; min-height: 45px !important; font-weight: 900 !important; background: linear-gradient(135deg, #660094, #008CAA) !important; border: 0 !important; }
-        .small-footer { text-align: center; color: #91869b; font-size: 10.5px; font-family: Arial, sans-serif; margin-top: 16px; }
+
+        .brand-eyebrow {
+            font-size: 11px;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            font-weight: 900;
+            color: #FFDB58;
+            margin-bottom: 12px;
+            font-family: Arial, sans-serif;
+        }
+
+        .brand-title {
+            font-family: Arial Black, Arial, sans-serif;
+            font-size: 46px;
+            line-height: 0.96;
+            letter-spacing: -1.4px;
+            margin-bottom: 16px;
+        }
+
+        .brand-text {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.62;
+            max-width: 440px;
+            color: rgba(255,255,255,0.93);
+        }
+
+        .brand-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .brand-badge {
+            border: 1px solid rgba(255,255,255,0.26);
+            background: rgba(255,255,255,0.13);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 800;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+
+        .auth-brand-footer {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .mini-stat {
+            background: rgba(255,255,255,0.13);
+            border: 1px solid rgba(255,255,255,0.19);
+            border-radius: 16px;
+            padding: 12px;
+        }
+
+        .mini-stat-value {
+            color: #FFDB58;
+            font-size: 18px;
+            font-weight: 900;
+            font-family: Arial Black, Arial, sans-serif;
+        }
+
+        .mini-stat-label {
+            color: rgba(255,255,255,0.84);
+            font-size: 10px;
+            font-family: Arial, sans-serif;
+            margin-top: 3px;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            height: 100% !important;
+            min-height: 560px !important;
+            border-radius: 28px !important;
+            border: 1px solid rgba(102,0,148,0.12) !important;
+            box-shadow: 0 24px 70px rgba(35,25,66,0.14) !important;
+            background: rgba(255,255,255,0.94) !important;
+            backdrop-filter: blur(14px) !important;
+            display: flex !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] > div {
+            width: 100%;
+            height: 100%;
+            padding: 32px 36px 28px 36px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            box-sizing: border-box;
+        }
+
+        .auth-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #f7f0fb;
+            color: #660094;
+            border: 1px solid #eadcf3;
+            border-radius: 999px;
+            padding: 7px 11px;
+            font-size: 11px;
+            font-weight: 900;
+            font-family: Arial, sans-serif;
+        }
+
+        .form-title {
+            font-family: Arial Black, Arial, sans-serif;
+            color: #231942;
+            font-size: 28px;
+            letter-spacing: -0.3px;
+            margin: 18px 0 6px 0;
+        }
+
+        .form-subtitle {
+            font-family: Arial, sans-serif;
+            color: #6f667a;
+            font-size: 13px;
+            line-height: 1.55;
+            margin-bottom: 18px;
+        }
+
+        .mode-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: #f8f5fb;
+            border: 1px solid #eee6f6;
+            border-radius: 14px;
+            padding: 4px;
+            margin-bottom: 16px;
+            gap: 4px;
+        }
+
+        .mode-active, .mode-inactive {
+            text-align: center;
+            border-radius: 11px;
+            padding: 9px 10px;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .mode-active {
+            color: white;
+            background: linear-gradient(135deg, #660094, #008CAA);
+            box-shadow: 0 8px 20px rgba(102,0,148,0.20);
+        }
+
+        .mode-inactive {
+            color: #6f667a;
+        }
+
+        .auth-note {
+            background: #fffaf0;
+            border: 1px solid rgba(255,219,88,0.55);
+            border-left: 4px solid #FFDB58;
+            border-radius: 14px;
+            padding: 11px 13px;
+            color: #4b3b14;
+            font-size: 11.5px;
+            line-height: 1.42;
+            font-family: Arial, sans-serif;
+            margin-top: 14px;
+        }
+
+        label p {
+            font-size: 12px !important;
+            font-weight: 900 !important;
+            color: #332045 !important;
+        }
+
+        div[data-testid="stTextInput"] input {
+            border-radius: 12px !important;
+            min-height: 44px !important;
+            font-size: 13px !important;
+            border: 1px solid #e7ddec !important;
+            background: #fcfbfd !important;
+        }
+
+        div[data-testid="stTextInput"] input:focus {
+            border-color: #660094 !important;
+            box-shadow: 0 0 0 2px rgba(102,0,148,0.10) !important;
+        }
+
+        div[data-testid="stForm"] {
+            border: 0 !important;
+            padding: 0 !important;
+        }
+
+        button[kind="primaryFormSubmit"], button[kind="formSubmit"] {
+            border-radius: 12px !important;
+            min-height: 45px !important;
+            font-weight: 900 !important;
+            background: linear-gradient(135deg, #660094, #008CAA) !important;
+            border: 0 !important;
+        }
+
+        button {
+            border-radius: 12px !important;
+            font-weight: 800 !important;
+        }
+
+        .small-footer {
+            text-align: center;
+            color: #91869b;
+            font-size: 10.5px;
+            font-family: Arial, sans-serif;
+            margin-top: 16px;
+        }
+
         @media (max-width: 900px) {
-            .block-container { padding-top: 1.2rem !important; }
-            .auth-brand-card { min-height: auto; padding: 28px; }
-            .brand-title { font-size: 36px; }
-            .auth-brand-footer { grid-template-columns: 1fr; }
-            div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 24px !important; }
+            .block-container {
+                padding-top: 1.2rem !important;
+            }
+
+            .auth-brand-card {
+                min-height: auto;
+                padding: 28px;
+            }
+
+            .brand-title {
+                font-size: 36px;
+            }
+
+            .auth-brand-footer {
+                grid-template-columns: 1fr;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"] {
+                min-height: auto !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"] > div {
+                padding: 24px !important;
+            }
         }
         </style>
         """,
@@ -340,7 +592,7 @@ def _login_form():
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized.")
+            st.error("Firebase authentication is not initialized. Check Firebase secrets and required packages.")
             return
         if not email or not password:
             st.error("Enter email and password.")
@@ -384,7 +636,7 @@ def _register_form():
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized.")
+            st.error("Firebase authentication is not initialized. Check Firebase secrets and required packages.")
             return
         if not email or not password:
             st.error("Enter email and password.")
@@ -410,7 +662,7 @@ def _reset_form():
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized.")
+            st.error("Firebase authentication is not initialized. Check Firebase secrets and required packages.")
             return
         if not reset_email:
             st.warning("Enter your email first.")
