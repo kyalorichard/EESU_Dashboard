@@ -16,6 +16,8 @@ import tempfile
 import os
 import re
 
+# OPENAI PACKAGE NOTE: install with `pip install --upgrade openai` and set OPENAI_API_KEY in .streamlit/secrets.toml.
+
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
 try:
@@ -4502,6 +4504,84 @@ def _ai_build_grounded_context(df):
             "Counts reflect filtered records and may also reflect reporting intensity, monitoring coverage, or submission patterns.",
         ],
     }
+
+
+
+def ai_build_visual_context(df):
+    """Build structured visual-context evidence for map, relationship, trend, and chart-explanation workflows.
+
+    This compatibility helper fixes calls from _ai_build_focused_context(...) and gives
+    the OpenAI copilot compact evidence about the currently filtered dashboard view.
+    """
+    if df is None or df.empty:
+        return {
+            "status": "No records available under the current dashboard filters.",
+            "map": {},
+            "relationship_view": {},
+            "trend": {},
+        }
+
+    visual = {
+        "status": "Current filtered EUSEE dashboard data only.",
+        "record_count": int(len(df)),
+        "map": {},
+        "relationship_view": {},
+        "trend": {},
+        "chart_ready_fields": [],
+    }
+
+    try:
+        if "alert-country" in df.columns:
+            country_counts = df["alert-country"].dropna().astype(str).str.strip().value_counts().head(10)
+            visual["map"] = {
+                "top_countries_by_filtered_alerts": country_counts.to_dict(),
+                "country_count": int(df["alert-country"].nunique()),
+            }
+    except Exception as e:
+        visual["map"] = {"error": str(e)}
+
+    try:
+        neg_df = df[df["alert-impact"] == "Negative"].copy() if "alert-impact" in df.columns else df.copy()
+        visual["relationship_view"] = {
+            "top_actors": _safe_exploded_counts(neg_df, "Actor of repression", 8),
+            "top_mechanisms": _safe_exploded_counts(neg_df, "Mechanism of repression", 8),
+            "top_subjects": _safe_exploded_counts(neg_df, "Subject of repression", 8),
+            "dominant_actor_mechanism_pairs": [],
+        }
+        if {"Actor of repression", "Mechanism of repression"}.issubset(set(neg_df.columns)):
+            pair_df = neg_df[["Actor of repression", "Mechanism of repression"]].dropna().copy()
+            if not pair_df.empty:
+                pair_df["Actor of repression"] = pair_df["Actor of repression"].astype(str).str.split(",")
+                pair_df["Mechanism of repression"] = pair_df["Mechanism of repression"].astype(str).str.split(",")
+                pairs = []
+                for _, row in pair_df.iterrows():
+                    actors = [a.strip() for a in row["Actor of repression"] if str(a).strip()]
+                    mechs = [m.strip() for m in row["Mechanism of repression"] if str(m).strip()]
+                    for actor in actors:
+                        for mech in mechs:
+                            pairs.append((actor, mech))
+                if pairs:
+                    pair_counts = pd.Series(pairs).value_counts().head(8)
+                    visual["relationship_view"]["dominant_actor_mechanism_pairs"] = [
+                        {"actor": k[0], "mechanism": k[1], "count": int(v)} for k, v in pair_counts.items()
+                    ]
+    except Exception as e:
+        visual["relationship_view"] = {"error": str(e)}
+
+    try:
+        visual["trend"] = {
+            "trend_sentence": _trend_sentence(df),
+            "recent_monthly_counts": _month_trend(df).tail(12).to_dict(orient="records"),
+        }
+    except Exception as e:
+        visual["trend"] = {"error": str(e)}
+
+    try:
+        visual["chart_ready_fields"] = [label for label, _ in _ai_get_available_plot_dimensions(df)]
+    except Exception:
+        visual["chart_ready_fields"] = []
+
+    return visual
 
 
 
