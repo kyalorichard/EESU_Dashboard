@@ -255,7 +255,7 @@ def parse_error(e):
 
 
 # ============================================================
-# CSS: standardized professional UX
+# CSS: stable Streamlit-safe professional login layout
 # ============================================================
 def _auth_page_css():
     st.markdown(
@@ -280,7 +280,7 @@ def _auth_page_css():
             background:
                 radial-gradient(circle at 26% 38%, rgba(37, 99, 235, 0.18), transparent 24%),
                 radial-gradient(circle at 82% 14%, rgba(124, 58, 237, 0.13), transparent 26%),
-                linear-gradient(135deg, #020617 0%, #071426 50%, #020617 100%) !important;
+                linear-gradient(135deg, #020617 0%, #071426 40%, #0b1b3a 100%) !important;
             color: #ffffff !important;
         }
 
@@ -294,29 +294,32 @@ def _auth_page_css():
             margin: 0;
         }
 
-        /* ---------- Header ---------- */
-        .auth-topbar {
-            height: 72px;
+        .auth-topbar-wrap {
             padding: 0 44px;
+            min-height: 72px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.16);
             background: rgba(2, 6, 23, 0.62);
             backdrop-filter: blur(18px);
             display: flex;
             align-items: center;
-            box-sizing: border-box;
+        }
+
+        .brand-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 72px;
         }
 
         .brand-mark {
-            display: inline-grid;
-            place-items: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             color: #facc15;
-            font-size: 21px;
+            font-size: 22px;
             font-weight: 900;
-            letter-spacing: -3px;
-            margin-right: 12px;
+            letter-spacing: -4px;
+            width: 44px;
         }
 
         .brand-name {
@@ -324,7 +327,7 @@ def _auth_page_css():
             font-size: 24px;
             font-weight: 900;
             letter-spacing: -0.045em;
-            margin-right: 14px;
+            white-space: nowrap;
         }
 
         .brand-subtitle {
@@ -332,6 +335,15 @@ def _auth_page_css():
             font-size: 13px;
             letter-spacing: 0.055em;
             font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .top-status-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 18px;
+            min-height: 72px;
         }
 
         .status-pill {
@@ -340,9 +352,9 @@ def _auth_page_css():
             gap: 9px;
             padding: 9px 14px;
             border-radius: 999px;
-            background: rgba(15, 23, 42, 0.86);
-            border: 1px solid rgba(148, 163, 184, 0.13);
-            color: white;
+            background: rgba(15, 23, 42, 0.90);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            color: white !important;
             font-size: 13px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.22);
             white-space: nowrap;
@@ -358,13 +370,12 @@ def _auth_page_css():
         }
 
         .top-link {
-            color: rgba(255,255,255,0.86);
+            color: rgba(255,255,255,0.86) !important;
             font-size: 13px;
             font-weight: 650;
             white-space: nowrap;
         }
 
-        /* ---------- Page grid ---------- */
         .auth-page-pad {
             padding: 34px 56px 16px 56px;
         }
@@ -418,7 +429,7 @@ def _auth_page_css():
         }
 
         .left-title {
-            color: #ffffff;
+            color: #ffffff !important;
             font-size: 50px;
             line-height: 1.05;
             font-weight: 950;
@@ -441,19 +452,10 @@ def _auth_page_css():
         .left-lead {
             max-width: 510px;
             margin-bottom: 36px;
-            color: rgba(226, 232, 240, 0.86);
+            color: rgba(226, 232, 240, 0.88) !important;
             font-size: 17px;
             line-height: 1.58;
             font-weight: 500;
-        }
-
-        .metric-card {
-            background: rgba(15, 23, 42, 0.36);
-            border: 1px solid rgba(148, 163, 184, 0.12);
-            border-radius: 18px;
-            padding: 16px 18px;
-            backdrop-filter: blur(12px);
-            margin-bottom: 18px;
         }
 
         .feature-icon {
@@ -463,13 +465,13 @@ def _auth_page_css():
             display: grid;
             place-items: center;
             background: linear-gradient(145deg, rgba(124,58,237,0.52), rgba(30,64,175,0.48));
-            color: #ddd6fe;
+            color: #ddd6fe !important;
             font-size: 25px;
             box-shadow: 0 16px 34px rgba(0,0,0,0.18);
         }
 
         .feature-title {
-            color: #ffffff;
+            color: #ffffff !important;
             font-size: 18px;
             font-weight: 850;
             letter-spacing: -0.02em;
@@ -477,7 +479,7 @@ def _auth_page_css():
         }
 
         .feature-desc {
-            color: rgba(226, 232, 240, 0.76);
+            color: rgba(226, 232, 240, 0.78) !important;
             font-size: 14.5px;
             line-height: 1.38;
             margin: 0;
@@ -496,21 +498,21 @@ def _auth_page_css():
             border-radius: 22px;
             display: grid;
             place-items: center;
-            color: #22d3ee;
+            color: #22d3ee !important;
             border: 1px solid rgba(34, 211, 238, 0.70);
             font-size: 27px;
         }
 
         .security-title {
             margin: 0 0 7px 0;
-            color: #22d3ee;
+            color: #22d3ee !important;
             font-size: 17px;
             font-weight: 850;
         }
 
         .security-desc {
             margin: 0;
-            color: rgba(226, 232, 240, 0.78);
+            color: rgba(226, 232, 240, 0.80) !important;
             line-height: 1.56;
             font-size: 14.8px;
         }
@@ -520,11 +522,11 @@ def _auth_page_css():
             left: 0;
             bottom: 2px;
             z-index: 2;
-            color: rgba(226, 232, 240, 0.58);
+            color: rgba(226, 232, 240, 0.58) !important;
             font-size: 12.5px;
         }
 
-        /* ---------- Login card ---------- */
+        /* Login card */
         .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] {
             width: min(720px, 100%) !important;
             min-height: 720px !important;
@@ -540,6 +542,10 @@ def _auth_page_css():
 
         .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
             padding: 30px 46px 30px 46px !important;
+        }
+
+        .auth-login-card * {
+            color: #0f172a;
         }
 
         .auth-login-card .stButton > button {
@@ -577,7 +583,7 @@ def _auth_page_css():
             display: grid;
             place-items: center;
             background: #f1e9ff;
-            color: #6d28d9;
+            color: #6d28d9 !important;
             font-size: 30px;
             margin-top: 4px;
         }
@@ -603,7 +609,7 @@ def _auth_page_css():
             grid-template-columns: 1fr auto 1fr;
             gap: 18px;
             align-items: center;
-            color: #64748b;
+            color: #64748b !important;
             font-weight: 750;
             margin: 30px 0 24px 0;
             font-size: 14px;
@@ -621,6 +627,11 @@ def _auth_page_css():
             font-size: 13px !important;
             font-weight: 850 !important;
             margin-bottom: 5px !important;
+        }
+
+        .auth-login-card input {
+            background: #ffffff !important;
+            color: #0f172a !important;
         }
 
         .auth-login-card div[data-testid="stTextInput"] {
@@ -647,7 +658,8 @@ def _auth_page_css():
             margin-bottom: 14px !important;
         }
 
-        .auth-login-card div[data-testid="stCheckbox"] label {
+        .auth-login-card div[data-testid="stCheckbox"] label,
+        .auth-login-card div[data-testid="stCheckbox"] label span {
             color: #0f172a !important;
             font-size: 14px !important;
             font-weight: 500 !important;
@@ -657,32 +669,33 @@ def _auth_page_css():
         .auth-login-card button[kind="formSubmit"] {
             width: 100% !important;
             min-height: 58px !important;
+            height: 58px !important;
             border-radius: 10px !important;
-            border: 0 !important;
+            border: none !important;
             color: #ffffff !important;
             font-size: 18px !important;
             font-weight: 900 !important;
-            background: linear-gradient(90deg, #6d28d9 0%, #2563eb 56%, #0891b2 100%) !important;
-            box-shadow: 0 14px 26px rgba(37,99,235,0.26) !important;
+            background: linear-gradient(90deg, #6d28d9, #2563eb) !important;
+            box-shadow: 0 10px 25px rgba(37,99,235,0.30) !important;
             transition: all 0.15s ease !important;
         }
 
         .auth-login-card button[kind="primaryFormSubmit"]:hover,
         .auth-login-card button[kind="formSubmit"]:hover {
-            filter: brightness(1.03);
+            filter: brightness(1.05);
             transform: translateY(-1px);
         }
 
         .below-form-link {
             text-align: center;
             margin: 20px 0 14px 0;
-            color: #64748b;
+            color: #64748b !important;
             font-size: 14.5px;
             font-weight: 500;
         }
 
         .below-form-link strong {
-            color: #4f46e5;
+            color: #4f46e5 !important;
             font-weight: 850;
             margin-left: 12px;
         }
@@ -693,7 +706,7 @@ def _auth_page_css():
             background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
             border-radius: 12px;
             padding: 18px 20px;
-            color: #1f2937;
+            color: #1f2937 !important;
         }
 
         .notice-box h3 {
@@ -710,14 +723,14 @@ def _auth_page_css():
         }
 
         .notice-check {
-            color: #16a34a;
+            color: #16a34a !important;
             font-weight: 900;
             margin-right: 8px;
         }
 
         .bottom-footer {
             text-align: center;
-            color: rgba(226,232,240,0.68);
+            color: rgba(226,232,240,0.68) !important;
             font-size: 13px;
             margin: 12px 0 18px 0;
             font-weight: 500;
@@ -765,16 +778,19 @@ def _auth_page_css():
                 min-height: auto !important;
                 margin-top: 24px !important;
             }
+
+            .top-link,
+            .status-pill {
+                display: none !important;
+            }
         }
 
         @media (max-width: 640px) {
-            .auth-topbar {
+            .auth-topbar-wrap {
                 padding: 0 18px;
             }
 
-            .brand-subtitle,
-            .top-link,
-            .status-pill {
+            .brand-subtitle {
                 display: none !important;
             }
 
@@ -804,44 +820,44 @@ def _auth_page_css():
 # Render components
 # ============================================================
 def _render_topbar():
-    st.markdown('<div class="auth-topbar">', unsafe_allow_html=True)
+    st.markdown('<div class="auth-topbar-wrap">', unsafe_allow_html=True)
 
-    left, right = st.columns([0.52, 0.48], vertical_alignment="center")
+    left, right = st.columns([0.60, 0.40], vertical_alignment="center")
 
     with left:
         st.markdown(
-            '<span class="brand-mark">✦✦✦</span>'
-            '<span class="brand-name">EU SEE</span>'
-            '<span class="brand-subtitle">INTELLIGENCE PLATFORM</span>',
+            """
+            <div class="brand-row">
+                <span class="brand-mark">✦✦✦</span>
+                <span class="brand-name">EU SEE</span>
+                <span class="brand-subtitle">INTELLIGENCE PLATFORM</span>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
     with right:
-        c1, c2, c3, c4 = st.columns([1.55, 0.52, 0.52, 0.72], vertical_alignment="center")
-        with c1:
-            st.markdown(
-                '<span class="status-pill"><span class="status-dot"></span>'
-                'System Status: <strong>Operational</strong></span>',
-                unsafe_allow_html=True,
-            )
-        with c2:
-            st.markdown('<span class="top-link">ⓘ Help</span>', unsafe_allow_html=True)
-        with c3:
-            st.markdown('<span class="top-link">▤ Docs</span>', unsafe_allow_html=True)
-        with c4:
-            st.markdown('<span class="top-link">◎ English⌄</span>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="top-status-row">
+                <span class="status-pill"><span class="status-dot"></span>System Status: <strong>Operational</strong></span>
+                <span class="top-link">ⓘ Help</span>
+                <span class="top-link">▤ Docs</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _render_feature(icon, title, desc):
-    with st.container():
-        icon_col, text_col = st.columns([0.14, 0.86], vertical_alignment="center")
-        with icon_col:
-            st.markdown(f'<div class="feature-icon">{icon}</div>', unsafe_allow_html=True)
-        with text_col:
-            st.markdown(f'<p class="feature-title">{title}</p>', unsafe_allow_html=True)
-            st.markdown(f'<p class="feature-desc">{desc}</p>', unsafe_allow_html=True)
+    icon_col, text_col = st.columns([0.14, 0.86], vertical_alignment="center")
+    with icon_col:
+        st.markdown(f'<div class="feature-icon">{icon}</div>', unsafe_allow_html=True)
+    with text_col:
+        st.markdown(f'<p class="feature-title">{title}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="feature-desc">{desc}</p>', unsafe_allow_html=True)
 
 
 def _render_left_panel():
