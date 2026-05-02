@@ -5783,36 +5783,62 @@ def _v2_filter_df_from_prompt(text, df):
 def _v2_parse_plot_config(text, df):
     chart_type = _v2_parse_chart_type(text)
     filtered_df = _v2_filter_df_from_prompt(text, df)
-    x_col = _v2_pick_column_from_text(text, filtered_df, default=None)
+    q = str(text or "").lower()
+
+    compare_mode = any(w in q for w in ["compare", "comparison", " vs ", " versus ", " against "])
+    x_col, y_col = (None, None)
+    if compare_mode:
+        x_col, y_col = _v2_pick_compare_columns_from_text(text, filtered_df)
+        if chart_type in ["Pie", "Donut", "Histogram", "Box", "Violin", "Funnel", "Waterfall", "Line", "Area"]:
+            chart_type = "Heatmap"
+
     if not x_col:
-        # Default chart choice based on requested type
+        x_col = _v2_pick_column_from_text(text, filtered_df, default=None)
+    if not x_col:
         x_col = "year" if chart_type in ["Line", "Area"] and "year" in filtered_df.columns else "alert-country"
         if x_col not in filtered_df.columns:
             dims = _v2_safe_get_dims(filtered_df)
             x_col = dims[0][1] if dims else None
+
     group_col = _v2_pick_group_column(text, filtered_df, x_col=x_col)
+    if compare_mode and y_col and y_col != x_col:
+        group_col = y_col
+
     colors = _v2_extract_hex_colors(text)
     primary = colors[0] if colors else _v2_named_color_to_hex(text, AI_COPILOT_V2_STYLE_DEFAULTS["primary_color"])
     secondary = colors[1] if len(colors) > 1 else AI_COPILOT_V2_STYLE_DEFAULTS["secondary_color"]
     top_n = _v2_extract_int_after(text, [r"top\s*(\d+)", r"first\s*(\d+)", r"show\s*(\d+)"], default=AI_COPILOT_V2_STYLE_DEFAULTS["top_n"], low=3, high=50)
+    top_y = _v2_extract_int_after(text, [r"top\s*y\s*(\d+)", r"top\s*columns?\s*(\d+)", r"top\s*groups?\s*(\d+)"], default=min(8, top_n), low=3, high=30)
     font_size = _v2_extract_int_after(text, [r"font\s*(?:size)?\s*(\d+)", r"text\s*size\s*(\d+)"], default=AI_COPILOT_V2_STYLE_DEFAULTS["font_size"], low=8, high=28)
     title_size = _v2_extract_int_after(text, [r"title\s*size\s*(\d+)"], default=max(font_size + 4, 15), low=10, high=34)
     height = _v2_extract_int_after(text, [r"height\s*(\d+)"], default=AI_COPILOT_V2_STYLE_DEFAULTS["height"], low=300, high=900)
-    show_values = not any(w in str(text or "").lower() for w in ["hide labels", "no labels", "without labels", "hide values", "no values"])
+    show_values = not any(w in q for w in ["hide labels", "no labels", "without labels", "hide values", "no values"])
+    if "row percent" in q or "row percentage" in q:
+        normalize = "Row %"
+    elif "column percent" in q or "column percentage" in q:
+        normalize = "Column %"
+    elif "percent" in q or "percentage" in q or "share" in q:
+        normalize = "Share %"
+    else:
+        normalize = "Count"
     title = None
     m = re.search(r"title\s*[:=]\s*([^\n]+)", str(text or ""), flags=re.I)
     if m:
         title = m.group(1).strip()[:120]
     if not title:
-        pretty = x_col.replace("alert-", "").replace("_", " ").title() if x_col else "Dashboard"
-        title = f"{pretty} distribution"
+        if compare_mode and x_col and group_col:
+            title = f"Comparison: {x_col} × {group_col}"
+        else:
+            pretty = x_col.replace("alert-", "").replace("_", " ").title() if x_col else "Dashboard"
+            title = f"{pretty} distribution"
     return {
         "chart_type": chart_type, "x_col": x_col, "group_col": group_col,
-        "top_n": top_n, "primary_color": primary, "secondary_color": secondary,
+        "compare_mode": bool(compare_mode and x_col and group_col and x_col != group_col),
+        "top_n": top_n, "top_y": top_y, "normalize": normalize,
+        "primary_color": primary, "secondary_color": secondary,
         "font_size": font_size, "title_size": title_size, "height": height,
         "show_values": show_values, "title": title, "filtered_df": filtered_df,
     }
-
 
 def _v2_plot_data_for_insight(df, x_col, group_col=None, top_n=10):
     try:
@@ -5840,12 +5866,167 @@ def _v2_plot_insight(plot_df, x_col, group_col=None):
     return "**Auto plot insight**\n\n" + "\n".join(bullets) + f"\n\n{note}{group_note} Counts reflect the current filtered dashboard view and may also reflect reporting intensity."
 
 
+
+def _v2_split_explodable_columns(base, cols):
+    """Explode multi-value categorical fields consistently for comparison plots."""
+    if base is None or base.empty:
+        return pd.DataFrame()
+    out = base.copy()
+    multi_cols = [
+        "Actor of repression", "Subject of repression", "Mechanism of repression",
+        "Type of event", "enabling-principle", "alert-type"
+    ]
+    for col in [c for c in cols if c and c in out.columns]:
+        if col in multi_cols:
+            out[col] = out[col].fillna("").astype(str).str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+            out = out.assign(**{col: out[col].str.split(",")}).explode(col)
+        out[col] = out[col].fillna("").astype(str).str.strip()
+        out = out[(out[col] != "") & (out[col].str.lower() != "nan") & (out[col].str.lower() != "none")]
+    return out
+
+
+def _v2_compare_data(df, x_col, y_col, top_x=10, top_y=8, normalize="Count"):
+    """Build a two-variable comparison table for heatmaps, grouped bars, stacked bars and matrices."""
+    if df is None or df.empty or not x_col or not y_col or x_col not in df.columns or y_col not in df.columns:
+        return pd.DataFrame(columns=[x_col or "x", y_col or "y", "count", "percent"])
+    base = _v2_split_explodable_columns(df, [x_col, y_col])
+    if base.empty:
+        return pd.DataFrame(columns=[x_col, y_col, "count", "percent"])
+    top_x_values = base[x_col].value_counts().head(int(top_x)).index.tolist()
+    top_y_values = base[y_col].value_counts().head(int(top_y)).index.tolist()
+    base = base[base[x_col].isin(top_x_values) & base[y_col].isin(top_y_values)]
+    out = base.groupby([x_col, y_col], dropna=False).size().reset_index(name="count")
+    total = out["count"].sum()
+    out["percent"] = (out["count"] / total * 100).round(2) if total else 0
+    if str(normalize).lower().startswith("row"):
+        denom = out.groupby(x_col)["count"].transform("sum")
+        out["value"] = (out["count"] / denom.replace(0, np.nan) * 100).fillna(0).round(2)
+        out["value_label"] = out["value"].astype(str) + "%"
+    elif str(normalize).lower().startswith("column"):
+        denom = out.groupby(y_col)["count"].transform("sum")
+        out["value"] = (out["count"] / denom.replace(0, np.nan) * 100).fillna(0).round(2)
+        out["value_label"] = out["value"].astype(str) + "%"
+    elif str(normalize).lower().startswith("share") or str(normalize).lower().startswith("percent"):
+        out["value"] = out["percent"]
+        out["value_label"] = out["value"].astype(str) + "%"
+    else:
+        out["value"] = out["count"]
+        out["value_label"] = out["count"].astype(int).astype(str)
+    return out
+
+
+def _v2_make_comparison_plot(df, x_col, y_col, chart_type="Heatmap", top_x=10, top_y=8, normalize="Count", title=None,
+                             color="#660094", secondary_color="#008CAA", font_size=12, title_size=None,
+                             height=470, show_values=True):
+    """Render a comparison plot for two categorical dashboard variables."""
+    chart_type = _ai_normalize_chart_type(chart_type)
+    title = title or f"Comparison: {x_col} × {y_col}"
+    comp = _v2_compare_data(df, x_col, y_col, top_x=top_x, top_y=top_y, normalize=normalize)
+    if comp.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No comparison data available for the selected variables.", x=0.5, y=0.5, showarrow=False)
+        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False), comp
+
+    value_col = "value"
+    if chart_type == "Heatmap":
+        matrix = comp.pivot_table(index=x_col, columns=y_col, values=value_col, aggfunc="sum", fill_value=0)
+        fig = px.imshow(matrix, text_auto=show_values, aspect="auto", title=title, color_continuous_scale="Purples")
+    elif chart_type in ["Grouped bar", "Vertical bar"]:
+        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title)
+        fig.update_xaxes(tickangle=-35)
+    elif chart_type == "Stacked bar":
+        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="stack", text="value_label" if show_values else None, title=title)
+        fig.update_xaxes(tickangle=-35)
+    elif chart_type == "Horizontal bar":
+        fig = px.bar(comp, y=x_col, x=value_col, color=y_col, orientation="h", barmode="stack", text="value_label" if show_values else None, title=title)
+    elif chart_type == "Sunburst":
+        fig = px.sunburst(comp, path=[x_col, y_col], values="count", title=title)
+    elif chart_type == "Treemap":
+        fig = px.treemap(comp, path=[x_col, y_col], values="count", color=value_col, title=title)
+    elif chart_type == "Bubble":
+        fig = px.scatter(comp, x=x_col, y=y_col, size="count", color=value_col, text="value_label" if show_values else None, title=title, size_max=44)
+        fig.update_xaxes(tickangle=-35)
+    elif chart_type == "Scatter":
+        fig = px.scatter(comp, x=x_col, y=y_col, size="count", color=value_col, text="value_label" if show_values else None, title=title)
+        fig.update_xaxes(tickangle=-35)
+    else:
+        # Safe fallback for comparison mode.
+        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title)
+        fig.update_xaxes(tickangle=-35)
+    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True)
+    fig.update_layout(colorway=[color, secondary_color, "#FFDB58", "#D92D20", "#039855", "#1570EF", "#F79009", "#344054"])
+    return fig, comp
+
+
+def _v2_comparison_insight(comp_df, x_col, y_col, normalize="Count"):
+    if comp_df is None or comp_df.empty:
+        return "**Comparison insight**\n\nNo comparison insight is available because the selected variables returned no records."
+    total = int(comp_df["count"].sum()) if "count" in comp_df.columns else 0
+    top_pair = comp_df.sort_values("count", ascending=False).head(1)
+    if top_pair.empty or total <= 0:
+        return "**Comparison insight**\n\nNo non-zero comparison records are available."
+    row = top_pair.iloc[0]
+    pct = round(row["count"] / total * 100, 1)
+    x_total = comp_df.groupby(x_col)["count"].sum().sort_values(ascending=False).head(3)
+    y_total = comp_df.groupby(y_col)["count"].sum().sort_values(ascending=False).head(3)
+    x_bullets = "\n".join([f"- **{idx}**: {int(val):,}" for idx, val in x_total.items()])
+    y_bullets = "\n".join([f"- **{idx}**: {int(val):,}" for idx, val in y_total.items()])
+    return (
+        "**Comparison insight**\n\n"
+        f"Dominant pair: **{row[x_col]} × {row[y_col]}** with **{int(row['count']):,}** records ({pct}% of compared records).\n\n"
+        f"Top **{x_col}** categories:\n{x_bullets}\n\n"
+        f"Top **{y_col}** categories:\n{y_bullets}\n\n"
+        f"Metric shown: **{normalize}**. Interpret counts as the active filtered dashboard view; they may reflect reporting volume as well as event frequency."
+    )
+
+
+def _v2_pick_compare_columns_from_text(text, df):
+    """Parse natural language such as 'compare actors and mechanisms' or 'actor vs mechanism'."""
+    q = str(text or "").lower()
+    aliases = _v2_column_aliases(df)
+    m = re.search(r"(?:compare|comparison of)\s+(.+?)\s+(?:and|vs|versus|against|by)\s+(.+?)(?:\s+top|\s+in\s+|\s+with\s+|$)", q)
+    if m:
+        left = m.group(1).strip()
+        right = m.group(2).strip()
+        x_col = _v2_pick_column_from_text(left, df, default=None)
+        y_col = _v2_pick_column_from_text(right, df, default=None, exclude=[x_col] if x_col else None)
+        if x_col and y_col and x_col != y_col:
+            return x_col, y_col
+    found = []
+    for alias, col in sorted(aliases.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if re.search(r"\b" + re.escape(alias) + r"\b", q) and col in getattr(df, "columns", []):
+            if col not in found:
+                found.append(col)
+        if len(found) >= 2:
+            return found[0], found[1]
+    return None, None
+
+
 def _v2_make_plot_from_config(config):
     dfp = config.get("filtered_df")
     x_col = config.get("x_col")
+    group_col = config.get("group_col")
     if not x_col:
         fig = go.Figure()
         fig.add_annotation(text="No suitable plot dimension was found.", x=0.5, y=0.5, showarrow=False)
+        return fig
+    if config.get("compare_mode") and group_col and group_col != x_col:
+        fig, _ = _v2_make_comparison_plot(
+            dfp,
+            x_col=x_col,
+            y_col=group_col,
+            chart_type=config.get("chart_type", "Heatmap"),
+            top_x=config.get("top_n", 10),
+            top_y=config.get("top_y", 8),
+            normalize=config.get("normalize", "Count"),
+            title=config.get("title"),
+            color=config.get("primary_color", "#660094"),
+            secondary_color=config.get("secondary_color", "#008CAA"),
+            font_size=config.get("font_size", 12),
+            title_size=config.get("title_size"),
+            height=config.get("height", 430),
+            show_values=config.get("show_values", True),
+        )
         return fig
     return _ai_make_plot(
         dfp,
@@ -5857,7 +6038,7 @@ def _v2_make_plot_from_config(config):
         secondary_color=config.get("secondary_color", "#008CAA"),
         font_size=config.get("font_size", 12),
         title_size=config.get("title_size"),
-        group_col=config.get("group_col"),
+        group_col=group_col,
         height=config.get("height", 430),
         show_values=config.get("show_values", True),
     )
@@ -5914,8 +6095,19 @@ def _copilot_queue_answer(question, df):
     if _v2_is_plot_request(q):
         config = _v2_parse_plot_config(q, df)
         fig = _v2_make_plot_from_config(config)
-        plot_df = _v2_plot_data_for_insight(config.get("filtered_df"), config.get("x_col"), config.get("group_col"), config.get("top_n", 10))
-        insight = _v2_plot_insight(plot_df, config.get("x_col"), config.get("group_col"))
+        if config.get("compare_mode") and config.get("group_col"):
+            plot_df = _v2_compare_data(
+                config.get("filtered_df"),
+                config.get("x_col"),
+                config.get("group_col"),
+                top_x=config.get("top_n", 10),
+                top_y=config.get("top_y", 8),
+                normalize=config.get("normalize", "Count"),
+            )
+            insight = _v2_comparison_insight(plot_df, config.get("x_col"), config.get("group_col"), config.get("normalize", "Count"))
+        else:
+            plot_df = _v2_plot_data_for_insight(config.get("filtered_df"), config.get("x_col"), config.get("group_col"), config.get("top_n", 10))
+            insight = _v2_plot_insight(plot_df, config.get("x_col"), config.get("group_col"))
         # Avoid storing full dataframe in session state.
         session_config = {k: v for k, v in config.items() if k != "filtered_df"}
         st.session_state.ai_last_plot = session_config
@@ -6108,52 +6300,134 @@ def render_ai_assistant_panel(df):
                     st.rerun()
 
         with tab_plot:
+            st.markdown("""
+            <style>
+            .v2-builder-hero{background:linear-gradient(135deg,#fff,#fbf7fd);border:1px solid #E7D4F1;border-radius:16px;padding:10px 11px;margin:2px 0 9px 0;box-shadow:0 7px 18px rgba(45,0,85,.055);}
+            .v2-builder-title{font-size:13px;font-weight:950;color:#2D0055;margin-bottom:3px;}
+            .v2-builder-note{font-size:10.5px;color:#667085;line-height:1.35;}
+            .v2-builder-chip{display:inline-flex;margin:3px 3px 0 0;padding:4px 7px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:9.5px;font-weight:900;}
+            .v2-builder-card{background:#fff;border:1px solid #E6E8EF;border-radius:15px;padding:10px;margin:8px 0;box-shadow:0 7px 18px rgba(16,24,40,.04);}
+            .v2-builder-subtitle{font-size:11.5px;font-weight:950;color:#2D0055;margin-bottom:6px;}
+            .v2-rec-box{background:#F9FAFB;border:1px dashed #D0D5DD;border-radius:13px;padding:8px;font-size:10.5px;color:#344054;line-height:1.35;margin:7px 0;}
+            </style>
+            <div class='v2-builder-hero'>
+              <div class='v2-builder-title'>Advanced Plot Builder</div>
+              <div class='v2-builder-note'>Build single-variable charts or compare two dashboard variables. Supports styling, Top N controls, normalization, and downloadable plot data.</div>
+              <span class='v2-builder-chip'>Single variable</span><span class='v2-builder-chip'>Compare variables</span><span class='v2-builder-chip'>Heatmap</span><span class='v2-builder-chip'>Grouped/stacked</span><span class='v2-builder-chip'>Styled output</span>
+            </div>
+            """, unsafe_allow_html=True)
             dims = _v2_safe_get_dims(df)
             if dims:
                 label_to_col = {label: col for label, col in dims}
-                dim_label = st.selectbox("Dimension", list(label_to_col.keys()), key="v2_pop_plot_dim")
-                chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, key="v2_pop_plot_type")
-                group_label_options = ["None"] + [label for label, col in dims if col != label_to_col[dim_label]]
-                group_label = st.selectbox("Group / color by", group_label_options, key="v2_pop_plot_group")
-                group_col = None if group_label == "None" else label_to_col[group_label]
+                labels = list(label_to_col.keys())
 
+                mode = st.radio(
+                    "Analysis mode",
+                    ["Single variable", "Compare variables"],
+                    horizontal=True,
+                    key="v2_pop_plot_mode",
+                    help="Single variable shows distributions. Compare variables builds a relationship matrix or segmented chart between two fields.",
+                )
+
+                st.markdown("<div class='v2-builder-card'><div class='v2-builder-subtitle'>1. Select variables and chart type</div>", unsafe_allow_html=True)
+                if mode == "Compare variables":
+                    cx1, cx2 = st.columns(2)
+                    with cx1:
+                        dim_label = st.selectbox("Primary variable", labels, key="v2_pop_compare_x")
+                    with cx2:
+                        default_y_idx = 1 if len(labels) > 1 else 0
+                        y_label = st.selectbox("Compare with", labels, index=default_y_idx, key="v2_pop_compare_y")
+                    if label_to_col[dim_label] == label_to_col[y_label]:
+                        st.warning("Choose two different variables for comparison mode.")
+                    compare_chart_types = ["Heatmap", "Grouped bar", "Stacked bar", "Horizontal bar", "Treemap", "Sunburst", "Bubble", "Scatter"]
+                    chart_type = st.selectbox("Comparison chart type", compare_chart_types, index=0, key="v2_pop_compare_chart_type")
+                    normalize = st.selectbox(
+                        "Metric / normalization",
+                        ["Count", "Share %", "Row %", "Column %"],
+                        index=0,
+                        key="v2_pop_compare_normalize",
+                        help="Count shows raw records. Share % shows total share. Row % normalizes within the primary variable. Column % normalizes within the comparison variable.",
+                    )
+                    group_col = label_to_col[y_label]
+                    st.markdown("<div class='v2-rec-box'><b>Recommended:</b> Heatmap for dense relationships, grouped bar for side-by-side comparison, stacked bar for composition, sunburst/treemap for hierarchy.</div>", unsafe_allow_html=True)
+                else:
+                    dim_label = st.selectbox("Dimension", labels, key="v2_pop_plot_dim")
+                    chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, key="v2_pop_plot_type")
+                    group_label_options = ["None"] + [label for label, col in dims if col != label_to_col[dim_label]]
+                    group_label = st.selectbox("Group / color by", group_label_options, key="v2_pop_plot_group")
+                    group_col = None if group_label == "None" else label_to_col[group_label]
+                    normalize = "Count"
+                    st.markdown("<div class='v2-rec-box'><b>Recommended:</b> horizontal bar for rankings, line/area for year or month, donut for composition, heatmap/sunburst when grouping is selected.</div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                st.markdown("<div class='v2-builder-card'><div class='v2-builder-subtitle'>2. Ranking, style and readability</div>", unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
                 with c1:
-                    top_n = st.slider("Top N", 3, 50, 10, key="v2_pop_top_n")
+                    top_n = st.slider("Top primary categories", 3, 50, 10, key="v2_pop_top_n")
                     font_size = st.slider("Font size", 8, 28, 12, key="v2_pop_font_size")
                 with c2:
-                    height = st.slider("Chart height", 300, 900, 430, step=10, key="v2_pop_height")
-                    show_values = st.toggle("Show values", True, key="v2_pop_show_values")
-                primary = st.text_input("Primary color HEX", "#660094", key="v2_pop_primary_color")
-                secondary = st.text_input("Secondary color HEX", "#008CAA", key="v2_pop_secondary_color")
-                title = st.text_input("Chart title", f"{dim_label} distribution", key="v2_pop_chart_title")
+                    top_y = st.slider("Top comparison groups", 3, 30, 8, key="v2_pop_top_y", disabled=(mode != "Compare variables"))
+                    height = st.slider("Chart height", 300, 900, 470 if mode == "Compare variables" else 430, step=10, key="v2_pop_height")
+                show_values = st.toggle("Show values / labels", True, key="v2_pop_show_values")
+                cc1, cc2 = st.columns(2)
+                with cc1:
+                    primary = st.text_input("Primary color HEX", "#660094", key="v2_pop_primary_color")
+                with cc2:
+                    secondary = st.text_input("Secondary color HEX", "#008CAA", key="v2_pop_secondary_color")
+                default_title = f"Comparison: {dim_label} × {y_label}" if mode == "Compare variables" else f"{dim_label} distribution"
+                title = st.text_input("Chart title", default_title, key="v2_pop_chart_title")
+                st.markdown("</div>", unsafe_allow_html=True)
 
-                if st.button("Generate styled plot", use_container_width=True, key="v2_pop_generate_plot"):
-                    config = {
-                        "filtered_df": df,
-                        "x_col": label_to_col[dim_label],
-                        "group_col": group_col,
-                        "chart_type": chart_type,
-                        "top_n": top_n,
-                        "primary_color": primary if re.match(r"^#[0-9a-fA-F]{6}$", primary.strip()) else "#660094",
-                        "secondary_color": secondary if re.match(r"^#[0-9a-fA-F]{6}$", secondary.strip()) else "#008CAA",
-                        "font_size": font_size,
-                        "title_size": max(font_size + 4, 15),
-                        "height": height,
-                        "show_values": show_values,
-                        "title": title,
-                    }
-                    fig = _v2_make_plot_from_config(config)
-                    plot_df = _v2_plot_data_for_insight(df, label_to_col[dim_label], group_col, top_n)
+                px_color = primary.strip() if re.match(r"^#[0-9a-fA-F]{6}$", str(primary).strip()) else "#660094"
+                sx_color = secondary.strip() if re.match(r"^#[0-9a-fA-F]{6}$", str(secondary).strip()) else "#008CAA"
+
+                generate = st.button("Generate professional plot", use_container_width=True, key="v2_pop_generate_plot")
+                if generate:
+                    if mode == "Compare variables":
+                        x_col = label_to_col[dim_label]
+                        y_col = label_to_col[y_label]
+                        if x_col == y_col:
+                            st.session_state.ai_smart_output = {"type": "warning", "title": "Invalid comparison", "content": "Please choose two different variables for comparison mode."}
+                            st.rerun()
+                        fig, plot_df = _v2_make_comparison_plot(
+                            df, x_col=x_col, y_col=y_col, chart_type=chart_type,
+                            top_x=top_n, top_y=top_y, normalize=normalize, title=title,
+                            color=px_color, secondary_color=sx_color, font_size=font_size,
+                            title_size=max(font_size + 4, 15), height=height, show_values=show_values,
+                        )
+                        insight = _v2_comparison_insight(plot_df, x_col, y_col, normalize)
+                        config = {
+                            "compare_mode": True, "x_col": x_col, "group_col": y_col,
+                            "chart_type": chart_type, "top_n": top_n, "top_y": top_y,
+                            "normalize": normalize, "primary_color": px_color, "secondary_color": sx_color,
+                            "font_size": font_size, "title_size": max(font_size + 4, 15),
+                            "height": height, "show_values": show_values, "title": title,
+                        }
+                        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated comparison plot: {x_col} × {y_col}."})
+                    else:
+                        x_col = label_to_col[dim_label]
+                        config = {
+                            "filtered_df": df, "x_col": x_col, "group_col": group_col,
+                            "compare_mode": False, "chart_type": chart_type,
+                            "top_n": top_n, "top_y": top_y, "normalize": normalize,
+                            "primary_color": px_color, "secondary_color": sx_color,
+                            "font_size": font_size, "title_size": max(font_size + 4, 15),
+                            "height": height, "show_values": show_values, "title": title,
+                        }
+                        fig = _v2_make_plot_from_config(config)
+                        plot_df = _v2_plot_data_for_insight(df, x_col, group_col, top_n)
+                        insight = _v2_plot_insight(plot_df, x_col, group_col)
+                        config.pop("filtered_df", None)
+                        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {chart_type} for {x_col}."})
+
                     st.session_state.ai_smart_output = {
                         "type": "plot_v2",
                         "title": title,
-                        "content": _v2_plot_insight(plot_df, label_to_col[dim_label], group_col),
+                        "content": insight,
                         "fig": fig,
                         "plot_data": plot_df,
-                        "config": {k: v for k, v in config.items() if k != "filtered_df"},
+                        "config": config,
                     }
-                    st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {chart_type} for {label_to_col[dim_label]}."})
                     st.rerun()
             else:
                 st.info("No suitable plotting dimensions are available under the current filters.")
