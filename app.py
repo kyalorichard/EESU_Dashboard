@@ -694,6 +694,123 @@ def inject_professional_sidebar_filter_css():
     """Additional styling for the upgraded grouped sidebar filter experience."""
     st.markdown("""
     <style>
+
+    /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
+    [data-baseweb="select"] > div {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 12px !important;
+        min-height: 38px !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+        transition: all .16s ease !important;
+    }
+
+    [data-baseweb="select"] > div:hover {
+        border-color: #B692C8 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.075) !important;
+    }
+
+    [data-baseweb="select"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.14) !important;
+    }
+
+    [data-baseweb="tag"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        border: 1px solid #E7D4F1 !important;
+        border-radius: 999px !important;
+        font-size: 10px !important;
+        font-weight: 850 !important;
+    }
+
+    [data-baseweb="tag"] svg {
+        color: #660094 !important;
+    }
+
+    div[role="listbox"] {
+        border-radius: 13px !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
+        overflow: hidden !important;
+        background: #FFFFFF !important;
+    }
+
+    div[role="option"] {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+        color: #344054 !important;
+        font-weight: 700 !important;
+    }
+
+    div[role="option"]:hover {
+        background: rgba(102,0,148,.065) !important;
+        color: #23152F !important;
+    }
+
+    div[aria-selected="true"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        font-weight: 900 !important;
+    }
+
+    .stMultiSelect label, .stSelectbox label {
+        font-size: 10.8px !important;
+        font-weight: 900 !important;
+        color: #344054 !important;
+        letter-spacing: .01em !important;
+        margin-bottom: 4px !important;
+    }
+
+    .negative-filter-shell {
+        background: linear-gradient(135deg, #FFFFFF 0%, #FFFCFB 100%);
+        border: 1px solid rgba(180,35,24,.12);
+        border-radius: 16px;
+        padding: 11px 13px;
+        margin: 2px 0 13px 0;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055);
+        font-family: Arial, sans-serif;
+    }
+
+    .negative-filter-eyebrow {
+        font-size: 9.5px;
+        font-weight: 900;
+        color: #B42318;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .negative-filter-title {
+        font-size: 14px;
+        font-weight: 950;
+        color: #23152F;
+        line-height: 1.15;
+    }
+
+    .negative-filter-note {
+        font-size: 10.7px;
+        color: #667085;
+        line-height: 1.35;
+        margin-top: 5px;
+    }
+
+    .negative-filter-chip-row {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 9px;
+    }
+
+    .negative-filter-chip {
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 9.8px;
+        font-weight: 900;
+        background: #FFF4ED;
+        color: #B42318;
+        border: 1px solid rgba(180,35,24,.14);
+    }
     section[data-testid="stSidebar"] {
         background:
             radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
@@ -3653,9 +3770,19 @@ with tab_negative:
         with st.expander("⚠️ Negative alerts filters", expanded=True):
             st.markdown(
                 """
-                <div class="sidebar-filter-section">
-                    Refine negative alerts by restrictive actor, affected civil society actor,
-                    restrictive mechanism, and event type.
+                <div class="negative-filter-shell">
+                    <div class="negative-filter-eyebrow">Focused diagnostic controls</div>
+                    <div class="negative-filter-title">Negative Alerts Filter Panel</div>
+                    <div class="negative-filter-note">
+                        Refine restrictive-event analysis by actor, affected civil society group,
+                        restrictive mechanism, and event type. Empty selections keep all available values active.
+                    </div>
+                    <div class="negative-filter-chip-row">
+                        <span class="negative-filter-chip">Actor</span>
+                        <span class="negative-filter-chip">Subject</span>
+                        <span class="negative-filter-chip">Mechanism</span>
+                        <span class="negative-filter-chip">Event type</span>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3668,14 +3795,14 @@ with tab_negative:
                     "Types of restrictive actors",
                     formatted_options(df_exploded["Actor of repression"]),
                     "selected_actor_types",
-                    sidebar=False
+                    sidebar=False,
                 )
 
                 selected_subject_types = safe_multiselect(
                     "Types of civil society actors affected",
                     formatted_options(df_exploded["Subject of repression"]),
                     "selected_subject_types",
-                    sidebar=False
+                    sidebar=False,
                 )
 
             with neg_f2:
@@ -3683,14 +3810,14 @@ with tab_negative:
                     "Types of restrictive mechanisms",
                     formatted_options(df_exploded["Mechanism of repression"]),
                     "selected_mechanism_types",
-                    sidebar=False
+                    sidebar=False,
                 )
 
                 selected_event_types = safe_multiselect(
                     "Types of negative events",
                     formatted_options(df_exploded["Type of event"]),
                     "selected_event_types",
-                    sidebar=False
+                    sidebar=False,
                 )
         ##### -------- Tab 2 Summary card totals--------------------------
         reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
