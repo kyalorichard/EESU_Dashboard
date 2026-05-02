@@ -5605,6 +5605,490 @@ def render_ai_assistant_panel(df):
                     st.rerun()
 
 
+
+
+# ============================================================================
+# AI COPILOT v2: FULL ANALYTICAL COPILOT OVERRIDES
+# Inserted after the base chatbot layer. These functions intentionally override
+# the earlier assistant renderer and queue logic with a more capable copilot.
+# ============================================================================
+
+AI_COPILOT_V2_CHART_TYPES = [
+    "Horizontal bar", "Vertical bar", "Grouped bar", "Stacked bar", "Line", "Area",
+    "Scatter", "Bubble", "Pie", "Donut", "Treemap", "Sunburst", "Heatmap",
+    "Histogram", "Box", "Violin", "Funnel", "Waterfall"
+]
+
+AI_COPILOT_V2_STYLE_DEFAULTS = {
+    "primary_color": "#660094",
+    "secondary_color": "#008CAA",
+    "font_size": 12,
+    "title_size": 16,
+    "height": 430,
+    "top_n": 10,
+    "show_values": True,
+}
+
+
+def _v2_safe_get_dims(df):
+    try:
+        return _ai_get_available_plot_dimensions(df)
+    except Exception:
+        candidates = [
+            ("Country", "alert-country"), ("Region", "region"), ("Alert impact", "alert-impact"),
+            ("Alert type", "alert-type"), ("Enabling principle", "enabling-principle"),
+            ("Restrictive actor", "Actor of repression"), ("Affected civil society actor", "Subject of repression"),
+            ("Restrictive mechanism", "Mechanism of repression"), ("Negative event type", "Type of event"),
+            ("Year", "year"), ("Month", "month_name"),
+        ]
+        return [(label, col) for label, col in candidates if df is not None and not df.empty and col in df.columns]
+
+
+def _v2_column_aliases(df):
+    dims = _v2_safe_get_dims(df)
+    aliases = {}
+    for label, col in dims:
+        aliases[label.lower()] = col
+        aliases[col.lower()] = col
+    aliases.update({
+        "country": "alert-country", "countries": "alert-country",
+        "region": "region", "regions": "region",
+        "impact": "alert-impact", "negative": "alert-impact", "positive": "alert-impact",
+        "alert": "alert-type", "alert type": "alert-type", "type": "alert-type",
+        "principle": "enabling-principle", "enabling": "enabling-principle",
+        "actor": "Actor of repression", "actors": "Actor of repression", "repressor": "Actor of repression",
+        "mechanism": "Mechanism of repression", "mechanisms": "Mechanism of repression",
+        "subject": "Subject of repression", "target": "Subject of repression", "affected": "Subject of repression",
+        "event": "Type of event", "event type": "Type of event",
+        "year": "year", "annual": "year", "trend": "year",
+        "month": "month_name", "monthly": "month_name",
+    })
+    return aliases
+
+
+def _v2_extract_hex_colors(text):
+    return re.findall(r"#[0-9a-fA-F]{6}\b", str(text or ""))
+
+
+def _v2_named_color_to_hex(text, default="#660094"):
+    q = str(text or "").lower()
+    named = {
+        "purple": "#660094", "teal": "#008CAA", "yellow": "#FFDB58", "red": "#D92D20",
+        "green": "#039855", "blue": "#1570EF", "orange": "#F79009", "slate": "#344054",
+        "black": "#111827", "gray": "#667085", "grey": "#667085",
+    }
+    for k, v in named.items():
+        if k in q:
+            return v
+    return default
+
+
+def _v2_extract_int_after(text, patterns, default=None, low=None, high=None):
+    q = str(text or "").lower()
+    for pat in patterns:
+        m = re.search(pat, q)
+        if m:
+            try:
+                val = int(m.group(1))
+                if low is not None: val = max(low, val)
+                if high is not None: val = min(high, val)
+                return val
+            except Exception:
+                pass
+    return default
+
+
+def _v2_pick_column_from_text(text, df, default=None, exclude=None):
+    q = str(text or "").lower()
+    exclude = set(exclude or [])
+    aliases = _v2_column_aliases(df)
+    # prefer longer aliases first to avoid matching "type" before "alert type"
+    for alias, col in sorted(aliases.items(), key=lambda kv: len(kv[0]), reverse=True):
+        if col in exclude:
+            continue
+        if re.search(r"\b" + re.escape(alias) + r"\b", q):
+            if df is not None and not df.empty and col in df.columns:
+                return col
+    return default
+
+
+def _v2_pick_group_column(text, df, x_col=None):
+    q = str(text or "").lower()
+    # Explicit patterns: "by region", "group by actor", "color by impact", "stack by year"
+    m = re.search(r"(?:group by|color by|colour by|stack by|split by|by)\s+([a-zA-Z _\-]+)", q)
+    if m:
+        phrase = m.group(1).strip().split(" in ")[0].split(" top ")[0].split(" with ")[0].strip()
+        col = _v2_pick_column_from_text(phrase, df, default=None, exclude=[x_col])
+        if col and col != x_col:
+            return col
+    if "grouped" in q or "stacked" in q or "heatmap" in q or "sunburst" in q:
+        for candidate in ["alert-impact", "region", "alert-type", "Actor of repression", "Mechanism of repression", "year"]:
+            if candidate != x_col and df is not None and candidate in df.columns:
+                return candidate
+    return None
+
+
+def _v2_parse_chart_type(text):
+    q = str(text or "").lower()
+    aliases = {
+        "horizontal bar": "Horizontal bar", "barh": "Horizontal bar",
+        "vertical bar": "Vertical bar", "bar chart": "Vertical bar", "column chart": "Vertical bar",
+        "grouped bar": "Grouped bar", "clustered bar": "Grouped bar",
+        "stacked bar": "Stacked bar", "stacked": "Stacked bar",
+        "line": "Line", "trend": "Line", "area": "Area", "scatter": "Scatter", "bubble": "Bubble",
+        "pie": "Pie", "donut": "Donut", "doughnut": "Donut", "treemap": "Treemap",
+        "sunburst": "Sunburst", "heatmap": "Heatmap", "histogram": "Histogram",
+        "box": "Box", "boxplot": "Box", "violin": "Violin", "funnel": "Funnel", "waterfall": "Waterfall",
+    }
+    for k, v in aliases.items():
+        if k in q:
+            return v
+    return "Horizontal bar"
+
+
+def _v2_filter_df_from_prompt(text, df):
+    """Apply simple natural-language filters without changing global dashboard filters."""
+    if df is None or df.empty:
+        return df
+    q = str(text or "").lower()
+    out = df.copy()
+
+    if "alert-impact" in out.columns:
+        if re.search(r"\bnegative\b", q):
+            out = out[out["alert-impact"].astype(str).str.lower().eq("negative")]
+        elif re.search(r"\bpositive\b", q):
+            out = out[out["alert-impact"].astype(str).str.lower().eq("positive")]
+        elif "context to watch" in q or "context" in q:
+            out = out[out["alert-impact"].astype(str).str.lower().eq("context to watch")]
+
+    if "year" in out.columns:
+        years = [int(y) for y in re.findall(r"\b(20\d{2}|19\d{2})\b", q)]
+        if years:
+            out = out[out["year"].isin(years)]
+
+    if "alert-country" in out.columns:
+        countries = sorted([c for c in out["alert-country"].dropna().astype(str).unique()], key=len, reverse=True)
+        matched = [c for c in countries if re.search(r"\b" + re.escape(c.lower()) + r"\b", q)]
+        if matched:
+            out = out[out["alert-country"].isin(matched)]
+
+    if "region" in out.columns:
+        regions = sorted([r for r in out["region"].dropna().astype(str).unique()], key=len, reverse=True)
+        matched = [r for r in regions if re.search(r"\b" + re.escape(r.lower()) + r"\b", q)]
+        if matched:
+            out = out[out["region"].isin(matched)]
+    return out
+
+
+def _v2_parse_plot_config(text, df):
+    chart_type = _v2_parse_chart_type(text)
+    filtered_df = _v2_filter_df_from_prompt(text, df)
+    x_col = _v2_pick_column_from_text(text, filtered_df, default=None)
+    if not x_col:
+        # Default chart choice based on requested type
+        x_col = "year" if chart_type in ["Line", "Area"] and "year" in filtered_df.columns else "alert-country"
+        if x_col not in filtered_df.columns:
+            dims = _v2_safe_get_dims(filtered_df)
+            x_col = dims[0][1] if dims else None
+    group_col = _v2_pick_group_column(text, filtered_df, x_col=x_col)
+    colors = _v2_extract_hex_colors(text)
+    primary = colors[0] if colors else _v2_named_color_to_hex(text, AI_COPILOT_V2_STYLE_DEFAULTS["primary_color"])
+    secondary = colors[1] if len(colors) > 1 else AI_COPILOT_V2_STYLE_DEFAULTS["secondary_color"]
+    top_n = _v2_extract_int_after(text, [r"top\s*(\d+)", r"first\s*(\d+)", r"show\s*(\d+)"], default=AI_COPILOT_V2_STYLE_DEFAULTS["top_n"], low=3, high=50)
+    font_size = _v2_extract_int_after(text, [r"font\s*(?:size)?\s*(\d+)", r"text\s*size\s*(\d+)"], default=AI_COPILOT_V2_STYLE_DEFAULTS["font_size"], low=8, high=28)
+    title_size = _v2_extract_int_after(text, [r"title\s*size\s*(\d+)"], default=max(font_size + 4, 15), low=10, high=34)
+    height = _v2_extract_int_after(text, [r"height\s*(\d+)"], default=AI_COPILOT_V2_STYLE_DEFAULTS["height"], low=300, high=900)
+    show_values = not any(w in str(text or "").lower() for w in ["hide labels", "no labels", "without labels", "hide values", "no values"])
+    title = None
+    m = re.search(r"title\s*[:=]\s*([^\n]+)", str(text or ""), flags=re.I)
+    if m:
+        title = m.group(1).strip()[:120]
+    if not title:
+        pretty = x_col.replace("alert-", "").replace("_", " ").title() if x_col else "Dashboard"
+        title = f"{pretty} distribution"
+    return {
+        "chart_type": chart_type, "x_col": x_col, "group_col": group_col,
+        "top_n": top_n, "primary_color": primary, "secondary_color": secondary,
+        "font_size": font_size, "title_size": title_size, "height": height,
+        "show_values": show_values, "title": title, "filtered_df": filtered_df,
+    }
+
+
+def _v2_plot_data_for_insight(df, x_col, group_col=None, top_n=10):
+    try:
+        if group_col:
+            return _ai_group_count_df(df, x_col, group_col, top_n=top_n)
+        return _ai_clean_count_df(df, x_col, top_n=top_n)
+    except Exception:
+        return pd.DataFrame()
+
+
+def _v2_plot_insight(plot_df, x_col, group_col=None):
+    if plot_df is None or plot_df.empty:
+        return "No plot insight is available because the selected filtered data returned no records."
+    total = int(plot_df["count"].sum()) if "count" in plot_df.columns else len(plot_df)
+    if total <= 0:
+        return "No non-zero records are available for this plot."
+    ranked = plot_df.groupby(x_col, dropna=False)["count"].sum().sort_values(ascending=False).head(3)
+    bullets = []
+    for label, count in ranked.items():
+        pct = round((count / total) * 100, 1) if total else 0
+        bullets.append(f"- **{label}**: {int(count):,} records ({pct}%)")
+    concentration = round((ranked.iloc[0] / total) * 100, 1) if len(ranked) else 0
+    note = "The leading category is highly concentrated." if concentration >= 50 else "The pattern is more distributed across categories."
+    group_note = f" Grouped by **{group_col}**." if group_col else ""
+    return "**Auto plot insight**\n\n" + "\n".join(bullets) + f"\n\n{note}{group_note} Counts reflect the current filtered dashboard view and may also reflect reporting intensity."
+
+
+def _v2_make_plot_from_config(config):
+    dfp = config.get("filtered_df")
+    x_col = config.get("x_col")
+    if not x_col:
+        fig = go.Figure()
+        fig.add_annotation(text="No suitable plot dimension was found.", x=0.5, y=0.5, showarrow=False)
+        return fig
+    return _ai_make_plot(
+        dfp,
+        dimension_col=x_col,
+        chart_type=config.get("chart_type", "Horizontal bar"),
+        top_n=config.get("top_n", 10),
+        title=config.get("title"),
+        color=config.get("primary_color", "#660094"),
+        secondary_color=config.get("secondary_color", "#008CAA"),
+        font_size=config.get("font_size", 12),
+        title_size=config.get("title_size"),
+        group_col=config.get("group_col"),
+        height=config.get("height", 430),
+        show_values=config.get("show_values", True),
+    )
+
+
+def _v2_is_plot_request(text):
+    q = str(text or "").lower()
+    return any(w in q for w in ["plot", "chart", "graph", "visual", "visualize", "draw", "show me", "compare"])
+
+
+def _v2_openai_stream_answer(question, df):
+    """Return a generator for OpenAI streaming when available, else deterministic stream."""
+    api_key, model = _ai_get_openai_config()
+    if not api_key or OpenAI is None:
+        return _copilot_stream_text(ai_try_llm_response(question, df))
+    try:
+        client = _ai_get_openai_client(api_key)
+        context = _ai_build_focused_context(question, df)
+        system = (
+            "You are the EU SEE Dashboard AI Copilot. Use only the supplied dashboard context. "
+            "Give concise analytical answers with exact counts when available. Never invent facts."
+        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": "dashboard_context:\n" + json.dumps(context, ensure_ascii=False, default=str) + "\n\nquestion:\n" + str(question)},
+        ]
+        stream = client.chat.completions.create(model=model, messages=messages, temperature=0.15, max_tokens=900, stream=True)
+        def gen():
+            collected = ""
+            try:
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content or ""
+                    collected += delta
+                    yield delta
+                st.session_state.ai_last_streamed_answer = collected
+            except Exception:
+                fallback = ai_try_llm_response(question, df)
+                st.session_state.ai_last_streamed_answer = fallback
+                yield fallback
+        return gen()
+    except Exception:
+        fallback = ai_try_llm_response(question, df)
+        return _copilot_stream_text(fallback)
+
+
+def _copilot_queue_answer(question, df):
+    """v2 queue: supports plot commands, advanced style requests, and memory."""
+    q = str(question or "").strip()
+    if not q:
+        return
+    st.session_state.setdefault("ai_messages", [])
+    st.session_state.ai_messages.append({"role": "user", "content": q})
+
+    if _v2_is_plot_request(q):
+        config = _v2_parse_plot_config(q, df)
+        fig = _v2_make_plot_from_config(config)
+        plot_df = _v2_plot_data_for_insight(config.get("filtered_df"), config.get("x_col"), config.get("group_col"), config.get("top_n", 10))
+        insight = _v2_plot_insight(plot_df, config.get("x_col"), config.get("group_col"))
+        # Avoid storing full dataframe in session state.
+        session_config = {k: v for k, v in config.items() if k != "filtered_df"}
+        st.session_state.ai_last_plot = session_config
+        st.session_state.ai_last_plot_source_prompt = q
+        st.session_state.ai_smart_output = {
+            "type": "plot_v2",
+            "title": config.get("title", "AI-generated plot"),
+            "content": insight,
+            "fig": fig,
+            "plot_data": plot_df,
+            "config": session_config,
+        }
+        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}."})
+        return
+
+    answer = ai_try_llm_response(q, df)
+    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+    st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
+
+
+def _v2_render_status_bar(df):
+    status = _ai_openai_status()
+    mode = "OpenAI enabled" if status.get("configured") and status.get("package_ready") else "Local fallback mode"
+    model = status.get("model", "gpt-4o-mini")
+    records = len(df) if df is not None else 0
+    st.markdown(f"""
+    <div class="v2-statusbar">
+      <span><b>Mode:</b> {mode}</span>
+      <span><b>Model:</b> {model}</span>
+      <span><b>Filtered records:</b> {records:,}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_ai_assistant_panel(df):
+    """AI Copilot v2: chat-first analytics, advanced plot builder, memory and smart outputs."""
+    st.session_state.setdefault("copilot_open", True)
+    st.session_state.setdefault("ai_messages", [])
+    st.session_state.setdefault("ai_smart_output", {"type": "welcome", "title": "AI Copilot v2", "content": "Ask for insights or request a chart, e.g. 'Make a grouped bar chart of actors by alert impact in purple, top 15, font 14'."})
+    st.session_state.setdefault("ai_last_plot", None)
+    st.session_state.setdefault("ai_last_streamed_answer", "")
+
+    st.markdown("""
+    <style>
+    .v2-copilot-shell {background:linear-gradient(180deg,#ffffff 0%,#fbf7fd 100%);border:1px solid rgba(102,0,148,.16);border-radius:20px;padding:14px;box-shadow:0 16px 36px rgba(16,24,40,.08);font-family:Arial,sans-serif;margin:8px 0 18px 0;}
+    .v2-copilot-title {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+    .v2-copilot-title h3 {margin:0;color:#2D0055;font-size:17px;font-weight:950;letter-spacing:-.02em;}
+    .v2-copilot-title span {font-size:11px;color:#667085;font-weight:800;}
+    .v2-statusbar {display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px 0;}
+    .v2-statusbar span {background:#fff;border:1px solid #E6E8EF;border-radius:999px;padding:6px 9px;font-size:10.5px;color:#344054;box-shadow:0 3px 10px rgba(16,24,40,.04);}
+    .v2-help-chip {display:inline-flex;margin:3px 4px 3px 0;padding:6px 9px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:10.5px;font-weight:900;}
+    .v2-smart-box {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:13px;margin-top:10px;box-shadow:0 8px 20px rgba(16,24,40,.05);}
+    .v2-smart-title {font-size:13px;font-weight:950;color:#2D0055;margin-bottom:7px;}
+    .v2-memory-note {font-size:10.5px;color:#667085;line-height:1.35;margin-top:6px;}
+    </style>
+    """, unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown("<div class='v2-copilot-shell'>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="v2-copilot-title">
+          <div><h3>🤖 EU SEE AI Copilot v2</h3><span>Chat, plot, compare, explain, and style charts from the current filtered dashboard view.</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+        _v2_render_status_bar(df)
+
+        examples = [
+            "bar chart of negative alerts by country top 10 purple font 14",
+            "heatmap of actors by mechanisms top 15",
+            "donut chart of alert impact with title: Alert composition",
+            "compare countries by negative alerts",
+            "explain the current dashboard risks",
+        ]
+        st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
+
+        chat_col, tool_col = st.columns([1.25, 1])
+        with chat_col:
+            st.markdown("**Chat**")
+            for msg in st.session_state.ai_messages[-8:]:
+                with st.chat_message("user" if msg.get("role") == "user" else "assistant"):
+                    st.markdown(msg.get("content", ""))
+
+            prompt = st.chat_input("Ask for an insight or chart, e.g. 'make a treemap of mechanisms top 12 teal font 13'")
+            if prompt:
+                st.session_state.ai_messages.append({"role": "user", "content": prompt})
+                if _v2_is_plot_request(prompt):
+                    # Remove the user message added above before delegating to avoid duplication.
+                    st.session_state.ai_messages = st.session_state.ai_messages[:-1]
+                    _copilot_queue_answer(prompt, df)
+                    st.rerun()
+                else:
+                    with st.chat_message("assistant"):
+                        streamed = st.write_stream(_v2_openai_stream_answer(prompt, df))
+                    st.session_state.ai_messages.append({"role": "assistant", "content": streamed})
+                    st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": streamed}
+                    st.rerun()
+
+            ca, cb, cc = st.columns(3)
+            with ca:
+                if st.button("Executive summary", use_container_width=True, key="v2_exec_summary"):
+                    _copilot_queue_answer("Give an executive summary of the current filtered dashboard view", df)
+                    st.rerun()
+            with cb:
+                if st.button("Risk signals", use_container_width=True, key="v2_risk_signals"):
+                    _copilot_queue_answer("Identify the main negative alert risk signals in the current filtered dashboard view", df)
+                    st.rerun()
+            with cc:
+                if st.button("Clear chat", use_container_width=True, key="v2_clear_chat"):
+                    st.session_state.ai_messages = []
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v2", "content": "Chat cleared. Ask a new question or request a chart."}
+                    st.rerun()
+
+        with tool_col:
+            st.markdown("**Smart plot builder**")
+            dims = _v2_safe_get_dims(df)
+            if dims:
+                label_to_col = {label: col for label, col in dims}
+                dim_label = st.selectbox("Dimension", list(label_to_col.keys()), key="v2_plot_dim")
+                chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, key="v2_plot_type")
+                group_label_options = ["None"] + [label for label, col in dims if col != label_to_col[dim_label]]
+                group_label = st.selectbox("Group / color by", group_label_options, key="v2_plot_group")
+                group_col = None if group_label == "None" else label_to_col[group_label]
+                c1, c2 = st.columns(2)
+                with c1:
+                    top_n = st.slider("Top N", 3, 50, 10, key="v2_top_n")
+                    font_size = st.slider("Font size", 8, 28, 12, key="v2_font_size")
+                with c2:
+                    height = st.slider("Chart height", 300, 900, 430, step=10, key="v2_height")
+                    show_values = st.toggle("Show values", True, key="v2_show_values")
+                primary = st.text_input("Primary color HEX", "#660094", key="v2_primary_color")
+                secondary = st.text_input("Secondary color HEX", "#008CAA", key="v2_secondary_color")
+                title = st.text_input("Chart title", f"{dim_label} distribution", key="v2_chart_title")
+                if st.button("Generate styled plot", use_container_width=True, key="v2_generate_plot"):
+                    config = {
+                        "filtered_df": df, "x_col": label_to_col[dim_label], "group_col": group_col,
+                        "chart_type": chart_type, "top_n": top_n,
+                        "primary_color": primary if re.match(r"^#[0-9a-fA-F]{6}$", primary.strip()) else "#660094",
+                        "secondary_color": secondary if re.match(r"^#[0-9a-fA-F]{6}$", secondary.strip()) else "#008CAA",
+                        "font_size": font_size, "title_size": max(font_size + 4, 15), "height": height,
+                        "show_values": show_values, "title": title,
+                    }
+                    fig = _v2_make_plot_from_config(config)
+                    plot_df = _v2_plot_data_for_insight(df, label_to_col[dim_label], group_col, top_n)
+                    st.session_state.ai_smart_output = {
+                        "type": "plot_v2", "title": title, "content": _v2_plot_insight(plot_df, label_to_col[dim_label], group_col),
+                        "fig": fig, "plot_data": plot_df, "config": {k: v for k, v in config.items() if k != "filtered_df"},
+                    }
+                    st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {chart_type} for {label_to_col[dim_label]}."})
+                    st.rerun()
+            else:
+                st.info("No suitable plotting dimensions are available under the current filters.")
+
+        out = st.session_state.ai_smart_output
+        st.markdown("<div class='v2-smart-box'>", unsafe_allow_html=True)
+        st.markdown(f"<div class='v2-smart-title'>{out.get('title', 'Smart output')}</div>", unsafe_allow_html=True)
+        if out.get("type") == "plot_v2" and out.get("fig") is not None:
+            st.plotly_chart(out["fig"], use_container_width=True, key="v2_smart_plot")
+            st.markdown(out.get("content", ""))
+            if isinstance(out.get("plot_data"), pd.DataFrame) and not out["plot_data"].empty:
+                st.download_button(
+                    "Download plot data CSV",
+                    data=out["plot_data"].to_csv(index=False).encode("utf-8"),
+                    file_name="eusee_ai_copilot_v2_plot_data.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="v2_download_plot_data",
+                )
+        else:
+            st.markdown(out.get("content", ""))
+        st.markdown("<div class='v2-memory-note'>Copilot v2 uses the active dashboard filters. Chart commands can include chart type, variable, grouping, color, font size, title, Top N, and year/country filters.</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
 render_ai_assistant_panel(filtered_global)
 
 
