@@ -1,10 +1,14 @@
 # auth.py
 import json
 import time
+import html
 import streamlit as st
 
 DEBUG = False
 
+# -----------------------------
+# Optional imports
+# -----------------------------
 try:
     import pyrebase
     HAS_PYREBASE = True
@@ -29,6 +33,9 @@ except ImportError:
     HAS_COOKIES = False
 
 
+# -----------------------------
+# Firebase setup
+# -----------------------------
 def init_firebase_admin():
     if not HAS_FIREBASE_ADMIN:
         return None
@@ -52,9 +59,12 @@ def init_firebase_admin():
             "client_x509_cert_url": secrets_admin["client_x509_cert_url"],
             "universe_domain": secrets_admin.get("universe_domain", "googleapis.com"),
         })
+
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred)
+
         return firebase_admin
+
     except Exception as e:
         if DEBUG:
             st.warning(f"Firebase Admin init failed: {e}")
@@ -70,6 +80,7 @@ def init_firebase_client():
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
         return firebase, auth
+
     except Exception as e:
         if DEBUG:
             st.warning(f"Firebase client init failed: {e}")
@@ -84,6 +95,9 @@ PRIVILEGED_DOMAINS = set(
 )
 
 
+# -----------------------------
+# Session helpers
+# -----------------------------
 def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
 
@@ -100,8 +114,9 @@ def init_session():
         "auth_remember": False,
         "auth_view": False,
     }
-    for k, v in defaults.items():
-        st.session_state.setdefault(k, v)
+
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
 
 
 def is_authenticated():
@@ -120,6 +135,9 @@ def is_privileged():
     )
 
 
+# -----------------------------
+# Cookies
+# -----------------------------
 def get_cookies():
     if not HAS_COOKIES:
         return None
@@ -128,12 +146,14 @@ def get_cookies():
         password = st.secrets.get("cookie", {}).get("cookie_password")
         if not password:
             return None
+
         st.session_state.cookies = EncryptedCookieManager(
             prefix="eusee",
             password=password
         )
 
     cookies = st.session_state.cookies
+
     try:
         start = time.time()
         while not cookies.ready() and time.time() - start < 1.0:
@@ -158,6 +178,7 @@ def restore_session():
         return
 
     cookies = get_cookies()
+
     if cookies and cookies.ready():
         try:
             if "email" in cookies:
@@ -179,11 +200,13 @@ def _save_cookie_session(email, name, verified, role, remember=False):
         return
 
     cookies = get_cookies()
+
     if cookies and cookies.ready():
         cookies["email"] = email
         cookies["name"] = name
         cookies["email_verified"] = str(bool(verified))
         cookies["role"] = role
+
         try:
             cookies.save()
         except Exception:
@@ -192,10 +215,12 @@ def _save_cookie_session(email, name, verified, role, remember=False):
 
 def logout():
     cookies = get_cookies()
+
     if cookies and cookies.ready():
         for key in ["email", "name", "role", "email_verified"]:
             if key in cookies:
                 del cookies[key]
+
         try:
             cookies.save()
         except Exception:
@@ -227,9 +252,13 @@ def parse_error(e):
         "WEAK_PASSWORD": "Password is too weak. Use at least six characters.",
         "TOO_MANY_ATTEMPTS_TRY_LATER": "Too many attempts. Please try again later.",
     }
+
     return friendly.get(msg, msg)
 
 
+# -----------------------------
+# Styling
+# -----------------------------
 def _auth_page_css():
     st.markdown(
         """
@@ -244,9 +273,9 @@ def _auth_page_css():
 
         .stApp {
             background:
-                radial-gradient(circle at 38% 46%, rgba(56, 86, 255, 0.20), transparent 24%),
-                radial-gradient(circle at 86% 16%, rgba(124, 58, 237, 0.14), transparent 28%),
-                linear-gradient(135deg, #020617 0%, #071126 45%, #020617 100%) !important;
+                radial-gradient(circle at 33% 42%, rgba(37, 99, 235, 0.22), transparent 25%),
+                radial-gradient(circle at 80% 12%, rgba(124, 58, 237, 0.15), transparent 26%),
+                linear-gradient(135deg, #020617 0%, #071126 48%, #020617 100%) !important;
             color: #ffffff;
         }
 
@@ -255,63 +284,53 @@ def _auth_page_css():
             padding: 0 !important;
         }
 
-        .eusee-shell {
+        .auth-shell {
             min-height: 100vh;
-            width: 100%;
             font-family: Inter, Arial, sans-serif;
         }
 
-        .eusee-topbar {
+        .auth-topbar {
             height: 72px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 38px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-            background: rgba(2, 6, 23, 0.54);
+            background: rgba(2, 6, 23, 0.58);
             backdrop-filter: blur(18px);
         }
 
-        .eusee-logo {
+        .brand-head {
             display: flex;
             align-items: center;
             gap: 14px;
-            color: #fff;
         }
 
-        .eusee-logo-mark {
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
+        .brand-stars {
             color: #facc15;
-            font-size: 26px;
+            font-size: 24px;
             letter-spacing: -6px;
+            width: 52px;
         }
 
-        .eusee-logo-text {
-            display: flex;
-            align-items: baseline;
-            gap: 14px;
-        }
-
-        .eusee-logo-text strong {
+        .brand-name {
             font-size: 26px;
             font-weight: 900;
-            letter-spacing: -0.03em;
+            color: #ffffff;
+            letter-spacing: -0.04em;
         }
 
-        .eusee-logo-text span {
+        .brand-platform {
             font-size: 14px;
+            letter-spacing: 0.06em;
             color: rgba(226, 232, 240, 0.78);
-            letter-spacing: 0.05em;
+            margin-left: 12px;
         }
 
-        .eusee-top-actions {
+        .top-actions {
             display: flex;
             align-items: center;
-            gap: 28px;
+            gap: 26px;
             color: rgba(255,255,255,0.90);
             font-size: 15px;
         }
@@ -323,7 +342,7 @@ def _auth_page_css():
             padding: 10px 16px;
             border-radius: 999px;
             background: rgba(15, 23, 42, 0.78);
-            border: 1px solid rgba(148, 163, 184, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.13);
             box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }
 
@@ -335,13 +354,13 @@ def _auth_page_css():
             box-shadow: 0 0 18px rgba(16, 185, 129, 0.75);
         }
 
-        .eusee-main {
+        .auth-body {
             min-height: calc(100vh - 72px);
             display: grid;
             grid-template-columns: 45% 55%;
             align-items: center;
-            padding: 32px 58px 26px 58px;
             gap: 38px;
+            padding: 32px 58px 26px 58px;
         }
 
         .left-panel {
@@ -355,13 +374,13 @@ def _auth_page_css():
 
         .map-orb {
             position: absolute;
-            right: -20px;
+            right: -40px;
             top: 145px;
-            width: 520px;
-            height: 520px;
-            opacity: 0.72;
+            width: 560px;
+            height: 560px;
+            opacity: 0.78;
             background:
-                radial-gradient(circle, rgba(37,99,235,0.28) 0 2px, transparent 2px);
+                radial-gradient(circle, rgba(37,99,235,0.32) 0 2px, transparent 2px);
             background-size: 10px 10px;
             mask-image: radial-gradient(circle, black 0%, transparent 72%);
             -webkit-mask-image: radial-gradient(circle, black 0%, transparent 72%);
@@ -379,9 +398,10 @@ def _auth_page_css():
             font-weight: 950;
             letter-spacing: -0.045em;
             margin-bottom: 20px;
+            color: #ffffff;
         }
 
-        .left-title span {
+        .left-title .gradient {
             display: block;
             background: linear-gradient(90deg, #a855f7 0%, #22d3ee 78%);
             -webkit-background-clip: text;
@@ -416,9 +436,9 @@ def _auth_page_css():
             border-radius: 14px;
             display: grid;
             place-items: center;
-            background: linear-gradient(145deg, rgba(124,58,237,0.44), rgba(30,64,175,0.42));
+            background: linear-gradient(145deg, rgba(124,58,237,0.48), rgba(30,64,175,0.44));
             color: #ddd6fe;
-            font-size: 27px;
+            font-size: 26px;
         }
 
         .feature-item h3 {
@@ -481,15 +501,10 @@ def _auth_page_css():
             font-size: 13px;
         }
 
-        .right-panel {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
         .login-card {
             width: min(760px, 100%);
             min-height: 720px;
+            margin: 0 auto;
             background:
                 radial-gradient(circle at 90% 8%, rgba(124, 58, 237, 0.08), transparent 22%),
                 #ffffff;
@@ -500,18 +515,20 @@ def _auth_page_css():
             border: 1px solid rgba(255,255,255,0.70);
         }
 
-        .login-card-top {
+        .back-row {
             display: flex;
             justify-content: flex-end;
-            margin-bottom: 24px;
+            margin-bottom: 22px;
         }
 
-        .back-button-wrap .stButton > button {
+        .auth-back-button .stButton > button {
+            width: auto !important;
             border: 1px solid rgba(124, 58, 237, 0.55) !important;
             color: #5b21b6 !important;
             background: #ffffff !important;
             border-radius: 8px !important;
             font-weight: 800 !important;
+            padding: 0.55rem 1rem !important;
             box-shadow: 0 6px 16px rgba(124,58,237,0.10);
         }
 
@@ -531,7 +548,7 @@ def _auth_page_css():
             place-items: center;
             background: #f1e9ff;
             color: #6d28d9;
-            font-size: 34px;
+            font-size: 32px;
         }
 
         .login-heading h1 {
@@ -603,12 +620,17 @@ def _auth_page_css():
             box-shadow: 0 14px 26px rgba(37, 99, 235, 0.28) !important;
         }
 
+        .stButton > button {
+            border-radius: 8px !important;
+            border: 1px solid #cbd5e1 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-weight: 750 !important;
+        }
+
         .form-link-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 18px;
-            margin: 22px 0 20px 0;
+            text-align: center;
+            margin: 22px 0 12px 0;
             color: #475569;
             font-size: 15px;
         }
@@ -619,7 +641,7 @@ def _auth_page_css():
         }
 
         .secure-notice {
-            margin-top: 20px;
+            margin-top: 22px;
             border: 1px solid rgba(245, 158, 11, 0.55);
             background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
             border-radius: 10px;
@@ -644,23 +666,15 @@ def _auth_page_css():
             margin-right: 7px;
         }
 
-        .bottom-auth-footer {
+        .bottom-footer {
             text-align: center;
             color: rgba(226,232,240,0.70);
             font-size: 14px;
             margin-top: 18px;
         }
 
-        .stButton > button {
-            border-radius: 8px !important;
-            border: 1px solid #cbd5e1 !important;
-            background: #ffffff !important;
-            color: #0f172a !important;
-            font-weight: 750 !important;
-        }
-
         @media (max-width: 1100px) {
-            .eusee-main {
+            .auth-body {
                 grid-template-columns: 1fr;
                 padding: 24px;
             }
@@ -681,15 +695,15 @@ def _auth_page_css():
         }
 
         @media (max-width: 720px) {
-            .eusee-topbar {
+            .auth-topbar {
                 padding: 0 18px;
             }
 
-            .eusee-top-actions {
+            .top-actions {
                 display: none;
             }
 
-            .eusee-logo-text span {
+            .brand-platform {
                 display: none;
             }
 
@@ -711,6 +725,122 @@ def _auth_page_css():
     )
 
 
+# -----------------------------
+# HTML blocks
+# -----------------------------
+def _topbar_html():
+    return """
+    <div class="auth-shell">
+        <div class="auth-topbar">
+            <div class="brand-head">
+                <div class="brand-stars">✦✦✦</div>
+                <div>
+                    <span class="brand-name">EU SEE</span>
+                    <span class="brand-platform">INTELLIGENCE PLATFORM</span>
+                </div>
+            </div>
+
+            <div class="top-actions">
+                <div class="status-pill">
+                    <span class="status-dot"></span>
+                    <span>System Status: <strong>Operational</strong></span>
+                </div>
+                <span>ⓘ Help</span>
+                <span>▤ Docs</span>
+                <span>◎ English⌄</span>
+            </div>
+        </div>
+    """
+
+
+def _left_panel_html():
+    return """
+        <div class="left-panel">
+            <div class="map-orb"></div>
+            <div class="left-content">
+                <div class="left-title">
+                    EU SEE
+                    <span class="gradient">Intelligence Platform</span>
+                </div>
+
+                <div class="left-description">
+                    Secure access to real-time geopolitical analytics,
+                    risk signals, and cross-country monitoring across
+                    South East Europe and beyond.
+                </div>
+
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">◎</div>
+                        <div>
+                            <h3>86 Countries Monitored</h3>
+                            <p>Comprehensive coverage and real-time updates</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">▮</div>
+                        <div>
+                            <h3>Real-time Signal Processing</h3>
+                            <p>AI-powered detection and analytics engine</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">◇</div>
+                        <div>
+                            <h3>AI-driven Risk Classification</h3>
+                            <p>Advanced models for early risk identification</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="left-divider"></div>
+
+                <div class="security-row">
+                    <div class="security-icon">🔐</div>
+                    <div>
+                        <h3>Enterprise-grade security</h3>
+                        <p>Your data is protected with end-to-end encryption and strict access controls.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="left-footer">
+                © 2024 EU SEE Intelligence Platform. All rights reserved.
+            </div>
+        </div>
+    """
+
+
+def _login_header_html(mode_title, mode_subtitle):
+    return f"""
+        <div class="login-heading">
+            <div class="login-lock">🔒</div>
+            <div>
+                <h1>{html.escape(mode_title)}</h1>
+                <p>{html.escape(mode_subtitle)}</p>
+            </div>
+        </div>
+
+        <div class="or-row">OR</div>
+    """
+
+
+def _secure_notice_html():
+    return """
+        <div class="secure-notice">
+            <h3>🛡️ Secure Access Notice</h3>
+            <p><span class="check">✓</span>Access restricted to verified institutional domains</p>
+            <p><span class="check">✓</span>All activity is logged and monitored</p>
+            <p><span class="check">✓</span>Session protected with enterprise-grade encryption</p>
+        </div>
+    """
+
+
+# -----------------------------
+# Form actions
+# -----------------------------
 def _set_auth_mode(mode: str):
     st.session_state.auth_mode = mode
     st.rerun()
@@ -722,7 +852,7 @@ def _back_to_dashboard():
 
 
 def _login_form():
-    with st.form("eusee_login_form"):
+    with st.form("eusee_login_form", clear_on_submit=False):
         email = st.text_input(
             "Email address",
             placeholder="name@organization.org"
@@ -771,13 +901,7 @@ def _login_form():
             st.session_state.auth_remember = remember
             st.session_state.auth_view = False
 
-            _save_cookie_session(
-                email,
-                st.session_state.name,
-                verified,
-                role,
-                remember
-            )
+            _save_cookie_session(email, st.session_state.name, verified, role, remember)
 
             st.success("Signed in successfully. Redirecting to dashboard...")
             st.rerun()
@@ -788,24 +912,24 @@ def _login_form():
     st.markdown(
         """
         <div class="form-link-row">
-            <span style="color:#475569;font-weight:500;">Don’t have an account?</span>
-            <span>Create account</span>
+            Don’t have an account? <span>Create account</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         if st.button("Create account", use_container_width=True, key="switch_register"):
             _set_auth_mode("Register")
-    with col2:
+
+    with c2:
         if st.button("Forgot password?", use_container_width=True, key="switch_reset"):
             _set_auth_mode("Reset")
 
 
 def _register_form():
-    with st.form("eusee_register_form"):
+    with st.form("eusee_register_form", clear_on_submit=False):
         email = st.text_input(
             "Email address",
             placeholder="name@organization.org"
@@ -817,10 +941,7 @@ def _register_form():
             type="password"
         )
 
-        submitted = st.form_submit_button(
-            "Create account",
-            use_container_width=True
-        )
+        submitted = st.form_submit_button("Create account", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
@@ -847,7 +968,7 @@ def _register_form():
 
 
 def _reset_form():
-    with st.form("eusee_reset_form"):
+    with st.form("eusee_reset_form", clear_on_submit=False):
         reset_email = st.text_input(
             "Email address",
             placeholder="name@organization.org"
@@ -881,6 +1002,9 @@ def _reset_form():
         _set_auth_mode("Login")
 
 
+# -----------------------------
+# Main auth page
+# -----------------------------
 def _render_auth_page():
     _auth_page_css()
 
@@ -898,136 +1022,42 @@ def _render_auth_page():
         "Reset": "Enter your approved email address to receive a password reset link.",
     }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
 
-    st.markdown(
-        """
-        <div class="eusee-shell">
-            <div class="eusee-topbar">
-                <div class="eusee-logo">
-                    <div class="eusee-logo-mark">✦✦✦</div>
-                    <div class="eusee-logo-text">
-                        <strong>EU SEE</strong>
-                        <span>INTELLIGENCE PLATFORM</span>
-                    </div>
-                </div>
+    st.markdown(_topbar_html(), unsafe_allow_html=True)
 
-                <div class="eusee-top-actions">
-                    <div class="status-pill">
-                        <span class="status-dot"></span>
-                        <span>System Status: <strong>Operational</strong></span>
-                    </div>
-                    <span>ⓘ Help</span>
-                    <span>▤ Docs</span>
-                    <span>◎ English⌄</span>
-                </div>
-            </div>
+    body_left, body_right = st.columns([0.45, 0.55], gap="large")
 
-            <div class="eusee-main">
-                <div class="left-panel">
-                    <div class="map-orb"></div>
-                    <div class="left-content">
-                        <div class="left-title">
-                            EU SEE
-                            <span>Intelligence Platform</span>
-                        </div>
+    with body_left:
+        st.markdown(_left_panel_html(), unsafe_allow_html=True)
 
-                        <div class="left-description">
-                            Secure access to real-time geopolitical analytics,
-                            risk signals, and cross-country monitoring across
-                            South East Europe and beyond.
-                        </div>
+    with body_right:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-                        <div class="feature-list">
-                            <div class="feature-item">
-                                <div class="feature-icon">◎</div>
-                                <div>
-                                    <h3>86 Countries Monitored</h3>
-                                    <p>Comprehensive coverage and real-time updates</p>
-                                </div>
-                            </div>
+        st.markdown('<div class="back-row"><div class="auth-back-button">', unsafe_allow_html=True)
+        if st.button("←  Back to dashboard", key="back_to_dashboard_auth"):
+            _back_to_dashboard()
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
-                            <div class="feature-item">
-                                <div class="feature-icon">▮</div>
-                                <div>
-                                    <h3>Real-time Signal Processing</h3>
-                                    <p>AI-powered detection and analytics engine</p>
-                                </div>
-                            </div>
+        st.markdown(
+            _login_header_html(mode_title, mode_subtitle),
+            unsafe_allow_html=True
+        )
 
-                            <div class="feature-item">
-                                <div class="feature-icon">盾</div>
-                                <div>
-                                    <h3>AI-driven Risk Classification</h3>
-                                    <p>Advanced models for early risk identification</p>
-                                </div>
-                            </div>
-                        </div>
+        if mode == "Login":
+            _login_form()
+        elif mode == "Register":
+            _register_form()
+        else:
+            _reset_form()
 
-                        <div class="left-divider"></div>
-
-                        <div class="security-row">
-                            <div class="security-icon">🔐</div>
-                            <div>
-                                <h3>Enterprise-grade security</h3>
-                                <p>Your data is protected with end-to-end encryption and strict access controls.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="left-footer">
-                        © 2024 EU SEE Intelligence Platform. All rights reserved.
-                    </div>
-                </div>
-
-                <div class="right-panel">
-                    <div class="login-card">
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('<div class="login-card-top">', unsafe_allow_html=True)
-    st.markdown('<div class="back-button-wrap">', unsafe_allow_html=True)
-    if st.button("←  Back to dashboard", key="back_to_dashboard_auth"):
-        _back_to_dashboard()
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown(
-        f"""
-        <div class="login-heading">
-            <div class="login-lock">🔒</div>
-            <div>
-                <h1>{mode_title}</h1>
-                <p>{mode_subtitle}</p>
-            </div>
-        </div>
-
-        <div class="or-row">OR</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if mode == "Login":
-        _login_form()
-    elif mode == "Register":
-        _register_form()
-    else:
-        _reset_form()
+        st.markdown(_secure_notice_html(), unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(
         """
-                <div class="secure-notice">
-                    <h3>🛡️ Secure Access Notice</h3>
-                    <p><span class="check">✓</span>Access restricted to verified institutional domains</p>
-                    <p><span class="check">✓</span>All activity is logged and monitored</p>
-                    <p><span class="check">✓</span>Session protected with enterprise-grade encryption</p>
-                </div>
-            </div>
+        <div class="bottom-footer">
+            🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready
         </div>
-    </div>
-    <div class="bottom-auth-footer">
-        🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready
-    </div>
-</div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
