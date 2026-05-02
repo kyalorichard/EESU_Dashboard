@@ -255,7 +255,7 @@ def parse_error(e):
 
 
 # ============================================================
-# Simple centered page styling
+# Professional centered UI
 # ============================================================
 def _auth_page_css():
     st.markdown(
@@ -277,9 +277,9 @@ def _auth_page_css():
             min-height: 100vh !important;
             font-family: Inter, Arial, sans-serif !important;
             background:
-                radial-gradient(circle at top left, rgba(124, 58, 237, 0.20), transparent 30%),
-                radial-gradient(circle at bottom right, rgba(8, 145, 178, 0.18), transparent 34%),
-                linear-gradient(135deg, #020617 0%, #071426 50%, #0f172a 100%) !important;
+                radial-gradient(circle at 18% 18%, rgba(124, 58, 237, 0.22), transparent 32%),
+                radial-gradient(circle at 82% 82%, rgba(8, 145, 178, 0.20), transparent 36%),
+                linear-gradient(135deg, #020617 0%, #071426 48%, #0f172a 100%) !important;
         }
 
         .block-container {
@@ -288,69 +288,93 @@ def _auth_page_css():
             margin: 0 !important;
         }
 
-        .auth-page {
+        div[data-testid="stMarkdownContainer"] p {
+            margin: 0;
+        }
+
+        .login-shell {
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 32px 18px;
+            padding: 46px 18px 28px 18px;
         }
 
-        .auth-card div[data-testid="stVerticalBlockBorderWrapper"] {
-            width: min(100%, 480px) !important;
-            margin: 0 auto !important;
-            border-radius: 22px !important;
-            border: 1px solid rgba(255,255,255,0.18) !important;
-            background: #ffffff !important;
-            box-shadow: 0 28px 80px rgba(0,0,0,0.42) !important;
+        .top-brand {
+            text-align: center;
+            margin-bottom: 22px;
         }
 
-        .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            padding: 34px 34px 30px 34px !important;
-        }
-
-        .brand-mark {
-            width: 56px;
-            height: 56px;
+        .top-brand .logo {
+            width: 58px;
+            height: 58px;
             border-radius: 18px;
-            margin: 0 auto 16px auto;
-            display: grid;
+            display: inline-grid;
             place-items: center;
             background: linear-gradient(135deg, #6d28d9, #2563eb);
             color: #ffffff;
             font-size: 26px;
             font-weight: 900;
-            box-shadow: 0 14px 30px rgba(37,99,235,0.25);
+            box-shadow: 0 16px 34px rgba(37,99,235,0.30);
+            margin-bottom: 14px;
         }
 
-        .brand-title {
-            text-align: center;
-            color: #0b102f !important;
-            font-size: 28px;
+        .top-brand h1 {
+            margin: 0;
+            color: #ffffff !important;
+            font-size: 30px;
+            line-height: 1.15;
             font-weight: 950;
-            letter-spacing: -0.04em;
-            line-height: 1.12;
-            margin: 0 0 6px 0;
+            letter-spacing: -0.045em;
         }
 
-        .brand-subtitle {
-            text-align: center;
-            color: #64748b !important;
-            font-size: 14px;
-            line-height: 1.55;
-            margin: 0 0 22px 0;
+        .top-brand p {
+            margin: 8px 0 0 0;
+            color: rgba(226,232,240,0.78) !important;
+            font-size: 14.5px;
+            line-height: 1.5;
+        }
+
+        /* Only style the main auth card */
+        .auth-card div[data-testid="stVerticalBlockBorderWrapper"] {
+            max-width: 460px !important;
+            margin: 0 auto !important;
+            border-radius: 24px !important;
+            border: 1px solid rgba(255,255,255,0.22) !important;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.98)) !important;
+            box-shadow: 0 30px 90px rgba(0,0,0,0.45) !important;
+        }
+
+        .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
+            padding: 32px 32px 28px 32px !important;
         }
 
         .mode-pill {
             width: fit-content;
             margin: 0 auto 22px auto;
-            padding: 8px 12px;
+            padding: 8px 13px;
             border-radius: 999px;
             color: #5b21b6 !important;
             background: #f3e8ff;
             border: 1px solid #e9d5ff;
             font-size: 12px;
             font-weight: 850;
+            letter-spacing: 0.03em;
+        }
+
+        .card-title {
+            text-align: center;
+            color: #0b102f !important;
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: -0.035em;
+            margin-bottom: 7px;
+        }
+
+        .card-subtitle {
+            text-align: center;
+            color: #64748b !important;
+            font-size: 13.5px;
+            line-height: 1.48;
+            margin-bottom: 24px;
         }
 
         .auth-card label p {
@@ -361,47 +385,60 @@ def _auth_page_css():
         }
 
         .auth-card div[data-testid="stTextInput"] input {
-            height: 52px !important;
+            height: 50px !important;
             border-radius: 12px !important;
             border: 1px solid #d7dce7 !important;
             background: #ffffff !important;
             color: #0f172a !important;
-            font-size: 15px !important;
+            font-size: 14.5px !important;
             box-shadow: none !important;
         }
 
         .auth-card div[data-testid="stTextInput"] input:focus {
             border-color: #7c3aed !important;
-            box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.13) !important;
+        }
+
+        .auth-card div[data-testid="stCheckbox"] {
+            margin-top: 2px !important;
+            margin-bottom: 12px !important;
         }
 
         .auth-card div[data-testid="stCheckbox"] label,
         .auth-card div[data-testid="stCheckbox"] label span {
             color: #334155 !important;
-            font-size: 14px !important;
+            font-size: 13.5px !important;
             font-weight: 500 !important;
         }
 
         .auth-card button[kind="primaryFormSubmit"],
         .auth-card button[kind="formSubmit"] {
             width: 100% !important;
-            min-height: 54px !important;
+            min-height: 52px !important;
             border-radius: 12px !important;
             border: none !important;
             color: #ffffff !important;
-            font-size: 16px !important;
+            font-size: 15.5px !important;
             font-weight: 900 !important;
             background: linear-gradient(90deg, #6d28d9, #2563eb) !important;
             box-shadow: 0 12px 26px rgba(37,99,235,0.28) !important;
+            transition: all .15s ease !important;
+        }
+
+        .auth-card button[kind="primaryFormSubmit"]:hover,
+        .auth-card button[kind="formSubmit"]:hover {
+            filter: brightness(1.04);
+            transform: translateY(-1px);
         }
 
         .auth-card .stButton > button {
-            min-height: 44px !important;
+            min-height: 42px !important;
             border-radius: 12px !important;
             border: 1px solid #d7dce7 !important;
             background: #ffffff !important;
             color: #334155 !important;
             font-weight: 750 !important;
+            font-size: 13.5px !important;
         }
 
         .auth-card .stButton > button:hover {
@@ -410,42 +447,46 @@ def _auth_page_css():
             box-shadow: 0 8px 18px rgba(124,58,237,0.12) !important;
         }
 
-        .auth-note {
-            margin-top: 20px;
-            padding: 14px 16px;
+        .helper-text {
+            text-align: center;
+            color: #64748b !important;
+            font-size: 13px;
+            margin: 16px 0 10px 0;
+        }
+
+        .notice {
+            margin-top: 18px;
+            padding: 13px 14px;
             border-radius: 14px;
             background: #fffbeb;
             border: 1px solid #fde68a;
             color: #4b3b14 !important;
-            font-size: 12.5px;
+            font-size: 12px;
             line-height: 1.45;
         }
 
-        .auth-note strong {
+        .notice strong {
             color: #3b2f0b !important;
         }
 
-        .auth-footer {
+        .footer-note {
             text-align: center;
             color: rgba(226,232,240,0.68) !important;
             font-size: 12.5px;
             margin-top: 18px;
         }
 
-        .small-link-text {
-            text-align: center;
-            color: #64748b !important;
-            font-size: 13.5px;
-            margin: 16px 0 10px 0;
-        }
-
         @media (max-width: 520px) {
+            .login-shell {
+                padding-top: 28px;
+            }
+
             .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
                 padding: 28px 22px 24px 22px !important;
             }
 
-            .brand-title {
-                font-size: 25px;
+            .top-brand h1 {
+                font-size: 26px;
             }
         }
         </style>
@@ -454,32 +495,25 @@ def _auth_page_css():
     )
 
 
-# ============================================================
-# Render page
-# ============================================================
-def _header(mode):
-    title = {
-        "Login": "EU SEE Intelligence Platform",
-        "Register": "Create EU SEE Account",
-        "Reset": "Reset Password",
-    }.get(mode, "EU SEE Intelligence Platform")
-
-    subtitle = {
-        "Login": "Secure sign-in for authorized dashboard users.",
-        "Register": "Register using an approved institutional email address.",
-        "Reset": "Enter your email to receive a password reset link.",
-    }.get(mode, "Secure sign-in for authorized dashboard users.")
-
-    pill = {
-        "Login": "SECURE ACCESS",
-        "Register": "ACCOUNT REGISTRATION",
-        "Reset": "PASSWORD RECOVERY",
-    }.get(mode, "SECURE ACCESS")
-
-    st.markdown('<div class="brand-mark">✦</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="brand-title">{title}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="brand-subtitle">{subtitle}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="mode-pill">{pill}</div>', unsafe_allow_html=True)
+def _mode_text(mode):
+    data = {
+        "Login": {
+            "pill": "SECURE ACCESS",
+            "title": "Sign in to dashboard",
+            "subtitle": "Use your approved organizational account to access EU SEE analytics.",
+        },
+        "Register": {
+            "pill": "ACCOUNT REGISTRATION",
+            "title": "Create your account",
+            "subtitle": "Register with an approved institutional email address.",
+        },
+        "Reset": {
+            "pill": "PASSWORD RECOVERY",
+            "title": "Reset your password",
+            "subtitle": "Enter your email address to receive a password reset link.",
+        },
+    }
+    return data.get(mode, data["Login"])
 
 
 def _back_to_dashboard():
@@ -537,7 +571,7 @@ def _login_form():
         except Exception as e:
             st.error(parse_error(e))
 
-    st.markdown('<div class="small-link-text">Need access or forgot your password?</div>', unsafe_allow_html=True)
+    st.markdown('<div class="helper-text">Need access or forgot your password?</div>', unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
@@ -608,42 +642,58 @@ def _reset_form():
 
 def _render_auth_page():
     _auth_page_css()
-
     mode = st.session_state.get("auth_mode", "Login")
+    text = _mode_text(mode)
 
-    st.markdown('<div class="auth-page">', unsafe_allow_html=True)
-
-    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-    with st.container(border=True):
-        _header(mode)
-
-        if mode == "Login":
-            _login_form()
-        elif mode == "Register":
-            _register_form()
-        else:
-            _reset_form()
-
-        st.markdown(
-            """
-            <div class="auth-note">
-                <strong>Secure Access Notice</strong><br>
-                Access is restricted to verified institutional users. Sessions are protected and activity may be monitored.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if st.button("← Back to dashboard", use_container_width=True):
-            _back_to_dashboard()
-
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-shell">', unsafe_allow_html=True)
 
     st.markdown(
-        '<div class="auth-footer">EU SEE Dashboard · Secure authentication · Protected access</div>',
+        """
+        <div class="top-brand">
+            <div class="logo">✦</div>
+            <h1>EU SEE Intelligence Platform</h1>
+            <p>Secure access to dashboard analytics and protected intelligence features.</p>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
+    # Centering is handled by Streamlit columns; no fragile open HTML around widgets.
+    left, center, right = st.columns([1, 0.58, 1])
+
+    with center:
+        st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f'<div class="mode-pill">{text["pill"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-title">{text["title"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-subtitle">{text["subtitle"]}</div>', unsafe_allow_html=True)
+
+            if mode == "Login":
+                _login_form()
+            elif mode == "Register":
+                _register_form()
+            else:
+                _reset_form()
+
+            st.markdown(
+                """
+                <div class="notice">
+                    <strong>Secure Access Notice</strong><br>
+                    Access is restricted to verified institutional users. Sessions are protected and activity may be monitored.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if st.button("← Back to dashboard", use_container_width=True):
+                _back_to_dashboard()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="footer-note">EU SEE Dashboard · Secure authentication · Protected access</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 
