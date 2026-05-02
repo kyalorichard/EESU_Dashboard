@@ -255,7 +255,7 @@ def parse_error(e):
 
 
 # ============================================================
-# CSS
+# CSS: standardized professional UX
 # ============================================================
 def _auth_page_css():
     st.markdown(
@@ -276,12 +276,12 @@ def _auth_page_css():
             padding: 0 !important;
             width: 100% !important;
             min-height: 100vh !important;
-            background:
-                radial-gradient(circle at 34% 40%, rgba(37, 99, 235, 0.20), transparent 25%),
-                radial-gradient(circle at 82% 10%, rgba(124, 58, 237, 0.14), transparent 25%),
-                linear-gradient(135deg, #020617 0%, #061126 48%, #020617 100%) !important;
-            color: #ffffff !important;
             font-family: Inter, Arial, sans-serif !important;
+            background:
+                radial-gradient(circle at 26% 38%, rgba(37, 99, 235, 0.18), transparent 24%),
+                radial-gradient(circle at 82% 14%, rgba(124, 58, 237, 0.13), transparent 26%),
+                linear-gradient(135deg, #020617 0%, #071426 50%, #020617 100%) !important;
+            color: #ffffff !important;
         }
 
         .block-container {
@@ -294,316 +294,333 @@ def _auth_page_css():
             margin: 0;
         }
 
-        /* Global page spacing */
-        .auth-shell-pad {
-            padding: 28px 52px 18px 52px;
-        }
-
-        /* Top bar */
-        .auth-topbar-box {
-            height: 76px;
-            padding: 0 42px;
+        /* ---------- Header ---------- */
+        .auth-topbar {
+            height: 72px;
+            padding: 0 44px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-            background: rgba(2, 6, 23, 0.50);
+            background: rgba(2, 6, 23, 0.62);
             backdrop-filter: blur(18px);
             display: flex;
             align-items: center;
             box-sizing: border-box;
         }
 
-        .auth-brand-mark {
+        .brand-mark {
+            display: inline-grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             color: #facc15;
-            font-size: 25px;
+            font-size: 21px;
             font-weight: 900;
             letter-spacing: -3px;
             margin-right: 12px;
         }
 
-        .auth-brand-name {
-            font-size: 27px;
+        .brand-name {
+            color: #ffffff;
+            font-size: 24px;
             font-weight: 900;
             letter-spacing: -0.045em;
-            color: white;
             margin-right: 14px;
         }
 
-        .auth-brand-sub {
-            color: rgba(226, 232, 240, 0.78);
-            font-size: 15px;
-            letter-spacing: 0.045em;
-            font-weight: 600;
+        .brand-subtitle {
+            color: rgba(226, 232, 240, 0.76);
+            font-size: 13px;
+            letter-spacing: 0.055em;
+            font-weight: 700;
         }
 
         .status-pill {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 17px;
+            gap: 9px;
+            padding: 9px 14px;
             border-radius: 999px;
-            background: rgba(15, 23, 42, 0.78);
-            border: 1px solid rgba(148, 163, 184, 0.12);
+            background: rgba(15, 23, 42, 0.86);
+            border: 1px solid rgba(148, 163, 184, 0.13);
             color: white;
-            font-size: 15px;
+            font-size: 13px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.22);
             white-space: nowrap;
         }
 
         .status-dot {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             background: #10b981;
-            box-shadow: 0 0 18px rgba(16, 185, 129, 0.80);
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.85);
             display: inline-block;
         }
 
         .top-link {
-            color: rgba(255,255,255,0.92);
-            font-size: 15px;
-            font-weight: 600;
+            color: rgba(255,255,255,0.86);
+            font-size: 13px;
+            font-weight: 650;
             white-space: nowrap;
         }
 
-        /* Left panel */
-        .left-frame {
+        /* ---------- Page grid ---------- */
+        .auth-page-pad {
+            padding: 34px 56px 16px 56px;
+        }
+
+        .left-panel {
+            min-height: 720px;
             position: relative;
-            min-height: 742px;
-            overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            overflow: hidden;
             box-sizing: border-box;
         }
 
-        .left-frame::after {
+        .left-panel::after {
             content: "";
             position: absolute;
-            right: -58px;
-            top: 132px;
-            width: 575px;
-            height: 575px;
-            opacity: 0.78;
+            right: -48px;
+            top: 130px;
+            width: 545px;
+            height: 545px;
+            opacity: 0.68;
             background:
-                radial-gradient(circle, rgba(37,99,235,0.36) 0 2px, transparent 2px);
+                radial-gradient(circle, rgba(37,99,235,0.34) 0 2px, transparent 2px);
             background-size: 9px 9px;
-            mask-image: radial-gradient(circle, black 0%, transparent 73%);
-            -webkit-mask-image: radial-gradient(circle, black 0%, transparent 73%);
+            mask-image: radial-gradient(circle, black 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(circle, black 0%, transparent 72%);
             pointer-events: none;
         }
 
-        .left-frame::before {
+        .left-panel::before {
             content: "";
             position: absolute;
-            right: -20px;
-            top: 250px;
-            width: 540px;
-            height: 330px;
-            border: 1px solid rgba(59,130,246,0.35);
+            right: -12px;
+            top: 252px;
+            width: 520px;
+            height: 320px;
+            border: 1px solid rgba(59,130,246,0.34);
             border-left: none;
             border-bottom: none;
             border-radius: 50%;
-            transform: rotate(-18deg);
-            opacity: 0.65;
+            transform: rotate(-17deg);
+            opacity: 0.55;
             pointer-events: none;
         }
 
-        .left-content-native {
+        .left-inner {
             position: relative;
             z-index: 2;
-            max-width: 610px;
+            max-width: 600px;
         }
 
-        .left-content-native h1 {
-            font-size: 52px !important;
-            line-height: 1.08 !important;
-            font-weight: 950 !important;
-            letter-spacing: -0.05em !important;
-            color: #ffffff !important;
-            margin: 0 0 4px 0 !important;
+        .left-title {
+            color: #ffffff;
+            font-size: 50px;
+            line-height: 1.05;
+            font-weight: 950;
+            letter-spacing: -0.05em;
+            margin: 0 0 6px 0;
         }
 
-        .left-content-native h2 {
-            font-size: 44px !important;
-            line-height: 1.10 !important;
-            font-weight: 950 !important;
-            letter-spacing: -0.05em !important;
-            margin: 0 0 18px 0 !important;
+        .left-gradient-title {
+            display: block;
+            font-size: 44px;
+            line-height: 1.08;
+            font-weight: 950;
+            letter-spacing: -0.05em;
+            margin: 0 0 20px 0;
             background: linear-gradient(90deg, #a855f7 0%, #38bdf8 76%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .left-lead {
-            max-width: 525px;
-            margin-bottom: 34px;
-            color: rgba(226, 232, 240, 0.88);
-            font-size: 18px;
-            line-height: 1.56;
+            max-width: 510px;
+            margin-bottom: 36px;
+            color: rgba(226, 232, 240, 0.86);
+            font-size: 17px;
+            line-height: 1.58;
             font-weight: 500;
         }
 
-        .feature-row {
-            margin-bottom: 22px;
+        .metric-card {
+            background: rgba(15, 23, 42, 0.36);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 18px;
+            padding: 16px 18px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 18px;
         }
 
-        .feature-icon-native {
-            width: 58px;
-            height: 58px;
-            border-radius: 13px;
+        .feature-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
             display: grid;
             place-items: center;
-            background: linear-gradient(145deg, rgba(124,58,237,0.48), rgba(30,64,175,0.46));
+            background: linear-gradient(145deg, rgba(124,58,237,0.52), rgba(30,64,175,0.48));
             color: #ddd6fe;
-            font-size: 27px;
-            box-shadow: 0 16px 34px rgba(0,0,0,0.16);
+            font-size: 25px;
+            box-shadow: 0 16px 34px rgba(0,0,0,0.18);
         }
 
-        .feature-title-native {
+        .feature-title {
             color: #ffffff;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 850;
             letter-spacing: -0.02em;
-            margin: 0 0 5px 0;
+            margin: 0 0 4px 0;
         }
 
-        .feature-desc-native {
-            color: rgba(226, 232, 240, 0.78);
-            font-size: 15.5px;
-            line-height: 1.35;
+        .feature-desc {
+            color: rgba(226, 232, 240, 0.76);
+            font-size: 14.5px;
+            line-height: 1.38;
             margin: 0;
         }
 
         .left-rule {
-            width: 86%;
+            width: 88%;
             height: 1px;
-            background: rgba(148, 163, 184, 0.22);
-            margin: 20px 0 28px 0;
+            background: rgba(148, 163, 184, 0.20);
+            margin: 26px 0 24px 0;
         }
 
-        .security-icon-native {
-            width: 72px;
-            height: 72px;
-            border-radius: 24px;
+        .security-icon {
+            width: 62px;
+            height: 62px;
+            border-radius: 22px;
             display: grid;
             place-items: center;
             color: #22d3ee;
-            border: 1px solid rgba(34, 211, 238, 0.72);
-            font-size: 31px;
+            border: 1px solid rgba(34, 211, 238, 0.70);
+            font-size: 27px;
         }
 
-        .security-title-native {
-            margin: 0 0 8px 0;
+        .security-title {
+            margin: 0 0 7px 0;
             color: #22d3ee;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 850;
         }
 
-        .security-desc-native {
+        .security-desc {
             margin: 0;
-            color: rgba(226, 232, 240, 0.80);
-            line-height: 1.58;
-            font-size: 15.5px;
+            color: rgba(226, 232, 240, 0.78);
+            line-height: 1.56;
+            font-size: 14.8px;
         }
 
-        .copyright-native {
+        .copyright {
             position: absolute;
             left: 0;
-            bottom: 0;
+            bottom: 2px;
             z-index: 2;
-            color: rgba(226, 232, 240, 0.64);
-            font-size: 13px;
+            color: rgba(226, 232, 240, 0.58);
+            font-size: 12.5px;
         }
 
-        /* Right card */
+        /* ---------- Login card ---------- */
         .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] {
-            width: min(760px, 100%) !important;
-            min-height: 750px !important;
+            width: min(720px, 100%) !important;
+            min-height: 720px !important;
             margin: 0 auto !important;
             color: #0f172a !important;
-            border-radius: 14px !important;
+            border-radius: 18px !important;
             border: 1px solid rgba(255,255,255,0.82) !important;
             background:
-                radial-gradient(circle at 90% 8%, rgba(124, 58, 237, 0.075), transparent 22%),
+                radial-gradient(circle at 88% 6%, rgba(124, 58, 237, 0.070), transparent 24%),
                 #ffffff !important;
-            box-shadow: 0 32px 90px rgba(0,0,0,0.40) !important;
+            box-shadow: 0 32px 95px rgba(0,0,0,0.40) !important;
         }
 
         .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            padding: 28px 48px 30px 48px !important;
+            padding: 30px 46px 30px 46px !important;
         }
 
         .auth-login-card .stButton > button {
-            border-radius: 8px !important;
-            border: 1px solid #cbd5e1 !important;
+            border-radius: 10px !important;
+            border: 1px solid #d7dce7 !important;
             background: #ffffff !important;
             color: #0f172a !important;
             font-weight: 750 !important;
             min-height: 42px !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .auth-login-card .stButton > button:hover {
+            border-color: #7c3aed !important;
+            color: #5b21b6 !important;
+            box-shadow: 0 8px 18px rgba(124,58,237,0.12) !important;
         }
 
         .auth-back-btn .stButton > button {
             width: auto !important;
             min-height: 42px !important;
             padding: 0.45rem 1rem !important;
-            border: 1px solid rgba(124, 58, 237, 0.55) !important;
+            border: 1px solid rgba(124, 58, 237, 0.45) !important;
             color: #5b21b6 !important;
             background: #ffffff !important;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
             font-weight: 850 !important;
-            box-shadow: 0 6px 16px rgba(124,58,237,0.10) !important;
+            box-shadow: 0 6px 16px rgba(124,58,237,0.09) !important;
         }
 
-        .login-heading-native h1 {
-            margin: 0 0 9px 0 !important;
-            color: #0b102f !important;
-            font-size: 34px !important;
-            line-height: 1.10 !important;
-            font-weight: 950 !important;
-            letter-spacing: -0.04em !important;
-        }
-
-        .login-heading-native p {
-            margin: 0 !important;
-            color: #475569 !important;
-            font-size: 17px !important;
-            font-weight: 500 !important;
-        }
-
-        .login-lock-native {
-            width: 74px;
-            height: 74px;
+        .login-lock {
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             display: grid;
             place-items: center;
             background: #f1e9ff;
             color: #6d28d9;
-            font-size: 32px;
-            margin-top: 6px;
+            font-size: 30px;
+            margin-top: 4px;
         }
 
-        .or-native {
+        .login-heading h1 {
+            margin: 0 0 9px 0 !important;
+            color: #0b102f !important;
+            font-size: 32px !important;
+            line-height: 1.12 !important;
+            font-weight: 950 !important;
+            letter-spacing: -0.04em !important;
+        }
+
+        .login-heading p {
+            margin: 0 !important;
+            color: #475569 !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+        }
+
+        .or-divider {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
             gap: 18px;
             align-items: center;
             color: #64748b;
             font-weight: 750;
-            margin: 28px 0 24px 0;
-            font-size: 16px;
+            margin: 30px 0 24px 0;
+            font-size: 14px;
         }
 
-        .or-native::before,
-        .or-native::after {
+        .or-divider::before,
+        .or-divider::after {
             content: "";
             height: 1px;
-            background: #cbd5e1;
+            background: #d5dbe8;
         }
 
         .auth-login-card label p {
             color: #0f172a !important;
-            font-size: 14px !important;
+            font-size: 13px !important;
             font-weight: 850 !important;
-            margin-bottom: 4px !important;
+            margin-bottom: 5px !important;
         }
 
         .auth-login-card div[data-testid="stTextInput"] {
@@ -611,12 +628,12 @@ def _auth_page_css():
         }
 
         .auth-login-card div[data-testid="stTextInput"] input {
-            height: 55px !important;
-            border-radius: 8px !important;
-            border: 1px solid #cbd5e1 !important;
+            height: 54px !important;
+            border-radius: 10px !important;
+            border: 1px solid #d5dbe8 !important;
             background: #ffffff !important;
             color: #0f172a !important;
-            font-size: 16px !important;
+            font-size: 15px !important;
             box-shadow: none !important;
         }
 
@@ -626,13 +643,13 @@ def _auth_page_css():
         }
 
         .auth-login-card div[data-testid="stCheckbox"] {
-            margin-top: 2px !important;
+            margin-top: 4px !important;
             margin-bottom: 14px !important;
         }
 
         .auth-login-card div[data-testid="stCheckbox"] label {
             color: #0f172a !important;
-            font-size: 15px !important;
+            font-size: 14px !important;
             font-weight: 500 !important;
         }
 
@@ -640,49 +657,56 @@ def _auth_page_css():
         .auth-login-card button[kind="formSubmit"] {
             width: 100% !important;
             min-height: 58px !important;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
             border: 0 !important;
             color: #ffffff !important;
-            font-size: 20px !important;
+            font-size: 18px !important;
             font-weight: 900 !important;
             background: linear-gradient(90deg, #6d28d9 0%, #2563eb 56%, #0891b2 100%) !important;
-            box-shadow: 0 14px 26px rgba(37,99,235,0.28) !important;
+            box-shadow: 0 14px 26px rgba(37,99,235,0.26) !important;
+            transition: all 0.15s ease !important;
         }
 
-        .below-form-link-native {
+        .auth-login-card button[kind="primaryFormSubmit"]:hover,
+        .auth-login-card button[kind="formSubmit"]:hover {
+            filter: brightness(1.03);
+            transform: translateY(-1px);
+        }
+
+        .below-form-link {
             text-align: center;
             margin: 20px 0 14px 0;
-            color: #475569;
-            font-size: 15.5px;
+            color: #64748b;
+            font-size: 14.5px;
             font-weight: 500;
         }
 
-        .below-form-link-native strong {
+        .below-form-link strong {
             color: #4f46e5;
             font-weight: 850;
-            margin-left: 14px;
+            margin-left: 12px;
         }
 
-        .notice-native {
+        .notice-box {
             margin-top: 22px;
-            border: 1px solid rgba(245, 158, 11, 0.50);
+            border: 1px solid rgba(245, 158, 11, 0.48);
             background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
-            border-radius: 10px;
-            padding: 18px 22px;
+            border-radius: 12px;
+            padding: 18px 20px;
             color: #1f2937;
         }
 
-        .notice-native h3 {
+        .notice-box h3 {
             margin: 0 0 8px 0 !important;
             color: #3b2f0b !important;
-            font-size: 16px !important;
+            font-size: 15.5px !important;
             font-weight: 850 !important;
         }
 
-        .notice-native p {
+        .notice-box p {
             margin: 5px 0 !important;
             color: #111827 !important;
-            font-size: 14px !important;
+            font-size: 13.5px !important;
         }
 
         .notice-check {
@@ -691,11 +715,11 @@ def _auth_page_css():
             margin-right: 8px;
         }
 
-        .bottom-footer-native {
+        .bottom-footer {
             text-align: center;
-            color: rgba(226,232,240,0.70);
-            font-size: 14px;
-            margin: 14px 0 18px 0;
+            color: rgba(226,232,240,0.68);
+            font-size: 13px;
+            margin: 12px 0 18px 0;
             font-weight: 500;
         }
 
@@ -708,17 +732,17 @@ def _auth_page_css():
             gap: 0.35rem !important;
         }
 
-        @media (max-width: 1200px) {
-            .auth-shell-pad {
-                padding: 28px 32px 18px 32px;
+        @media (max-width: 1180px) {
+            .auth-page-pad {
+                padding: 28px 32px 16px 32px;
             }
 
-            .left-content-native h1 {
-                font-size: 46px !important;
+            .left-title {
+                font-size: 44px;
             }
 
-            .left-content-native h2 {
-                font-size: 38px !important;
+            .left-gradient-title {
+                font-size: 38px;
             }
 
             .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
@@ -727,14 +751,14 @@ def _auth_page_css():
         }
 
         @media (max-width: 980px) {
-            .left-frame {
+            .left-panel {
                 min-height: auto;
                 padding: 36px 0;
             }
 
-            .copyright-native {
+            .copyright {
                 position: static;
-                margin-top: 38px;
+                margin-top: 34px;
             }
 
             .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -744,24 +768,26 @@ def _auth_page_css():
         }
 
         @media (max-width: 640px) {
-            .auth-topbar-box {
+            .auth-topbar {
                 padding: 0 18px;
             }
 
-            .auth-brand-sub {
-                display: none;
+            .brand-subtitle,
+            .top-link,
+            .status-pill {
+                display: none !important;
             }
 
-            .auth-shell-pad {
+            .auth-page-pad {
                 padding: 20px 18px;
             }
 
-            .left-content-native h1 {
-                font-size: 38px !important;
+            .left-title {
+                font-size: 38px;
             }
 
-            .left-content-native h2 {
-                font-size: 34px !important;
+            .left-gradient-title {
+                font-size: 32px;
             }
 
             .auth-login-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
@@ -778,19 +804,20 @@ def _auth_page_css():
 # Render components
 # ============================================================
 def _render_topbar():
-    st.markdown('<div class="auth-topbar-box">', unsafe_allow_html=True)
+    st.markdown('<div class="auth-topbar">', unsafe_allow_html=True)
+
     left, right = st.columns([0.52, 0.48], vertical_alignment="center")
 
     with left:
         st.markdown(
-            '<span class="auth-brand-mark">✦✦✦</span>'
-            '<span class="auth-brand-name">EU SEE</span>'
-            '<span class="auth-brand-sub">INTELLIGENCE PLATFORM</span>',
+            '<span class="brand-mark">✦✦✦</span>'
+            '<span class="brand-name">EU SEE</span>'
+            '<span class="brand-subtitle">INTELLIGENCE PLATFORM</span>',
             unsafe_allow_html=True,
         )
 
     with right:
-        c1, c2, c3, c4 = st.columns([1.6, 0.55, 0.55, 0.75], vertical_alignment="center")
+        c1, c2, c3, c4 = st.columns([1.55, 0.52, 0.52, 0.72], vertical_alignment="center")
         with c1:
             st.markdown(
                 '<span class="status-pill"><span class="status-dot"></span>'
@@ -807,59 +834,61 @@ def _render_topbar():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def _feature_item(icon, title, desc):
-    icon_col, text_col = st.columns([0.15, 0.85], vertical_alignment="center")
-    with icon_col:
-        st.markdown(f'<div class="feature-icon-native">{icon}</div>', unsafe_allow_html=True)
-    with text_col:
-        st.markdown(f'<p class="feature-title-native">{title}</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="feature-desc-native">{desc}</p>', unsafe_allow_html=True)
+def _render_feature(icon, title, desc):
+    with st.container():
+        icon_col, text_col = st.columns([0.14, 0.86], vertical_alignment="center")
+        with icon_col:
+            st.markdown(f'<div class="feature-icon">{icon}</div>', unsafe_allow_html=True)
+        with text_col:
+            st.markdown(f'<p class="feature-title">{title}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="feature-desc">{desc}</p>', unsafe_allow_html=True)
 
 
 def _render_left_panel():
-    st.markdown('<div class="left-frame"><div class="left-content-native">', unsafe_allow_html=True)
+    st.markdown('<div class="left-panel"><div class="left-inner">', unsafe_allow_html=True)
 
-    st.markdown("# EU SEE")
-    st.markdown("## Intelligence Platform")
+    st.markdown('<div class="left-title">EU SEE</div>', unsafe_allow_html=True)
+    st.markdown('<div class="left-gradient-title">Intelligence Platform</div>', unsafe_allow_html=True)
 
     st.markdown(
         """
         <div class="left-lead">
-        Secure access to real-time geopolitical analytics,
-        risk signals, and cross-country monitoring across
-        South East Europe and beyond.
+            Secure access to real-time geopolitical analytics, risk signals,
+            and cross-country monitoring across South East Europe and beyond.
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    _feature_item("◎", "86 Countries Monitored", "Comprehensive coverage and real-time updates")
-    _feature_item("▮", "Real-time Signal Processing", "AI-powered detection and analytics engine")
-    _feature_item("◇", "AI-driven Risk Classification", "Advanced models for early risk identification")
+    _render_feature("◎", "86 Countries Monitored", "Comprehensive coverage and real-time updates")
+    _render_feature("▮", "Real-time Signal Processing", "AI-powered detection and analytics engine")
+    _render_feature("◇", "AI-driven Risk Classification", "Advanced models for early risk identification")
 
     st.markdown('<div class="left-rule"></div>', unsafe_allow_html=True)
 
-    sec_icon, sec_text = st.columns([0.17, 0.83], vertical_alignment="center")
+    sec_icon, sec_text = st.columns([0.16, 0.84], vertical_alignment="center")
     with sec_icon:
-        st.markdown('<div class="security-icon-native">🔐</div>', unsafe_allow_html=True)
+        st.markdown('<div class="security-icon">🔐</div>', unsafe_allow_html=True)
     with sec_text:
-        st.markdown('<p class="security-title-native">Enterprise-grade security</p>', unsafe_allow_html=True)
+        st.markdown('<p class="security-title">Enterprise-grade security</p>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="security-desc-native">Your data is protected with end-to-end encryption and strict access controls.</p>',
+            '<p class="security-desc">Your data is protected with end-to-end encryption and strict access controls.</p>',
             unsafe_allow_html=True,
         )
 
-    st.markdown('</div><div class="copyright-native">© 2024 EU SEE Intelligence Platform. All rights reserved.</div></div>', unsafe_allow_html=True)
+    st.markdown('</div><div class="copyright">© 2024 EU SEE Intelligence Platform. All rights reserved.</div></div>', unsafe_allow_html=True)
 
 
 def _render_login_header(mode_title, mode_subtitle):
     lock_col, text_col = st.columns([0.13, 0.87], vertical_alignment="center")
+
     with lock_col:
-        st.markdown('<div class="login-lock-native">▣</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-lock">▣</div>', unsafe_allow_html=True)
+
     with text_col:
         st.markdown(
             f"""
-            <div class="login-heading-native">
+            <div class="login-heading">
                 <h1>{mode_title}</h1>
                 <p>{mode_subtitle}</p>
             </div>
@@ -867,13 +896,13 @@ def _render_login_header(mode_title, mode_subtitle):
             unsafe_allow_html=True,
         )
 
-    st.markdown('<div class="or-native">OR</div>', unsafe_allow_html=True)
+    st.markdown('<div class="or-divider">OR</div>', unsafe_allow_html=True)
 
 
 def _render_notice():
     st.markdown(
         """
-        <div class="notice-native">
+        <div class="notice-box">
             <h3>🛡️ Secure Access Notice</h3>
             <p><span class="notice-check">✓</span>Access restricted to verified institutional domains</p>
             <p><span class="notice-check">✓</span>All activity is logged and monitored</p>
@@ -956,7 +985,7 @@ def _login_form():
             st.error(parse_error(e))
 
     st.markdown(
-        '<div class="below-form-link-native">Don’t have an account? <strong>Create account</strong></div>',
+        '<div class="below-form-link">Don’t have an account? <strong>Create account</strong></div>',
         unsafe_allow_html=True,
     )
 
@@ -1064,7 +1093,7 @@ def _render_auth_page():
         "Reset": "Enter your approved email address to receive a password reset link.",
     }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
 
-    st.markdown('<div class="auth-shell-pad">', unsafe_allow_html=True)
+    st.markdown('<div class="auth-page-pad">', unsafe_allow_html=True)
 
     left_col, right_col = st.columns([0.445, 0.555], gap="large", vertical_alignment="center")
 
@@ -1075,7 +1104,7 @@ def _render_auth_page():
         st.markdown('<div class="auth-login-card">', unsafe_allow_html=True)
 
         with st.container(border=True):
-            back_left, back_right = st.columns([0.70, 0.30])
+            back_left, back_right = st.columns([0.68, 0.32])
             with back_right:
                 st.markdown('<div class="auth-back-btn">', unsafe_allow_html=True)
                 if st.button("←  Back to dashboard", key="back_to_dashboard_auth"):
@@ -1098,7 +1127,7 @@ def _render_auth_page():
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(
-        '<div class="bottom-footer-native">🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready</div>',
+        '<div class="bottom-footer">🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready</div>',
         unsafe_allow_html=True,
     )
 
