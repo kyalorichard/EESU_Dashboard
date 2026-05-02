@@ -3649,40 +3649,49 @@ with tab_negative:
             return sorted(s.map(cap_first).dropna().unique())
     
 
-        # ---------------- INLINE FILTERS ----------------
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            selected_actor_types = safe_multiselect(
-                "Types of restrictive actors",
-                formatted_options(df_exploded["Actor of repression"]),
-                "selected_actor_types",
-                sidebar=False
+        # ---------------- NEGATIVE ALERTS FILTERS: PROFESSIONAL GROUPED PANEL ----------------
+        with st.expander("⚠️ Negative alerts filters", expanded=True):
+            st.markdown(
+                """
+                <div class="sidebar-filter-section">
+                    Refine negative alerts by restrictive actor, affected civil society actor,
+                    restrictive mechanism, and event type.
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
-        with col2:
-            selected_subject_types = safe_multiselect(
-                "Types of civil society actors affected",
-                formatted_options(df_exploded["Subject of repression"]),
-                "selected_subject_types",
-                sidebar=False
-            )
+            neg_f1, neg_f2 = st.columns(2)
 
-        with col3:
-            selected_mechanism_types = safe_multiselect(
-                "Types of restrictive mechanisms",
-                formatted_options(df_exploded["Mechanism of repression"]),
-                "selected_mechanism_types",
-                sidebar=False
-            )
+            with neg_f1:
+                selected_actor_types = safe_multiselect(
+                    "Types of restrictive actors",
+                    formatted_options(df_exploded["Actor of repression"]),
+                    "selected_actor_types",
+                    sidebar=False
+                )
 
-        with col4:
-            selected_event_types = safe_multiselect(
-                "Types of negative events",
-                formatted_options(df_exploded["Type of event"]),
-                "selected_event_types",
-                sidebar=False
-            )
+                selected_subject_types = safe_multiselect(
+                    "Types of civil society actors affected",
+                    formatted_options(df_exploded["Subject of repression"]),
+                    "selected_subject_types",
+                    sidebar=False
+                )
+
+            with neg_f2:
+                selected_mechanism_types = safe_multiselect(
+                    "Types of restrictive mechanisms",
+                    formatted_options(df_exploded["Mechanism of repression"]),
+                    "selected_mechanism_types",
+                    sidebar=False
+                )
+
+                selected_event_types = safe_multiselect(
+                    "Types of negative events",
+                    formatted_options(df_exploded["Type of event"]),
+                    "selected_event_types",
+                    sidebar=False
+                )
         ##### -------- Tab 2 Summary card totals--------------------------
         reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
             (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
