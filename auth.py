@@ -255,7 +255,7 @@ def parse_error(e):
 
 
 # ============================================================
-# CSS
+# Simple centered page styling
 # ============================================================
 def _auth_page_css():
     st.markdown(
@@ -274,14 +274,12 @@ def _auth_page_css():
         html, body, .stApp {
             margin: 0 !important;
             padding: 0 !important;
-            width: 100% !important;
             min-height: 100vh !important;
             font-family: Inter, Arial, sans-serif !important;
             background:
-                radial-gradient(circle at 28% 40%, rgba(37, 99, 235, 0.18), transparent 26%),
-                radial-gradient(circle at 82% 12%, rgba(124, 58, 237, 0.15), transparent 28%),
-                linear-gradient(135deg, #020617 0%, #071426 42%, #0b1b3a 100%) !important;
-            color: #ffffff !important;
+                radial-gradient(circle at top left, rgba(124, 58, 237, 0.20), transparent 30%),
+                radial-gradient(circle at bottom right, rgba(8, 145, 178, 0.18), transparent 34%),
+                linear-gradient(135deg, #020617 0%, #071426 50%, #0f172a 100%) !important;
         }
 
         .block-container {
@@ -290,351 +288,82 @@ def _auth_page_css():
             margin: 0 !important;
         }
 
-        div[data-testid="stMarkdownContainer"] p {
-            margin: 0;
-        }
-
-        .eusee-topbar {
-            min-height: 74px;
-            padding: 0 44px;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-            background: rgba(2, 6, 23, 0.62);
-            backdrop-filter: blur(18px);
+        .auth-page {
+            min-height: 100vh;
             display: flex;
             align-items: center;
-        }
-
-        .brand-line {
-            display: flex;
-            align-items: center;
-            gap: 13px;
-            height: 74px;
-        }
-
-        .brand-stars {
-            color: #facc15 !important;
-            font-size: 24px;
-            font-weight: 900;
-            letter-spacing: -5px;
-        }
-
-        .brand-main {
-            color: #ffffff !important;
-            font-size: 25px;
-            font-weight: 900;
-            letter-spacing: -0.045em;
-        }
-
-        .brand-sub {
-            color: rgba(226, 232, 240, 0.76) !important;
-            font-size: 14px;
-            letter-spacing: 0.055em;
-            font-weight: 700;
-        }
-
-        .top-nav {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 22px;
-            height: 74px;
-        }
-
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 9px;
-            padding: 9px 15px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.90);
-            border: 1px solid rgba(148, 163, 184, 0.14);
-            color: white !important;
-            font-size: 13px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.22);
-            white-space: nowrap;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #10b981;
-            box-shadow: 0 0 16px rgba(16, 185, 129, 0.85);
-            display: inline-block;
-        }
-
-        .top-link {
-            color: rgba(255,255,255,0.86) !important;
-            font-size: 13px;
-            font-weight: 650;
-            white-space: nowrap;
-        }
-
-        .page-pad {
-            padding: 34px 56px 18px 56px;
-        }
-
-        .left-panel {
-            min-height: 720px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
             justify-content: center;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
-
-        .left-panel::after {
-            content: "";
-            position: absolute;
-            right: -54px;
-            top: 130px;
-            width: 550px;
-            height: 550px;
-            opacity: 0.72;
-            background:
-                radial-gradient(circle, rgba(37,99,235,0.36) 0 2px, transparent 2px);
-            background-size: 9px 9px;
-            mask-image: radial-gradient(circle, black 0%, transparent 72%);
-            -webkit-mask-image: radial-gradient(circle, black 0%, transparent 72%);
-            pointer-events: none;
-        }
-
-        .left-panel::before {
-            content: "";
-            position: absolute;
-            right: -10px;
-            top: 250px;
-            width: 530px;
-            height: 330px;
-            border: 1px solid rgba(59,130,246,0.34);
-            border-left: none;
-            border-bottom: none;
-            border-radius: 50%;
-            transform: rotate(-17deg);
-            opacity: 0.62;
-            pointer-events: none;
-        }
-
-        .left-inner {
-            position: relative;
-            z-index: 2;
-            max-width: 600px;
-        }
-
-        .left-title {
-            color: #ffffff !important;
-            font-size: 52px;
-            line-height: 1.05;
-            font-weight: 950;
-            letter-spacing: -0.05em;
-            margin: 0 0 4px 0;
-        }
-
-        .left-gradient {
-            display: block;
-            font-size: 44px;
-            line-height: 1.08;
-            font-weight: 950;
-            letter-spacing: -0.05em;
-            margin: 0 0 20px 0;
-            background: linear-gradient(90deg, #a855f7 0%, #38bdf8 76%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .left-lead {
-            max-width: 520px;
-            margin-bottom: 36px;
-            color: rgba(226, 232, 240, 0.88) !important;
-            font-size: 18px;
-            line-height: 1.58;
-            font-weight: 500;
-        }
-
-        .feature-icon {
-            width: 58px;
-            height: 58px;
-            border-radius: 14px;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(145deg, rgba(124,58,237,0.54), rgba(30,64,175,0.48));
-            color: #ddd6fe !important;
-            font-size: 27px;
-            box-shadow: 0 16px 34px rgba(0,0,0,0.18);
-        }
-
-        .feature-title {
-            color: #ffffff !important;
-            font-size: 19px;
-            font-weight: 850;
-            letter-spacing: -0.02em;
-            margin: 0 0 6px 0;
-        }
-
-        .feature-desc {
-            color: rgba(226, 232, 240, 0.78) !important;
-            font-size: 15px;
-            line-height: 1.38;
-            margin: 0;
-        }
-
-        .left-rule {
-            width: 88%;
-            height: 1px;
-            background: rgba(148, 163, 184, 0.22);
-            margin: 26px 0 24px 0;
-        }
-
-        .security-icon {
-            width: 68px;
-            height: 68px;
-            border-radius: 23px;
-            display: grid;
-            place-items: center;
-            color: #22d3ee !important;
-            border: 1px solid rgba(34, 211, 238, 0.72);
-            font-size: 29px;
-        }
-
-        .security-title {
-            margin: 0 0 8px 0;
-            color: #22d3ee !important;
-            font-size: 17px;
-            font-weight: 850;
-        }
-
-        .security-desc {
-            margin: 0;
-            color: rgba(226, 232, 240, 0.80) !important;
-            line-height: 1.56;
-            font-size: 15px;
-        }
-
-        .copyright {
-            position: absolute;
-            left: 0;
-            bottom: 2px;
-            z-index: 2;
-            color: rgba(226, 232, 240, 0.62) !important;
-            font-size: 12.5px;
+            padding: 32px 18px;
         }
 
         .auth-card div[data-testid="stVerticalBlockBorderWrapper"] {
-            width: min(735px, 100%) !important;
-            min-height: 720px !important;
+            width: min(100%, 480px) !important;
             margin: 0 auto !important;
-            color: #0f172a !important;
-            border-radius: 18px !important;
-            border: 1px solid rgba(255,255,255,0.82) !important;
-            background:
-                radial-gradient(circle at 88% 6%, rgba(124, 58, 237, 0.07), transparent 24%),
-                #ffffff !important;
-            box-shadow: 0 32px 95px rgba(0,0,0,0.42) !important;
+            border-radius: 22px !important;
+            border: 1px solid rgba(255,255,255,0.18) !important;
+            background: #ffffff !important;
+            box-shadow: 0 28px 80px rgba(0,0,0,0.42) !important;
         }
 
         .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            padding: 30px 46px !important;
+            padding: 34px 34px 30px 34px !important;
         }
 
-        .auth-card * {
-            color: #0f172a;
-        }
-
-        .auth-card .stButton > button {
-            border-radius: 10px !important;
-            border: 1px solid #d7dce7 !important;
-            background: #ffffff !important;
-            color: #0f172a !important;
-            font-weight: 750 !important;
-            min-height: 42px !important;
-            transition: all 0.15s ease !important;
-        }
-
-        .auth-card .stButton > button:hover {
-            border-color: #7c3aed !important;
-            color: #5b21b6 !important;
-            box-shadow: 0 8px 18px rgba(124,58,237,0.12) !important;
-        }
-
-        .back-btn .stButton > button {
-            width: auto !important;
-            min-height: 42px !important;
-            padding: 0.45rem 1rem !important;
-            border: 1px solid rgba(124, 58, 237, 0.45) !important;
-            color: #5b21b6 !important;
-            background: #ffffff !important;
-            border-radius: 10px !important;
-            font-weight: 850 !important;
-            box-shadow: 0 6px 16px rgba(124,58,237,0.09) !important;
-        }
-
-        .login-lock {
-            width: 72px;
-            height: 72px;
-            border-radius: 50%;
+        .brand-mark {
+            width: 56px;
+            height: 56px;
+            border-radius: 18px;
+            margin: 0 auto 16px auto;
             display: grid;
             place-items: center;
-            background: #f1e9ff;
-            color: #6d28d9 !important;
-            font-size: 31px;
+            background: linear-gradient(135deg, #6d28d9, #2563eb);
+            color: #ffffff;
+            font-size: 26px;
             font-weight: 900;
+            box-shadow: 0 14px 30px rgba(37,99,235,0.25);
         }
 
-        .login-heading h1 {
-            margin: 0 0 9px 0 !important;
+        .brand-title {
+            text-align: center;
             color: #0b102f !important;
-            font-size: 32px !important;
-            line-height: 1.12 !important;
-            font-weight: 950 !important;
-            letter-spacing: -0.04em !important;
+            font-size: 28px;
+            font-weight: 950;
+            letter-spacing: -0.04em;
+            line-height: 1.12;
+            margin: 0 0 6px 0;
         }
 
-        .login-heading p {
-            margin: 0 !important;
-            color: #475569 !important;
-            font-size: 16px !important;
-            font-weight: 500 !important;
-        }
-
-        .or-divider {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 18px;
-            align-items: center;
+        .brand-subtitle {
+            text-align: center;
             color: #64748b !important;
-            font-weight: 750;
-            margin: 30px 0 24px 0;
             font-size: 14px;
+            line-height: 1.55;
+            margin: 0 0 22px 0;
         }
 
-        .or-divider::before,
-        .or-divider::after {
-            content: "";
-            height: 1px;
-            background: #d5dbe8;
+        .mode-pill {
+            width: fit-content;
+            margin: 0 auto 22px auto;
+            padding: 8px 12px;
+            border-radius: 999px;
+            color: #5b21b6 !important;
+            background: #f3e8ff;
+            border: 1px solid #e9d5ff;
+            font-size: 12px;
+            font-weight: 850;
         }
 
         .auth-card label p {
-            color: #0f172a !important;
+            color: #111827 !important;
             font-size: 13px !important;
             font-weight: 850 !important;
             margin-bottom: 5px !important;
         }
 
-        .auth-card input {
-            background: #ffffff !important;
-            color: #0f172a !important;
-        }
-
-        .auth-card div[data-testid="stTextInput"] {
-            margin-bottom: 13px !important;
-        }
-
         .auth-card div[data-testid="stTextInput"] input {
-            height: 54px !important;
-            border-radius: 10px !important;
-            border: 1px solid #d5dbe8 !important;
+            height: 52px !important;
+            border-radius: 12px !important;
+            border: 1px solid #d7dce7 !important;
             background: #ffffff !important;
             color: #0f172a !important;
             font-size: 15px !important;
@@ -646,14 +375,9 @@ def _auth_page_css():
             box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
         }
 
-        .auth-card div[data-testid="stCheckbox"] {
-            margin-top: 4px !important;
-            margin-bottom: 14px !important;
-        }
-
         .auth-card div[data-testid="stCheckbox"] label,
         .auth-card div[data-testid="stCheckbox"] label span {
-            color: #0f172a !important;
+            color: #334155 !important;
             font-size: 14px !important;
             font-weight: 500 !important;
         }
@@ -661,131 +385,67 @@ def _auth_page_css():
         .auth-card button[kind="primaryFormSubmit"],
         .auth-card button[kind="formSubmit"] {
             width: 100% !important;
-            min-height: 58px !important;
-            height: 58px !important;
-            border-radius: 10px !important;
+            min-height: 54px !important;
+            border-radius: 12px !important;
             border: none !important;
             color: #ffffff !important;
-            font-size: 18px !important;
+            font-size: 16px !important;
             font-weight: 900 !important;
             background: linear-gradient(90deg, #6d28d9, #2563eb) !important;
-            box-shadow: 0 10px 25px rgba(37,99,235,0.30) !important;
-            transition: all 0.15s ease !important;
+            box-shadow: 0 12px 26px rgba(37,99,235,0.28) !important;
         }
 
-        .auth-card button[kind="primaryFormSubmit"]:hover,
-        .auth-card button[kind="formSubmit"]:hover {
-            filter: brightness(1.05);
-            transform: translateY(-1px);
+        .auth-card .stButton > button {
+            min-height: 44px !important;
+            border-radius: 12px !important;
+            border: 1px solid #d7dce7 !important;
+            background: #ffffff !important;
+            color: #334155 !important;
+            font-weight: 750 !important;
         }
 
-        .switch-text {
-            text-align: center;
-            margin: 20px 0 14px 0;
-            color: #64748b !important;
-            font-size: 14.5px;
-            font-weight: 500;
+        .auth-card .stButton > button:hover {
+            border-color: #7c3aed !important;
+            color: #5b21b6 !important;
+            box-shadow: 0 8px 18px rgba(124,58,237,0.12) !important;
         }
 
-        .switch-text strong {
-            color: #4f46e5 !important;
-            font-weight: 850;
-            margin-left: 12px;
+        .auth-note {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #4b3b14 !important;
+            font-size: 12.5px;
+            line-height: 1.45;
         }
 
-        .notice {
-            margin-top: 22px;
-            border: 1px solid rgba(245, 158, 11, 0.48);
-            background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
-            border-radius: 12px;
-            padding: 18px 20px;
-            color: #1f2937 !important;
-        }
-
-        .notice h3 {
-            margin: 0 0 8px 0 !important;
+        .auth-note strong {
             color: #3b2f0b !important;
-            font-size: 15.5px !important;
-            font-weight: 850 !important;
         }
 
-        .notice p {
-            margin: 5px 0 !important;
-            color: #111827 !important;
-            font-size: 13.5px !important;
-        }
-
-        .notice-check {
-            color: #16a34a !important;
-            font-weight: 900;
-            margin-right: 8px;
-        }
-
-        .bottom-footer {
+        .auth-footer {
             text-align: center;
             color: rgba(226,232,240,0.68) !important;
-            font-size: 13px;
-            margin: 12px 0 18px 0;
-            font-weight: 500;
+            font-size: 12.5px;
+            margin-top: 18px;
         }
 
-        .auth-card div[data-testid="stForm"] {
-            border: 0 !important;
-            padding: 0 !important;
+        .small-link-text {
+            text-align: center;
+            color: #64748b !important;
+            font-size: 13.5px;
+            margin: 16px 0 10px 0;
         }
 
-        .auth-card div[data-testid="stForm"] > div {
-            gap: 0.35rem !important;
-        }
-
-        @media (max-width: 980px) {
-            .top-nav {
-                display: none !important;
-            }
-
-            .page-pad {
-                padding: 24px;
-            }
-
-            .left-panel {
-                min-height: auto;
-                padding: 32px 0;
-            }
-
-            .copyright {
-                position: static;
-                margin-top: 34px;
-            }
-
-            .auth-card div[data-testid="stVerticalBlockBorderWrapper"] {
-                min-height: auto !important;
-                margin-top: 24px !important;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .eusee-topbar {
-                padding: 0 18px;
-            }
-
-            .brand-sub {
-                display: none !important;
-            }
-
-            .page-pad {
-                padding: 18px;
-            }
-
-            .left-title {
-                font-size: 38px;
-            }
-
-            .left-gradient {
-                font-size: 32px;
-            }
-
+        @media (max-width: 520px) {
             .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
-                padding: 24px !important;
+                padding: 28px 22px 24px 22px !important;
+            }
+
+            .brand-title {
+                font-size: 25px;
             }
         }
         </style>
@@ -795,122 +455,31 @@ def _auth_page_css():
 
 
 # ============================================================
-# Render UI
+# Render page
 # ============================================================
-def _render_topbar():
-    st.markdown('<div class="eusee-topbar">', unsafe_allow_html=True)
-    left, right = st.columns([0.60, 0.40], vertical_alignment="center")
+def _header(mode):
+    title = {
+        "Login": "EU SEE Intelligence Platform",
+        "Register": "Create EU SEE Account",
+        "Reset": "Reset Password",
+    }.get(mode, "EU SEE Intelligence Platform")
 
-    with left:
-        st.markdown(
-            """
-            <div class="brand-line">
-                <span class="brand-stars">✦✦✦</span>
-                <span class="brand-main">EU SEE</span>
-                <span class="brand-sub">INTELLIGENCE PLATFORM</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    subtitle = {
+        "Login": "Secure sign-in for authorized dashboard users.",
+        "Register": "Register using an approved institutional email address.",
+        "Reset": "Enter your email to receive a password reset link.",
+    }.get(mode, "Secure sign-in for authorized dashboard users.")
 
-    with right:
-        st.markdown(
-            """
-            <div class="top-nav">
-                <span class="status-pill"><span class="status-dot"></span>System Status: <strong>Operational</strong></span>
-                <span class="top-link">ⓘ Help</span>
-                <span class="top-link">▤ Docs</span>
-                <span class="top-link">◎ English⌄</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    st.markdown('</div>', unsafe_allow_html=True)
+    pill = {
+        "Login": "SECURE ACCESS",
+        "Register": "ACCOUNT REGISTRATION",
+        "Reset": "PASSWORD RECOVERY",
+    }.get(mode, "SECURE ACCESS")
 
-
-def _render_feature(icon, title, desc):
-    icon_col, text_col = st.columns([0.14, 0.86], vertical_alignment="center")
-    with icon_col:
-        st.markdown(f'<div class="feature-icon">{icon}</div>', unsafe_allow_html=True)
-    with text_col:
-        st.markdown(f'<p class="feature-title">{title}</p>', unsafe_allow_html=True)
-        st.markdown(f'<p class="feature-desc">{desc}</p>', unsafe_allow_html=True)
-
-
-def _render_left_panel():
-    st.markdown('<div class="left-panel"><div class="left-inner">', unsafe_allow_html=True)
-
-    st.markdown('<div class="left-title">EU SEE</div>', unsafe_allow_html=True)
-    st.markdown('<div class="left-gradient">Intelligence Platform</div>', unsafe_allow_html=True)
-
-    st.markdown(
-        """
-        <div class="left-lead">
-            Secure access to real-time geopolitical analytics,
-            risk signals, and cross-country monitoring across
-            South East Europe and beyond.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    _render_feature("◎", "86 Countries Monitored", "Comprehensive coverage and real-time updates")
-    _render_feature("▮", "Real-time Signal Processing", "AI-powered detection and analytics engine")
-    _render_feature("◇", "AI-driven Risk Classification", "Advanced models for early risk identification")
-
-    st.markdown('<div class="left-rule"></div>', unsafe_allow_html=True)
-
-    sec_icon, sec_text = st.columns([0.16, 0.84], vertical_alignment="center")
-    with sec_icon:
-        st.markdown('<div class="security-icon">🔐</div>', unsafe_allow_html=True)
-    with sec_text:
-        st.markdown('<p class="security-title">Enterprise-grade security</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="security-desc">Your data is protected with end-to-end encryption and strict access controls.</p>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown('</div><div class="copyright">© 2024 EU SEE Intelligence Platform. All rights reserved.</div></div>', unsafe_allow_html=True)
-
-
-def _render_login_header(mode_title, mode_subtitle):
-    lock_col, text_col = st.columns([0.13, 0.87], vertical_alignment="center")
-    with lock_col:
-        st.markdown('<div class="login-lock">▣</div>', unsafe_allow_html=True)
-    with text_col:
-        st.markdown(
-            f"""
-            <div class="login-heading">
-                <h1>{mode_title}</h1>
-                <p>{mode_subtitle}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown('<div class="or-divider">OR</div>', unsafe_allow_html=True)
-
-
-def _render_notice():
-    st.markdown(
-        """
-        <div class="notice">
-            <h3>🛡️ Secure Access Notice</h3>
-            <p><span class="notice-check">✓</span>Access restricted to verified institutional domains</p>
-            <p><span class="notice-check">✓</span>All activity is logged and monitored</p>
-            <p><span class="notice-check">✓</span>Session protected with enterprise-grade encryption</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# Form actions
-# ============================================================
-def _set_auth_mode(mode: str):
-    st.session_state.auth_mode = mode
-    st.rerun()
+    st.markdown('<div class="brand-mark">✦</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="brand-title">{title}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="brand-subtitle">{subtitle}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="mode-pill">{pill}</div>', unsafe_allow_html=True)
 
 
 def _back_to_dashboard():
@@ -918,31 +487,20 @@ def _back_to_dashboard():
     st.rerun()
 
 
+def _set_auth_mode(mode: str):
+    st.session_state.auth_mode = mode
+    st.rerun()
+
+
 def _login_form():
-    with st.form("eusee_login_form", clear_on_submit=False):
-        email = st.text_input(
-            "Email address",
-            placeholder="✉   name@organization.org",
-            key="login_email",
-        ).strip()
-
-        password = st.text_input(
-            "Password",
-            placeholder="🔒   Enter your password",
-            type="password",
-            key="login_password",
-        )
-
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input("Email address", placeholder="name@organization.org").strip()
+        password = st.text_input("Password", placeholder="Enter your password", type="password")
         remember = st.checkbox(
             "Keep me signed in on this device",
             value=st.session_state.get("auth_remember", True),
-            key="login_remember",
         )
-
-        submitted = st.form_submit_button(
-            "🔒  Access Intelligence Dashboard",
-            use_container_width=True
-        )
+        submitted = st.form_submit_button("Access Dashboard", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
@@ -979,35 +537,21 @@ def _login_form():
         except Exception as e:
             st.error(parse_error(e))
 
-    st.markdown(
-        '<div class="switch-text">Don’t have an account? <strong>Create account</strong></div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="small-link-text">Need access or forgot your password?</div>', unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("Create account", use_container_width=True, key="switch_register_btn"):
+        if st.button("Create account", use_container_width=True):
             _set_auth_mode("Register")
     with c2:
-        if st.button("Forgot password?", use_container_width=True, key="switch_reset_btn"):
+        if st.button("Forgot password", use_container_width=True):
             _set_auth_mode("Reset")
 
 
 def _register_form():
-    with st.form("eusee_register_form", clear_on_submit=False):
-        email = st.text_input(
-            "Email address",
-            placeholder="✉   name@organization.org",
-            key="register_email",
-        ).strip()
-
-        password = st.text_input(
-            "Password",
-            placeholder="🔒   Create a secure password",
-            type="password",
-            key="register_password",
-        )
-
+    with st.form("register_form", clear_on_submit=False):
+        email = st.text_input("Email address", placeholder="name@organization.org").strip()
+        password = st.text_input("Password", placeholder="Create a secure password", type="password")
         submitted = st.form_submit_button("Create account", use_container_width=True)
 
     if submitted:
@@ -1030,22 +574,14 @@ def _register_form():
         except Exception as e:
             st.error(parse_error(e))
 
-    if st.button("Back to sign in", use_container_width=True, key="register_back_btn"):
+    if st.button("Back to sign in", use_container_width=True):
         _set_auth_mode("Login")
 
 
 def _reset_form():
-    with st.form("eusee_reset_form", clear_on_submit=False):
-        reset_email = st.text_input(
-            "Email address",
-            placeholder="✉   name@organization.org",
-            key="reset_email",
-        ).strip()
-
-        submitted = st.form_submit_button(
-            "Send password reset link",
-            use_container_width=True
-        )
+    with st.form("reset_form", clear_on_submit=False):
+        reset_email = st.text_input("Email address", placeholder="name@organization.org").strip()
+        submitted = st.form_submit_button("Send password reset link", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
@@ -1066,68 +602,49 @@ def _reset_form():
         except Exception as e:
             st.error(parse_error(e))
 
-    if st.button("Back to sign in", use_container_width=True, key="reset_back_btn"):
+    if st.button("Back to sign in", use_container_width=True):
         _set_auth_mode("Login")
 
 
-# ============================================================
-# Main auth page
-# ============================================================
 def _render_auth_page():
     _auth_page_css()
-    _render_topbar()
 
     mode = st.session_state.get("auth_mode", "Login")
 
-    mode_title = {
-        "Login": "Sign in to your workspace",
-        "Register": "Create your account",
-        "Reset": "Reset password",
-    }.get(mode, "Sign in to your workspace")
+    st.markdown('<div class="auth-page">', unsafe_allow_html=True)
 
-    mode_subtitle = {
-        "Login": "Access your authorized EU SEE dashboard and analytics.",
-        "Register": "Request access using an approved institutional email address.",
-        "Reset": "Enter your approved email address to receive a password reset link.",
-    }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
+    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+    with st.container(border=True):
+        _header(mode)
 
-    st.markdown('<div class="page-pad">', unsafe_allow_html=True)
+        if mode == "Login":
+            _login_form()
+        elif mode == "Register":
+            _register_form()
+        else:
+            _reset_form()
 
-    left_col, right_col = st.columns([0.445, 0.555], gap="large", vertical_alignment="center")
+        st.markdown(
+            """
+            <div class="auth-note">
+                <strong>Secure Access Notice</strong><br>
+                Access is restricted to verified institutional users. Sessions are protected and activity may be monitored.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    with left_col:
-        _render_left_panel()
-
-    with right_col:
-        st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-
-        with st.container(border=True):
-            back_left, back_right = st.columns([0.68, 0.32])
-            with back_right:
-                st.markdown('<div class="back-btn">', unsafe_allow_html=True)
-                if st.button("←  Back to dashboard", key="back_to_dashboard_auth_btn"):
-                    _back_to_dashboard()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            _render_login_header(mode_title, mode_subtitle)
-
-            if mode == "Login":
-                _login_form()
-            elif mode == "Register":
-                _register_form()
-            else:
-                _reset_form()
-
-            _render_notice()
-
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("← Back to dashboard", use_container_width=True):
+            _back_to_dashboard()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(
-        '<div class="bottom-footer">🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready</div>',
+        '<div class="auth-footer">EU SEE Dashboard · Secure authentication · Protected access</div>',
         unsafe_allow_html=True,
     )
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def auth_ui():
