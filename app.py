@@ -630,39 +630,58 @@ data = load_data()
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
-def safe_multiselect(label, options, session_key, container=None):
+def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     """
-    Professional multiselect helper with compact Select all behavior.
+    Professional multiselect helper with Select all behavior.
 
-    - Empty selection means all options are active.
-    - Selecting "Select all" also activates all options.
-    - Uses a separate widget key so reset works cleanly.
-    - Supports rendering inside sidebar expanders or any Streamlit container.
+    Compatible with both calling styles used in this dashboard:
+    - safe_multiselect(..., container=some_expander) for sidebar/grouped controls
+    - safe_multiselect(..., sidebar=False) for inline page filters
     """
-    container = container or st
-    options = sorted([x for x in list(options) if pd.notna(x)], key=lambda v: str(v).lower())
-    options = [str(x) if not isinstance(x, (int, float, np.integer, np.floating)) else x for x in options]
+    # Choose rendering target. Explicit container takes priority.
+    if container is not None:
+        target = container
+    else:
+        target = st.sidebar if sidebar else st
+
+    # Clean and preserve comparable values. Convert numpy scalar values safely.
+    clean_options = []
+    for x in list(options):
+        if pd.isna(x):
+            continue
+        val = x.item() if hasattr(x, "item") else x
+        if isinstance(val, str):
+            val = val.strip()
+            if val == "" or val.lower() in ["nan", "none"]:
+                continue
+        clean_options.append(val)
+
+    options = sorted(clean_options, key=lambda v: str(v).lower())
     options_with_all = ["Select all"] + options
     widget_key = f"{session_key}_widget"
 
+    # Initialize internal state: all options active by default.
     if session_key not in st.session_state:
         st.session_state[session_key] = options.copy()
 
-    # Keep the visible widget compact: if everything is selected internally,
-    # show an empty box instead of many selected tags.
     current_internal = st.session_state.get(session_key, options.copy())
-    if widget_key not in st.session_state:
-        st.session_state[widget_key] = [] if set(map(str, current_internal)) == set(map(str, options)) else current_internal
 
-    selected = container.multiselect(
+    # Keep the visible widget compact when everything is selected.
+    if widget_key not in st.session_state:
+        if set(map(str, current_internal)) == set(map(str, options)):
+            st.session_state[widget_key] = []
+        else:
+            st.session_state[widget_key] = [x for x in current_internal if str(x) in set(map(str, options))]
+
+    selected = target.multiselect(
         label,
         options_with_all,
         key=widget_key,
         placeholder="All selected",
-        help="Leave empty or choose Select all to include all available options."
+        help="Leave empty or choose Select all to include all available options.",
     )
 
-    if ("Select all" in selected) or (len(selected) == 0):
+    if "Select all" in selected or len(selected) == 0:
         st.session_state[session_key] = options.copy()
         return options
 
@@ -953,6 +972,10 @@ if reset_filters:
         "selected_alert_impacts",
         "selected_months",
         "selected_years",
+        "selected_actor_types",
+        "selected_subject_types",
+        "selected_mechanism_types",
+        "selected_event_types",
     ]:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
