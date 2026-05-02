@@ -6361,25 +6361,159 @@ def render_ai_assistant_panel(df):
                 st.markdown("</div>", unsafe_allow_html=True)
 
                 st.markdown("<div class='v2-builder-card'><div class='v2-builder-subtitle'>2. Ranking, style and readability</div>", unsafe_allow_html=True)
+
+                # Excel-like dropdown controls: no sliders or free-form color boxes.
+                ranking_options = {
+                    "Top 5 — executive snapshot": 5,
+                    "Top 10 — recommended": 10,
+                    "Top 15 — balanced detail": 15,
+                    "Top 20 — extended ranking": 20,
+                    "Top 30 — deep review": 30,
+                    "Top 50 — full diagnostic": 50,
+                }
+                comparison_options = {
+                    "Top 3 comparison groups": 3,
+                    "Top 5 comparison groups": 5,
+                    "Top 8 comparison groups — recommended": 8,
+                    "Top 10 comparison groups": 10,
+                    "Top 15 comparison groups": 15,
+                    "Top 20 comparison groups": 20,
+                    "Top 30 comparison groups": 30,
+                }
+                font_options = {
+                    "Compact — 10 pt": 10,
+                    "Standard — 12 pt": 12,
+                    "Presentation — 14 pt": 14,
+                    "Large — 16 pt": 16,
+                    "Very large — 18 pt": 18,
+                    "Poster — 22 pt": 22,
+                }
+                height_options = {
+                    "Compact — 360 px": 360,
+                    "Standard — 430 px": 430,
+                    "Comparison — 470 px": 470,
+                    "Detailed — 560 px": 560,
+                    "Tall — 680 px": 680,
+                    "Full review — 820 px": 820,
+                }
+                label_options = {
+                    "Show values / labels": True,
+                    "Hide values / labels": False,
+                }
+
                 c1, c2 = st.columns(2)
                 with c1:
-                    top_n = st.slider("Top primary categories", 3, 50, 10, key="v2_pop_top_n")
-                    font_size = st.slider("Font size", 8, 28, 12, key="v2_pop_font_size")
+                    top_choice = st.selectbox(
+                        "Ranking depth",
+                        list(ranking_options.keys()),
+                        index=1,
+                        key="v2_pop_top_n_dropdown",
+                        help="Controls how many primary categories are displayed. Use Top 10 for most executive views.",
+                    )
+                    font_choice = st.selectbox(
+                        "Font size",
+                        list(font_options.keys()),
+                        index=1,
+                        key="v2_pop_font_size_dropdown",
+                    )
                 with c2:
-                    top_y = st.slider("Top comparison groups", 3, 30, 8, key="v2_pop_top_y", disabled=(mode != "Compare variables"))
-                    height = st.slider("Chart height", 300, 900, 470 if mode == "Compare variables" else 430, step=10, key="v2_pop_height")
-                show_values = st.toggle("Show values / labels", True, key="v2_pop_show_values")
+                    top_y_choice = st.selectbox(
+                        "Comparison group depth",
+                        list(comparison_options.keys()),
+                        index=2,
+                        key="v2_pop_top_y_dropdown",
+                        disabled=(mode != "Compare variables"),
+                        help="Controls the number of secondary groups shown in comparison charts.",
+                    )
+                    default_height_index = 2 if mode == "Compare variables" else 1
+                    height_choice = st.selectbox(
+                        "Chart height",
+                        list(height_options.keys()),
+                        index=default_height_index,
+                        key="v2_pop_height_dropdown",
+                    )
+                label_choice = st.selectbox(
+                    "Data label display",
+                    list(label_options.keys()),
+                    index=0,
+                    key="v2_pop_show_values_dropdown",
+                )
+
+                top_n = ranking_options[top_choice]
+                top_y = comparison_options[top_y_choice]
+                font_size = font_options[font_choice]
+                height = height_options[height_choice]
+                show_values = label_options[label_choice]
+
+                st.markdown("<div class='v2-rec-box'><b>Readability rule:</b> Top 10 + 12 pt font is recommended for executive dashboards. Use larger fonts and taller charts for presentation screenshots.</div>", unsafe_allow_html=True)
+
+                st.markdown("<div class='v2-builder-subtitle'>3. Excel-style color selection</div>", unsafe_allow_html=True)
+                excel_palettes = {
+                    "EU SEE corporate — Purple / Teal": ("#660094", "#008CAA"),
+                    "Office default — Blue / Orange": ("#4472C4", "#ED7D31"),
+                    "Excel green — Green / Blue": ("#70AD47", "#5B9BD5"),
+                    "Excel warm — Orange / Gold": ("#ED7D31", "#FFC000"),
+                    "Excel purple — Purple / Gray": ("#7030A0", "#A5A5A5"),
+                    "High contrast — Navy / Red": ("#264478", "#C00000"),
+                    "Neutral report — Dark gray / Light gray": ("#595959", "#BFBFBF"),
+                }
+                excel_colors = {
+                    "EU SEE Purple": "#660094",
+                    "EU SEE Teal": "#008CAA",
+                    "EU SEE Yellow": "#FFDB58",
+                    "Office Blue": "#4472C4",
+                    "Office Orange": "#ED7D31",
+                    "Office Gray": "#A5A5A5",
+                    "Office Gold": "#FFC000",
+                    "Office Green": "#70AD47",
+                    "Office Navy": "#264478",
+                    "Office Red": "#C00000",
+                    "Office Purple": "#7030A0",
+                    "Dark Gray": "#595959",
+                }
+                palette_choice = st.selectbox(
+                    "Color palette",
+                    list(excel_palettes.keys()),
+                    index=0,
+                    key="v2_pop_excel_palette",
+                    help="Excel-style presets similar to Microsoft Office chart palettes.",
+                )
+                default_primary, default_secondary = excel_palettes[palette_choice]
+                color_labels = list(excel_colors.keys())
+                default_primary_label = next((k for k, v in excel_colors.items() if v == default_primary), "EU SEE Purple")
+                default_secondary_label = next((k for k, v in excel_colors.items() if v == default_secondary), "EU SEE Teal")
                 cc1, cc2 = st.columns(2)
                 with cc1:
-                    primary = st.text_input("Primary color HEX", "#660094", key="v2_pop_primary_color")
+                    primary_label = st.selectbox(
+                        "Primary series color",
+                        color_labels,
+                        index=color_labels.index(default_primary_label),
+                        key="v2_pop_primary_color_excel",
+                    )
                 with cc2:
-                    secondary = st.text_input("Secondary color HEX", "#008CAA", key="v2_pop_secondary_color")
+                    secondary_label = st.selectbox(
+                        "Secondary series color",
+                        color_labels,
+                        index=color_labels.index(default_secondary_label),
+                        key="v2_pop_secondary_color_excel",
+                    )
+                px_color = excel_colors[primary_label]
+                sx_color = excel_colors[secondary_label]
+                st.markdown(
+                    f"""
+                    <div style='display:flex;gap:8px;align-items:center;margin:6px 0 8px 0;'>
+                        <div style='width:22px;height:22px;border-radius:6px;background:{px_color};border:1px solid #D0D5DD;'></div>
+                        <span style='font-size:10.5px;color:#344054;font-weight:800;'>Primary: {primary_label} ({px_color})</span>
+                        <div style='width:22px;height:22px;border-radius:6px;background:{sx_color};border:1px solid #D0D5DD;margin-left:8px;'></div>
+                        <span style='font-size:10.5px;color:#344054;font-weight:800;'>Secondary: {secondary_label} ({sx_color})</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
                 default_title = f"Comparison: {dim_label} × {y_label}" if mode == "Compare variables" else f"{dim_label} distribution"
                 title = st.text_input("Chart title", default_title, key="v2_pop_chart_title")
                 st.markdown("</div>", unsafe_allow_html=True)
-
-                px_color = primary.strip() if re.match(r"^#[0-9a-fA-F]{6}$", str(primary).strip()) else "#660094"
-                sx_color = secondary.strip() if re.match(r"^#[0-9a-fA-F]{6}$", str(secondary).strip()) else "#008CAA"
 
                 generate = st.button("Generate professional plot", use_container_width=True, key="v2_pop_generate_plot")
                 if generate:
