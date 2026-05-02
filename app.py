@@ -4302,7 +4302,27 @@ with tab_manual:
         )
 
 
-# ---------------- AI ASSISTANT v5: POLISHED UX + CHATBOT PLOT BUILDER ----------------
+# ---------------- AI ASSISTANT v6: ADVANCED CHATBOT PLOT BUILDER ----------------
+AI_PLOT_CHART_TYPES = [
+    "Horizontal bar", "Vertical bar", "Grouped bar", "Stacked bar",
+    "Line", "Area", "Scatter", "Bubble",
+    "Pie", "Donut", "Treemap", "Sunburst",
+    "Heatmap", "Histogram", "Box", "Violin",
+    "Funnel", "Waterfall",
+]
+
+AI_COLOR_PRESETS = {
+    "EUSEE Purple": "#660094",
+    "EUSEE Teal": "#008CAA",
+    "EUSEE Yellow": "#FFDB58",
+    "Red": "#D92D20",
+    "Green": "#039855",
+    "Blue": "#1570EF",
+    "Orange": "#F79009",
+    "Slate": "#344054",
+}
+
+
 def _ai_get_available_plot_dimensions(df):
     dims = []
     candidates = [
@@ -4318,6 +4338,12 @@ def _ai_get_available_plot_dimensions(df):
     return dims
 
 
+def _ai_get_numeric_columns(df):
+    if df is None or df.empty:
+        return []
+    return [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+
+
 def _ai_clean_count_df(df, col, top_n=10):
     if df is None or df.empty or col not in df.columns:
         return pd.DataFrame(columns=[col, "count"])
@@ -4327,40 +4353,231 @@ def _ai_clean_count_df(df, col, top_n=10):
         tmp[col] = tmp[col].fillna("").astype(str).str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
         tmp = tmp.assign(**{col: tmp[col].str.split(",")}).explode(col)
     tmp[col] = tmp[col].fillna("").astype(str).str.strip()
-    tmp = tmp[tmp[col] != ""]
-    out = tmp[col].value_counts().head(top_n).reset_index()
+    tmp = tmp[(tmp[col] != "") & (tmp[col].str.lower() != "nan") & (tmp[col].str.lower() != "none")]
+    out = tmp[col].value_counts().head(int(top_n)).reset_index()
     out.columns = [col, "count"]
     return out
 
 
-def _ai_make_plot(df, dimension_col, chart_type="Horizontal bar", top_n=10, title=None):
-    plot_df = _ai_clean_count_df(df, dimension_col, top_n=top_n)
+def _ai_group_count_df(df, x_col, group_col=None, top_n=10):
+    """Return count data for grouped/stacked/time charts."""
+    if df is None or df.empty or x_col not in df.columns:
+        return pd.DataFrame(columns=[x_col, "count"])
+    base = df.copy()
+    for col in [x_col, group_col]:
+        if col and col in base.columns:
+            multi_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression", "Type of event", "enabling-principle", "alert-type"]
+            if col in multi_cols:
+                base[col] = base[col].fillna("").astype(str).str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+                base = base.assign(**{col: base[col].str.split(",")}).explode(col)
+            base[col] = base[col].fillna("").astype(str).str.strip()
+            base = base[(base[col] != "") & (base[col].str.lower() != "nan") & (base[col].str.lower() != "none")]
+    top_values = base[x_col].value_counts().head(int(top_n)).index.tolist()
+    base = base[base[x_col].isin(top_values)]
+    if group_col and group_col in base.columns and group_col != x_col:
+        out = base.groupby([x_col, group_col], dropna=False).size().reset_index(name="count")
+    else:
+        out = base.groupby(x_col, dropna=False).size().reset_index(name="count")
+    return out
+
+
+def _ai_normalize_chart_type(chart_type):
+    q = str(chart_type or "").strip().lower()
+    aliases = {
+        "bar": "Vertical bar", "vertical": "Vertical bar", "vertical bar": "Vertical bar", "column": "Vertical bar",
+        "horizontal": "Horizontal bar", "horizontal bar": "Horizontal bar", "hbar": "Horizontal bar",
+        "grouped": "Grouped bar", "grouped bar": "Grouped bar", "clustered bar": "Grouped bar",
+        "stacked": "Stacked bar", "stacked bar": "Stacked bar",
+        "line": "Line", "trend": "Line", "time series": "Line",
+        "area": "Area", "scatter": "Scatter", "bubble": "Bubble",
+        "pie": "Pie", "donut": "Donut", "doughnut": "Donut",
+        "tree": "Treemap", "treemap": "Treemap", "sunburst": "Sunburst",
+        "heat": "Heatmap", "heatmap": "Heatmap", "matrix": "Heatmap",
+        "hist": "Histogram", "histogram": "Histogram", "box": "Box", "boxplot": "Box",
+        "violin": "Violin", "funnel": "Funnel", "waterfall": "Waterfall",
+    }
+    if q in aliases:
+        return aliases[q]
+    for t in AI_PLOT_CHART_TYPES:
+        if t.lower() in q:
+            return t
+    return chart_type if chart_type in AI_PLOT_CHART_TYPES else "Horizontal bar"
+
+
+def _ai_apply_plot_theme(fig, title, font_size=12, title_size=None, color=" #660094", height=390, showlegend=True):
+    title_size = title_size or max(int(font_size) + 3, 14)
+    fig.update_layout(
+        template="plotly_white",
+        height=int(height),
+        margin=dict(l=18, r=18, t=58, b=64),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        title=dict(text=title, font=dict(size=title_size, family="Arial Black, Arial", color="#2d0055"), x=0.02),
+        font=dict(family="Arial", size=int(font_size), color="#222"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(size=max(int(font_size)-1, 9))),
+        showlegend=showlegend,
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E6E8EF", font=dict(size=int(font_size))),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="#EEF1F6", zeroline=False, tickfont=dict(size=max(int(font_size)-1, 9)))
+    fig.update_yaxes(showgrid=True, gridcolor="#EEF1F6", zeroline=False, tickfont=dict(size=max(int(font_size)-1, 9)))
+    fig.add_annotation(
+        text="EUSEE Dashboard | filtered view", xref="paper", yref="paper", x=0.5, y=-0.20,
+        showarrow=False, font=dict(size=max(int(font_size)-2, 8), color="#777")
+    )
+    return fig
+
+
+def _ai_make_plot(
+    df,
+    dimension_col,
+    chart_type="Horizontal bar",
+    top_n=10,
+    title=None,
+    color="#660094",
+    secondary_color="#008CAA",
+    font_size=12,
+    title_size=None,
+    group_col=None,
+    height=390,
+    show_values=True,
+):
+    """Advanced Plotly generator for chatbot and UI-based plot requests.
+
+    Supports: bar, grouped/stacked bar, line, area, scatter, bubble, pie/donut,
+    treemap, sunburst, heatmap, histogram, box, violin, funnel and waterfall.
+    """
+    chart_type = _ai_normalize_chart_type(chart_type)
+    top_n = int(top_n or 10)
+    font_size = int(font_size or 12)
+    height = int(height or 390)
+    title = title or f"{chart_type}: {dimension_col}"
+
+    if df is None or df.empty or not dimension_col or dimension_col not in df.columns:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available for this plot under the current filters.", x=0.5, y=0.5, showarrow=False)
+        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False)
+
+    # Grouped charts and heatmaps need two dimensions.
+    group_col = group_col if group_col in getattr(df, "columns", []) and group_col != dimension_col else None
+
+    if chart_type in ["Grouped bar", "Stacked bar", "Line", "Area"]:
+        plot_df = _ai_group_count_df(df, dimension_col, group_col, top_n=top_n)
+    else:
+        plot_df = _ai_clean_count_df(df, dimension_col, top_n=top_n)
+
     if plot_df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No data available for this plot under the current filters.", x=0.5, y=0.5, showarrow=False)
-        fig.update_layout(height=320, margin=dict(l=20, r=20, t=40, b=20))
-        return fig
-    title = title or f"Top {min(top_n, len(plot_df))} records by {dimension_col}"
-    if chart_type == "Horizontal bar":
-        plot_df = plot_df.sort_values("count", ascending=True)
-        fig = px.bar(plot_df, x="count", y=dimension_col, orientation="h", text="count", title=title)
-        fig.update_traces(marker_color="#660094", textposition="outside")
-    elif chart_type == "Donut":
-        fig = px.pie(plot_df, values="count", names=dimension_col, hole=0.55, title=title)
-        fig.update_traces(textposition="inside", textinfo="percent+label")
-    elif chart_type == "Treemap":
-        fig = px.treemap(plot_df, path=[dimension_col], values="count", title=title)
-    else:
-        fig = px.bar(plot_df, x=dimension_col, y="count", text="count", title=title)
-        fig.update_traces(marker_color="#008CAA", textposition="outside")
-        fig.update_xaxes(tickangle=-35)
-    fig.update_layout(
-        height=360, margin=dict(l=10, r=10, t=55, b=65),
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(font=dict(size=13, family="Arial Black", color="#2d0055"), x=0.02),
-        font=dict(family="Arial", size=11, color="#222"), showlegend=True,
-    )
-    fig.add_annotation(text="EUSEE Dashboard | filtered view", xref="paper", yref="paper", x=0.5, y=-0.22, showarrow=False, font=dict(size=10, color="#777"))
+        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False)
+
+    try:
+        if chart_type == "Horizontal bar":
+            plot_df = plot_df.sort_values("count", ascending=True)
+            fig = px.bar(plot_df, x="count", y=dimension_col, orientation="h", text="count" if show_values else None, title=title)
+            fig.update_traces(marker_color=color, textposition="outside")
+
+        elif chart_type == "Vertical bar":
+            fig = px.bar(plot_df, x=dimension_col, y="count", text="count" if show_values else None, title=title)
+            fig.update_traces(marker_color=color, textposition="outside")
+            fig.update_xaxes(tickangle=-35)
+
+        elif chart_type == "Grouped bar":
+            fig = px.bar(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, barmode="group", text="count" if show_values else None, title=title)
+            if not group_col:
+                fig.update_traces(marker_color=color)
+            fig.update_xaxes(tickangle=-35)
+
+        elif chart_type == "Stacked bar":
+            fig = px.bar(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, barmode="stack", text="count" if show_values else None, title=title)
+            if not group_col:
+                fig.update_traces(marker_color=color)
+            fig.update_xaxes(tickangle=-35)
+
+        elif chart_type == "Line":
+            fig = px.line(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, markers=True, title=title)
+            if not group_col:
+                fig.update_traces(line=dict(color=color, width=3), marker=dict(size=8))
+            fig.update_xaxes(tickangle=-30)
+
+        elif chart_type == "Area":
+            fig = px.area(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, title=title)
+            if not group_col:
+                fig.update_traces(line=dict(color=color), fillcolor=color)
+            fig.update_xaxes(tickangle=-30)
+
+        elif chart_type == "Scatter":
+            plot_df = plot_df.reset_index(drop=True)
+            plot_df["rank"] = range(1, len(plot_df) + 1)
+            fig = px.scatter(plot_df, x="rank", y="count", text=dimension_col if show_values else None, size="count", title=title)
+            fig.update_traces(marker=dict(color=color, opacity=0.82), textposition="top center")
+            fig.update_xaxes(title="Rank")
+
+        elif chart_type == "Bubble":
+            plot_df = plot_df.reset_index(drop=True)
+            plot_df["rank"] = range(1, len(plot_df) + 1)
+            fig = px.scatter(plot_df, x="rank", y="count", size="count", color=dimension_col, hover_name=dimension_col, title=title, size_max=42)
+            fig.update_xaxes(title="Rank")
+
+        elif chart_type == "Pie":
+            fig = px.pie(plot_df, values="count", names=dimension_col, hole=0, title=title)
+            fig.update_traces(textposition="inside", textinfo="percent+label")
+
+        elif chart_type == "Donut":
+            fig = px.pie(plot_df, values="count", names=dimension_col, hole=0.55, title=title)
+            fig.update_traces(textposition="inside", textinfo="percent+label")
+
+        elif chart_type == "Treemap":
+            fig = px.treemap(plot_df, path=[dimension_col], values="count", title=title)
+
+        elif chart_type == "Sunburst":
+            if group_col:
+                grouped = _ai_group_count_df(df, group_col, dimension_col, top_n=top_n)
+                fig = px.sunburst(grouped, path=[group_col, dimension_col], values="count", title=title)
+            else:
+                fig = px.sunburst(plot_df, path=[dimension_col], values="count", title=title)
+
+        elif chart_type == "Heatmap":
+            if group_col:
+                grouped = _ai_group_count_df(df, dimension_col, group_col, top_n=top_n)
+                matrix = grouped.pivot_table(index=dimension_col, columns=group_col, values="count", aggfunc="sum", fill_value=0)
+                fig = px.imshow(matrix, text_auto=True, aspect="auto", title=title, color_continuous_scale="Purples")
+            else:
+                fig = px.imshow(plot_df[["count"]].set_index(dimension_col), text_auto=True, aspect="auto", title=title, color_continuous_scale="Purples")
+
+        elif chart_type == "Histogram":
+            fig = px.histogram(plot_df, x="count", nbins=min(12, max(4, len(plot_df))), title=title)
+            fig.update_traces(marker_color=color)
+
+        elif chart_type == "Box":
+            fig = px.box(plot_df, y="count", points="all", title=title)
+            fig.update_traces(marker_color=color, line_color=color)
+
+        elif chart_type == "Violin":
+            fig = px.violin(plot_df, y="count", points="all", box=True, title=title)
+            fig.update_traces(marker_color=color, line_color=color)
+
+        elif chart_type == "Funnel":
+            plot_df = plot_df.sort_values("count", ascending=False)
+            fig = px.funnel(plot_df, x="count", y=dimension_col, title=title)
+            fig.update_traces(marker_color=color)
+
+        elif chart_type == "Waterfall":
+            plot_df = plot_df.sort_values("count", ascending=False)
+            fig = go.Figure(go.Waterfall(x=plot_df[dimension_col].astype(str), y=plot_df["count"], measure=["relative"] * len(plot_df)))
+            fig.update_traces(increasing={"marker": {"color": color}}, connector={"line": {"color": "#D0D5DD"}})
+            fig.update_layout(title=title)
+            fig.update_xaxes(tickangle=-35)
+
+        else:
+            fig = px.bar(plot_df, x=dimension_col, y="count", text="count" if show_values else None, title=title)
+            fig.update_traces(marker_color=color, textposition="outside")
+            fig.update_xaxes(tickangle=-35)
+
+    except Exception as e:
+        fig = go.Figure()
+        fig.add_annotation(text=f"Plot could not be generated: {e}", x=0.5, y=0.5, showarrow=False)
+
+    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True)
     return fig
 
 
@@ -4368,7 +4585,7 @@ def _ai_plot_intent_to_dimension(question, df):
     q = str(question).lower()
     mapping = [
         (["country", "countries"], "alert-country", "Horizontal bar"),
-        (["region", "regional"], "region", "Bar"),
+        (["region", "regional"], "region", "Vertical bar"),
         (["impact", "negative", "positive"], "alert-impact", "Donut"),
         (["alert type", "type"], "alert-type", "Horizontal bar"),
         (["principle", "enabling"], "enabling-principle", "Horizontal bar"),
@@ -4376,14 +4593,82 @@ def _ai_plot_intent_to_dimension(question, df):
         (["subject", "affected", "civil society"], "Subject of repression", "Horizontal bar"),
         (["mechanism", "mechanisms"], "Mechanism of repression", "Horizontal bar"),
         (["event"], "Type of event", "Horizontal bar"),
-        (["year", "annual"], "year", "Bar"),
-        (["month", "monthly"], "month_name", "Bar"),
+        (["year", "annual", "trend"], "year", "Line"),
+        (["month", "monthly"], "month_name", "Line"),
     ]
     for keys, col, ctype in mapping:
         if any(k in q for k in keys) and col in getattr(df, "columns", []):
             return col, ctype
     dims = _ai_get_available_plot_dimensions(df)
-    return (dims[0][1], "Horizontal bar") if dims else (None, "Bar")
+    return (dims[0][1], "Horizontal bar") if dims else (None, "Vertical bar")
+
+
+def _ai_parse_plot_request(question, df):
+    """Extract chart settings from natural language for chatbot plot requests."""
+    q = str(question or "")
+    q_lower = q.lower()
+    dim, default_type = _ai_plot_intent_to_dimension(q, df)
+    chart_type = default_type
+    for t in AI_PLOT_CHART_TYPES:
+        if t.lower() in q_lower:
+            chart_type = t
+            break
+    chart_type = _ai_normalize_chart_type(chart_type)
+
+    top_n = 10
+    m = re.search(r"(?:top|first|show)\s+(\d+)", q_lower)
+    if m:
+        top_n = max(3, min(50, int(m.group(1))))
+
+    font_size = 12
+    m = re.search(r"font\s*(?:size)?\s*(\d{1,2})", q_lower)
+    if m:
+        font_size = max(8, min(28, int(m.group(1))))
+
+    color = "#660094"
+    hex_match = re.search(r"#[0-9a-fA-F]{6}", q)
+    if hex_match:
+        color = hex_match.group(0)
+    else:
+        color_words = {
+            "purple": "#660094", "teal": "#008CAA", "yellow": "#FFDB58", "red": "#D92D20",
+            "green": "#039855", "blue": "#1570EF", "orange": "#F79009", "black": "#111827", "slate": "#344054",
+        }
+        for name, val in color_words.items():
+            if name in q_lower:
+                color = val
+                break
+
+    # Optional grouping: e.g. "by country grouped by impact"
+    group_col = None
+    group_words = ["group by", "grouped by", "color by", "split by", "stack by", "stacked by"]
+    if any(w in q_lower for w in group_words):
+        for _, col in _ai_get_available_plot_dimensions(df):
+            label = col.lower().replace("alert-", "").replace(" of repression", "")
+            if label in q_lower and col != dim:
+                group_col = col
+                break
+        if group_col is None and "impact" in q_lower and "alert-impact" in getattr(df, "columns", []):
+            group_col = "alert-impact"
+        elif group_col is None and "region" in q_lower and "region" in getattr(df, "columns", []):
+            group_col = "region"
+
+    title = f"Chatbot-generated {chart_type}: {dim}"
+    quoted = re.search(r"title\s*[:=]\s*['\"]([^'\"]+)['\"]", q, re.IGNORECASE)
+    if quoted:
+        title = quoted.group(1)
+
+    return {
+        "dimension_col": dim,
+        "chart_type": chart_type,
+        "top_n": top_n,
+        "title": title,
+        "color": color,
+        "font_size": font_size,
+        "group_col": group_col,
+        "height": 410,
+        "show_values": True,
+    }
 
 
 def _save_ai_answer(question, df):
@@ -4392,14 +4677,12 @@ def _save_ai_answer(question, df):
     answer = local_ai_response(q, df)
     plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw", "show me a chart"]
     if any(w in q.lower() for w in plot_words):
-        dim, ctype = _ai_plot_intent_to_dimension(q, df)
-        if dim:
-            st.session_state.ai_last_plot = {"dimension_col": dim, "chart_type": ctype, "top_n": 10, "title": f"Chatbot-generated plot: {dim}"}
-            answer += "\n\n📊 I generated an additional plot from the current filtered dashboard data. Open the **Plot** tab in the assistant to view or modify it."
+        config = _ai_parse_plot_request(q, df)
+        if config.get("dimension_col"):
+            st.session_state.ai_last_plot = config
+            answer += "\n\n📊 I generated an advanced plot from the current filtered dashboard data. Open the **Plot** tab to modify chart type, colors, font size, grouping, and Top N."
     st.session_state.ai_pending_answer = answer
     st.session_state.ai_streaming = True
-
-
 
 def ai_priority_signal(summary: dict):
     """Return a priority badge based on negative-alert share."""
@@ -4946,15 +5229,13 @@ def _copilot_queue_answer(question, df):
     plot_words = ["plot", "chart", "graph", "visual", "visualize", "draw"]
     explain_words = ["explain chart", "explain this chart", "interpret chart", "what does this chart"]
     if any(w in q.lower() for w in plot_words):
-        dim, ctype = _ai_plot_intent_to_dimension(q, df)
-        if dim:
-            st.session_state.ai_last_plot = {
-                "dimension_col": dim,
-                "chart_type": ctype,
-                "top_n": 10,
-                "title": f"Chatbot-generated plot: {dim}",
-            }
-            answer += "\n\n📊 I prepared a chart from the current filtered data. Open the Plot tab to view, adjust, explain, or download it."
+        config = _ai_parse_plot_request(q, df)
+        if config.get("dimension_col"):
+            st.session_state.ai_last_plot = config
+            answer += (
+                "\n\n📊 I prepared an advanced chart from the current filtered data. "
+                "Open the Plot tab to adjust chart type, colors, font size, grouping, Top N, title, and downloads."
+            )
     if any(w in q.lower() for w in explain_words):
         answer = ai_generate_chart_explanation(df, q)
     st.session_state.ai_pending_answer = answer
@@ -5172,7 +5453,22 @@ def render_ai_assistant_panel(df):
         if isinstance(st.session_state.get("ai_last_plot"), dict):
             lp = st.session_state.ai_last_plot
             try:
-                st.plotly_chart(_ai_make_plot(df, lp["dimension_col"], lp.get("chart_type", "Horizontal bar"), lp.get("top_n", 10), lp.get("title")), use_container_width=True, key="copilot_smart_last_plot")
+                st.plotly_chart(
+                    _ai_make_plot(
+                        df,
+                        lp["dimension_col"],
+                        lp.get("chart_type", "Horizontal bar"),
+                        lp.get("top_n", 10),
+                        lp.get("title"),
+                        color=lp.get("color", "#660094"),
+                        font_size=lp.get("font_size", 12),
+                        group_col=lp.get("group_col"),
+                        height=lp.get("height", 410),
+                        show_values=lp.get("show_values", True),
+                    ),
+                    use_container_width=True,
+                    key="copilot_smart_last_plot",
+                )
             except Exception:
                 pass
 
@@ -5214,10 +5510,41 @@ def render_ai_assistant_panel(df):
                     dim_labels = [d[0] for d in dims]
                     dim_map = {label: col for label, col in dims}
                     selected_label = st.selectbox("Dimension", dim_labels, index=0, key="copilot_plot_dim")
-                    chart_type = st.selectbox("Chart type", ["Horizontal bar", "Bar", "Donut", "Treemap"], index=0, key="copilot_plot_type")
-                    top_n = st.slider("Top N", 3, 30, 10, key="copilot_plot_topn")
+                    chart_type = st.selectbox("Chart type", AI_PLOT_CHART_TYPES, index=0, key="copilot_plot_type")
+
+                    group_labels = ["None"] + dim_labels
+                    group_label = st.selectbox("Group / color by", group_labels, index=0, key="copilot_plot_group")
+                    group_col = None if group_label == "None" else dim_map.get(group_label)
+
+                    ctop, cfont = st.columns(2)
+                    with ctop:
+                        top_n = st.slider("Top N", 3, 50, 10, key="copilot_plot_topn")
+                    with cfont:
+                        font_size = st.slider("Font size", 8, 24, 12, key="copilot_plot_font_size")
+
+                    ccolor1, ccolor2 = st.columns(2)
+                    with ccolor1:
+                        color_preset = st.selectbox("Primary color", list(AI_COLOR_PRESETS.keys()), index=0, key="copilot_plot_color_preset")
+                    with ccolor2:
+                        custom_color = st.text_input("Custom HEX color", value=AI_COLOR_PRESETS[color_preset], key="copilot_plot_custom_color")
+
+                    plot_title = st.text_input("Chart title", value=f"{selected_label} distribution", key="copilot_plot_title")
+                    show_values = st.toggle("Show values on chart", value=True, key="copilot_plot_show_values")
                     selected_col = dim_map[selected_label]
-                    fig = _ai_make_plot(df, selected_col, chart_type=chart_type, top_n=top_n, title=f"{selected_label} distribution")
+                    final_color = custom_color if re.match(r"^#[0-9a-fA-F]{6}$", str(custom_color).strip()) else AI_COLOR_PRESETS[color_preset]
+
+                    fig = _ai_make_plot(
+                        df,
+                        selected_col,
+                        chart_type=chart_type,
+                        top_n=top_n,
+                        title=plot_title,
+                        color=final_color,
+                        font_size=font_size,
+                        group_col=group_col,
+                        height=430,
+                        show_values=show_values,
+                    )
                     st.plotly_chart(fig, use_container_width=True, key="copilot_plot_builder")
                     p1, p2 = st.columns(2)
                     with p1:
@@ -5231,8 +5558,18 @@ def render_ai_assistant_panel(df):
                     with p2:
                         if st.button("Save plot", key="copilot_save_generated_plot", use_container_width=True):
                             _track_ai_event("advanced_plot_save", selected_label)
-                            st.session_state.ai_last_plot = {"dimension_col": selected_col, "chart_type": chart_type, "top_n": top_n, "title": f"{selected_label} distribution"}
-                            st.session_state.ai_smart_output = {"type": "plot", "title": f"{selected_label} distribution", "content": f"Saved a {chart_type.lower()} plot for {selected_label}."}
+                            st.session_state.ai_last_plot = {
+                                "dimension_col": selected_col,
+                                "chart_type": chart_type,
+                                "top_n": top_n,
+                                "title": plot_title,
+                                "color": final_color,
+                                "font_size": font_size,
+                                "group_col": group_col,
+                                "height": 430,
+                                "show_values": show_values,
+                            }
+                            st.session_state.ai_smart_output = {"type": "plot", "title": plot_title, "content": f"Saved a {chart_type.lower()} plot for {selected_label}."}
                             st.rerun()
                     plot_df = _ai_clean_count_df(df, selected_col, top_n=top_n)
                     st.download_button("Download plot data (.csv)", data=plot_df.to_csv(index=False).encode("utf-8"), file_name="eusee_ai_plot_data.csv", mime="text/csv", use_container_width=True, key="copilot_download_plot_data")
