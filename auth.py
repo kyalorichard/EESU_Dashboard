@@ -2,7 +2,6 @@
 import json
 import time
 import streamlit as st
-import streamlit.components.v1 as components
 
 DEBUG = False
 
@@ -111,9 +110,8 @@ def init_session():
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
-        "auth_remember": False,
+        "auth_remember": True,
         "auth_view": False,
-        "auth_action": None,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -228,7 +226,7 @@ def logout():
 
     for key in [
         "user", "email", "name", "role", "email_verified", "restored",
-        "auth_mode", "auth_remember", "auth_view", "auth_action"
+        "auth_mode", "auth_remember", "auth_view"
     ]:
         if key in st.session_state:
             del st.session_state[key]
@@ -257,12 +255,14 @@ def parse_error(e):
 
 
 # ============================================================
-# Page shell
+# CSS
 # ============================================================
-def _hide_streamlit_chrome():
+def _auth_page_css():
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
         section[data-testid="stSidebar"],
         header[data-testid="stHeader"],
         div[data-testid="stToolbar"],
@@ -271,20 +271,522 @@ def _hide_streamlit_chrome():
             display: none !important;
         }
 
+        html, body, .stApp {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            min-height: 100vh !important;
+            font-family: Inter, Arial, sans-serif !important;
+            background:
+                radial-gradient(circle at 28% 40%, rgba(37, 99, 235, 0.18), transparent 26%),
+                radial-gradient(circle at 82% 12%, rgba(124, 58, 237, 0.15), transparent 28%),
+                linear-gradient(135deg, #020617 0%, #071426 42%, #0b1b3a 100%) !important;
+            color: #ffffff !important;
+        }
+
         .block-container {
             max-width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
         }
 
-        .stApp {
-            background: #020617 !important;
+        div[data-testid="stMarkdownContainer"] p {
+            margin: 0;
         }
 
-        iframe {
-            display: block !important;
+        .eusee-topbar {
+            min-height: 74px;
+            padding: 0 44px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(2, 6, 23, 0.62);
+            backdrop-filter: blur(18px);
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-line {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            height: 74px;
+        }
+
+        .brand-stars {
+            color: #facc15 !important;
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: -5px;
+        }
+
+        .brand-main {
+            color: #ffffff !important;
+            font-size: 25px;
+            font-weight: 900;
+            letter-spacing: -0.045em;
+        }
+
+        .brand-sub {
+            color: rgba(226, 232, 240, 0.76) !important;
+            font-size: 14px;
+            letter-spacing: 0.055em;
+            font-weight: 700;
+        }
+
+        .top-nav {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 22px;
+            height: 74px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 15px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.90);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            color: white !important;
+            font-size: 13px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+            white-space: nowrap;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.85);
+            display: inline-block;
+        }
+
+        .top-link {
+            color: rgba(255,255,255,0.86) !important;
+            font-size: 13px;
+            font-weight: 650;
+            white-space: nowrap;
+        }
+
+        .page-pad {
+            padding: 34px 56px 18px 56px;
+        }
+
+        .left-panel {
+            min-height: 720px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .left-panel::after {
+            content: "";
+            position: absolute;
+            right: -54px;
+            top: 130px;
+            width: 550px;
+            height: 550px;
+            opacity: 0.72;
+            background:
+                radial-gradient(circle, rgba(37,99,235,0.36) 0 2px, transparent 2px);
+            background-size: 9px 9px;
+            mask-image: radial-gradient(circle, black 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(circle, black 0%, transparent 72%);
+            pointer-events: none;
+        }
+
+        .left-panel::before {
+            content: "";
+            position: absolute;
+            right: -10px;
+            top: 250px;
+            width: 530px;
+            height: 330px;
+            border: 1px solid rgba(59,130,246,0.34);
+            border-left: none;
+            border-bottom: none;
+            border-radius: 50%;
+            transform: rotate(-17deg);
+            opacity: 0.62;
+            pointer-events: none;
+        }
+
+        .left-inner {
+            position: relative;
+            z-index: 2;
+            max-width: 600px;
+        }
+
+        .left-title {
+            color: #ffffff !important;
+            font-size: 52px;
+            line-height: 1.05;
+            font-weight: 950;
+            letter-spacing: -0.05em;
+            margin: 0 0 4px 0;
+        }
+
+        .left-gradient {
+            display: block;
+            font-size: 44px;
+            line-height: 1.08;
+            font-weight: 950;
+            letter-spacing: -0.05em;
+            margin: 0 0 20px 0;
+            background: linear-gradient(90deg, #a855f7 0%, #38bdf8 76%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .left-lead {
+            max-width: 520px;
+            margin-bottom: 36px;
+            color: rgba(226, 232, 240, 0.88) !important;
+            font-size: 18px;
+            line-height: 1.58;
+            font-weight: 500;
+        }
+
+        .feature-icon {
+            width: 58px;
+            height: 58px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(145deg, rgba(124,58,237,0.54), rgba(30,64,175,0.48));
+            color: #ddd6fe !important;
+            font-size: 27px;
+            box-shadow: 0 16px 34px rgba(0,0,0,0.18);
+        }
+
+        .feature-title {
+            color: #ffffff !important;
+            font-size: 19px;
+            font-weight: 850;
+            letter-spacing: -0.02em;
+            margin: 0 0 6px 0;
+        }
+
+        .feature-desc {
+            color: rgba(226, 232, 240, 0.78) !important;
+            font-size: 15px;
+            line-height: 1.38;
+            margin: 0;
+        }
+
+        .left-rule {
+            width: 88%;
+            height: 1px;
+            background: rgba(148, 163, 184, 0.22);
+            margin: 26px 0 24px 0;
+        }
+
+        .security-icon {
+            width: 68px;
+            height: 68px;
+            border-radius: 23px;
+            display: grid;
+            place-items: center;
+            color: #22d3ee !important;
+            border: 1px solid rgba(34, 211, 238, 0.72);
+            font-size: 29px;
+        }
+
+        .security-title {
+            margin: 0 0 8px 0;
+            color: #22d3ee !important;
+            font-size: 17px;
+            font-weight: 850;
+        }
+
+        .security-desc {
+            margin: 0;
+            color: rgba(226, 232, 240, 0.80) !important;
+            line-height: 1.56;
+            font-size: 15px;
+        }
+
+        .copyright {
+            position: absolute;
+            left: 0;
+            bottom: 2px;
+            z-index: 2;
+            color: rgba(226, 232, 240, 0.62) !important;
+            font-size: 12.5px;
+        }
+
+        .auth-card div[data-testid="stVerticalBlockBorderWrapper"] {
+            width: min(735px, 100%) !important;
+            min-height: 720px !important;
+            margin: 0 auto !important;
+            color: #0f172a !important;
+            border-radius: 18px !important;
+            border: 1px solid rgba(255,255,255,0.82) !important;
+            background:
+                radial-gradient(circle at 88% 6%, rgba(124, 58, 237, 0.07), transparent 24%),
+                #ffffff !important;
+            box-shadow: 0 32px 95px rgba(0,0,0,0.42) !important;
+        }
+
+        .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
+            padding: 30px 46px !important;
+        }
+
+        .auth-card * {
+            color: #0f172a;
+        }
+
+        .auth-card .stButton > button {
+            border-radius: 10px !important;
+            border: 1px solid #d7dce7 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-weight: 750 !important;
+            min-height: 42px !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .auth-card .stButton > button:hover {
+            border-color: #7c3aed !important;
+            color: #5b21b6 !important;
+            box-shadow: 0 8px 18px rgba(124,58,237,0.12) !important;
+        }
+
+        .back-btn .stButton > button {
+            width: auto !important;
+            min-height: 42px !important;
+            padding: 0.45rem 1rem !important;
+            border: 1px solid rgba(124, 58, 237, 0.45) !important;
+            color: #5b21b6 !important;
+            background: #ffffff !important;
+            border-radius: 10px !important;
+            font-weight: 850 !important;
+            box-shadow: 0 6px 16px rgba(124,58,237,0.09) !important;
+        }
+
+        .login-lock {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: #f1e9ff;
+            color: #6d28d9 !important;
+            font-size: 31px;
+            font-weight: 900;
+        }
+
+        .login-heading h1 {
+            margin: 0 0 9px 0 !important;
+            color: #0b102f !important;
+            font-size: 32px !important;
+            line-height: 1.12 !important;
+            font-weight: 950 !important;
+            letter-spacing: -0.04em !important;
+        }
+
+        .login-heading p {
+            margin: 0 !important;
+            color: #475569 !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+        }
+
+        .or-divider {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 18px;
+            align-items: center;
+            color: #64748b !important;
+            font-weight: 750;
+            margin: 30px 0 24px 0;
+            font-size: 14px;
+        }
+
+        .or-divider::before,
+        .or-divider::after {
+            content: "";
+            height: 1px;
+            background: #d5dbe8;
+        }
+
+        .auth-card label p {
+            color: #0f172a !important;
+            font-size: 13px !important;
+            font-weight: 850 !important;
+            margin-bottom: 5px !important;
+        }
+
+        .auth-card input {
+            background: #ffffff !important;
+            color: #0f172a !important;
+        }
+
+        .auth-card div[data-testid="stTextInput"] {
+            margin-bottom: 13px !important;
+        }
+
+        .auth-card div[data-testid="stTextInput"] input {
+            height: 54px !important;
+            border-radius: 10px !important;
+            border: 1px solid #d5dbe8 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-size: 15px !important;
+            box-shadow: none !important;
+        }
+
+        .auth-card div[data-testid="stTextInput"] input:focus {
+            border-color: #7c3aed !important;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+        }
+
+        .auth-card div[data-testid="stCheckbox"] {
+            margin-top: 4px !important;
+            margin-bottom: 14px !important;
+        }
+
+        .auth-card div[data-testid="stCheckbox"] label,
+        .auth-card div[data-testid="stCheckbox"] label span {
+            color: #0f172a !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+        }
+
+        .auth-card button[kind="primaryFormSubmit"],
+        .auth-card button[kind="formSubmit"] {
             width: 100% !important;
+            min-height: 58px !important;
+            height: 58px !important;
+            border-radius: 10px !important;
+            border: none !important;
+            color: #ffffff !important;
+            font-size: 18px !important;
+            font-weight: 900 !important;
+            background: linear-gradient(90deg, #6d28d9, #2563eb) !important;
+            box-shadow: 0 10px 25px rgba(37,99,235,0.30) !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .auth-card button[kind="primaryFormSubmit"]:hover,
+        .auth-card button[kind="formSubmit"]:hover {
+            filter: brightness(1.05);
+            transform: translateY(-1px);
+        }
+
+        .switch-text {
+            text-align: center;
+            margin: 20px 0 14px 0;
+            color: #64748b !important;
+            font-size: 14.5px;
+            font-weight: 500;
+        }
+
+        .switch-text strong {
+            color: #4f46e5 !important;
+            font-weight: 850;
+            margin-left: 12px;
+        }
+
+        .notice {
+            margin-top: 22px;
+            border: 1px solid rgba(245, 158, 11, 0.48);
+            background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
+            border-radius: 12px;
+            padding: 18px 20px;
+            color: #1f2937 !important;
+        }
+
+        .notice h3 {
+            margin: 0 0 8px 0 !important;
+            color: #3b2f0b !important;
+            font-size: 15.5px !important;
+            font-weight: 850 !important;
+        }
+
+        .notice p {
+            margin: 5px 0 !important;
+            color: #111827 !important;
+            font-size: 13.5px !important;
+        }
+
+        .notice-check {
+            color: #16a34a !important;
+            font-weight: 900;
+            margin-right: 8px;
+        }
+
+        .bottom-footer {
+            text-align: center;
+            color: rgba(226,232,240,0.68) !important;
+            font-size: 13px;
+            margin: 12px 0 18px 0;
+            font-weight: 500;
+        }
+
+        .auth-card div[data-testid="stForm"] {
             border: 0 !important;
+            padding: 0 !important;
+        }
+
+        .auth-card div[data-testid="stForm"] > div {
+            gap: 0.35rem !important;
+        }
+
+        @media (max-width: 980px) {
+            .top-nav {
+                display: none !important;
+            }
+
+            .page-pad {
+                padding: 24px;
+            }
+
+            .left-panel {
+                min-height: auto;
+                padding: 32px 0;
+            }
+
+            .copyright {
+                position: static;
+                margin-top: 34px;
+            }
+
+            .auth-card div[data-testid="stVerticalBlockBorderWrapper"] {
+                min-height: auto !important;
+                margin-top: 24px !important;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .eusee-topbar {
+                padding: 0 18px;
+            }
+
+            .brand-sub {
+                display: none !important;
+            }
+
+            .page-pad {
+                padding: 18px;
+            }
+
+            .left-title {
+                font-size: 38px;
+            }
+
+            .left-gradient {
+                font-size: 32px;
+            }
+
+            .auth-card div[data-testid="stVerticalBlockBorderWrapper"] > div {
+                padding: 24px !important;
+            }
         }
         </style>
         """,
@@ -292,862 +794,340 @@ def _hide_streamlit_chrome():
     )
 
 
-def _login_component_html(mode="Login", message="", message_type="info"):
-    is_login = mode == "Login"
-    is_register = mode == "Register"
-    is_reset = mode == "Reset"
-
-    title = {
-        "Login": "Sign in to your workspace",
-        "Register": "Create your account",
-        "Reset": "Reset password",
-    }.get(mode, "Sign in to your workspace")
-
-    subtitle = {
-        "Login": "Access your authorized EU SEE dashboard and analytics.",
-        "Register": "Request access using an approved institutional email address.",
-        "Reset": "Enter your approved email address to receive a password reset link.",
-    }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
-
-    button_label = {
-        "Login": "Access Intelligence Dashboard",
-        "Register": "Create account",
-        "Reset": "Send password reset link",
-    }.get(mode, "Access Intelligence Dashboard")
-
-    password_display = "block" if mode in ["Login", "Register"] else "none"
-    remember_display = "flex" if mode == "Login" else "none"
-    forgot_display = "inline-flex" if mode == "Login" else "none"
-
-    msg_html = ""
-    if message:
-        color = "#166534" if message_type == "success" else "#991b1b" if message_type == "error" else "#1e40af"
-        bg = "#ecfdf5" if message_type == "success" else "#fef2f2" if message_type == "error" else "#eff6ff"
-        border = "#bbf7d0" if message_type == "success" else "#fecaca" if message_type == "error" else "#bfdbfe"
-        msg_html = f'<div class="message" style="color:{color};background:{bg};border-color:{border};">{message}</div>'
-
-    mode_hint = ""
-    if is_login:
-        mode_hint = 'Don’t have an account? <button name="action" value="switch_register" class="link-btn" form="auth_form">Create account</button>'
-    elif is_register:
-        mode_hint = '<button name="action" value="switch_login" class="link-btn" form="auth_form">Back to sign in</button>'
-    elif is_reset:
-        mode_hint = '<button name="action" value="switch_login" class="link-btn" form="auth_form">Back to sign in</button>'
-
-    return f"""
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
-:root {{
-    --bg: #020617;
-    --panel: #ffffff;
-    --ink: #0b102f;
-    --muted: #475569;
-    --border: #d7dce8;
-    --violet: #6d28d9;
-    --blue: #2563eb;
-    --cyan: #0891b2;
-}}
-
-* {{
-    box-sizing: border-box;
-}}
-
-html, body {{
-    margin: 0;
-    padding: 0;
-    min-height: 100%;
-    font-family: Inter, Arial, sans-serif;
-    background:
-        radial-gradient(circle at 30% 42%, rgba(37, 99, 235, 0.20), transparent 25%),
-        radial-gradient(circle at 84% 12%, rgba(124, 58, 237, 0.16), transparent 28%),
-        linear-gradient(135deg, #020617 0%, #071426 42%, #0b1b3a 100%);
-    color: white;
-}}
-
-.page {{
-    min-height: 100vh;
-}}
-
-.topbar {{
-    height: 74px;
-    padding: 0 42px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-    background: rgba(2, 6, 23, 0.62);
-    backdrop-filter: blur(18px);
-}}
-
-.brand {{
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}}
-
-.eu-mark {{
-    color: #facc15;
-    font-size: 26px;
-    font-weight: 900;
-    letter-spacing: -5px;
-    transform: rotate(-6deg);
-}}
-
-.brand-main {{
-    font-size: 25px;
-    font-weight: 900;
-    letter-spacing: -0.045em;
-}}
-
-.brand-sub {{
-    font-size: 14px;
-    letter-spacing: 0.055em;
-    color: rgba(226,232,240,0.78);
-    font-weight: 650;
-}}
-
-.nav {{
-    display: flex;
-    align-items: center;
-    gap: 26px;
-    color: rgba(255,255,255,0.88);
-    font-size: 15px;
-    font-weight: 600;
-}}
-
-.status {{
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    padding: 9px 15px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.88);
-    border: 1px solid rgba(148, 163, 184, 0.13);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.20);
-}}
-
-.dot {{
-    width: 11px;
-    height: 11px;
-    border-radius: 999px;
-    background: #10b981;
-    box-shadow: 0 0 18px rgba(16,185,129,0.86);
-}}
-
-.main {{
-    min-height: calc(100vh - 74px);
-    display: grid;
-    grid-template-columns: 44.5% 55.5%;
-    align-items: center;
-    gap: 42px;
-    padding: 34px 56px 18px 56px;
-}}
-
-.left {{
-    position: relative;
-    min-height: 720px;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-}}
-
-.left::after {{
-    content: "";
-    position: absolute;
-    right: -54px;
-    top: 130px;
-    width: 550px;
-    height: 550px;
-    opacity: 0.72;
-    background: radial-gradient(circle, rgba(37,99,235,0.36) 0 2px, transparent 2px);
-    background-size: 9px 9px;
-    mask-image: radial-gradient(circle, black 0%, transparent 72%);
-    -webkit-mask-image: radial-gradient(circle, black 0%, transparent 72%);
-}}
-
-.left::before {{
-    content: "";
-    position: absolute;
-    right: -10px;
-    top: 250px;
-    width: 530px;
-    height: 330px;
-    border: 1px solid rgba(59,130,246,0.34);
-    border-left: none;
-    border-bottom: none;
-    border-radius: 50%;
-    transform: rotate(-17deg);
-    opacity: 0.62;
-}}
-
-.left-content {{
-    position: relative;
-    z-index: 2;
-    max-width: 600px;
-}}
-
-.left h1 {{
-    margin: 0 0 4px 0;
-    font-size: 52px;
-    line-height: 1.05;
-    font-weight: 950;
-    letter-spacing: -0.05em;
-}}
-
-.gradient-title {{
-    margin: 0 0 20px 0;
-    font-size: 44px;
-    line-height: 1.08;
-    font-weight: 950;
-    letter-spacing: -0.05em;
-    background: linear-gradient(90deg, #a855f7 0%, #38bdf8 76%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}}
-
-.lead {{
-    max-width: 520px;
-    margin-bottom: 36px;
-    color: rgba(226,232,240,0.88);
-    font-size: 18px;
-    line-height: 1.58;
-    font-weight: 500;
-}}
-
-.feature {{
-    display: grid;
-    grid-template-columns: 64px 1fr;
-    gap: 18px;
-    align-items: center;
-    margin-bottom: 22px;
-}}
-
-.feature-icon {{
-    width: 58px;
-    height: 58px;
-    border-radius: 14px;
-    display: grid;
-    place-items: center;
-    color: #ddd6fe;
-    background: linear-gradient(145deg, rgba(124,58,237,0.54), rgba(30,64,175,0.48));
-    font-size: 27px;
-    box-shadow: 0 16px 34px rgba(0,0,0,0.18);
-}}
-
-.feature h3 {{
-    margin: 0 0 6px 0;
-    color: white;
-    font-size: 19px;
-    font-weight: 850;
-    letter-spacing: -0.02em;
-}}
-
-.feature p {{
-    margin: 0;
-    color: rgba(226,232,240,0.78);
-    font-size: 15px;
-    line-height: 1.38;
-}}
-
-.rule {{
-    width: 88%;
-    height: 1px;
-    background: rgba(148,163,184,0.22);
-    margin: 26px 0 24px 0;
-}}
-
-.security {{
-    display: grid;
-    grid-template-columns: 76px 1fr;
-    gap: 18px;
-    align-items: center;
-}}
-
-.security-icon {{
-    width: 68px;
-    height: 68px;
-    border-radius: 23px;
-    display: grid;
-    place-items: center;
-    color: #22d3ee;
-    border: 1px solid rgba(34,211,238,0.72);
-    font-size: 29px;
-}}
-
-.security h3 {{
-    margin: 0 0 8px 0;
-    color: #22d3ee;
-    font-size: 17px;
-    font-weight: 850;
-}}
-
-.security p {{
-    margin: 0;
-    max-width: 460px;
-    color: rgba(226,232,240,0.80);
-    line-height: 1.56;
-    font-size: 15px;
-}}
-
-.copyright {{
-    position: absolute;
-    left: 0;
-    bottom: 2px;
-    color: rgba(226,232,240,0.62);
-    font-size: 12.5px;
-    z-index: 2;
-}}
-
-.right {{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}}
-
-.card {{
-    width: min(735px, 100%);
-    min-height: 720px;
-    padding: 30px 46px;
-    border-radius: 18px;
-    background:
-        radial-gradient(circle at 88% 6%, rgba(124, 58, 237, 0.07), transparent 24%),
-        white;
-    color: var(--ink);
-    border: 1px solid rgba(255,255,255,0.82);
-    box-shadow: 0 32px 95px rgba(0,0,0,0.42);
-}}
-
-.card-top {{
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 26px;
-}}
-
-.back-btn {{
-    height: 42px;
-    padding: 0 16px;
-    border-radius: 10px;
-    border: 1px solid rgba(124,58,237,0.45);
-    background: white;
-    color: #5b21b6;
-    font-size: 14px;
-    font-weight: 850;
-    cursor: pointer;
-    box-shadow: 0 6px 16px rgba(124,58,237,0.09);
-}}
-
-.header {{
-    display: grid;
-    grid-template-columns: 78px 1fr;
-    gap: 22px;
-    align-items: center;
-    margin-bottom: 30px;
-}}
-
-.lock {{
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    background: #f1e9ff;
-    color: #6d28d9;
-    font-size: 31px;
-    font-weight: 900;
-}}
-
-.header h2 {{
-    margin: 0 0 9px 0;
-    color: #0b102f;
-    font-size: 32px;
-    line-height: 1.12;
-    font-weight: 950;
-    letter-spacing: -0.04em;
-}}
-
-.header p {{
-    margin: 0;
-    color: #475569;
-    font-size: 16px;
-    font-weight: 500;
-}}
-
-.divider {{
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 18px;
-    align-items: center;
-    color: #64748b;
-    font-size: 14px;
-    font-weight: 750;
-    margin: 30px 0 24px 0;
-}}
-
-.divider::before,
-.divider::after {{
-    content: "";
-    height: 1px;
-    background: #d5dbe8;
-}}
-
-.message {{
-    padding: 11px 13px;
-    border: 1px solid;
-    border-radius: 10px;
-    margin-bottom: 14px;
-    font-size: 13px;
-    font-weight: 650;
-}}
-
-.form-group {{
-    margin-bottom: 16px;
-}}
-
-.form-label {{
-    display: block;
-    color: #0f172a;
-    font-size: 13px;
-    font-weight: 850;
-    margin-bottom: 7px;
-}}
-
-.input {{
-    width: 100%;
-    height: 54px;
-    border-radius: 10px;
-    border: 1px solid #d5dbe8;
-    background: white;
-    color: #0f172a;
-    font-size: 15px;
-    padding: 0 15px;
-    outline: none;
-}}
-
-.input:focus {{
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
-}}
-
-.form-row {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 4px 0 16px 0;
-}}
-
-.remember {{
-    display: {remember_display};
-    align-items: center;
-    gap: 9px;
-    color: #0f172a;
-    font-size: 14px;
-    font-weight: 500;
-}}
-
-.remember input {{
-    width: 18px;
-    height: 18px;
-    accent-color: #6d28d9;
-}}
-
-.forgot {{
-    display: {forgot_display};
-    border: 0;
-    background: transparent;
-    color: #4f46e5;
-    font-size: 14px;
-    font-weight: 750;
-    cursor: pointer;
-}}
-
-.submit {{
-    width: 100%;
-    height: 58px;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(90deg, #6d28d9, #2563eb);
-    color: white;
-    font-size: 18px;
-    font-weight: 900;
-    cursor: pointer;
-    box-shadow: 0 10px 25px rgba(37,99,235,0.30);
-    transition: transform .15s ease, filter .15s ease;
-}}
-
-.submit:hover {{
-    transform: translateY(-1px);
-    filter: brightness(1.05);
-}}
-
-.mode-note {{
-    text-align: center;
-    margin: 20px 0 14px 0;
-    color: #64748b;
-    font-size: 14.5px;
-    font-weight: 500;
-}}
-
-.link-btn {{
-    border: 0;
-    background: transparent;
-    color: #4f46e5;
-    font-size: 14.5px;
-    font-weight: 850;
-    margin-left: 10px;
-    cursor: pointer;
-}}
-
-.notice {{
-    margin-top: 22px;
-    border: 1px solid rgba(245,158,11,0.48);
-    background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
-    border-radius: 12px;
-    padding: 18px 20px;
-    color: #1f2937;
-}}
-
-.notice h3 {{
-    margin: 0 0 8px 0;
-    color: #3b2f0b;
-    font-size: 15.5px;
-    font-weight: 850;
-}}
-
-.notice p {{
-    margin: 5px 0;
-    color: #111827;
-    font-size: 13.5px;
-}}
-
-.check {{
-    color: #16a34a;
-    font-weight: 900;
-    margin-right: 8px;
-}}
-
-.footer {{
-    text-align: center;
-    color: rgba(226,232,240,0.68);
-    font-size: 13px;
-    margin: 12px 0 18px 0;
-    font-weight: 500;
-}}
-
-@media (max-width: 980px) {{
-    .nav {{
-        display: none;
-    }}
-    .main {{
-        grid-template-columns: 1fr;
-        padding: 24px;
-    }}
-    .left {{
-        min-height: auto;
-        padding: 32px 0;
-    }}
-    .copyright {{
-        position: static;
-        margin-top: 34px;
-    }}
-    .card {{
-        min-height: auto;
-    }}
-}}
-
-@media (max-width: 640px) {{
-    .topbar {{
-        padding: 0 18px;
-    }}
-    .brand-sub {{
-        display: none;
-    }}
-    .main {{
-        padding: 18px;
-    }}
-    .left h1 {{
-        font-size: 38px;
-    }}
-    .gradient-title {{
-        font-size: 32px;
-    }}
-    .card {{
-        padding: 24px;
-    }}
-    .header {{
-        grid-template-columns: 1fr;
-    }}
-}}
-</style>
-</head>
-<body>
-<div class="page">
-    <div class="topbar">
-        <div class="brand">
-            <span class="eu-mark">✦✦✦</span>
-            <span class="brand-main">EU SEE</span>
-            <span class="brand-sub">INTELLIGENCE PLATFORM</span>
-        </div>
-        <div class="nav">
-            <span class="status"><span class="dot"></span>System Status: <strong>Operational</strong></span>
-            <span>ⓘ Help</span>
-            <span>▤ Docs</span>
-            <span>◎ English⌄</span>
-        </div>
-    </div>
-
-    <main class="main">
-        <section class="left">
-            <div class="left-content">
-                <h1>EU SEE</h1>
-                <div class="gradient-title">Intelligence Platform</div>
-                <div class="lead">
-                    Secure access to real-time geopolitical analytics,
-                    risk signals, and cross-country monitoring across
-                    South East Europe and beyond.
-                </div>
-
-                <div class="feature">
-                    <div class="feature-icon">◎</div>
-                    <div>
-                        <h3>86 Countries Monitored</h3>
-                        <p>Comprehensive coverage and real-time updates</p>
-                    </div>
-                </div>
-
-                <div class="feature">
-                    <div class="feature-icon">▮</div>
-                    <div>
-                        <h3>Real-time Signal Processing</h3>
-                        <p>AI-powered detection and analytics engine</p>
-                    </div>
-                </div>
-
-                <div class="feature">
-                    <div class="feature-icon">◇</div>
-                    <div>
-                        <h3>AI-driven Risk Classification</h3>
-                        <p>Advanced models for early risk identification</p>
-                    </div>
-                </div>
-
-                <div class="rule"></div>
-
-                <div class="security">
-                    <div class="security-icon">🔐</div>
-                    <div>
-                        <h3>Enterprise-grade security</h3>
-                        <p>Your data is protected with end-to-end encryption and strict access controls.</p>
-                    </div>
-                </div>
+# ============================================================
+# Render UI
+# ============================================================
+def _render_topbar():
+    st.markdown('<div class="eusee-topbar">', unsafe_allow_html=True)
+    left, right = st.columns([0.60, 0.40], vertical_alignment="center")
+
+    with left:
+        st.markdown(
+            """
+            <div class="brand-line">
+                <span class="brand-stars">✦✦✦</span>
+                <span class="brand-main">EU SEE</span>
+                <span class="brand-sub">INTELLIGENCE PLATFORM</span>
             </div>
-            <div class="copyright">© 2024 EU SEE Intelligence Platform. All rights reserved.</div>
-        </section>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        <section class="right">
-            <div class="card">
-                <form method="GET" id="auth_form">
-                    <div class="card-top">
-                        <button class="back-btn" name="action" value="back" type="submit">← Back to dashboard</button>
-                    </div>
-
-                    <div class="header">
-                        <div class="lock">▣</div>
-                        <div>
-                            <h2>{title}</h2>
-                            <p>{subtitle}</p>
-                        </div>
-                    </div>
-
-                    <div class="divider">OR</div>
-
-                    {msg_html}
-
-                    <div class="form-group">
-                        <label class="form-label" for="email">Email address</label>
-                        <input class="input" id="email" name="email" type="email" placeholder="✉   name@organization.org" autocomplete="email">
-                    </div>
-
-                    <div class="form-group" style="display:{password_display};">
-                        <label class="form-label" for="password">Password</label>
-                        <input class="input" id="password" name="password" type="password" placeholder="🔒   Enter your password" autocomplete="current-password">
-                    </div>
-
-                    <div class="form-row">
-                        <label class="remember">
-                            <input type="checkbox" name="remember" value="1" checked>
-                            Keep me signed in on this device
-                        </label>
-                        <button class="forgot" name="action" value="switch_reset" type="submit">Forgot password?</button>
-                    </div>
-
-                    <button class="submit" name="action" value="{mode.lower()}" type="submit">🔒 {button_label}</button>
-
-                    <div class="mode-note">{mode_hint}</div>
-                </form>
-
-                <div class="notice">
-                    <h3>🛡️ Secure Access Notice</h3>
-                    <p><span class="check">✓</span>Access restricted to verified institutional domains</p>
-                    <p><span class="check">✓</span>All activity is logged and monitored</p>
-                    <p><span class="check">✓</span>Session protected with enterprise-grade encryption</p>
-                </div>
+    with right:
+        st.markdown(
+            """
+            <div class="top-nav">
+                <span class="status-pill"><span class="status-dot"></span>System Status: <strong>Operational</strong></span>
+                <span class="top-link">ⓘ Help</span>
+                <span class="top-link">▤ Docs</span>
+                <span class="top-link">◎ English⌄</span>
             </div>
-        </section>
-    </main>
+            """,
+            unsafe_allow_html=True,
+        )
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    <div class="footer">🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready</div>
-</div>
-</body>
-</html>
-"""
+
+def _render_feature(icon, title, desc):
+    icon_col, text_col = st.columns([0.14, 0.86], vertical_alignment="center")
+    with icon_col:
+        st.markdown(f'<div class="feature-icon">{icon}</div>', unsafe_allow_html=True)
+    with text_col:
+        st.markdown(f'<p class="feature-title">{title}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="feature-desc">{desc}</p>', unsafe_allow_html=True)
+
+
+def _render_left_panel():
+    st.markdown('<div class="left-panel"><div class="left-inner">', unsafe_allow_html=True)
+
+    st.markdown('<div class="left-title">EU SEE</div>', unsafe_allow_html=True)
+    st.markdown('<div class="left-gradient">Intelligence Platform</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <div class="left-lead">
+            Secure access to real-time geopolitical analytics,
+            risk signals, and cross-country monitoring across
+            South East Europe and beyond.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    _render_feature("◎", "86 Countries Monitored", "Comprehensive coverage and real-time updates")
+    _render_feature("▮", "Real-time Signal Processing", "AI-powered detection and analytics engine")
+    _render_feature("◇", "AI-driven Risk Classification", "Advanced models for early risk identification")
+
+    st.markdown('<div class="left-rule"></div>', unsafe_allow_html=True)
+
+    sec_icon, sec_text = st.columns([0.16, 0.84], vertical_alignment="center")
+    with sec_icon:
+        st.markdown('<div class="security-icon">🔐</div>', unsafe_allow_html=True)
+    with sec_text:
+        st.markdown('<p class="security-title">Enterprise-grade security</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<p class="security-desc">Your data is protected with end-to-end encryption and strict access controls.</p>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('</div><div class="copyright">© 2024 EU SEE Intelligence Platform. All rights reserved.</div></div>', unsafe_allow_html=True)
+
+
+def _render_login_header(mode_title, mode_subtitle):
+    lock_col, text_col = st.columns([0.13, 0.87], vertical_alignment="center")
+    with lock_col:
+        st.markdown('<div class="login-lock">▣</div>', unsafe_allow_html=True)
+    with text_col:
+        st.markdown(
+            f"""
+            <div class="login-heading">
+                <h1>{mode_title}</h1>
+                <p>{mode_subtitle}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<div class="or-divider">OR</div>', unsafe_allow_html=True)
+
+
+def _render_notice():
+    st.markdown(
+        """
+        <div class="notice">
+            <h3>🛡️ Secure Access Notice</h3>
+            <p><span class="notice-check">✓</span>Access restricted to verified institutional domains</p>
+            <p><span class="notice-check">✓</span>All activity is logged and monitored</p>
+            <p><span class="notice-check">✓</span>Session protected with enterprise-grade encryption</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================
-# Fallback functional form
-# This is intentionally kept below the component for now.
-# Use this to actually authenticate while the component gives the stable layout.
+# Form actions
 # ============================================================
-def _functional_auth_controls():
-    mode = st.session_state.get("auth_mode", "Login")
+def _set_auth_mode(mode: str):
+    st.session_state.auth_mode = mode
+    st.rerun()
 
-    with st.expander("Authentication controls", expanded=True):
-        st.caption("Use this functional panel while the HTML layout is stabilized.")
 
-        if mode == "Login":
-            with st.form("functional_login"):
-                email = st.text_input("Email address", placeholder="name@organization.org")
-                password = st.text_input("Password", type="password", placeholder="Enter your password")
-                remember = st.checkbox("Keep me signed in", value=True)
-                submitted = st.form_submit_button("Sign in")
+def _back_to_dashboard():
+    st.session_state.auth_view = False
+    st.rerun()
 
-            if submitted:
-                if not firebase_auth:
-                    st.error("Firebase authentication is not initialized.")
-                    return
 
-                if not email or not password:
-                    st.error("Enter email and password.")
-                    return
+def _login_form():
+    with st.form("eusee_login_form", clear_on_submit=False):
+        email = st.text_input(
+            "Email address",
+            placeholder="✉   name@organization.org",
+            key="login_email",
+        ).strip()
 
-                if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Access is restricted to approved institutional domains.")
-                    return
+        password = st.text_input(
+            "Password",
+            placeholder="🔒   Enter your password",
+            type="password",
+            key="login_password",
+        )
 
-                try:
-                    user = firebase_auth.sign_in_with_email_and_password(email, password)
-                    info = firebase_auth.get_account_info(user["idToken"])
-                    verified = bool(info["users"][0].get("emailVerified", False))
-                    role = "privileged" if verified else "restricted"
+        remember = st.checkbox(
+            "Keep me signed in on this device",
+            value=st.session_state.get("auth_remember", True),
+            key="login_remember",
+        )
 
-                    st.session_state.user = True
-                    st.session_state.email = email
-                    st.session_state.name = email.split("@")[0].replace(".", " ").title()
-                    st.session_state.email_verified = verified
-                    st.session_state.role = role
-                    st.session_state.auth_remember = remember
-                    st.session_state.auth_view = False
+        submitted = st.form_submit_button(
+            "🔒  Access Intelligence Dashboard",
+            use_container_width=True
+        )
 
-                    _save_cookie_session(email, st.session_state.name, verified, role, remember)
+    if submitted:
+        if not firebase_auth:
+            st.error("Firebase authentication is not initialized.")
+            return
 
-                    st.success("Signed in successfully. Redirecting to dashboard...")
-                    st.rerun()
+        if not email or not password:
+            st.error("Enter email and password.")
+            return
 
-                except Exception as e:
-                    st.error(parse_error(e))
+        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+            st.error("Access is restricted to approved institutional domains.")
+            return
 
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Create account", use_container_width=True):
-                    st.session_state.auth_mode = "Register"
-                    st.rerun()
-            with c2:
-                if st.button("Forgot password", use_container_width=True):
-                    st.session_state.auth_mode = "Reset"
-                    st.rerun()
+        try:
+            user = firebase_auth.sign_in_with_email_and_password(email, password)
+            info = firebase_auth.get_account_info(user["idToken"])
+            verified = bool(info["users"][0].get("emailVerified", False))
+            role = "privileged" if verified else "restricted"
 
-        elif mode == "Register":
-            with st.form("functional_register"):
-                email = st.text_input("Email address", placeholder="name@organization.org")
-                password = st.text_input("Password", type="password", placeholder="Create a secure password")
-                submitted = st.form_submit_button("Create account")
+            st.session_state.user = True
+            st.session_state.email = email
+            st.session_state.name = email.split("@")[0].replace(".", " ").title()
+            st.session_state.email_verified = verified
+            st.session_state.role = role
+            st.session_state.auth_remember = remember
+            st.session_state.auth_view = False
 
-            if submitted:
-                if not firebase_auth:
-                    st.error("Firebase authentication is not initialized.")
-                    return
+            _save_cookie_session(email, st.session_state.name, verified, role, remember)
 
-                if not email or not password:
-                    st.error("Enter email and password.")
-                    return
+            st.success("Signed in successfully. Redirecting to dashboard...")
+            st.rerun()
 
-                if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Registration is restricted to approved institutional domains.")
-                    return
+        except Exception as e:
+            st.error(parse_error(e))
 
-                try:
-                    user = firebase_auth.create_user_with_email_and_password(email, password)
-                    firebase_auth.send_email_verification(user["idToken"])
-                    st.success("Registration successful. Check your email to verify your account.")
-                except Exception as e:
-                    st.error(parse_error(e))
+    st.markdown(
+        '<div class="switch-text">Don’t have an account? <strong>Create account</strong></div>',
+        unsafe_allow_html=True,
+    )
 
-            if st.button("Back to sign in", use_container_width=True):
-                st.session_state.auth_mode = "Login"
-                st.rerun()
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Create account", use_container_width=True, key="switch_register_btn"):
+            _set_auth_mode("Register")
+    with c2:
+        if st.button("Forgot password?", use_container_width=True, key="switch_reset_btn"):
+            _set_auth_mode("Reset")
 
-        else:
-            with st.form("functional_reset"):
-                email = st.text_input("Email address", placeholder="name@organization.org")
-                submitted = st.form_submit_button("Send password reset link")
 
-            if submitted:
-                if not firebase_auth:
-                    st.error("Firebase authentication is not initialized.")
-                    return
+def _register_form():
+    with st.form("eusee_register_form", clear_on_submit=False):
+        email = st.text_input(
+            "Email address",
+            placeholder="✉   name@organization.org",
+            key="register_email",
+        ).strip()
 
-                if not email:
-                    st.error("Enter your email address.")
-                    return
+        password = st.text_input(
+            "Password",
+            placeholder="🔒   Create a secure password",
+            type="password",
+            key="register_password",
+        )
 
-                if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Password reset is restricted to approved institutional domains.")
-                    return
+        submitted = st.form_submit_button("Create account", use_container_width=True)
 
-                try:
-                    firebase_auth.send_password_reset_email(email)
-                    st.success("Password reset email sent.")
-                except Exception as e:
-                    st.error(parse_error(e))
+    if submitted:
+        if not firebase_auth:
+            st.error("Firebase authentication is not initialized.")
+            return
 
-            if st.button("Back to sign in", use_container_width=True):
-                st.session_state.auth_mode = "Login"
-                st.rerun()
+        if not email or not password:
+            st.error("Enter email and password.")
+            return
+
+        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+            st.error("Registration is restricted to approved institutional domains.")
+            return
+
+        try:
+            user = firebase_auth.create_user_with_email_and_password(email, password)
+            firebase_auth.send_email_verification(user["idToken"])
+            st.success("Registration successful. Check your email to verify your account, then sign in.")
+        except Exception as e:
+            st.error(parse_error(e))
+
+    if st.button("Back to sign in", use_container_width=True, key="register_back_btn"):
+        _set_auth_mode("Login")
+
+
+def _reset_form():
+    with st.form("eusee_reset_form", clear_on_submit=False):
+        reset_email = st.text_input(
+            "Email address",
+            placeholder="✉   name@organization.org",
+            key="reset_email",
+        ).strip()
+
+        submitted = st.form_submit_button(
+            "Send password reset link",
+            use_container_width=True
+        )
+
+    if submitted:
+        if not firebase_auth:
+            st.error("Firebase authentication is not initialized.")
+            return
+
+        if not reset_email:
+            st.warning("Enter your email address first.")
+            return
+
+        if PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
+            st.error("Password reset is restricted to approved institutional domains.")
+            return
+
+        try:
+            firebase_auth.send_password_reset_email(reset_email)
+            st.success("Password reset email sent.")
+        except Exception as e:
+            st.error(parse_error(e))
+
+    if st.button("Back to sign in", use_container_width=True, key="reset_back_btn"):
+        _set_auth_mode("Login")
 
 
 # ============================================================
 # Main auth page
 # ============================================================
 def _render_auth_page():
-    _hide_streamlit_chrome()
+    _auth_page_css()
+    _render_topbar()
 
     mode = st.session_state.get("auth_mode", "Login")
 
-    # Pixel-stable visual layout
-    components.html(
-        _login_component_html(mode=mode),
-        height=930,
-        scrolling=False,
-    )
+    mode_title = {
+        "Login": "Sign in to your workspace",
+        "Register": "Create your account",
+        "Reset": "Reset password",
+    }.get(mode, "Sign in to your workspace")
 
-    # Functional auth underneath. Once the visual design is approved,
-    # replace this with a component callback or keep it as a compact fallback.
-    _functional_auth_controls()
+    mode_subtitle = {
+        "Login": "Access your authorized EU SEE dashboard and analytics.",
+        "Register": "Request access using an approved institutional email address.",
+        "Reset": "Enter your approved email address to receive a password reset link.",
+    }.get(mode, "Access your authorized EU SEE dashboard and analytics.")
+
+    st.markdown('<div class="page-pad">', unsafe_allow_html=True)
+
+    left_col, right_col = st.columns([0.445, 0.555], gap="large", vertical_alignment="center")
+
+    with left_col:
+        _render_left_panel()
+
+    with right_col:
+        st.markdown('<div class="auth-card">', unsafe_allow_html=True)
+
+        with st.container(border=True):
+            back_left, back_right = st.columns([0.68, 0.32])
+            with back_right:
+                st.markdown('<div class="back-btn">', unsafe_allow_html=True)
+                if st.button("←  Back to dashboard", key="back_to_dashboard_auth_btn"):
+                    _back_to_dashboard()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            _render_login_header(mode_title, mode_subtitle)
+
+            if mode == "Login":
+                _login_form()
+            elif mode == "Register":
+                _register_form()
+            else:
+                _reset_form()
+
+            _render_notice()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="bottom-footer">🔒 Secure authentication &nbsp; • &nbsp; Protected access &nbsp; • &nbsp; Compliance ready</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def auth_ui():
