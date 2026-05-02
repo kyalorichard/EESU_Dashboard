@@ -301,7 +301,6 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
-# ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 # ---------------- PROFESSIONAL DASHBOARD HERO ----------------
 st.markdown("""
 <style>
@@ -325,11 +324,24 @@ st.markdown("""
     height: 100%;
     background: linear-gradient(180deg, #660094, #008CAA, #FFDB58);
 }
+.eusee-hero::after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -80px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(102,0,148,.10), transparent 70%);
+    pointer-events: none;
+}
 .eusee-hero-top {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 18px;
+    position: relative;
+    z-index: 1;
 }
 .eusee-hero-eyebrow {
     font-size: 10px;
@@ -373,6 +385,8 @@ st.markdown("""
     gap: 10px;
     flex-wrap: wrap;
     margin-top: 16px;
+    position: relative;
+    z-index: 1;
 }
 .eusee-hero-pill {
     padding: 8px 11px;
@@ -382,17 +396,24 @@ st.markdown("""
     color: #344054;
     font-size: 11px;
     font-weight: 850;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
 }
 .eusee-hero-pill strong {
     color: #660094;
     font-weight: 950;
 }
 @media (max-width: 850px) {
+    .eusee-hero {
+        padding: 18px 19px;
+    }
     .eusee-hero-top {
         flex-direction: column;
     }
     .eusee-hero-title {
         font-size: 32px;
+    }
+    .eusee-hero-badge {
+        white-space: normal;
     }
 }
 </style>
