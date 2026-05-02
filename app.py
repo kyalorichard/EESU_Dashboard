@@ -630,99 +630,343 @@ data = load_data()
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
-def safe_multiselect(label, options, session_key, sidebar=True):
-    options = sorted(list(options))
-    
-    # Always keep "Select All" as first dropdown option
+def safe_multiselect(label, options, session_key, container=None):
+    """
+    Professional multiselect helper with compact Select all behavior.
+
+    - Empty selection means all options are active.
+    - Selecting "Select all" also activates all options.
+    - Uses a separate widget key so reset works cleanly.
+    - Supports rendering inside sidebar expanders or any Streamlit container.
+    """
+    container = container or st
+    options = sorted([x for x in list(options) if pd.notna(x)], key=lambda v: str(v).lower())
+    options = [str(x) if not isinstance(x, (int, float, np.integer, np.floating)) else x for x in options]
     options_with_all = ["Select all"] + options
+    widget_key = f"{session_key}_widget"
 
-    # Initialize session_state if not present
     if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()  # internally select all
+        st.session_state[session_key] = options.copy()
 
-    # Determine what to display in the widget
-    displayed_default = []  # show nothing selected in the dropdown
-    try:
-        if sidebar:
-            selected = st.sidebar.multiselect(label, options_with_all, default=displayed_default)
-        else:
-            selected = st.multiselect(label, options_with_all, default=displayed_default)
-    except Exception:
-        selected = []
+    # Keep the visible widget compact: if everything is selected internally,
+    # show an empty box instead of many selected tags.
+    current_internal = st.session_state.get(session_key, options.copy())
+    if widget_key not in st.session_state:
+        st.session_state[widget_key] = [] if set(map(str, current_internal)) == set(map(str, options)) else current_internal
 
-    # If user selects "Select All" or nothing, internally select all options
-    if "Select all" in selected or len(selected) == 0:
+    selected = container.multiselect(
+        label,
+        options_with_all,
+        key=widget_key,
+        placeholder="All selected",
+        help="Leave empty or choose Select all to include all available options."
+    )
+
+    if ("Select all" in selected) or (len(selected) == 0):
         st.session_state[session_key] = options.copy()
         return options
-    else:
-        st.session_state[session_key] = selected
-        return selected
-        
-# ---------------- GLOBAL FILTERS (COMPACT SIDEBAR) ----------------
+
+    cleaned = [x for x in selected if x != "Select all"]
+    st.session_state[session_key] = cleaned
+    return cleaned
+
+
+def inject_professional_sidebar_filter_css():
+    """Additional styling for the upgraded grouped sidebar filter experience."""
+    st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
+            linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
+    }
+
+    section[data-testid="stSidebar"] .block-container,
+    section[data-testid="stSidebar"] > div {
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
+    }
+
+    .sidebar-filter-section {
+        font-family: Arial, sans-serif;
+        font-size: 10.5px;
+        color: #667085;
+        line-height: 1.35;
+        margin: -2px 0 9px 0;
+    }
+
+    .sidebar-filter-footer {
+        background: #FFFFFF;
+        border: 1px solid #E6E8EF;
+        border-radius: 14px;
+        padding: 9px 10px;
+        margin: 9px 0 12px 0;
+        box-shadow: 0 6px 16px rgba(16,24,40,.045);
+        font-family: Arial, sans-serif;
+    }
+
+    .sidebar-filter-footer-title {
+        font-size: 11px;
+        font-weight: 900;
+        color: #23152F;
+        margin-bottom: 3px;
+    }
+
+    .sidebar-filter-footer-note {
+        font-size: 10px;
+        color: #667085;
+        line-height: 1.35;
+    }
+
+    div[data-testid="stExpander"] {
+        margin-bottom: 10px !important;
+        border-radius: 16px !important;
+        border: 1px solid #E6E8EF !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stExpander"] summary {
+        min-height: 42px !important;
+        padding: 10px 13px !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+        color: #23152F !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 12.5px !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+        min-height: 38px !important;
+        border-radius: 12px !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
+        border-color: #B692C8 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.07) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        border: 1px solid #E7D4F1 !important;
+        border-radius: 999px !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+    }
+
+    section[data-testid="stSidebar"] label {
+        font-size: 10.8px !important;
+        font-weight: 900 !important;
+        color: #344054 !important;
+        letter-spacing: .01em !important;
+        margin-bottom: 4px !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button {
+        border-radius: 12px !important;
+        height: 38px !important;
+        font-size: 11.5px !important;
+        font-weight: 900 !important;
+    }
+
+    section[data-testid="stSidebar"] button[disabled] {
+        opacity: 1 !important;
+        color: #008CAA !important;
+        background: #EFFBFE !important;
+        border-color: rgba(0,140,170,.18) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=400)
 
 # Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
 AI_ASSISTANT_SLOT = st.sidebar.container()
 
-# Global Filters
 render_classic_filter_header()
+inject_professional_sidebar_filter_css()
 
-# Apply global CSS to sidebar to remove spacing between label and dropdown
-st.markdown("""
-    <style>
-    /* Sidebar dropdown text */
-    .css-1hwfws3 {  /* The selected item in multiselect/selectbox */
-        font-family: Arial !important;
-        font-size: 12px !important;
-        color: purple !important;
-    }
+regions_labels = [
+    "Africa",
+    "The Middle East",
+    "Asia and the Pacific",
+    "Americas and the Caribbean",
+]
 
-    /* Dropdown options list */
-    .css-1n76uvr div[role="option"] {
-        font-family: Arial !important;
-        font-size: 12px !important;
-        color: purple !important;
-    }
+with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_box:
+    st.markdown(
+        '<div class="sidebar-filter-section">Filter records by regional grouping and country coverage.</div>',
+        unsafe_allow_html=True,
+    )
 
-    /* Placeholder text in dropdown */
-    .css-1wa3eu0-placeholder {
-        font-family: Arial !important;
-        font-size: 12px !important;
-        color: purple !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    selected_regions = safe_multiselect(
+        "Region",
+        regions_labels,
+        "selected_regions",
+        container=geo_filter_box,
+    )
 
-# Sidebar filters (no separate markdown)
-regions_labels = ["Africa", "The Middle East", "Asia and the Pacific", "Americas and the Caribbean"]
-selected_regions = safe_multiselect("Select region", regions_labels, "selected_regions")
+    filtered_countries = (
+        data[data["region"].isin(selected_regions)]
+        if (not data.empty and "region" in data.columns and selected_regions)
+        else data
+    )
 
-filtered_countries = data[data['region'].isin(selected_regions)] if "Select all" not in selected_regions else data
-selected_countries = safe_multiselect("Select country", filtered_countries['alert-country'].dropna().unique(), "selected_countries")
+    selected_countries = safe_multiselect(
+        "Country",
+        filtered_countries["alert-country"].dropna().unique()
+        if not filtered_countries.empty and "alert-country" in filtered_countries.columns
+        else [],
+        "selected_countries",
+        container=geo_filter_box,
+    )
 
-selected_alert_impacts = safe_multiselect("Select nature of event/alert", data['alert-impact'].dropna().unique(), "selected_alert_impacts")
-selected_alert_types = safe_multiselect("Select impact of alert", data['alert-type'].dropna().unique(), "selected_alert_types")
+with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_filter_box:
+    st.markdown(
+        '<div class="sidebar-filter-section">Refine by alert/event nature and alert impact category.</div>',
+        unsafe_allow_html=True,
+    )
 
-selected_enabling_principle = safe_multiselect(
-    "Select enabling principle", 
-    data['enabling-principle'].dropna().str.split(",").explode().str.strip().str.capitalize().unique(),
-    "selected_enabling_principle"
+    selected_alert_impacts = safe_multiselect(
+        "Nature of event / alert",
+        data["alert-impact"].dropna().unique()
+        if not data.empty and "alert-impact" in data.columns
+        else [],
+        "selected_alert_impacts",
+        container=alert_filter_box,
+    )
+
+    selected_alert_types = safe_multiselect(
+        "Impact of alert",
+        data["alert-type"].dropna().unique()
+        if not data.empty and "alert-type" in data.columns
+        else [],
+        "selected_alert_types",
+        container=alert_filter_box,
+    )
+
+with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
+    st.markdown(
+        '<div class="sidebar-filter-section">Filter by enabling principle linked to the reported alert.</div>',
+        unsafe_allow_html=True,
+    )
+
+    principle_options = (
+        data["enabling-principle"]
+        .dropna()
+        .astype(str)
+        .str.split(",")
+        .explode()
+        .str.strip()
+        .str.capitalize()
+        .replace("", np.nan)
+        .dropna()
+        .unique()
+        if not data.empty and "enabling-principle" in data.columns
+        else []
+    )
+
+    selected_enabling_principle = safe_multiselect(
+        "Enabling principle",
+        principle_options,
+        "selected_enabling_principle",
+        container=principle_filter_box,
+    )
+
+with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
+    st.markdown(
+        '<div class="sidebar-filter-section">Filter records by reporting year and month.</div>',
+        unsafe_allow_html=True,
+    )
+
+    selected_years = safe_multiselect(
+        "Year",
+        sorted(data["year"].dropna().unique())
+        if not data.empty and "year" in data.columns
+        else [],
+        "selected_years",
+        container=time_filter_box,
+    )
+
+    if (
+        not data.empty
+        and "year" in data.columns
+        and "month_name" in data.columns
+        and selected_years
+    ):
+        available_months_source = data[data["year"].isin(selected_years)]["month_name"].dropna().unique()
+    elif not data.empty and "month_name" in data.columns:
+        available_months_source = data["month_name"].dropna().unique()
+    else:
+        available_months_source = []
+
+    available_months = sorted(
+        available_months_source,
+        key=lambda m: pd.to_datetime(m, format="%B", errors="coerce").month
+        if pd.notna(pd.to_datetime(m, format="%B", errors="coerce"))
+        else 13,
+    )
+
+    selected_months = safe_multiselect(
+        "Month",
+        available_months,
+        "selected_months",
+        container=time_filter_box,
+    )
+
+reset_col1, reset_col2 = st.sidebar.columns([1, 1])
+
+with reset_col1:
+    reset_filters = st.button(
+        "🔄 Reset",
+        use_container_width=True,
+        key="reset_sidebar_filters",
+    )
+
+with reset_col2:
+    st.button(
+        "✅ Applied",
+        use_container_width=True,
+        disabled=True,
+        key="filters_applied_note",
+    )
+
+if reset_filters:
+    for key in [
+        "selected_regions",
+        "selected_countries",
+        "selected_alert_types",
+        "selected_enabling_principle",
+        "selected_alert_impacts",
+        "selected_months",
+        "selected_years",
+    ]:
+        st.session_state.pop(key, None)
+        st.session_state.pop(f"{key}_widget", None)
+    st.rerun()
+
+st.sidebar.markdown(
+    """
+    <div class="sidebar-filter-footer">
+        <div class="sidebar-filter-footer-title">Filter behavior</div>
+        <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
-selected_years = safe_multiselect("Select year", sorted(data['year'].dropna().unique()), "selected_years")
-
-available_months = sorted(
-    data['month_name'].dropna().unique(),
-    key=lambda m: pd.to_datetime(m, format='%B').month
-) if "Select All" in selected_years else sorted(
-    data[data['year'].isin(selected_years)]['month_name'].dropna().unique(),
-    key=lambda m: pd.to_datetime(m, format='%B').month
-)
-selected_months = safe_multiselect("Select month", available_months, "selected_months")
-# Reset button
-if st.sidebar.button("🔄 Reset Filters"):
-    for key in ["selected_regions","selected_countries","selected_alert_types","selected_enabling_principle",
-                "selected_alert_impacts","selected_months","selected_years"]:
-        st.session_state[key] = ["Select all"]
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
