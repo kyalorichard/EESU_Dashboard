@@ -255,7 +255,7 @@ def parse_error(e):
 
 
 # ============================================================
-# Full-page EU SEE themed login CSS
+# Compact no-scroll EU SEE themed login CSS
 # ============================================================
 def _auth_page_css():
     st.markdown(
@@ -276,41 +276,13 @@ def _auth_page_css():
             padding: 0 !important;
             width: 100% !important;
             min-height: 100vh !important;
+            overflow: hidden !important;
             font-family: Inter, Arial, sans-serif !important;
             color: #ffffff !important;
             background:
-                radial-gradient(circle at 28% 45%, rgba(37, 99, 235, 0.22), transparent 28%),
-                radial-gradient(circle at 75% 10%, rgba(124, 58, 237, 0.17), transparent 30%),
+                radial-gradient(circle at 30% 48%, rgba(37, 99, 235, 0.22), transparent 26%),
+                radial-gradient(circle at 75% 10%, rgba(124, 58, 237, 0.16), transparent 28%),
                 linear-gradient(135deg, #020617 0%, #061426 50%, #020617 100%) !important;
-        }
-
-        .stApp::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            background:
-                radial-gradient(circle at 48% 50%, rgba(255, 215, 120, 0.20) 0 1px, transparent 2px),
-                radial-gradient(circle at 58% 45%, rgba(59, 130, 246, 0.45) 0 2px, transparent 3px),
-                radial-gradient(circle at 44% 60%, rgba(59, 130, 246, 0.35) 0 2px, transparent 3px),
-                linear-gradient(120deg, transparent 20%, rgba(37,99,235,0.10) 45%, transparent 70%);
-            opacity: 0.55;
-        }
-
-        .stApp::after {
-            content: "";
-            position: fixed;
-            left: 18%;
-            top: 16%;
-            width: 760px;
-            height: 760px;
-            pointer-events: none;
-            background:
-                radial-gradient(circle, rgba(37,99,235,0.40) 0 2px, transparent 2px);
-            background-size: 12px 12px;
-            mask-image: radial-gradient(circle, black 0%, transparent 68%);
-            -webkit-mask-image: radial-gradient(circle, black 0%, transparent 68%);
-            opacity: 0.34;
         }
 
         .block-container {
@@ -321,59 +293,75 @@ def _auth_page_css():
             z-index: 2;
         }
 
+        .stApp::after {
+            content: "";
+            position: fixed;
+            left: 18%;
+            top: 10%;
+            width: 720px;
+            height: 720px;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(37,99,235,0.36) 0 2px, transparent 2px);
+            background-size: 12px 12px;
+            mask-image: radial-gradient(circle, black 0%, transparent 68%);
+            -webkit-mask-image: radial-gradient(circle, black 0%, transparent 68%);
+            opacity: 0.28;
+        }
+
         div[data-testid="stMarkdownContainer"] p {
             margin: 0;
         }
 
         .login-page {
-            min-height: 100vh;
-            padding: 52px 56px 28px 56px;
+            height: 100vh;
+            padding: 28px 48px 18px 48px;
             box-sizing: border-box;
+            overflow: hidden;
         }
 
         .logo-row {
             display: flex;
             align-items: center;
-            gap: 14px;
-            margin-bottom: 76px;
+            gap: 12px;
+            margin-bottom: 38px;
         }
 
         .logo-mark {
-            width: 64px;
-            height: 64px;
-            border-radius: 18px;
+            width: 52px;
+            height: 52px;
+            border-radius: 15px;
             display: grid;
             place-items: center;
             background: linear-gradient(145deg, #7c3aed, #2563eb 70%);
             color: white;
-            font-size: 34px;
+            font-size: 28px;
             font-weight: 950;
-            box-shadow: 0 18px 40px rgba(37,99,235,0.35);
+            box-shadow: 0 14px 34px rgba(37,99,235,0.30);
         }
 
         .logo-title {
             color: #ffffff !important;
-            font-size: 34px;
+            font-size: 30px;
             line-height: 1;
             font-weight: 950;
             letter-spacing: -0.05em;
         }
 
         .logo-subtitle {
-            color: rgba(226,232,240,0.82) !important;
-            font-size: 15px;
+            color: rgba(226,232,240,0.86) !important;
+            font-size: 13px;
             letter-spacing: 0.055em;
-            margin-top: 6px;
+            margin-top: 5px;
             font-weight: 650;
         }
 
         .left-copy h1 {
             color: #ffffff !important;
-            font-size: 48px;
+            font-size: 38px;
             line-height: 1.13;
             font-weight: 950;
             letter-spacing: -0.055em;
-            margin: 0 0 20px 0;
+            margin: 0 0 16px 0;
         }
 
         .left-copy .accent {
@@ -383,141 +371,130 @@ def _auth_page_css():
         }
 
         .accent-line {
-            width: 66px;
+            width: 58px;
             height: 3px;
             border-radius: 99px;
             background: linear-gradient(90deg, #a855f7, #38bdf8);
-            margin: 24px 0 30px 0;
+            margin: 16px 0 22px 0;
         }
 
         .left-copy p {
-            max-width: 430px;
-            color: rgba(226,232,240,0.86) !important;
-            font-size: 17px;
-            line-height: 1.62;
+            max-width: 390px;
+            color: rgba(226,232,240,0.92) !important;
+            font-size: 15px;
+            line-height: 1.55;
             font-weight: 500;
-            margin-bottom: 64px;
-        }
-
-        .feature-row {
-            margin-bottom: 24px;
+            margin-bottom: 30px;
         }
 
         .feature-icon {
-            width: 58px;
-            height: 58px;
+            width: 46px;
+            height: 46px;
             border-radius: 50%;
             display: grid;
             place-items: center;
-            background: rgba(124, 58, 237, 0.18);
-            color: #a855f7 !important;
-            font-size: 27px;
+            background: rgba(124, 58, 237, 0.20);
+            color: #c084fc !important;
+            font-size: 22px;
             box-shadow: inset 0 0 0 1px rgba(168,85,247,0.18);
         }
 
         .feature-title {
             color: #ffffff !important;
-            font-size: 16px;
+            font-size: 14.5px;
             font-weight: 850;
-            margin: 0 0 6px 0;
+            margin: 0 0 4px 0;
         }
 
         .feature-desc {
-            color: rgba(226,232,240,0.74) !important;
-            font-size: 14.5px;
-            line-height: 1.45;
+            color: rgba(226,232,240,0.82) !important;
+            font-size: 12.8px;
+            line-height: 1.35;
             margin: 0;
         }
 
         .back-dashboard-wrap .stButton > button {
-            max-width: 360px !important;
-            height: 68px !important;
-            border-radius: 13px !important;
+            max-width: 320px !important;
+            height: 52px !important;
+            border-radius: 12px !important;
             border: 1px solid rgba(168,85,247,0.75) !important;
             background: rgba(2, 6, 23, 0.48) !important;
             color: #ffffff !important;
-            font-size: 20px !important;
+            font-size: 16px !important;
             font-weight: 850 !important;
-            box-shadow: 0 16px 38px rgba(0,0,0,0.22) !important;
-        }
-
-        .back-dashboard-wrap .stButton > button:hover {
-            border-color: #c084fc !important;
-            box-shadow: 0 0 0 4px rgba(168,85,247,0.14), 0 16px 38px rgba(0,0,0,0.22) !important;
-            color: #ffffff !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22) !important;
         }
 
         .auth-panel div[data-testid="stVerticalBlockBorderWrapper"] {
-            width: min(610px, 100%) !important;
-            min-height: 660px !important;
-            margin: 16px auto 0 auto !important;
-            border-radius: 24px !important;
+            width: min(540px, 100%) !important;
+            margin: 0 auto !important;
+            border-radius: 22px !important;
             border: 1px solid rgba(124, 58, 237, 0.45) !important;
             background:
                 radial-gradient(circle at top center, rgba(124,58,237,0.14), transparent 35%),
-                rgba(15, 23, 42, 0.82) !important;
+                rgba(15, 23, 42, 0.88) !important;
             backdrop-filter: blur(24px) !important;
-            box-shadow: 0 34px 90px rgba(0,0,0,0.48) !important;
+            box-shadow: 0 28px 80px rgba(0,0,0,0.46) !important;
         }
 
         .auth-panel div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            padding: 44px 48px 36px 48px !important;
+            padding: 30px 38px 28px 38px !important;
         }
 
         .lock-icon {
-            width: 92px;
-            height: 92px;
-            margin: 0 auto 26px auto;
+            width: 66px;
+            height: 66px;
+            margin: 0 auto 18px auto;
             display: grid;
             place-items: center;
             border-radius: 50%;
             border: 1px solid rgba(168,85,247,0.45);
-            color: #a855f7 !important;
-            font-size: 42px;
+            color: #c084fc !important;
+            font-size: 30px;
             background: rgba(15,23,42,0.40);
-            box-shadow: 0 0 34px rgba(168,85,247,0.18);
+            box-shadow: 0 0 28px rgba(168,85,247,0.16);
         }
 
         .panel-title {
             color: #ffffff !important;
             text-align: center;
-            font-size: 32px;
+            font-size: 28px;
             line-height: 1.1;
             font-weight: 900;
             letter-spacing: -0.045em;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .panel-subtitle {
-            color: rgba(226,232,240,0.78) !important;
+            color: rgba(226,232,240,0.88) !important;
             text-align: center;
-            font-size: 16px;
-            margin-bottom: 34px;
+            font-size: 14px;
+            margin-bottom: 24px;
         }
 
         .auth-panel label p {
             color: #ffffff !important;
-            font-size: 14px !important;
+            font-size: 13px !important;
             font-weight: 800 !important;
-            margin-bottom: 6px !important;
+            margin-bottom: 5px !important;
         }
 
         .auth-panel div[data-testid="stTextInput"] {
-            margin-bottom: 16px !important;
+            margin-bottom: 10px !important;
         }
 
         .auth-panel div[data-testid="stTextInput"] input {
-            height: 56px !important;
+            height: 48px !important;
             border-radius: 10px !important;
-            border: 1px solid rgba(148,163,184,0.35) !important;
-            background: rgba(15,23,42,0.55) !important;
+            border: 1px solid rgba(148,163,184,0.38) !important;
+            background: rgba(15,23,42,0.58) !important;
             color: #ffffff !important;
-            font-size: 15px !important;
+            font-size: 14px !important;
             box-shadow: none !important;
         }
 
         .auth-panel div[data-testid="stTextInput"] input::placeholder {
-            color: rgba(226,232,240,0.50) !important;
+            color: rgba(226,232,240,0.66) !important;
         }
 
         .auth-panel div[data-testid="stTextInput"] input:focus {
@@ -525,111 +502,125 @@ def _auth_page_css():
             box-shadow: 0 0 0 3px rgba(168,85,247,0.16) !important;
         }
 
+        .auth-panel div[data-testid="stCheckbox"] {
+            margin-top: 0 !important;
+            margin-bottom: 8px !important;
+        }
+
         .auth-panel div[data-testid="stCheckbox"] label,
         .auth-panel div[data-testid="stCheckbox"] label span {
-            color: rgba(255,255,255,0.88) !important;
-            font-size: 14px !important;
+            color: rgba(255,255,255,0.92) !important;
+            font-size: 13px !important;
             font-weight: 500 !important;
         }
 
         .auth-panel button[kind="primaryFormSubmit"],
         .auth-panel button[kind="formSubmit"] {
             width: 100% !important;
-            height: 58px !important;
+            height: 50px !important;
+            min-height: 50px !important;
             border: none !important;
             border-radius: 10px !important;
             background: linear-gradient(90deg, #9333ea, #2563eb) !important;
             color: #ffffff !important;
-            font-size: 18px !important;
+            font-size: 16px !important;
             font-weight: 900 !important;
-            box-shadow: 0 18px 34px rgba(37,99,235,0.30) !important;
-        }
-
-        .auth-panel button[kind="primaryFormSubmit"]:hover,
-        .auth-panel button[kind="formSubmit"]:hover {
-            filter: brightness(1.06);
-            transform: translateY(-1px);
+            box-shadow: 0 16px 30px rgba(37,99,235,0.28) !important;
         }
 
         .auth-panel .stButton > button {
-            height: 48px !important;
+            height: 40px !important;
+            min-height: 40px !important;
             border-radius: 10px !important;
-            border: 1px solid rgba(148,163,184,0.30) !important;
-            background: rgba(15,23,42,0.38) !important;
-            color: rgba(255,255,255,0.90) !important;
-            font-size: 14px !important;
+            border: 1px solid rgba(148,163,184,0.34) !important;
+            background: rgba(15,23,42,0.42) !important;
+            color: rgba(255,255,255,0.94) !important;
+            font-size: 13px !important;
             font-weight: 750 !important;
-        }
-
-        .auth-panel .stButton > button:hover {
-            border-color: #a855f7 !important;
-            color: #ffffff !important;
-            box-shadow: 0 0 0 3px rgba(168,85,247,0.12) !important;
         }
 
         .helper-text {
             text-align: center;
-            color: rgba(226,232,240,0.70) !important;
-            font-size: 14px;
-            margin: 18px 0 12px 0;
+            color: rgba(226,232,240,0.82) !important;
+            font-size: 12.5px;
+            margin: 10px 0 8px 0;
         }
 
         .security-strip {
-            margin-top: 34px;
-            padding-top: 26px;
-            border-top: 1px solid rgba(148,163,184,0.15);
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(148,163,184,0.18);
         }
 
         .security-item {
-            color: rgba(226,232,240,0.82) !important;
-            font-size: 14px;
-            line-height: 1.35;
+            color: rgba(226,232,240,0.88) !important;
+            font-size: 12.5px;
+            line-height: 1.3;
         }
 
         .security-item strong {
             color: #ffffff !important;
-            font-size: 15px;
+            font-size: 13.5px;
         }
 
         @media (max-width: 1000px) {
+            html, body, .stApp {
+                overflow: auto !important;
+            }
             .login-page {
-                padding: 32px 24px;
+                height: auto;
+                min-height: 100vh;
+                padding: 24px 20px;
+                overflow: visible;
             }
-
             .logo-row {
-                margin-bottom: 36px;
+                margin-bottom: 24px;
             }
-
             .left-copy h1 {
-                font-size: 38px;
+                font-size: 34px;
             }
-
             .auth-panel div[data-testid="stVerticalBlockBorderWrapper"] {
-                min-height: auto !important;
-                margin-top: 32px !important;
+                margin-top: 22px !important;
             }
         }
 
-        @media (max-width: 640px) {
+        @media (max-height: 760px) {
             .login-page {
-                padding: 24px 18px;
+                padding-top: 18px;
+                padding-bottom: 12px;
             }
-
-            .logo-title {
-                font-size: 28px;
+            .logo-row {
+                margin-bottom: 22px;
             }
-
-            .logo-mark {
+            .left-copy h1 {
+                font-size: 34px;
+            }
+            .left-copy p {
+                margin-bottom: 18px;
+                font-size: 13.5px;
+            }
+            .feature-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+            .auth-panel div[data-testid="stVerticalBlockBorderWrapper"] > div {
+                padding: 24px 34px 22px 34px !important;
+            }
+            .lock-icon {
                 width: 54px;
                 height: 54px;
+                font-size: 24px;
+                margin-bottom: 12px;
             }
-
-            .auth-panel div[data-testid="stVerticalBlockBorderWrapper"] > div {
-                padding: 34px 24px 28px 24px !important;
+            .panel-title {
+                font-size: 24px;
             }
-
-            .back-dashboard-wrap .stButton > button {
-                max-width: 100% !important;
+            .panel-subtitle {
+                margin-bottom: 16px;
+            }
+            .security-strip {
+                display: none;
             }
         }
         </style>
@@ -673,7 +664,7 @@ def _set_auth_mode(mode: str):
 
 
 def _render_feature(icon, title, desc):
-    c1, c2 = st.columns([0.16, 0.84], vertical_alignment="center")
+    c1, c2 = st.columns([0.14, 0.86], vertical_alignment="center")
     with c1:
         st.markdown(f'<div class="feature-icon">{icon}</div>', unsafe_allow_html=True)
     with c2:
@@ -837,7 +828,7 @@ def _render_auth_page():
         _render_feature("▥", "Real-time Intelligence", "Live data, smart dashboards and actionable insights")
         _render_feature("◎", "Regional Coverage", "Monitoring 86+ countries across South East Europe and beyond")
 
-        st.markdown('<div style="height: 26px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="height: 14px;"></div>', unsafe_allow_html=True)
         st.markdown('<div class="back-dashboard-wrap">', unsafe_allow_html=True)
         if st.button("←  Back to dashboard", use_container_width=True):
             _back_to_dashboard()
