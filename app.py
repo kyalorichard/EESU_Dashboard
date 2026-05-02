@@ -302,83 +302,120 @@ EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pd
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
+# ---------------- PROFESSIONAL DASHBOARD HERO ----------------
 st.markdown("""
-<!-- Container for animations -->
-<div style="overflow: hidden;">
-
-<h1 class="animated-title">
-    EU SEE Dashboard
-</h1>
-
-<!-- Animated divider -->
-<div class="animated-divider"></div>
-
-<div class="animated-subtitle">
-    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
-    in the enabling environment for civil society.
-</div>
-
-</div>
-
 <style>
-/* ---------------- Title ---------------- */
-.animated-title {
-    margin: 0 0 6px 0;
-    line-height: 1.1;
+.eusee-hero {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 55%, #EFFBFE 100%);
+    border: 1px solid rgba(102, 0, 148, 0.14);
+    border-radius: 22px;
+    padding: 22px 26px;
+    margin: 4px 0 22px 0;
+    box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
+    font-family: Arial, sans-serif;
+    position: relative;
+    overflow: hidden;
+}
+.eusee-hero::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 7px;
+    height: 100%;
+    background: linear-gradient(180deg, #660094, #008CAA, #FFDB58);
+}
+.eusee-hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+}
+.eusee-hero-eyebrow {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
     color: #660094;
-    font-size: 48px;
-    font-family: Arial, sans-serif;
-    font-weight: 700;
-    opacity: 0;
-    transform: translateY(-20px);
-    animation: titleFadeSlide 0.8s ease-out forwards;
-    animation-delay: 0.2s;
+    margin-bottom: 7px;
 }
-
-/* Title animation */
-@keyframes titleFadeSlide {
-    from { opacity: 0; transform: translateY(-20px); }
-    to   { opacity: 1; transform: translateY(0); }
+.eusee-hero-title {
+    font-size: 42px;
+    line-height: 1.05;
+    font-weight: 950;
+    color: #23152F;
+    letter-spacing: -0.04em;
+    margin-bottom: 10px;
 }
-
-/* ---------------- Divider ---------------- */
-.animated-divider {
-    width: 15%;
-    max-width: 120px;
-    height: 4px;
-    background: linear-gradient(to right, #FFDB58, #660094);
-    border-radius: 2px;
-    margin-bottom: 16px;
-    opacity: 0;
-    transform: translateX(-120%);
-    animation: dividerSlide 1s ease-out forwards;
-    animation-delay: 0.6s;
+.eusee-hero-title span {
+    color: #660094;
 }
-
-@keyframes dividerSlide {
-    from { transform: translateX(-120%); opacity: 0; }
-    to   { transform: translateX(0); opacity: 1; }
-}
-
-/* ---------------- Subtitle ---------------- */
-.animated-subtitle {
+.eusee-hero-subtitle {
+    max-width: 980px;
     font-size: 14px;
-    font-family: Arial, sans-serif;
-    color: #333333;
-    margin-bottom: 20px;
-    max-width: 900px;
-    line-height: 1.5;
-    opacity: 0;
-    animation: subtitleFade 0.8s ease-out forwards;
-    animation-delay: 1.0s;
+    line-height: 1.55;
+    color: #475467;
+    font-weight: 500;
 }
-
-@keyframes subtitleFade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+.eusee-hero-badge {
+    white-space: nowrap;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #FFFFFF;
+    border: 1px solid rgba(102, 0, 148, .16);
+    color: #660094;
+    font-size: 11px;
+    font-weight: 900;
+    box-shadow: 0 4px 12px rgba(16, 24, 40, .06);
+}
+.eusee-hero-metrics {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+.eusee-hero-pill {
+    padding: 8px 11px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.72);
+    border: 1px solid rgba(102, 0, 148, .10);
+    color: #344054;
+    font-size: 11px;
+    font-weight: 850;
+}
+.eusee-hero-pill strong {
+    color: #660094;
+    font-weight: 950;
+}
+@media (max-width: 850px) {
+    .eusee-hero-top {
+        flex-direction: column;
+    }
+    .eusee-hero-title {
+        font-size: 32px;
+    }
 }
 </style>
+
+<div class="eusee-hero">
+    <div class="eusee-hero-top">
+        <div>
+            <div class="eusee-hero-eyebrow">Civil society enabling environment intelligence</div>
+            <div class="eusee-hero-title">EU SEE <span>Dashboard</span></div>
+            <div class="eusee-hero-subtitle">
+                A professional analytical platform for exploring EU SEE project data, monitoring reported civic-space developments, and identifying trends in the enabling environment for civil society across countries and regions.
+            </div>
+        </div>
+        <div class="eusee-hero-badge">Live analytical dashboard</div>
+    </div>
+
+    <div class="eusee-hero-metrics">
+        <div class="eusee-hero-pill"><strong>86</strong> monitored countries</div>
+        <div class="eusee-hero-pill"><strong>Network Member</strong> reporting</div>
+        <div class="eusee-hero-pill"><strong>Regional</strong> comparative analysis</div>
+        <div class="eusee-hero-pill"><strong>Alert-based</strong> civic-space insights</div>
+    </div>
+</div>
 """, unsafe_allow_html=True)
 
 # ---------------- TOP-LEFT FEEDBACK BAR ----------------
