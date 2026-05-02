@@ -1006,7 +1006,7 @@ filtered_global = data[
     (data['year'].isin(selected_years))
 ]
 
-render_filter_status_card(filtered_global)
+#render_filter_status_card(filtered_global)
 
 # ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
 st.sidebar.markdown("""
