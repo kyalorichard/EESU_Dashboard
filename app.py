@@ -5951,143 +5951,233 @@ def _v2_render_status_bar(df):
 
 
 def render_ai_assistant_panel(df):
-    """AI Copilot v2: chat-first analytics, advanced plot builder, memory and smart outputs."""
+    """AI Copilot v2 repaired: fixed right-side pop-out drawer with advanced plotting."""
     st.session_state.setdefault("copilot_open", True)
-    st.session_state.setdefault("ai_messages", [])
-    st.session_state.setdefault("ai_smart_output", {"type": "welcome", "title": "AI Copilot v2", "content": "Ask for insights or request a chart, e.g. 'Make a grouped bar chart of actors by alert impact in purple, top 15, font 14'."})
+    st.session_state.setdefault("ai_messages", [
+        {"role": "assistant", "content": "Hello. Ask me about the current filtered dashboard view, or request a chart with chart type, color, font size, title, grouping and Top N."}
+    ])
+    st.session_state.setdefault("ai_smart_output", {
+        "type": "welcome",
+        "title": "AI Copilot v2",
+        "content": "Ask for insights or request a chart, e.g. 'Make a grouped bar chart of actors by alert impact in purple, top 15, font 14'."
+    })
     st.session_state.setdefault("ai_last_plot", None)
     st.session_state.setdefault("ai_last_streamed_answer", "")
 
     st.markdown("""
     <style>
-    .v2-copilot-shell {background:linear-gradient(180deg,#ffffff 0%,#fbf7fd 100%);border:1px solid rgba(102,0,148,.16);border-radius:20px;padding:14px;box-shadow:0 16px 36px rgba(16,24,40,.08);font-family:Arial,sans-serif;margin:8px 0 18px 0;}
-    .v2-copilot-title {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
-    .v2-copilot-title h3 {margin:0;color:#2D0055;font-size:17px;font-weight:950;letter-spacing:-.02em;}
-    .v2-copilot-title span {font-size:11px;color:#667085;font-weight:800;}
-    .v2-statusbar {display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px 0;}
-    .v2-statusbar span {background:#fff;border:1px solid #E6E8EF;border-radius:999px;padding:6px 9px;font-size:10.5px;color:#344054;box-shadow:0 3px 10px rgba(16,24,40,.04);}
-    .v2-help-chip {display:inline-flex;margin:3px 4px 3px 0;padding:6px 9px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:10.5px;font-weight:900;}
-    .v2-smart-box {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:13px;margin-top:10px;box-shadow:0 8px 20px rgba(16,24,40,.05);}
-    .v2-smart-title {font-size:13px;font-weight:950;color:#2D0055;margin-bottom:7px;}
-    .v2-memory-note {font-size:10.5px;color:#667085;line-height:1.35;margin-top:6px;}
+    .st-key-eusee_ai_right_sidebar {
+        position: fixed !important;
+        top: 74px !important;
+        right: 16px !important;
+        width: 455px !important;
+        max-width: calc(100vw - 32px) !important;
+        max-height: calc(100vh - 94px) !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        z-index: 999999 !important;
+        background: linear-gradient(180deg,#ffffff 0%,#fbf7fd 100%) !important;
+        border: 1px solid rgba(102,0,148,.18) !important;
+        border-radius: 22px !important;
+        box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
+        padding: 13px !important;
+        font-family: Arial, sans-serif !important;
+    }
+    .st-key-eusee_ai_right_sidebar_collapsed {
+        position: fixed !important;
+        top: 44% !important;
+        right: 0 !important;
+        width: 78px !important;
+        z-index: 999999 !important;
+        background: linear-gradient(180deg,#2d0055,#660094) !important;
+        color: white !important;
+        border-radius: 16px 0 0 16px !important;
+        box-shadow: 0 18px 45px rgba(45,0,85,.28) !important;
+        padding: 10px 8px !important;
+        font-family: Arial, sans-serif !important;
+    }
+    .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button,
+    .st-key-eusee_ai_right_sidebar_collapsed div[data-testid="stButton"] button {
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        border-radius: 11px !important;
+    }
+    .v2-pop-brand {
+        background: linear-gradient(135deg,#2d0055,#660094 58%,#008CAA);
+        color: #fff;
+        border-radius: 18px;
+        padding: 13px;
+        margin-bottom: 8px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+    }
+    .v2-pop-title {font-size:17px;font-weight:950;line-height:1.15;margin:0;}
+    .v2-pop-sub {font-size:11px;opacity:.93;line-height:1.35;margin-top:4px;}
+    .v2-pop-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+    .v2-pop-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;font-weight:850;}
+    .v2-statusbar {display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 9px 0;}
+    .v2-statusbar span {background:#fff;border:1px solid #E6E8EF;border-radius:999px;padding:5px 8px;font-size:10px;color:#344054;box-shadow:0 3px 10px rgba(16,24,40,.04);}
+    .v2-help-chip {display:inline-flex;margin:3px 3px 3px 0;padding:5px 8px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:10px;font-weight:900;}
+    .v2-smart-box {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:11px;margin-top:9px;box-shadow:0 8px 20px rgba(16,24,40,.05);}
+    .v2-smart-title {font-size:12.5px;font-weight:950;color:#2D0055;margin-bottom:7px;}
+    .v2-memory-note {font-size:10px;color:#667085;line-height:1.35;margin-top:6px;}
+    .v2-chat-card {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:10px;margin:8px 0;}
+    .v2-user-msg {background:#2d0055;color:#fff;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:11.5px;line-height:1.4;}
+    .v2-ai-msg {background:#f6f2ff;border-left:4px solid #660094;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:11.5px;line-height:1.4;color:#344054;}
+    .v2-section-title {font-size:12px;color:#2D0055;font-weight:950;margin:8px 0 5px 0;}
+    .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button {font-size:11px!important;font-weight:900!important;}
+    @media (max-width: 760px) {
+        .st-key-eusee_ai_right_sidebar {left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    with st.container():
-        st.markdown("<div class='v2-copilot-shell'>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="v2-copilot-title">
-          <div><h3>🤖 EU SEE AI Copilot v2</h3><span>Chat, plot, compare, explain, and style charts from the current filtered dashboard view.</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+    if not st.session_state.copilot_open:
+        with st.container(key="eusee_ai_right_sidebar_collapsed"):
+            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:13px;line-height:1.15;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
+            if st.button("Open", key="v2_pop_open", use_container_width=True):
+                st.session_state.copilot_open = True
+                st.rerun()
+        return
+
+    with st.container(key="eusee_ai_right_sidebar"):
+        head_l, head_r = st.columns([0.74, 0.26], vertical_alignment="center")
+        with head_l:
+            st.markdown("""
+            <div class="v2-pop-brand">
+              <div class="v2-pop-title">🤖 EU SEE AI Copilot v2</div>
+              <div class="v2-pop-sub">Pop-out assistant grounded in active filters, cleaned data, and dashboard analytics.</div>
+              <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plots</span><span class="v2-pop-chip">Styling</span><span class="v2-pop-chip">Insights</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+        with head_r:
+            if st.button("Collapse", key="v2_pop_collapse", use_container_width=True):
+                st.session_state.copilot_open = False
+                st.rerun()
+
         _v2_render_status_bar(df)
 
         examples = [
             "bar chart of negative alerts by country top 10 purple font 14",
             "heatmap of actors by mechanisms top 15",
             "donut chart of alert impact with title: Alert composition",
-            "compare countries by negative alerts",
-            "explain the current dashboard risks",
         ]
         st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
 
-        chat_col, tool_col = st.columns([1.25, 1])
-        with chat_col:
-            st.markdown("**Chat**")
-            for msg in st.session_state.ai_messages[-8:]:
-                with st.chat_message("user" if msg.get("role") == "user" else "assistant"):
-                    st.markdown(msg.get("content", ""))
+        tab_chat, tab_plot, tab_output = st.tabs(["Chat", "Plot builder", "Smart output"])
 
-            prompt = st.chat_input("Ask for an insight or chart, e.g. 'make a treemap of mechanisms top 12 teal font 13'")
-            if prompt:
-                st.session_state.ai_messages.append({"role": "user", "content": prompt})
+        with tab_chat:
+            st.markdown("<div class='v2-chat-card'>", unsafe_allow_html=True)
+            for msg in st.session_state.ai_messages[-8:]:
+                klass = "v2-user-msg" if msg.get("role") == "user" else "v2-ai-msg"
+                safe_msg = _render_chat_content_html(str(msg.get("content", ""))[:2500])
+                st.markdown(f"<div class='{klass}'>{safe_msg}</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            with st.form("v2_pop_chat_form", clear_on_submit=True):
+                prompt = st.text_area(
+                    "Ask the AI Copilot",
+                    placeholder="Ask for an insight or chart, e.g. make a treemap of mechanisms top 12 teal font 13",
+                    height=82,
+                    key="v2_pop_prompt",
+                )
+                submitted = st.form_submit_button("Send", use_container_width=True)
+            if submitted and prompt.strip():
                 if _v2_is_plot_request(prompt):
-                    # Remove the user message added above before delegating to avoid duplication.
-                    st.session_state.ai_messages = st.session_state.ai_messages[:-1]
                     _copilot_queue_answer(prompt, df)
                     st.rerun()
                 else:
-                    with st.chat_message("assistant"):
-                        streamed = st.write_stream(_v2_openai_stream_answer(prompt, df))
-                    st.session_state.ai_messages.append({"role": "assistant", "content": streamed})
-                    st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": streamed}
+                    st.session_state.ai_messages.append({"role": "user", "content": prompt.strip()})
+                    answer = "".join(list(_v2_openai_stream_answer(prompt.strip(), df)))
+                    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+                    st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
                     st.rerun()
 
-            ca, cb, cc = st.columns(3)
-            with ca:
-                if st.button("Executive summary", use_container_width=True, key="v2_exec_summary"):
+            b1, b2, b3 = st.columns(3)
+            with b1:
+                if st.button("Summary", use_container_width=True, key="v2_pop_summary"):
                     _copilot_queue_answer("Give an executive summary of the current filtered dashboard view", df)
                     st.rerun()
-            with cb:
-                if st.button("Risk signals", use_container_width=True, key="v2_risk_signals"):
+            with b2:
+                if st.button("Risks", use_container_width=True, key="v2_pop_risks"):
                     _copilot_queue_answer("Identify the main negative alert risk signals in the current filtered dashboard view", df)
                     st.rerun()
-            with cc:
-                if st.button("Clear chat", use_container_width=True, key="v2_clear_chat"):
-                    st.session_state.ai_messages = []
+            with b3:
+                if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
+                    st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a new question or request a chart."}]
                     st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v2", "content": "Chat cleared. Ask a new question or request a chart."}
                     st.rerun()
 
-        with tool_col:
-            st.markdown("**Smart plot builder**")
+        with tab_plot:
             dims = _v2_safe_get_dims(df)
             if dims:
                 label_to_col = {label: col for label, col in dims}
-                dim_label = st.selectbox("Dimension", list(label_to_col.keys()), key="v2_plot_dim")
-                chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, key="v2_plot_type")
+                dim_label = st.selectbox("Dimension", list(label_to_col.keys()), key="v2_pop_plot_dim")
+                chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, key="v2_pop_plot_type")
                 group_label_options = ["None"] + [label for label, col in dims if col != label_to_col[dim_label]]
-                group_label = st.selectbox("Group / color by", group_label_options, key="v2_plot_group")
+                group_label = st.selectbox("Group / color by", group_label_options, key="v2_pop_plot_group")
                 group_col = None if group_label == "None" else label_to_col[group_label]
+
                 c1, c2 = st.columns(2)
                 with c1:
-                    top_n = st.slider("Top N", 3, 50, 10, key="v2_top_n")
-                    font_size = st.slider("Font size", 8, 28, 12, key="v2_font_size")
+                    top_n = st.slider("Top N", 3, 50, 10, key="v2_pop_top_n")
+                    font_size = st.slider("Font size", 8, 28, 12, key="v2_pop_font_size")
                 with c2:
-                    height = st.slider("Chart height", 300, 900, 430, step=10, key="v2_height")
-                    show_values = st.toggle("Show values", True, key="v2_show_values")
-                primary = st.text_input("Primary color HEX", "#660094", key="v2_primary_color")
-                secondary = st.text_input("Secondary color HEX", "#008CAA", key="v2_secondary_color")
-                title = st.text_input("Chart title", f"{dim_label} distribution", key="v2_chart_title")
-                if st.button("Generate styled plot", use_container_width=True, key="v2_generate_plot"):
+                    height = st.slider("Chart height", 300, 900, 430, step=10, key="v2_pop_height")
+                    show_values = st.toggle("Show values", True, key="v2_pop_show_values")
+                primary = st.text_input("Primary color HEX", "#660094", key="v2_pop_primary_color")
+                secondary = st.text_input("Secondary color HEX", "#008CAA", key="v2_pop_secondary_color")
+                title = st.text_input("Chart title", f"{dim_label} distribution", key="v2_pop_chart_title")
+
+                if st.button("Generate styled plot", use_container_width=True, key="v2_pop_generate_plot"):
                     config = {
-                        "filtered_df": df, "x_col": label_to_col[dim_label], "group_col": group_col,
-                        "chart_type": chart_type, "top_n": top_n,
+                        "filtered_df": df,
+                        "x_col": label_to_col[dim_label],
+                        "group_col": group_col,
+                        "chart_type": chart_type,
+                        "top_n": top_n,
                         "primary_color": primary if re.match(r"^#[0-9a-fA-F]{6}$", primary.strip()) else "#660094",
                         "secondary_color": secondary if re.match(r"^#[0-9a-fA-F]{6}$", secondary.strip()) else "#008CAA",
-                        "font_size": font_size, "title_size": max(font_size + 4, 15), "height": height,
-                        "show_values": show_values, "title": title,
+                        "font_size": font_size,
+                        "title_size": max(font_size + 4, 15),
+                        "height": height,
+                        "show_values": show_values,
+                        "title": title,
                     }
                     fig = _v2_make_plot_from_config(config)
                     plot_df = _v2_plot_data_for_insight(df, label_to_col[dim_label], group_col, top_n)
                     st.session_state.ai_smart_output = {
-                        "type": "plot_v2", "title": title, "content": _v2_plot_insight(plot_df, label_to_col[dim_label], group_col),
-                        "fig": fig, "plot_data": plot_df, "config": {k: v for k, v in config.items() if k != "filtered_df"},
+                        "type": "plot_v2",
+                        "title": title,
+                        "content": _v2_plot_insight(plot_df, label_to_col[dim_label], group_col),
+                        "fig": fig,
+                        "plot_data": plot_df,
+                        "config": {k: v for k, v in config.items() if k != "filtered_df"},
                     }
                     st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {chart_type} for {label_to_col[dim_label]}."})
                     st.rerun()
             else:
                 st.info("No suitable plotting dimensions are available under the current filters.")
 
-        out = st.session_state.ai_smart_output
-        st.markdown("<div class='v2-smart-box'>", unsafe_allow_html=True)
-        st.markdown(f"<div class='v2-smart-title'>{out.get('title', 'Smart output')}</div>", unsafe_allow_html=True)
-        if out.get("type") == "plot_v2" and out.get("fig") is not None:
-            st.plotly_chart(out["fig"], use_container_width=True, key="v2_smart_plot")
-            st.markdown(out.get("content", ""))
-            if isinstance(out.get("plot_data"), pd.DataFrame) and not out["plot_data"].empty:
-                st.download_button(
-                    "Download plot data CSV",
-                    data=out["plot_data"].to_csv(index=False).encode("utf-8"),
-                    file_name="eusee_ai_copilot_v2_plot_data.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="v2_download_plot_data",
-                )
-        else:
-            st.markdown(out.get("content", ""))
-        st.markdown("<div class='v2-memory-note'>Copilot v2 uses the active dashboard filters. Chart commands can include chart type, variable, grouping, color, font size, title, Top N, and year/country filters.</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with tab_output:
+            out = st.session_state.ai_smart_output
+            st.markdown("<div class='v2-smart-box'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='v2-smart-title'>{out.get('title', 'Smart output')}</div>", unsafe_allow_html=True)
+            if out.get("type") == "plot_v2" and out.get("fig") is not None:
+                st.plotly_chart(out["fig"], use_container_width=True, key="v2_pop_smart_plot")
+                st.markdown(out.get("content", ""))
+                if isinstance(out.get("plot_data"), pd.DataFrame) and not out["plot_data"].empty:
+                    st.download_button(
+                        "Download plot data CSV",
+                        data=out["plot_data"].to_csv(index=False).encode("utf-8"),
+                        file_name="eusee_ai_copilot_v2_plot_data.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="v2_pop_download_plot_data",
+                    )
+            else:
+                st.markdown(_render_chat_content_html(str(out.get("content", ""))[:4000]), unsafe_allow_html=True)
+            st.markdown("<div class='v2-memory-note'>Copilot v2 uses active dashboard filters. Chart commands can include chart type, variable, grouping, color, font size, title, Top N, and country/year filters.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
 render_ai_assistant_panel(filtered_global)
 
