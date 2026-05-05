@@ -1,19 +1,22 @@
-# authz.py
 from __future__ import annotations
 
 import json
 from pathlib import Path
 import streamlit as st
 
+
 DEFAULT_ROLE_PERMISSIONS = {
     "guest": {
         "view_public_summary": True,
         "view_dashboard": True,
         "view_overview": True,
-        "view_maps": False,
-        "view_country_counts": False,
-        "view_negative_alerts": False,
-        "view_data_table": False,
+        "view_coverage_monitored_countries": True,
+        "view_country_counts": True,
+        "view_maps": True,
+        "view_negative_alerts": True,
+        "view_negative_relationship_intelligence": True,
+        "view_analytical_flow_panel": True,
+        "view_data_table": True,
         "download_data": False,
         "use_ai_copilot": False,
         "view_user_manual": True,
@@ -23,10 +26,13 @@ DEFAULT_ROLE_PERMISSIONS = {
         "view_public_summary": True,
         "view_dashboard": True,
         "view_overview": True,
+        "view_coverage_monitored_countries": True,
+        "view_country_counts": True,
         "view_maps": True,
-        "view_country_counts": False,
-        "view_negative_alerts": False,
-        "view_data_table": False,
+        "view_negative_alerts": True,
+        "view_negative_relationship_intelligence": True,
+        "view_analytical_flow_panel": True,
+        "view_data_table": True,
         "download_data": False,
         "use_ai_copilot": False,
         "view_user_manual": True,
@@ -36,9 +42,12 @@ DEFAULT_ROLE_PERMISSIONS = {
         "view_public_summary": True,
         "view_dashboard": True,
         "view_overview": True,
-        "view_maps": True,
+        "view_coverage_monitored_countries": True,
         "view_country_counts": True,
+        "view_maps": True,
         "view_negative_alerts": True,
+        "view_negative_relationship_intelligence": True,
+        "view_analytical_flow_panel": True,
         "view_data_table": True,
         "download_data": True,
         "use_ai_copilot": True,
@@ -74,8 +83,10 @@ def default_access_config() -> dict:
 def load_access_config() -> dict:
     defaults = default_access_config()
     path = get_access_config_path()
+
     if not path.exists():
         return defaults
+
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
@@ -87,8 +98,10 @@ def load_access_config() -> dict:
         loaded[role].setdefault("regions", [])
         loaded[role].setdefault("countries", [])
         loaded[role].setdefault("years", [])
+
         for feature, val in role_cfg["features"].items():
             loaded[role]["features"].setdefault(feature, val)
+
     return loaded
 
 
@@ -116,11 +129,19 @@ def get_current_email() -> str:
 
 
 def get_admin_emails() -> list[str]:
-    return [str(e).lower().strip() for e in st.secrets.get("auth", {}).get("admin_emails", []) if str(e).strip()]
+    return [
+        str(e).lower().strip()
+        for e in st.secrets.get("auth", {}).get("admin_emails", [])
+        if str(e).strip()
+    ]
 
 
 def get_privileged_domains() -> list[str]:
-    return [str(d).lower().strip() for d in st.secrets.get("access", {}).get("privileged_domains", []) if str(d).strip()]
+    return [
+        str(d).lower().strip()
+        for d in st.secrets.get("access", {}).get("privileged_domains", [])
+        if str(d).strip()
+    ]
 
 
 def get_email_domain(email: str | None = None) -> str:
@@ -129,7 +150,11 @@ def get_email_domain(email: str | None = None) -> str:
 
 
 def is_authenticated_session() -> bool:
-    return bool(st.session_state.get("user") and st.session_state.get("email_verified") and get_current_email())
+    return bool(
+        st.session_state.get("user")
+        and st.session_state.get("email_verified")
+        and get_current_email()
+    )
 
 
 def is_admin() -> bool:
@@ -154,12 +179,15 @@ def has_permission(permission: str) -> bool:
     role = get_current_role()
     if role == "admin":
         return True
-    return bool(load_access_config().get(role, {}).get("features", {}).get(permission, False))
+
+    config = load_access_config()
+    return bool(config.get(role, {}).get("features", {}).get(permission, False))
 
 
 def apply_data_scope(df):
     if df is None:
         return df
+
     role = get_current_role()
     if role == "admin":
         return df
@@ -169,8 +197,10 @@ def apply_data_scope(df):
 
     if scope.get("regions") and "region" in scoped.columns:
         scoped = scoped[scoped["region"].isin(scope["regions"])]
+
     if scope.get("countries") and "alert-country" in scoped.columns:
         scoped = scoped[scoped["alert-country"].isin(scope["countries"])]
+
     if scope.get("years") and "year" in scoped.columns:
         scoped = scoped[scoped["year"].isin(scope["years"])]
 
