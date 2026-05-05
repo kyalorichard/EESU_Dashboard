@@ -5191,9 +5191,6 @@ with tab_map:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # -----------------USER MANUAL TAB-----------------    else:
-            render_access_locked("Visualization Map", "viewer or privileged")
-
 
     else:
         render_access_locked("Visualization Map", "viewer or privileged")
