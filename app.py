@@ -8,16 +8,28 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_authenticated
-from authz import (
-    get_current_email,
-    get_current_role,
-    has_permission,
-    is_admin,
-    is_privileged,
-    render_access_badge,
-)
-from admin_page import render_admin_page
+from auth import auth_ui, is_privileged, is_authenticated
+
+# Optional admin page integration. Firebase/Auth still handles login;
+# authz.py reads admin emails from .streamlit/secrets.toml.
+try:
+    from authz import is_admin as admin_is_admin, get_current_role, get_current_email, has_permission, apply_data_scope
+    from admin_page import render_admin_page, render_admin_sidebar_navigation
+except Exception:
+    def admin_is_admin():
+        return False
+    def get_current_role():
+        return "guest"
+    def get_current_email():
+        return ""
+    def has_permission(permission):
+        return True
+    def apply_data_scope(df):
+        return df
+    def render_admin_page():
+        st.error("Admin page is not available. Confirm authz.py and admin_page.py are deployed with app.py.")
+    def render_admin_sidebar_navigation():
+        return "Dashboard"
 import math
 import paramiko
 import logging
@@ -137,56 +149,7 @@ def inject_classic_dashboard_css():
     .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
     .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
     @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
-    
-
-    /* ---------------- PROFESSIONAL SELECT / MULTISELECT: GLOBAL ---------------- */
-    [data-baseweb="select"] > div {
-        background: #FFFFFF !important;
-        border: 1px solid #D0D5DD !important;
-        border-radius: 12px !important;
-        min-height: 38px !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
-        transition: all .15s ease !important;
-    }
-    [data-baseweb="select"] > div:hover {
-        border-color: #660094 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.08) !important;
-    }
-    [data-baseweb="select"] > div:focus-within {
-        border-color: #660094 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.15) !important;
-    }
-    div[role="listbox"] {
-        border-radius: 12px !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 12px 28px rgba(16,24,40,.12) !important;
-        overflow: hidden !important;
-    }
-    div[role="option"] {
-        font-size: 12px !important;
-        padding: 8px 12px !important;
-    }
-    div[role="option"]:hover {
-        background: rgba(102,0,148,.06) !important;
-    }
-    div[aria-selected="true"] {
-        background: rgba(102,0,148,.12) !important;
-        font-weight: 800 !important;
-    }
-    [data-baseweb="tag"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        border: 1px solid #E7D4F1 !important;
-        border-radius: 999px !important;
-        font-size: 10px !important;
-        font-weight: 800 !important;
-    }
-    [data-baseweb="tag"] svg { color: #660094 !important; }
-    [data-baseweb="select"] span {
-        color: #667085 !important;
-        font-size: 11px !important;
-    }
-</style>
+    </style>
     """, unsafe_allow_html=True)
 
 
@@ -312,14 +275,17 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
         )
 
         csv = table_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "⬇️ Download filtered table as CSV",
+        if has_permission("download_data"):
+            st.download_button(
+                "⬇️ Download filtered table as CSV",
             data=csv,
             file_name=f"{key}.csv",
             mime="text/csv",
             use_container_width=True,
-            key=f"{key}_download",
-        )
+                key=f"{key}_download",
+            )
+        else:
+            st.caption("CSV download is disabled for your access level.")
 
         st.markdown("""
         <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, event frequency, or a combination of these factors.</div>
@@ -343,6 +309,15 @@ if is_authenticated():
 if st.session_state.get("auth_view", False) and not is_authenticated():
     auth_ui()
     st.stop()
+
+# ---------------- ADMIN ROUTING ----------------
+# Admin access is controlled by .streamlit/secrets.toml [auth].admin_emails.
+# The admin page is only visible after Firebase/login authentication succeeds.
+if is_authenticated() and admin_is_admin():
+    admin_nav_choice = render_admin_sidebar_navigation()
+    if admin_nav_choice == "Admin":
+        render_admin_page()
+        st.stop()
 
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
@@ -684,7 +659,7 @@ def load_data():
     return df
 
 # --- Load data safely ---
-data = load_data()
+data = apply_data_scope(load_data())
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
@@ -1254,24 +1229,6 @@ else:
     if st.sidebar.button("🔐 Sign in / Access", use_container_width=True):
         st.session_state.auth_view = True
         st.rerun()
-
-# ---------------- ADMIN NAVIGATION / ROUTING ----------------
-# Admin access is controlled by .streamlit/secrets.toml [auth].admin_emails.
-# Firebase still handles identity/login; this layer only decides who can open Admin.
-if is_authenticated() and is_admin():
-    st.sidebar.markdown("---")
-    nav_choice = st.sidebar.radio(
-        "Navigation",
-        ["Dashboard", "Admin"],
-        index=0,
-        key="main_navigation",
-    )
-    if nav_choice == "Admin":
-        render_admin_page()
-        st.stop()
-elif is_authenticated():
-    st.sidebar.markdown("---")
-    render_access_badge()
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
@@ -7515,7 +7472,10 @@ def render_ai_assistant_panel(df):
             st.markdown("<div class='v2-memory-note'>Copilot v2 uses active dashboard filters. Chart commands can include chart type, variable, grouping, color, font size, title, Top N, and country/year filters.</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-render_ai_assistant_panel(filtered_global)
+if has_permission("use_ai_copilot"):
+    render_ai_assistant_panel(filtered_global)
+else:
+    AI_ASSISTANT_SLOT.info("AI Copilot is disabled for your access level.")
 
 
 
