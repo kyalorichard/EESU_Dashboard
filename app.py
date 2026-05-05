@@ -3277,21 +3277,25 @@ def _v3_single_plot_data(df, x_col, top_n=10, metric_mode="Count", transform="No
 def _v3_make_single_plot(df, x_col, chart_type="Horizontal bar", group_col=None, top_n=10, title=None,
                          color="#660094", secondary_color="#008CAA", font_size=12, title_size=None,
                          height=430, show_values=True, metric_mode="Count", transform="None",
-                         highlight="None", dual_axis=False):
+                         highlight="None", dual_axis=False, palette=None, heatmap_scale=None,
+                         legend_position="Top", show_grid=True, theme="Clean white"):
     chart_type = _ai_normalize_chart_type(chart_type)
+    palette = palette or _ai_palette_colors()
+    heatmap_scale = heatmap_scale or _ai_heatmap_scale()
     title = title or f"{x_col} distribution"
     if group_col:
         # Use existing grouped chart engine for grouped single-variable views.
         fig = _ai_make_plot(df, dimension_col=x_col, chart_type=chart_type, top_n=top_n, title=title,
                             color=color, secondary_color=secondary_color, font_size=font_size,
-                            title_size=title_size, group_col=group_col, height=height, show_values=show_values)
+                            title_size=title_size, group_col=group_col, height=height, show_values=show_values,
+                            palette=palette, heatmap_scale=heatmap_scale, legend_position=legend_position, show_grid=show_grid, theme=theme)
         plot_df = _v2_plot_data_for_insight(df, x_col, group_col, top_n)
         return fig, plot_df
     plot_df = _v3_single_plot_data(df, x_col, top_n=top_n, metric_mode=metric_mode, transform=transform)
     if plot_df.empty:
         fig = go.Figure()
         fig.add_annotation(text="No data available for selected plot.", x=0.5, y=0.5, showarrow=False)
-        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False), plot_df
+        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False, palette=palette, legend_position=legend_position, show_grid=show_grid, theme=theme), plot_df
     value_col = plot_df["plot_value_col"].iloc[0] if "plot_value_col" in plot_df.columns else "value"
     text_arg = "value_label" if show_values else None
     if dual_axis and chart_type in ["Vertical bar", "Line", "Area", "Horizontal bar"]:
@@ -3305,36 +3309,39 @@ def _v3_make_single_plot(df, x_col, chart_type="Horizontal bar", group_col=None,
         fig.update_yaxes(title_text="Share %", secondary_y=True)
         fig.update_xaxes(tickangle=-35)
     elif chart_type == "Vertical bar":
-        fig = px.bar(plot_df, x=x_col, y=value_col, text=text_arg, title=title)
+        fig = px.bar(plot_df, x=x_col, y=value_col, text=text_arg, title=title, color_discrete_sequence=palette)
         fig.update_xaxes(tickangle=-35)
     elif chart_type == "Line":
-        fig = px.line(plot_df.sort_values(x_col), x=x_col, y=value_col, markers=True, text=text_arg, title=title)
+        fig = px.line(plot_df.sort_values(x_col), x=x_col, y=value_col, markers=True, text=text_arg, title=title, color_discrete_sequence=palette)
     elif chart_type == "Area":
-        fig = px.area(plot_df.sort_values(x_col), x=x_col, y=value_col, title=title)
+        fig = px.area(plot_df.sort_values(x_col), x=x_col, y=value_col, title=title, color_discrete_sequence=palette)
     elif chart_type == "Pie":
-        fig = px.pie(plot_df, names=x_col, values="count", title=title)
+        fig = px.pie(plot_df, names=x_col, values="count", title=title, color_discrete_sequence=palette)
     elif chart_type == "Donut":
-        fig = px.pie(plot_df, names=x_col, values="count", hole=.48, title=title)
+        fig = px.pie(plot_df, names=x_col, values="count", hole=.48, title=title, color_discrete_sequence=palette)
     elif chart_type == "Treemap":
-        fig = px.treemap(plot_df, path=[x_col], values="count", color=value_col, title=title)
+        fig = px.treemap(plot_df, path=[x_col], values="count", color=value_col, title=title, color_continuous_scale=heatmap_scale)
     elif chart_type == "Funnel":
-        fig = px.funnel(plot_df, y=x_col, x=value_col, text=text_arg, title=title)
+        fig = px.funnel(plot_df, y=x_col, x=value_col, text=text_arg, title=title, color_discrete_sequence=palette)
     elif chart_type == "Waterfall":
         fig = go.Figure(go.Waterfall(x=plot_df[x_col], y=plot_df[value_col], text=plot_df["value_label"] if show_values else None))
         fig.update_layout(title=title)
     else:
-        fig = px.bar(plot_df.iloc[::-1], y=x_col, x=value_col, orientation="h", text=text_arg, title=title)
-    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False)
-    fig.update_layout(colorway=[color, secondary_color, "#FFDB58", "#D92D20", "#039855", "#1570EF"])
+        fig = px.bar(plot_df.iloc[::-1], y=x_col, x=value_col, orientation="h", text=text_arg, title=title, color_discrete_sequence=palette)
+    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False, palette=palette, legend_position=legend_position, show_grid=show_grid, theme=theme)
+    fig.update_layout(colorway=palette)
     fig = _v3_apply_conditional_highlight(fig, chart_type, plot_df, value_col=value_col, highlight=highlight, primary=color, secondary=secondary_color)
     return fig, plot_df
 
 
 def _v2_make_comparison_plot(df, x_col, y_col, chart_type="Heatmap", top_x=10, top_y=8, normalize="Count", title=None,
                              color="#660094", secondary_color="#008CAA", font_size=12, title_size=None,
-                             height=470, show_values=True, comparison_mode="Absolute", transform="None", highlight="None"):
+                             height=470, show_values=True, comparison_mode="Absolute", transform="None", highlight="None",
+                             palette=None, heatmap_scale=None, legend_position="Top", show_grid=True, theme="Clean white"):
     """v3 override: comparison plot with difference/ratio/% change and transformation options."""
     chart_type = _ai_normalize_chart_type(chart_type)
+    palette = palette or _ai_palette_colors()
+    heatmap_scale = heatmap_scale or _ai_heatmap_scale()
     title = title or f"Comparison: {x_col} × {y_col}"
     comp = _v2_compare_data(df, x_col, y_col, top_x=top_x, top_y=top_y, normalize=normalize)
     comp = _v3_enrich_comparison_data(comp, x_col, y_col, comparison_mode=comparison_mode)
@@ -3342,33 +3349,33 @@ def _v2_make_comparison_plot(df, x_col, y_col, chart_type="Heatmap", top_x=10, t
     if comp.empty:
         fig = go.Figure()
         fig.add_annotation(text="No comparison data available for the selected variables.", x=0.5, y=0.5, showarrow=False)
-        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False), comp
+        return _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=False, palette=palette, legend_position=legend_position, show_grid=show_grid, theme=theme), comp
     if chart_type == "Heatmap":
         matrix = comp.pivot_table(index=x_col, columns=y_col, values=value_col, aggfunc="sum", fill_value=0)
-        fig = px.imshow(matrix, text_auto=show_values, aspect="auto", title=title, color_continuous_scale="Purples")
+        fig = px.imshow(matrix, text_auto=show_values, aspect="auto", title=title, color_continuous_scale=heatmap_scale)
     elif chart_type in ["Grouped bar", "Vertical bar"]:
-        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title)
+        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title, color_discrete_sequence=palette)
         fig.update_xaxes(tickangle=-35)
     elif chart_type == "Stacked bar":
-        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="stack", text="value_label" if show_values else None, title=title)
+        fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="stack", text="value_label" if show_values else None, title=title, color_discrete_sequence=palette)
         fig.update_xaxes(tickangle=-35)
     elif chart_type == "Horizontal bar":
-        fig = px.bar(comp, y=x_col, x=value_col, color=y_col, orientation="h", barmode="stack", text="value_label" if show_values else None, title=title)
+        fig = px.bar(comp, y=x_col, x=value_col, color=y_col, orientation="h", barmode="stack", text="value_label" if show_values else None, title=title, color_discrete_sequence=palette)
     elif chart_type == "Sunburst":
-        fig = px.sunburst(comp, path=[x_col, y_col], values="count", title=title)
+        fig = px.sunburst(comp, path=[x_col, y_col], values="count", title=title, color_discrete_sequence=palette)
     elif chart_type == "Treemap":
-        fig = px.treemap(comp, path=[x_col, y_col], values="count", color=value_col, title=title)
+        fig = px.treemap(comp, path=[x_col, y_col], values="count", color=value_col, title=title, color_continuous_scale=heatmap_scale)
     elif chart_type == "Bubble":
-        fig = px.scatter(comp, x=x_col, y=y_col, size="count", color=value_col, text="value_label" if show_values else None, title=title, size_max=44)
+        fig = px.scatter(comp, x=x_col, y=y_col, size="count", color=value_col, text="value_label" if show_values else None, title=title, size_max=44, color_continuous_scale=heatmap_scale)
         fig.update_xaxes(tickangle=-35)
     elif chart_type == "Scatter":
-        fig = px.scatter(comp, x=x_col, y=y_col, size="count", color=value_col, text="value_label" if show_values else None, title=title)
+        fig = px.scatter(comp, x=x_col, y=y_col, size="count", color=value_col, text="value_label" if show_values else None, title=title, color_continuous_scale=heatmap_scale)
         fig.update_xaxes(tickangle=-35)
     else:
         fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title)
         fig.update_xaxes(tickangle=-35)
-    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True)
-    fig.update_layout(colorway=[color, secondary_color, "#FFDB58", "#D92D20", "#039855", "#1570EF", "#F79009", "#344054"])
+    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True, palette=palette, legend_position=legend_position, show_grid=show_grid, theme=theme)
+    fig.update_layout(colorway=palette)
     return fig, comp
 
 
@@ -5560,6 +5567,45 @@ AI_COLOR_PRESETS = {
     "Slate": "#344054",
 }
 
+# Professional palette system for the AI plot builder.
+# These palettes are used by single-variable charts, comparison charts, heatmaps,
+# legends and chart previews so dashboard users can build publication-ready plots.
+AI_PLOT_PALETTES = {
+    "EU SEE brand — Purple / Teal / Gold": ["#660094", "#008CAA", "#FFDB58", "#B692C8", "#2D0055", "#00A6C8", "#F79009", "#344054"],
+    "Executive muted — Slate / Gray": ["#344054", "#667085", "#98A2B3", "#475467", "#101828", "#D0D5DD", "#EAECF0", "#F2F4F7"],
+    "Risk signal — Red / Amber / Green": ["#B42318", "#F79009", "#FFDB58", "#067647", "#008CAA", "#660094", "#475467", "#98A2B3"],
+    "Office professional — Blue / Orange": ["#4472C4", "#ED7D31", "#A5A5A5", "#FFC000", "#5B9BD5", "#70AD47", "#7030A0", "#C00000"],
+    "Colorblind safe — Analytical": ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#F0E442", "#56B4E9", "#E69F00", "#000000"],
+    "Monochrome report — Print safe": ["#111827", "#374151", "#4B5563", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6"],
+}
+
+AI_HEATMAP_SCALES = {
+    "EU SEE purple scale": [[0, "#FCF7FF"], [0.25, "#E7D4F1"], [0.5, "#B692C8"], [0.75, "#7A1FA2"], [1, "#2D0055"]],
+    "Teal intelligence scale": [[0, "#F0FCFF"], [0.25, "#C7F1F7"], [0.5, "#7EDAE6"], [0.75, "#008CAA"], [1, "#005E73"]],
+    "Risk scale": [[0, "#F6FEF9"], [0.25, "#DCFAE6"], [0.5, "#FFDB58"], [0.75, "#F79009"], [1, "#B42318"]],
+    "Office blue scale": "Blues",
+    "Viridis": "Viridis",
+}
+
+
+def _ai_palette_colors(palette_name=None):
+    """Return a safe plot colorway from the selected palette name."""
+    return AI_PLOT_PALETTES.get(str(palette_name or ""), AI_PLOT_PALETTES["EU SEE brand — Purple / Teal / Gold"])
+
+
+def _ai_heatmap_scale(scale_name=None):
+    return AI_HEATMAP_SCALES.get(str(scale_name or ""), AI_HEATMAP_SCALES["EU SEE purple scale"])
+
+
+def _ai_palette_preview_html(colors, label="Selected palette"):
+    dots = "".join([f"<span class='v2-palette-dot' style='background:{c};' title='{c}'></span>" for c in colors])
+    return f"""
+    <div class='v2-palette-preview'>
+        <div class='v2-palette-preview-label'>{label}</div>
+        <div class='v2-palette-dot-row'>{dots}</div>
+    </div>
+    """
+
 
 def _ai_get_available_plot_dimensions(df):
     dims = []
@@ -5642,26 +5688,50 @@ def _ai_normalize_chart_type(chart_type):
     return chart_type if chart_type in AI_PLOT_CHART_TYPES else "Horizontal bar"
 
 
-def _ai_apply_plot_theme(fig, title, font_size=12, title_size=None, color=" #660094", height=390, showlegend=True):
+def _ai_apply_plot_theme(
+    fig, title, font_size=12, title_size=None, color="#660094", height=390,
+    showlegend=True, palette=None, legend_position="Top", show_grid=True,
+    theme="Clean white", source_note="EUSEE Dashboard | filtered view"
+):
+    """Apply a consistent publication-ready Plotly theme to AI plot-builder outputs."""
     title_size = title_size or max(int(font_size) + 3, 14)
+    palette = palette or _ai_palette_colors()
+    template = "plotly_white" if str(theme).lower().startswith("clean") else "simple_white"
+
+    legend_position = str(legend_position or "Top")
+    if legend_position == "Right":
+        legend_cfg = dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02, title=None, font=dict(size=max(int(font_size)-1, 9)))
+    elif legend_position == "Bottom":
+        legend_cfg = dict(orientation="h", yanchor="top", y=-0.18, xanchor="left", x=0, title=None, font=dict(size=max(int(font_size)-1, 9)))
+    elif legend_position == "Hidden":
+        legend_cfg = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(size=max(int(font_size)-1, 9)))
+        showlegend = False
+    else:
+        legend_cfg = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(size=max(int(font_size)-1, 9)))
+
     fig.update_layout(
-        template="plotly_white",
+        template=template,
         height=int(height),
-        margin=dict(l=18, r=18, t=58, b=64),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=34, r=34, t=64, b=72),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
         title=dict(text=title, font=dict(size=title_size, family="Arial Black, Arial", color="#2d0055"), x=0.02),
-        font=dict(family="Arial", size=int(font_size), color="#222"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title=None, font=dict(size=max(int(font_size)-1, 9))),
+        font=dict(family="Arial", size=int(font_size), color="#344054"),
+        legend=legend_cfg,
         showlegend=showlegend,
-        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E6E8EF", font=dict(size=int(font_size))),
+        colorway=palette,
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E6E8EF", font=dict(size=int(font_size), family="Arial")),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#EEF1F6", zeroline=False, tickfont=dict(size=max(int(font_size)-1, 9)))
-    fig.update_yaxes(showgrid=True, gridcolor="#EEF1F6", zeroline=False, tickfont=dict(size=max(int(font_size)-1, 9)))
+    fig.update_xaxes(showgrid=bool(show_grid), gridcolor="#EEF1F6", zeroline=False, tickfont=dict(size=max(int(font_size)-1, 9)), title_font=dict(size=max(int(font_size), 10)))
+    fig.update_yaxes(showgrid=bool(show_grid), gridcolor="#EEF1F6", zeroline=False, tickfont=dict(size=max(int(font_size)-1, 9)), title_font=dict(size=max(int(font_size), 10)))
     fig.add_annotation(
-        text="EUSEE Dashboard | filtered view", xref="paper", yref="paper", x=0.5, y=-0.20,
-        showarrow=False, font=dict(size=max(int(font_size)-2, 8), color="#777")
+        text=source_note, xref="paper", yref="paper", x=0.5, y=-0.22,
+        showarrow=False, font=dict(size=max(int(font_size)-2, 8), color="#667085")
     )
+    try:
+        fig.update_traces(marker_line_width=0.6, marker_line_color="#FFFFFF", selector=dict(type="bar"))
+    except Exception:
+        pass
     return fig
 
 
@@ -5678,6 +5748,11 @@ def _ai_make_plot(
     group_col=None,
     height=390,
     show_values=True,
+    palette=None,
+    heatmap_scale=None,
+    legend_position="Top",
+    show_grid=True,
+    theme="Clean white",
 ):
     """Advanced Plotly generator for chatbot and UI-based plot requests.
 
@@ -5685,6 +5760,8 @@ def _ai_make_plot(
     treemap, sunburst, heatmap, histogram, box, violin, funnel and waterfall.
     """
     chart_type = _ai_normalize_chart_type(chart_type)
+    palette = palette or _ai_palette_colors()
+    heatmap_scale = heatmap_scale or _ai_heatmap_scale()
     top_n = int(top_n or 10)
     font_size = int(font_size or 12)
     height = int(height or 390)
@@ -5711,34 +5788,34 @@ def _ai_make_plot(
     try:
         if chart_type == "Horizontal bar":
             plot_df = plot_df.sort_values("count", ascending=True)
-            fig = px.bar(plot_df, x="count", y=dimension_col, orientation="h", text="count" if show_values else None, title=title)
+            fig = px.bar(plot_df, x="count", y=dimension_col, orientation="h", text="count" if show_values else None, title=title, color_discrete_sequence=palette)
             fig.update_traces(marker_color=color, textposition="outside")
 
         elif chart_type == "Vertical bar":
-            fig = px.bar(plot_df, x=dimension_col, y="count", text="count" if show_values else None, title=title)
+            fig = px.bar(plot_df, x=dimension_col, y="count", text="count" if show_values else None, title=title, color_discrete_sequence=palette)
             fig.update_traces(marker_color=color, textposition="outside")
             fig.update_xaxes(tickangle=-35)
 
         elif chart_type == "Grouped bar":
-            fig = px.bar(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, barmode="group", text="count" if show_values else None, title=title)
+            fig = px.bar(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, barmode="group", text="count" if show_values else None, title=title, color_discrete_sequence=palette)
             if not group_col:
                 fig.update_traces(marker_color=color)
             fig.update_xaxes(tickangle=-35)
 
         elif chart_type == "Stacked bar":
-            fig = px.bar(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, barmode="stack", text="count" if show_values else None, title=title)
+            fig = px.bar(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, barmode="stack", text="count" if show_values else None, title=title, color_discrete_sequence=palette)
             if not group_col:
                 fig.update_traces(marker_color=color)
             fig.update_xaxes(tickangle=-35)
 
         elif chart_type == "Line":
-            fig = px.line(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, markers=True, title=title)
+            fig = px.line(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, markers=True, title=title, color_discrete_sequence=palette)
             if not group_col:
                 fig.update_traces(line=dict(color=color, width=3), marker=dict(size=8))
             fig.update_xaxes(tickangle=-30)
 
         elif chart_type == "Area":
-            fig = px.area(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, title=title)
+            fig = px.area(plot_df, x=dimension_col, y="count", color=group_col if group_col else None, title=title, color_discrete_sequence=palette)
             if not group_col:
                 fig.update_traces(line=dict(color=color), fillcolor=color)
             fig.update_xaxes(tickangle=-30)
@@ -5746,41 +5823,41 @@ def _ai_make_plot(
         elif chart_type == "Scatter":
             plot_df = plot_df.reset_index(drop=True)
             plot_df["rank"] = range(1, len(plot_df) + 1)
-            fig = px.scatter(plot_df, x="rank", y="count", text=dimension_col if show_values else None, size="count", title=title)
+            fig = px.scatter(plot_df, x="rank", y="count", text=dimension_col if show_values else None, size="count", title=title, color_discrete_sequence=palette)
             fig.update_traces(marker=dict(color=color, opacity=0.82), textposition="top center")
             fig.update_xaxes(title="Rank")
 
         elif chart_type == "Bubble":
             plot_df = plot_df.reset_index(drop=True)
             plot_df["rank"] = range(1, len(plot_df) + 1)
-            fig = px.scatter(plot_df, x="rank", y="count", size="count", color=dimension_col, hover_name=dimension_col, title=title, size_max=42)
+            fig = px.scatter(plot_df, x="rank", y="count", size="count", color=dimension_col, hover_name=dimension_col, title=title, size_max=42, color_discrete_sequence=palette)
             fig.update_xaxes(title="Rank")
 
         elif chart_type == "Pie":
-            fig = px.pie(plot_df, values="count", names=dimension_col, hole=0, title=title)
+            fig = px.pie(plot_df, values="count", names=dimension_col, hole=0, title=title, color_discrete_sequence=palette)
             fig.update_traces(textposition="inside", textinfo="percent+label")
 
         elif chart_type == "Donut":
-            fig = px.pie(plot_df, values="count", names=dimension_col, hole=0.55, title=title)
+            fig = px.pie(plot_df, values="count", names=dimension_col, hole=0.55, title=title, color_discrete_sequence=palette)
             fig.update_traces(textposition="inside", textinfo="percent+label")
 
         elif chart_type == "Treemap":
-            fig = px.treemap(plot_df, path=[dimension_col], values="count", title=title)
+            fig = px.treemap(plot_df, path=[dimension_col], values="count", title=title, color_discrete_sequence=palette)
 
         elif chart_type == "Sunburst":
             if group_col:
                 grouped = _ai_group_count_df(df, group_col, dimension_col, top_n=top_n)
-                fig = px.sunburst(grouped, path=[group_col, dimension_col], values="count", title=title)
+                fig = px.sunburst(grouped, path=[group_col, dimension_col], values="count", title=title, color_discrete_sequence=palette)
             else:
-                fig = px.sunburst(plot_df, path=[dimension_col], values="count", title=title)
+                fig = px.sunburst(plot_df, path=[dimension_col], values="count", title=title, color_discrete_sequence=palette)
 
         elif chart_type == "Heatmap":
             if group_col:
                 grouped = _ai_group_count_df(df, dimension_col, group_col, top_n=top_n)
                 matrix = grouped.pivot_table(index=dimension_col, columns=group_col, values="count", aggfunc="sum", fill_value=0)
-                fig = px.imshow(matrix, text_auto=True, aspect="auto", title=title, color_continuous_scale="Purples")
+                fig = px.imshow(matrix, text_auto=True, aspect="auto", title=title, color_continuous_scale=heatmap_scale)
             else:
-                fig = px.imshow(plot_df[["count"]].set_index(dimension_col), text_auto=True, aspect="auto", title=title, color_continuous_scale="Purples")
+                fig = px.imshow(plot_df[["count"]].set_index(dimension_col), text_auto=True, aspect="auto", title=title, color_continuous_scale=heatmap_scale)
 
         elif chart_type == "Histogram":
             fig = px.histogram(plot_df, x="count", nbins=min(12, max(4, len(plot_df))), title=title)
@@ -5796,7 +5873,7 @@ def _ai_make_plot(
 
         elif chart_type == "Funnel":
             plot_df = plot_df.sort_values("count", ascending=False)
-            fig = px.funnel(plot_df, x="count", y=dimension_col, title=title)
+            fig = px.funnel(plot_df, x="count", y=dimension_col, title=title, color_discrete_sequence=palette)
             fig.update_traces(marker_color=color)
 
         elif chart_type == "Waterfall":
@@ -5807,7 +5884,7 @@ def _ai_make_plot(
             fig.update_xaxes(tickangle=-35)
 
         else:
-            fig = px.bar(plot_df, x=dimension_col, y="count", text="count" if show_values else None, title=title)
+            fig = px.bar(plot_df, x=dimension_col, y="count", text="count" if show_values else None, title=title, color_discrete_sequence=palette)
             fig.update_traces(marker_color=color, textposition="outside")
             fig.update_xaxes(tickangle=-35)
 
@@ -5815,7 +5892,7 @@ def _ai_make_plot(
         fig = go.Figure()
         fig.add_annotation(text=f"Plot could not be generated: {e}", x=0.5, y=0.5, showarrow=False)
 
-    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True)
+    fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True, palette=palette, legend_position=legend_position, show_grid=show_grid, theme=theme)
     return fig
 
 
@@ -7264,6 +7341,11 @@ def _v2_make_plot_from_config(config):
             title_size=config.get("title_size"),
             height=config.get("height", 430),
             show_values=config.get("show_values", True),
+            palette=_ai_palette_colors(config.get("palette_name")),
+            heatmap_scale=_ai_heatmap_scale(config.get("heatmap_scale")),
+            legend_position=config.get("legend_position", "Top"),
+            show_grid=config.get("show_grid", True),
+            theme=config.get("plot_theme", "Clean white"),
         )
         return fig
     return _ai_make_plot(
@@ -7279,6 +7361,11 @@ def _v2_make_plot_from_config(config):
         group_col=group_col,
         height=config.get("height", 430),
         show_values=config.get("show_values", True),
+        palette=_ai_palette_colors(config.get("palette_name")),
+        heatmap_scale=_ai_heatmap_scale(config.get("heatmap_scale")),
+        legend_position=config.get("legend_position", "Top"),
+        show_grid=config.get("show_grid", True),
+        theme=config.get("plot_theme", "Clean white"),
     )
 
 
@@ -7458,7 +7545,21 @@ def render_ai_assistant_panel(df):
     @media (max-width: 760px) {
         .st-key-eusee_ai_right_sidebar {left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}
     }
-    </style>
+    
+    .v2-palette-preview {
+        margin: 8px 0 12px 0; padding: 10px 11px; border-radius: 14px;
+        background: #FFFFFF; border: 1px solid #E6E8EF; box-shadow: 0 4px 14px rgba(16,24,40,.055);
+    }
+    .v2-palette-preview-label { font-size: 10px; font-weight: 900; color: #667085; margin-bottom: 7px; text-transform: uppercase; letter-spacing: .08em; }
+    .v2-palette-dot-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .v2-palette-dot { width: 22px; height: 22px; border-radius: 999px; display: inline-block; border: 2px solid #FFFFFF; box-shadow: 0 1px 4px rgba(16,24,40,.22); }
+    .st-key-eusee_ai_right_sidebar [data-baseweb="select"] > div { min-height: 43px !important; border-radius: 13px !important; font-size: 12.5px !important; font-weight: 750 !important; }
+    .st-key-eusee_ai_right_sidebar .stSelectbox label,
+    .st-key-eusee_ai_right_sidebar .stMultiSelect label,
+    .st-key-eusee_ai_right_sidebar .stTextInput label,
+    .st-key-eusee_ai_right_sidebar .stRadio label { font-size: 12px !important; font-weight: 900 !important; color: #344054 !important; }
+    div[role="option"] { font-size: 12.5px !important; font-weight: 750 !important; padding: 9px 12px !important; }
+</style>
     """, unsafe_allow_html=True)
 
     if not st.session_state.copilot_open:
@@ -7817,17 +7918,50 @@ def render_ai_assistant_panel(df):
                     )
                 px_color = excel_colors[primary_label]
                 sx_color = excel_colors[secondary_label]
-                st.markdown(
-                    f"""
-                    <div style='display:flex;gap:8px;align-items:center;margin:6px 0 8px 0;'>
-                        <div style='width:22px;height:22px;border-radius:6px;background:{px_color};border:1px solid #D0D5DD;'></div>
-                        <span style='font-size:10.5px;color:#344054;font-weight:800;'>Primary: {primary_label} ({px_color})</span>
-                        <div style='width:22px;height:22px;border-radius:6px;background:{sx_color};border:1px solid #D0D5DD;margin-left:8px;'></div>
-                        <span style='font-size:10.5px;color:#344054;font-weight:800;'>Secondary: {secondary_label} ({sx_color})</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+
+                st.markdown("<div class='v2-builder-subtitle'>Palette selector map and plot finish</div>", unsafe_allow_html=True)
+                palette_col1, palette_col2 = st.columns(2)
+                with palette_col1:
+                    professional_palette_choice = st.selectbox(
+                        "Professional palette map",
+                        list(AI_PLOT_PALETTES.keys()),
+                        index=0,
+                        key="v3_professional_palette_map",
+                        help="Applies a complete colorway across grouped charts, legends, pies, treemaps and series colors.",
+                    )
+                    heatmap_scale_choice = st.selectbox(
+                        "Heatmap color scale",
+                        list(AI_HEATMAP_SCALES.keys()),
+                        index=0,
+                        key="v3_heatmap_scale_choice",
+                    )
+                with palette_col2:
+                    plot_theme_choice = st.selectbox(
+                        "Plot theme",
+                        ["Clean white", "Minimal executive"],
+                        index=0,
+                        key="v3_professional_plot_theme",
+                    )
+                    legend_position_choice = st.selectbox(
+                        "Legend position",
+                        ["Top", "Right", "Bottom", "Hidden"],
+                        index=0,
+                        key="v3_legend_position_choice",
+                    )
+
+                gridline_choice = st.selectbox(
+                    "Gridline display",
+                    ["Show gridlines", "Hide gridlines"],
+                    index=0,
+                    key="v3_gridline_display_choice",
+                    help="Hide gridlines for cleaner presentation exports; show them for analytical reading.",
                 )
+                selected_palette = _ai_palette_colors(professional_palette_choice)
+                selected_heatmap_scale = _ai_heatmap_scale(heatmap_scale_choice)
+                # Keep manually selected primary/secondary colors synchronized with the selected palette for bar/line fallback.
+                px_color = selected_palette[0] if selected_palette else px_color
+                sx_color = selected_palette[1] if len(selected_palette) > 1 else sx_color
+                st.markdown(_ai_palette_preview_html(selected_palette, professional_palette_choice), unsafe_allow_html=True)
 
                 default_title = preset_cfg.get("title") or (f"Comparison: {dim_label} × {y_label}" if mode == "Compare variables" else f"{dim_label} distribution")
                 title = st.text_input("Chart title", default_title, key="v2_pop_chart_title")
@@ -7847,6 +7981,9 @@ def render_ai_assistant_panel(df):
                             color=px_color, secondary_color=sx_color, font_size=font_size,
                             title_size=max(font_size + 4, 15), height=height, show_values=show_values,
                             comparison_mode=comparison_math, transform=transform_mode, highlight=highlight_mode,
+                            palette=selected_palette, heatmap_scale=selected_heatmap_scale,
+                            legend_position=legend_position_choice, show_grid=(gridline_choice == "Show gridlines"),
+                            theme=plot_theme_choice,
                         )
                         insight = _v3_plot_insight(plot_df, x_col, y_col, metric_label=normalize, comparison_mode=comparison_math)
                         config = {
@@ -7856,6 +7993,9 @@ def render_ai_assistant_panel(df):
                             "font_size": font_size, "title_size": max(font_size + 4, 15),
                             "height": height, "show_values": show_values, "title": title,
                             "comparison_math": comparison_math, "transform": transform_mode, "highlight": highlight_mode,
+                            "palette_name": professional_palette_choice, "heatmap_scale": heatmap_scale_choice,
+                            "legend_position": legend_position_choice, "show_grid": (gridline_choice == "Show gridlines"),
+                            "plot_theme": plot_theme_choice,
                         }
                         st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated comparison plot: {x_col} × {y_col}."})
                     else:
@@ -7869,6 +8009,9 @@ def render_ai_assistant_panel(df):
                             "height": height, "show_values": show_values, "title": title,
                             "metric_mode": metric_mode, "transform": transform_mode, "highlight": highlight_mode,
                             "dual_axis": dual_axis_mode,
+                            "palette_name": professional_palette_choice, "heatmap_scale": heatmap_scale_choice,
+                            "legend_position": legend_position_choice, "show_grid": (gridline_choice == "Show gridlines"),
+                            "plot_theme": plot_theme_choice,
                         }
                         fig, plot_df = _v3_make_single_plot(
                             df, x_col=x_col, chart_type=chart_type, group_col=group_col,
@@ -7876,6 +8019,9 @@ def render_ai_assistant_panel(df):
                             font_size=font_size, title_size=max(font_size + 4, 15), height=height,
                             show_values=show_values, metric_mode=metric_mode, transform=transform_mode,
                             highlight=highlight_mode, dual_axis=(dual_axis_mode != "Off"),
+                            palette=selected_palette, heatmap_scale=selected_heatmap_scale,
+                            legend_position=legend_position_choice, show_grid=(gridline_choice == "Show gridlines"),
+                            theme=plot_theme_choice,
                         )
                         insight = _v3_plot_insight(plot_df, x_col, group_col, metric_label=metric_mode, comparison_mode="Absolute")
                         config.pop("filtered_df", None)
