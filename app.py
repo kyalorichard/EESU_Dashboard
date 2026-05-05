@@ -184,49 +184,37 @@ def render_filter_status_card(df):
 
 
 def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
-    """Render an executive-grade analytics table without changing the underlying records."""
-    if not has_permission("view_data_table"):
-        render_locked_section("Data table", "Detailed record tables are disabled for your current role.")
-        return
-
+    """Render a professional searchable table with alert-impact color formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
 
     display_df = df.copy()
 
-    # Preserve content, only improve display formatting for date-like columns.
     for date_col in ["Date of submission", "creation_date"]:
         if date_col in display_df.columns:
-            display_df[date_col] = pd.to_datetime(display_df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
-
-    n_rows, n_cols = display_df.shape
-    countries = display_df["alert-country"].nunique() if "alert-country" in display_df.columns else 0
-    impacts = display_df["alert-impact"].nunique() if "alert-impact" in display_df.columns else 0
-    years = display_df["year"].nunique() if "year" in display_df.columns else 0
+            display_df[date_col] = pd.to_datetime(
+                display_df[date_col], errors="coerce"
+            ).dt.strftime("%Y-%m-%d")
 
     with st.expander(f"📋 {title}", expanded=False):
-        st.markdown(f"""
+        st.markdown("""
         <div class="executive-table-shell">
             <div class="executive-table-header">
                 <div>
                     <div class="executive-table-eyebrow">Executive analytics table</div>
                     <div class="executive-table-title">Filtered records preview</div>
-                    <div class="executive-table-subtitle">Search, inspect, and export the records represented in the active dashboard view.</div>
+                    <div class="executive-table-subtitle">
+                        Search, inspect, and review the records represented in the active dashboard view.
+                    </div>
                 </div>
                 <div class="executive-table-badge">Live filtered view</div>
-            </div>
-            <div class="executive-metric-grid">
-                <div class="executive-mini-kpi"><span>Rows</span><strong>{n_rows:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Columns</span><strong>{n_cols:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Countries</span><strong>{countries:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Categories</span><strong>{impacts:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Years</span><strong>{years:,}</strong></div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         control_col1, control_col2, control_col3 = st.columns([1.4, 1.1, 0.8])
+
         with control_col1:
             search_text = st.text_input(
                 "Search table",
@@ -234,6 +222,7 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
                 placeholder="Search country, alert type, actor, principle...",
                 key=f"{key}_search",
             )
+
         with control_col2:
             all_columns = list(display_df.columns)
             selected_columns = st.multiselect(
@@ -242,6 +231,7 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
                 default=all_columns,
                 key=f"{key}_columns",
             )
+
         with control_col3:
             max_rows = st.selectbox(
                 "Rows shown",
@@ -255,7 +245,6 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
 
         table_df = display_df[selected_columns].copy()
 
-        # Executive search across visible columns only; underlying data remain unchanged.
         if search_text.strip():
             query = search_text.strip().lower()
             mask = table_df.astype(str).apply(
@@ -264,28 +253,58 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
             )
             table_df = table_df.loc[mask]
 
-        filtered_rows = len(table_df)
         if max_rows != "All":
             table_view = table_df.head(int(max_rows)).copy()
         else:
             table_view = table_df.copy()
 
-        st.markdown(f"""
-        <div class="executive-table-status">
-            <div><strong>{filtered_rows:,}</strong> matching rows displayed from <strong>{n_rows:,}</strong> active records.</div>
-            <div class="executive-table-status-note">Tip: use search and column controls for quick executive review.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        def style_alert_impact(value):
+            value_clean = str(value).strip().lower()
+
+            if value_clean == "negative":
+                return (
+                    "background-color:#FEE4E2;"
+                    "color:#B42318;"
+                    "font-weight:800;"
+                    "border-radius:8px;"
+                )
+
+            if value_clean == "positive":
+                return (
+                    "background-color:#DCFAE6;"
+                    "color:#067647;"
+                    "font-weight:800;"
+                    "border-radius:8px;"
+                )
+
+            if value_clean == "context to watch":
+                return (
+                    "background-color:#FEF0C7;"
+                    "color:#B54708;"
+                    "font-weight:800;"
+                    "border-radius:8px;"
+                )
+
+            return ""
+
+        if "alert-impact" in table_view.columns:
+            styled_table = table_view.style.applymap(
+                style_alert_impact,
+                subset=["alert-impact"],
+            )
+        else:
+            styled_table = table_view
 
         st.dataframe(
-            table_view,
+            styled_table,
             use_container_width=True,
             hide_index=True,
-            height=min(520, max(260, 34 * min(len(table_view), 10) + 88)),
+            height=min(560, max(300, 34 * min(len(table_view), 12) + 88)),
             key=key,
         )
 
         csv = table_df.to_csv(index=False).encode("utf-8")
+
         if has_permission("download_data"):
             st.download_button(
                 "⬇️ Download filtered table as CSV",
@@ -299,9 +318,11 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
             st.caption("CSV download is disabled for your access level.")
 
         st.markdown("""
-        <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, event frequency, or a combination of these factors.</div>
+        <div class="data-preview-footnote">
+            Interpretation note: this table reflects the active filters. 
+            Negative alerts are highlighted in red, positive alerts in green, and context-to-watch records in amber.
+        </div>
         """, unsafe_allow_html=True)
-
 inject_classic_dashboard_css()
 
 
