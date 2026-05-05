@@ -1,7 +1,7 @@
 import streamlit as st
 
-# Firebase Auth remains responsible for login and identity.
-# This file reads admin/power-user email lists from .streamlit/secrets.toml.
+# Firebase/Auth remains responsible for login and identity.
+# This file controls dashboard access levels using .streamlit/secrets.toml.
 
 DEFAULT_ROLE_PERMISSIONS = {
     "admin": "ALL",
@@ -68,8 +68,16 @@ def get_power_user_emails():
     return _get_secret_list("auth", "power_users")
 
 
+def get_power_users():
+    return get_power_user_emails()
+
+
 def is_logged_in():
     return bool(get_current_email())
+
+
+def is_authenticated_user():
+    return is_logged_in()
 
 
 def is_admin():
@@ -90,8 +98,11 @@ def get_current_role():
     return "guest"
 
 
+def get_role():
+    return get_current_role()
+
+
 def is_privileged():
-    """Compatibility wrapper used by the existing dashboard."""
     return get_current_role() in ["admin", "analyst"]
 
 
@@ -103,29 +114,29 @@ def has_permission(permission_name):
     return permission_name in permissions
 
 
-def apply_basic_data_scope(df):
-    """
-    Optional static data scoping from secrets.toml.
-
-    Example:
-    [access_scope."viewer@example.org"]
-    regions = ["Africa"]
-    countries = ["Kenya", "Ethiopia"]
-    years = [2024, 2025]
-    """
+def get_allowed_scope_for_current_user():
     email = get_current_email()
-    if not email or df is None or df.empty:
+    if not email:
+        return {}
+    try:
+        return dict(st.secrets.get("access_scope", {}).get(email, {}))
+    except Exception:
+        return {}
+
+
+def apply_data_scope(df):
+    """Filter dataframe by optional user-level scope. Admins are unrestricted."""
+    if df is None or getattr(df, "empty", True) or is_admin():
         return df
 
-    try:
-        scope = st.secrets.get("access_scope", {}).get(email, {})
-    except Exception:
-        scope = {}
+    scope = get_allowed_scope_for_current_user()
+    if not scope:
+        return df
 
     scoped = df.copy()
-    regions = list(scope.get("regions", [])) if scope else []
-    countries = list(scope.get("countries", [])) if scope else []
-    years = list(scope.get("years", [])) if scope else []
+    regions = scope.get("regions", []) or []
+    countries = scope.get("countries", []) or []
+    years = scope.get("years", []) or []
 
     if regions and "region" in scoped.columns:
         scoped = scoped[scoped["region"].isin(regions)]
@@ -133,19 +144,12 @@ def apply_basic_data_scope(df):
         scoped = scoped[scoped["alert-country"].isin(countries)]
     if years and "year" in scoped.columns:
         scoped = scoped[scoped["year"].isin(years)]
+
     return scoped
 
 
 def render_access_badge():
-    email = get_current_email() or "unknown user"
     role = get_current_role().title()
-    st.sidebar.markdown(
-        f"""
-        <div style="background:#FFFFFF;border:1px solid #E6E8EF;border-radius:14px;padding:10px 11px;box-shadow:0 6px 16px rgba(16,24,40,.05);font-family:Arial,sans-serif;">
-            <div style="font-size:9px;font-weight:900;color:#660094;letter-spacing:.12em;text-transform:uppercase;">Access role</div>
-            <div style="font-size:12px;font-weight:900;color:#23152F;margin-top:3px;">{role}</div>
-            <div style="font-size:10px;color:#667085;margin-top:3px;word-break:break-word;">{email}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    email = get_current_email() or "Not signed in"
+    st.sidebar.caption(f"Access: **{role}**")
+    st.sidebar.caption(email)
