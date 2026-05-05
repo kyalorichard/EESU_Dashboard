@@ -8334,21 +8334,55 @@ render_feedback_callout()
 # Feedback is rendered as a floating callout and does not push dashboard content downward.
 # Footer image
 
-import os
 import streamlit as st
-from pathlib import Path
+from openai import OpenAI
 
-st.subheader("OpenAI key diagnostic")
+def get_openai_config():
+    import os
 
-st.write("Current working directory:", os.getcwd())
-st.write("Project secrets path exists:", Path(".streamlit/secrets.toml").exists())
-st.write("Env has key:", bool(os.getenv("OPENAI_API_KEY")))
+    api_key = (
+        os.getenv("OPENAI_API_KEY")
+        or st.secrets.get("OPENAI_API_KEY", None)
+        or st.secrets.get("openai", {}).get("OPENAI_API_KEY", None)
+        or st.secrets.get("openai", {}).get("api_key", None)
+    )
 
-try:
-    st.write("st.secrets keys:", list(st.secrets.keys()))
-    st.write("st.secrets has openai:", "OPENAI_API_KEY" in st.secrets)
-except Exception as e:
-    st.error(f"st.secrets error: {e}")
+    model = st.secrets.get("openai", {}).get("model", "gpt-4o-mini")
+
+    return api_key, model
+
+
+st.markdown("## 🧪 OpenAI Test")
+
+api_key, model = get_openai_config()
+
+st.write("Key detected:", bool(api_key))
+st.write("Model:", model)
+
+if st.button("Run OpenAI Test"):
+
+    if not api_key:
+        st.error("❌ No API key found")
+    else:
+        try:
+            client = OpenAI(api_key=api_key)
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "user", "content": "Reply with: OpenAI is working"}
+                ],
+                max_tokens=20,
+            )
+
+            reply = response.choices[0].message.content
+
+            st.success("✅ OpenAI is working!")
+            st.write("Response:", reply)
+
+        except Exception as e:
+            st.error("❌ OpenAI failed")
+            st.code(str(e))
 
 
 # --- Load image and convert to base64 ---
