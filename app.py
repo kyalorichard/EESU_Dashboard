@@ -3677,67 +3677,132 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     return fig
 
 
-def add_chart_info_badge(
-    fig,
-    message,
-    x=0.48,
-    y=1.075,
-    icon="<b>i</b>",
-    badge_color="#660094",
-):
-    """Add a professional hover info badge beside a Plotly chart title.
+def render_professional_chart_title(title, tooltip=None, container=None, title_size=15):
+    """Render an enterprise-style chart title with an optional HTML/CSS info badge.
 
-    Designed for dashboard charts where counts need an interpretation note.
-    Uses paper coordinates so it stays stable under responsive Streamlit rendering.
+    This keeps the information icon outside Plotly, giving better alignment,
+    better hover behavior, and avoiding Plotly annotation limitations.
     """
-    if fig is None:
-        return fig
+    target = container if container is not None else st
 
-    fig.add_annotation(
-        xref="paper",
-        yref="paper",
-        x=x,
-        y=y,
-        text=icon,
-        showarrow=False,
+    tooltip_block = ""
+    if tooltip:
+        tooltip_block = f'''
+        <span class="chart-info-badge" tabindex="0" aria-label="Chart information">
+            i
+            <span class="chart-info-tooltip">{tooltip}</span>
+        </span>
+        '''
 
-        # Clean enterprise-style badge
-        font=dict(
-            color="#FFFFFF",
-            size=10,
-            family="Arial, sans-serif",
-        ),
-        align="center",
-        bgcolor=badge_color,
-        opacity=0.96,
-        bordercolor="rgba(102, 0, 148, 0.18)",
-        borderwidth=0.6,
-        borderpad=4,
+    target.markdown(f'''
+    <style>
+    .chart-title-row {{
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0 2px 0;
+        padding: 0 2px;
+        font-family: Arial, sans-serif;
+    }}
+    .chart-title-text {{
+        color: #23152F;
+        font-size: {title_size}px;
+        font-weight: 900;
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+    }}
+    .chart-info-badge {{
+        position: relative;
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #660094 0%, #7F24A8 100%);
+        color: #FFFFFF;
+        border: 1px solid rgba(102, 0, 148, 0.20);
+        box-shadow: 0 5px 12px rgba(102, 0, 148, 0.18), inset 0 1px 0 rgba(255,255,255,0.25);
+        font-size: 11px;
+        font-weight: 950;
+        line-height: 1;
+        cursor: help;
+        user-select: none;
+    }}
+    .chart-info-badge:hover,
+    .chart-info-badge:focus {{
+        transform: translateY(-1px);
+        box-shadow: 0 7px 16px rgba(102, 0, 148, 0.24), inset 0 1px 0 rgba(255,255,255,0.28);
+        outline: none;
+    }}
+    .chart-info-tooltip {{
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        z-index: 9999;
+        left: 50%;
+        bottom: calc(100% + 10px);
+        transform: translateX(-50%) translateY(3px);
+        width: 280px;
+        max-width: 72vw;
+        background: #1F1F29;
+        color: #FFFFFF;
+        border: 1px solid rgba(255,255,255,0.10);
+        border-left: 4px solid #660094;
+        border-radius: 11px;
+        padding: 9px 11px;
+        box-shadow: 0 14px 30px rgba(16, 24, 40, 0.24);
+        font-size: 11.5px;
+        font-weight: 700;
+        line-height: 1.35;
+        text-align: left;
+        white-space: normal;
+        pointer-events: none;
+        transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+    }}
+    .chart-info-tooltip::after {{
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: #1F1F29 transparent transparent transparent;
+    }}
+    .chart-info-badge:hover .chart-info-tooltip,
+    .chart-info-badge:focus .chart-info-tooltip {{
+        visibility: visible;
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }}
+    </style>
+    <div class="chart-title-row">
+        <div class="chart-title-text">{title}</div>
+        {tooltip_block}
+    </div>
+    ''', unsafe_allow_html=True)
 
-        # Better hover readability
-        hovertext=message,
-        hoverlabel=dict(
-            bgcolor="#1F1F29",
-            bordercolor="#660094",
-            font=dict(
-                color="#FFFFFF",
-                size=12,
-                family="Arial, sans-serif",
+
+def render_plotly_chart_with_title(container, fig, title, tooltip=None, key=None, use_container_width=True):
+    """Render a Plotly chart with an external professional title + info badge."""
+    target = container if container is not None else st
+
+    if fig is not None:
+        current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+        fig.update_layout(
+            title_text="",
+            margin=dict(
+                l=current_margin.get("l", 40),
+                r=current_margin.get("r", 20),
+                t=min(current_margin.get("t", 30), 36),
+                b=current_margin.get("b", 40),
             ),
-        ),
-    )
-
-    # Ensure enough top space for the title + badge on responsive cards.
-    current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
-    fig.update_layout(
-        margin=dict(
-            l=current_margin.get("l", 40),
-            r=current_margin.get("r", 20),
-            t=max(current_margin.get("t", 55), 68),
-            b=current_margin.get("b", 40),
         )
-    )
-    return fig
+
+    render_professional_chart_title(title, tooltip=tooltip, container=target)
+    target.plotly_chart(fig, use_container_width=use_container_width, key=key)
 
 
 ENABLING_PRINCIPLE_MULTI_COUNT_NOTE = (
@@ -3765,29 +3830,25 @@ with tab_overview:
 
         r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
 
+        fig12_title = "Alert distribution across enabling principles"
         fig12 = create_h_stacked_bar(
             a2,
             y="enabling-principle",
             x="count",
             color_col="alert-impact",
-            title="Alert distribution across enabling principles", 
+            title="",
             horizontal=True,
             normalize_labels=False
         )
 
-        # Professional hover info badge: explains multi-counting across enabling principles.
-        fig12 = add_chart_info_badge(
+        # Render with external enterprise-style title + info badge.
+        render_plotly_chart_with_title(
+            r1c2,
             fig12,
-            ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
-            x=0.50,
-            y=1.075,
+            fig12_title,
+            tooltip=ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
+            key="tab1_chart2",
         )
-
-        # Add source line if needed
-        #fig12 = add_source_line(fig12)
-
-        # Render chart in Streamlit
-        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
   
         #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
@@ -4019,22 +4080,24 @@ with tab_negative:
             r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
             r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
           
-            fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
-
-
-            # Professional hover info badge: explains multi-counting across enabling principles.
-            fig23 = add_chart_info_badge(
-                fig23,
-                ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
-                x=0.56,
-                y=1.075,
+            fig23_title = "Negative alert distribution across enabling principles"
+            fig23 = create_bar_chart(
+                m6,
+                "enabling-principle",
+                "count",
+                title="",
+                horizontal=True,
+                normalize_labels=False,
             )
 
-            # Add source line if needed
-            #fig23 = add_source_line(fig23)
-
-            # Render the chart in Streamlit
-            r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
+            # Render with external enterprise-style title + info badge.
+            render_plotly_chart_with_title(
+                r2c3,
+                fig23,
+                fig23_title,
+                tooltip=ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
+                key="tab2_chart6",
+            )
 
             #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
