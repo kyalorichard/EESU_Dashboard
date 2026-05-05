@@ -83,54 +83,76 @@ def _firebase_required_keys():
     return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
 
 
-def init_firebase_client():
+def _firebase_config():
     """
-    Initialize Pyrebase client auth.
+    Return a validated Firebase client config.
 
-    Returns:
-        (firebase_app, firebase_auth) or (None, None)
-
-    Common causes of failure:
-    - pyrebase4 missing from requirements.txt
-    - [firebase] block missing from .streamlit/secrets.toml
-    - Firebase config keys misspelled
-    - invalid Firebase Web API key/config
+    Kept separate from initialization so the dashboard can load normally in
+    guest mode even if Firebase is not configured correctly.
     """
     if not HAS_PYREBASE:
-        st.error("❌ Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy.")
-        return None, None
+        return None, "Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy."
 
     cfg_raw = st.secrets.get("firebase", {})
     if not cfg_raw:
-        st.error("❌ Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`.")
-        return None, None
+        return None, "Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`."
 
     cfg = dict(cfg_raw)
-
     missing = [k for k in _firebase_required_keys() if not cfg.get(k)]
     if missing:
-        st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
-        return None, None
+        return None, "Firebase config is incomplete. Missing keys: " + ", ".join(missing)
 
-    # Pyrebase often expects databaseURL to exist, even if unused.
+    # Pyrebase expects this key even when Realtime Database is not used.
     cfg.setdefault("databaseURL", "")
+    return cfg, None
+
+
+@st.cache_resource(show_spinner=False)
+def get_firebase_client_cached():
+    """
+    Stable cached Firebase client.
+
+    Streamlit reruns the script frequently. Initializing Firebase globally on
+    every rerun can make login unstable. This cached resource keeps the Pyrebase
+    client stable for the running app process.
+    """
+    cfg, error = _firebase_config()
+    if error:
+        return None, None, error
 
     try:
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
         if not auth:
-            st.error("❌ Firebase auth object was not created.")
-            return None, None
-        if DEBUG:
-            st.success("Firebase authentication initialized successfully.")
-        return firebase, auth
+            return None, None, "Firebase auth object was not created."
+        return firebase, auth, None
     except Exception as e:
-        st.error(f"❌ Firebase initialization failed: {e}")
-        return None, None
+        return None, None, f"Firebase initialization failed: {e}"
 
 
-firebase_admin_app = init_firebase_admin()
-firebase_client, firebase_auth = init_firebase_client()
+@st.cache_resource(show_spinner=False)
+def get_firebase_admin_cached():
+    """Stable cached Firebase Admin app, used only when available."""
+    return init_firebase_admin()
+
+
+def get_firebase_auth(show_error=False):
+    """
+    Get Firebase auth safely.
+
+    This function prevents normal dashboard usage from being blocked by Firebase
+    errors. Errors are shown only from the login/register/reset flows.
+    """
+    firebase, auth, error = get_firebase_client_cached()
+    if error and show_error:
+        st.error(f"❌ {error}")
+    return auth
+
+
+# Keep these names for compatibility with any other modules importing them.
+firebase_admin_app = None
+firebase_client = None
+firebase_auth = None
 
 
 # -----------------------------
@@ -154,6 +176,9 @@ def init_session():
         "name": None,
         "role": None,
         "email_verified": False,
+        "id_token": None,
+        "refresh_token": None,
+        "token_created_at": None,
         "restored": False,
         "auth_mode": "Login",
         "auth_remember": False,
@@ -216,6 +241,14 @@ def get_cookies():
 
 
 def restore_session():
+    """
+    Restore a lightweight remembered session.
+
+    This restores dashboard role state only. It does not try to keep a Firebase
+    ID token alive forever, because Pyrebase token refresh is not consistently
+    reliable in all Streamlit deployments. Users can simply sign in again when
+    the Firebase token expires.
+    """
     if st.session_state.get("restored"):
         return
 
@@ -223,36 +256,51 @@ def restore_session():
     if cookies and cookies.ready():
         try:
             if "email" in cookies:
-                st.session_state.user = True
-                st.session_state.email = str(cookies.get("email") or "").lower().strip()
-                st.session_state.name = cookies.get("name")
-                st.session_state.role = cookies.get("role")
-                st.session_state.email_verified = str(cookies.get("email_verified", "False")) == "True"
+                email = str(cookies.get("email") or "").lower().strip()
+                verified = str(cookies.get("email_verified", "False")) == "True"
+                role = str(cookies.get("role") or ("privileged" if verified else "restricted"))
+
+                st.session_state.user = bool(email)
+                st.session_state.email = email
+                st.session_state.name = cookies.get("name") or email.split("@")[0].replace(".", " ").title()
+                st.session_state.role = role
+                st.session_state.email_verified = verified
         except Exception as e:
             if DEBUG:
                 st.sidebar.warning(f"Error restoring session: {e}")
+
     st.session_state.restored = True
 
 
 def _save_cookie_session(email, name, verified, role, remember=False):
+    """
+    Save only safe, non-sensitive dashboard session metadata.
+
+    Do not store Firebase ID tokens in cookies. This avoids token expiry and
+    security issues causing login to break after some time.
+    """
     if not remember:
         return
+
     cookies = get_cookies()
     if cookies and cookies.ready():
         cookies["email"] = str(email or "").lower().strip()
-        cookies["name"] = name
+        cookies["name"] = str(name or "")
         cookies["email_verified"] = str(bool(verified))
-        cookies["role"] = role
+        cookies["role"] = str(role or "guest")
         try:
             cookies.save()
         except Exception:
             pass
 
 
-def logout():
+def _clear_cookie_session():
     cookies = get_cookies()
     if cookies and cookies.ready():
-        for key in ["email", "name", "role", "email_verified"]:
+        for key in [
+            "email", "name", "role", "email_verified",
+            "id_token", "refresh_token", "local_id"
+        ]:
             if key in cookies:
                 del cookies[key]
         try:
@@ -260,13 +308,41 @@ def logout():
         except Exception:
             pass
 
+
+def logout():
+    _clear_cookie_session()
+
     for key in [
-        "user", "email", "name", "role", "email_verified", "restored",
-        "auth_mode", "auth_remember", "auth_view"
+        "user", "email", "name", "role", "email_verified",
+        "id_token", "refresh_token", "token_created_at",
+        "restored", "auth_mode", "auth_remember", "auth_view"
     ]:
         if key in st.session_state:
             del st.session_state[key]
+
     st.rerun()
+
+
+def _set_logged_in_session(email, verified, role, remember, user_payload=None):
+    """Centralized session write after a successful Firebase sign-in."""
+    name = email.split("@")[0].replace(".", " ").title()
+
+    st.session_state.user = True
+    st.session_state.email = email
+    st.session_state.name = name
+    st.session_state.email_verified = bool(verified)
+    st.session_state.role = role
+    st.session_state.auth_remember = bool(remember)
+    st.session_state.auth_view = False
+    st.session_state.restored = True
+
+    # Store tokens only in Streamlit session_state, not persistent cookies.
+    if user_payload:
+        st.session_state.id_token = user_payload.get("idToken")
+        st.session_state.refresh_token = user_payload.get("refreshToken")
+        st.session_state.token_created_at = time.time()
+
+    _save_cookie_session(email, name, verified, role, remember)
 
 
 def parse_error(e):
@@ -625,31 +701,40 @@ def _login_form():
         submitted = st.form_submit_button("Sign in to dashboard", use_container_width=True)
 
     if submitted:
-        if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+        auth_obj = get_firebase_auth(show_error=True)
+
+        if not auth_obj:
+            st.warning("Login is temporarily unavailable. The dashboard remains available in guest mode.")
             return
+
         if not email or not password:
             st.error("Enter email and password.")
             return
+
         if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Access is restricted to approved domains.")
             return
+
         try:
-            user = firebase_auth.sign_in_with_email_and_password(email, password)
-            info = firebase_auth.get_account_info(user["idToken"])
+            user = auth_obj.sign_in_with_email_and_password(email, password)
+            info = auth_obj.get_account_info(user["idToken"])
             verified = bool(info["users"][0].get("emailVerified", False))
             role = "privileged" if verified else "restricted"
 
-            st.session_state.user = True
-            st.session_state.email = email
-            st.session_state.name = email.split("@")[0].replace(".", " ").title()
-            st.session_state.email_verified = verified
-            st.session_state.role = role
-            st.session_state.auth_remember = remember
-            st.session_state.auth_view = False
-            _save_cookie_session(email, st.session_state.name, verified, role, remember)
+            if not verified:
+                st.warning("Your account is signed in but email verification is still pending. Please verify your email to unlock privileged access.")
+
+            _set_logged_in_session(
+                email=email,
+                verified=verified,
+                role=role,
+                remember=remember,
+                user_payload=user,
+            )
+
             st.success("Signed in successfully. Redirecting to dashboard...")
             st.rerun()
+
         except Exception as e:
             st.error(parse_error(e))
 
@@ -669,18 +754,23 @@ def _register_form():
         submitted = st.form_submit_button("Create account", use_container_width=True)
 
     if submitted:
-        if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+        auth_obj = get_firebase_auth(show_error=True)
+
+        if not auth_obj:
+            st.warning("Account registration is temporarily unavailable. The dashboard remains available in guest mode.")
             return
+
         if not email or not password:
             st.error("Enter email and password.")
             return
+
         if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Registration is restricted to approved domains.")
             return
+
         try:
-            user = firebase_auth.create_user_with_email_and_password(email, password)
-            firebase_auth.send_email_verification(user["idToken"])
+            user = auth_obj.create_user_with_email_and_password(email, password)
+            auth_obj.send_email_verification(user["idToken"])
             st.success("Registration successful. Check your email to verify your account, then sign in.")
         except Exception as e:
             st.error(parse_error(e))
@@ -695,17 +785,22 @@ def _reset_form():
         submitted = st.form_submit_button("Send password reset link", use_container_width=True)
 
     if submitted:
-        if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+        auth_obj = get_firebase_auth(show_error=True)
+
+        if not auth_obj:
+            st.warning("Password reset is temporarily unavailable because login services are not configured.")
             return
+
         if not reset_email:
             st.warning("Enter your email first.")
             return
+
         if PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
             st.error("Password reset is restricted to approved domains.")
             return
+
         try:
-            firebase_auth.send_password_reset_email(reset_email)
+            auth_obj.send_password_reset_email(reset_email)
             st.success("Password reset email sent.")
         except Exception as e:
             st.error(parse_error(e))
