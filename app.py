@@ -3677,27 +3677,112 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     return fig
 
 
-# ---------------- PROFESSIONAL IN-CHART INFO BADGE ----------------
+# ---------------- PROFESSIONAL TITLE-AWARE IN-CHART INFO BADGE ----------------
+def _strip_plotly_html(text):
+    """Return plain title text for width estimation only."""
+    if text is None:
+        return ""
+    return re.sub(r"<[^>]+>", "", str(text)).replace("&nbsp;", " ").strip()
+
+
+def _estimate_badge_x_from_title(
+    title_text,
+    title_x=0.5,
+    title_xanchor="center",
+    title_font_size=14,
+    chart_width_px=620,
+    right_padding=0.018,
+    max_x=0.985,
+):
+    """Estimate a Plotly paper-coordinate x position immediately after the title.
+
+    Plotly does not expose rendered title pixel width to Python/Streamlit before
+    rendering, so this uses a conservative text-width estimate. It keeps the badge
+    visually attached to the title while staying inside the Plotly chart area.
+    """
+    clean_title = _strip_plotly_html(title_text)
+    if not clean_title:
+        return min(max(title_x + 0.055, 0.04), max_x)
+
+    # Approximate average glyph width for Arial-like dashboard font.
+    estimated_title_px = len(clean_title) * title_font_size * 0.50
+    title_width_paper = estimated_title_px / max(float(chart_width_px), 1.0)
+
+    if title_xanchor == "left":
+        badge_x = title_x + title_width_paper + right_padding
+    elif title_xanchor == "right":
+        badge_x = title_x + right_padding
+    else:
+        # Centered title: right edge is center + half the title width.
+        badge_x = title_x + (title_width_paper / 2.0) + right_padding
+
+    return min(max(badge_x, 0.04), max_x)
+
+
 def add_chart_info_badge(
     fig,
     message,
-    x=0.58,
+    x=None,
     y=1.065,
     badge_text="<b>i</b>",
+    chart_width_px=620,
+    title_x=None,
+    title_xanchor=None,
 ):
-    """Add a compact Plotly-native info badge inside the chart title area.
+    """Add a compact Plotly-native info badge aligned next to the chart title.
 
-    This keeps the icon inside the Plotly chart/card instead of rendering a
-    separate Streamlit title row. The hoverlabel syntax is fully compatible
-    with Plotly annotations.
+    This avoids external Streamlit HTML/popovers, keeps the chart layout consistent,
+    and uses only Plotly-valid annotation properties.
+
+    Parameters
+    ----------
+    fig : plotly.graph_objects.Figure
+        Chart figure to update.
+    message : str
+        Tooltip text shown on hover. HTML line breaks are supported.
+    x : float | None
+        Optional manual paper-coordinate x override. Leave as None for automatic
+        title-aware placement.
+    y : float
+        Paper-coordinate vertical position in the title band.
+    chart_width_px : int
+        Approximate rendered chart width. Use ~620 for two-column charts and
+        ~430-500 for three-column charts.
+    title_x, title_xanchor : optional
+        Overrides if your chart titles are manually aligned.
     """
     if fig is None:
         return fig
 
+    title = fig.layout.title
+    title_text = getattr(title, "text", "") or ""
+
+    inferred_title_x = title_x
+    if inferred_title_x is None:
+        inferred_title_x = getattr(title, "x", None)
+        inferred_title_x = 0.5 if inferred_title_x is None else inferred_title_x
+
+    inferred_xanchor = title_xanchor
+    if inferred_xanchor is None:
+        inferred_xanchor = getattr(title, "xanchor", None) or "center"
+
+    title_font = getattr(title, "font", None)
+    inferred_font_size = getattr(title_font, "size", None) or 14
+
+    badge_x = x
+    if badge_x is None:
+        badge_x = _estimate_badge_x_from_title(
+            title_text=title_text,
+            title_x=float(inferred_title_x),
+            title_xanchor=str(inferred_xanchor),
+            title_font_size=float(inferred_font_size),
+            chart_width_px=chart_width_px,
+        )
+
     fig.add_annotation(
         xref="paper",
         yref="paper",
-        x=x,
+        x=badge_x,
         y=y,
         text=badge_text,
         showarrow=False,
@@ -3726,13 +3811,13 @@ def add_chart_info_badge(
         ),
     )
 
-    # Reserve enough top space for title, legend, and badge on all screen sizes.
+    # Reserve consistent top space for title, legend, and badge.
     current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
     fig.update_layout(
         margin=dict(
             l=current_margin.get("l", 135),
             r=current_margin.get("r", 28),
-            t=max(int(current_margin.get("t", 58) or 58), 66),
+            t=max(int(current_margin.get("t", 58) or 58), 70),
             b=current_margin.get("b", 58),
         )
     )
@@ -3774,8 +3859,8 @@ with tab_overview:
                 "Alerts may be classified under more than one enabling principle "
                 "<br>and can therefore be counted in multiple principles."
             ),
-            x=0.58,
             y=1.065,
+            chart_width_px=620,
         )
 
         # Add source line if needed
@@ -4023,8 +4108,8 @@ with tab_negative:
                     "Alerts may be classified under more than one enabling principle "
                     "<br>and can therefore be counted in multiple principles."
                 ),
-                x=0.64,
                 y=1.065,
+                chart_width_px=460,
             )
 
             # Add source line if needed
