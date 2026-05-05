@@ -3678,112 +3678,72 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
 
 
 def render_professional_chart_title(title, tooltip=None, container=None, title_size=15):
-    """Render an enterprise-style chart title with an optional HTML/CSS info badge.
+    """Render a clean Streamlit-native chart title with an optional info popover.
 
-    This keeps the information icon outside Plotly, giving better alignment,
-    better hover behavior, and avoiding Plotly annotation limitations.
+    This avoids placing HTML inside Plotly titles and avoids raw HTML appearing
+    in the dashboard. The tooltip is rendered by Streamlit, while Plotly keeps
+    only the chart body.
     """
     target = container if container is not None else st
 
-    tooltip_block = ""
-    if tooltip:
-        tooltip_block = f'''
-        <span class="chart-info-badge" tabindex="0" aria-label="Chart information">
-            i
-            <span class="chart-info-tooltip">{tooltip}</span>
-        </span>
-        '''
-
-    target.markdown(f'''
+    # Lightweight button styling for the native popover trigger.
+    target.markdown("""
     <style>
-    .chart-title-row {{
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 4px 0 2px 0;
-        padding: 0 2px;
-        font-family: Arial, sans-serif;
-    }}
-    .chart-title-text {{
-        color: #23152F;
-        font-size: {title_size}px;
-        font-weight: 900;
-        line-height: 1.15;
-        letter-spacing: -0.01em;
-    }}
-    .chart-info-badge {{
-        position: relative;
-        width: 18px;
-        height: 18px;
-        min-width: 18px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #660094 0%, #7F24A8 100%);
-        color: #FFFFFF;
-        border: 1px solid rgba(102, 0, 148, 0.20);
-        box-shadow: 0 5px 12px rgba(102, 0, 148, 0.18), inset 0 1px 0 rgba(255,255,255,0.25);
-        font-size: 11px;
-        font-weight: 950;
-        line-height: 1;
-        cursor: help;
-        user-select: none;
-    }}
-    .chart-info-badge:hover,
-    .chart-info-badge:focus {{
+    .eusee-chart-title-row [data-testid="stMarkdownContainer"] p {
+        margin-bottom: 0 !important;
+    }
+    div[data-testid="stPopover"] > button {
+        border-radius: 999px !important;
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        padding: 0 !important;
+        border: 1px solid rgba(102, 0, 148, 0.18) !important;
+        background: linear-gradient(135deg, #660094 0%, #7F24A8 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 900 !important;
+        box-shadow: 0 6px 14px rgba(102, 0, 148, 0.18) !important;
+    }
+    div[data-testid="stPopover"] > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 7px 16px rgba(102, 0, 148, 0.24), inset 0 1px 0 rgba(255,255,255,0.28);
-        outline: none;
-    }}
-    .chart-info-tooltip {{
-        visibility: hidden;
-        opacity: 0;
-        position: absolute;
-        z-index: 9999;
-        left: 50%;
-        bottom: calc(100% + 10px);
-        transform: translateX(-50%) translateY(3px);
-        width: 280px;
-        max-width: 72vw;
-        background: #1F1F29;
-        color: #FFFFFF;
-        border: 1px solid rgba(255,255,255,0.10);
-        border-left: 4px solid #660094;
-        border-radius: 11px;
-        padding: 9px 11px;
-        box-shadow: 0 14px 30px rgba(16, 24, 40, 0.24);
-        font-size: 11.5px;
-        font-weight: 700;
-        line-height: 1.35;
-        text-align: left;
-        white-space: normal;
-        pointer-events: none;
-        transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
-    }}
-    .chart-info-tooltip::after {{
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border-width: 6px;
-        border-style: solid;
-        border-color: #1F1F29 transparent transparent transparent;
-    }}
-    .chart-info-badge:hover .chart-info-tooltip,
-    .chart-info-badge:focus .chart-info-tooltip {{
-        visibility: visible;
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }}
+        box-shadow: 0 8px 18px rgba(102, 0, 148, 0.24) !important;
+    }
     </style>
-    <div class="chart-title-row">
-        <div class="chart-title-text">{title}</div>
-        {tooltip_block}
-    </div>
-    ''', unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
+    title_col, info_col = target.columns([0.94, 0.06], vertical_alignment="center")
+    with title_col:
+        st.markdown(
+            f"""
+            <div class="eusee-chart-title-row" style="
+                color:#23152F;
+                font-size:{title_size}px;
+                font-weight:900;
+                line-height:1.15;
+                letter-spacing:-0.01em;
+                font-family:Arial, sans-serif;
+                margin:2px 0 0 0;
+            ">{title}</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if tooltip:
+        tooltip_clean = str(tooltip).replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
+        with info_col:
+            if hasattr(st, "popover"):
+                with st.popover("i", help="Chart information", use_container_width=False):
+                    st.markdown(
+                        f"""
+                        <div style="font-family:Arial, sans-serif; font-size:12px; line-height:1.45; color:#344054;">
+                            <strong style="color:#660094;">Chart note</strong><br>
+                            {tooltip_clean.replace(chr(10), '<br>')}
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.caption("ℹ️")
 
 def render_plotly_chart_with_title(container, fig, title, tooltip=None, key=None, use_container_width=True):
     """Render a Plotly chart with an external professional title + info badge."""
