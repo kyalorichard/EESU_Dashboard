@@ -10,6 +10,9 @@ import plotly.graph_objects as go
 import base64
 from auth import auth_ui, is_privileged, is_authenticated
 
+from authz import is_admin, get_current_email
+from admin_page import render_admin_page
+
 # Optional admin page integration. Firebase/Auth still handles login;
 # authz.py reads admin emails from .streamlit/secrets.toml.
 try:
@@ -177,45 +180,76 @@ def render_filter_status_card(df):
 
 
 def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
-    """Render an executive-grade analytics table without changing the underlying records."""
+    """Render an executive-grade analytics table with hover-based metadata (clean UX)."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
 
     display_df = df.copy()
 
-    # Preserve content, only improve display formatting for date-like columns.
+    # Format date columns
     for date_col in ["Date of submission", "creation_date"]:
         if date_col in display_df.columns:
             display_df[date_col] = pd.to_datetime(display_df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
 
+    # --- Metrics (kept for tooltip only) ---
     n_rows, n_cols = display_df.shape
     countries = display_df["alert-country"].nunique() if "alert-country" in display_df.columns else 0
     impacts = display_df["alert-impact"].nunique() if "alert-impact" in display_df.columns else 0
     years = display_df["year"].nunique() if "year" in display_df.columns else 0
 
+    metrics_tooltip = (
+        f"Rows: {n_rows:,} | "
+        f"Columns: {n_cols:,} | "
+        f"Countries: {countries:,} | "
+        f"Categories: {impacts:,} | "
+        f"Years: {years:,}"
+    )
+
     with st.expander(f"📋 {title}", expanded=False):
+
+        # --- HEADER WITH TOOLTIP ICON ---
         st.markdown(f"""
         <div class="executive-table-shell">
             <div class="executive-table-header">
                 <div>
                     <div class="executive-table-eyebrow">Executive analytics table</div>
-                    <div class="executive-table-title">Filtered records preview</div>
-                    <div class="executive-table-subtitle">Search, inspect, and export the records represented in the active dashboard view.</div>
+                    
+                    <div class="executive-table-title">
+                        Filtered records preview
+                        <span 
+                            style="
+                                display:inline-flex;
+                                align-items:center;
+                                justify-content:center;
+                                margin-left:6px;
+                                width:18px;
+                                height:18px;
+                                border-radius:50%;
+                                background:#F4EAF8;
+                                color:#660094;
+                                border:1px solid #E7D4F1;
+                                font-size:11px;
+                                font-weight:900;
+                                cursor:help;
+                            "
+                            title="{metrics_tooltip}"
+                        >i</span>
+                    </div>
+
+                    <div class="executive-table-subtitle">
+                        Search, inspect, and export the records represented in the active dashboard view.
+                    </div>
                 </div>
+
                 <div class="executive-table-badge">Live filtered view</div>
-            </div>
-            <div class="executive-metric-grid">
-                <div class="executive-mini-kpi"><span>Rows</span><strong>{n_rows:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Columns</span><strong>{n_cols:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Countries</span><strong>{countries:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Categories</span><strong>{impacts:,}</strong></div>
-                <div class="executive-mini-kpi"><span>Years</span><strong>{years:,}</strong></div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+        # --- CONTROLS ---
         control_col1, control_col2, control_col3 = st.columns([1.4, 1.1, 0.8])
+
         with control_col1:
             search_text = st.text_input(
                 "Search table",
@@ -223,6 +257,7 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
                 placeholder="Search country, alert type, actor, principle...",
                 key=f"{key}_search",
             )
+
         with control_col2:
             all_columns = list(display_df.columns)
             selected_columns = st.multiselect(
@@ -231,6 +266,7 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
                 default=all_columns,
                 key=f"{key}_columns",
             )
+
         with control_col3:
             max_rows = st.selectbox(
                 "Rows shown",
@@ -244,7 +280,7 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
 
         table_df = display_df[selected_columns].copy()
 
-        # Executive search across visible columns only; underlying data remain unchanged.
+        # --- SEARCH ---
         if search_text.strip():
             query = search_text.strip().lower()
             mask = table_df.astype(str).apply(
@@ -254,18 +290,21 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
             table_df = table_df.loc[mask]
 
         filtered_rows = len(table_df)
+
         if max_rows != "All":
             table_view = table_df.head(int(max_rows)).copy()
         else:
             table_view = table_df.copy()
 
+        # --- STATUS LINE (CLEAN, MINIMAL) ---
         st.markdown(f"""
         <div class="executive-table-status">
-            <div><strong>{filtered_rows:,}</strong> matching rows displayed from <strong>{n_rows:,}</strong> active records.</div>
-            <div class="executive-table-status-note">Tip: use search and column controls for quick executive review.</div>
+            <div><strong>{filtered_rows:,}</strong> matching rows displayed</div>
+            <div class="executive-table-status-note">Use search and column controls for quick review.</div>
         </div>
         """, unsafe_allow_html=True)
 
+        # --- TABLE ---
         st.dataframe(
             table_view,
             use_container_width=True,
@@ -274,23 +313,28 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
             key=key,
         )
 
+        # --- DOWNLOAD ---
         csv = table_df.to_csv(index=False).encode("utf-8")
         if has_permission("download_data"):
             st.download_button(
                 "⬇️ Download filtered table as CSV",
-            data=csv,
-            file_name=f"{key}.csv",
-            mime="text/csv",
-            use_container_width=True,
+                data=csv,
+                file_name=f"{key}.csv",
+                mime="text/csv",
+                use_container_width=True,
                 key=f"{key}_download",
             )
         else:
             st.caption("CSV download is disabled for your access level.")
 
+        # --- FOOTNOTE ---
         st.markdown("""
-        <div class="data-preview-footnote">Interpretation note: this table reflects the active filters. Counts may reflect reporting volume, monitoring coverage, event frequency, or a combination of these factors.</div>
+        <div class="data-preview-footnote">
+        Interpretation note: this table reflects the active filters. Counts may reflect reporting volume,
+        monitoring coverage, or event frequency.
+        </div>
         """, unsafe_allow_html=True)
-
+        
 inject_classic_dashboard_css()
 
 # ---------------- AUTH ROUTING STATE ----------------
