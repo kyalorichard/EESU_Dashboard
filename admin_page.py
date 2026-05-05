@@ -7,7 +7,42 @@ from typing import Dict, List
 
 import pandas as pd
 import streamlit as st
+import pandas as pd
+from datetime import datetime
 
+try:
+    from authz import (
+        get_current_email,
+        get_role,
+        is_admin,
+        has_permission,
+        get_admin_emails,
+        get_power_users,
+    )
+except ImportError:
+    def get_current_email():
+        return st.session_state.get("email", "").lower().strip()
+
+    def get_admin_emails():
+        return [e.lower() for e in st.secrets.get("auth", {}).get("admin_emails", [])]
+
+    def get_power_users():
+        return [e.lower() for e in st.secrets.get("auth", {}).get("power_users", [])]
+
+    def is_admin():
+        return get_current_email() in get_admin_emails()
+
+    def get_role():
+        if is_admin():
+            return "admin"
+        if get_current_email() in get_power_users():
+            return "analyst"
+        if get_current_email():
+            return "viewer"
+        return "guest"
+
+    def has_permission(permission):
+        return is_admin()
 from authz import (
     DEFAULT_DATA_SCOPE,
     DEFAULT_FEATURE_TOGGLES,
