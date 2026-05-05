@@ -3677,98 +3677,66 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     return fig
 
 
-def render_professional_chart_title(title, tooltip=None, container=None, title_size=15):
-    """Render a clean Streamlit-native chart title with an optional info popover.
+# ---------------- PROFESSIONAL IN-CHART INFO BADGE ----------------
+def add_chart_info_badge(
+    fig,
+    message,
+    x=0.58,
+    y=1.065,
+    badge_text="<b>i</b>",
+):
+    """Add a compact Plotly-native info badge inside the chart title area.
 
-    This avoids placing HTML inside Plotly titles and avoids raw HTML appearing
-    in the dashboard. The tooltip is rendered by Streamlit, while Plotly keeps
-    only the chart body.
+    This keeps the icon inside the Plotly chart/card instead of rendering a
+    separate Streamlit title row. The hoverlabel syntax is fully compatible
+    with Plotly annotations.
     """
-    target = container if container is not None else st
+    if fig is None:
+        return fig
 
-    # Lightweight button styling for the native popover trigger.
-    target.markdown("""
-    <style>
-    .eusee-chart-title-row [data-testid="stMarkdownContainer"] p {
-        margin-bottom: 0 !important;
-    }
-    div[data-testid="stPopover"] > button {
-        border-radius: 999px !important;
-        width: 28px !important;
-        height: 28px !important;
-        min-width: 28px !important;
-        padding: 0 !important;
-        border: 1px solid rgba(102, 0, 148, 0.18) !important;
-        background: linear-gradient(135deg, #660094 0%, #7F24A8 100%) !important;
-        color: #FFFFFF !important;
-        font-weight: 900 !important;
-        box-shadow: 0 6px 14px rgba(102, 0, 148, 0.18) !important;
-    }
-    div[data-testid="stPopover"] > button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 18px rgba(102, 0, 148, 0.24) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    title_col, info_col = target.columns([0.94, 0.06], vertical_alignment="center")
-    with title_col:
-        st.markdown(
-            f"""
-            <div class="eusee-chart-title-row" style="
-                color:#23152F;
-                font-size:{title_size}px;
-                font-weight:900;
-                line-height:1.15;
-                letter-spacing:-0.01em;
-                font-family:Arial, sans-serif;
-                margin:2px 0 0 0;
-            ">{title}</div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    if tooltip:
-        tooltip_clean = str(tooltip).replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
-        with info_col:
-            if hasattr(st, "popover"):
-                with st.popover("i", help="Chart information", use_container_width=False):
-                    st.markdown(
-                        f"""
-                        <div style="font-family:Arial, sans-serif; font-size:12px; line-height:1.45; color:#344054;">
-                            <strong style="color:#660094;">Chart note</strong><br>
-                            {tooltip_clean.replace(chr(10), '<br>')}
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.caption("ℹ️")
-
-def render_plotly_chart_with_title(container, fig, title, tooltip=None, key=None, use_container_width=True):
-    """Render a Plotly chart with an external professional title + info badge."""
-    target = container if container is not None else st
-
-    if fig is not None:
-        current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
-        fig.update_layout(
-            title_text="",
-            margin=dict(
-                l=current_margin.get("l", 40),
-                r=current_margin.get("r", 20),
-                t=min(current_margin.get("t", 30), 36),
-                b=current_margin.get("b", 40),
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=x,
+        y=y,
+        text=badge_text,
+        showarrow=False,
+        xanchor="center",
+        yanchor="middle",
+        align="center",
+        font=dict(
+            family=CHART_FONT,
+            size=10,
+            color="#FFFFFF",
+        ),
+        bgcolor="#660094",
+        bordercolor="rgba(102,0,148,0.22)",
+        borderwidth=1,
+        borderpad=4,
+        opacity=0.96,
+        hovertext=message,
+        hoverlabel=dict(
+            bgcolor="#1F1F29",
+            bordercolor="#660094",
+            font=dict(
+                family=CHART_FONT,
+                size=12,
+                color="#FFFFFF",
             ),
+        ),
+    )
+
+    # Reserve enough top space for title, legend, and badge on all screen sizes.
+    current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+    fig.update_layout(
+        margin=dict(
+            l=current_margin.get("l", 135),
+            r=current_margin.get("r", 28),
+            t=max(int(current_margin.get("t", 58) or 58), 66),
+            b=current_margin.get("b", 58),
         )
-
-    render_professional_chart_title(title, tooltip=tooltip, container=target)
-    target.plotly_chart(fig, use_container_width=use_container_width, key=key)
-
-
-ENABLING_PRINCIPLE_MULTI_COUNT_NOTE = (
-    "Alerts may be classified under more than one enabling principle"
-    "<br>and can therefore be counted in multiple principles."
-)
+    )
+    return fig
 
 
 # ---------------- TAB 1 ------------------------
@@ -3790,25 +3758,31 @@ with tab_overview:
 
         r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
 
-        fig12_title = "Alert distribution across enabling principles"
         fig12 = create_h_stacked_bar(
             a2,
             y="enabling-principle",
             x="count",
             color_col="alert-impact",
-            title="",
+            title="Alert distribution across enabling principles", 
             horizontal=True,
             normalize_labels=False
         )
 
-        # Render with external enterprise-style title + info badge.
-        render_plotly_chart_with_title(
-            r1c2,
+        fig12 = add_chart_info_badge(
             fig12,
-            fig12_title,
-            tooltip=ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
-            key="tab1_chart2",
+            message=(
+                "Alerts may be classified under more than one enabling principle "
+                "<br>and can therefore be counted in multiple principles."
+            ),
+            x=0.58,
+            y=1.065,
         )
+
+        # Add source line if needed
+        #fig12 = add_source_line(fig12)
+
+        # Render chart in Streamlit
+        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
   
         #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
@@ -4040,24 +4014,24 @@ with tab_negative:
             r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
             r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
           
-            fig23_title = "Negative alert distribution across enabling principles"
-            fig23 = create_bar_chart(
-                m6,
-                "enabling-principle",
-                "count",
-                title="",
-                horizontal=True,
-                normalize_labels=False,
+            fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
+
+          
+            fig23 = add_chart_info_badge(
+                fig23,
+                message=(
+                    "Alerts may be classified under more than one enabling principle "
+                    "<br>and can therefore be counted in multiple principles."
+                ),
+                x=0.64,
+                y=1.065,
             )
 
-            # Render with external enterprise-style title + info badge.
-            render_plotly_chart_with_title(
-                r2c3,
-                fig23,
-                fig23_title,
-                tooltip=ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
-                key="tab2_chart6",
-            )
+            # Add source line if needed
+            #fig23 = add_source_line(fig23)
+
+            # Render the chart in Streamlit
+            r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
 
             #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
