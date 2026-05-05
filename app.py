@@ -3824,6 +3824,89 @@ def add_chart_info_badge(
     return fig
 
 
+# ---------------- PROFESSIONAL MANUAL TIP ABOVE SELECTED CHARTS ----------------
+def render_chart_manual_tip(message, title="Interpretation note", icon="💡", container=None):
+    """Render a compact, professional manual tip above a chart.
+
+    This avoids Plotly annotation limitations while keeping the guidance visually
+    close to the chart. Pass a Streamlit container/column when the chart is
+    rendered inside columns.
+    """
+    target = container if container is not None else st
+    target.markdown(f"""
+    <div class="eusee-chart-tip" role="note" aria-label="{title}">
+        <div class="eusee-chart-tip-icon">{icon}</div>
+        <div class="eusee-chart-tip-body">
+            <div class="eusee-chart-tip-title">{title}</div>
+            <div class="eusee-chart-tip-text">{message}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def inject_chart_manual_tip_css():
+    """Central styling for compact chart interpretation notes."""
+    st.markdown("""
+    <style>
+    .eusee-chart-tip {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 9px 11px;
+        margin: 2px 0 8px 0;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #FBF7FD 0%, #FFFFFF 72%);
+        border: 1px solid rgba(102, 0, 148, 0.14);
+        border-left: 4px solid #660094;
+        box-shadow: 0 6px 16px rgba(16, 24, 40, 0.055);
+        font-family: Arial, sans-serif;
+    }
+    .eusee-chart-tip-icon {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #660094 0%, #3B005F 100%);
+        color: #FFFFFF;
+        font-size: 12px;
+        font-weight: 900;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 3px 8px rgba(102,0,148,.18);
+    }
+    .eusee-chart-tip-body {
+        min-width: 0;
+        flex: 1;
+    }
+    .eusee-chart-tip-title {
+        color: #2D0055;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        line-height: 1.1;
+        margin-bottom: 3px;
+    }
+    .eusee-chart-tip-text {
+        color: #344054;
+        font-size: 11.5px;
+        font-weight: 650;
+        line-height: 1.35;
+    }
+    @media (max-width: 900px) {
+        .eusee-chart-tip { padding: 8px 10px; }
+        .eusee-chart-tip-text { font-size: 11px; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_chart_manual_tip_css()
+
+
 # ---------------- TAB 1 ------------------------
 with tab_overview:
 
@@ -3853,14 +3936,15 @@ with tab_overview:
             normalize_labels=False
         )
 
-        fig12 = add_chart_info_badge(
-            fig12,
+        # Manual interpretation tip placed directly above the chart for better readability.
+        render_chart_manual_tip(
             message=(
                 "Alerts may be classified under more than one enabling principle "
-                "<br>and can therefore be counted in multiple principles."
+                "and can therefore be counted in multiple principles."
             ),
-            y=1.065,
-            chart_width_px=620,
+            title="Reading this chart",
+            icon="i",
+            container=r1c2,
         )
 
         # Add source line if needed
@@ -4102,14 +4186,15 @@ with tab_negative:
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
           
-            fig23 = add_chart_info_badge(
-                fig23,
+            # Manual interpretation tip placed directly above the chart for better readability.
+            render_chart_manual_tip(
                 message=(
-                    "Alerts may be classified under more than one enabling principle "
-                    "<br>and can therefore be counted in multiple principles."
+                    "Negative alerts may be classified under more than one enabling principle "
+                    "and can therefore be counted in multiple principles."
                 ),
-                y=1.065,
-                chart_width_px=460,
+                title="Reading this chart",
+                icon="i",
+                container=r2c3,
             )
 
             # Add source line if needed
