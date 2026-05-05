@@ -101,7 +101,9 @@ def inject_classic_dashboard_css():
         --eusee-text: #232633;
         --eusee-muted: #667085;
     }
-    .main .block-container { padding-top: 1.5rem; padding-bottom: 2.2rem; max-width: 1500px; }
+    .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
+    header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; background: transparent !important; }
+    div[data-testid="stDecoration"] { display: none !important; }
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
     section[data-testid="stSidebar"] label {
@@ -404,8 +406,8 @@ st.markdown("""
 <style>
 /* ---------------- Title ---------------- */
 .animated-title {
-    margin: 0 0 6px 0;
-    line-height: 1.1;
+    margin: 0 0 4px 0 !important;
+    line-height: 1.05;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
@@ -429,7 +431,7 @@ st.markdown("""
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 16px;
+    margin-bottom: 10px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
@@ -446,8 +448,8 @@ st.markdown("""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 20px;
-    max-width: 900px;
+    margin-bottom: 12px !important;
+    max-width: 980px;
     line-height: 1.5;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
@@ -3710,7 +3712,7 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 18px !important;
+        padding-top: 8px !important;
     }
     </style>
     """,
@@ -4571,10 +4573,18 @@ with tab_map:
                 background:#FFFFFF;
                 border:1px solid #E8EAF0;
                 border-radius:18px;
-                padding:14px;
-                box-shadow:0 12px 28px rgba(17,24,39,.058);
-                margin: 12px 0 16px 0;
+                padding:12px 13px;
+                box-shadow:0 10px 22px rgba(17,24,39,.052);
+                margin: 6px 0 10px 0;
                 font-family:Arial, sans-serif;
+            }
+            .map-layout-tight {
+                margin-top: 4px;
+                margin-bottom: 6px;
+            }
+            .map-support-grid {
+                margin-top: -4px;
+                margin-bottom: 4px;
             }
             .map-panel-title {
                 color:#2D0055;
@@ -4640,9 +4650,9 @@ with tab_map:
                 background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);
                 border:1px solid #E7D4F1;
                 border-radius:18px;
-                padding:15px 16px;
-                box-shadow:0 10px 24px rgba(45,0,85,.07);
-                margin:12px 0 16px 0;
+                padding:12px 14px;
+                box-shadow:0 8px 18px rgba(45,0,85,.06);
+                margin:6px 0 10px 0;
                 font-family:Arial, sans-serif;
             }
             .map-guide-title {
@@ -4690,9 +4700,9 @@ with tab_map:
                 background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
                 border:1px solid #E7D4F1;
                 border-radius:18px;
-                padding:15px 16px;
-                box-shadow:0 10px 24px rgba(45,0,85,.07);
-                margin:12px 0 16px 0;
+                padding:12px 14px;
+                box-shadow:0 8px 18px rgba(45,0,85,.06);
+                margin:6px 0 10px 0;
                 font-family:Arial, sans-serif;
             }
             .priority-title {
@@ -4989,145 +4999,12 @@ with tab_map:
                 else:
                     center, zoom = {"lat": 10, "lon": 0}, 1.6
 
-                # ---------------- Unified premium geospatial analytical panel ----------------
-                st.markdown("""
-                <style>
-                .geo-unified-shell {
-                    background: linear-gradient(180deg, #FFFFFF 0%, #FAFBFF 100%);
-                    border: 1px solid rgba(102, 0, 148, 0.13);
-                    border-radius: 22px;
-                    padding: 14px 16px 16px 16px;
-                    margin: 4px 0 14px 0;
-                    box-shadow: 0 16px 38px rgba(17, 24, 39, 0.075);
-                    font-family: Inter, Arial, sans-serif;
-                }
-                .geo-unified-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    gap: 16px;
-                    padding: 2px 2px 12px 2px;
-                    border-bottom: 1px solid #EEF2F6;
-                    margin-bottom: 12px;
-                }
-                .geo-unified-eyebrow {
-                    font-size: 10px;
-                    font-weight: 950;
-                    letter-spacing: .12em;
-                    text-transform: uppercase;
-                    color: #008CAA;
-                    margin-bottom: 4px;
-                }
-                .geo-unified-title {
-                    font-size: 20px;
-                    font-weight: 950;
-                    color: #2D0055;
-                    line-height: 1.15;
-                    letter-spacing: -0.02em;
-                }
-                .geo-unified-subtitle {
-                    max-width: 980px;
-                    font-size: 12px;
-                    color: #64748B;
-                    line-height: 1.45;
-                    margin-top: 5px;
-                }
-                .geo-unified-badge {
-                    white-space: nowrap;
-                    border-radius: 999px;
-                    padding: 7px 11px;
-                    color: #4B006E;
-                    background: #F4EAF8;
-                    border: 1px solid #E7D4F1;
-                    font-size: 11px;
-                    font-weight: 900;
-                }
-                .geo-map-card,
-                .geo-side-card {
-                    background: #FFFFFF;
-                    border: 1px solid #E8EEF3;
-                    border-radius: 18px;
-                    padding: 12px 13px;
-                    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045);
-                    margin: 0 0 10px 0;
-                }
-                .geo-card-title {
-                    font-size: 13px;
-                    font-weight: 950;
-                    color: #2D0055;
-                    margin-bottom: 3px;
-                }
-                .geo-card-help {
-                    font-size: 11px;
-                    color: #64748B;
-                    line-height: 1.35;
-                    margin-bottom: 8px;
-                }
-                .geo-side-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 8px;
-                    margin-bottom: 10px;
-                }
-                .geo-mini-signal {
-                    background: #F8FAFC;
-                    border: 1px solid #EEF2F6;
-                    border-radius: 14px;
-                    padding: 8px 9px;
-                }
-                .geo-mini-signal span {
-                    display: block;
-                    color: #64748B;
-                    font-size: 9.8px;
-                    font-weight: 850;
-                    margin-bottom: 2px;
-                }
-                .geo-mini-signal strong {
-                    color: #2D0055;
-                    font-size: 15px;
-                    font-weight: 950;
-                }
-                .geo-reading-note {
-                    background: #FFFCED;
-                    border: 1px solid #F5E7A6;
-                    border-radius: 14px;
-                    padding: 9px 10px;
-                    color: #5B4A0A;
-                    font-size: 10.7px;
-                    line-height: 1.35;
-                    margin-top: 8px;
-                }
-                .geo-section-divider {
-                    height: 1px;
-                    background: linear-gradient(90deg, rgba(102,0,148,.20), rgba(0,140,170,.16), rgba(255,219,88,.16));
-                    margin: 10px 0;
-                }
-                @media (max-width: 980px) {
-                    .geo-unified-header {flex-direction: column;}
-                    .geo-unified-badge {white-space: normal;}
-                    .geo-side-grid {grid-template-columns: 1fr;}
-                }
-                </style>
-                """, unsafe_allow_html=True)
+                # ---------------- Map + guided reading panel ----------------
+                st.markdown('<div class="map-layout-tight">', unsafe_allow_html=True)
+                map_col, guide_col = st.columns([1.62, 0.78], gap="medium")
 
-                st.markdown(f"""
-                <div class="geo-unified-shell">
-                    <div class="geo-unified-header">
-                        <div>
-                            <div class="geo-unified-eyebrow">Geospatial intelligence workspace</div>
-                            <div class="geo-unified-title">Unified Map + Country Ranking Panel</div>
-                            <div class="geo-unified-subtitle">
-                                A single analytical workspace combining spatial alert concentration, country ranking, priority watchlist, and country-level drill-down. Use the map for geographic pattern recognition and the ranking panel for rapid executive prioritization.
-                            </div>
-                        </div>
-                        <div class="geo-unified-badge">Coverage: {mapping_coverage}% mapped</div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-                panel_left, panel_right = st.columns([1.55, 0.95], gap="medium")
-
-                with panel_left:
-                    st.markdown('<div class="geo-map-card"><div class="geo-card-title">Spatial distribution of filtered alerts</div><div class="geo-card-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
+                with map_col:
+                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of filtered alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
 
                     if df_map.empty:
                         st.info("No mapped country records are available under the current filters.")
@@ -5188,23 +5065,76 @@ with tab_map:
                         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                with panel_right:
-                    st.markdown(f"""
-                    <div class="geo-side-card">
-                        <div class="geo-card-title">Executive spatial readout</div>
-                        <div class="geo-card-help">Use these signals to interpret the map and ranking together.</div>
-                        <div class="geo-side-grid">
-                            <div class="geo-mini-signal"><span>Highest volume</span><strong>{top_country}</strong></div>
-                            <div class="geo-mini-signal"><span>Priority focus</span><strong>{top_priority_country}</strong></div>
-                            <div class="geo-mini-signal"><span>Mapped countries</span><strong>{mapped_countries:,}</strong></div>
-                            <div class="geo-mini-signal"><span>Avg. negative share</span><strong>{avg_negative_share}%</strong></div>
+                with guide_col:
+                    st.markdown("""
+                    <div class="map-guide-card">
+                        <div class="map-guide-title">🧭 How to read this map</div>
+                        <div class="map-guide-sub">Use this guide to interpret spatial alert patterns consistently and avoid over-reading raw counts.</div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">1</div>
+                            <div class="map-guide-text"><b>Start with intensity:</b> darker countries indicate higher filtered alert volume.</div>
                         </div>
-                        <div class="geo-reading-note"><b>Reading rule:</b> use the map for spatial concentration, then validate with the ranking and priority list. High volume can reflect reporting intensity as well as event concentration.</div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">2</div>
+                            <div class="map-guide-text"><b>Check hover details:</b> compare total, negative, positive, and context-to-watch alerts.</div>
+                        </div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">3</div>
+                            <div class="map-guide-text"><b>Use priority carefully:</b> priority combines negative-alert volume and negative share.</div>
+                        </div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">4</div>
+                            <div class="map-guide-text"><b>Validate with rankings:</b> high alert counts may reflect event frequency, monitoring coverage, or reporting intensity.</div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
 
-                    st.markdown('<div class="geo-side-card"><div class="geo-card-title">Country ranking by alert volume</div><div class="geo-card-help">Top countries by total filtered alert volume.</div>', unsafe_allow_html=True)
-                    rank_df = df_map.sort_values("total_alerts", ascending=False).head(8).copy()
+                    priority_df = df_map.sort_values("priority_score", ascending=False).head(5).copy() if not df_map.empty else pd.DataFrame()
+                    st.markdown("""
+                    <div class="priority-country-panel">
+                        <div class="priority-title">🌍 Top Priority Countries</div>
+                        <div class="priority-sub">Countries ranked by combined negative-alert priority score under the active filters.</div>
+                    """, unsafe_allow_html=True)
+
+                    if priority_df.empty:
+                        st.info("No priority ranking available.")
+                    else:
+                        for rank, (_, r) in enumerate(priority_df.iterrows(), start=1):
+                            priority_label = str(r["priority_level"])
+                            priority_class = priority_label.lower().replace(" ", "-")
+                            st.markdown(
+                                f"""
+                                <div class="priority-row">
+                                    <div class="priority-rank">{rank}</div>
+                                    <div>
+                                        <div class="priority-country" title="{r['alert-country']}">{r['alert-country']}</div>
+                                        <div class="priority-meta">
+                                            Negative <b>{int(r['negative_alerts']):,}</b> · Negative share <b>{r['perc_negative']}%</b>
+                                        </div>
+                                        <span class="priority-badge priority-{priority_class}">{priority_label}</span>
+                                    </div>
+                                    <div class="priority-score"><span>Score</span>{r['priority_score']}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        st.markdown("""
+                            <div class="priority-footnote">
+                                Priority is a triage signal for analytical review. It should be interpreted together with the map hover details, country ranking, and qualitative context.
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # ---------------- Supporting map intelligence panels ----------------
+                st.markdown('<div class="map-support-grid">', unsafe_allow_html=True)
+                p1, p2 = st.columns([1.35, 1], gap="medium")
+                with p1:
+                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">This chart ranks countries by total filtered alert volume. Use it to identify where reporting or event concentration is highest.</div>', unsafe_allow_html=True)
+                    rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
                     if rank_df.empty:
                         st.info("No country ranking available for the current filters.")
                     else:
@@ -5227,42 +5157,19 @@ with tab_map:
                             ),
                         ))
                         fig_rank.update_layout(
-                            height=max(250, len(rank_df) * 31),
-                            margin=dict(l=8, r=40, t=2, b=18),
+                            height=max(300, len(rank_df) * 31),
+                            margin=dict(l=8, r=42, t=4, b=8),
                             xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
-                            yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=10.5, family=MAP_FONT, color="#334155")),
-                            font=dict(family=MAP_FONT, size=10.5, color="#334155"),
+                            yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
+                            font=dict(family=MAP_FONT, size=11, color="#334155"),
                             plot_bgcolor="#ffffff",
                             paper_bgcolor="#ffffff",
                         )
-                        st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar_unified")
+                        st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar")
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                    priority_df = df_map.sort_values("priority_score", ascending=False).head(4).copy() if not df_map.empty else pd.DataFrame()
-                    st.markdown('<div class="geo-side-card"><div class="geo-card-title">Top priority countries</div><div class="geo-card-help">Priority combines negative-alert volume and negative share.</div>', unsafe_allow_html=True)
-                    if priority_df.empty:
-                        st.info("No priority ranking available.")
-                    else:
-                        for rank, (_, r) in enumerate(priority_df.iterrows(), start=1):
-                            priority_label = str(r["priority_level"])
-                            priority_class = priority_label.lower().replace(" ", "-")
-                            st.markdown(
-                                f"""
-                                <div class="priority-row">
-                                    <div class="priority-rank">{rank}</div>
-                                    <div>
-                                        <div class="priority-country" title="{r['alert-country']}">{r['alert-country']}</div>
-                                        <div class="priority-meta">Negative <b>{int(r['negative_alerts']):,}</b> · Negative share <b>{r['perc_negative']}%</b></div>
-                                        <span class="priority-badge priority-{priority_class}">{priority_label}</span>
-                                    </div>
-                                    <div class="priority-score"><span>Score</span>{r['priority_score']}</div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                    st.markdown('<div class="geo-side-card"><div class="geo-card-title">Country intelligence drill-down</div><div class="geo-card-help">Select a country to inspect its mapped alert profile.</div>', unsafe_allow_html=True)
+                with p2:
+                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a clear interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
                     country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
                     selected_map_country = st.selectbox(
                         "Select country for map intelligence",
