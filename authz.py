@@ -1,32 +1,32 @@
 # authz.py
 """
-EU SEE Dashboard authorization helpers.
+EU SEE Dashboard role and permission resolver.
 
-Access model:
-- Firebase Auth handles login identity in auth.py.
-- [auth].admin_emails controls who can open the Admin page.
-- [access].privileged_domains controls which logged-in domains become privileged users.
-- Admin page runtime settings control what Viewer and Privileged users can see.
+Role model:
+- guest: not logged in; public-only access
+- viewer: logged in and verified, but not from approved privileged domain
+- privileged: logged in and verified from approved domain
+- admin: logged in admin email listed in [auth].admin_emails
 
-Recommended secrets.toml:
-[auth]
-admin_emails = ["admin@icarda.org"]
-
-[access]
-privileged_domains = ["icarda.org", "cgiar.org"]
+Admin-selected visibility is stored in admin_visibility_config.json when edited from the Admin page.
 """
-
 from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
+CONFIG_PATH = Path(__file__).resolve().parent / "admin_visibility_config.json"
 
-FEATURE_DEFAULTS = {
+DEFAULT_ROLE_PERMISSIONS: dict[str, dict[str, bool]] = {
     "guest": {
-        "view_dashboard": True,
-        "view_overview": True,
+        "view_public_summary": True,
+        "view_overview": False,
         "view_negative_alerts": False,
-        "view_maps": True,
+        "view_map": False,
+        "view_manual": True,
         "view_data_table": False,
         "view_country_counts": False,
         "download_data": False,
@@ -34,10 +34,11 @@ FEATURE_DEFAULTS = {
         "view_admin_page": False,
     },
     "viewer": {
-        "view_dashboard": True,
+        "view_public_summary": True,
         "view_overview": True,
         "view_negative_alerts": False,
-        "view_maps": True,
+        "view_map": True,
+        "view_manual": True,
         "view_data_table": False,
         "view_country_counts": False,
         "download_data": False,
@@ -45,17 +46,69 @@ FEATURE_DEFAULTS = {
         "view_admin_page": False,
     },
     "privileged": {
-        "view_dashboard": True,
+        "view_public_summary": True,
         "view_overview": True,
         "view_negative_alerts": True,
-        "view_maps": True,
+        "view_map": True,
+        "view_manual": True,
         "view_data_table": True,
         "view_country_counts": True,
         "download_data": True,
         "use_ai_copilot": True,
         "view_admin_page": False,
     },
+    "admin": {
+        "view_public_summary": True,
+        "view_overview": True,
+        "view_negative_alerts": True,
+        "view_map": True,
+        "view_manual": True,
+        "view_data_table": True,
+        "view_country_counts": True,
+        "download_data": True,
+        "use_ai_copilot": True,
+        "view_admin_page": True,
+    },
 }
+
+DEFAULT_DATA_SCOPE: dict[str, dict[str, list[Any]]] = {
+    "guest": {"regions": [], "countries": [], "years": []},
+    "viewer": {"regions": [], "countries": [], "years": []},
+    "privileged": {"regions": [], "countries": [], "years": []},
+    "admin": {"regions": [], "countries": [], "years": []},
+}
+
+
+def _deepcopy_defaults() -> dict[str, Any]:
+    return {
+        "permissions": json.loads(json.dumps(DEFAULT_ROLE_PERMISSIONS)),
+        "data_scope": json.loads(json.dumps(DEFAULT_DATA_SCOPE)),
+    }
+
+
+def load_visibility_config() -> dict[str, Any]:
+    cfg = _deepcopy_defaults()
+    try:
+        if CONFIG_PATH.exists():
+            saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            for role, perms in saved.get("permissions", {}).items():
+                if role in cfg["permissions"] and isinstance(perms, dict):
+                    cfg["permissions"][role].update(perms)
+            for role, scope in saved.get("data_scope", {}).items():
+                if role in cfg["data_scope"] and isinstance(scope, dict):
+                    cfg["data_scope"][role].update(scope)
+    except Exception:
+        pass
+    return cfg
+
+
+def save_visibility_config(config: dict[str, Any]) -> bool:
+    try:
+        CONFIG_PATH.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        return True
+    except Exception as e:
+        st.error(f"Could not save admin visibility config: {e}")
+        return False
 
 
 def get_current_email() -> str:
@@ -68,11 +121,6 @@ def get_current_email() -> str:
     return str(email).lower().strip()
 
 
-def get_email_domain(email: str | None = None) -> str:
-    email = str(email or get_current_email()).lower().strip()
-    return email.split("@")[-1] if "@" in email else ""
-
-
 def get_admin_emails() -> list[str]:
     return [
         str(e).lower().strip()
@@ -82,113 +130,66 @@ def get_admin_emails() -> list[str]:
 
 
 def get_privileged_domains() -> list[str]:
-    # Primary source: [access].privileged_domains, matching auth.py.
-    domains = st.secrets.get("access", {}).get("privileged_domains", [])
-    # Optional alias if you prefer storing under [auth].allowed_domains.
-    if not domains:
-        domains = st.secrets.get("auth", {}).get("allowed_domains", [])
-    return [str(d).lower().strip().lstrip("@") for d in domains if str(d).strip()]
+    return [
+        str(d).lower().strip().lstrip("@")
+        for d in st.secrets.get("access", {}).get("privileged_domains", [])
+        if str(d).strip()
+    ]
 
 
 def is_logged_in() -> bool:
-    return bool(get_current_email() and st.session_state.get("user", False) and st.session_state.get("email_verified", False))
+    return bool(st.session_state.get("user") and st.session_state.get("email_verified") and get_current_email())
 
 
 def is_admin() -> bool:
-    email = get_current_email()
-    return bool(is_logged_in() and email in get_admin_emails())
+    return bool(is_logged_in() and get_current_email() in get_admin_emails())
 
 
-def is_domain_approved() -> bool:
-    """True when the logged-in user's email domain is listed in privileged_domains."""
-    if not is_logged_in():
+def is_privileged_domain(email: str | None = None) -> bool:
+    email = (email or get_current_email()).lower().strip()
+    if not email or "@" not in email:
         return False
-    domains = get_privileged_domains()
-    if not domains:
-        # If no domain list is configured, do not automatically grant privileged rights.
-        return False
-    return get_email_domain() in domains
-
-
-def is_privileged_user() -> bool:
-    return bool(is_admin() or is_domain_approved())
+    domain = email.split("@")[-1]
+    return domain in get_privileged_domains()
 
 
 def get_current_role() -> str:
+    if not is_logged_in():
+        return "guest"
     if is_admin():
         return "admin"
-    if is_domain_approved():
+    if is_privileged_domain():
         return "privileged"
-    if is_logged_in():
-        return "viewer"
-    return "guest"
+    return "viewer"
 
 
-def get_role() -> str:
-    return get_current_role()
-
-
-def _runtime_features_for_role(role: str) -> dict:
-    """Read Admin-page runtime visibility settings, falling back to defaults."""
-    config = st.session_state.get("admin_runtime_config", {}) or {}
-    if role in config and isinstance(config.get(role), dict):
-        features = config[role].get("features", {}) or {}
-        merged = FEATURE_DEFAULTS.get(role, {}).copy()
-        merged.update({k: bool(v) for k, v in features.items()})
-        return merged
-    return FEATURE_DEFAULTS.get(role, {}).copy()
-
-
-def has_permission(permission: str) -> bool:
-    if is_admin():
-        return True
+def has_permission(permission_name: str) -> bool:
     role = get_current_role()
-    return bool(_runtime_features_for_role(role).get(permission, False))
+    if role == "admin":
+        return True
+    cfg = load_visibility_config()
+    return bool(cfg.get("permissions", {}).get(role, {}).get(permission_name, False))
 
 
 def apply_data_scope(df):
-    """Apply role-based data scope. Admins see all data."""
-    if df is None or is_admin():
+    if df is None:
+        return df
+    role = get_current_role()
+    if role == "admin":
         return df
 
-    try:
-        scoped_df = df.copy()
-        role = get_current_role()
+    cfg = load_visibility_config()
+    scope = cfg.get("data_scope", {}).get(role, {})
+    scoped = df.copy()
 
-        # Runtime Admin page config takes priority.
-        runtime_cfg = st.session_state.get("admin_runtime_config", {}) or {}
-        role_cfg = runtime_cfg.get(role, {}) if isinstance(runtime_cfg.get(role, {}), dict) else {}
+    regions = scope.get("regions", []) or []
+    countries = scope.get("countries", []) or []
+    years = scope.get("years", []) or []
 
-        regions = role_cfg.get("regions", None)
-        countries = role_cfg.get("countries", None)
-        years = role_cfg.get("years", None)
-
-        # Fall back to secrets if runtime values are absent.
-        if regions is None or countries is None or years is None:
-            scope = st.secrets.get("data_scope", {}).get(role, {})
-            regions = scope.get("regions", []) if regions is None else regions
-            countries = scope.get("countries", []) if countries is None else countries
-            years = scope.get("years", []) if years is None else years
-
-        if regions and "region" in scoped_df.columns:
-            scoped_df = scoped_df[scoped_df["region"].isin(regions)]
-        if countries and "alert-country" in scoped_df.columns:
-            scoped_df = scoped_df[scoped_df["alert-country"].isin(countries)]
-        if years and "year" in scoped_df.columns:
-            scoped_df = scoped_df[scoped_df["year"].isin(years)]
-        return scoped_df
-    except Exception:
-        return df
-
-
-def access_summary() -> dict:
-    return {
-        "email": get_current_email(),
-        "domain": get_email_domain(),
-        "role": get_current_role(),
-        "is_logged_in": is_logged_in(),
-        "is_admin": is_admin(),
-        "is_domain_approved": is_domain_approved(),
-        "privileged_domains": get_privileged_domains(),
-        "admin_email_count": len(get_admin_emails()),
-    }
+    if regions and "region" in scoped.columns:
+        scoped = scoped[scoped["region"].isin(regions)]
+    if countries and "alert-country" in scoped.columns:
+        scoped = scoped[scoped["alert-country"].isin(countries)]
+    if years and "year" in scoped.columns:
+        scoped = scoped[scoped["year"].isin(years)]
+    return scoped
