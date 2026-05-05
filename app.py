@@ -29,8 +29,19 @@ except Exception:
     def get_current_email():
         return ""
     def has_permission(permission):
-        # Safe fallback: public-only access if authz.py is unavailable.
-        return permission in ["view_public_summary", "view_manual"]
+        return permission in [
+            "view_public_summary",
+            "view_dashboard",
+            "view_overview",
+            "view_coverage_monitored_countries",
+            "view_country_counts",
+            "view_maps",
+            "view_negative_alerts",
+            "view_negative_relationship_intelligence",
+            "view_analytical_flow_panel",
+            "view_data_table",
+            "view_user_manual",
+        ]
     def apply_data_scope(df):
         return df
     def render_admin_page(data=None):
