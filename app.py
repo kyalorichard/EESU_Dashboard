@@ -8342,11 +8342,11 @@ st.subheader("OpenAI key diagnostic")
 
 st.write("Current working directory:", os.getcwd())
 st.write("Project secrets path exists:", Path(".streamlit/secrets.toml").exists())
-st.write("Env has key:", bool(os.getenv("OPENAI_API_KEY")))
+st.write("Env has key:", bool(os.getenv("openai")))
 
 try:
     st.write("st.secrets keys:", list(st.secrets.keys()))
-    st.write("st.secrets has OPENAI_API_KEY:", "OPENAI_API_KEY" in st.secrets)
+    st.write("st.secrets has openai:", "openai" in st.secrets)
 except Exception as e:
     st.error(f"st.secrets error: {e}")
 
