@@ -24,7 +24,7 @@ except Exception:
     def get_current_email():
         return ""
     def has_permission(permission):
-        return True
+        return permission in ["view_dashboard", "view_overview", "view_maps"]
     def apply_data_scope(df):
         return df
     def render_admin_page(data=None):
