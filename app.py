@@ -30,7 +30,7 @@ except Exception:
         return ""
     def has_permission(permission):
         # Safe fallback: public-only access if authz.py is unavailable.
-        return permission in ["view_public_summary", "view_manual"]
+        return permission in ["view_public_summary", "view_dashboard", "view_overview", "view_user_manual"]
     def apply_data_scope(df):
         return df
     def render_admin_page(data=None):
@@ -185,6 +185,10 @@ def render_filter_status_card(df):
 
 def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
     """Render an executive-grade analytics table without changing the underlying records."""
+    if not has_permission("view_data_table"):
+        render_locked_section("Data table", "Detailed record tables are disabled for your current role.")
+        return
+
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
@@ -285,10 +289,10 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
         if has_permission("download_data"):
             st.download_button(
                 "⬇️ Download filtered table as CSV",
-            data=csv,
-            file_name=f"{key}.csv",
-            mime="text/csv",
-            use_container_width=True,
+                data=csv,
+                file_name=f"{key}.csv",
+                mime="text/csv",
+                use_container_width=True,
                 key=f"{key}_download",
             )
         else:
@@ -299,6 +303,46 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
+
+
+# ---------------- ACCESS STATUS / PERMISSION UI ----------------
+def render_access_status_banner():
+    role = get_current_role()
+    email = get_current_email()
+    role_meta = {
+        "guest": ("Guest access", "Public baseline", "You are not signed in. Only administrator-enabled public sections are visible.", "#667085", "#F9FAFB", "#E6E8EF"),
+        "viewer": ("Viewer access", "Logged in", "You are signed in with viewer permissions selected by the administrator.", "#008CAA", "#EFFBFE", "rgba(0,140,170,.18)"),
+        "privileged": ("Privileged access", "Approved domain", "You are signed in with approved-domain permissions selected by the administrator.", "#660094", "#F4EAF8", "#E7D4F1"),
+        "admin": ("Administrator access", "Full control", "You have full dashboard and administration access.", "#B42318", "#FFF4ED", "rgba(180,35,24,.18)"),
+    }
+    label, badge, note, color, bg, border = role_meta.get(role, role_meta["guest"])
+    suffix = f" · {email}" if email and role != "guest" else ""
+    st.markdown(f"""
+    <div style="margin:0 0 14px 0;padding:11px 13px;border-radius:15px;background:{bg};
+        border:1px solid {border};box-shadow:0 6px 16px rgba(16,24,40,.045);font-family:Arial,sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:10px;font-weight:950;color:{color};letter-spacing:.12em;text-transform:uppercase;">{label}</div>
+                <div style="font-size:11px;color:#667085;margin-top:3px;line-height:1.35;">{note}</div>
+            </div>
+            <div style="border-radius:999px;padding:6px 10px;background:#FFFFFF;border:1px solid {border};
+                color:{color};font-size:10px;font-weight:950;white-space:nowrap;">{badge}{suffix}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_locked_section(title, message="Your current access level does not allow this section."):
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#FFFFFF 0%,#F9FAFB 100%);border:1px solid #E6E8EF;
+        border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(16,24,40,.06);
+        font-family:Arial,sans-serif;margin:10px 0;">
+        <div style="font-size:10px;font-weight:950;color:#660094;letter-spacing:.13em;text-transform:uppercase;">Restricted section</div>
+        <div style="font-size:18px;font-weight:950;color:#23152F;margin-top:5px;">🔒 {title}</div>
+        <div style="font-size:12px;color:#667085;line-height:1.45;margin-top:6px;">{message}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ---------------- AUTH ROUTING STATE ----------------
 # Dashboard opens normally. When the user clicks Sign in / Access,
@@ -1228,6 +1272,19 @@ else:
         st.session_state.auth_view = True
         st.rerun()
 
+
+# ---------------- CURRENT ACCESS ROLE CARD ----------------
+st.sidebar.markdown(f"""
+<div style="margin-top:10px;padding:11px 12px;border-radius:14px;background:#FFFFFF;border:1px solid #E6E8EF;
+    box-shadow:0 5px 14px rgba(16,24,40,.045);font-family:Arial,sans-serif;">
+    <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.12em;text-transform:uppercase;">Current role</div>
+    <div style="font-size:13px;font-weight:950;color:#23152F;margin-top:3px;">{get_current_role().title()}</div>
+    <div style="font-size:10.5px;color:#667085;margin-top:3px;line-height:1.3;">
+        {get_current_email() if get_current_email() else "Not signed in"}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ---------------- ADMIN NAVIGATION AFTER LOGIN ----------------
 # Admin users are configured in .streamlit/secrets.toml under [auth].admin_emails.
 # This is placed after the login/access card so Firebase session_state["email"] exists.
@@ -1238,8 +1295,11 @@ if is_authenticated() and admin_is_admin():
         st.stop()
 
 # ---------------- TAB 2: Negative Events ----------------
-# Filter negative alerts
-reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+# Filter negative alerts only when enabled for the current role.
+if has_permission("view_negative_alerts"):
+    reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
+else:
+    reactive_df = pd.DataFrame(columns=filtered_global.columns)
 
 # Ensure all required columns exist
 required_columns = [
@@ -1381,8 +1441,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     col1, col2, col3 = st.columns(3)
 
-    countries_value = f"{total_countries:,}" if is_privileged() else "On request"
-    countries_size = "38px" if is_privileged() else "21px"
+    countries_value = f"{total_countries:,}" if has_permission("view_country_counts") else "On request"
+    countries_size = "38px" if has_permission("view_country_counts") else "21px"
 
     with col1:
         st.markdown(f"""
@@ -1552,8 +1612,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
-        countries_size = "34px" if is_privileged() else "21px"
+        countries_value = f"{monitored_countries:,}" if has_permission("view_country_counts") else "On request"
+        countries_size = "34px" if has_permission("view_country_counts") else "21px"
         st.markdown(f"""
         <div class="negintel-card">
             <div>
