@@ -10,11 +10,16 @@ import plotly.graph_objects as go
 import base64
 from auth import auth_ui, is_privileged, is_authenticated
 
-
-# Optional admin page integration. Firebase/Auth still handles login;
-# authz.py reads admin emails from .streamlit/secrets.toml.
+# Optional admin page integration. Firebase/Auth handles login;
+# authz.py resolves guest/viewer/privileged/admin roles.
 try:
-    from authz import is_admin as admin_is_admin, get_current_role, get_current_email, has_permission, apply_data_scope
+    from authz import (
+        is_admin as admin_is_admin,
+        get_current_role,
+        get_current_email,
+        has_permission,
+        apply_data_scope,
+    )
     from admin_page import render_admin_page, render_admin_sidebar_navigation
 except Exception:
     def admin_is_admin():
@@ -24,7 +29,8 @@ except Exception:
     def get_current_email():
         return ""
     def has_permission(permission):
-        return permission in ["view_dashboard", "view_overview", "view_maps"]
+        # Safe fallback: public-only access if authz.py is unavailable.
+        return permission in ["view_public_summary", "view_manual"]
     def apply_data_scope(df):
         return df
     def render_admin_page(data=None):
@@ -1222,78 +1228,13 @@ else:
         st.session_state.auth_view = True
         st.rerun()
 
-# ---------------- ADMIN SIDEBAR TOGGLE: VISIBLE AFTER LOGIN ----------------
-# Admin visibility depends on:
-# 1) Firebase login succeeded,
-# 2) st.session_state["email"] is populated by auth.py,
-# 3) the same email is listed under [auth].admin_emails in .streamlit/secrets.toml.
+# ---------------- ADMIN NAVIGATION AFTER LOGIN ----------------
+# Admin users are configured in .streamlit/secrets.toml under [auth].admin_emails.
+# This is placed after the login/access card so Firebase session_state["email"] exists.
 if is_authenticated() and admin_is_admin():
-    st.sidebar.markdown("""
-    <style>
-    .eusee-admin-nav-card {
-        margin-top: 14px;
-        padding: 14px;
-        border-radius: 17px;
-        background:
-            radial-gradient(circle at 92% 0%, rgba(255,219,88,.22), transparent 30%),
-            linear-gradient(135deg,#FFFFFF 0%,#F4EAF8 72%,#EFFBFE 100%);
-        border: 1px solid rgba(102,0,148,.18);
-        box-shadow: 0 12px 28px rgba(16,24,40,.08);
-        font-family: Arial, sans-serif;
-    }
-    .eusee-admin-eyebrow {
-        font-size: 9px;
-        font-weight: 950;
-        color: #660094;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-    }
-    .eusee-admin-title {
-        font-size: 14px;
-        font-weight: 950;
-        color: #23152F;
-        margin-top: 4px;
-    }
-    .eusee-admin-note {
-        font-size: 10.8px;
-        color: #667085;
-        line-height: 1.35;
-        margin-top: 5px;
-    }
-    .eusee-admin-email {
-        margin-top: 8px;
-        border-radius: 999px;
-        padding: 5px 8px;
-        background: #FFFFFF;
-        border: 1px solid #E7D4F1;
-        color: #660094;
-        font-size: 9.6px;
-        font-weight: 900;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.sidebar.markdown(f"""
-    <div class="eusee-admin-nav-card">
-        <div class="eusee-admin-eyebrow">Admin workspace</div>
-        <div class="eusee-admin-title">🔐 Administration</div>
-        <div class="eusee-admin-note">Manage user visibility, feature access, and dashboard controls.</div>
-        <div class="eusee-admin-email">{get_current_email()}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    admin_mode = st.sidebar.toggle(
-        "Open Admin Page",
-        value=st.session_state.get("admin_mode", False),
-        key="admin_mode",
-        help="Open the EU SEE administrator workspace.",
-    )
-
-    if admin_mode:
-        render_admin_page(data=data if "data" in globals() else None)
+    admin_nav_choice = render_admin_sidebar_navigation()
+    if admin_nav_choice == "Admin":
+        render_admin_page(data=data)
         st.stop()
 
 # ---------------- TAB 2: Negative Events ----------------
@@ -3623,6 +3564,34 @@ def extract_country_from_plotly_click(clicked_events):
             return str(val)
     return None
 
+
+# ---------------- ACCESS LOCKED CARD ----------------
+def render_access_locked(section_title: str, required_level: str = "logged-in user"):
+    """Render a premium locked-state card for guest/viewer restrictions."""
+    current_role = get_current_role()
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 70%,#EFFBFE 100%);
+        border: 1px solid rgba(102,0,148,.16);
+        border-radius: 20px;
+        padding: 22px 24px;
+        box-shadow: 0 14px 34px rgba(16,24,40,.08);
+        font-family: Arial, sans-serif;
+        margin: 10px 0 18px 0;
+    ">
+        <div style="font-size:10px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
+            Restricted section
+        </div>
+        <div style="font-size:24px;font-weight:950;color:#23152F;margin-top:6px;font-family:Arial Black,Arial,sans-serif;">
+            🔐 {section_title} is not available for your current access level
+        </div>
+        <div style="font-size:12px;color:#667085;line-height:1.45;margin-top:8px;max-width:820px;">
+            Your current role is <strong>{current_role}</strong>. This section requires {required_level} access.
+            Sign in with an approved account or contact an administrator if you need access.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
@@ -3710,300 +3679,47 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
-    #st.subheader("Overview Metrics")
-    render_summary_cards(filtered_global, card_key="overview_summary")
-    a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-    df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-    df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-    a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-    a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-    a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(20)
-    r1c1,r1c2 = st.columns(2)
-    r2c1,r2c2 = st.columns(2)
+
+    if has_permission("view_overview") or has_permission("view_public_summary"):
+        #st.subheader("Overview Metrics")
+        render_summary_cards(filtered_global, card_key="overview_summary")
+        a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
+        df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
+        df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+        df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
+        a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
+        a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
+        a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False).head(20)
+        r1c1,r1c2 = st.columns(2)
+        r2c1,r2c2 = st.columns(2)
 
 
-    r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
+        r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
 
-    fig12 = create_h_stacked_bar(
-        a2,
-        y="enabling-principle",
-        x="count",
-        color_col="alert-impact",
-        title="Alert distribution across enabling principles", 
-        horizontal=True,
-        normalize_labels=False
-    )
-
-        # Add "?" tooltip icon immediately after title
-    fig12.add_annotation(
-        xref='paper', yref='paper',
-        x=0.42,  # adjust so it sits right after the title
-        y=1.05,
-        text="❔",  # unicode "?" inside a circle
-        showarrow=False,
-        font=dict(color="white", size=10, family="Arial", weight="bold"),
-        align="center",
-        bordercolor="black",
-        borderwidth=0.8,
-        borderpad=3,
-        bgcolor="#660094",
-        opacity=0.9,
-        hovertext=(
-            "Alerts may be classified under more than one enabling principle "
-            "<br>and can therefore be counted in multiple principles."
-        ),
-        hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
-    )
-
-    # Add source line if needed
-    #fig12 = add_source_line(fig12)
-
-    # Render chart in Streamlit
-    r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
-  
-    #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
-
-    #if is_privileged():
-    r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
-    r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
-
-    
-    cols_rename_map  = {
-        "post_title": "Title of post",
-        "summary": "Event summary",
-        "creation_date": "Date of submission",
-        "alert-country": "Country",
-        "enabling-principle": "Enabling principles",
-        "alert-impact": "Impact of alert",
-        "alert-type": "Type of alert"
-    }
-        # keep only existing columns, then rename
-    filtered_global_prev = (
-        filtered_global
-        .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
-        .rename(columns=cols_rename_map)
-    )
-   
-        # ---------------- Tab two data preview ------------------
-
-    render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
-    #else:
-        #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
-        
-# ---------------- Negative Events ----------------
-with tab_negative:
-    #st.subheader("Negative Alerts")
-    # Filter negative events
-    reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
-
-
-    if reactive_df.empty:
-        st.warning("No negative events available for the selected filters.")
-        
-    else:
-        # Initialize Top-N selection in session state
-        if "neg_top_n" not in st.session_state:
-            st.session_state["neg_top_n"] = 5  # default Top 5
-            
-        # ---------------- SPELL OUT "VNSAs" ----------------
-   
-        reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent non-state actors', regex=True))
-        
-        # ---------------- SUMMARY CARDS ----------------
-        # Show totals BEFORE exploding multi-valued columns
-
-        protected_label = "Journalists, media and influencers"
-        placeholder = "Journalists__MEDIA__and__influencers"
-    
-        def safe_split(x):
-            if pd.isna(x):
-                return []
-
-            x = x.strip()
-
-            # Temporarily replace protected label
-            x = x.replace(protected_label, placeholder)
-
-            # Split normally
-            parts = [i.strip() for i in x.split(",")]
-
-            # Restore protected label
-            parts = [p.replace(placeholder, protected_label) for p in parts]
-
-            return parts
-
-        
-        # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
-        cols_to_explode = [
-            "Actor of repression",
-            "Subject of repression",
-            "Mechanism of repression",
-            "Type of event"
-        ]
-
-        df_exploded = reactive_df.copy()
-
-        df_exploded = df_exploded[(df_exploded['Type of event'] != "Error")]
-
-        for col in cols_to_explode:
-            df_exploded[col] = df_exploded[col].apply(safe_split)
-            df_exploded = df_exploded.explode(col)
-            df_exploded[col] = df_exploded[col].astype(str).str.strip()
-
-        def cap_first(s):
-            if pd.isna(s):
-                return None
-            s = str(s).strip()
-            if not s:
-                return None
-            return s[:1].upper() + s[1:]
-
-        def formatted_options(series):
-            s = series.dropna().astype(str).str.strip()
-            s = s[s.ne("")]
-            return sorted(s.map(cap_first).dropna().unique())
-    
-
-        # ---------------- NEGATIVE ALERTS FILTERS: PROFESSIONAL GROUPED PANEL ----------------
-        with st.expander("⚠️ Negative alerts filters", expanded=True):
-            st.markdown(
-                """
-                <div class="negative-filter-shell">
-                    <div class="negative-filter-eyebrow">Focused diagnostic controls</div>
-                    <div class="negative-filter-title">Negative Alerts Filter Panel</div>
-                    <div class="negative-filter-note">
-                        Refine restrictive-event analysis by actor, affected civil society group,
-                        restrictive mechanism, and event type. Empty selections keep all available values active.
-                    </div>
-                    <div class="negative-filter-chip-row">
-                        <span class="negative-filter-chip">Actor</span>
-                        <span class="negative-filter-chip">Subject</span>
-                        <span class="negative-filter-chip">Mechanism</span>
-                        <span class="negative-filter-chip">Event type</span>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            neg_f1, neg_f2 = st.columns(2)
-
-            with neg_f1:
-                selected_actor_types = safe_multiselect(
-                    "Types of restrictive actors",
-                    formatted_options(df_exploded["Actor of repression"]),
-                    "selected_actor_types",
-                    sidebar=False,
-                )
-
-                selected_subject_types = safe_multiselect(
-                    "Types of civil society actors affected",
-                    formatted_options(df_exploded["Subject of repression"]),
-                    "selected_subject_types",
-                    sidebar=False,
-                )
-
-            with neg_f2:
-                selected_mechanism_types = safe_multiselect(
-                    "Types of restrictive mechanisms",
-                    formatted_options(df_exploded["Mechanism of repression"]),
-                    "selected_mechanism_types",
-                    sidebar=False,
-                )
-
-                selected_event_types = safe_multiselect(
-                    "Types of negative events",
-                    formatted_options(df_exploded["Type of event"]),
-                    "selected_event_types",
-                    sidebar=False,
-                )
-        ##### -------- Tab 2 Summary card totals--------------------------
-        reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
-        render_negative_alerts_intelligence_cards(
-            reactive_df_updated,
-            all_filtered_df=filtered_global,
-            card_key="negative_events_summary"
+        fig12 = create_h_stacked_bar(
+            a2,
+            y="enabling-principle",
+            x="count",
+            color_col="alert-impact",
+            title="Alert distribution across enabling principles", 
+            horizontal=True,
+            normalize_labels=False
         )
 
-        #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
-
-        filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
-            (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
-            (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
-            (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
-        ]
-    
-        filtered_df1 = df_exploded.copy()
-        #filtered_df = reactive_df_updated.copy()
-    
-        tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-    
-        tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-        m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
-
-        #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-    
-        tab2_subj = (
-            reactive_df_updated
-            .assign(**{
-                "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
-            })
-            .explode("Subject of repression")
-        )
-       
-        tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
-        m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
-
-        tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
-        tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
-        m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
-
-        tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
-        tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
-        m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
-
-        tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
-        tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
-        m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-    
-        tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
-        tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-        tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-        m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
-    
-        # ---------------- BAR CHARTS ----------------
-        r1c1, r1c2, r1c3 = st.columns(3)
-        r2c1, r2c2, r2c3 = st.columns(3)
-
-    
-        r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
-        r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
-        r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
-        r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
-        r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
-          
-        fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
-
-          
-        # Add the "?" tooltip icon immediately after the title
-        fig23.add_annotation(
+            # Add "?" tooltip icon immediately after title
+        fig12.add_annotation(
             xref='paper', yref='paper',
-            x=0.42,         # adjust so it's at the end of the title
-            y=1.05,         # same vertical alignment as title
-            text="❔",       # Unicode circle with question mark
+            x=0.42,  # adjust so it sits right after the title
+            y=1.05,
+            text="❔",  # unicode "?" inside a circle
             showarrow=False,
-            font=dict(color="white", size=10, family="Arial black", weight="bold"),
+            font=dict(color="white", size=10, family="Arial", weight="bold"),
             align="center",
             bordercolor="black",
-            borderwidth=1.3,
+            borderwidth=0.8,
             borderpad=3,
             bgcolor="#660094",
-            opacity=1.0,
+            opacity=0.9,
             hovertext=(
                 "Alerts may be classified under more than one enabling principle "
                 "<br>and can therefore be counted in multiple principles."
@@ -4012,1149 +3728,1430 @@ with tab_negative:
         )
 
         # Add source line if needed
-        #fig23 = add_source_line(fig23)
+        #fig12 = add_source_line(fig12)
 
-        # Render the chart in Streamlit
-        r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
+        # Render chart in Streamlit
+        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
+  
+        #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
-        #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
+        #if is_privileged():
+        r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
+        r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
 
-        # ---------------- ANALYTICAL FLOW PANEL ----------------
-        render_analytical_flow_panel(filtered_df)
-
-        cols_to_keep = {
+    
+        cols_rename_map  = {
             "post_title": "Title of post",
             "summary": "Event summary",
             "creation_date": "Date of submission",
             "alert-country": "Country",
             "enabling-principle": "Enabling principles",
             "alert-impact": "Impact of alert",
-            "alert-type": "Type of alert",
-            "Actor of repression": "Types of restrictive actors",
-            "Subject of repression": "Types of civil society actors affected",
-            "Mechanism of repression": "Types of restrictive mechanisms",
-            "Type of event": "Types of negative events"           
+            "alert-type": "Type of alert"
         }
-        # keep only existing columns, then rename
-        reactive_df_updated_prev = (
-            reactive_df_updated
-            .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
-            .rename(columns=cols_to_keep)
-        )
-        
-        # ---------------- Tab two data preview ----------------
-        #if is_privileged():        
-        render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
-        #else:
-            #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
-    
-        # ---------------- TAB 3 (MAP) ----------------
-with tab_map:
-    # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
-    render_summary_cards(filtered_global, card_key="map_summary")
-
-    MAP_FONT = "Arial, sans-serif"
-
-    st.markdown("""
-    <style>
-    .map-page-shell {
-        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-        border: 1px solid #E6E8EF;
-        border-radius: 22px;
-        padding: 18px;
-        margin: 8px 0 18px 0;
-        box-shadow: 0 16px 38px rgba(17,24,39,0.065);
-        font-family: Arial, sans-serif;
-    }
-    .map-intel-hero {
-        background:
-            radial-gradient(circle at 96% 10%, rgba(0,140,170,.10), transparent 28%),
-            linear-gradient(135deg, #FFFFFF 0%, #FBF7FF 100%);
-        border: 1px solid rgba(102,0,148,0.14);
-        border-radius: 20px;
-        padding: 17px 19px;
-        box-shadow: 0 12px 30px rgba(17,24,39,0.06);
-        margin: 10px 0 14px 0;
-    }
-    .map-hero-top {
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:16px;
-        flex-wrap:wrap;
-    }
-    .map-intel-eyebrow {
-        font-size: 10px;
-        font-weight: 950;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-        color: #660094;
-        margin-bottom: 5px;
-    }
-    .map-intel-title {
-        font-size: 20px;
-        font-weight: 950;
-        color: #2D0055;
-        margin-bottom: 5px;
-        letter-spacing: -0.3px;
-        line-height:1.12;
-    }
-    .map-intel-subtitle {
-        font-size: 12.7px;
-        color: #52616B;
-        line-height: 1.48;
-        max-width: 980px;
-    }
-    .map-legend-chip {
-        background:#FFFFFF;
-        border:1px solid #E9E2F2;
-        border-radius:999px;
-        padding:7px 11px;
-        color:#344054;
-        font-size:11px;
-        font-weight:850;
-        box-shadow:0 4px 10px rgba(17,24,39,.045);
-        white-space:nowrap;
-    }
-    .map-chip-row {display:flex; flex-wrap:wrap; gap:8px; margin-top:11px;}
-    .map-chip {
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        background:#FFFFFF;
-        border:1px solid #E8EAF0;
-        color:#334155;
-        border-radius:999px;
-        padding:6px 10px;
-        font-size:11px;
-        font-weight:850;
-        box-shadow:0 3px 9px rgba(17,24,39,0.045);
-    }
-    .map-intel-card {
-        height: 128px;
-        background: #FFFFFF;
-        border: 1px solid #E8EAF0;
-        border-radius: 17px;
-        padding: 13px 14px;
-        box-shadow: 0 10px 24px rgba(17,24,39,0.055);
-        font-family: Arial, sans-serif;
-        overflow:hidden;
-        position:relative;
-    }
-    .map-intel-card::before {
-        content:"";
-        position:absolute;
-        left:0; right:0; top:0;
-        height:4px;
-        background:linear-gradient(90deg, #660094 0%, #008CAA 55%, #FFDB58 100%);
-    }
-    .map-intel-card-label {
-        font-size: 10px;
-        font-weight: 950;
-        color: #64748B;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        margin-bottom: 6px;
-    }
-    .map-intel-card-value {
-        font-size: 27px;
-        font-weight: 950;
-        color: #2D0055;
-        line-height:1.05;
-        letter-spacing:-.035em;
-    }
-    .map-intel-card-note {
-        font-size: 10.8px;
-        color: #667085;
-        line-height:1.32;
-        margin-top: 7px;
-    }
-    .map-insight-grid {
-        display:grid;
-        grid-template-columns: 1.25fr 1fr 1fr;
-        gap:12px;
-        margin:13px 0 14px 0;
-    }
-    .map-insight-card {
-        background:#FFFFFF;
-        border:1px solid #E8EAF0;
-        border-radius:17px;
-        padding:13px 14px;
-        box-shadow:0 10px 24px rgba(17,24,39,.055);
-        min-height:100px;
-    }
-    .map-insight-title {
-        font-size:10px;
-        color:#660094;
-        font-weight:950;
-        text-transform:uppercase;
-        letter-spacing:.11em;
-        margin-bottom:6px;
-    }
-    .map-insight-text {
-        font-size:12.4px;
-        color:#334155;
-        line-height:1.5;
-        font-weight:650;
-    }
-    .map-insight-text b {color:#2D0055; font-weight:950;}
-    .map-method-note {
-        background:#FFFBEB;
-        border:1px solid #FDE68A;
-        border-left:4px solid #FFDB58;
-        border-radius:15px;
-        padding:11px 13px;
-        color:#4A3B00;
-        font-size:11.8px;
-        line-height:1.48;
-        margin:12px 0;
-        font-family:Arial, sans-serif;
-    }
-    .map-panel-card {
-        background:#FFFFFF;
-        border:1px solid #E8EAF0;
-        border-radius:18px;
-        padding:14px;
-        box-shadow:0 12px 28px rgba(17,24,39,.058);
-        margin: 12px 0 16px 0;
-        font-family:Arial, sans-serif;
-    }
-    .map-panel-title {
-        color:#2D0055;
-        font-size:15px;
-        font-weight:950;
-        margin-bottom:4px;
-        letter-spacing:-.15px;
-    }
-    .map-panel-help {
-        color:#64748B;
-        font-size:11.5px;
-        line-height:1.45;
-        margin-bottom:10px;
-    }
-    .country-insight-box {
-        background:linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-        border:1px solid #E8EAF0;
-        border-left:4px solid #660094;
-        border-radius:15px;
-        padding:13px 14px;
-        color:#334155;
-        font-size:12px;
-        line-height:1.52;
-        margin-top:10px;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
-    }
-    .country-insight-box b {color:#2D0055;}
-    .country-mini-grid {
-        display:grid;
-        grid-template-columns: repeat(2, minmax(0,1fr));
-        gap:8px;
-        margin:10px 0;
-    }
-    .country-mini-kpi {
-        background:#F8FAFC;
-        border:1px solid #EEF2F6;
-        border-radius:12px;
-        padding:8px 9px;
-    }
-    .country-mini-kpi span {
-        display:block;
-        color:#64748B;
-        font-size:9.5px;
-        font-weight:900;
-        text-transform:uppercase;
-        letter-spacing:.06em;
-        margin-bottom:3px;
-    }
-    .country-mini-kpi strong {
-        color:#2D0055;
-        font-size:15px;
-        font-weight:950;
-    }
-    .map-action-list {
-        margin: 8px 0 0 0;
-        padding-left: 18px;
-        color:#334155;
-        font-size:11.8px;
-        line-height:1.5;
-        font-weight:650;
-    }
-    .map-guide-card {
-        background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);
-        border:1px solid #E7D4F1;
-        border-radius:18px;
-        padding:15px 16px;
-        box-shadow:0 10px 24px rgba(45,0,85,.07);
-        margin:12px 0 16px 0;
-        font-family:Arial, sans-serif;
-    }
-    .map-guide-title {
-        color:#2D0055;
-        font-size:15.5px;
-        font-weight:950;
-        letter-spacing:-.15px;
-        margin-bottom:5px;
-    }
-    .map-guide-sub {
-        color:#64748B;
-        font-size:11.5px;
-        line-height:1.45;
-        margin-bottom:12px;
-    }
-    .map-guide-step {
-        display:grid;
-        grid-template-columns:26px 1fr;
-        gap:8px;
-        align-items:flex-start;
-        padding:8px 0;
-        border-top:1px solid #EEF0F4;
-    }
-    .map-guide-num {
-        width:23px;
-        height:23px;
-        border-radius:9px;
-        background:#F4EAF8;
-        color:#660094;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:10px;
-        font-weight:950;
-        box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
-    }
-    .map-guide-text {
-        font-size:11.3px;
-        color:#344054;
-        line-height:1.38;
-        font-weight:650;
-    }
-    .map-guide-text b {color:#23152F; font-weight:950;}
-    .priority-country-panel {
-        background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
-        border:1px solid #E7D4F1;
-        border-radius:18px;
-        padding:15px 16px;
-        box-shadow:0 10px 24px rgba(45,0,85,.07);
-        margin:12px 0 16px 0;
-        font-family:Arial, sans-serif;
-    }
-    .priority-title {
-        color:#2D0055;
-        font-size:15.5px;
-        font-weight:950;
-        letter-spacing:-.15px;
-        margin-bottom:5px;
-    }
-    .priority-sub {
-        color:#64748B;
-        font-size:11.5px;
-        line-height:1.45;
-        margin-bottom:12px;
-    }
-    .priority-row {
-        display:grid;
-        grid-template-columns:30px minmax(0,1fr) auto;
-        align-items:center;
-        gap:9px;
-        padding:9px 10px;
-        margin-bottom:8px;
-        border-radius:14px;
-        background:#FFFFFF;
-        border:1px solid #EEF0F4;
-        box-shadow:0 4px 10px rgba(16,24,40,.045);
-    }
-    .priority-rank {
-        width:25px;
-        height:25px;
-        border-radius:10px;
-        background:linear-gradient(135deg,#660094 0%,#008CAA 100%);
-        color:#FFFFFF;
-        font-size:10px;
-        font-weight:950;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-    }
-    .priority-country {
-        font-size:12.2px;
-        font-weight:950;
-        color:#23152F;
-        line-height:1.15;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-    }
-    .priority-meta {
-        font-size:10.5px;
-        color:#667085;
-        margin-top:3px;
-        line-height:1.25;
-    }
-    .priority-meta b {color:#2D0055; font-weight:950;}
-    .priority-score {
-        text-align:right;
-        color:#660094;
-        font-size:11px;
-        font-weight:950;
-        line-height:1.12;
-        white-space:nowrap;
-    }
-    .priority-score span {
-        display:block;
-        color:#667085;
-        font-size:9.5px;
-        font-weight:850;
-        margin-bottom:2px;
-    }
-    .priority-badge {
-        display:inline-block;
-        margin-top:5px;
-        padding:3px 8px;
-        border-radius:999px;
-        background:#FFF4ED;
-        color:#B42318;
-        border:1px solid rgba(180,35,24,.16);
-        font-size:9.5px;
-        font-weight:950;
-    }
-    .priority-badge.priority-watch {background:#F8FAFC;color:#475467;border-color:#E8EAF0;}
-    .priority-badge.priority-moderate {background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);}
-    .priority-badge.priority-high {background:#FFFBEB;color:#7A3E00;border-color:#FDE68A;}
-    .priority-badge.priority-very-high {background:#FFF4ED;color:#B42318;border-color:rgba(180,35,24,.16);}
-    .priority-footnote {
-        margin-top:8px;
-        padding-top:9px;
-        border-top:1px solid #EEF0F4;
-        color:#667085;
-        font-size:10.5px;
-        line-height:1.35;
-        font-weight:650;
-    }
-    .map-quality-strip {
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-        margin:8px 0 0 0;
-    }
-    .map-quality-pill {
-        background:#F8FAFC;
-        border:1px solid #E8EAF0;
-        color:#475467;
-        border-radius:999px;
-        padding:5px 9px;
-        font-size:10.5px;
-        font-weight:850;
-    }
-    @media (max-width: 980px) {
-        .map-insight-grid {grid-template-columns:1fr;}
-        .map-intel-card {height:auto; min-height:118px;}
-        .country-mini-grid {grid-template-columns:1fr;}
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="map-page-shell">', unsafe_allow_html=True)
-
-    geo_file_candidates = [
-        Path("/exports") / "countries.geojson",
-        Path.cwd() / "exports" / "countries.geojson",
-        Path.cwd() / "exports" / "countriess.geojson",  # legacy typo fallback
-    ]
-    geo_file = next((p for p in geo_file_candidates if p.exists()), None)
-
-    if geo_file is not None and geo_file.exists():
-        with open(geo_file, encoding="utf-8") as f:
-            countries_gj = json.load(f)
-
-        # ---------------- Base map data and intelligence metrics ----------------
-        stats = (
+            # keep only existing columns, then rename
+        filtered_global_prev = (
             filtered_global
-            .groupby("alert-country", dropna=False)
-            .agg(
-                iso_alpha3=("iso_alpha3", lambda x: next((v for v in x.dropna().astype(str) if v.strip()), None)),
-                total_alerts=("alert-impact", "size"),
-                negative_alerts=("alert-impact", lambda x: int((x == "Negative").sum())),
-                positive_alerts=("alert-impact", lambda x: int((x == "Positive").sum())),
-                context_to_watch_alerts=("alert-impact", lambda x: int((x == "Context to watch").sum())),
-                regions=("region", lambda x: ", ".join(sorted(set(x.dropna().astype(str)))[:2])),
-            )
-            .reset_index()
+            .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+            .rename(columns=cols_rename_map)
         )
+   
+            # ---------------- Tab two data preview ------------------
 
-        geo_iso3 = {
-            str(f.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip()
-            for f in countries_gj.get("features", [])
-        }
-        geo_iso3 = {x for x in geo_iso3 if x and x.lower() != "none"}
+        render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
+        #else:
+            #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
+        
+    # ---------------- Negative Events ----------------
+    else:
+        render_access_locked("Overview", "public-summary or viewer")
 
-        df_map = stats[
-            stats["iso_alpha3"].notna()
-            & stats["iso_alpha3"].astype(str).isin(geo_iso3)
-        ].copy()
+with tab_negative:
 
-        for c in ["total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts"]:
-            df_map[c] = pd.to_numeric(df_map[c], errors="coerce").fillna(0).astype(int)
+    if has_permission("view_negative_alerts"):
+        #st.subheader("Negative Alerts")
+        # Filter negative events
+        reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
 
-        df_map["perc_negative"] = np.where(
-            df_map["total_alerts"] > 0,
-            (df_map["negative_alerts"] / df_map["total_alerts"] * 100).round(1),
-            0
-        )
-        df_map["alert_balance"] = (df_map["positive_alerts"] - df_map["negative_alerts"]).astype(int)
-        df_map["priority_score"] = (df_map["negative_alerts"] * 0.65 + df_map["perc_negative"] * 0.35).round(1)
-        df_map["priority_level"] = pd.cut(
-            df_map["priority_score"],
-            bins=[-1, 20, 45, 70, float("inf")],
-            labels=["Watch", "Moderate", "High", "Very high"]
-        ).astype(str)
 
-        total_filtered_records = int(len(filtered_global)) if filtered_global is not None else 0
-        total_mapped = int(df_map["total_alerts"].sum()) if not df_map.empty else 0
-        unmapped_alerts = max(total_filtered_records - total_mapped, 0)
-        mapping_coverage = round((total_mapped / total_filtered_records) * 100, 1) if total_filtered_records else 0
-        mapped_countries = int(df_map["alert-country"].nunique()) if not df_map.empty else 0
-        top_country = df_map.sort_values("total_alerts", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
-        top_priority_country = df_map.sort_values("priority_score", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
-        avg_negative_share = round(df_map["perc_negative"].mean(), 1) if not df_map.empty else 0
-        very_high_count = int((df_map["priority_level"] == "Very high").sum()) if not df_map.empty else 0
-        high_count = int((df_map["priority_level"] == "High").sum()) if not df_map.empty else 0
-        mapped_negative = int(df_map["negative_alerts"].sum()) if not df_map.empty else 0
-        mapped_positive = int(df_map["positive_alerts"].sum()) if not df_map.empty else 0
-        mapped_context = int(df_map["context_to_watch_alerts"].sum()) if not df_map.empty else 0
-
-        if mapped_negative >= max(mapped_positive, mapped_context):
-            dominant_signal = "Negative alerts are the dominant mapped signal"
-            dominant_next_step = "prioritize restrictive-event pathways and review affected actors."
-        elif mapped_positive >= mapped_context:
-            dominant_signal = "Positive alerts are the dominant mapped signal"
-            dominant_next_step = "identify enabling-pattern examples and potential comparative lessons."
+        if reactive_df.empty:
+            st.warning("No negative events available for the selected filters.")
+        
         else:
-            dominant_signal = "Context-to-watch alerts are the dominant mapped signal"
-            dominant_next_step = "monitor emerging situations before they shift into restrictive or enabling events."
+            # Initialize Top-N selection in session state
+            if "neg_top_n" not in st.session_state:
+                st.session_state["neg_top_n"] = 5  # default Top 5
+            
+            # ---------------- SPELL OUT "VNSAs" ----------------
+   
+            reactive_df['Actor of repression'] = (reactive_df['Actor of repression'].astype(str).str.replace(r'\bVNSAs\b', 'Violent non-state actors', regex=True))
+        
+            # ---------------- SUMMARY CARDS ----------------
+            # Show totals BEFORE exploding multi-valued columns
 
-        priority_share = round(((very_high_count + high_count) / mapped_countries) * 100, 1) if mapped_countries else 0
+            protected_label = "Journalists, media and influencers"
+            placeholder = "Journalists__MEDIA__and__influencers"
+    
+            def safe_split(x):
+                if pd.isna(x):
+                    return []
 
-        unmapped_meta = sorted(
-            set(stats.loc[stats["iso_alpha3"].isna(), "alert-country"].dropna().astype(str))
-        )
-        unmapped_geo = sorted(
-            set(stats.loc[stats["iso_alpha3"].notna(), "alert-country"].astype(str))
-            - set(df_map["alert-country"].astype(str))
-        )
+                x = x.strip()
 
-        st.markdown(f"""
-        <div class="map-intel-hero">
-            <div class="map-hero-top">
-                <div>
-                    <div class="map-intel-eyebrow">Geospatial intelligence workspace</div>
-                    <div class="map-intel-title">Visualization Map: Spatial Alert Intelligence</div>
-                    <div class="map-intel-subtitle">
-                        This panel translates the active filters into a country-level spatial view. Use it to identify where alerts concentrate, how negative/positive/context signals are distributed, which countries require closer review, and how much of the filtered dataset is represented on the map.
+                # Temporarily replace protected label
+                x = x.replace(protected_label, placeholder)
+
+                # Split normally
+                parts = [i.strip() for i in x.split(",")]
+
+                # Restore protected label
+                parts = [p.replace(placeholder, protected_label) for p in parts]
+
+                return parts
+
+        
+            # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
+            cols_to_explode = [
+                "Actor of repression",
+                "Subject of repression",
+                "Mechanism of repression",
+                "Type of event"
+            ]
+
+            df_exploded = reactive_df.copy()
+
+            df_exploded = df_exploded[(df_exploded['Type of event'] != "Error")]
+
+            for col in cols_to_explode:
+                df_exploded[col] = df_exploded[col].apply(safe_split)
+                df_exploded = df_exploded.explode(col)
+                df_exploded[col] = df_exploded[col].astype(str).str.strip()
+
+            def cap_first(s):
+                if pd.isna(s):
+                    return None
+                s = str(s).strip()
+                if not s:
+                    return None
+                return s[:1].upper() + s[1:]
+
+            def formatted_options(series):
+                s = series.dropna().astype(str).str.strip()
+                s = s[s.ne("")]
+                return sorted(s.map(cap_first).dropna().unique())
+    
+
+            # ---------------- NEGATIVE ALERTS FILTERS: PROFESSIONAL GROUPED PANEL ----------------
+            with st.expander("⚠️ Negative alerts filters", expanded=True):
+                st.markdown(
+                    """
+                    <div class="negative-filter-shell">
+                        <div class="negative-filter-eyebrow">Focused diagnostic controls</div>
+                        <div class="negative-filter-title">Negative Alerts Filter Panel</div>
+                        <div class="negative-filter-note">
+                            Refine restrictive-event analysis by actor, affected civil society group,
+                            restrictive mechanism, and event type. Empty selections keep all available values active.
+                        </div>
+                        <div class="negative-filter-chip-row">
+                            <span class="negative-filter-chip">Actor</span>
+                            <span class="negative-filter-chip">Subject</span>
+                            <span class="negative-filter-chip">Mechanism</span>
+                            <span class="negative-filter-chip">Event type</span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                neg_f1, neg_f2 = st.columns(2)
+
+                with neg_f1:
+                    selected_actor_types = safe_multiselect(
+                        "Types of restrictive actors",
+                        formatted_options(df_exploded["Actor of repression"]),
+                        "selected_actor_types",
+                        sidebar=False,
+                    )
+
+                    selected_subject_types = safe_multiselect(
+                        "Types of civil society actors affected",
+                        formatted_options(df_exploded["Subject of repression"]),
+                        "selected_subject_types",
+                        sidebar=False,
+                    )
+
+                with neg_f2:
+                    selected_mechanism_types = safe_multiselect(
+                        "Types of restrictive mechanisms",
+                        formatted_options(df_exploded["Mechanism of repression"]),
+                        "selected_mechanism_types",
+                        sidebar=False,
+                    )
+
+                    selected_event_types = safe_multiselect(
+                        "Types of negative events",
+                        formatted_options(df_exploded["Type of event"]),
+                        "selected_event_types",
+                        sidebar=False,
+                    )
+            ##### -------- Tab 2 Summary card totals--------------------------
+            reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+                (reactive_df['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+                (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+                (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+            ]
+            render_negative_alerts_intelligence_cards(
+                reactive_df_updated,
+                all_filtered_df=filtered_global,
+                card_key="negative_events_summary"
+            )
+
+            #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
+
+            filtered_df= df_exploded[(df_exploded['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
+                (df_exploded['Subject of repression'].apply(lambda x: contains_any(x, selected_subject_types))) &
+                (df_exploded['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
+                (df_exploded['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
+            ]
+    
+            filtered_df1 = df_exploded.copy()
+            #filtered_df = reactive_df_updated.copy()
+    
+            tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
+    
+            tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
+            m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+
+            #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
+    
+            tab2_subj = (
+                reactive_df_updated
+                .assign(**{
+                    "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
+                })
+                .explode("Subject of repression")
+            )
+       
+            tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
+            m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
+
+            tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
+            tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
+            m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
+
+            tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
+            tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
+            m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
+
+            tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
+            tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
+            m5 = tab2_alert.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
+    
+            tab2_enabling_principle = reactive_df_updated.assign(**{"enabling-principle": reactive_df_updated["enabling-principle"].str.split(",")}).explode("enabling-principle")
+            tab2_enabling_principle["enabling-principle"] = tab2_enabling_principle["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
+            tab2_enabling_principle["enabling_principle"] = pd.Categorical(tab2_enabling_principle["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
+            m6 = tab2_enabling_principle.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
+    
+            # ---------------- BAR CHARTS ----------------
+            r1c1, r1c2, r1c3 = st.columns(3)
+            r2c1, r2c2, r2c3 = st.columns(3)
+
+    
+            r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
+            r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
+            r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
+            r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
+            r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
+          
+            fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
+
+          
+            # Add the "?" tooltip icon immediately after the title
+            fig23.add_annotation(
+                xref='paper', yref='paper',
+                x=0.42,         # adjust so it's at the end of the title
+                y=1.05,         # same vertical alignment as title
+                text="❔",       # Unicode circle with question mark
+                showarrow=False,
+                font=dict(color="white", size=10, family="Arial black", weight="bold"),
+                align="center",
+                bordercolor="black",
+                borderwidth=1.3,
+                borderpad=3,
+                bgcolor="#660094",
+                opacity=1.0,
+                hovertext=(
+                    "Alerts may be classified under more than one enabling principle "
+                    "<br>and can therefore be counted in multiple principles."
+                ),
+                hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
+            )
+
+            # Add source line if needed
+            #fig23 = add_source_line(fig23)
+
+            # Render the chart in Streamlit
+            r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
+
+            #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
+
+            # ---------------- ANALYTICAL FLOW PANEL ----------------
+            render_analytical_flow_panel(filtered_df)
+
+            cols_to_keep = {
+                "post_title": "Title of post",
+                "summary": "Event summary",
+                "creation_date": "Date of submission",
+                "alert-country": "Country",
+                "enabling-principle": "Enabling principles",
+                "alert-impact": "Impact of alert",
+                "alert-type": "Type of alert",
+                "Actor of repression": "Types of restrictive actors",
+                "Subject of repression": "Types of civil society actors affected",
+                "Mechanism of repression": "Types of restrictive mechanisms",
+                "Type of event": "Types of negative events"           
+            }
+            # keep only existing columns, then rename
+            reactive_df_updated_prev = (
+                reactive_df_updated
+                .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
+                .rename(columns=cols_to_keep)
+            )
+        
+            # ---------------- Tab two data preview ----------------
+            #if is_privileged():        
+            render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
+            #else:
+                #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
+    
+            # ---------------- TAB 3 (MAP) ----------------
+    else:
+        render_access_locked("Negative Alerts", "privileged")
+
+with tab_map:
+
+    if has_permission("view_map"):
+
+        if has_permission("view_map"):
+            # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
+            render_summary_cards(filtered_global, card_key="map_summary")
+
+            MAP_FONT = "Arial, sans-serif"
+
+            st.markdown("""
+            <style>
+            .map-page-shell {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+                border: 1px solid #E6E8EF;
+                border-radius: 22px;
+                padding: 18px;
+                margin: 8px 0 18px 0;
+                box-shadow: 0 16px 38px rgba(17,24,39,0.065);
+                font-family: Arial, sans-serif;
+            }
+            .map-intel-hero {
+                background:
+                    radial-gradient(circle at 96% 10%, rgba(0,140,170,.10), transparent 28%),
+                    linear-gradient(135deg, #FFFFFF 0%, #FBF7FF 100%);
+                border: 1px solid rgba(102,0,148,0.14);
+                border-radius: 20px;
+                padding: 17px 19px;
+                box-shadow: 0 12px 30px rgba(17,24,39,0.06);
+                margin: 10px 0 14px 0;
+            }
+            .map-hero-top {
+                display:flex;
+                justify-content:space-between;
+                align-items:flex-start;
+                gap:16px;
+                flex-wrap:wrap;
+            }
+            .map-intel-eyebrow {
+                font-size: 10px;
+                font-weight: 950;
+                letter-spacing: .13em;
+                text-transform: uppercase;
+                color: #660094;
+                margin-bottom: 5px;
+            }
+            .map-intel-title {
+                font-size: 20px;
+                font-weight: 950;
+                color: #2D0055;
+                margin-bottom: 5px;
+                letter-spacing: -0.3px;
+                line-height:1.12;
+            }
+            .map-intel-subtitle {
+                font-size: 12.7px;
+                color: #52616B;
+                line-height: 1.48;
+                max-width: 980px;
+            }
+            .map-legend-chip {
+                background:#FFFFFF;
+                border:1px solid #E9E2F2;
+                border-radius:999px;
+                padding:7px 11px;
+                color:#344054;
+                font-size:11px;
+                font-weight:850;
+                box-shadow:0 4px 10px rgba(17,24,39,.045);
+                white-space:nowrap;
+            }
+            .map-chip-row {display:flex; flex-wrap:wrap; gap:8px; margin-top:11px;}
+            .map-chip {
+                display:inline-flex;
+                align-items:center;
+                gap:6px;
+                background:#FFFFFF;
+                border:1px solid #E8EAF0;
+                color:#334155;
+                border-radius:999px;
+                padding:6px 10px;
+                font-size:11px;
+                font-weight:850;
+                box-shadow:0 3px 9px rgba(17,24,39,0.045);
+            }
+            .map-intel-card {
+                height: 128px;
+                background: #FFFFFF;
+                border: 1px solid #E8EAF0;
+                border-radius: 17px;
+                padding: 13px 14px;
+                box-shadow: 0 10px 24px rgba(17,24,39,0.055);
+                font-family: Arial, sans-serif;
+                overflow:hidden;
+                position:relative;
+            }
+            .map-intel-card::before {
+                content:"";
+                position:absolute;
+                left:0; right:0; top:0;
+                height:4px;
+                background:linear-gradient(90deg, #660094 0%, #008CAA 55%, #FFDB58 100%);
+            }
+            .map-intel-card-label {
+                font-size: 10px;
+                font-weight: 950;
+                color: #64748B;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                margin-bottom: 6px;
+            }
+            .map-intel-card-value {
+                font-size: 27px;
+                font-weight: 950;
+                color: #2D0055;
+                line-height:1.05;
+                letter-spacing:-.035em;
+            }
+            .map-intel-card-note {
+                font-size: 10.8px;
+                color: #667085;
+                line-height:1.32;
+                margin-top: 7px;
+            }
+            .map-insight-grid {
+                display:grid;
+                grid-template-columns: 1.25fr 1fr 1fr;
+                gap:12px;
+                margin:13px 0 14px 0;
+            }
+            .map-insight-card {
+                background:#FFFFFF;
+                border:1px solid #E8EAF0;
+                border-radius:17px;
+                padding:13px 14px;
+                box-shadow:0 10px 24px rgba(17,24,39,.055);
+                min-height:100px;
+            }
+            .map-insight-title {
+                font-size:10px;
+                color:#660094;
+                font-weight:950;
+                text-transform:uppercase;
+                letter-spacing:.11em;
+                margin-bottom:6px;
+            }
+            .map-insight-text {
+                font-size:12.4px;
+                color:#334155;
+                line-height:1.5;
+                font-weight:650;
+            }
+            .map-insight-text b {color:#2D0055; font-weight:950;}
+            .map-method-note {
+                background:#FFFBEB;
+                border:1px solid #FDE68A;
+                border-left:4px solid #FFDB58;
+                border-radius:15px;
+                padding:11px 13px;
+                color:#4A3B00;
+                font-size:11.8px;
+                line-height:1.48;
+                margin:12px 0;
+                font-family:Arial, sans-serif;
+            }
+            .map-panel-card {
+                background:#FFFFFF;
+                border:1px solid #E8EAF0;
+                border-radius:18px;
+                padding:14px;
+                box-shadow:0 12px 28px rgba(17,24,39,.058);
+                margin: 12px 0 16px 0;
+                font-family:Arial, sans-serif;
+            }
+            .map-panel-title {
+                color:#2D0055;
+                font-size:15px;
+                font-weight:950;
+                margin-bottom:4px;
+                letter-spacing:-.15px;
+            }
+            .map-panel-help {
+                color:#64748B;
+                font-size:11.5px;
+                line-height:1.45;
+                margin-bottom:10px;
+            }
+            .country-insight-box {
+                background:linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+                border:1px solid #E8EAF0;
+                border-left:4px solid #660094;
+                border-radius:15px;
+                padding:13px 14px;
+                color:#334155;
+                font-size:12px;
+                line-height:1.52;
+                margin-top:10px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+            }
+            .country-insight-box b {color:#2D0055;}
+            .country-mini-grid {
+                display:grid;
+                grid-template-columns: repeat(2, minmax(0,1fr));
+                gap:8px;
+                margin:10px 0;
+            }
+            .country-mini-kpi {
+                background:#F8FAFC;
+                border:1px solid #EEF2F6;
+                border-radius:12px;
+                padding:8px 9px;
+            }
+            .country-mini-kpi span {
+                display:block;
+                color:#64748B;
+                font-size:9.5px;
+                font-weight:900;
+                text-transform:uppercase;
+                letter-spacing:.06em;
+                margin-bottom:3px;
+            }
+            .country-mini-kpi strong {
+                color:#2D0055;
+                font-size:15px;
+                font-weight:950;
+            }
+            .map-action-list {
+                margin: 8px 0 0 0;
+                padding-left: 18px;
+                color:#334155;
+                font-size:11.8px;
+                line-height:1.5;
+                font-weight:650;
+            }
+            .map-guide-card {
+                background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);
+                border:1px solid #E7D4F1;
+                border-radius:18px;
+                padding:15px 16px;
+                box-shadow:0 10px 24px rgba(45,0,85,.07);
+                margin:12px 0 16px 0;
+                font-family:Arial, sans-serif;
+            }
+            .map-guide-title {
+                color:#2D0055;
+                font-size:15.5px;
+                font-weight:950;
+                letter-spacing:-.15px;
+                margin-bottom:5px;
+            }
+            .map-guide-sub {
+                color:#64748B;
+                font-size:11.5px;
+                line-height:1.45;
+                margin-bottom:12px;
+            }
+            .map-guide-step {
+                display:grid;
+                grid-template-columns:26px 1fr;
+                gap:8px;
+                align-items:flex-start;
+                padding:8px 0;
+                border-top:1px solid #EEF0F4;
+            }
+            .map-guide-num {
+                width:23px;
+                height:23px;
+                border-radius:9px;
+                background:#F4EAF8;
+                color:#660094;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:10px;
+                font-weight:950;
+                box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
+            }
+            .map-guide-text {
+                font-size:11.3px;
+                color:#344054;
+                line-height:1.38;
+                font-weight:650;
+            }
+            .map-guide-text b {color:#23152F; font-weight:950;}
+            .priority-country-panel {
+                background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
+                border:1px solid #E7D4F1;
+                border-radius:18px;
+                padding:15px 16px;
+                box-shadow:0 10px 24px rgba(45,0,85,.07);
+                margin:12px 0 16px 0;
+                font-family:Arial, sans-serif;
+            }
+            .priority-title {
+                color:#2D0055;
+                font-size:15.5px;
+                font-weight:950;
+                letter-spacing:-.15px;
+                margin-bottom:5px;
+            }
+            .priority-sub {
+                color:#64748B;
+                font-size:11.5px;
+                line-height:1.45;
+                margin-bottom:12px;
+            }
+            .priority-row {
+                display:grid;
+                grid-template-columns:30px minmax(0,1fr) auto;
+                align-items:center;
+                gap:9px;
+                padding:9px 10px;
+                margin-bottom:8px;
+                border-radius:14px;
+                background:#FFFFFF;
+                border:1px solid #EEF0F4;
+                box-shadow:0 4px 10px rgba(16,24,40,.045);
+            }
+            .priority-rank {
+                width:25px;
+                height:25px;
+                border-radius:10px;
+                background:linear-gradient(135deg,#660094 0%,#008CAA 100%);
+                color:#FFFFFF;
+                font-size:10px;
+                font-weight:950;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+            }
+            .priority-country {
+                font-size:12.2px;
+                font-weight:950;
+                color:#23152F;
+                line-height:1.15;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+            }
+            .priority-meta {
+                font-size:10.5px;
+                color:#667085;
+                margin-top:3px;
+                line-height:1.25;
+            }
+            .priority-meta b {color:#2D0055; font-weight:950;}
+            .priority-score {
+                text-align:right;
+                color:#660094;
+                font-size:11px;
+                font-weight:950;
+                line-height:1.12;
+                white-space:nowrap;
+            }
+            .priority-score span {
+                display:block;
+                color:#667085;
+                font-size:9.5px;
+                font-weight:850;
+                margin-bottom:2px;
+            }
+            .priority-badge {
+                display:inline-block;
+                margin-top:5px;
+                padding:3px 8px;
+                border-radius:999px;
+                background:#FFF4ED;
+                color:#B42318;
+                border:1px solid rgba(180,35,24,.16);
+                font-size:9.5px;
+                font-weight:950;
+            }
+            .priority-badge.priority-watch {background:#F8FAFC;color:#475467;border-color:#E8EAF0;}
+            .priority-badge.priority-moderate {background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);}
+            .priority-badge.priority-high {background:#FFFBEB;color:#7A3E00;border-color:#FDE68A;}
+            .priority-badge.priority-very-high {background:#FFF4ED;color:#B42318;border-color:rgba(180,35,24,.16);}
+            .priority-footnote {
+                margin-top:8px;
+                padding-top:9px;
+                border-top:1px solid #EEF0F4;
+                color:#667085;
+                font-size:10.5px;
+                line-height:1.35;
+                font-weight:650;
+            }
+            .map-quality-strip {
+                display:flex;
+                gap:8px;
+                flex-wrap:wrap;
+                margin:8px 0 0 0;
+            }
+            .map-quality-pill {
+                background:#F8FAFC;
+                border:1px solid #E8EAF0;
+                color:#475467;
+                border-radius:999px;
+                padding:5px 9px;
+                font-size:10.5px;
+                font-weight:850;
+            }
+            @media (max-width: 980px) {
+                .map-insight-grid {grid-template-columns:1fr;}
+                .map-intel-card {height:auto; min-height:118px;}
+                .country-mini-grid {grid-template-columns:1fr;}
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            st.markdown('<div class="map-page-shell">', unsafe_allow_html=True)
+
+            geo_file_candidates = [
+                Path("/exports") / "countries.geojson",
+                Path.cwd() / "exports" / "countries.geojson",
+                Path.cwd() / "exports" / "countriess.geojson",  # legacy typo fallback
+            ]
+            geo_file = next((p for p in geo_file_candidates if p.exists()), None)
+
+            if geo_file is not None and geo_file.exists():
+                with open(geo_file, encoding="utf-8") as f:
+                    countries_gj = json.load(f)
+
+                # ---------------- Base map data and intelligence metrics ----------------
+                stats = (
+                    filtered_global
+                    .groupby("alert-country", dropna=False)
+                    .agg(
+                        iso_alpha3=("iso_alpha3", lambda x: next((v for v in x.dropna().astype(str) if v.strip()), None)),
+                        total_alerts=("alert-impact", "size"),
+                        negative_alerts=("alert-impact", lambda x: int((x == "Negative").sum())),
+                        positive_alerts=("alert-impact", lambda x: int((x == "Positive").sum())),
+                        context_to_watch_alerts=("alert-impact", lambda x: int((x == "Context to watch").sum())),
+                        regions=("region", lambda x: ", ".join(sorted(set(x.dropna().astype(str)))[:2])),
+                    )
+                    .reset_index()
+                )
+
+                geo_iso3 = {
+                    str(f.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip()
+                    for f in countries_gj.get("features", [])
+                }
+                geo_iso3 = {x for x in geo_iso3 if x and x.lower() != "none"}
+
+                df_map = stats[
+                    stats["iso_alpha3"].notna()
+                    & stats["iso_alpha3"].astype(str).isin(geo_iso3)
+                ].copy()
+
+                for c in ["total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts"]:
+                    df_map[c] = pd.to_numeric(df_map[c], errors="coerce").fillna(0).astype(int)
+
+                df_map["perc_negative"] = np.where(
+                    df_map["total_alerts"] > 0,
+                    (df_map["negative_alerts"] / df_map["total_alerts"] * 100).round(1),
+                    0
+                )
+                df_map["alert_balance"] = (df_map["positive_alerts"] - df_map["negative_alerts"]).astype(int)
+                df_map["priority_score"] = (df_map["negative_alerts"] * 0.65 + df_map["perc_negative"] * 0.35).round(1)
+                df_map["priority_level"] = pd.cut(
+                    df_map["priority_score"],
+                    bins=[-1, 20, 45, 70, float("inf")],
+                    labels=["Watch", "Moderate", "High", "Very high"]
+                ).astype(str)
+
+                total_filtered_records = int(len(filtered_global)) if filtered_global is not None else 0
+                total_mapped = int(df_map["total_alerts"].sum()) if not df_map.empty else 0
+                unmapped_alerts = max(total_filtered_records - total_mapped, 0)
+                mapping_coverage = round((total_mapped / total_filtered_records) * 100, 1) if total_filtered_records else 0
+                mapped_countries = int(df_map["alert-country"].nunique()) if not df_map.empty else 0
+                top_country = df_map.sort_values("total_alerts", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
+                top_priority_country = df_map.sort_values("priority_score", ascending=False).iloc[0]["alert-country"] if not df_map.empty else "N/A"
+                avg_negative_share = round(df_map["perc_negative"].mean(), 1) if not df_map.empty else 0
+                very_high_count = int((df_map["priority_level"] == "Very high").sum()) if not df_map.empty else 0
+                high_count = int((df_map["priority_level"] == "High").sum()) if not df_map.empty else 0
+                mapped_negative = int(df_map["negative_alerts"].sum()) if not df_map.empty else 0
+                mapped_positive = int(df_map["positive_alerts"].sum()) if not df_map.empty else 0
+                mapped_context = int(df_map["context_to_watch_alerts"].sum()) if not df_map.empty else 0
+
+                if mapped_negative >= max(mapped_positive, mapped_context):
+                    dominant_signal = "Negative alerts are the dominant mapped signal"
+                    dominant_next_step = "prioritize restrictive-event pathways and review affected actors."
+                elif mapped_positive >= mapped_context:
+                    dominant_signal = "Positive alerts are the dominant mapped signal"
+                    dominant_next_step = "identify enabling-pattern examples and potential comparative lessons."
+                else:
+                    dominant_signal = "Context-to-watch alerts are the dominant mapped signal"
+                    dominant_next_step = "monitor emerging situations before they shift into restrictive or enabling events."
+
+                priority_share = round(((very_high_count + high_count) / mapped_countries) * 100, 1) if mapped_countries else 0
+
+                unmapped_meta = sorted(
+                    set(stats.loc[stats["iso_alpha3"].isna(), "alert-country"].dropna().astype(str))
+                )
+                unmapped_geo = sorted(
+                    set(stats.loc[stats["iso_alpha3"].notna(), "alert-country"].astype(str))
+                    - set(df_map["alert-country"].astype(str))
+                )
+
+                st.markdown(f"""
+                <div class="map-intel-hero">
+                    <div class="map-hero-top">
+                        <div>
+                            <div class="map-intel-eyebrow">Geospatial intelligence workspace</div>
+                            <div class="map-intel-title">Visualization Map: Spatial Alert Intelligence</div>
+                            <div class="map-intel-subtitle">
+                                This panel translates the active filters into a country-level spatial view. Use it to identify where alerts concentrate, how negative/positive/context signals are distributed, which countries require closer review, and how much of the filtered dataset is represented on the map.
+                            </div>
+                        </div>
+                        <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
+                    </div>
+                    <div class="map-chip-row">
+                        <span class="map-chip">🟫 Color intensity = alert volume</span>
+                        <span class="map-chip">⚠️ Priority = negative volume + negative share</span>
+                        <span class="map-chip">🖱️ Hover countries for details</span>
+                        <span class="map-chip">📊 Rankings support deeper review</span>
+                        <span class="map-chip">🧭 Interpret with reporting coverage</span>
                     </div>
                 </div>
-                <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
-            </div>
-            <div class="map-chip-row">
-                <span class="map-chip">🟫 Color intensity = alert volume</span>
-                <span class="map-chip">⚠️ Priority = negative volume + negative share</span>
-                <span class="map-chip">🖱️ Hover countries for details</span>
-                <span class="map-chip">📊 Rankings support deeper review</span>
-                <span class="map-chip">🧭 Interpret with reporting coverage</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-        k1, k2, k3, k4, k5 = st.columns(5)
-        with k1:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Filtered records linked to ISO3 country geometry.</div></div>""", unsafe_allow_html=True)
-        with k2:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Map coverage</div><div class="map-intel-card-value">{mapping_coverage}%</div><div class="map-intel-card-note">{unmapped_alerts:,} filtered alerts are not currently mapped.</div></div>""", unsafe_allow_html=True)
-        with k3:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the spatial view.</div></div>""", unsafe_allow_html=True)
-        with k4:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest volume</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_country}</div><div class="map-intel-card-note">Largest filtered alert count.</div></div>""", unsafe_allow_html=True)
-        with k5:
-            st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Priority focus</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_priority_country}</div><div class="map-intel-card-note">Highest combined negative-alert priority score.</div></div>""", unsafe_allow_html=True)
+                k1, k2, k3, k4, k5 = st.columns(5)
+                with k1:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Filtered records linked to ISO3 country geometry.</div></div>""", unsafe_allow_html=True)
+                with k2:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Map coverage</div><div class="map-intel-card-value">{mapping_coverage}%</div><div class="map-intel-card-note">{unmapped_alerts:,} filtered alerts are not currently mapped.</div></div>""", unsafe_allow_html=True)
+                with k3:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the spatial view.</div></div>""", unsafe_allow_html=True)
+                with k4:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest volume</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_country}</div><div class="map-intel-card-note">Largest filtered alert count.</div></div>""", unsafe_allow_html=True)
+                with k5:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Priority focus</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_priority_country}</div><div class="map-intel-card-note">Highest combined negative-alert priority score.</div></div>""", unsafe_allow_html=True)
 
-        st.markdown(f"""
-        <div class="map-insight-grid">
-            <div class="map-insight-card">
-                <div class="map-insight-title">Executive spatial signal</div>
-                <div class="map-insight-text"><b>{dominant_signal}</b>. Highest alert volume is <b>{top_country}</b>, while the highest priority score is <b>{top_priority_country}</b>. For interpretation, {dominant_next_step}</div>
-            </div>
-            <div class="map-insight-card">
-                <div class="map-insight-title">Priority watchlist</div>
-                <div class="map-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries are flagged. This equals <b>{priority_share}%</b> of mapped countries under the current filters.</div>
-            </div>
-            <div class="map-insight-card">
-                <div class="map-insight-title">Mapped composition</div>
-                <div class="map-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b>. Average country-level negative share is <b>{avg_negative_share}%</b>.</div>
-            </div>
-        </div>
-        <div class="map-method-note">
-            <b>Interpretation note:</b> the spatial priority score combines negative-alert volume and negative-alert share. It is a triage indicator for analytical review, not a standalone country ranking. High counts may reflect incident frequency, monitoring intensity, reporting coverage, or a combination of these factors.
-        </div>
-        """, unsafe_allow_html=True)
-
-        if unmapped_meta or unmapped_geo:
-            issue_bits = []
-            if unmapped_meta:
-                issue_bits.append("Missing metadata: " + ", ".join(unmapped_meta[:12]) + (" ..." if len(unmapped_meta) > 12 else ""))
-            if unmapped_geo:
-                issue_bits.append("No GeoJSON geometry match: " + ", ".join(unmapped_geo[:12]) + (" ..." if len(unmapped_geo) > 12 else ""))
-            st.markdown(
-                f"""<div class="map-quality-strip"><span class="map-quality-pill">Data quality check</span><span class="map-quality-pill">{' | '.join(issue_bits)}</span></div>""",
-                unsafe_allow_html=True
-            )
-
-        # ---------------- Dynamic center and zoom ----------------
-        if not df_map.empty:
-            coords = []
-            country_iso_set = set(df_map["iso_alpha3"].dropna().astype(str))
-            for feature in countries_gj.get("features", []):
-                if str(feature.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip() in country_iso_set:
-                    geometry = feature.get("geometry", {})
-                    if geometry.get("type") == "Polygon":
-                        coords.extend(geometry.get("coordinates", [[]])[0])
-                    elif geometry.get("type") == "MultiPolygon":
-                        for poly in geometry.get("coordinates", []):
-                            if poly:
-                                coords.extend(poly[0])
-            if coords:
-                lons, lats = zip(*coords)
-                center = {"lat": float(np.mean(lats)), "lon": float(np.mean(lons))}
-                lon_span = max(lons) - min(lons)
-                lat_span = max(lats) - min(lats)
-                span = max(lon_span, lat_span, 1)
-                zoom = max(1, min(4.2, 3.7 - np.log10(span + 1)))
-            else:
-                center, zoom = {"lat": 10, "lon": 0}, 1.6
-        else:
-            center, zoom = {"lat": 10, "lon": 0}, 1.6
-
-        # ---------------- Map + guided reading panel ----------------
-        map_col, guide_col = st.columns([1.55, 0.8])
-
-        with map_col:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of filtered alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
-
-            if df_map.empty:
-                st.info("No mapped country records are available under the current filters.")
-            else:
-                fig = px.choropleth_mapbox(
-                    df_map,
-                    geojson=countries_gj,
-                    locations="iso_alpha3",
-                    featureidkey="properties.ISO3166-1-Alpha-3",
-                    color="total_alerts",
-                    hover_name="alert-country",
-                    color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
-                    mapbox_style="carto-positron",
-                    zoom=zoom,
-                    center=center,
-                    opacity=0.90,
-                )
-
-                fig.update_traces(
-                    customdata=df_map[[
-                        "alert-country", "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
-                        "perc_negative", "priority_level", "regions", "priority_score"
-                    ]].values,
-                    hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "Region: %{customdata[7]}<br>"
-                        "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
-                        "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
-                        "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
-                        "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
-                        "Negative share: %{customdata[5]}%<br>"
-                        "Priority score: %{customdata[8]}<br>"
-                        "Priority level: <b>%{customdata[6]}</b><extra></extra>"
-                    ),
-                    hoverlabel=dict(
-                        bgcolor="#2D0055",
-                        font_size=12,
-                        font_family=MAP_FONT,
-                        font_color="white",
-                        bordercolor="#ffffff"
-                    ),
-                    marker_line_width=0.65,
-                    marker_line_color="rgba(45,0,85,0.55)",
-                )
-
-                fig.update_layout(
-                    margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                    height=590,
-                    coloraxis_colorbar=dict(
-                        title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
-                        tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
-                        thickness=12,
-                        len=0.72,
-                        outlinewidth=0,
-                    ),
-                    font=dict(family=MAP_FONT, color="#334155"),
-                )
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with guide_col:
-            st.markdown("""
-            <div class="map-guide-card">
-                <div class="map-guide-title">🧭 How to read this map</div>
-                <div class="map-guide-sub">Use this guide to interpret spatial alert patterns consistently and avoid over-reading raw counts.</div>
-                <div class="map-guide-step">
-                    <div class="map-guide-num">1</div>
-                    <div class="map-guide-text"><b>Start with intensity:</b> darker countries indicate higher filtered alert volume.</div>
+                st.markdown(f"""
+                <div class="map-insight-grid">
+                    <div class="map-insight-card">
+                        <div class="map-insight-title">Executive spatial signal</div>
+                        <div class="map-insight-text"><b>{dominant_signal}</b>. Highest alert volume is <b>{top_country}</b>, while the highest priority score is <b>{top_priority_country}</b>. For interpretation, {dominant_next_step}</div>
+                    </div>
+                    <div class="map-insight-card">
+                        <div class="map-insight-title">Priority watchlist</div>
+                        <div class="map-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries are flagged. This equals <b>{priority_share}%</b> of mapped countries under the current filters.</div>
+                    </div>
+                    <div class="map-insight-card">
+                        <div class="map-insight-title">Mapped composition</div>
+                        <div class="map-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b>. Average country-level negative share is <b>{avg_negative_share}%</b>.</div>
+                    </div>
                 </div>
-                <div class="map-guide-step">
-                    <div class="map-guide-num">2</div>
-                    <div class="map-guide-text"><b>Check hover details:</b> compare total, negative, positive, and context-to-watch alerts.</div>
+                <div class="map-method-note">
+                    <b>Interpretation note:</b> the spatial priority score combines negative-alert volume and negative-alert share. It is a triage indicator for analytical review, not a standalone country ranking. High counts may reflect incident frequency, monitoring intensity, reporting coverage, or a combination of these factors.
                 </div>
-                <div class="map-guide-step">
-                    <div class="map-guide-num">3</div>
-                    <div class="map-guide-text"><b>Use priority carefully:</b> priority combines negative-alert volume and negative share.</div>
-                </div>
-                <div class="map-guide-step">
-                    <div class="map-guide-num">4</div>
-                    <div class="map-guide-text"><b>Validate with rankings:</b> high alert counts may reflect event frequency, monitoring coverage, or reporting intensity.</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-            priority_df = df_map.sort_values("priority_score", ascending=False).head(5).copy() if not df_map.empty else pd.DataFrame()
-            st.markdown("""
-            <div class="priority-country-panel">
-                <div class="priority-title">🌍 Top Priority Countries</div>
-                <div class="priority-sub">Countries ranked by combined negative-alert priority score under the active filters.</div>
-            """, unsafe_allow_html=True)
-
-            if priority_df.empty:
-                st.info("No priority ranking available.")
-            else:
-                for rank, (_, r) in enumerate(priority_df.iterrows(), start=1):
-                    priority_label = str(r["priority_level"])
-                    priority_class = priority_label.lower().replace(" ", "-")
+                if unmapped_meta or unmapped_geo:
+                    issue_bits = []
+                    if unmapped_meta:
+                        issue_bits.append("Missing metadata: " + ", ".join(unmapped_meta[:12]) + (" ..." if len(unmapped_meta) > 12 else ""))
+                    if unmapped_geo:
+                        issue_bits.append("No GeoJSON geometry match: " + ", ".join(unmapped_geo[:12]) + (" ..." if len(unmapped_geo) > 12 else ""))
                     st.markdown(
-                        f"""
-                        <div class="priority-row">
-                            <div class="priority-rank">{rank}</div>
-                            <div>
-                                <div class="priority-country" title="{r['alert-country']}">{r['alert-country']}</div>
-                                <div class="priority-meta">
-                                    Negative <b>{int(r['negative_alerts']):,}</b> · Negative share <b>{r['perc_negative']}%</b>
-                                </div>
-                                <span class="priority-badge priority-{priority_class}">{priority_label}</span>
-                            </div>
-                            <div class="priority-score"><span>Score</span>{r['priority_score']}</div>
-                        </div>
-                        """,
+                        f"""<div class="map-quality-strip"><span class="map-quality-pill">Data quality check</span><span class="map-quality-pill">{' | '.join(issue_bits)}</span></div>""",
                         unsafe_allow_html=True
                     )
 
-                st.markdown("""
-                    <div class="priority-footnote">
-                        Priority is a triage signal for analytical review. It should be interpreted together with the map hover details, country ranking, and qualitative context.
+                # ---------------- Dynamic center and zoom ----------------
+                if not df_map.empty:
+                    coords = []
+                    country_iso_set = set(df_map["iso_alpha3"].dropna().astype(str))
+                    for feature in countries_gj.get("features", []):
+                        if str(feature.get("properties", {}).get("ISO3166-1-Alpha-3", "")).strip() in country_iso_set:
+                            geometry = feature.get("geometry", {})
+                            if geometry.get("type") == "Polygon":
+                                coords.extend(geometry.get("coordinates", [[]])[0])
+                            elif geometry.get("type") == "MultiPolygon":
+                                for poly in geometry.get("coordinates", []):
+                                    if poly:
+                                        coords.extend(poly[0])
+                    if coords:
+                        lons, lats = zip(*coords)
+                        center = {"lat": float(np.mean(lats)), "lon": float(np.mean(lons))}
+                        lon_span = max(lons) - min(lons)
+                        lat_span = max(lats) - min(lats)
+                        span = max(lon_span, lat_span, 1)
+                        zoom = max(1, min(4.2, 3.7 - np.log10(span + 1)))
+                    else:
+                        center, zoom = {"lat": 10, "lon": 0}, 1.6
+                else:
+                    center, zoom = {"lat": 10, "lon": 0}, 1.6
+
+                # ---------------- Map + guided reading panel ----------------
+                map_col, guide_col = st.columns([1.55, 0.8])
+
+                with map_col:
+                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of filtered alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
+
+                    if df_map.empty:
+                        st.info("No mapped country records are available under the current filters.")
+                    else:
+                        fig = px.choropleth_mapbox(
+                            df_map,
+                            geojson=countries_gj,
+                            locations="iso_alpha3",
+                            featureidkey="properties.ISO3166-1-Alpha-3",
+                            color="total_alerts",
+                            hover_name="alert-country",
+                            color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
+                            mapbox_style="carto-positron",
+                            zoom=zoom,
+                            center=center,
+                            opacity=0.90,
+                        )
+
+                        fig.update_traces(
+                            customdata=df_map[[
+                                "alert-country", "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
+                                "perc_negative", "priority_level", "regions", "priority_score"
+                            ]].values,
+                            hovertemplate=(
+                                "<b>%{customdata[0]}</b><br>"
+                                "Region: %{customdata[7]}<br>"
+                                "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
+                                "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
+                                "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
+                                "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
+                                "Negative share: %{customdata[5]}%<br>"
+                                "Priority score: %{customdata[8]}<br>"
+                                "Priority level: <b>%{customdata[6]}</b><extra></extra>"
+                            ),
+                            hoverlabel=dict(
+                                bgcolor="#2D0055",
+                                font_size=12,
+                                font_family=MAP_FONT,
+                                font_color="white",
+                                bordercolor="#ffffff"
+                            ),
+                            marker_line_width=0.65,
+                            marker_line_color="rgba(45,0,85,0.55)",
+                        )
+
+                        fig.update_layout(
+                            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                            height=590,
+                            coloraxis_colorbar=dict(
+                                title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
+                                tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
+                                thickness=12,
+                                len=0.72,
+                                outlinewidth=0,
+                            ),
+                            font=dict(family=MAP_FONT, color="#334155"),
+                        )
+                        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with guide_col:
+                    st.markdown("""
+                    <div class="map-guide-card">
+                        <div class="map-guide-title">🧭 How to read this map</div>
+                        <div class="map-guide-sub">Use this guide to interpret spatial alert patterns consistently and avoid over-reading raw counts.</div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">1</div>
+                            <div class="map-guide-text"><b>Start with intensity:</b> darker countries indicate higher filtered alert volume.</div>
+                        </div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">2</div>
+                            <div class="map-guide-text"><b>Check hover details:</b> compare total, negative, positive, and context-to-watch alerts.</div>
+                        </div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">3</div>
+                            <div class="map-guide-text"><b>Use priority carefully:</b> priority combines negative-alert volume and negative share.</div>
+                        </div>
+                        <div class="map-guide-step">
+                            <div class="map-guide-num">4</div>
+                            <div class="map-guide-text"><b>Validate with rankings:</b> high alert counts may reflect event frequency, monitoring coverage, or reporting intensity.</div>
+                        </div>
                     </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
-            st.markdown('</div>', unsafe_allow_html=True)
+                    priority_df = df_map.sort_values("priority_score", ascending=False).head(5).copy() if not df_map.empty else pd.DataFrame()
+                    st.markdown("""
+                    <div class="priority-country-panel">
+                        <div class="priority-title">🌍 Top Priority Countries</div>
+                        <div class="priority-sub">Countries ranked by combined negative-alert priority score under the active filters.</div>
+                    """, unsafe_allow_html=True)
 
-        # ---------------- Supporting map intelligence panels ----------------
-        p1, p2 = st.columns([1.15, 1])
-        with p1:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">This chart ranks countries by total filtered alert volume. Use it to identify where reporting or event concentration is highest.</div>', unsafe_allow_html=True)
-            rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
-            if rank_df.empty:
-                st.info("No country ranking available for the current filters.")
+                    if priority_df.empty:
+                        st.info("No priority ranking available.")
+                    else:
+                        for rank, (_, r) in enumerate(priority_df.iterrows(), start=1):
+                            priority_label = str(r["priority_level"])
+                            priority_class = priority_label.lower().replace(" ", "-")
+                            st.markdown(
+                                f"""
+                                <div class="priority-row">
+                                    <div class="priority-rank">{rank}</div>
+                                    <div>
+                                        <div class="priority-country" title="{r['alert-country']}">{r['alert-country']}</div>
+                                        <div class="priority-meta">
+                                            Negative <b>{int(r['negative_alerts']):,}</b> · Negative share <b>{r['perc_negative']}%</b>
+                                        </div>
+                                        <span class="priority-badge priority-{priority_class}">{priority_label}</span>
+                                    </div>
+                                    <div class="priority-score"><span>Score</span>{r['priority_score']}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        st.markdown("""
+                            <div class="priority-footnote">
+                                Priority is a triage signal for analytical review. It should be interpreted together with the map hover details, country ranking, and qualitative context.
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                # ---------------- Supporting map intelligence panels ----------------
+                p1, p2 = st.columns([1.15, 1])
+                with p1:
+                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">This chart ranks countries by total filtered alert volume. Use it to identify where reporting or event concentration is highest.</div>', unsafe_allow_html=True)
+                    rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
+                    if rank_df.empty:
+                        st.info("No country ranking available for the current filters.")
+                    else:
+                        fig_rank = go.Figure(go.Bar(
+                            x=rank_df["total_alerts"],
+                            y=rank_df["alert-country"].astype(str),
+                            orientation="h",
+                            marker=dict(color="#660094", line=dict(color="rgba(45,0,85,0.25)", width=0.5)),
+                            text=rank_df["total_alerts"],
+                            textposition="outside",
+                            customdata=rank_df[["negative_alerts", "positive_alerts", "context_to_watch_alerts", "perc_negative", "priority_level"]].values,
+                            hovertemplate=(
+                                "<b>%{y}</b><br>"
+                                "Total alerts: %{x}<br>"
+                                "Negative: %{customdata[0]}<br>"
+                                "Positive: %{customdata[1]}<br>"
+                                "Context: %{customdata[2]}<br>"
+                                "Negative share: %{customdata[3]}%<br>"
+                                "Priority: %{customdata[4]}<extra></extra>"
+                            ),
+                        ))
+                        fig_rank.update_layout(
+                            height=max(320, len(rank_df) * 35),
+                            margin=dict(l=20, r=45, t=5, b=24),
+                            xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
+                            yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
+                            font=dict(family=MAP_FONT, size=11, color="#334155"),
+                            plot_bgcolor="#ffffff",
+                            paper_bgcolor="#ffffff",
+                        )
+                        st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with p2:
+                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a clear interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
+                    country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
+                    selected_map_country = st.selectbox(
+                        "Select country for map intelligence",
+                        options=country_options,
+                        index=0 if country_options else None,
+                        key="map_country_intelligence_selector",
+                        label_visibility="collapsed",
+                        placeholder="Choose a mapped country"
+                    ) if country_options else None
+
+                    if selected_map_country:
+                        row = df_map[df_map["alert-country"].astype(str) == selected_map_country].iloc[0]
+                        dominant_country_signal = "negative" if row["negative_alerts"] >= max(row["positive_alerts"], row["context_to_watch_alerts"]) else ("positive" if row["positive_alerts"] >= row["context_to_watch_alerts"] else "context-to-watch")
+                        st.markdown(f"""
+                        <div class="country-insight-box">
+                            <b>{selected_map_country}</b><br>
+                            <div class="country-mini-grid">
+                                <div class="country-mini-kpi"><span>Total alerts</span><strong>{int(row['total_alerts']):,}</strong></div>
+                                <div class="country-mini-kpi"><span>Priority level</span><strong>{row['priority_level']}</strong></div>
+                                <div class="country-mini-kpi"><span>Negative share</span><strong>{row['perc_negative']}%</strong></div>
+                                <div class="country-mini-kpi"><span>Priority score</span><strong>{row['priority_score']}</strong></div>
+                            </div>
+                            <b>Signal composition:</b> Negative {int(row['negative_alerts']):,} · Positive {int(row['positive_alerts']):,} · Context {int(row['context_to_watch_alerts']):,}.<br><br>
+                            <b>Interpretation:</b> the dominant mapped signal is <b>{dominant_country_signal}</b>. Review this country alongside the pathway charts, evidence table, and qualitative context before drawing conclusions about severity or trend direction.
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.info("No mapped countries are available under the current filters.")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
             else:
-                fig_rank = go.Figure(go.Bar(
-                    x=rank_df["total_alerts"],
-                    y=rank_df["alert-country"].astype(str),
-                    orientation="h",
-                    marker=dict(color="#660094", line=dict(color="rgba(45,0,85,0.25)", width=0.5)),
-                    text=rank_df["total_alerts"],
-                    textposition="outside",
-                    customdata=rank_df[["negative_alerts", "positive_alerts", "context_to_watch_alerts", "perc_negative", "priority_level"]].values,
-                    hovertemplate=(
-                        "<b>%{y}</b><br>"
-                        "Total alerts: %{x}<br>"
-                        "Negative: %{customdata[0]}<br>"
-                        "Positive: %{customdata[1]}<br>"
-                        "Context: %{customdata[2]}<br>"
-                        "Negative share: %{customdata[3]}%<br>"
-                        "Priority: %{customdata[4]}<extra></extra>"
-                    ),
-                ))
-                fig_rank.update_layout(
-                    height=max(320, len(rank_df) * 35),
-                    margin=dict(l=20, r=45, t=5, b=24),
-                    xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
-                    yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
-                    font=dict(family=MAP_FONT, size=11, color="#334155"),
-                    plot_bgcolor="#ffffff",
-                    paper_bgcolor="#ffffff",
-                )
-                st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar")
+                st.warning("GeoJSON file not found for map visualization. Add countries.geojson to the exports folder.")
+
             st.markdown('</div>', unsafe_allow_html=True)
 
-        with p2:
-            st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a clear interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
-            country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
-            selected_map_country = st.selectbox(
-                "Select country for map intelligence",
-                options=country_options,
-                index=0 if country_options else None,
-                key="map_country_intelligence_selector",
-                label_visibility="collapsed",
-                placeholder="Choose a mapped country"
-            ) if country_options else None
+        # -----------------USER MANUAL TAB-----------------    else:
+            render_access_locked("Visualization Map", "viewer or privileged")
 
-            if selected_map_country:
-                row = df_map[df_map["alert-country"].astype(str) == selected_map_country].iloc[0]
-                dominant_country_signal = "negative" if row["negative_alerts"] >= max(row["positive_alerts"], row["context_to_watch_alerts"]) else ("positive" if row["positive_alerts"] >= row["context_to_watch_alerts"] else "context-to-watch")
-                st.markdown(f"""
-                <div class="country-insight-box">
-                    <b>{selected_map_country}</b><br>
-                    <div class="country-mini-grid">
-                        <div class="country-mini-kpi"><span>Total alerts</span><strong>{int(row['total_alerts']):,}</strong></div>
-                        <div class="country-mini-kpi"><span>Priority level</span><strong>{row['priority_level']}</strong></div>
-                        <div class="country-mini-kpi"><span>Negative share</span><strong>{row['perc_negative']}%</strong></div>
-                        <div class="country-mini-kpi"><span>Priority score</span><strong>{row['priority_score']}</strong></div>
-                    </div>
-                    <b>Signal composition:</b> Negative {int(row['negative_alerts']):,} · Positive {int(row['positive_alerts']):,} · Context {int(row['context_to_watch_alerts']):,}.<br><br>
-                    <b>Interpretation:</b> the dominant mapped signal is <b>{dominant_country_signal}</b>. Review this country alongside the pathway charts, evidence table, and qualitative context before drawing conclusions about severity or trend direction.
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.info("No mapped countries are available under the current filters.")
-            st.markdown('</div>', unsafe_allow_html=True)
 
     else:
-        st.warning("GeoJSON file not found for map visualization. Add countries.geojson to the exports folder.")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# -----------------USER MANUAL TAB-----------------
+        render_access_locked("Visualization Map", "viewer or privileged")
 
 with tab_manual:
-    def _pdf_download_card(title, subtitle, audience, pdf_path: Path, icon="📄"):
-        """Professional document card for dashboard manuals/briefs."""
-        st.markdown(
-            f"""
-            <div class="manual-doc-card">
-                <div class="manual-doc-icon">{icon}</div>
-                <div class="manual-doc-body">
-                    <div class="manual-doc-title">{title}</div>
-                    <div class="manual-doc-subtitle">{subtitle}</div>
-                    <div class="manual-doc-audience">{audience}</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-        if pdf_path.exists():
-            st.download_button(
-                label=f"⬇ Download {title}",
-                data=pdf_path.read_bytes(),
-                file_name=pdf_path.name,
-                mime="application/pdf",
-                use_container_width=True,
-                key=f"download_{pdf_path.name}",
+    if has_permission("view_manual"):
+
+        if has_permission("view_manual"):
+            def _pdf_download_card(title, subtitle, audience, pdf_path: Path, icon="📄"):
+                """Professional document card for dashboard manuals/briefs."""
+                st.markdown(
+                    f"""
+                    <div class="manual-doc-card">
+                        <div class="manual-doc-icon">{icon}</div>
+                        <div class="manual-doc-body">
+                            <div class="manual-doc-title">{title}</div>
+                            <div class="manual-doc-subtitle">{subtitle}</div>
+                            <div class="manual-doc-audience">{audience}</div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                if pdf_path.exists():
+                    st.download_button(
+                        label=f"⬇ Download {title}",
+                        data=pdf_path.read_bytes(),
+                        file_name=pdf_path.name,
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key=f"download_{pdf_path.name}",
+                    )
+                else:
+                    st.warning(f"{title} PDF not found: {pdf_path.name}")
+
+            st.markdown(
+                """
+                <style>
+                .manual-hero {
+                    background: linear-gradient(135deg, #FFFFFF 0%, #F8F3FB 56%, #FFF9DC 100%);
+                    border: 1px solid #E8DFF0;
+                    border-radius: 20px;
+                    padding: 24px 26px;
+                    box-shadow: 0 12px 34px rgba(54, 26, 83, 0.10);
+                    margin-bottom: 18px;
+                    font-family: Arial, sans-serif;
+                }
+                .manual-eyebrow {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: #F1E8F8;
+                    color: #660094;
+                    border: 1px solid #E2D2EC;
+                    border-radius: 999px;
+                    padding: 6px 10px;
+                    font-size: 11px;
+                    font-weight: 900;
+                    letter-spacing: .04em;
+                    text-transform: uppercase;
+                    margin-bottom: 10px;
+                }
+                .manual-title {
+                    color: #2D0055;
+                    font-size: 28px;
+                    font-weight: 900;
+                    margin: 0 0 8px 0;
+                    line-height: 1.15;
+                }
+                .manual-lead {
+                    color: #475569;
+                    font-size: 13px;
+                    line-height: 1.55;
+                    max-width: 980px;
+                    margin: 0;
+                }
+                .manual-kpi-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, minmax(0, 1fr));
+                    gap: 12px;
+                    margin: 14px 0 18px 0;
+                }
+                .manual-mini-card {
+                    background: #FFFFFF;
+                    border: 1px solid #ECE5F3;
+                    border-radius: 15px;
+                    padding: 13px 14px;
+                    box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
+                    min-height: 92px;
+                    font-family: Arial, sans-serif;
+                }
+                .manual-mini-icon {
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #F8F3FB;
+                    color: #660094;
+                    font-size: 16px;
+                    margin-bottom: 8px;
+                }
+                .manual-mini-title {
+                    color: #2D0055;
+                    font-size: 12px;
+                    font-weight: 900;
+                    margin-bottom: 4px;
+                }
+                .manual-mini-text {
+                    color: #64748B;
+                    font-size: 11px;
+                    line-height: 1.35;
+                }
+                .manual-section-card {
+                    background: #FFFFFF;
+                    border: 1px solid #ECE5F3;
+                    border-radius: 18px;
+                    padding: 18px;
+                    box-shadow: 0 10px 28px rgba(54, 26, 83, 0.08);
+                    margin-bottom: 16px;
+                    font-family: Arial, sans-serif;
+                }
+                .manual-section-title {
+                    color: #2D0055;
+                    font-size: 16px;
+                    font-weight: 900;
+                    margin-bottom: 4px;
+                }
+                .manual-section-note {
+                    color: #64748B;
+                    font-size: 12px;
+                    line-height: 1.45;
+                    margin-bottom: 12px;
+                }
+                .manual-step {
+                    display: grid;
+                    grid-template-columns: 30px 1fr;
+                    gap: 10px;
+                    align-items: start;
+                    padding: 10px 0;
+                    border-bottom: 1px solid #F1EEF5;
+                }
+                .manual-step:last-child { border-bottom: none; }
+                .manual-step-num {
+                    background: #660094;
+                    color: white;
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 999px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    font-weight: 900;
+                }
+                .manual-step-title {
+                    color: #334155;
+                    font-size: 12px;
+                    font-weight: 900;
+                    margin-bottom: 2px;
+                }
+                .manual-step-text {
+                    color: #64748B;
+                    font-size: 11.5px;
+                    line-height: 1.38;
+                }
+                .manual-doc-card {
+                    display: grid;
+                    grid-template-columns: 46px 1fr;
+                    gap: 12px;
+                    align-items: center;
+                    background: #FFFFFF;
+                    border: 1px solid #ECE5F3;
+                    border-left: 5px solid #660094;
+                    border-radius: 16px;
+                    padding: 14px;
+                    box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
+                    margin-bottom: 10px;
+                    font-family: Arial, sans-serif;
+                }
+                .manual-doc-icon {
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 14px;
+                    background: linear-gradient(135deg, #660094, #8A2DB2);
+                    color: #FFFFFF;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 20px;
+                }
+                .manual-doc-title {
+                    color: #2D0055;
+                    font-size: 13px;
+                    font-weight: 900;
+                    margin-bottom: 3px;
+                }
+                .manual-doc-subtitle {
+                    color: #475569;
+                    font-size: 11.5px;
+                    line-height: 1.35;
+                    margin-bottom: 5px;
+                }
+                .manual-doc-audience {
+                    color: #660094;
+                    font-size: 10.5px;
+                    font-weight: 800;
+                    background: #F8F3FB;
+                    border: 1px solid #E8DFF0;
+                    display: inline-block;
+                    padding: 3px 8px;
+                    border-radius: 999px;
+                }
+                .manual-tip {
+                    background: #FFF9DC;
+                    border: 1px solid #F2E7A8;
+                    border-radius: 14px;
+                    padding: 12px 14px;
+                    color: #55420A;
+                    font-size: 11.5px;
+                    line-height: 1.45;
+                    font-family: Arial, sans-serif;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
             )
+
+            st.markdown(
+                """
+                <div class="manual-hero">
+                    <div class="manual-eyebrow">📘 Dashboard user guidance</div>
+                    <div class="manual-title">EU SEE Dashboard User Manual</div>
+                    <p class="manual-lead">
+                        A concise, decision-ready help centre for navigating filters, charts, maps, negative-alert analytics,
+                        data preview tables, exports, and AI-assisted interpretation. Use this section to onboard new users,
+                        support stakeholder demonstrations, and standardize dashboard interpretation.
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                """
+                <div class="manual-kpi-grid">
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand EU SEE monitoring outputs and interpret alert patterns.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Use Overview, Negative Alerts, Map, and Manual tabs as guided workflows.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Apply filters, inspect charts, explore flows, and review summary records.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download briefs, manuals, filtered tables, and export-ready evidence.</div></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            guide_col, docs_col = st.columns([1.35, 1], gap="large")
+
+            with guide_col:
+                st.markdown(
+                    """
+                    <div class="manual-section-card">
+                        <div class="manual-section-title">Quick-start workflow</div>
+                        <div class="manual-section-note">Recommended path for first-time users and stakeholder demonstrations.</div>
+                        <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">Set the analytical scope</div><div class="manual-step-text">Use the Global Filters to select region, country, alert impact, alert type, enabling principle, year, and month.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Read the KPI cards first</div><div class="manual-step-text">Start with monitored countries, total alerts, and the Alerts Breakdown donut to understand the filtered context.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Move from overview to diagnosis</div><div class="manual-step-text">Use Overview charts for distribution patterns, then open Negative Alerts for restrictive actor, mechanism, and affected group analysis.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use maps for spatial interpretation</div><div class="manual-step-text">Inspect geographic concentration and country-level patterns, while interpreting counts alongside reporting coverage.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Export or document evidence</div><div class="manual-step-text">Use the Summary Data Preview export and downloadable PDF resources for reporting, validation, and follow-up.</div></div></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown(
+                    """
+                    <div class="manual-section-card">
+                        <div class="manual-section-title">Interpretation standards</div>
+                        <div class="manual-section-note">Use these principles when presenting dashboard outputs.</div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect incident volume, reporting intensity, network coverage, or a combination of these factors.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">Always state the selected region, period, alert impact, and alert type when sharing charts or tables.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Triangulate charts</div><div class="manual-step-text">Combine KPI cards, distribution charts, heatmaps, Sankey flow, map, and table records before drawing conclusions.</div></div></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            with docs_col:
+                st.markdown(
+                    """
+                    <div class="manual-section-card">
+                        <div class="manual-section-title">Documentation downloads</div>
+                        <div class="manual-section-note">Use the executive brief for quick stakeholder reporting and the full manual for analyst onboarding.</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                _pdf_download_card(
+                    "Executive Brief",
+                    "One-page dashboard overview for senior leadership, donors, and policy reporting.",
+                    "Best for: executives and external briefings",
+                    EXEC_BRIEF_PATH,
+                    icon="📌",
+                )
+
+                _pdf_download_card(
+                    "Full User Manual",
+                    "Detailed guide covering navigation, filters, charts, map interpretation, data preview, and exports.",
+                    "Best for: analysts and advanced users",
+                    USER_MANUAL_PATH,
+                    icon="📘",
+                )
+
+                st.markdown(
+                    """
+                    <div class="manual-tip">
+                        <strong>Recommended reporting note:</strong><br>
+                        Dashboard findings should be interpreted as reported monitoring evidence, not as direct prevalence estimates.
+                        Always pair quantitative outputs with contextual review and partner validation.
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
         else:
-            st.warning(f"{title} PDF not found: {pdf_path.name}")
+            render_access_locked("User Manual", "guest or higher")
 
-    st.markdown(
-        """
-        <style>
-        .manual-hero {
-            background: linear-gradient(135deg, #FFFFFF 0%, #F8F3FB 56%, #FFF9DC 100%);
-            border: 1px solid #E8DFF0;
-            border-radius: 20px;
-            padding: 24px 26px;
-            box-shadow: 0 12px 34px rgba(54, 26, 83, 0.10);
-            margin-bottom: 18px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #F1E8F8;
-            color: #660094;
-            border: 1px solid #E2D2EC;
-            border-radius: 999px;
-            padding: 6px 10px;
-            font-size: 11px;
-            font-weight: 900;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-        .manual-title {
-            color: #2D0055;
-            font-size: 28px;
-            font-weight: 900;
-            margin: 0 0 8px 0;
-            line-height: 1.15;
-        }
-        .manual-lead {
-            color: #475569;
-            font-size: 13px;
-            line-height: 1.55;
-            max-width: 980px;
-            margin: 0;
-        }
-        .manual-kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
-            margin: 14px 0 18px 0;
-        }
-        .manual-mini-card {
-            background: #FFFFFF;
-            border: 1px solid #ECE5F3;
-            border-radius: 15px;
-            padding: 13px 14px;
-            box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
-            min-height: 92px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-mini-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #F8F3FB;
-            color: #660094;
-            font-size: 16px;
-            margin-bottom: 8px;
-        }
-        .manual-mini-title {
-            color: #2D0055;
-            font-size: 12px;
-            font-weight: 900;
-            margin-bottom: 4px;
-        }
-        .manual-mini-text {
-            color: #64748B;
-            font-size: 11px;
-            line-height: 1.35;
-        }
-        .manual-section-card {
-            background: #FFFFFF;
-            border: 1px solid #ECE5F3;
-            border-radius: 18px;
-            padding: 18px;
-            box-shadow: 0 10px 28px rgba(54, 26, 83, 0.08);
-            margin-bottom: 16px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-section-title {
-            color: #2D0055;
-            font-size: 16px;
-            font-weight: 900;
-            margin-bottom: 4px;
-        }
-        .manual-section-note {
-            color: #64748B;
-            font-size: 12px;
-            line-height: 1.45;
-            margin-bottom: 12px;
-        }
-        .manual-step {
-            display: grid;
-            grid-template-columns: 30px 1fr;
-            gap: 10px;
-            align-items: start;
-            padding: 10px 0;
-            border-bottom: 1px solid #F1EEF5;
-        }
-        .manual-step:last-child { border-bottom: none; }
-        .manual-step-num {
-            background: #660094;
-            color: white;
-            width: 26px;
-            height: 26px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 900;
-        }
-        .manual-step-title {
-            color: #334155;
-            font-size: 12px;
-            font-weight: 900;
-            margin-bottom: 2px;
-        }
-        .manual-step-text {
-            color: #64748B;
-            font-size: 11.5px;
-            line-height: 1.38;
-        }
-        .manual-doc-card {
-            display: grid;
-            grid-template-columns: 46px 1fr;
-            gap: 12px;
-            align-items: center;
-            background: #FFFFFF;
-            border: 1px solid #ECE5F3;
-            border-left: 5px solid #660094;
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
-            margin-bottom: 10px;
-            font-family: Arial, sans-serif;
-        }
-        .manual-doc-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 14px;
-            background: linear-gradient(135deg, #660094, #8A2DB2);
-            color: #FFFFFF;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-        }
-        .manual-doc-title {
-            color: #2D0055;
-            font-size: 13px;
-            font-weight: 900;
-            margin-bottom: 3px;
-        }
-        .manual-doc-subtitle {
-            color: #475569;
-            font-size: 11.5px;
-            line-height: 1.35;
-            margin-bottom: 5px;
-        }
-        .manual-doc-audience {
-            color: #660094;
-            font-size: 10.5px;
-            font-weight: 800;
-            background: #F8F3FB;
-            border: 1px solid #E8DFF0;
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 999px;
-        }
-        .manual-tip {
-            background: #FFF9DC;
-            border: 1px solid #F2E7A8;
-            border-radius: 14px;
-            padding: 12px 14px;
-            color: #55420A;
-            font-size: 11.5px;
-            line-height: 1.45;
-            font-family: Arial, sans-serif;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
 
-    st.markdown(
-        """
-        <div class="manual-hero">
-            <div class="manual-eyebrow">📘 Dashboard user guidance</div>
-            <div class="manual-title">EU SEE Dashboard User Manual</div>
-            <p class="manual-lead">
-                A concise, decision-ready help centre for navigating filters, charts, maps, negative-alert analytics,
-                data preview tables, exports, and AI-assisted interpretation. Use this section to onboard new users,
-                support stakeholder demonstrations, and standardize dashboard interpretation.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="manual-kpi-grid">
-            <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand EU SEE monitoring outputs and interpret alert patterns.</div></div>
-            <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Use Overview, Negative Alerts, Map, and Manual tabs as guided workflows.</div></div>
-            <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Apply filters, inspect charts, explore flows, and review summary records.</div></div>
-            <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download briefs, manuals, filtered tables, and export-ready evidence.</div></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    guide_col, docs_col = st.columns([1.35, 1], gap="large")
-
-    with guide_col:
-        st.markdown(
-            """
-            <div class="manual-section-card">
-                <div class="manual-section-title">Quick-start workflow</div>
-                <div class="manual-section-note">Recommended path for first-time users and stakeholder demonstrations.</div>
-                <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">Set the analytical scope</div><div class="manual-step-text">Use the Global Filters to select region, country, alert impact, alert type, enabling principle, year, and month.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Read the KPI cards first</div><div class="manual-step-text">Start with monitored countries, total alerts, and the Alerts Breakdown donut to understand the filtered context.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Move from overview to diagnosis</div><div class="manual-step-text">Use Overview charts for distribution patterns, then open Negative Alerts for restrictive actor, mechanism, and affected group analysis.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use maps for spatial interpretation</div><div class="manual-step-text">Inspect geographic concentration and country-level patterns, while interpreting counts alongside reporting coverage.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Export or document evidence</div><div class="manual-step-text">Use the Summary Data Preview export and downloadable PDF resources for reporting, validation, and follow-up.</div></div></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            """
-            <div class="manual-section-card">
-                <div class="manual-section-title">Interpretation standards</div>
-                <div class="manual-section-note">Use these principles when presenting dashboard outputs.</div>
-                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect incident volume, reporting intensity, network coverage, or a combination of these factors.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">Always state the selected region, period, alert impact, and alert type when sharing charts or tables.</div></div></div>
-                <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Triangulate charts</div><div class="manual-step-text">Combine KPI cards, distribution charts, heatmaps, Sankey flow, map, and table records before drawing conclusions.</div></div></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with docs_col:
-        st.markdown(
-            """
-            <div class="manual-section-card">
-                <div class="manual-section-title">Documentation downloads</div>
-                <div class="manual-section-note">Use the executive brief for quick stakeholder reporting and the full manual for analyst onboarding.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        _pdf_download_card(
-            "Executive Brief",
-            "One-page dashboard overview for senior leadership, donors, and policy reporting.",
-            "Best for: executives and external briefings",
-            EXEC_BRIEF_PATH,
-            icon="📌",
-        )
-
-        _pdf_download_card(
-            "Full User Manual",
-            "Detailed guide covering navigation, filters, charts, map interpretation, data preview, and exports.",
-            "Best for: analysts and advanced users",
-            USER_MANUAL_PATH,
-            icon="📘",
-        )
-
-        st.markdown(
-            """
-            <div class="manual-tip">
-                <strong>Recommended reporting note:</strong><br>
-                Dashboard findings should be interpreted as reported monitoring evidence, not as direct prevalence estimates.
-                Always pair quantitative outputs with contextual review and partner validation.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
+    else:
+        render_access_locked("User Manual", "guest or higher")
 
 # ---------------- AI ASSISTANT v6: ADVANCED CHATBOT PLOT BUILDER ----------------
 AI_PLOT_CHART_TYPES = [
