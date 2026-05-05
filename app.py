@@ -101,7 +101,9 @@ def inject_classic_dashboard_css():
         --eusee-text: #232633;
         --eusee-muted: #667085;
     }
-    .main .block-container { padding-top: 1.5rem; padding-bottom: 2.2rem; max-width: 1500px; }
+    .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
+    header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; background: transparent !important; }
+    div[data-testid="stDecoration"] { display: none !important; }
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
     section[data-testid="stSidebar"] label {
@@ -404,8 +406,8 @@ st.markdown("""
 <style>
 /* ---------------- Title ---------------- */
 .animated-title {
-    margin: 0 0 6px 0;
-    line-height: 1.1;
+    margin: 0 0 4px 0 !important;
+    line-height: 1.05;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
@@ -429,7 +431,7 @@ st.markdown("""
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 16px;
+    margin-bottom: 10px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
@@ -446,8 +448,8 @@ st.markdown("""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 20px;
-    max-width: 900px;
+    margin-bottom: 12px !important;
+    max-width: 980px;
     line-height: 1.5;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
@@ -3710,7 +3712,7 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 18px !important;
+        padding-top: 8px !important;
     }
     </style>
     """,
@@ -4571,10 +4573,18 @@ with tab_map:
                 background:#FFFFFF;
                 border:1px solid #E8EAF0;
                 border-radius:18px;
-                padding:14px;
-                box-shadow:0 12px 28px rgba(17,24,39,.058);
-                margin: 12px 0 16px 0;
+                padding:12px 13px;
+                box-shadow:0 10px 22px rgba(17,24,39,.052);
+                margin: 6px 0 10px 0;
                 font-family:Arial, sans-serif;
+            }
+            .map-layout-tight {
+                margin-top: 4px;
+                margin-bottom: 6px;
+            }
+            .map-support-grid {
+                margin-top: -4px;
+                margin-bottom: 4px;
             }
             .map-panel-title {
                 color:#2D0055;
@@ -4640,9 +4650,9 @@ with tab_map:
                 background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);
                 border:1px solid #E7D4F1;
                 border-radius:18px;
-                padding:15px 16px;
-                box-shadow:0 10px 24px rgba(45,0,85,.07);
-                margin:12px 0 16px 0;
+                padding:12px 14px;
+                box-shadow:0 8px 18px rgba(45,0,85,.06);
+                margin:6px 0 10px 0;
                 font-family:Arial, sans-serif;
             }
             .map-guide-title {
@@ -4690,9 +4700,9 @@ with tab_map:
                 background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
                 border:1px solid #E7D4F1;
                 border-radius:18px;
-                padding:15px 16px;
-                box-shadow:0 10px 24px rgba(45,0,85,.07);
-                margin:12px 0 16px 0;
+                padding:12px 14px;
+                box-shadow:0 8px 18px rgba(45,0,85,.06);
+                margin:6px 0 10px 0;
                 font-family:Arial, sans-serif;
             }
             .priority-title {
@@ -4990,7 +5000,8 @@ with tab_map:
                     center, zoom = {"lat": 10, "lon": 0}, 1.6
 
                 # ---------------- Map + guided reading panel ----------------
-                map_col, guide_col = st.columns([1.55, 0.8])
+                st.markdown('<div class="map-layout-tight">', unsafe_allow_html=True)
+                map_col, guide_col = st.columns([1.62, 0.78], gap="medium")
 
                 with map_col:
                     st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of filtered alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
@@ -5041,7 +5052,7 @@ with tab_map:
 
                         fig.update_layout(
                             margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                            height=590,
+                            height=520,
                             coloraxis_colorbar=dict(
                                 title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
                                 tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
@@ -5116,8 +5127,11 @@ with tab_map:
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
+                st.markdown('</div>', unsafe_allow_html=True)
+
                 # ---------------- Supporting map intelligence panels ----------------
-                p1, p2 = st.columns([1.15, 1])
+                st.markdown('<div class="map-support-grid">', unsafe_allow_html=True)
+                p1, p2 = st.columns([1.35, 1], gap="medium")
                 with p1:
                     st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">This chart ranks countries by total filtered alert volume. Use it to identify where reporting or event concentration is highest.</div>', unsafe_allow_html=True)
                     rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
@@ -5143,8 +5157,8 @@ with tab_map:
                             ),
                         ))
                         fig_rank.update_layout(
-                            height=max(320, len(rank_df) * 35),
-                            margin=dict(l=20, r=45, t=5, b=24),
+                            height=max(300, len(rank_df) * 31),
+                            margin=dict(l=8, r=42, t=4, b=8),
                             xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
                             yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
                             font=dict(family=MAP_FONT, size=11, color="#334155"),
@@ -5185,6 +5199,8 @@ with tab_map:
                     else:
                         st.info("No mapped countries are available under the current filters.")
                     st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('</div>', unsafe_allow_html=True)
 
             else:
                 st.warning("GeoJSON file not found for map visualization. Add countries.geojson to the exports folder.")
