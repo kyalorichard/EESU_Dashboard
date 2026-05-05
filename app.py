@@ -3884,7 +3884,40 @@ def add_chart_info_badge(
     return fig
 
 
-# ---------------- FLOATING DISMISSIBLE CHART TIP OVERLAY ----------------   """Central styling for floating chart interpretation notes."""
+# ---------------- FLOATING DISMISSIBLE CHART TIP OVERLAY ----------------
+def render_chart_floating_tip(
+    message,
+    title="Reading this chart",
+    icon="i",
+    container=None,
+    open_by_default=True,
+):
+    """Render a floating, dismissible interpretation tip over the chart area.
+f
+    The wrapper has zero height, so it does not push the chart down or distort the
+    layout. Users can collapse the note by clicking the summary pill.
+    """
+    target = container if container is not None else st
+    open_attr = " open" if open_by_default else ""
+    target.markdown(f"""
+    <div class="eusee-floating-tip-layer" aria-label="Chart interpretation tip">
+        <details class="eusee-floating-tip"{open_attr}>
+            <summary>
+                <span class="eusee-floating-tip-icon">{icon}</span>
+                <span class="eusee-floating-tip-label">Tip</span>
+                <span class="eusee-floating-tip-toggle">hide/show</span>
+            </summary>
+            <div class="eusee-floating-tip-card" role="note" aria-label="{title}">
+                <div class="eusee-floating-tip-title">{title}</div>
+                <div class="eusee-floating-tip-text">{message}</div>
+            </div>
+        </details>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def inject_chart_floating_tip_css():
+    """Central styling for floating chart interpretation notes."""
     st.markdown("""
     <style>
     .eusee-floating-tip-layer {
