@@ -17,6 +17,7 @@ from authz import (
     load_access_config,
     save_access_config,
     default_access_config,
+    reset_access_config,
 )
 
 FEATURE_LABELS = {
@@ -213,5 +214,15 @@ config_path = "/exports/eusee_access_config.json"
             "session_email_verified": st.session_state.get("email_verified"),
             "session_user": st.session_state.get("user"),
         })
+        st.subheader("Access config reset")
+        st.warning(
+            "Use this if guest permissions do not update after saving. "
+            "It deletes the stale JSON and rebuilds it using the current permission keys."
+        )
+        if st.button("🧹 Reset access config and rebuild permissions", type="primary", use_container_width=True):
+            if reset_access_config():
+                st.success("Access config reset successfully. Refresh the app, then configure Guest visibility again.")
+                st.rerun()
+
         st.subheader("Loaded access config")
         st.json(load_access_config())
