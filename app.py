@@ -6,6 +6,9 @@ import plotly.graph_objects as go
 import json
 from pathlib import Path
 import streamlit.components.v1 as components
+import plotly.io as pio
+import html
+import uuid
 import plotly.graph_objects as go
 import base64
 from auth import auth_ui, is_privileged, is_authenticated
@@ -3884,168 +3887,242 @@ def add_chart_info_badge(
     return fig
 
 
-# ---------------- FLOATING DISMISSIBLE CHART TIP OVERLAY ----------------   
-def render_chart_floating_tip(message, title="Reading this chart", icon="i", container=None):
-    """Bottom-left minimized draggable chart interpretation tip."""
+# ---------------- FLOATING DISMISSIBLE CHART TIP INSIDE PLOTLY CHART ----------------
+def render_plotly_chart_with_floating_tip(
+    fig,
+    tip_message,
+    tip_title="Reading this chart",
+    icon="i",
+    key=None,
+    container=None,
+    height=520,
+):
+    """
+    Render a Plotly chart and a minimized draggable interpretation tip inside the same chart area.
+
+    st.plotly_chart() and st.markdown() render as separate Streamlit elements. This wrapper renders
+    the Plotly figure and the tip in one HTML component, so the minimized draggable tip stays inside
+    the specific chart area.
+    """
     target = container if container is not None else st
+    chart_id = key or f"eusee_chart_tip_{uuid.uuid4().hex[:10]}"
 
-    safe_title = str(title).replace('"', "&quot;")
-    safe_message = str(message).replace('"', "&quot;")
-    safe_icon = str(icon).replace('"', "&quot;")
+    safe_title = html.escape(str(tip_title))
+    safe_message = html.escape(str(tip_message))
+    safe_icon = html.escape(str(icon))
 
-    target.markdown(f"""
-    <div class="eusee-chart-tip-wrap">
-        <details class="eusee-floating-tip">
-            <summary class="eusee-floating-tip-toggle" title="Drag or open chart note">
-                {safe_icon}
-            </summary>
-            <div class="eusee-floating-tip-card">
-                <div class="eusee-floating-tip-title">{safe_title}</div>
-                <div class="eusee-floating-tip-text">{safe_message}</div>
+    fig.update_layout(autosize=True, height=height)
+
+    fig_html = pio.to_html(
+        fig,
+        full_html=False,
+        include_plotlyjs="cdn",
+        config={"responsive": True, "displayModeBar": True, "displaylogo": False},
+    )
+
+    target.components.v1.html(
+        f"""
+        <div id="{chart_id}" class="eusee-chart-tip-shell">
+            <div class="eusee-chart-tip-plot">
+                {fig_html}
             </div>
-        </details>
-    </div>
-    """, unsafe_allow_html=True)
+
+            <div class="eusee-chart-tip-widget" id="{chart_id}_tip" title="Drag within chart area">
+                <button class="eusee-chart-tip-dot" id="{chart_id}_button" type="button" aria-label="Open chart note">
+                    {safe_icon}
+                </button>
+                <div class="eusee-chart-tip-card" id="{chart_id}_card" style="display:none;">
+                    <div class="eusee-chart-tip-card-head">
+                        <div class="eusee-chart-tip-title">{safe_title}</div>
+                        <button class="eusee-chart-tip-close" id="{chart_id}_close" type="button" aria-label="Minimize chart note">×</button>
+                    </div>
+                    <div class="eusee-chart-tip-text">{safe_message}</div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+        .eusee-chart-tip-shell {{
+            position: relative;
+            width: 100%;
+            height: {height}px;
+            min-height: {height}px;
+            background: #FFFFFF;
+            border-radius: 16px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }}
+        .eusee-chart-tip-plot,
+        .eusee-chart-tip-plot .plotly-graph-div {{
+            width: 100% !important;
+            height: {height}px !important;
+        }}
+        .eusee-chart-tip-widget {{
+            position: absolute;
+            left: 14px;
+            bottom: 14px;
+            z-index: 9999;
+            font-family: Arial, sans-serif;
+            cursor: grab;
+            user-select: none;
+            max-width: calc(100% - 28px);
+        }}
+        .eusee-chart-tip-widget:active {{ cursor: grabbing; }}
+        .eusee-chart-tip-dot {{
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.75);
+            background: linear-gradient(135deg, #660094 0%, #008CAA 100%);
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 950;
+            line-height: 1;
+            box-shadow: 0 8px 18px rgba(45,0,85,.24);
+            cursor: pointer;
+        }}
+        .eusee-chart-tip-card {{
+            width: 265px;
+            max-width: calc(100vw - 48px);
+            margin-top: 8px;
+            background: rgba(255,255,255,.975);
+            border: 1px solid rgba(102,0,148,.18);
+            border-left: 4px solid #660094;
+            border-radius: 14px;
+            padding: 10px 12px;
+            box-shadow: 0 14px 30px rgba(17,24,39,.16);
+            box-sizing: border-box;
+        }}
+        .eusee-chart-tip-card-head {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }}
+        .eusee-chart-tip-title {{
+            color: #2D0055;
+            font-size: 10px;
+            font-weight: 950;
+            letter-spacing: .09em;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }}
+        .eusee-chart-tip-close {{
+            width: 20px;
+            height: 20px;
+            border: 0;
+            border-radius: 999px;
+            background: #F4EAF8;
+            color: #660094;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+            line-height: 1;
+        }}
+        .eusee-chart-tip-text {{
+            color: #344054;
+            font-size: 11.2px;
+            font-weight: 650;
+            line-height: 1.35;
+        }}
+        @media (max-width: 900px) {{
+            .eusee-chart-tip-widget {{ left: 10px; bottom: 10px; }}
+            .eusee-chart-tip-card {{ width: 235px; padding: 9px 10px; }}
+            .eusee-chart-tip-text {{ font-size: 10.8px; }}
+        }}
+        </style>
+
+        <script>
+        (function() {{
+            const shell = document.getElementById("{chart_id}");
+            const tip = document.getElementById("{chart_id}_tip");
+            const button = document.getElementById("{chart_id}_button");
+            const card = document.getElementById("{chart_id}_card");
+            const closeButton = document.getElementById("{chart_id}_close");
+
+            let dragging = false;
+            let moved = false;
+            let offsetX = 0;
+            let offsetY = 0;
+
+            function constrainToChart(x, y) {{
+                const maxX = Math.max(8, shell.clientWidth - tip.offsetWidth - 8);
+                const maxY = Math.max(8, shell.clientHeight - tip.offsetHeight - 8);
+                return {{
+                    x: Math.max(8, Math.min(maxX, x)),
+                    y: Math.max(8, Math.min(maxY, y))
+                }};
+            }}
+
+            button.addEventListener("click", function(e) {{
+                if (moved) {{ moved = false; return; }}
+                card.style.display = card.style.display === "none" ? "block" : "none";
+                const currentLeft = parseFloat(tip.style.left || tip.offsetLeft);
+                const currentTop = parseFloat(tip.style.top || tip.offsetTop);
+                const next = constrainToChart(currentLeft, currentTop);
+                tip.style.left = next.x + "px";
+                tip.style.top = next.y + "px";
+                tip.style.bottom = "auto";
+                e.stopPropagation();
+            }});
+
+            closeButton.addEventListener("click", function(e) {{
+                card.style.display = "none";
+                e.stopPropagation();
+            }});
+
+            tip.addEventListener("mousedown", function(e) {{
+                dragging = true;
+                moved = false;
+                const shellRect = shell.getBoundingClientRect();
+                const tipRect = tip.getBoundingClientRect();
+                offsetX = e.clientX - tipRect.left;
+                offsetY = e.clientY - tipRect.top;
+                tip.style.left = (tipRect.left - shellRect.left) + "px";
+                tip.style.top = (tipRect.top - shellRect.top) + "px";
+                tip.style.bottom = "auto";
+                tip.style.cursor = "grabbing";
+                e.preventDefault();
+            }});
+
+            document.addEventListener("mousemove", function(e) {{
+                if (!dragging) return;
+                moved = true;
+                const shellRect = shell.getBoundingClientRect();
+                const next = constrainToChart(
+                    e.clientX - shellRect.left - offsetX,
+                    e.clientY - shellRect.top - offsetY
+                );
+                tip.style.left = next.x + "px";
+                tip.style.top = next.y + "px";
+                tip.style.bottom = "auto";
+            }});
+
+            document.addEventListener("mouseup", function() {{
+                dragging = false;
+                tip.style.cursor = "grab";
+                setTimeout(function() {{ moved = false; }}, 120);
+            }});
+        }})();
+        </script>
+        """,
+        height=height + 8,
+        scrolling=False,
+    )
+
+
+# Backward-compatible helper. Kept for older calls, but real in-chart behavior requires
+# render_plotly_chart_with_floating_tip(fig, ...).
+def render_chart_floating_tip(message, title="Reading this chart", icon="i", container=None):
+    target = container if container is not None else st
+    target.caption(f"ℹ️ {title}: {message}")
 
 
 def inject_chart_floating_tip_css():
-    st.markdown("""
-    <style>
-    div[data-testid="stPlotlyChart"] {
-        position: relative !important;
-    }
+    """Deprecated placeholder retained so existing calls do not fail."""
+    return None
 
-    .eusee-chart-tip-wrap {
-        position: relative;
-        height: 0;
-        z-index: 20;
-    }
-
-    .eusee-floating-tip {
-        position: absolute;
-        left: 14px;
-        bottom: 18px;
-        width: 260px;
-        max-width: calc(100% - 28px);
-        z-index: 30;
-        cursor: grab;
-        resize: none;
-    }
-
-    .eusee-floating-tip:active {
-        cursor: grabbing;
-    }
-
-    .eusee-floating-tip-toggle {
-        width: 28px;
-        height: 28px;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #660094, #008CAA);
-        color: #FFFFFF;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        font-weight: 950;
-        list-style: none;
-        box-shadow: 0 8px 18px rgba(45, 0, 85, .22);
-        border: 1px solid rgba(255,255,255,.75);
-        user-select: none;
-    }
-
-    .eusee-floating-tip-toggle::-webkit-details-marker {
-        display: none;
-    }
-
-    .eusee-floating-tip-card {
-        margin-top: 7px;
-        background: rgba(255,255,255,.97);
-        border: 1px solid rgba(102,0,148,.16);
-        border-left: 4px solid #660094;
-        border-radius: 14px;
-        padding: 10px 12px;
-        box-shadow: 0 14px 30px rgba(17,24,39,.16);
-        font-family: Arial, sans-serif;
-    }
-
-    .eusee-floating-tip-title {
-        color: #2D0055;
-        font-size: 10px;
-        font-weight: 950;
-        letter-spacing: .09em;
-        text-transform: uppercase;
-        line-height: 1.1;
-        margin-bottom: 4px;
-    }
-
-    .eusee-floating-tip-text {
-        color: #344054;
-        font-size: 11.2px;
-        font-weight: 650;
-        line-height: 1.35;
-    }
-
-    .eusee-floating-tip:not([open]) .eusee-floating-tip-card {
-        display: none;
-    }
-
-    @media (max-width: 900px) {
-        .eusee-floating-tip {
-            left: 10px;
-            bottom: 12px;
-            width: min(245px, calc(100% - 20px));
-        }
-    }
-    </style>
-
-    <script>
-    setTimeout(function () {
-        document.querySelectorAll('.eusee-floating-tip').forEach(function (tip) {
-            if (tip.dataset.dragReady === "1") return;
-            tip.dataset.dragReady = "1";
-
-            let isDragging = false;
-            let startX = 0, startY = 0;
-            let startLeft = 0, startTop = 0;
-
-            tip.addEventListener('mousedown', function (e) {
-                isDragging = true;
-                const rect = tip.getBoundingClientRect();
-
-                tip.style.left = rect.left + 'px';
-                tip.style.top = rect.top + 'px';
-                tip.style.bottom = 'auto';
-                tip.style.position = 'fixed';
-
-                startX = e.clientX;
-                startY = e.clientY;
-                startLeft = rect.left;
-                startTop = rect.top;
-
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', function (e) {
-                if (!isDragging) return;
-
-                let newLeft = startLeft + (e.clientX - startX);
-                let newTop = startTop + (e.clientY - startY);
-
-                newLeft = Math.max(8, Math.min(window.innerWidth - tip.offsetWidth - 8, newLeft));
-                newTop = Math.max(8, Math.min(window.innerHeight - tip.offsetHeight - 8, newTop));
-
-                tip.style.left = newLeft + 'px';
-                tip.style.top = newTop + 'px';
-            });
-
-            document.addEventListener('mouseup', function () {
-                isDragging = false;
-            });
-        });
-    }, 500);
-    </script>
-    """, unsafe_allow_html=True)
-    
 inject_chart_floating_tip_css()
 
 
@@ -4079,22 +4156,19 @@ with tab_overview:
             normalize_labels=False
         )
 
-        # Floating interpretation tip overlays the chart without changing layout height.
-        render_chart_floating_tip(
-            message=(
+        # Render Plotly + minimized draggable tip inside the same chart container.
+        render_plotly_chart_with_floating_tip(
+            fig12,
+            tip_message=(
                 "Alerts may be classified under more than one enabling principle "
                 "and can therefore be counted in multiple principles."
             ),
-            title="Reading this chart",
+            tip_title="Reading this chart",
             icon="i",
             container=r1c2,
+            key="tab1_chart2_tip",
+            height=520,
         )
-
-        # Add source line if needed
-        #fig12 = add_source_line(fig12)
-
-        # Render chart in Streamlit
-        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
   
         #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
@@ -4331,22 +4405,19 @@ with tab_negative:
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
           
-            # Floating interpretation tip overlays the chart without changing layout height.
-            render_chart_floating_tip(
-                message=(
+            # Render Plotly + minimized draggable tip inside the same chart container.
+            render_plotly_chart_with_floating_tip(
+                fig23,
+                tip_message=(
                     "Negative alerts may be classified under more than one enabling principle "
                     "and can therefore be counted in multiple principles."
                 ),
-                title="Reading this chart",
+                tip_title="Reading this chart",
                 icon="i",
                 container=r2c3,
+                key="tab2_chart6_tip",
+                height=520,
             )
-
-            # Add source line if needed
-            #fig23 = add_source_line(fig23)
-
-            # Render the chart in Streamlit
-            r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
 
             #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
