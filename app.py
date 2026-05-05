@@ -10,8 +10,6 @@ import plotly.graph_objects as go
 import base64
 from auth import auth_ui, is_privileged, is_authenticated
 
-from authz import is_admin, get_current_email
-from admin_page import render_admin_page
 
 # Optional admin page integration. Firebase/Auth still handles login;
 # authz.py reads admin emails from .streamlit/secrets.toml.
@@ -29,7 +27,7 @@ except Exception:
         return True
     def apply_data_scope(df):
         return df
-    def render_admin_page():
+    def render_admin_page(data=None):
         st.error("Admin page is not available. Confirm authz.py and admin_page.py are deployed with app.py.")
     def render_admin_sidebar_navigation():
         return "Dashboard"
@@ -312,15 +310,6 @@ if is_authenticated():
 if st.session_state.get("auth_view", False) and not is_authenticated():
     auth_ui()
     st.stop()
-
-# ---------------- ADMIN ROUTING ----------------
-# Admin access is controlled by .streamlit/secrets.toml [auth].admin_emails.
-# The admin page is only visible after Firebase/login authentication succeeds.
-if is_authenticated() and admin_is_admin():
-    admin_nav_choice = render_admin_sidebar_navigation()
-    if admin_nav_choice == "Admin":
-        render_admin_page()
-        st.stop()
 
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
@@ -1232,6 +1221,80 @@ else:
     if st.sidebar.button("🔐 Sign in / Access", use_container_width=True):
         st.session_state.auth_view = True
         st.rerun()
+
+# ---------------- ADMIN SIDEBAR TOGGLE: VISIBLE AFTER LOGIN ----------------
+# Admin visibility depends on:
+# 1) Firebase login succeeded,
+# 2) st.session_state["email"] is populated by auth.py,
+# 3) the same email is listed under [auth].admin_emails in .streamlit/secrets.toml.
+if is_authenticated() and admin_is_admin():
+    st.sidebar.markdown("""
+    <style>
+    .eusee-admin-nav-card {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 17px;
+        background:
+            radial-gradient(circle at 92% 0%, rgba(255,219,88,.22), transparent 30%),
+            linear-gradient(135deg,#FFFFFF 0%,#F4EAF8 72%,#EFFBFE 100%);
+        border: 1px solid rgba(102,0,148,.18);
+        box-shadow: 0 12px 28px rgba(16,24,40,.08);
+        font-family: Arial, sans-serif;
+    }
+    .eusee-admin-eyebrow {
+        font-size: 9px;
+        font-weight: 950;
+        color: #660094;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+    }
+    .eusee-admin-title {
+        font-size: 14px;
+        font-weight: 950;
+        color: #23152F;
+        margin-top: 4px;
+    }
+    .eusee-admin-note {
+        font-size: 10.8px;
+        color: #667085;
+        line-height: 1.35;
+        margin-top: 5px;
+    }
+    .eusee-admin-email {
+        margin-top: 8px;
+        border-radius: 999px;
+        padding: 5px 8px;
+        background: #FFFFFF;
+        border: 1px solid #E7D4F1;
+        color: #660094;
+        font-size: 9.6px;
+        font-weight: 900;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.sidebar.markdown(f"""
+    <div class="eusee-admin-nav-card">
+        <div class="eusee-admin-eyebrow">Admin workspace</div>
+        <div class="eusee-admin-title">🔐 Administration</div>
+        <div class="eusee-admin-note">Manage user visibility, feature access, and dashboard controls.</div>
+        <div class="eusee-admin-email">{get_current_email()}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    admin_mode = st.sidebar.toggle(
+        "Open Admin Page",
+        value=st.session_state.get("admin_mode", False),
+        key="admin_mode",
+        help="Open the EU SEE administrator workspace.",
+    )
+
+    if admin_mode:
+        render_admin_page(data=data if "data" in globals() else None)
+        st.stop()
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
