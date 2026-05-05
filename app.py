@@ -3904,7 +3904,9 @@ def render_plotly_chart_with_floating_tip(
     the Plotly figure and the tip in one HTML component, so the minimized draggable tip stays inside
     the specific chart area.
     """
-    target = container if container is not None else st
+    # Streamlit custom HTML components must be rendered through components.html().
+    # Container objects do not expose components.v1, so the optional container argument
+    # is retained only for backward compatibility.
     chart_id = key or f"eusee_chart_tip_{uuid.uuid4().hex[:10]}"
 
     safe_title = html.escape(str(tip_title))
@@ -3920,7 +3922,7 @@ def render_plotly_chart_with_floating_tip(
         config={"responsive": True, "displayModeBar": True, "displaylogo": False},
     )
 
-    target.components.v1.html(
+    components.html(
         f"""
         <div id="{chart_id}" class="eusee-chart-tip-shell">
             <div class="eusee-chart-tip-plot">
@@ -4115,7 +4117,9 @@ def render_plotly_chart_with_floating_tip(
 # Backward-compatible helper. Kept for older calls, but real in-chart behavior requires
 # render_plotly_chart_with_floating_tip(fig, ...).
 def render_chart_floating_tip(message, title="Reading this chart", icon="i", container=None):
-    target = container if container is not None else st
+    # Streamlit custom HTML components must be rendered through components.html().
+    # Container objects do not expose components.v1, so the optional container argument
+    # is retained only for backward compatibility.
     target.caption(f"ℹ️ {title}: {message}")
 
 
