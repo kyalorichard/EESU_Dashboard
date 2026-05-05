@@ -3,12 +3,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-
 import pandas as pd
 import streamlit as st
 
 from authz import (
-    DEFAULT_ROLE_PERMISSIONS,
     get_access_config_path,
     get_admin_emails,
     get_current_email,
@@ -18,8 +16,8 @@ from authz import (
     is_admin,
     load_access_config,
     save_access_config,
+    default_access_config,
 )
-
 
 FEATURE_LABELS = {
     "view_public_summary": "Public summary",
@@ -53,30 +51,14 @@ def render_admin_sidebar_navigation():
         box-shadow: 0 12px 28px rgba(16,24,40,.08);
         font-family: Arial, sans-serif;
     }
-    .admin-nav-card .eyebrow {
-        font-size: 9px;
-        font-weight: 950;
-        color: #660094;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-    }
-    .admin-nav-card .title {
-        font-size: 14px;
-        font-weight: 950;
-        color: #23152F;
-        margin-top: 4px;
-    }
-    .admin-nav-card .note {
-        font-size: 10.8px;
-        color: #667085;
-        line-height: 1.35;
-        margin-top: 5px;
-    }
+    .admin-nav-card .eyebrow { font-size: 9px; font-weight: 950; color: #660094; letter-spacing: .13em; text-transform: uppercase; }
+    .admin-nav-card .title { font-size: 14px; font-weight: 950; color: #23152F; margin-top: 4px; }
+    .admin-nav-card .note { font-size: 10.8px; color: #667085; line-height: 1.35; margin-top: 5px; }
     </style>
     <div class="admin-nav-card">
         <div class="eyebrow">Admin workspace</div>
         <div class="title">🔐 Administration</div>
-        <div class="note">Control what guest, viewer and privileged users can see.</div>
+        <div class="note">Persistently control guest, viewer and privileged visibility.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -89,69 +71,7 @@ def render_admin_sidebar_navigation():
     )
 
 
-def _admin_css():
-    st.markdown("""
-    <style>
-    .admin-hero {
-        background:
-            radial-gradient(circle at 95% 5%, rgba(255,219,88,.22), transparent 30%),
-            linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 62%, #EFFBFE 100%);
-        border: 1px solid rgba(102,0,148,.16);
-        border-radius: 22px;
-        padding: 20px 22px;
-        box-shadow: 0 16px 38px rgba(16,24,40,.08);
-        font-family: Arial, sans-serif;
-        margin-bottom: 16px;
-    }
-    .admin-eyebrow {
-        font-size: 10px;
-        font-weight: 950;
-        color: #660094;
-        letter-spacing: .14em;
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    .admin-title {
-        font-size: 28px;
-        font-weight: 950;
-        color: #23152F;
-        letter-spacing: -.03em;
-        line-height: 1.05;
-        font-family: Arial Black, Arial, sans-serif;
-    }
-    .admin-note {
-        font-size: 12px;
-        color: #667085;
-        max-width: 850px;
-        line-height: 1.45;
-        margin-top: 8px;
-    }
-    .admin-pill-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-top: 12px;
-    }
-    .admin-pill {
-        border-radius: 999px;
-        padding: 6px 10px;
-        font-size: 10.5px;
-        font-weight: 900;
-        background: #F4EAF8;
-        color: #660094;
-        border: 1px solid #E7D4F1;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def _safe_default_list(config, role, key):
-    return config.get(role, {}).get(key, [])
-
-
 def render_admin_page(data=None):
-    _admin_css()
-
     if not is_admin():
         st.error("Access restricted. This page is only available to configured admin emails.")
         st.stop()
@@ -159,18 +79,18 @@ def render_admin_page(data=None):
     config = load_access_config()
 
     st.markdown(f"""
-    <div class="admin-hero">
-        <div class="admin-eyebrow">Admin workspace</div>
-        <div class="admin-title">EU SEE Dashboard Administration</div>
-        <div class="admin-note">
-            Configure what guest, viewer, and privileged users can see. Settings are saved to:
-            <code>{get_access_config_path()}</code>
+    <div style="background:linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 62%,#EFFBFE 100%);
+        border:1px solid rgba(102,0,148,.16);border-radius:22px;padding:20px 22px;
+        box-shadow:0 16px 38px rgba(16,24,40,.08);font-family:Arial,sans-serif;margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;">
+            Admin workspace
         </div>
-        <div class="admin-pill-row">
-            <span class="admin-pill">Signed in: {get_current_email()}</span>
-            <span class="admin-pill">Role: {get_current_role()}</span>
-            <span class="admin-pill">Admin emails: {len(get_admin_emails())}</span>
-            <span class="admin-pill">Privileged domains: {len(get_privileged_domains())}</span>
+        <div style="font-size:28px;font-weight:950;color:#23152F;letter-spacing:-.03em;line-height:1.05;font-family:Arial Black,Arial,sans-serif;">
+            EU SEE Dashboard Administration
+        </div>
+        <div style="font-size:12px;color:#667085;max-width:900px;line-height:1.45;margin-top:8px;">
+            Configure persistent visibility and data scope. Saved config:
+            <code>{get_access_config_path()}</code>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -181,11 +101,7 @@ def render_admin_page(data=None):
 
     with tab_visibility:
         role = st.selectbox("Configure role", ["guest", "viewer", "privileged"], index=0)
-
-        st.warning(
-            "After changing permissions, click 'Save visibility settings'. "
-            "Then log out/open a new session to test as guest/viewer/privileged."
-        )
+        st.warning("Click Save after changes. Settings persist after logout only if this config path is on persistent storage.")
 
         features = config[role]["features"]
         cols = st.columns(2)
@@ -201,31 +117,29 @@ def render_admin_page(data=None):
 
         config[role]["features"] = features
 
-        save_col, reset_col = st.columns([1, 1])
-        with save_col:
+        c1, c2 = st.columns(2)
+        with c1:
             if st.button("💾 Save visibility settings", use_container_width=True, type="primary"):
                 if save_access_config(config):
-                    st.success("Visibility settings saved persistently.")
+                    st.success("Visibility settings saved.")
                     st.rerun()
-
-        with reset_col:
-            if st.button("↩ Reset to defaults", use_container_width=True):
-                from authz import default_access_config
+        with c2:
+            if st.button("↩ Reset all roles to defaults", use_container_width=True):
                 if save_access_config(default_access_config()):
                     st.success("Defaults restored.")
                     st.rerun()
 
         st.download_button(
-            "⬇️ Download current visibility config",
+            "⬇️ Download access config JSON",
             data=json.dumps(config, indent=2),
-            file_name="eusee_access_visibility_config.json",
+            file_name="eusee_access_config.json",
             mime="application/json",
             use_container_width=True,
         )
 
     with tab_scope:
         role = st.selectbox("Configure data scope for role", ["guest", "viewer", "privileged"], index=0, key="scope_role")
-        st.caption("Leave empty to allow all available values for that role.")
+        st.caption("Leave selections empty to allow all available values for that role.")
 
         regions, countries, years = [], [], []
         if data is not None and not getattr(data, "empty", True):
@@ -239,25 +153,25 @@ def render_admin_page(data=None):
         config[role]["regions"] = st.multiselect(
             "Allowed regions",
             regions,
-            default=[x for x in _safe_default_list(config, role, "regions") if x in regions],
+            default=[x for x in config[role].get("regions", []) if x in regions],
             key=f"persist_regions_{role}",
         )
         config[role]["countries"] = st.multiselect(
             "Allowed countries",
             countries,
-            default=[x for x in _safe_default_list(config, role, "countries") if x in countries],
+            default=[x for x in config[role].get("countries", []) if x in countries],
             key=f"persist_countries_{role}",
         )
         config[role]["years"] = st.multiselect(
             "Allowed years",
             years,
-            default=[x for x in _safe_default_list(config, role, "years") if x in years],
+            default=[x for x in config[role].get("years", []) if x in years],
             key=f"persist_years_{role}",
         )
 
         if st.button("💾 Save data scope", use_container_width=True, type="primary"):
             if save_access_config(config):
-                st.success("Data scope saved persistently.")
+                st.success("Data scope saved.")
                 st.rerun()
 
         st.json(config[role])
@@ -265,7 +179,7 @@ def render_admin_page(data=None):
     with tab_users:
         rows = []
         for email in get_admin_emails():
-            rows.append({"identity": email, "role": "admin", "source": "secrets.toml"})
+            rows.append({"identity": email, "role": "admin", "source": "[auth].admin_emails"})
         for domain in get_privileged_domains():
             rows.append({"identity": f"*@{domain}", "role": "privileged", "source": "[access].privileged_domains"})
 
@@ -282,7 +196,6 @@ admin_emails = ["admin@example.org"]
 privileged_domains = ["icarda.org", "cgiar.org"]
 
 [access_control]
-# optional. Defaults to /exports/eusee_access_config.json if /exports exists.
 config_path = "/exports/eusee_access_config.json"
 """, language="toml")
 
@@ -297,4 +210,5 @@ config_path = "/exports/eusee_access_config.json"
             "session_email_verified": st.session_state.get("email_verified"),
             "session_user": st.session_state.get("user"),
         })
+        st.subheader("Loaded access config")
         st.json(load_access_config())
