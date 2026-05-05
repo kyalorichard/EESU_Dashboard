@@ -8,7 +8,16 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
-from auth import auth_ui, is_privileged, is_authenticated
+from auth import auth_ui, is_authenticated
+from authz import (
+    get_current_email,
+    get_current_role,
+    has_permission,
+    is_admin,
+    is_privileged,
+    render_access_badge,
+)
+from admin_page import render_admin_page
 import math
 import paramiko
 import logging
@@ -128,7 +137,56 @@ def inject_classic_dashboard_css():
     .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
     .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
     @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
-    </style>
+    
+
+    /* ---------------- PROFESSIONAL SELECT / MULTISELECT: GLOBAL ---------------- */
+    [data-baseweb="select"] > div {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 12px !important;
+        min-height: 38px !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+        transition: all .15s ease !important;
+    }
+    [data-baseweb="select"] > div:hover {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.08) !important;
+    }
+    [data-baseweb="select"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.15) !important;
+    }
+    div[role="listbox"] {
+        border-radius: 12px !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 12px 28px rgba(16,24,40,.12) !important;
+        overflow: hidden !important;
+    }
+    div[role="option"] {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+    }
+    div[role="option"]:hover {
+        background: rgba(102,0,148,.06) !important;
+    }
+    div[aria-selected="true"] {
+        background: rgba(102,0,148,.12) !important;
+        font-weight: 800 !important;
+    }
+    [data-baseweb="tag"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        border: 1px solid #E7D4F1 !important;
+        border-radius: 999px !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+    }
+    [data-baseweb="tag"] svg { color: #660094 !important; }
+    [data-baseweb="select"] span {
+        color: #667085 !important;
+        font-size: 11px !important;
+    }
+</style>
     """, unsafe_allow_html=True)
 
 
@@ -1196,6 +1254,24 @@ else:
     if st.sidebar.button("🔐 Sign in / Access", use_container_width=True):
         st.session_state.auth_view = True
         st.rerun()
+
+# ---------------- ADMIN NAVIGATION / ROUTING ----------------
+# Admin access is controlled by .streamlit/secrets.toml [auth].admin_emails.
+# Firebase still handles identity/login; this layer only decides who can open Admin.
+if is_authenticated() and is_admin():
+    st.sidebar.markdown("---")
+    nav_choice = st.sidebar.radio(
+        "Navigation",
+        ["Dashboard", "Admin"],
+        index=0,
+        key="main_navigation",
+    )
+    if nav_choice == "Admin":
+        render_admin_page()
+        st.stop()
+elif is_authenticated():
+    st.sidebar.markdown("---")
+    render_access_badge()
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
