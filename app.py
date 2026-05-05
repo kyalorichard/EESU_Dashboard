@@ -3884,32 +3884,24 @@ def add_chart_info_badge(
     return fig
 
 
-# ---------------- FLOATING DISMISSIBLE CHART TIP OVERLAY ----------------
-def render_chart_floating_tip(
-    message,
-    title="Reading this chart",
-    icon="i",
-    container=None,
-    open_by_default=True,
-):
-    """Render a floating, dismissible interpretation tip over the chart area.
-
-    The wrapper has zero height, so it does not push the chart down or distort the
-    layout. Users can collapse the note by clicking the summary pill.
-    """
+# ---------------- FLOATING DISMISSIBLE CHART TIP OVERLAY ----------------   
+def render_chart_floating_tip(message, title="Reading this chart", icon="i", container=None):
+    """Bottom-left minimized draggable chart interpretation tip."""
     target = container if container is not None else st
-    open_attr = " open" if open_by_default else ""
+
+    safe_title = str(title).replace('"', "&quot;")
+    safe_message = str(message).replace('"', "&quot;")
+    safe_icon = str(icon).replace('"', "&quot;")
+
     target.markdown(f"""
-    <div class="eusee-floating-tip-layer" aria-label="Chart interpretation tip">
-        <details class="eusee-floating-tip"{open_attr}>
-            <summary>
-                <span class="eusee-floating-tip-icon">{icon}</span>
-                <span class="eusee-floating-tip-label">Tip</span>
-                <span class="eusee-floating-tip-toggle">hide/show</span>
+    <div class="eusee-chart-tip-wrap">
+        <details class="eusee-floating-tip">
+            <summary class="eusee-floating-tip-toggle" title="Drag or open chart note">
+                {safe_icon}
             </summary>
-            <div class="eusee-floating-tip-card" role="note" aria-label="{title}">
-                <div class="eusee-floating-tip-title">{title}</div>
-                <div class="eusee-floating-tip-text">{message}</div>
+            <div class="eusee-floating-tip-card">
+                <div class="eusee-floating-tip-title">{safe_title}</div>
+                <div class="eusee-floating-tip-text">{safe_message}</div>
             </div>
         </details>
     </div>
@@ -3917,93 +3909,63 @@ def render_chart_floating_tip(
 
 
 def inject_chart_floating_tip_css():
-    """Central styling for floating chart interpretation notes."""
     st.markdown("""
     <style>
-    .eusee-floating-tip-layer {
+    div[data-testid="stPlotlyChart"] {
+        position: relative !important;
+    }
+
+    .eusee-chart-tip-wrap {
         position: relative;
         height: 0;
-        min-height: 0;
-        overflow: visible;
-        z-index: 30;
-        pointer-events: none;
-        font-family: Arial, sans-serif;
+        z-index: 20;
     }
 
     .eusee-floating-tip {
         position: absolute;
-        top: 10px;
-        right: 12px;
-        width: min(315px, calc(100% - 24px));
-        pointer-events: auto;
-        z-index: 40;
+        left: 14px;
+        bottom: 18px;
+        width: 260px;
+        max-width: calc(100% - 28px);
+        z-index: 30;
+        cursor: grab;
+        resize: none;
     }
 
-    .eusee-floating-tip summary {
-        list-style: none;
-        width: fit-content;
-        margin-left: auto;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 8px 5px 6px;
-        border-radius: 999px;
-        cursor: pointer;
-        background: rgba(255,255,255,.96);
-        border: 1px solid rgba(102, 0, 148, .16);
-        box-shadow: 0 6px 16px rgba(16, 24, 40, .11);
-        color: #2D0055;
-        font-size: 10px;
-        font-weight: 900;
-        user-select: none;
-    }
-
-    .eusee-floating-tip summary::-webkit-details-marker { display: none; }
-
-    .eusee-floating-tip summary:hover {
-        background: #FBF7FD;
-        border-color: rgba(102, 0, 148, .28);
-        box-shadow: 0 8px 20px rgba(16, 24, 40, .14);
-    }
-
-    .eusee-floating-tip-icon {
-        width: 18px;
-        height: 18px;
-        min-width: 18px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #660094 0%, #3B005F 100%);
-        color: #FFFFFF;
-        font-size: 10px;
-        font-weight: 950;
-        line-height: 1;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
-    }
-
-    .eusee-floating-tip-label {
-        letter-spacing: .02em;
-        text-transform: uppercase;
+    .eusee-floating-tip:active {
+        cursor: grabbing;
     }
 
     .eusee-floating-tip-toggle {
-        color: #667085;
-        font-size: 9px;
-        font-weight: 800;
-        text-transform: lowercase;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #660094, #008CAA);
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 950;
+        list-style: none;
+        box-shadow: 0 8px 18px rgba(45, 0, 85, .22);
+        border: 1px solid rgba(255,255,255,.75);
+        user-select: none;
+    }
+
+    .eusee-floating-tip-toggle::-webkit-details-marker {
+        display: none;
     }
 
     .eusee-floating-tip-card {
         margin-top: 7px;
-        margin-left: auto;
-        padding: 10px 11px;
-        border-radius: 13px;
-        background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(251,247,253,.98) 100%);
-        border: 1px solid rgba(102, 0, 148, .16);
+        background: rgba(255,255,255,.97);
+        border: 1px solid rgba(102,0,148,.16);
         border-left: 4px solid #660094;
-        box-shadow: 0 12px 26px rgba(16, 24, 40, .16);
-        backdrop-filter: blur(6px);
+        border-radius: 14px;
+        padding: 10px 12px;
+        box-shadow: 0 14px 30px rgba(17,24,39,.16);
+        font-family: Arial, sans-serif;
     }
 
     .eusee-floating-tip-title {
@@ -4029,24 +3991,61 @@ def inject_chart_floating_tip_css():
 
     @media (max-width: 900px) {
         .eusee-floating-tip {
-            top: 8px;
-            right: 8px;
-            width: min(280px, calc(100% - 16px));
-        }
-        .eusee-floating-tip-card {
-            padding: 9px 10px;
-        }
-        .eusee-floating-tip-text {
-            font-size: 10.8px;
-        }
-        .eusee-floating-tip-toggle {
-            display: none;
+            left: 10px;
+            bottom: 12px;
+            width: min(245px, calc(100% - 20px));
         }
     }
     </style>
+
+    <script>
+    setTimeout(function () {
+        document.querySelectorAll('.eusee-floating-tip').forEach(function (tip) {
+            if (tip.dataset.dragReady === "1") return;
+            tip.dataset.dragReady = "1";
+
+            let isDragging = false;
+            let startX = 0, startY = 0;
+            let startLeft = 0, startTop = 0;
+
+            tip.addEventListener('mousedown', function (e) {
+                isDragging = true;
+                const rect = tip.getBoundingClientRect();
+
+                tip.style.left = rect.left + 'px';
+                tip.style.top = rect.top + 'px';
+                tip.style.bottom = 'auto';
+                tip.style.position = 'fixed';
+
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = rect.left;
+                startTop = rect.top;
+
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function (e) {
+                if (!isDragging) return;
+
+                let newLeft = startLeft + (e.clientX - startX);
+                let newTop = startTop + (e.clientY - startY);
+
+                newLeft = Math.max(8, Math.min(window.innerWidth - tip.offsetWidth - 8, newLeft));
+                newTop = Math.max(8, Math.min(window.innerHeight - tip.offsetHeight - 8, newTop));
+
+                tip.style.left = newLeft + 'px';
+                tip.style.top = newTop + 'px';
+            });
+
+            document.addEventListener('mouseup', function () {
+                isDragging = false;
+            });
+        });
+    }, 500);
+    </script>
     """, unsafe_allow_html=True)
-
-
+    
 inject_chart_floating_tip_css()
 
 
@@ -4354,8 +4353,8 @@ with tab_negative:
             # ---------------- ANALYTICAL FLOW PANEL ----------------
             if has_permission("view_analytical_flow_panel"):
                 render_analytical_flow_panel(filtered_df)
-            else:
-                st.info("Analytical Flow Panel is disabled for your current access level.")
+            #else:
+                #st.info("Analytical Flow Panel is disabled for your current access level.")
 
             cols_to_keep = {
                 "post_title": "Title of post",
