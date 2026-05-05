@@ -62,3 +62,4 @@ streamlit-plotly-events
 streamlit-cookies-manager>=0.2.0
 pdf2image
 
+kaleido
