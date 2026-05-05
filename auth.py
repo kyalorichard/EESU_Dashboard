@@ -4,7 +4,11 @@ import time
 
 import streamlit as st
 
-DEBUG = False  # Set True only while debugging deployment/auth issues
+# Set True only while debugging deployment/auth issues.
+# This version also shows critical Firebase init errors even when DEBUG=False,
+# because login cannot work without Firebase client auth.
+DEBUG = False
+
 
 # -----------------------------
 # Optional Imports
@@ -39,7 +43,7 @@ except ImportError:
 def init_firebase_admin():
     if not HAS_FIREBASE_ADMIN:
         if DEBUG:
-            st.warning("firebase_admin not installed; skipping Admin init.")
+            st.warning("firebase-admin is not installed; skipping Firebase Admin init.")
         return None
 
     secrets_admin = st.secrets.get("firebase_admin", {})
@@ -75,25 +79,53 @@ def init_firebase_admin():
 # -----------------------------
 # Firebase Client
 # -----------------------------
+def _firebase_required_keys():
+    return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
+
+
 def init_firebase_client():
-    cfg = st.secrets.get("firebase", {})
-    if not cfg:
-        if DEBUG:
-            st.warning("Firebase client config missing in secrets.toml; login disabled.")
+    """
+    Initialize Pyrebase client auth.
+
+    Returns:
+        (firebase_app, firebase_auth) or (None, None)
+
+    Common causes of failure:
+    - pyrebase4 missing from requirements.txt
+    - [firebase] block missing from .streamlit/secrets.toml
+    - Firebase config keys misspelled
+    - invalid Firebase Web API key/config
+    """
+    if not HAS_PYREBASE:
+        st.error("❌ Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy.")
         return None, None
 
-    if not HAS_PYREBASE:
-        if DEBUG:
-            st.warning("pyrebase not installed; login disabled.")
+    cfg_raw = st.secrets.get("firebase", {})
+    if not cfg_raw:
+        st.error("❌ Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`.")
         return None, None
+
+    cfg = dict(cfg_raw)
+
+    missing = [k for k in _firebase_required_keys() if not cfg.get(k)]
+    if missing:
+        st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
+        return None, None
+
+    # Pyrebase often expects databaseURL to exist, even if unused.
+    cfg.setdefault("databaseURL", "")
 
     try:
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
+        if not auth:
+            st.error("❌ Firebase auth object was not created.")
+            return None, None
+        if DEBUG:
+            st.success("Firebase authentication initialized successfully.")
         return firebase, auth
     except Exception as e:
-        if DEBUG:
-            st.warning(f"Firebase client init failed: {e}")
+        st.error(f"❌ Firebase initialization failed: {e}")
         return None, None
 
 
@@ -105,7 +137,9 @@ firebase_client, firebase_auth = init_firebase_client()
 # Access Control
 # -----------------------------
 PRIVILEGED_DOMAINS = set(
-    d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", [])
+    str(d).lower().strip()
+    for d in st.secrets.get("access", {}).get("privileged_domains", [])
+    if str(d).strip()
 )
 
 
@@ -151,7 +185,7 @@ def is_privileged():
 def get_cookies():
     if not HAS_COOKIES:
         if DEBUG:
-            st.warning("streamlit_cookies_manager not installed; cookies disabled.")
+            st.warning("streamlit-cookies-manager is not installed; cookies disabled.")
         return None
 
     if "cookies" not in st.session_state:
@@ -190,7 +224,7 @@ def restore_session():
         try:
             if "email" in cookies:
                 st.session_state.user = True
-                st.session_state.email = cookies.get("email")
+                st.session_state.email = str(cookies.get("email") or "").lower().strip()
                 st.session_state.name = cookies.get("name")
                 st.session_state.role = cookies.get("role")
                 st.session_state.email_verified = str(cookies.get("email_verified", "False")) == "True"
@@ -205,7 +239,7 @@ def _save_cookie_session(email, name, verified, role, remember=False):
         return
     cookies = get_cookies()
     if cookies and cookies.ready():
-        cookies["email"] = email
+        cookies["email"] = str(email or "").lower().strip()
         cookies["name"] = name
         cookies["email_verified"] = str(bool(verified))
         cookies["role"] = role
@@ -250,6 +284,7 @@ def parse_error(e):
         "EMAIL_EXISTS": "An account already exists for this email address.",
         "WEAK_PASSWORD": "Password is too weak. Use at least six characters.",
         "TOO_MANY_ATTEMPTS_TRY_LATER": "Too many attempts. Please try again later.",
+        "USER_DISABLED": "This user account has been disabled.",
     }
     return friendly.get(msg, msg)
 
@@ -298,7 +333,6 @@ def _auth_page_css():
             font-size: 13px;
         }
 
-        /* Equal height Streamlit columns */
         div[data-testid="stHorizontalBlock"] {
             align-items: stretch !important;
         }
@@ -585,14 +619,14 @@ def _back_to_dashboard():
 
 def _login_form():
     with st.form("eusee_login_premium_form"):
-        email = st.text_input("Email address", placeholder="name@organization.org").strip()
+        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
         password = st.text_input("Password", placeholder="Enter your password", type="password")
         remember = st.checkbox("Keep me signed in on this device", value=st.session_state.get("auth_remember", False))
         submitted = st.form_submit_button("Sign in to dashboard", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized. Check Firebase secrets and required packages.")
+            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
             return
         if not email or not password:
             st.error("Enter email and password.")
@@ -630,13 +664,13 @@ def _login_form():
 
 def _register_form():
     with st.form("eusee_register_premium_form"):
-        email = st.text_input("Email address", placeholder="name@organization.org").strip()
+        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
         password = st.text_input("Password", placeholder="Create a secure password", type="password")
         submitted = st.form_submit_button("Create account", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized. Check Firebase secrets and required packages.")
+            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
             return
         if not email or not password:
             st.error("Enter email and password.")
@@ -657,12 +691,12 @@ def _register_form():
 
 def _reset_form():
     with st.form("eusee_reset_premium_form"):
-        reset_email = st.text_input("Email address", placeholder="name@organization.org").strip()
+        reset_email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
         submitted = st.form_submit_button("Send password reset link", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized. Check Firebase secrets and required packages.")
+            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
             return
         if not reset_email:
             st.warning("Enter your email first.")
