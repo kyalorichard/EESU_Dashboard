@@ -3890,26 +3890,34 @@ def render_chart_floating_tip(
     title="Reading this chart",
     icon="i",
     container=None,
-    open_by_default=True,
+    open_by_default=False,
+    top_px=46,
 ):
-    """Render a floating, dismissible interpretation tip over the chart area.
-f
-    The wrapper has zero height, so it does not push the chart down or distort the
-    layout. Users can collapse the note by clicking the summary pill.
+    """Render a minimized interpretation tip below the Plotly chart title.
+
+    Use this immediately before st.plotly_chart(...). The wrapper has zero
+    height, so it overlays the chart area without pushing the plot down.
+    The tip loads minimized by default and expands only when the user clicks it.
     """
+    import html
+
     target = container if container is not None else st
+    safe_title = html.escape(str(title or "Reading this chart"))
+    safe_message = html.escape(str(message or ""))
+    safe_icon = html.escape(str(icon or "i"))
     open_attr = " open" if open_by_default else ""
+
     target.markdown(f"""
-    <div class="eusee-floating-tip-layer" aria-label="Chart interpretation tip">
+    <div class="eusee-floating-tip-layer" aria-label="Chart interpretation tip" style="--floating-tip-top:{int(top_px)}px;">
         <details class="eusee-floating-tip"{open_attr}>
-            <summary>
-                <span class="eusee-floating-tip-icon">{icon}</span>
+            <summary title="Open chart interpretation note">
+                <span class="eusee-floating-tip-icon">{safe_icon}</span>
                 <span class="eusee-floating-tip-label">Tip</span>
-                <span class="eusee-floating-tip-toggle">hide/show</span>
+                <span class="eusee-floating-tip-toggle">click</span>
             </summary>
-            <div class="eusee-floating-tip-card" role="note" aria-label="{title}">
-                <div class="eusee-floating-tip-title">{title}</div>
-                <div class="eusee-floating-tip-text">{message}</div>
+            <div class="eusee-floating-tip-card" role="note" aria-label="{safe_title}">
+                <div class="eusee-floating-tip-title">{safe_title}</div>
+                <div class="eusee-floating-tip-text">{safe_message}</div>
             </div>
         </details>
     </div>
@@ -3917,6 +3925,141 @@ f
 
 
 def inject_chart_floating_tip_css():
+    """Central styling for floating chart interpretation notes."""
+    st.markdown("""
+    <style>
+    .eusee-floating-tip-layer {
+        position: relative;
+        height: 0;
+        min-height: 0;
+        overflow: visible;
+        z-index: 30;
+        pointer-events: none;
+        font-family: Arial, sans-serif;
+    }
+
+    .eusee-floating-tip {
+        position: absolute;
+        top: var(--floating-tip-top, 46px); /* below Plotly title */
+        right: 14px;
+        width: min(315px, calc(100% - 28px));
+        pointer-events: auto;
+        z-index: 40;
+    }
+
+    .eusee-floating-tip summary {
+        list-style: none;
+        width: fit-content;
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px 5px 6px;
+        border-radius: 999px;
+        cursor: pointer;
+        background: rgba(255,255,255,.97);
+        border: 1px solid rgba(102, 0, 148, .18);
+        box-shadow: 0 6px 16px rgba(16, 24, 40, .11);
+        color: #2D0055;
+        font-size: 10px;
+        font-weight: 900;
+        user-select: none;
+    }
+
+    .eusee-floating-tip summary::-webkit-details-marker { display: none; }
+
+    .eusee-floating-tip summary:hover {
+        background: #FBF7FD;
+        border-color: rgba(102, 0, 148, .30);
+        box-shadow: 0 8px 20px rgba(16, 24, 40, .14);
+    }
+
+    .eusee-floating-tip-icon {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #660094 0%, #3B005F 100%);
+        color: #FFFFFF;
+        font-size: 10px;
+        font-weight: 950;
+        line-height: 1;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+    }
+
+    .eusee-floating-tip-label {
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+
+    .eusee-floating-tip-toggle {
+        color: #667085;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: lowercase;
+    }
+
+    .eusee-floating-tip-card {
+        margin-top: 7px;
+        margin-left: auto;
+        padding: 10px 11px;
+        border-radius: 13px;
+        background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(251,247,253,.98) 100%);
+        border: 1px solid rgba(102, 0, 148, .16);
+        border-left: 4px solid #660094;
+        box-shadow: 0 12px 26px rgba(16, 24, 40, .16);
+        backdrop-filter: blur(6px);
+    }
+
+    .eusee-floating-tip-title {
+        color: #2D0055;
+        font-size: 10px;
+        font-weight: 950;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+        line-height: 1.1;
+        margin-bottom: 4px;
+    }
+
+    .eusee-floating-tip-text {
+        color: #344054;
+        font-size: 11.2px;
+        font-weight: 650;
+        line-height: 1.35;
+    }
+
+    .eusee-floating-tip:not([open]) .eusee-floating-tip-card {
+        display: none;
+    }
+
+    .eusee-floating-tip[open] .eusee-floating-tip-toggle::after {
+        content: " close";
+    }
+
+    @media (max-width: 900px) {
+        .eusee-floating-tip {
+            top: 40px;
+            right: 8px;
+            width: min(280px, calc(100% - 16px));
+        }
+        .eusee-floating-tip-card {
+            padding: 9px 10px;
+        }
+        .eusee-floating-tip-text {
+            font-size: 10.8px;
+        }
+        .eusee-floating-tip-toggle {
+            display: none;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_chart_floating_tip_css():
     """Central styling for floating chart interpretation notes."""
     st.markdown("""
     <style>
