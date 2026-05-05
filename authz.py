@@ -1,26 +1,9 @@
 # authz.py
-"""
-Persistent EU SEE Dashboard access control.
-
-Access tiers:
-- guest: not logged in; public baseline only
-- viewer: logged in, but email domain is not in [access].privileged_domains
-- privileged: logged in and email domain is approved
-- admin: logged in and exact email is in [auth].admin_emails
-
-IMPORTANT:
-Admin-selected visibility must be persistent. This module reads/writes a JSON
-config file instead of relying only on st.session_state.
-"""
-
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-
 import streamlit as st
-
 
 DEFAULT_ROLE_PERMISSIONS = {
     "guest": {
@@ -62,34 +45,23 @@ DEFAULT_ROLE_PERMISSIONS = {
         "view_user_manual": True,
         "view_admin_page": False,
     },
-    "admin": {
-        "ALL": True,
-    },
+    "admin": {"ALL": True},
 }
 
 
-def _base_dir() -> Path:
-    # On Render/Docker, /exports is often the persistent volume.
-    if Path("/exports").exists():
-        return Path("/exports")
-    return Path(__file__).resolve().parent
+def _default_base_dir() -> Path:
+    return Path("/exports") if Path("/exports").exists() else Path(__file__).resolve().parent
 
 
 def get_access_config_path() -> Path:
     configured = st.secrets.get("access_control", {}).get("config_path", "")
-    if configured:
-        return Path(configured)
-    return _base_dir() / "eusee_access_config.json"
+    return Path(configured) if configured else _default_base_dir() / "eusee_access_config.json"
 
 
 def default_access_config() -> dict:
     return {
         role: {
-            "features": {
-                k: bool(v)
-                for k, v in perms.items()
-                if k != "ALL"
-            },
+            "features": {k: bool(v) for k, v in perms.items() if k != "ALL"},
             "regions": [],
             "countries": [],
             "years": [],
@@ -100,28 +72,23 @@ def default_access_config() -> dict:
 
 
 def load_access_config() -> dict:
+    defaults = default_access_config()
     path = get_access_config_path()
-    default_cfg = default_access_config()
-
     if not path.exists():
-        return default_cfg
-
+        return defaults
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            loaded = json.load(f)
+        loaded = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return default_cfg
+        return defaults
 
-    # Merge loaded config with defaults so new keys never break.
-    for role, role_cfg in default_cfg.items():
-        loaded.setdefault(role, role_cfg)
+    for role, role_cfg in defaults.items():
+        loaded.setdefault(role, {})
         loaded[role].setdefault("features", {})
         loaded[role].setdefault("regions", [])
         loaded[role].setdefault("countries", [])
         loaded[role].setdefault("years", [])
-        for feature, value in role_cfg["features"].items():
-            loaded[role]["features"].setdefault(feature, value)
-
+        for feature, val in role_cfg["features"].items():
+            loaded[role]["features"].setdefault(feature, val)
     return loaded
 
 
@@ -130,8 +97,7 @@ def save_access_config(config: dict) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
+        tmp.write_text(json.dumps(config, indent=2), encoding="utf-8")
         tmp.replace(path)
         st.cache_data.clear()
         return True
@@ -141,29 +107,20 @@ def save_access_config(config: dict) -> bool:
 
 
 def get_current_email() -> str:
-    email = (
+    return str(
         st.session_state.get("email")
         or st.session_state.get("user_email")
         or st.session_state.get("firebase_email")
         or ""
-    )
-    return str(email).lower().strip()
+    ).lower().strip()
 
 
 def get_admin_emails() -> list[str]:
-    return [
-        str(e).lower().strip()
-        for e in st.secrets.get("auth", {}).get("admin_emails", [])
-        if str(e).strip()
-    ]
+    return [str(e).lower().strip() for e in st.secrets.get("auth", {}).get("admin_emails", []) if str(e).strip()]
 
 
 def get_privileged_domains() -> list[str]:
-    return [
-        str(d).lower().strip()
-        for d in st.secrets.get("access", {}).get("privileged_domains", [])
-        if str(d).strip()
-    ]
+    return [str(d).lower().strip() for d in st.secrets.get("access", {}).get("privileged_domains", []) if str(d).strip()]
 
 
 def get_email_domain(email: str | None = None) -> str:
@@ -176,13 +133,11 @@ def is_authenticated_session() -> bool:
 
 
 def is_admin() -> bool:
-    email = get_current_email()
-    return bool(is_authenticated_session() and email in get_admin_emails())
+    return bool(is_authenticated_session() and get_current_email() in get_admin_emails())
 
 
 def is_privileged_domain() -> bool:
-    domain = get_email_domain()
-    return bool(is_authenticated_session() and domain in get_privileged_domains())
+    return bool(is_authenticated_session() and get_email_domain() in get_privileged_domains())
 
 
 def get_current_role() -> str:
@@ -199,35 +154,24 @@ def has_permission(permission: str) -> bool:
     role = get_current_role()
     if role == "admin":
         return True
-
-    config = load_access_config()
-    role_features = config.get(role, {}).get("features", {})
-    return bool(role_features.get(permission, False))
+    return bool(load_access_config().get(role, {}).get("features", {}).get(permission, False))
 
 
 def apply_data_scope(df):
     if df is None:
         return df
-
     role = get_current_role()
     if role == "admin":
         return df
 
-    config = load_access_config()
-    scope = config.get(role, {})
-    scoped_df = df.copy()
+    scope = load_access_config().get(role, {})
+    scoped = df.copy()
 
-    regions = scope.get("regions", [])
-    countries = scope.get("countries", [])
-    years = scope.get("years", [])
+    if scope.get("regions") and "region" in scoped.columns:
+        scoped = scoped[scoped["region"].isin(scope["regions"])]
+    if scope.get("countries") and "alert-country" in scoped.columns:
+        scoped = scoped[scoped["alert-country"].isin(scope["countries"])]
+    if scope.get("years") and "year" in scoped.columns:
+        scoped = scoped[scoped["year"].isin(scope["years"])]
 
-    if regions and "region" in scoped_df.columns:
-        scoped_df = scoped_df[scoped_df["region"].isin(regions)]
-
-    if countries and "alert-country" in scoped_df.columns:
-        scoped_df = scoped_df[scoped_df["alert-country"].isin(countries)]
-
-    if years and "year" in scoped_df.columns:
-        scoped_df = scoped_df[scoped_df["year"].isin(years)]
-
-    return scoped_df
+    return scoped
