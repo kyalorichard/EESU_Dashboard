@@ -3718,10 +3718,12 @@ def add_chart_info_badge(
         hovertext=message,
         hoverlabel=dict(
             bgcolor="#1F1F29",
-            font_color="#FFFFFF",
-            font_size=12,
             bordercolor="#660094",
-            namelength=0,
+            font=dict(
+                color="#FFFFFF",
+                size=12,
+                family="Arial, sans-serif",
+            ),
         ),
     )
 
