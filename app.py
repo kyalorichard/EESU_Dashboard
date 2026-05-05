@@ -3412,6 +3412,124 @@ def _v3_generate_caption(x_col, group_col=None, metric_label="Count", comparison
         return f"Distribution of {metric_label.lower()} for {x_col} compared with {group_col} using {comparison_mode.lower()} calculation under the active dashboard filters."
     return f"Distribution of {metric_label.lower()} by {x_col} under the active dashboard filters."
 
+
+# ---------------- PLOT BUILDER V2 PRO: QUALITY, INSIGHTS AND EXPORTS ----------------
+def _v3_plot_quality_checks(plot_df, chart_type=None, x_col=None, group_col=None):
+    """Return practical quality warnings/recommendations for the active plot."""
+    checks = []
+    if plot_df is None or plot_df.empty:
+        return ["No plotted data are available under the current filters."]
+
+    rows = len(plot_df)
+    if rows > 60 and chart_type in ["Vertical bar", "Grouped bar", "Stacked bar", "Horizontal bar"]:
+        checks.append("Many categories are displayed. Reduce ranking depth or use a heatmap/treemap for readability.")
+    elif rows > 30 and chart_type in ["Pie", "Donut"]:
+        checks.append("Pie/donut charts are difficult with many categories. Use Top 10 or switch to a horizontal bar chart.")
+
+    if x_col and x_col in plot_df.columns:
+        unique_x = plot_df[x_col].nunique(dropna=True)
+        if unique_x > 25 and chart_type in ["Vertical bar", "Line", "Area"]:
+            checks.append(f"{unique_x} categories are shown on the x-axis. Consider horizontal bars or reduce Top N.")
+
+    if group_col and group_col in plot_df.columns:
+        unique_g = plot_df[group_col].nunique(dropna=True)
+        if unique_g > 10:
+            checks.append(f"{unique_g} comparison groups are visible. Limit comparison depth to Top 5–8 for executive views.")
+
+    if "count" in plot_df.columns:
+        counts = pd.to_numeric(plot_df["count"], errors="coerce").dropna()
+        if not counts.empty and counts.max() > 0:
+            concentration = counts.max() / counts.sum()
+            if concentration >= 0.55:
+                checks.append("One category dominates the chart. Interpret smaller categories cautiously and consider share/percentage view.")
+            if counts.skew() > 2:
+                checks.append("The plotted distribution is highly skewed. Log scale or square-root transformation may improve readability.")
+
+    if not checks:
+        checks.append("Plot quality looks good for dashboard and reporting use.")
+    return checks
+
+
+def _v3_render_plot_quality_panel(checks):
+    """Render compact plot-quality diagnostics."""
+    checks = checks or []
+    items = "".join([f"<li>{str(c)}</li>" for c in checks[:5]])
+    st.markdown(f"""
+    <div style="background:#FFFFFF;border:1px solid #E6E8EF;border-radius:14px;padding:12px 14px;margin:10px 0 12px 0;box-shadow:0 6px 16px rgba(16,24,40,.045);font-family:Arial,sans-serif;">
+        <div style="font-size:12px;font-weight:950;color:#2D0055;margin-bottom:6px;">🧪 Plot quality check</div>
+        <ul style="margin:0 0 0 18px;padding:0;color:#344054;font-size:12px;line-height:1.45;">{items}</ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def _v3_export_plot_downloads(fig, plot_df, caption_text="", base_name="eusee_professional_plot"):
+    """Render robust export buttons for chart HTML, plotted data, caption and PNG when Kaleido is available."""
+    export_col1, export_col2, export_col3, export_col4 = st.columns(4)
+
+    safe_base = re.sub(r"[^A-Za-z0-9_\-]+", "_", str(base_name or "eusee_professional_plot")).strip("_")[:80]
+    if not safe_base:
+        safe_base = "eusee_professional_plot"
+
+    with export_col1:
+        if isinstance(plot_df, pd.DataFrame) and not plot_df.empty:
+            st.download_button(
+                "⬇️ Data CSV",
+                data=plot_df.to_csv(index=False).encode("utf-8"),
+                file_name=f"{safe_base}_data.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key=f"{safe_base}_download_data_csv",
+            )
+        else:
+            st.button("⬇️ Data CSV", disabled=True, use_container_width=True, key=f"{safe_base}_download_data_disabled")
+
+    with export_col2:
+        try:
+            html_bytes = fig.to_html(include_plotlyjs="cdn", full_html=True).encode("utf-8")
+            st.download_button(
+                "⬇️ Chart HTML",
+                data=html_bytes,
+                file_name=f"{safe_base}.html",
+                mime="text/html",
+                use_container_width=True,
+                key=f"{safe_base}_download_html",
+            )
+        except Exception:
+            st.button("⬇️ Chart HTML", disabled=True, use_container_width=True, key=f"{safe_base}_download_html_disabled")
+
+    with export_col3:
+        try:
+            png_bytes = fig.to_image(format="png", scale=2)
+            st.download_button(
+                "⬇️ Chart PNG",
+                data=png_bytes,
+                file_name=f"{safe_base}.png",
+                mime="image/png",
+                use_container_width=True,
+                key=f"{safe_base}_download_png",
+            )
+        except Exception:
+            st.button("⬇️ Chart PNG", disabled=True, use_container_width=True, key=f"{safe_base}_download_png_disabled")
+            st.caption("PNG export needs `kaleido`. Install with: pip install kaleido")
+
+    with export_col4:
+        st.download_button(
+            "⬇️ Insights TXT",
+            data=str(caption_text or "").encode("utf-8"),
+            file_name=f"{safe_base}_insights.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key=f"{safe_base}_download_insights",
+        )
+
+
+def _v3_auto_plot_title(mode, x_col, group_col=None, chart_type=None, metric_label="Count"):
+    """Generate cleaner title fallback for the plot builder."""
+    if mode == "Compare variables" and group_col:
+        return f"{metric_label} comparison: {x_col} by {group_col}"
+    chart = f"{chart_type} — " if chart_type else ""
+    return f"{chart}{metric_label} by {x_col}"
+
 def render_ai_assistant_panel(df):
     """Render a professional floating ChatGPT-style assistant."""
     st.markdown("""
@@ -7963,7 +8081,14 @@ def render_ai_assistant_panel(df):
                 sx_color = selected_palette[1] if len(selected_palette) > 1 else sx_color
                 st.markdown(_ai_palette_preview_html(selected_palette, professional_palette_choice), unsafe_allow_html=True)
 
-                default_title = preset_cfg.get("title") or (f"Comparison: {dim_label} × {y_label}" if mode == "Compare variables" else f"{dim_label} distribution")
+                if mode == "Compare variables":
+                    default_title = preset_cfg.get("title") or _v3_auto_plot_title(
+                        mode, label_to_col[dim_label], label_to_col[y_label], chart_type=chart_type, metric_label=normalize
+                    )
+                else:
+                    default_title = preset_cfg.get("title") or _v3_auto_plot_title(
+                        mode, label_to_col[dim_label], group_col, chart_type=chart_type, metric_label=metric_mode
+                    )
                 title = st.text_input("Chart title", default_title, key="v2_pop_chart_title")
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -8027,6 +8152,12 @@ def render_ai_assistant_panel(df):
                         config.pop("filtered_df", None)
                         st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {chart_type} for {x_col}."})
 
+                    plot_quality_checks = _v3_plot_quality_checks(
+                        plot_df,
+                        chart_type=config.get("chart_type"),
+                        x_col=config.get("x_col"),
+                        group_col=config.get("group_col"),
+                    )
                     st.session_state.ai_smart_output = {
                         "type": "plot_v2",
                         "title": title,
@@ -8034,6 +8165,7 @@ def render_ai_assistant_panel(df):
                         "fig": fig,
                         "plot_data": plot_df,
                         "config": config,
+                        "quality_checks": plot_quality_checks,
                     }
                     st.rerun()
             else:
@@ -8046,22 +8178,24 @@ def render_ai_assistant_panel(df):
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
                 st.plotly_chart(out["fig"], use_container_width=True, key="v2_pop_smart_plot")
                 st.markdown(out.get("content", ""))
-                if isinstance(out.get("plot_data"), pd.DataFrame) and not out["plot_data"].empty:
-                    st.download_button(
-                        "Download plot data CSV",
-                        data=out["plot_data"].to_csv(index=False).encode("utf-8"),
-                        file_name="eusee_ai_copilot_v3_plot_data.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="v2_pop_download_plot_data",
+
+                plot_data = out.get("plot_data")
+                cfg = out.get("config", {}) or {}
+                if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
+                    checks = _v3_plot_quality_checks(
+                        plot_data,
+                        chart_type=cfg.get("chart_type"),
+                        x_col=cfg.get("x_col"),
+                        group_col=cfg.get("group_col"),
                     )
-                    st.download_button(
-                        "Download chart caption TXT",
-                        data=str(out.get("content", "")).encode("utf-8"),
-                        file_name="eusee_ai_copilot_v3_chart_caption_and_insights.txt",
-                        mime="text/plain",
-                        use_container_width=True,
-                        key="v3_pop_download_caption",
+                    _v3_render_plot_quality_panel(checks)
+
+                    export_caption = str(out.get("content", "")) + "\n\nPlot quality check:\n" + "\n".join([f"- {c}" for c in checks])
+                    _v3_export_plot_downloads(
+                        out["fig"],
+                        plot_data,
+                        caption_text=export_caption,
+                        base_name="eusee_ai_copilot_v3_plot",
                     )
             else:
                 st.markdown(_render_chat_content_html(str(out.get("content", ""))[:4000]), unsafe_allow_html=True)
