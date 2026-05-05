@@ -8333,6 +8333,55 @@ render_feedback_callout()
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a floating callout and does not push dashboard content downward.
 # Footer image
+
+import os
+import streamlit as st
+
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
+
+def test_openai_connection():
+    st.markdown("### 🧪 OpenAI Connection Test")
+
+    # Get key from env or Streamlit secrets
+    api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY", None)
+
+    if not api_key:
+        st.error("❌ OPENAI_API_KEY not found")
+        return
+
+    if OpenAI is None:
+        st.error("❌ OpenAI package not installed")
+        return
+
+    try:
+        client = OpenAI(api_key=api_key)
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",   # lightweight + fast
+            messages=[
+                {"role": "user", "content": "Say 'OpenAI is working' in one short sentence."}
+            ],
+            max_tokens=20
+        )
+
+        reply = response.choices[0].message.content
+
+        st.success("✅ OpenAI connection successful!")
+        st.write("Response:", reply)
+
+    except Exception as e:
+        st.error("❌ OpenAI connection failed")
+        st.code(str(e))
+
+
+# Run test
+test_openai_connection()
+
+
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
 with open(footer_image_path, "rb") as f:
