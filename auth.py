@@ -83,7 +83,7 @@ def _firebase_required_keys():
     return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
 
 
-def init_firebase_client():
+def init_firebase_client(show_errors=True):
     """
     Initialize Pyrebase client auth.
 
@@ -97,19 +97,22 @@ def init_firebase_client():
     - invalid Firebase Web API key/config
     """
     if not HAS_PYREBASE:
-        st.error("❌ Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy.")
+        if show_errors:
+            st.error("❌ Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy.")
         return None, None
 
     cfg_raw = st.secrets.get("firebase", {})
     if not cfg_raw:
-        st.error("❌ Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`.")
+        if show_errors:
+            st.error("❌ Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`.")
         return None, None
 
     cfg = dict(cfg_raw)
 
     missing = [k for k in _firebase_required_keys() if not cfg.get(k)]
     if missing:
-        st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
+        if show_errors:
+            st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
         return None, None
 
     # Pyrebase often expects databaseURL to exist, even if unused.
@@ -119,18 +122,37 @@ def init_firebase_client():
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
         if not auth:
-            st.error("❌ Firebase auth object was not created.")
+            if show_errors:
+                st.error("❌ Firebase auth object was not created.")
             return None, None
         if DEBUG:
             st.success("Firebase authentication initialized successfully.")
         return firebase, auth
     except Exception as e:
-        st.error(f"❌ Firebase initialization failed: {e}")
+        if show_errors:
+            st.error(f"❌ Firebase initialization failed: {e}")
         return None, None
 
 
-firebase_admin_app = init_firebase_admin()
-firebase_client, firebase_auth = init_firebase_client()
+firebase_admin_app = None
+firebase_client = None
+firebase_auth = None
+
+
+def ensure_firebase_initialized(show_errors=True):
+    """Initialize Firebase lazily only when authentication is needed.
+
+    This prevents Firebase configuration/package errors from appearing during
+    normal guest dashboard use. Returns the Pyrebase auth object or None.
+    """
+    global firebase_admin_app, firebase_client, firebase_auth
+
+    if firebase_auth is not None:
+        return firebase_auth
+
+    firebase_admin_app = init_firebase_admin()
+    firebase_client, firebase_auth = init_firebase_client(show_errors=show_errors)
+    return firebase_auth
 
 
 # -----------------------------
@@ -625,9 +647,14 @@ def _login_form():
         submitted = st.form_submit_button("Sign in to dashboard", use_container_width=True)
 
     if submitted:
-        if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
-            return
+        auth_obj = ensure_firebase_initialized(show_errors=False)
+        if not auth_obj:
+            st.warning("Login is temporarily unavailable. You can continue using the dashboard in guest mode.")
+            st.session_state.user = False
+            st.session_state.role = "guest"
+            st.session_state.email_verified = False
+            st.session_state.auth_view = False
+            st.rerun()
         if not email or not password:
             st.error("Enter email and password.")
             return
@@ -635,8 +662,8 @@ def _login_form():
             st.error("Access is restricted to approved domains.")
             return
         try:
-            user = firebase_auth.sign_in_with_email_and_password(email, password)
-            info = firebase_auth.get_account_info(user["idToken"])
+            user = auth_obj.sign_in_with_email_and_password(email, password)
+            info = auth_obj.get_account_info(user["idToken"])
             verified = bool(info["users"][0].get("emailVerified", False))
             role = "privileged" if verified else "restricted"
 
@@ -669,9 +696,14 @@ def _register_form():
         submitted = st.form_submit_button("Create account", use_container_width=True)
 
     if submitted:
-        if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
-            return
+        auth_obj = ensure_firebase_initialized(show_errors=False)
+        if not auth_obj:
+            st.warning("Login is temporarily unavailable. You can continue using the dashboard in guest mode.")
+            st.session_state.user = False
+            st.session_state.role = "guest"
+            st.session_state.email_verified = False
+            st.session_state.auth_view = False
+            st.rerun()
         if not email or not password:
             st.error("Enter email and password.")
             return
@@ -679,8 +711,8 @@ def _register_form():
             st.error("Registration is restricted to approved domains.")
             return
         try:
-            user = firebase_auth.create_user_with_email_and_password(email, password)
-            firebase_auth.send_email_verification(user["idToken"])
+            user = auth_obj.create_user_with_email_and_password(email, password)
+            auth_obj.send_email_verification(user["idToken"])
             st.success("Registration successful. Check your email to verify your account, then sign in.")
         except Exception as e:
             st.error(parse_error(e))
@@ -695,8 +727,9 @@ def _reset_form():
         submitted = st.form_submit_button("Send password reset link", use_container_width=True)
 
     if submitted:
-        if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+        auth_obj = ensure_firebase_initialized(show_errors=False)
+        if not auth_obj:
+            st.warning("Password reset is temporarily unavailable because login services are not configured.")
             return
         if not reset_email:
             st.warning("Enter your email first.")
@@ -705,7 +738,7 @@ def _reset_form():
             st.error("Password reset is restricted to approved domains.")
             return
         try:
-            firebase_auth.send_password_reset_email(reset_email)
+            auth_obj.send_password_reset_email(reset_email)
             st.success("Password reset email sent.")
         except Exception as e:
             st.error(parse_error(e))
