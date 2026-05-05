@@ -1,113 +1,142 @@
 # authz.py
 """
-EU SEE Dashboard role and permission resolver.
+Persistent EU SEE Dashboard access control.
 
-Role model:
-- guest: not logged in; public-only access
-- viewer: logged in and verified, but not from approved privileged domain
-- privileged: logged in and verified from approved domain
-- admin: logged in admin email listed in [auth].admin_emails
+Access tiers:
+- guest: not logged in; public baseline only
+- viewer: logged in, but email domain is not in [access].privileged_domains
+- privileged: logged in and email domain is approved
+- admin: logged in and exact email is in [auth].admin_emails
 
-Admin-selected visibility is stored in admin_visibility_config.json when edited from the Admin page.
+IMPORTANT:
+Admin-selected visibility must be persistent. This module reads/writes a JSON
+config file instead of relying only on st.session_state.
 """
+
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
-from typing import Any
 
 import streamlit as st
 
-CONFIG_PATH = Path(__file__).resolve().parent / "admin_visibility_config.json"
 
-DEFAULT_ROLE_PERMISSIONS: dict[str, dict[str, bool]] = {
+DEFAULT_ROLE_PERMISSIONS = {
     "guest": {
         "view_public_summary": True,
-        "view_overview": False,
-        "view_negative_alerts": False,
-        "view_map": False,
-        "view_manual": True,
-        "view_data_table": False,
+        "view_dashboard": True,
+        "view_overview": True,
+        "view_maps": False,
         "view_country_counts": False,
+        "view_negative_alerts": False,
+        "view_data_table": False,
         "download_data": False,
         "use_ai_copilot": False,
+        "view_user_manual": True,
         "view_admin_page": False,
     },
     "viewer": {
         "view_public_summary": True,
+        "view_dashboard": True,
         "view_overview": True,
-        "view_negative_alerts": False,
-        "view_map": True,
-        "view_manual": True,
-        "view_data_table": False,
+        "view_maps": True,
         "view_country_counts": False,
+        "view_negative_alerts": False,
+        "view_data_table": False,
         "download_data": False,
         "use_ai_copilot": False,
+        "view_user_manual": True,
         "view_admin_page": False,
     },
     "privileged": {
         "view_public_summary": True,
+        "view_dashboard": True,
         "view_overview": True,
-        "view_negative_alerts": True,
-        "view_map": True,
-        "view_manual": True,
-        "view_data_table": True,
+        "view_maps": True,
         "view_country_counts": True,
+        "view_negative_alerts": True,
+        "view_data_table": True,
         "download_data": True,
         "use_ai_copilot": True,
+        "view_user_manual": True,
         "view_admin_page": False,
     },
     "admin": {
-        "view_public_summary": True,
-        "view_overview": True,
-        "view_negative_alerts": True,
-        "view_map": True,
-        "view_manual": True,
-        "view_data_table": True,
-        "view_country_counts": True,
-        "download_data": True,
-        "use_ai_copilot": True,
-        "view_admin_page": True,
+        "ALL": True,
     },
 }
 
-DEFAULT_DATA_SCOPE: dict[str, dict[str, list[Any]]] = {
-    "guest": {"regions": [], "countries": [], "years": []},
-    "viewer": {"regions": [], "countries": [], "years": []},
-    "privileged": {"regions": [], "countries": [], "years": []},
-    "admin": {"regions": [], "countries": [], "years": []},
-}
+
+def _base_dir() -> Path:
+    # On Render/Docker, /exports is often the persistent volume.
+    if Path("/exports").exists():
+        return Path("/exports")
+    return Path(__file__).resolve().parent
 
 
-def _deepcopy_defaults() -> dict[str, Any]:
+def get_access_config_path() -> Path:
+    configured = st.secrets.get("access_control", {}).get("config_path", "")
+    if configured:
+        return Path(configured)
+    return _base_dir() / "eusee_access_config.json"
+
+
+def default_access_config() -> dict:
     return {
-        "permissions": json.loads(json.dumps(DEFAULT_ROLE_PERMISSIONS)),
-        "data_scope": json.loads(json.dumps(DEFAULT_DATA_SCOPE)),
+        role: {
+            "features": {
+                k: bool(v)
+                for k, v in perms.items()
+                if k != "ALL"
+            },
+            "regions": [],
+            "countries": [],
+            "years": [],
+        }
+        for role, perms in DEFAULT_ROLE_PERMISSIONS.items()
+        if role != "admin"
     }
 
 
-def load_visibility_config() -> dict[str, Any]:
-    cfg = _deepcopy_defaults()
+def load_access_config() -> dict:
+    path = get_access_config_path()
+    default_cfg = default_access_config()
+
+    if not path.exists():
+        return default_cfg
+
     try:
-        if CONFIG_PATH.exists():
-            saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-            for role, perms in saved.get("permissions", {}).items():
-                if role in cfg["permissions"] and isinstance(perms, dict):
-                    cfg["permissions"][role].update(perms)
-            for role, scope in saved.get("data_scope", {}).items():
-                if role in cfg["data_scope"] and isinstance(scope, dict):
-                    cfg["data_scope"][role].update(scope)
+        with open(path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
     except Exception:
-        pass
-    return cfg
+        return default_cfg
+
+    # Merge loaded config with defaults so new keys never break.
+    for role, role_cfg in default_cfg.items():
+        loaded.setdefault(role, role_cfg)
+        loaded[role].setdefault("features", {})
+        loaded[role].setdefault("regions", [])
+        loaded[role].setdefault("countries", [])
+        loaded[role].setdefault("years", [])
+        for feature, value in role_cfg["features"].items():
+            loaded[role]["features"].setdefault(feature, value)
+
+    return loaded
 
 
-def save_visibility_config(config: dict[str, Any]) -> bool:
+def save_access_config(config: dict) -> bool:
+    path = get_access_config_path()
     try:
-        CONFIG_PATH.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+        tmp.replace(path)
+        st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"Could not save admin visibility config: {e}")
+        st.error(f"Could not save access config to {path}: {e}")
         return False
 
 
@@ -131,65 +160,74 @@ def get_admin_emails() -> list[str]:
 
 def get_privileged_domains() -> list[str]:
     return [
-        str(d).lower().strip().lstrip("@")
+        str(d).lower().strip()
         for d in st.secrets.get("access", {}).get("privileged_domains", [])
         if str(d).strip()
     ]
 
 
-def is_logged_in() -> bool:
+def get_email_domain(email: str | None = None) -> str:
+    email = str(email or get_current_email()).lower().strip()
+    return email.split("@")[-1] if "@" in email else ""
+
+
+def is_authenticated_session() -> bool:
     return bool(st.session_state.get("user") and st.session_state.get("email_verified") and get_current_email())
 
 
 def is_admin() -> bool:
-    return bool(is_logged_in() and get_current_email() in get_admin_emails())
+    email = get_current_email()
+    return bool(is_authenticated_session() and email in get_admin_emails())
 
 
-def is_privileged_domain(email: str | None = None) -> bool:
-    email = (email or get_current_email()).lower().strip()
-    if not email or "@" not in email:
-        return False
-    domain = email.split("@")[-1]
-    return domain in get_privileged_domains()
+def is_privileged_domain() -> bool:
+    domain = get_email_domain()
+    return bool(is_authenticated_session() and domain in get_privileged_domains())
 
 
 def get_current_role() -> str:
-    if not is_logged_in():
-        return "guest"
     if is_admin():
         return "admin"
     if is_privileged_domain():
         return "privileged"
-    return "viewer"
+    if is_authenticated_session():
+        return "viewer"
+    return "guest"
 
 
-def has_permission(permission_name: str) -> bool:
+def has_permission(permission: str) -> bool:
     role = get_current_role()
     if role == "admin":
         return True
-    cfg = load_visibility_config()
-    return bool(cfg.get("permissions", {}).get(role, {}).get(permission_name, False))
+
+    config = load_access_config()
+    role_features = config.get(role, {}).get("features", {})
+    return bool(role_features.get(permission, False))
 
 
 def apply_data_scope(df):
     if df is None:
         return df
+
     role = get_current_role()
     if role == "admin":
         return df
 
-    cfg = load_visibility_config()
-    scope = cfg.get("data_scope", {}).get(role, {})
-    scoped = df.copy()
+    config = load_access_config()
+    scope = config.get(role, {})
+    scoped_df = df.copy()
 
-    regions = scope.get("regions", []) or []
-    countries = scope.get("countries", []) or []
-    years = scope.get("years", []) or []
+    regions = scope.get("regions", [])
+    countries = scope.get("countries", [])
+    years = scope.get("years", [])
 
-    if regions and "region" in scoped.columns:
-        scoped = scoped[scoped["region"].isin(regions)]
-    if countries and "alert-country" in scoped.columns:
-        scoped = scoped[scoped["alert-country"].isin(countries)]
-    if years and "year" in scoped.columns:
-        scoped = scoped[scoped["year"].isin(years)]
-    return scoped
+    if regions and "region" in scoped_df.columns:
+        scoped_df = scoped_df[scoped_df["region"].isin(regions)]
+
+    if countries and "alert-country" in scoped_df.columns:
+        scoped_df = scoped_df[scoped_df["alert-country"].isin(countries)]
+
+    if years and "year" in scoped_df.columns:
+        scoped_df = scoped_df[scoped_df["year"].isin(years)]
+
+    return scoped_df
