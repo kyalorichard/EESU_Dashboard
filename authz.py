@@ -80,16 +80,10 @@ def default_access_config() -> dict:
     }
 
 
-def load_access_config() -> dict:
+def _merge_with_defaults(loaded: dict) -> dict:
+    """Keep saved admin choices while adding any newly introduced permission keys."""
     defaults = default_access_config()
-    path = get_access_config_path()
-
-    if not path.exists():
-        return defaults
-
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    if not isinstance(loaded, dict):
         return defaults
 
     for role, role_cfg in defaults.items():
@@ -99,10 +93,23 @@ def load_access_config() -> dict:
         loaded[role].setdefault("countries", [])
         loaded[role].setdefault("years", [])
 
-        for feature, val in role_cfg["features"].items():
-            loaded[role]["features"].setdefault(feature, val)
+        for feature, default_value in role_cfg["features"].items():
+            loaded[role]["features"].setdefault(feature, default_value)
 
     return loaded
+
+
+def load_access_config() -> dict:
+    path = get_access_config_path()
+    if not path.exists():
+        return default_access_config()
+
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return default_access_config()
+
+    return _merge_with_defaults(loaded)
 
 
 def save_access_config(config: dict) -> bool:
@@ -110,12 +117,25 @@ def save_access_config(config: dict) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        tmp.write_text(json.dumps(_merge_with_defaults(config), indent=2), encoding="utf-8")
         tmp.replace(path)
         st.cache_data.clear()
         return True
     except Exception as e:
         st.error(f"Could not save access config to {path}: {e}")
+        return False
+
+
+def reset_access_config() -> bool:
+    """Delete stale JSON and rebuild it with the current permission schema."""
+    path = get_access_config_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            path.unlink()
+        return save_access_config(default_access_config())
+    except Exception as e:
+        st.error(f"Could not reset access config at {path}: {e}")
         return False
 
 
@@ -179,9 +199,7 @@ def has_permission(permission: str) -> bool:
     role = get_current_role()
     if role == "admin":
         return True
-
-    config = load_access_config()
-    return bool(config.get(role, {}).get("features", {}).get(permission, False))
+    return bool(load_access_config().get(role, {}).get("features", {}).get(permission, False))
 
 
 def apply_data_scope(df):
