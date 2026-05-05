@@ -8336,50 +8336,19 @@ render_feedback_callout()
 
 import os
 import streamlit as st
+from pathlib import Path
+
+st.subheader("OpenAI key diagnostic")
+
+st.write("Current working directory:", os.getcwd())
+st.write("Project secrets path exists:", Path(".streamlit/secrets.toml").exists())
+st.write("Env has key:", bool(os.getenv("OPENAI_API_KEY")))
 
 try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
-
-
-def test_openai_connection():
-    st.markdown("### 🧪 OpenAI Connection Test")
-
-    # Get key from env or Streamlit secrets
-    api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY", None)
-
-    if not api_key:
-        st.error("❌ OPENAI_API_KEY not found")
-        return
-
-    if OpenAI is None:
-        st.error("❌ OpenAI package not installed")
-        return
-
-    try:
-        client = OpenAI(api_key=api_key)
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",   # lightweight + fast
-            messages=[
-                {"role": "user", "content": "Say 'OpenAI is working' in one short sentence."}
-            ],
-            max_tokens=20
-        )
-
-        reply = response.choices[0].message.content
-
-        st.success("✅ OpenAI connection successful!")
-        st.write("Response:", reply)
-
-    except Exception as e:
-        st.error("❌ OpenAI connection failed")
-        st.code(str(e))
-
-
-# Run test
-test_openai_connection()
+    st.write("st.secrets keys:", list(st.secrets.keys()))
+    st.write("st.secrets has OPENAI_API_KEY:", "OPENAI_API_KEY" in st.secrets)
+except Exception as e:
+    st.error(f"st.secrets error: {e}")
 
 
 # --- Load image and convert to base64 ---
