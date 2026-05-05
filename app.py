@@ -3677,6 +3677,73 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     return fig
 
 
+def add_chart_info_badge(
+    fig,
+    message,
+    x=0.48,
+    y=1.075,
+    icon="<b>i</b>",
+    badge_color="#660094",
+):
+    """Add a professional hover info badge beside a Plotly chart title.
+
+    Designed for dashboard charts where counts need an interpretation note.
+    Uses paper coordinates so it stays stable under responsive Streamlit rendering.
+    """
+    if fig is None:
+        return fig
+
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=x,
+        y=y,
+        text=icon,
+        showarrow=False,
+
+        # Clean enterprise-style badge
+        font=dict(
+            color="#FFFFFF",
+            size=10,
+            family="Arial, sans-serif",
+        ),
+        align="center",
+        bgcolor=badge_color,
+        opacity=0.96,
+        bordercolor="rgba(102, 0, 148, 0.18)",
+        borderwidth=0.6,
+        borderpad=4,
+
+        # Better hover readability
+        hovertext=message,
+        hoverlabel=dict(
+            bgcolor="#1F1F29",
+            font_color="#FFFFFF",
+            font_size=12,
+            bordercolor="#660094",
+            namelength=0,
+        ),
+    )
+
+    # Ensure enough top space for the title + badge on responsive cards.
+    current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+    fig.update_layout(
+        margin=dict(
+            l=current_margin.get("l", 40),
+            r=current_margin.get("r", 20),
+            t=max(current_margin.get("t", 55), 68),
+            b=current_margin.get("b", 40),
+        )
+    )
+    return fig
+
+
+ENABLING_PRINCIPLE_MULTI_COUNT_NOTE = (
+    "Alerts may be classified under more than one enabling principle"
+    "<br>and can therefore be counted in multiple principles."
+)
+
+
 # ---------------- TAB 1 ------------------------
 with tab_overview:
 
@@ -3706,25 +3773,12 @@ with tab_overview:
             normalize_labels=False
         )
 
-            # Add "?" tooltip icon immediately after title
-        fig12.add_annotation(
-            xref='paper', yref='paper',
-            x=0.42,  # adjust so it sits right after the title
-            y=1.05,
-            text="❔",  # unicode "?" inside a circle
-            showarrow=False,
-            font=dict(color="white", size=10, family="Arial", weight="bold"),
-            align="center",
-            bordercolor="black",
-            borderwidth=0.8,
-            borderpad=3,
-            bgcolor="#660094",
-            opacity=0.9,
-            hovertext=(
-                "Alerts may be classified under more than one enabling principle "
-                "<br>and can therefore be counted in multiple principles."
-            ),
-            hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
+        # Professional hover info badge: explains multi-counting across enabling principles.
+        fig12 = add_chart_info_badge(
+            fig12,
+            ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
+            x=0.50,
+            y=1.075,
         )
 
         # Add source line if needed
@@ -3965,26 +4019,13 @@ with tab_negative:
           
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principle", horizontal=True, normalize_labels=False))
 
-          
-            # Add the "?" tooltip icon immediately after the title
-            fig23.add_annotation(
-                xref='paper', yref='paper',
-                x=0.42,         # adjust so it's at the end of the title
-                y=1.05,         # same vertical alignment as title
-                text="❔",       # Unicode circle with question mark
-                showarrow=False,
-                font=dict(color="white", size=10, family="Arial black", weight="bold"),
-                align="center",
-                bordercolor="black",
-                borderwidth=1.3,
-                borderpad=3,
-                bgcolor="#660094",
-                opacity=1.0,
-                hovertext=(
-                    "Alerts may be classified under more than one enabling principle "
-                    "<br>and can therefore be counted in multiple principles."
-                ),
-                hoverlabel=dict(bgcolor="black", font_color="white", font_size=12)
+
+            # Professional hover info badge: explains multi-counting across enabling principles.
+            fig23 = add_chart_info_badge(
+                fig23,
+                ENABLING_PRINCIPLE_MULTI_COUNT_NOTE,
+                x=0.56,
+                y=1.075,
             )
 
             # Add source line if needed
