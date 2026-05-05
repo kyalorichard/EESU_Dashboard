@@ -1286,6 +1286,17 @@ if is_authenticated() and admin_is_admin():
         render_admin_page(data=data)
         st.stop()
 
+# ---------------- ACCESS STATUS DEBUG PANEL ----------------
+with st.sidebar.expander("🔎 Access status", expanded=False):
+    st.caption(f"Role: {get_current_role()}")
+    st.caption(f"Email: {get_current_email() or 'Guest / not signed in'}")
+    st.caption(f"User manual: {has_permission('view_user_manual')}")
+    st.caption(f"Visualization map: {has_permission('view_maps')}")
+    st.caption(f"Summary data preview: {has_permission('view_data_table')}")
+    st.caption(f"Coverage countries: {has_permission('view_coverage_monitored_countries')}")
+    st.caption(f"Relationship intelligence: {has_permission('view_negative_relationship_intelligence')}")
+    st.caption(f"Analytical flow panel: {has_permission('view_analytical_flow_panel')}")
+
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
 reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -4044,7 +4055,8 @@ with tab_overview:
 
     if has_permission("view_overview") or has_permission("view_public_summary"):
         #st.subheader("Overview Metrics")
-        render_summary_cards(filtered_global, card_key="overview_summary")
+        if has_permission("view_coverage_monitored_countries") or has_permission("view_country_counts"):
+            render_summary_cards(filtered_global, card_key="overview_summary")
         a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
         df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
         df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
@@ -4110,7 +4122,8 @@ with tab_overview:
    
             # ---------------- Tab two data preview ------------------
 
-        render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
+        if has_permission("view_data_table"):
+            render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -4252,11 +4265,12 @@ with tab_negative:
                 (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
                 (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
             ]
-            render_negative_alerts_intelligence_cards(
-                reactive_df_updated,
-                all_filtered_df=filtered_global,
-                card_key="negative_events_summary"
-            )
+            if has_permission("view_negative_relationship_intelligence"):
+                render_negative_alerts_intelligence_cards(
+                    reactive_df_updated,
+                    all_filtered_df=filtered_global,
+                    card_key="negative_events_summary"
+                )
 
             #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
 
@@ -4338,7 +4352,10 @@ with tab_negative:
             #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
             # ---------------- ANALYTICAL FLOW PANEL ----------------
-            render_analytical_flow_panel(filtered_df)
+            if has_permission("view_analytical_flow_panel"):
+                render_analytical_flow_panel(filtered_df)
+            else:
+                st.info("Analytical Flow Panel is disabled for your current access level.")
 
             cols_to_keep = {
                 "post_title": "Title of post",
@@ -4362,7 +4379,8 @@ with tab_negative:
         
             # ---------------- Tab two data preview ----------------
             #if is_privileged():        
-            render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
+            if has_permission("view_data_table"):
+                render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
             #else:
                 #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
     
@@ -4372,11 +4390,12 @@ with tab_negative:
 
 with tab_map:
 
-    if has_permission("view_map"):
+    if has_permission("view_maps"):
 
-        if has_permission("view_map"):
+        if has_permission("view_maps"):
             # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
-            render_summary_cards(filtered_global, card_key="map_summary")
+            if has_permission("view_coverage_monitored_countries") or has_permission("view_country_counts"):
+                render_summary_cards(filtered_global, card_key="map_summary")
 
             MAP_FONT = "Arial, sans-serif"
 
@@ -5168,9 +5187,9 @@ with tab_map:
 
 with tab_manual:
 
-    if has_permission("view_manual"):
+    if has_permission("view_user_manual"):
 
-        if has_permission("view_manual"):
+        if has_permission("view_user_manual"):
             def _pdf_download_card(title, subtitle, audience, pdf_path: Path, icon="📄"):
                 """Professional document card for dashboard manuals/briefs."""
                 st.markdown(
