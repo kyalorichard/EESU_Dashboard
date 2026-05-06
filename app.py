@@ -7558,6 +7558,183 @@ def _v2_openai_stream_answer(question, df):
         return _copilot_stream_text(fallback)
 
 
+
+# ---------------- AI CHART INTERPRETATION ENGINE ----------------
+def _eusee_safe_count_series(df, col, top_n=5):
+    """Return a safe top-N count dictionary for one dashboard column."""
+    if df is None or df.empty or not col or col not in df.columns:
+        return {}
+    s = df[col].dropna().astype(str).str.strip()
+    s = s[(s != "") & (s.str.lower() != "nan") & (s.str.lower() != "none")]
+    if s.empty:
+        return {}
+    return {str(k): int(v) for k, v in s.value_counts().head(int(top_n)).items()}
+
+
+def _eusee_plot_data_summary(plot_df, x_col=None, group_col=None, value_col=None, top_n=5):
+    """Build compact chart-data context for deterministic and OpenAI interpretation."""
+    if plot_df is None or not isinstance(plot_df, pd.DataFrame) or plot_df.empty:
+        return {
+            "records": 0,
+            "top_items": {},
+            "dominant_item": None,
+            "dominant_count": 0,
+            "dominant_share_pct": 0,
+            "group_summary": {},
+        }
+
+    dfp = plot_df.copy()
+    value_candidates = [value_col, "count", "value", "percent"]
+    value_col = next((c for c in value_candidates if c and c in dfp.columns), None)
+    x_col = x_col if x_col in dfp.columns else (dfp.columns[0] if len(dfp.columns) else None)
+
+    if value_col:
+        total = float(pd.to_numeric(dfp[value_col], errors="coerce").fillna(0).sum())
+    else:
+        total = float(len(dfp))
+
+    top_items = {}
+    if x_col and value_col:
+        temp = dfp[[x_col, value_col]].copy()
+        temp[value_col] = pd.to_numeric(temp[value_col], errors="coerce").fillna(0)
+        top = temp.groupby(x_col, dropna=False)[value_col].sum().sort_values(ascending=False).head(int(top_n))
+        top_items = {str(k): float(v) for k, v in top.items()}
+    elif x_col:
+        top_items = _eusee_safe_count_series(dfp, x_col, top_n=top_n)
+
+    dominant_item = next(iter(top_items.keys()), None) if top_items else None
+    dominant_count = float(next(iter(top_items.values()), 0)) if top_items else 0
+    dominant_share = round((dominant_count / total) * 100, 1) if total else 0
+
+    group_summary = {}
+    if group_col and group_col in dfp.columns:
+        if value_col:
+            gt = dfp.copy()
+            gt[value_col] = pd.to_numeric(gt[value_col], errors="coerce").fillna(0)
+            g = gt.groupby(group_col, dropna=False)[value_col].sum().sort_values(ascending=False).head(int(top_n))
+            group_summary = {str(k): float(v) for k, v in g.items()}
+        else:
+            group_summary = _eusee_safe_count_series(dfp, group_col, top_n=top_n)
+
+    return {
+        "records": int(len(dfp)),
+        "total_value": round(total, 2),
+        "top_items": top_items,
+        "dominant_item": dominant_item,
+        "dominant_count": round(dominant_count, 2),
+        "dominant_share_pct": dominant_share,
+        "group_summary": group_summary,
+    }
+
+
+def eusee_local_chart_interpretation(plot_df, chart_type="Chart", x_col=None, group_col=None, dashboard_df=None, title="Chart"):
+    """Deterministic chart interpretation used when OpenAI is unavailable or as a safety fallback."""
+    summary = _eusee_plot_data_summary(plot_df, x_col=x_col, group_col=group_col, top_n=5)
+    if summary["records"] == 0:
+        return "### AI graph interpretation\n\nNo chart interpretation is available because the selected chart data are empty. Adjust the filters or choose another variable."
+
+    dashboard_records = len(dashboard_df) if dashboard_df is not None and isinstance(dashboard_df, pd.DataFrame) else 0
+    dominant = summary.get("dominant_item") or "the leading category"
+    dominant_count = summary.get("dominant_count", 0)
+    dominant_share = summary.get("dominant_share_pct", 0)
+
+    top_lines = []
+    for label, value in list(summary.get("top_items", {}).items())[:5]:
+        val = int(value) if float(value).is_integer() else round(float(value), 2)
+        top_lines.append(f"- **{label}**: {val:,}")
+    top_text = "\n".join(top_lines) if top_lines else "- No ranked categories available."
+
+    group_text = ""
+    if summary.get("group_summary"):
+        group_lines = []
+        for label, value in list(summary["group_summary"].items())[:4]:
+            val = int(value) if float(value).is_integer() else round(float(value), 2)
+            group_lines.append(f"- **{label}**: {val:,}")
+        group_text = "\n\n**Group pattern**\n" + "\n".join(group_lines)
+
+    interpretation_note = (
+        "Counts should be interpreted as monitoring signals, not automatically as prevalence. "
+        "They may reflect reporting coverage, partner submission intensity, network activity, or actual changes in the enabling environment."
+    )
+
+    return f"""### AI graph interpretation
+
+**Executive reading**  
+The chart titled **{title}** shows that **{dominant}** is the strongest visible signal, contributing **{dominant_count:,.0f}** records, or about **{dominant_share}%** of the charted total.
+
+**Key ranked signals**
+{top_text}{group_text}
+
+**Analytical implication**  
+This pattern suggests that the dashboard user should first inspect the leading category, then compare it against country, year, actor, mechanism, and alert-impact filters to determine whether it reflects a genuine risk concentration or a reporting-volume effect.
+
+**Interpretation caveat**  
+{interpretation_note}
+"""
+
+
+def eusee_openai_chart_interpretation(plot_df, chart_type="Chart", x_col=None, group_col=None, dashboard_df=None, title="Chart", user_question=""):
+    """OpenAI-assisted chart interpretation with deterministic fallback."""
+    fallback = eusee_local_chart_interpretation(plot_df, chart_type, x_col, group_col, dashboard_df, title)
+    api_key, model = _ai_get_openai_config()
+    if not api_key or OpenAI is None:
+        return fallback
+
+    try:
+        client = _ai_get_openai_client(api_key)
+        if client is None:
+            return fallback
+
+        chart_context = {
+            "chart_title": title,
+            "chart_type": chart_type,
+            "x_col": x_col,
+            "group_col": group_col,
+            "plot_summary": _eusee_plot_data_summary(plot_df, x_col=x_col, group_col=group_col, top_n=8),
+            "dashboard_records": len(dashboard_df) if dashboard_df is not None and isinstance(dashboard_df, pd.DataFrame) else None,
+            "user_question": user_question,
+        }
+        system = (
+            "You are an EU SEE Dashboard intelligence analyst. Interpret only the supplied chart context. "
+            "Do not invent external facts. Explain the graph in executive language with: Executive reading, Key signals, "
+            "Analytical implication, and Interpretation caveat. Keep it concise and donor-ready."
+        )
+        prompt = "chart_context:\n" + json.dumps(chart_context, ensure_ascii=False, default=str)
+
+        try:
+            resp = client.responses.create(
+                model=model,
+                input=[
+                    {"role": "developer", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.12,
+                max_output_tokens=650,
+            )
+            txt = getattr(resp, "output_text", "").strip()
+        except Exception:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.12,
+                max_tokens=650,
+            )
+            txt = (resp.choices[0].message.content or "").strip()
+
+        return txt if txt else fallback
+    except Exception:
+        return fallback
+
+
+def render_eusee_chart_interpretation_card(text, title="AI graph interpretation", expanded=True):
+    """Render chart interpretation in a professional collapsible card."""
+    with st.expander(f"🧠 {title}", expanded=expanded):
+        st.markdown(text or "No interpretation available.")
+        st.caption("Interpretation uses the current filtered dashboard data and charted values. Counts may reflect both event frequency and reporting coverage.")
+
 def _copilot_queue_answer(question, df):
     """v2 queue: supports plot commands, advanced style requests, and memory."""
     q = str(question or "").strip()
@@ -7582,6 +7759,16 @@ def _copilot_queue_answer(question, df):
         else:
             plot_df = _v2_plot_data_for_insight(config.get("filtered_df"), config.get("x_col"), config.get("group_col"), config.get("top_n", 10))
             insight = _v2_plot_insight(plot_df, config.get("x_col"), config.get("group_col"))
+        interpretation = eusee_openai_chart_interpretation(
+            plot_df,
+            chart_type=config.get("chart_type", "Chart"),
+            x_col=config.get("x_col"),
+            group_col=config.get("group_col"),
+            dashboard_df=config.get("filtered_df"),
+            title=config.get("title", "AI-generated plot"),
+            user_question=q,
+        )
+
         # Avoid storing full dataframe in session state.
         session_config = {k: v for k, v in config.items() if k != "filtered_df"}
         st.session_state.ai_last_plot = session_config
@@ -7589,12 +7776,14 @@ def _copilot_queue_answer(question, df):
         st.session_state.ai_smart_output = {
             "type": "plot_v2",
             "title": config.get("title", "AI-generated plot"),
-            "content": insight,
+            "content": interpretation,
+            "raw_insight": insight,
+            "interpretation": interpretation,
             "fig": fig,
             "plot_data": plot_df,
             "config": session_config,
         }
-        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}."})
+        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated and interpreted {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}. Open Smart output to review the graph interpretation."})
         return
 
     answer = ai_try_llm_response(q, df)
@@ -8223,7 +8412,11 @@ def render_ai_assistant_panel(df):
             st.markdown(f"<div class='v2-smart-title'>{out.get('title', 'Smart output')}</div>", unsafe_allow_html=True)
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
                 st.plotly_chart(out["fig"], use_container_width=True, key="v2_pop_smart_plot")
-                st.markdown(out.get("content", ""))
+                render_eusee_chart_interpretation_card(
+                    out.get("interpretation") or out.get("content", ""),
+                    title="AI graph interpretation",
+                    expanded=True,
+                )
 
                 plot_data = out.get("plot_data")
                 cfg = out.get("config", {}) or {}
