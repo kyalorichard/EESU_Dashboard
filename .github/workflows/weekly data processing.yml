@@ -52,5 +52,29 @@ jobs:
           print("SFTP_PASSWORD exists:", bool(os.getenv("SFTP_PASSWORD")))
           PY
 
+      - name: Test OpenAI connectivity
+        run: |
+          python - <<'PY'
+          import os, sys
+          import openai
+      
+          key = os.getenv("OPENAI_API_KEY", "")
+          print("Key present:", bool(key))
+          print("Starts with sk-:", key.startswith("sk-"))
+          print("Length:", len(key))
+      
+          openai.api_key = key
+      
+          try:
+              resp = openai.chat.completions.create(
+                  model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+                  messages=[{"role": "user", "content": "Say OK"}],
+              )
+              print("OpenAI OK:", resp.choices[0].message.content[:20])
+          except Exception as e:
+              print("OpenAI ERROR:", e)
+              sys.exit(1)
+          PY
+
       - name: Run EESU data processing
         run: python data_preprocessing.py
