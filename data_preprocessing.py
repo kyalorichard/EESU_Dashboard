@@ -7,9 +7,11 @@ import os
 import posixpath
 import random
 import smtplib
+import tempfile
 from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any
 
 import openai
 import pandas as pd
@@ -23,9 +25,13 @@ from tqdm.asyncio import tqdm_asyncio
 # ==========================================================
 load_dotenv()
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-if not openai.api_key:
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+
+if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is not set. Add it to your environment or .env file.")
+
+openai.api_key = OPENAI_API_KEY
 
 # ==========================================================
 # CONFIG
@@ -57,11 +63,12 @@ OUTPUT_PARQUET = OUTPUT_FOLDER / "output_final.parquet"
 PERMANENTLY_FAILED_FILE = OUTPUT_FOLDER / "permanently_failed_batches.json"
 
 # --- PROCESSING CONFIG ---
-MAX_BATCH_TOKENS = 4000
-MAX_BATCH_SIZE = 100
-CONCURRENT_BATCHES = 5
-MAX_RETRIES = 2
-TEST_ROWS = None
+MAX_BATCH_TOKENS = int(os.getenv("MAX_BATCH_TOKENS", "4000"))
+MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "100"))
+CONCURRENT_BATCHES = int(os.getenv("CONCURRENT_BATCHES", "5"))
+MAX_RETRIES = int(os.getenv("MAX_RETRIES", "2"))
+TEST_ROWS = int(os.getenv("TEST_ROWS")) if os.getenv("TEST_ROWS") else None
+MOCK_MODE = os.getenv("MOCK_MODE", "false").strip().lower() in {"1", "true", "yes"}
 
 FIELDS = [
     "Actor of repression",
@@ -78,7 +85,7 @@ CORE_TEXT_COLUMNS = [
     "alert-impact",
     "alert-type",
     "enabling-principle",
-] + FIELDS
+]
 
 
 # ==========================================================
@@ -87,7 +94,10 @@ CORE_TEXT_COLUMNS = [
 try:
     import tiktoken
 
-    encoding = tiktoken.encoding_for_model("gpt-5-mini")
+    try:
+        encoding = tiktoken.encoding_for_model(OPENAI_MODEL)
+    except Exception:
+        encoding = tiktoken.get_encoding("cl100k_base")
 
     def estimate_tokens(text: str) -> int:
         return len(encoding.encode(text or "")) + 50
@@ -101,28 +111,55 @@ except ImportError:
 # ==========================================================
 # DATAFRAME SAFETY HELPERS
 # ==========================================================
-def safe_str(value) -> str:
+def safe_str(value: Any) -> str:
     """
-    Convert any scalar value to a clean string.
-    Prevents pandas dtype failures when assigning labels into previously numeric columns.
+    Convert any value to a clean string.
+
+    This prevents pandas dtype crashes such as:
+    TypeError: Invalid value 'Government' for dtype 'float64'
     """
-    if value is None or pd.isna(value):
+    if value is None:
         return ""
+
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+
     value = str(value).strip()
+
     if value.lower() in {"nan", "none", "null", "n/a", "na"}:
         return ""
+
+    # Never persist synthetic failure marker
     if value == "Error":
         return ""
+
     return value
+
+
+def drop_fully_blank_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+
+    mask = df.apply(lambda row: any(safe_str(v) for v in row), axis=1)
+    removed = int((~mask).sum())
+
+    if removed > 0:
+        print(f"Removed fully blank rows: {removed}")
+
+    return df.loc[mask].copy().reset_index(drop=True)
 
 
 def normalize_output_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Make output dataframe safe for text classification updates.
-    Critical fix:
-    - classification columns are forced to object/string columns
-    - blank-like values are normalized to empty strings
-    - fully blank rows are removed
+    Make dataframe safe for text classification updates.
+
+    Critical protections:
+    - force classification columns to object/string-compatible dtype
+    - convert blank-like values to ""
+    - remove fully blank rows
     """
     df = df.copy()
 
@@ -130,22 +167,61 @@ def normalize_output_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = ""
 
-    # Force target columns to object before async assignment
-    for col in FIELDS:
-        df[col] = df[col].astype(object).map(safe_str)
+    # Force all columns to object to avoid pandas LossySetitemError.
+    df = df.astype(object)
 
-    # Keep key text columns safe too
-    for col in CORE_TEXT_COLUMNS:
+    # Clean known text/classification columns.
+    for col in CORE_TEXT_COLUMNS + FIELDS:
         if col in df.columns:
-            df[col] = df[col].astype(object).map(safe_str)
+            df[col] = df[col].map(safe_str)
 
-    # Remove completely blank rows
-    mask = df.apply(lambda row: any(safe_str(v) for v in row), axis=1)
-    removed = int((~mask).sum())
-    if removed:
-        print(f"Removed fully blank rows before processing: {removed}")
+    # Ensure classification columns remain object.
+    for col in FIELDS:
+        df[col] = df[col].astype(object)
 
-    return df.loc[mask].copy().reset_index(drop=True)
+    df = drop_fully_blank_rows(df)
+    return df
+
+
+def atomic_write_csv(df: pd.DataFrame, path: Path) -> None:
+    """
+    Write CSV atomically to avoid corrupted partial files.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        delete=False,
+        suffix=".csv",
+        dir=str(path.parent),
+        encoding="utf-8",
+        newline="",
+    ) as tmp:
+        tmp_path = Path(tmp.name)
+
+    try:
+        df.to_csv(tmp_path, index=False)
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+
+
+def atomic_write_parquet(df: pd.DataFrame, path: Path) -> None:
+    """
+    Write parquet atomically to avoid corrupted partial files.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".tmp.parquet")
+
+    try:
+        df.to_parquet(tmp_path, index=False, engine="pyarrow")
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
 
 
 # ==========================================================
@@ -153,16 +229,16 @@ def normalize_output_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 # ==========================================================
 def write_outputs(df: pd.DataFrame) -> None:
     """
-    Write local CSV and parquet outputs and log clearly.
+    Write local CSV and parquet outputs after final normalization only.
     """
     OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
     df = normalize_output_dataframe(df)
 
-    df.to_csv(OUTPUT_CSV, index=False)
+    atomic_write_csv(df, OUTPUT_CSV)
     print(f"Wrote local CSV: {OUTPUT_CSV}")
 
-    df.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
+    atomic_write_parquet(df, OUTPUT_PARQUET)
     print(f"Wrote local parquet: {OUTPUT_PARQUET}")
 
 
@@ -205,6 +281,7 @@ def download_file_from_sftp(
 ) -> bool:
     transport = None
     sftp = None
+
     try:
         transport, sftp = create_sftp_client()
         remote_path = posixpath.join(REMOTE_DIR, remote_filename)
@@ -232,6 +309,7 @@ def download_file_from_sftp(
 def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
     transport = None
     sftp = None
+
     try:
         local_path = Path(local_path)
         if not local_path.exists():
@@ -256,6 +334,7 @@ def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
 def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
     transport = None
     sftp = None
+
     try:
         local_path = Path(local_path)
         if not local_path.exists():
@@ -290,6 +369,9 @@ def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
 
 
 def fetch_required_input_files() -> None:
+    """
+    Always refresh local working files from remote so remote is source of truth.
+    """
     if not sftp_enabled():
         raise RuntimeError("SFTP is required because remote files are the source of truth.")
 
@@ -299,6 +381,9 @@ def fetch_required_input_files() -> None:
 
 
 def upload_output_files(verify: bool = True) -> None:
+    """
+    Upload only after successful full processing and successful local writes.
+    """
     if not sftp_enabled():
         print("SFTP not configured. Skipping remote upload.")
         return
@@ -330,30 +415,22 @@ def upload_output_files(verify: bool = True) -> None:
 # EMAIL NOTIFIER
 # ==========================================================
 def send_summary_update_email(
-    to_email,
-    total_rows,
-    processed_rows,
-    skipped_rows,
-    output_csv,
-    output_parquet,
-    permanently_failed_count=0,
-    mock_mode=False,
-    smtp_host=SMTP_HOST,
-    smtp_port=SMTP_PORT,
-    smtp_user=SMTP_USER,
-    smtp_pass=SMTP_PASS,
-):
-    if not all([to_email, smtp_host, smtp_port, smtp_user, smtp_pass]):
+    to_email: str,
+    total_rows: int,
+    processed_rows: int,
+    skipped_rows: int,
+    output_csv: Path,
+    output_parquet: Path,
+    permanently_failed_count: int = 0,
+    mock_mode: bool = False,
+) -> None:
+    if not all([to_email, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS]):
         print("Email not sent: missing SMTP configuration.")
         return
 
     run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     output_csv = Path(output_csv)
     output_parquet = Path(output_parquet)
-
-    csv_status = "Created" if output_csv.exists() else "Not found"
-    parquet_status = "Created" if output_parquet.exists() else "Not found"
 
     subject = f"Dataset Summary Update Completed | {run_time}"
 
@@ -365,25 +442,25 @@ Mock mode: {mock_mode}
 
 Processing results:
 - Total rows in dataset: {total_rows}
-- Fully blank rows processed: {processed_rows}
-- Rows skipped (already filled): {skipped_rows}
+- Fully blank rows processed/attempted: {processed_rows}
+- Rows skipped: {skipped_rows}
 - Permanently failed batches: {permanently_failed_count}
 
 Output files:
-- CSV: {output_csv.name} ({csv_status})
-- Parquet: {output_parquet.name} ({parquet_status})
+- CSV: {output_csv.name} ({'Created' if output_csv.exists() else 'Not found'})
+- Parquet: {output_parquet.name} ({'Created' if output_parquet.exists() else 'Not found'})
 """
 
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
-        msg["From"] = smtp_user
+        msg["From"] = SMTP_USER
         msg["To"] = to_email
         msg.set_content(plain_text)
 
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
-            server.login(smtp_user, smtp_pass)
+            server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
 
         print(f"Summary update email sent to {to_email}")
@@ -407,16 +484,12 @@ def load_input_dataframe(input_csv: Path, test_rows: int | None = None) -> pd.Da
     if not input_csv.exists():
         raise FileNotFoundError(f"Input CSV not found: {input_csv}")
 
+    # dtype=str is mandatory. It prevents empty columns from becoming float64.
     df = pd.read_csv(input_csv, dtype=str, keep_default_na=False)
     df = normalize_output_dataframe(df)
 
     if test_rows:
         df = df.head(test_rows).copy()
-
-    for col in FIELDS:
-        if col not in df.columns:
-            df[col] = ""
-        df[col] = df[col].astype(object).map(safe_str)
 
     return df
 
@@ -425,24 +498,38 @@ def load_input_dataframe(input_csv: Path, test_rows: int | None = None) -> pd.Da
 # PROMPT HELPERS
 # ==========================================================
 def format_theme_options(theme_list: dict, lang: str) -> str:
-    options = theme_list.get(lang, theme_list["en"])
-    return ", ".join([t["label"] for t in options])
+    options = theme_list.get(lang, theme_list.get("en", []))
+    return ", ".join([safe_str(t.get("label", "")) for t in options if safe_str(t.get("label", ""))])
 
 
-def to_comma_separated(item) -> str:
+def to_comma_separated(item: Any) -> str:
     if isinstance(item, list):
-        return ", ".join(safe_str(i) for i in item[:2] if safe_str(i))
-    if isinstance(item, str) and item.strip():
-        return safe_str(item)
-    return ""
+        values = [safe_str(i) for i in item[:2]]
+        values = [v for v in values if v]
+        return ", ".join(values)
+
+    return safe_str(item)
 
 
 def pick_random_themes(theme_map: dict, lang: str, n: int = 2) -> list[str]:
     if lang not in theme_map:
         lang = "en"
-    options = theme_map[lang]
+
+    options = theme_map.get(lang, [])
+    if not options:
+        return []
+
     selected = random.sample(options, n) if len(options) >= n else options
-    return [c["label"] for c in selected]
+    return [safe_str(c.get("label", "")) for c in selected if safe_str(c.get("label", ""))]
+
+
+def detect_language_safe(summary: str) -> str:
+    try:
+        return detect(summary) if safe_str(summary) else "en"
+    except LangDetectException:
+        return "en"
+    except Exception:
+        return "en"
 
 
 def build_prompt(
@@ -455,10 +542,7 @@ def build_prompt(
     numbered_texts = []
 
     for idx, summary in enumerate(batch_summaries):
-        try:
-            lang = detect(summary) if str(summary).strip() else "en"
-        except LangDetectException:
-            lang = "en"
+        lang = detect_language_safe(summary)
 
         numbered_texts.append(
             f"{idx + 1}. Summary: {summary}\n"
@@ -471,42 +555,39 @@ def build_prompt(
 
     numbered_text = "\n\n".join(numbered_texts)
 
-    prompt = f"""
+    return f"""
 Extract repression info from each text below. Return a JSON array of objects in the same order.
-Return only valid JSON, no explanations.
+Return only valid JSON. Do not include explanations.
 
-Each object must contain:
+Each object must contain exactly these keys:
 {json.dumps({field: "" for field in FIELDS}, indent=4)}
 
 Rules:
 - Use ONLY the provided options for each field.
 - Do NOT invent labels.
+- Select the minimum number of labels necessary.
 - Never return more than TWO labels in any field.
 - Return multiple labels as comma-separated strings.
-- Do NOT assign labels based on weak implication or speculation.
+- Do NOT assign labels based on weak implication, background context, or speculation.
+- If evidence is insufficient for a field, return an empty string for that field.
 
 Texts:
 {numbered_text}
 """
-    return prompt
 
 
 # ==========================================================
 # BATCH BUILDER
 # ==========================================================
-def is_field_blank(value) -> bool:
-    value = safe_str(value)
-    return value == ""
+def is_field_blank(value: Any) -> bool:
+    return safe_str(value) == ""
 
 
-def is_row_filled(row, fields=FIELDS) -> bool:
-    for col in fields:
-        if not is_field_blank(row.get(col, "")):
-            return True
-    return False
+def is_row_filled(row: pd.Series, fields=FIELDS) -> bool:
+    return any(not is_field_blank(row.get(col, "")) for col in fields)
 
 
-def is_row_fully_blank(row, fields=FIELDS) -> bool:
+def is_row_fully_blank(row: pd.Series, fields=FIELDS) -> bool:
     return not is_row_filled(row, fields)
 
 
@@ -515,7 +596,7 @@ def build_batches(
     max_tokens: int = MAX_BATCH_TOKENS,
     max_rows: int | None = None,
 ) -> list[tuple[list[int], list[str]]]:
-    batches = []
+    batches: list[tuple[list[int], list[str]]] = []
     i = 0
 
     while i < len(df_input):
@@ -523,8 +604,8 @@ def build_batches(
             i += 1
             continue
 
-        batch_summaries = []
-        batch_indices = []
+        batch_summaries: list[str] = []
+        batch_indices: list[int] = []
         batch_tokens = 0
 
         while i < len(df_input):
@@ -555,7 +636,7 @@ def build_batches(
 
 
 # ==========================================================
-# MOCK EXTRACTOR
+# EXTRACTORS
 # ==========================================================
 async def mock_extract_batch(
     batch_summaries: list[str],
@@ -571,24 +652,20 @@ async def mock_extract_batch(
         print(f"[MOCK] Processing rows with indices: {batch_indices}")
 
     results = []
+
     for _summary in batch_summaries:
         lang = "en"
         result = {
-            "Actor of repression": pick_random_themes(actor_themes, lang, n=2),
-            "Subject of repression": pick_random_themes(subject_themes, lang, n=2),
-            "Mechanism of repression": pick_random_themes(mechanism_themes, lang, n=2),
-            "Type of event": pick_random_themes(type_themes, lang, n=2),
+            "Actor of repression": to_comma_separated(pick_random_themes(actor_themes, lang, n=2)),
+            "Subject of repression": to_comma_separated(pick_random_themes(subject_themes, lang, n=2)),
+            "Mechanism of repression": to_comma_separated(pick_random_themes(mechanism_themes, lang, n=2)),
+            "Type of event": to_comma_separated(pick_random_themes(type_themes, lang, n=2)),
         }
-        for key in FIELDS:
-            result[key] = to_comma_separated(result[key])
         results.append(result)
 
     return results, None
 
 
-# ==========================================================
-# OPENAI EXTRACTOR
-# ==========================================================
 async def extract_batch(
     batch_summaries: list[str],
     actor_themes: dict,
@@ -623,11 +700,11 @@ async def extract_batch(
         try:
             response = await asyncio.to_thread(
                 openai.chat.completions.create,
-                model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+                model=OPENAI_MODEL,
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            content = response.choices[0].message.content.strip()
+            content = safe_str(response.choices[0].message.content)
 
             try:
                 data = json.loads(content)
@@ -642,13 +719,18 @@ async def extract_batch(
                 raise ValueError("Model response is not a JSON array.")
 
             cleaned = []
+
             for res in data:
+                if not isinstance(res, dict):
+                    cleaned.append({})
+                    continue
+
                 row = {}
                 for key in FIELDS:
                     row[key] = to_comma_separated(res.get(key, ""))
                 cleaned.append(row)
 
-            # Keep response length aligned to batch length
+            # Align response length to batch length.
             while len(cleaned) < len(batch_summaries):
                 cleaned.append({})
             cleaned = cleaned[:len(batch_summaries)]
@@ -660,8 +742,8 @@ async def extract_batch(
             if attempt < MAX_RETRIES:
                 await asyncio.sleep(2 ** attempt)
 
-    # Critical safety fix:
-    # return blank dictionaries, not "Error" strings that pollute/crash the dataframe.
+    # Important:
+    # Do NOT return "Error" values. Leave rows blank so they can be retried later.
     return [{} for _ in batch_summaries], "OpenAI extraction failed after retries"
 
 
@@ -678,7 +760,7 @@ async def process_all(
 ) -> pd.DataFrame:
     df_out = normalize_output_dataframe(df_source)
 
-    # Critical dtype fix: make entire dataframe assignment-safe.
+    # Critical: entire dataframe is object dtype so string assignment is safe.
     df_out = df_out.astype(object)
 
     print("Starting processing from latest output_final.csv")
@@ -688,7 +770,7 @@ async def process_all(
             df_out[col] = ""
         df_out[col] = df_out[col].astype(object).map(safe_str)
 
-    permanently_failed = []
+    permanently_failed: list[dict[str, Any]] = []
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
 
     rows_to_process = df_out[df_out.apply(is_row_fully_blank, axis=1)]
@@ -723,18 +805,28 @@ async def process_all(
 
             if error:
                 permanently_failed.append(
-                    {"start_idx": batch_indices[0], "rows": batch_indices, "error": error}
+                    {
+                        "start_idx": batch_indices[0] if batch_indices else None,
+                        "rows": batch_indices,
+                        "error": error,
+                    }
                 )
 
             for j, res in enumerate(results):
+                if j >= len(batch_indices):
+                    break
+
                 idx = batch_indices[j]
                 filled = 0
+
+                if not isinstance(res, dict):
+                    res = {}
 
                 for key in FIELDS:
                     value = safe_str(res.get(key, ""))
 
-                    # Only write meaningful valid labels.
-                    # Do not write "Error" or blanks into dataframe.
+                    # Only write non-empty valid labels.
+                    # This prevents "Error" or blank overwrites.
                     if value:
                         df_out.loc[idx, key] = value
                         filled += 1
@@ -749,16 +841,17 @@ async def process_all(
         tasks = [process_batch(*b) for b in chunk]
         await tqdm_asyncio.gather(*tasks, desc="Processing batches", total=len(chunk))
 
-    # Only write once at the end to avoid partial corrupted CSVs.
+    # Write once at the end only. This prevents partial/corrupted CSVs.
     write_outputs(df_out)
 
     if permanently_failed:
         with open(PERMANENTLY_FAILED_FILE, "w", encoding="utf-8") as f:
             json.dump(permanently_failed, f, indent=2)
+        print(f"Wrote permanently failed batch log: {PERMANENTLY_FAILED_FILE}")
     elif PERMANENTLY_FAILED_FILE.exists():
         PERMANENTLY_FAILED_FILE.unlink()
 
-    print(f"Processing complete! Fully blank rows processed: {blank_rows_count}")
+    print(f"Processing complete! Fully blank rows attempted: {blank_rows_count}")
     return df_out
 
 
@@ -766,8 +859,6 @@ async def process_all(
 # RUN SCRIPT
 # ==========================================================
 if __name__ == "__main__":
-    mock_mode = os.getenv("MOCK_MODE", "false").strip().lower() in {"1", "true", "yes"}
-
     fetch_required_input_files()
 
     themes = load_themes(THEMES_FILE)
@@ -778,10 +869,8 @@ if __name__ == "__main__":
 
     df_source = load_input_dataframe(INPUT_CSV, test_rows=TEST_ROWS)
 
-    df_prev = load_input_dataframe(INPUT_CSV)
-
-    blank_rows = df_prev[df_prev.apply(is_row_fully_blank, axis=1)]
-    total_rows = len(df_prev)
+    blank_rows = df_source[df_source.apply(is_row_fully_blank, axis=1)]
+    total_rows = len(df_source)
     skipped_rows = total_rows - len(blank_rows)
 
     print(
@@ -797,18 +886,19 @@ if __name__ == "__main__":
             subject_themes=SUBJECT_THEMES,
             mechanism_themes=MECHANISM_THEMES,
             type_themes=TYPE_THEMES,
-            mock_mode=mock_mode,
+            mock_mode=MOCK_MODE,
         )
     )
 
     summary_message = (
         f"Processing complete! Total rows: {len(df_out)} | "
-        f"Fully blank rows processed: {len(blank_rows)} | "
+        f"Fully blank rows attempted: {len(blank_rows)} | "
         f"Skipped rows: {skipped_rows} | "
-        f"Mock mode: {mock_mode}"
+        f"Mock mode: {MOCK_MODE}"
     )
     print(summary_message)
 
+    # Upload only after the full process completes successfully.
     upload_output_files(verify=True)
 
     if NOTIFY_EMAIL:
@@ -826,5 +916,5 @@ if __name__ == "__main__":
             output_csv=OUTPUT_CSV,
             output_parquet=OUTPUT_PARQUET,
             permanently_failed_count=permanently_failed_count,
-            mock_mode=mock_mode,
+            mock_mode=MOCK_MODE,
         )
