@@ -7627,7 +7627,7 @@ def _v2_render_status_bar(df):
                 if ok:
                     st.success(msg)
                 else:
-                    st.error(msg):
+                    st.error(msg)
     status = _ai_openai_status()
     mode = "OpenAI enabled" if status.get("configured") and status.get("package_ready") else "Local fallback mode"
     model = status.get("model", "gpt-4o-mini")
