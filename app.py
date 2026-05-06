@@ -8884,7 +8884,7 @@ def render_ai_assistant_panel(df):
             <div class="v2-pop-brand">
               <div class="v2-pop-title">🤖 EU SEE AI Copilot v4</div>
               <div class="v2-pop-sub">Pop-out assistant grounded in active filters, cleaned data, and dashboard analytics.</div>
-              <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plots</span><span class="v2-pop-chip">Styling</span><span class="v2-pop-chip">Insights</span></div>
+              <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plots</span><span class="v2-pop-chip">Styling</span><span class="v2-pop-chip">Chart explainer</span></div>
             </div>
             """, unsafe_allow_html=True)
         with head_r:
@@ -8901,7 +8901,7 @@ def render_ai_assistant_panel(df):
         ]
         st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
 
-        tab_chat, tab_intel, tab_report, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Insights", "Reports", "Plot builder", "Explain chart", "Smart output"])
+        tab_chat, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Plot builder", "Explain chart", "Smart output"])
 
         with tab_chat:
             st.markdown("<div class='v2-chat-card'>", unsafe_allow_html=True)
@@ -8910,6 +8910,13 @@ def render_ai_assistant_panel(df):
                 safe_msg = _render_chat_content_html(str(msg.get("content", ""))[:2500])
                 st.markdown(f"<div class='{klass}'>{safe_msg}</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
+
+            selected_agent = st.selectbox(
+                "Response mode",
+                ["Executive analyst", "Statistical analyst", "Geopolitical analyst", "Visualization analyst"],
+                key="v4_analyst_mode",
+                help="Controls how the chatbot frames answers without adding separate Insights or Reports tabs.",
+            )
 
             with st.form("v2_pop_chat_form", clear_on_submit=True):
                 prompt = st.text_area(
@@ -8946,59 +8953,6 @@ def render_ai_assistant_panel(df):
                     st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v4", "content": "Chat cleared. Ask a new question or request a chart."}
                     st.rerun()
 
-
-
-        with tab_intel:
-            _v4_render_professional_css()
-            _v4_render_context_card(df)
-            analyst = st.selectbox(
-                "Analyst mode",
-                ["Executive analyst", "Statistical analyst", "Geopolitical analyst", "Visualization analyst", "Report writer"],
-                key="v4_analyst_mode",
-                help="Changes how the bot frames answers while staying grounded in the active dashboard filters.",
-            )
-            _v4_render_insight_cards(df)
-            st.markdown("<div class='v4-card-eyebrow'>Suggested follow-up questions</div>", unsafe_allow_html=True)
-            for fq in _v4_followup_questions(df):
-                st.markdown(f"<div class='v4-followup-chip'>{fq}</div>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Generate analyst answer", key="v4_generate_agent_answer", use_container_width=True):
-                    question = "Provide a professional analyst interpretation of the current dashboard filters, including key signals, risk implications, and caveats."
-                    answer = _v4_answer_with_agent(question, df, analyst)
-                    st.session_state.ai_messages.append({"role": "user", "content": question})
-                    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
-                    st.session_state.ai_smart_output = {"type": "v4_agent_answer", "title": f"{analyst} insight", "content": answer}
-                    st.rerun()
-            with c2:
-                if st.button("Pin context to memory", key="v4_pin_context", use_container_width=True):
-                    ctx = _v4_context_summary(df)
-                    st.session_state.ai_pinned_context = ctx
-                    st.session_state.ai_messages.append({"role": "assistant", "content": "Pinned the current dashboard context for this session. I will use it when answering follow-up questions."})
-                    st.rerun()
-
-        with tab_report:
-            _v4_render_professional_css()
-            st.markdown("<div class='v4-action-card'>", unsafe_allow_html=True)
-            report_type = st.selectbox(
-                "Report type",
-                ["Executive brief", "Donor briefing", "Country risk note", "Policy memo", "Monitoring summary"],
-                key="v4_report_type",
-            )
-            audience = st.selectbox(
-                "Audience",
-                ["Donor / Executive", "Programme team", "Policy audience", "Technical analyst", "Communications team"],
-                key="v4_report_audience",
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("Generate professional report", key="v4_generate_report", use_container_width=True):
-                report = _v4_openai_report(df, report_type=report_type, audience=audience)
-                st.session_state.ai_smart_output = {"type": "v4_report", "title": report_type, "content": report}
-                st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {report_type}. Open Smart output to review or copy it."})
-                st.rerun()
-            preview = _v4_local_report(df, report_type=report_type, audience=audience)
-            with st.expander("Preview report structure", expanded=False):
-                st.markdown(_render_chat_content_html(preview[:2500]), unsafe_allow_html=True)
 
         with tab_plot:
             st.markdown("""
