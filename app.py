@@ -7615,23 +7615,25 @@ def _copilot_queue_answer(question, df):
 
 
 def _v2_render_status_bar(df):
-
-        with st.expander("🧪 OpenAI connection", expanded=False):
-            status = _ai_openai_status()
-            st.caption(f"Key detected: {status.get('has_key')}")
-            st.caption(f"OpenAI package ready: {status.get('package_ready')}")
-            st.caption(f"Model: {status.get('model')}")
-            st.caption(f"Key preview: {status.get('key_preview')}")
-            if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
-                ok, msg = _ai_test_openai_connection()
-                if ok:
-                    st.success(msg)
-                else:
-                    st.error(msg)
+    """Render AI Copilot status and OpenAI diagnostics with consistent indentation."""
     status = _ai_openai_status()
     mode = "OpenAI enabled" if status.get("configured") and status.get("package_ready") else "Local fallback mode"
     model = status.get("model", "gpt-4o-mini")
     records = len(df) if df is not None else 0
+
+    with st.expander("🧪 OpenAI connection", expanded=False):
+        st.caption(f"Key detected: {status.get('has_key')}")
+        st.caption(f"OpenAI package ready: {status.get('package_ready')}")
+        st.caption(f"Model: {model}")
+        st.caption(f"Key preview: {status.get('key_preview')}")
+
+        if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
+            ok, msg = _ai_test_openai_connection()
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+
     st.markdown(f"""
     <div class="v2-statusbar">
       <span><b>Mode:</b> {mode}</span>
