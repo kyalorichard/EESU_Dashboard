@@ -4191,7 +4191,7 @@ inject_chart_floating_tip_css()
 
 
 
-# ---------------- DASHBOARD-WIDE CHART / MAP EXPLANATION LAYER ----------------
+# ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
 def _dashboard_plain_title(fig, fallback="Dashboard visual"):
     """Extract a clean Plotly title for chart explanation panels."""
     try:
@@ -4343,21 +4343,14 @@ def render_dashboard_plotly_chart(
     config=None,
     expanded=False,
 ):
-    """Render any Plotly chart/map plus a professional explanation panel."""
+    """Render dashboard Plotly visuals without inline interpretation panels.
+
+    Chart and map explanations are intentionally handled inside the AI chatbot only
+    to keep the dashboard canvas clean. The extra keyword arguments are preserved
+    for backward compatibility with earlier calls.
+    """
     target = container if container is not None else st
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
-    explanation = dashboard_visual_explanation(
-        plot_df=plot_df,
-        fig=fig,
-        visual_type=visual_type,
-        x_col=x_col,
-        group_col=group_col,
-        dashboard_df=dashboard_df,
-        title=title,
-    )
-    with target.expander("🧠 Chart interpretation / explanation", expanded=expanded):
-        target.markdown(explanation)
-        target.caption("This explanation is generated from the active dashboard filters and the values shown in the visual.")
 
 
 # ---------------- TAB 1 ------------------------
