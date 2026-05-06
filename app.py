@@ -7092,7 +7092,7 @@ def render_ai_assistant_panel(df):
     st.session_state.setdefault("ai_pending_answer", "")
     st.session_state.setdefault("ai_last_plot", None)
     st.session_state.setdefault("ai_right_sidebar_open", True)
-    st.session_state.setdefault("ai_smart_output", {"type": "welcome", "title": "Smart output", "content": "Ask a question or choose one action. Outputs such as summaries, anomaly flags, comparison tables, and generated plots appear here."})
+    st.session_state.setdefault("ai_smart_output", {"type": "welcome", "title": "Smart output", "content": "Ask a question, build a plot, or select a dashboard chart to explain. The formatted response appears here."})
     st.session_state.setdefault("ai_usage_events", [])
 
     def _track_ai_event(event_type, label):
@@ -8841,13 +8841,93 @@ def render_ai_assistant_panel(df):
     .v2-statusbar {display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 9px 0;}
     .v2-statusbar span {background:#fff;border:1px solid #E6E8EF;border-radius:999px;padding:5px 8px;font-size:10px;color:#344054;box-shadow:0 3px 10px rgba(16,24,40,.04);}
     .v2-help-chip {display:inline-flex;margin:3px 3px 3px 0;padding:5px 8px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:10px;font-weight:900;}
-    .v2-smart-box {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:11px;margin-top:9px;box-shadow:0 8px 20px rgba(16,24,40,.05);}
-    .v2-smart-title {font-size:12.5px;font-weight:950;color:#2D0055;margin-bottom:7px;}
-    .v2-memory-note {font-size:10px;color:#667085;line-height:1.35;margin-top:6px;}
+    .v2-smart-box {
+        background: #FFFFFF;
+        border: 1px solid #E6E8EF;
+        border-radius: 18px;
+        padding: 14px;
+        margin-top: 10px;
+        box-shadow: 0 12px 30px rgba(16,24,40,.075);
+        font-family: Arial, sans-serif;
+    }
+    .v2-smart-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #EEF0F4;
+    }
+    .v2-smart-title {
+        font-size: 15px;
+        line-height: 1.2;
+        font-weight: 950;
+        color: #2D0055;
+        letter-spacing: -0.01em;
+    }
+    .v2-smart-subtitle {
+        font-size: 11.5px;
+        line-height: 1.35;
+        color: #667085;
+        margin-top: 3px;
+        font-weight: 650;
+    }
+    .v2-smart-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: #F4EAF8;
+        color: #660094;
+        border: 1px solid #E7D4F1;
+        font-size: 10px;
+        font-weight: 900;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .v2-smart-content {
+        background: #FBFCFE;
+        border: 1px solid #EEF0F4;
+        border-radius: 15px;
+        padding: 12px 13px;
+        color: #344054;
+        font-size: 12.5px;
+        line-height: 1.55;
+        font-weight: 500;
+        overflow-wrap: anywhere;
+    }
+    .v2-smart-content p,
+    .v2-smart-content li {
+        font-size: 12.5px !important;
+        line-height: 1.55 !important;
+        color: #344054 !important;
+    }
+    .v2-smart-content h1,
+    .v2-smart-content h2,
+    .v2-smart-content h3 {
+        color: #2D0055 !important;
+        font-weight: 950 !important;
+        margin: 8px 0 5px 0 !important;
+    }
+    .v2-smart-footer {
+        margin-top: 10px;
+        padding: 9px 10px;
+        border-radius: 13px;
+        background: #FFFCED;
+        border: 1px solid #F8E9A1;
+        color: #55420A;
+        font-size: 10.8px;
+        line-height: 1.4;
+        font-weight: 650;
+    }
+    .v2-memory-note {font-size:10.8px;color:#667085;line-height:1.4;margin-top:8px;}
     .v2-chat-card {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:10px;margin:8px 0;}
-    .v2-user-msg {background:#2d0055;color:#fff;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:11.5px;line-height:1.4;}
-    .v2-ai-msg {background:#f6f2ff;border-left:4px solid #660094;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:11.5px;line-height:1.4;color:#344054;}
-    .v2-section-title {font-size:12px;color:#2D0055;font-weight:950;margin:8px 0 5px 0;}
+    .v2-user-msg {background:#2d0055;color:#fff;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:12px;line-height:1.45;}
+    .v2-ai-msg {background:#f6f2ff;border-left:4px solid #660094;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:12px;line-height:1.45;color:#344054;}
+    .v2-section-title {font-size:12.5px;color:#2D0055;font-weight:950;margin:8px 0 5px 0;}
     .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button {font-size:11px!important;font-weight:900!important;}
     @media (max-width: 760px) {
         .st-key-eusee_ai_right_sidebar {left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}
@@ -8884,7 +8964,7 @@ def render_ai_assistant_panel(df):
             <div class="v2-pop-brand">
               <div class="v2-pop-title">🤖 EU SEE AI Copilot v4</div>
               <div class="v2-pop-sub">Pop-out assistant grounded in active filters, cleaned data, and dashboard analytics.</div>
-              <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plots</span><span class="v2-pop-chip">Styling</span><span class="v2-pop-chip">Chart explainer</span></div>
+              <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plot builder</span><span class="v2-pop-chip">Explain chart</span><span class="v2-pop-chip">Smart output</span></div>
             </div>
             """, unsafe_allow_html=True)
         with head_r:
@@ -8910,13 +8990,6 @@ def render_ai_assistant_panel(df):
                 safe_msg = _render_chat_content_html(str(msg.get("content", ""))[:2500])
                 st.markdown(f"<div class='{klass}'>{safe_msg}</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
-
-            selected_agent = st.selectbox(
-                "Response mode",
-                ["Executive analyst", "Statistical analyst", "Geopolitical analyst", "Visualization analyst"],
-                key="v4_analyst_mode",
-                help="Controls how the chatbot frames answers without adding separate Insights or Reports tabs.",
-            )
 
             with st.form("v2_pop_chat_form", clear_on_submit=True):
                 prompt = st.text_area(
@@ -8952,6 +9025,7 @@ def render_ai_assistant_panel(df):
                     st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a new question or request a chart."}]
                     st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v4", "content": "Chat cleared. Ask a new question or request a chart."}
                     st.rerun()
+
 
 
         with tab_plot:
@@ -9374,8 +9448,21 @@ def render_ai_assistant_panel(df):
 
         with tab_output:
             out = st.session_state.ai_smart_output
+            out_type = str(out.get("type", "output")).replace("_", " ").title()
+            out_title = str(out.get("title", "Smart output"))
             st.markdown("<div class='v2-smart-box'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='v2-smart-title'>{out.get('title', 'Smart output')}</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class='v2-smart-header'>
+                    <div>
+                        <div class='v2-smart-title'>{out_title}</div>
+                        <div class='v2-smart-subtitle'>Clean, dashboard-aware output generated from the active filters and selected analytical action.</div>
+                    </div>
+                    <div class='v2-smart-badge'>{out_type}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
                 st.plotly_chart(out["fig"], use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
@@ -9403,8 +9490,12 @@ def render_ai_assistant_panel(df):
                         base_name="eusee_ai_copilot_v3_plot",
                     )
             else:
-                st.markdown(_render_chat_content_html(str(out.get("content", ""))[:4000]), unsafe_allow_html=True)
-            st.markdown("<div class='v2-memory-note'>Copilot v2 uses active dashboard filters. Chart commands can include chart type, variable, grouping, color, font size, title, Top N, and country/year filters.</div>", unsafe_allow_html=True)
+                smart_html = _render_chat_content_html(str(out.get("content", ""))[:5000])
+                st.markdown(f"<div class='v2-smart-content'>{smart_html}</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div class='v2-smart-footer'>Smart Output uses the active dashboard filters. Chart requests can include chart type, variable, grouping, color, font size, title, Top N, and country/year filters.</div>",
+                unsafe_allow_html=True,
+            )
             st.markdown("</div>", unsafe_allow_html=True)
 
 if has_permission("use_ai_copilot"):
