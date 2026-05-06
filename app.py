@@ -2240,17 +2240,17 @@ def render_heatmaps(df, top_n=5):
     with c1:
         fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used<br>by restrictive actors?", x_label="Mechanism", y_label="Actor")
         fig1.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig1, use_container_width=True, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro")
+        render_dashboard_plotly_chart(fig1, plot_df=actor_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro")
         st.markdown('<div class="chart-card-caption">Shows which restrictive actors are most associated with each mechanism.</div>', unsafe_allow_html=True)
     with c2:
         fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms<br>affecting civil society actors?", x_label="Mechanism", y_label="Affected group")
         fig2.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro")
+        render_dashboard_plotly_chart(fig2, plot_df=subject_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Subject of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro")
         st.markdown('<div class="chart-card-caption">Shows which mechanisms most frequently affect specific civil society groups.</div>', unsafe_allow_html=True)
     with c3:
         fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting<br>civil society?", x_label="Affected group", y_label="Actor")
         fig3.update_traces(zmin=0, zmax=zmax)
-        st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False}, key="heatmap_actor_subject_pro")
+        render_dashboard_plotly_chart(fig3, plot_df=actor_subject_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Subject of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_subject_pro")
         st.markdown('<div class="chart-card-caption">Shows which actors are most frequently linked to affected groups.</div>', unsafe_allow_html=True)
 
 
@@ -2499,7 +2499,7 @@ def render_analytical_flow_panel(df):
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="flow-section-label">Integrated flow diagram</div>', unsafe_allow_html=True)
     st.markdown('<div class="flow-section-note">Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.</div>', unsafe_allow_html=True)
-    st.plotly_chart(render_sankey(df, top_n=top_n), use_container_width=True, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
+    render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
 
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
@@ -2953,7 +2953,7 @@ def render_ai_trend_chart(df):
         font=dict(size=10),
         legend=dict(orientation="h", y=-0.2),
     )
-    st.plotly_chart(fig, use_container_width=True, key="ai_trend_chart")
+    render_dashboard_plotly_chart(fig, plot_df=trend, visual_type="trend line chart", x_col="month", group_col=None, dashboard_df=df, key="ai_trend_chart", expanded=False)
 
 
 
@@ -4190,6 +4190,176 @@ def inject_chart_floating_tip_css():
 inject_chart_floating_tip_css()
 
 
+
+# ---------------- DASHBOARD-WIDE CHART / MAP EXPLANATION LAYER ----------------
+def _dashboard_plain_title(fig, fallback="Dashboard visual"):
+    """Extract a clean Plotly title for chart explanation panels."""
+    try:
+        title = getattr(getattr(fig, "layout", None), "title", None)
+        title_text = getattr(title, "text", None)
+        if title_text:
+            return _strip_plotly_html(str(title_text)).replace("<br>", " ").strip() or fallback
+    except Exception:
+        pass
+    return fallback
+
+
+def _dashboard_plot_df_from_figure(fig):
+    """Create a small dataframe from common Plotly trace structures when explicit chart data are not supplied."""
+    rows = []
+    try:
+        for tr in getattr(fig, "data", []) or []:
+            name = str(getattr(tr, "name", "") or "Series")
+            x_vals = list(getattr(tr, "x", []) or [])
+            y_vals = list(getattr(tr, "y", []) or [])
+            z_vals = getattr(tr, "z", None)
+
+            # Heatmaps store values in z with x/y labels.
+            if z_vals is not None and len(x_vals) and len(y_vals):
+                for iy, y_lab in enumerate(y_vals):
+                    try:
+                        row_z = list(z_vals[iy])
+                    except Exception:
+                        row_z = []
+                    for ix, x_lab in enumerate(x_vals):
+                        val = row_z[ix] if ix < len(row_z) else None
+                        rows.append({"x": str(x_lab), "y": str(y_lab), "series": name, "count": val})
+                continue
+
+            n = max(len(x_vals), len(y_vals))
+            for i in range(n):
+                rows.append({
+                    "x": str(x_vals[i]) if i < len(x_vals) else str(i + 1),
+                    "y": y_vals[i] if i < len(y_vals) else None,
+                    "series": name,
+                    "count": y_vals[i] if i < len(y_vals) and isinstance(y_vals[i], (int, float, np.integer, np.floating)) else None,
+                })
+    except Exception:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
+def _dashboard_top_items(plot_df, label_col=None, value_col="count", top_n=5):
+    """Return top categories for visual explanation."""
+    if plot_df is None or not isinstance(plot_df, pd.DataFrame) or plot_df.empty:
+        return {}, 0.0
+    dfp = plot_df.copy()
+    if label_col is None or label_col not in dfp.columns:
+        label_col = dfp.columns[0]
+    if value_col not in dfp.columns:
+        value_col = "count" if "count" in dfp.columns else None
+
+    if value_col and value_col in dfp.columns:
+        dfp[value_col] = pd.to_numeric(dfp[value_col], errors="coerce").fillna(0)
+        g = dfp.groupby(label_col, dropna=False)[value_col].sum().sort_values(ascending=False).head(top_n)
+        total = float(pd.to_numeric(dfp[value_col], errors="coerce").fillna(0).sum())
+    else:
+        g = dfp[label_col].dropna().astype(str).value_counts().head(top_n)
+        total = float(len(dfp))
+    return {str(k): float(v) for k, v in g.items()}, total
+
+
+def dashboard_visual_explanation(plot_df=None, fig=None, visual_type="chart", x_col=None, group_col=None, dashboard_df=None, title=None):
+    """Deterministic explanation for every dashboard chart/map. Works without OpenAI."""
+    if plot_df is None or not isinstance(plot_df, pd.DataFrame) or plot_df.empty:
+        plot_df = _dashboard_plot_df_from_figure(fig) if fig is not None else pd.DataFrame()
+
+    title = title or _dashboard_plain_title(fig, fallback="Dashboard visual")
+    if plot_df is None or plot_df.empty:
+        return (
+            "**Executive reading:** No charted values are available for this visual under the current filters.\n\n"
+            "**Interpretation note:** Broaden the filters or confirm the source data are loaded."
+        )
+
+    label_col = x_col if x_col and x_col in plot_df.columns else None
+    if label_col is None:
+        for candidate in ["alert-country", "region", "alert-type", "enabling-principle", "Actor of repression", "Subject of repression", "Mechanism of repression", "x", "y"]:
+            if candidate in plot_df.columns:
+                label_col = candidate
+                break
+    value_col = "count" if "count" in plot_df.columns else None
+    top_items, total_value = _dashboard_top_items(plot_df, label_col=label_col, value_col=value_col, top_n=5)
+    if not top_items:
+        return "**Executive reading:** This visual has data, but no dominant category could be extracted automatically. Use hover details for record-level reading."
+
+    top_label, top_value = next(iter(top_items.items()))
+    share = round((float(top_value) / total_value) * 100, 1) if total_value else 0
+    ranked = "\n".join([f"- **{k}**: {int(v):,}" if float(v).is_integer() else f"- **{k}**: {v:,.2f}" for k, v in top_items.items()])
+    records = len(dashboard_df) if isinstance(dashboard_df, pd.DataFrame) else len(plot_df)
+
+    if "map" in str(visual_type).lower():
+        visual_reading = (
+            f"The map highlights geographic concentration under the active filters. "
+            f"The strongest mapped signal is **{top_label}**, representing about **{share}%** of the charted total."
+        )
+    elif "heatmap" in str(visual_type).lower():
+        visual_reading = (
+            f"The heatmap should be read as a relationship matrix. The most frequent visible relationship starts with **{top_label}**, "
+            f"which contributes about **{share}%** of the charted values."
+        )
+    elif "sankey" in str(visual_type).lower() or "flow" in str(visual_type).lower():
+        visual_reading = (
+            f"The flow diagram shows how reported restrictions move across actors, mechanisms, and affected groups. "
+            f"The strongest visible node is **{top_label}**, contributing about **{share}%** of the visible flow volume."
+        )
+    else:
+        visual_reading = (
+            f"The chart shows that **{top_label}** is the leading visible signal, contributing about **{share}%** "
+            f"of the charted total."
+        )
+
+    group_note = ""
+    if group_col and group_col in plot_df.columns:
+        groups, _ = _dashboard_top_items(plot_df, label_col=group_col, value_col=value_col, top_n=4)
+        if groups:
+            group_note = "\n\n**Grouped pattern**\n" + "\n".join([f"- **{k}**: {int(v):,}" if float(v).is_integer() else f"- **{k}**: {v:,.2f}" for k, v in groups.items()])
+
+    return f"""**Executive reading**  
+{visual_reading}
+
+**Key signals**
+{ranked}{group_note}
+
+**Analytical implication**  
+Use this visual to prioritize deeper review of the leading categories, then compare them against country, year, alert-impact, actor, mechanism, and enabling-principle filters. The current dashboard context contains **{records:,}** filtered records.
+
+**Interpretation caveat**  
+Alert counts are monitoring signals. They may reflect event frequency, reporting coverage, partner submission intensity, network activity, or a combination of these factors.
+"""
+
+
+def render_dashboard_plotly_chart(
+    fig,
+    *,
+    plot_df=None,
+    visual_type="chart",
+    x_col=None,
+    group_col=None,
+    dashboard_df=None,
+    title=None,
+    key=None,
+    container=None,
+    use_container_width=True,
+    config=None,
+    expanded=False,
+):
+    """Render any Plotly chart/map plus a professional explanation panel."""
+    target = container if container is not None else st
+    target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
+    explanation = dashboard_visual_explanation(
+        plot_df=plot_df,
+        fig=fig,
+        visual_type=visual_type,
+        x_col=x_col,
+        group_col=group_col,
+        dashboard_df=dashboard_df,
+        title=title,
+    )
+    with target.expander("🧠 Chart interpretation / explanation", expanded=expanded):
+        target.markdown(explanation)
+        target.caption("This explanation is generated from the active dashboard filters and the values shown in the visual.")
+
+
 # ---------------- TAB 1 ------------------------
 with tab_overview:
 
@@ -4208,7 +4378,7 @@ with tab_overview:
         r2c1,r2c2 = st.columns(2)
 
 
-        r1c1.plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True),use_container_width=True,  key="tab1_chart1")
+        render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1)
 
         fig12 = create_h_stacked_bar(
             a2,
@@ -4235,13 +4405,13 @@ with tab_overview:
         #fig12 = add_source_line(fig12)
 
         # Render chart in Streamlit
-        r1c2.plotly_chart(fig12, use_container_width=True, key="tab1_chart2")
+        render_dashboard_plotly_chart(fig12, plot_df=a2, visual_type="stacked bar chart", x_col="enabling-principle", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart2", container=r1c2)
   
         #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
         #if is_privileged():
-        r2c1.plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart3")
-        r2c2.plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False),use_container_width=True,  key="tab1_chart4")
+        render_dashboard_plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False), plot_df=a3, visual_type="stacked bar chart", x_col="region", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart3", container=r2c1)
+        render_dashboard_plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False), plot_df=a4, visual_type="stacked bar chart", x_col="alert-country", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart4", container=r2c2)
 
     
         cols_rename_map  = {
@@ -4463,11 +4633,11 @@ with tab_negative:
             r2c1, r2c2, r2c3 = st.columns(3)
 
     
-            r1c1.plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), use_container_width=True, key="tab2_chart1")
-            r1c2.plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), use_container_width=True, key="tab2_chart2")
-            r1c3.plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), use_container_width=True, key="tab2_chart3")
-            r2c1.plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart4")
-            r2c2.plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), use_container_width=True, key="tab2_chart5")
+            render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1)
+            render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2)
+            render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3)
+            render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1)
+            render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2)
           
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
@@ -4487,7 +4657,7 @@ with tab_negative:
             #fig23 = add_source_line(fig23)
 
             # Render the chart in Streamlit
-            r2c3.plotly_chart(fig23, use_container_width=True, key="tab2_chart6")
+            render_dashboard_plotly_chart(fig23, plot_df=m6, visual_type="bar chart", x_col="enabling-principle", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart6", container=r2c3)
 
             #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
 
@@ -5187,7 +5357,7 @@ with tab_map:
                             ),
                             font=dict(family=MAP_FONT, color="#334155"),
                         )
-                        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
+                        render_dashboard_plotly_chart(fig, plot_df=df_map, visual_type="map", x_col="alert-country", group_col="priority_level", dashboard_df=filtered_global, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 with guide_col:
@@ -5290,7 +5460,7 @@ with tab_map:
                             plot_bgcolor="#ffffff",
                             paper_bgcolor="#ffffff",
                         )
-                        st.plotly_chart(fig_rank, use_container_width=True, config={"displayModeBar": False}, key="map_country_rank_bar")
+                        render_dashboard_plotly_chart(fig_rank, plot_df=rank_df, visual_type="country ranking chart", x_col="alert-country", group_col="priority_level", dashboard_df=filtered_global, config={"displayModeBar": False}, key="map_country_rank_bar")
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 with p2:
@@ -6917,20 +7087,25 @@ def render_ai_assistant_panel(df):
         if isinstance(st.session_state.get("ai_last_plot"), dict):
             lp = st.session_state.ai_last_plot
             try:
-                st.plotly_chart(
-                    _ai_make_plot(
-                        df,
-                        lp["dimension_col"],
-                        lp.get("chart_type", "Horizontal bar"),
-                        lp.get("top_n", 10),
-                        lp.get("title"),
-                        color=lp.get("color", "#660094"),
-                        font_size=lp.get("font_size", 12),
-                        group_col=lp.get("group_col"),
-                        height=lp.get("height", 410),
-                        show_values=lp.get("show_values", True),
-                    ),
-                    use_container_width=True,
+                _last_fig = _ai_make_plot(
+                    df,
+                    lp["dimension_col"],
+                    lp.get("chart_type", "Horizontal bar"),
+                    lp.get("top_n", 10),
+                    lp.get("title"),
+                    color=lp.get("color", "#660094"),
+                    font_size=lp.get("font_size", 12),
+                    group_col=lp.get("group_col"),
+                    height=lp.get("height", 410),
+                    show_values=lp.get("show_values", True),
+                )
+                render_dashboard_plotly_chart(
+                    _last_fig,
+                    plot_df=df,
+                    visual_type=lp.get("chart_type", "Horizontal bar"),
+                    x_col=lp.get("dimension_col"),
+                    group_col=lp.get("group_col"),
+                    dashboard_df=df,
                     key="copilot_smart_last_plot",
                 )
             except Exception:
@@ -7009,7 +7184,15 @@ def render_ai_assistant_panel(df):
                         height=430,
                         show_values=show_values,
                     )
-                    st.plotly_chart(fig, use_container_width=True, key="copilot_plot_builder")
+                    render_dashboard_plotly_chart(
+                        fig,
+                        plot_df=df,
+                        visual_type=chart_type,
+                        x_col=selected_col,
+                        group_col=group_col,
+                        dashboard_df=df,
+                        key="copilot_plot_builder",
+                    )
                     p1, p2 = st.columns(2)
                     with p1:
                         if st.button("Explain plot", key="copilot_explain_generated_plot", use_container_width=True):
