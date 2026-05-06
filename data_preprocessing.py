@@ -183,6 +183,39 @@ def normalize_output_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def safe_set_cell(df: pd.DataFrame, idx: Any, col: str, value: Any) -> int:
+    """
+    Ultra-safe dataframe cell assignment.
+
+    This fixes persistent errors like:
+    TypeError: Invalid value 'Government' for dtype 'float64'
+
+    The column is explicitly converted to object dtype immediately before assignment.
+    Returns 1 if a value was written, otherwise 0.
+    """
+    value = safe_str(value)
+
+    if not value:
+        return 0
+
+    if col not in df.columns:
+        df[col] = ""
+
+    # Critical: force target column to object dtype immediately before assignment.
+    # This is intentionally repeated because pandas can preserve float64 blocks
+    # when columns were empty in the original CSV.
+    df[col] = df[col].astype(object)
+
+    try:
+        df.at[idx, col] = value
+    except Exception:
+        # Last-resort repair for stubborn pandas block dtype issues.
+        df[col] = pd.Series(df[col].astype(object).tolist(), index=df.index, dtype=object)
+        df.at[idx, col] = value
+
+    return 1
+
+
 def atomic_write_csv(df: pd.DataFrame, path: Path) -> None:
     """
     Write CSV atomically to avoid corrupted partial files.
@@ -773,6 +806,12 @@ async def process_all(
     permanently_failed: list[dict[str, Any]] = []
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
 
+    # Final defensive dtype repair before async processing.
+    for col in FIELDS:
+        if col not in df_out.columns:
+            df_out[col] = ""
+        df_out[col] = pd.Series(df_out[col].astype(object).tolist(), index=df_out.index, dtype=object)
+
     rows_to_process = df_out[df_out.apply(is_row_fully_blank, axis=1)]
 
     total_rows = len(df_out)
@@ -823,13 +862,8 @@ async def process_all(
                     res = {}
 
                 for key in FIELDS:
-                    value = safe_str(res.get(key, ""))
-
-                    # Only write non-empty valid labels.
-                    # This prevents "Error" or blank overwrites.
-                    if value:
-                        df_out.loc[idx, key] = value
-                        filled += 1
+                    # Ultra-safe assignment. This prevents pandas float64-column crashes.
+                    filled += safe_set_cell(df_out, idx, key, res.get(key, ""))
 
                 if filled == 0:
                     print(f"[ROW {idx}] No valid labels returned; row left blank for next run.")
