@@ -7911,6 +7911,314 @@ def render_eusee_chart_interpretation_card(text, title="AI graph interpretation"
         st.markdown(text or "No interpretation available.")
         st.caption("Interpretation uses the current filtered dashboard data and charted values. Counts may reflect both event frequency and reporting coverage.")
 
+
+# ---------------- CHATBOT-ONLY DASHBOARD CHART EXPLAINER ----------------
+def _eusee_explainer_split_counts(df, col, top_n=10, protect_commas=True):
+    """Count comma-separated dashboard categories safely for chatbot chart explanations."""
+    if df is None or df.empty or not col or col not in df.columns:
+        return pd.DataFrame(columns=["category", "count"])
+
+    protected = {
+        "Journalists, media and influencers": "Journalists__MEDIA__and__influencers",
+    }
+    s = df[col].dropna().astype(str).str.strip()
+    if protect_commas:
+        for label, placeholder in protected.items():
+            s = s.str.replace(label, placeholder, regex=False)
+    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+    exploded = s.str.split(",").explode().astype(str).str.strip()
+    if protect_commas:
+        for label, placeholder in protected.items():
+            exploded = exploded.str.replace(placeholder, label, regex=False)
+    exploded = exploded[(exploded != "") & (~exploded.str.lower().isin(["nan", "none", "null"]))]
+    if exploded.empty:
+        return pd.DataFrame(columns=["category", "count"])
+    out = exploded.value_counts().head(int(top_n)).reset_index()
+    out.columns = ["category", "count"]
+    return out
+
+
+def _eusee_explainer_count_df(df, col, top_n=10, label_col="category"):
+    """Create a standard ranked count dataframe for a selected dashboard chart."""
+    if df is None or df.empty or not col or col not in df.columns:
+        return pd.DataFrame(columns=[label_col, "count"])
+    s = df[col].dropna().astype(str).str.strip()
+    s = s[(s != "") & (~s.str.lower().isin(["nan", "none", "null"]))]
+    if s.empty:
+        return pd.DataFrame(columns=[label_col, "count"])
+    out = s.value_counts().head(int(top_n)).reset_index()
+    out.columns = [label_col, "count"]
+    return out
+
+
+def _eusee_dashboard_chart_registry():
+    """Dashboard chart/map options exposed only inside the AI Copilot chart explainer."""
+    return {
+        "Overview — Alert impact breakdown": {
+            "chart_type": "donut chart",
+            "scope": "all",
+            "kind": "count",
+            "column": "alert-impact",
+            "title": "Alert impact breakdown",
+            "description": "Explains the balance between negative, positive, and context-to-watch records.",
+        },
+        "Overview — Alerts by region": {
+            "chart_type": "bar chart",
+            "scope": "all",
+            "kind": "count",
+            "column": "region",
+            "title": "Alerts by region",
+            "description": "Explains regional concentration under the active filters.",
+        },
+        "Overview — Top countries by alert volume": {
+            "chart_type": "horizontal bar chart",
+            "scope": "all",
+            "kind": "count",
+            "column": "alert-country",
+            "title": "Top countries by alert volume",
+            "description": "Explains country-level concentration and ranking patterns.",
+        },
+        "Visualization map — Country alert concentration": {
+            "chart_type": "choropleth map",
+            "scope": "all",
+            "kind": "count",
+            "column": "alert-country",
+            "title": "Country alert concentration map",
+            "description": "Explains the spatial distribution visible on the map.",
+        },
+        "Visualization map — Country ranking by alert volume": {
+            "chart_type": "country ranking chart",
+            "scope": "all",
+            "kind": "count",
+            "column": "alert-country",
+            "title": "Country ranking by alert volume",
+            "description": "Explains the ranking panel next to the map.",
+        },
+        "Trends — Alerts over time": {
+            "chart_type": "time-series chart",
+            "scope": "all",
+            "kind": "trend",
+            "column": "creation_date",
+            "title": "Alerts over time",
+            "description": "Explains temporal movement in alert submissions.",
+        },
+        "Enabling principles — Principle breakdown": {
+            "chart_type": "bar chart",
+            "scope": "all",
+            "kind": "split",
+            "column": "enabling-principle",
+            "title": "Enabling principles breakdown",
+            "description": "Explains which enabling principles are most represented.",
+        },
+        "Negative events — Restrictive actors": {
+            "chart_type": "bar chart",
+            "scope": "negative",
+            "kind": "split",
+            "column": "Actor of repression",
+            "title": "Restrictive actors among negative alerts",
+            "description": "Explains the leading actor categories in negative alerts.",
+        },
+        "Negative events — Restrictive mechanisms": {
+            "chart_type": "bar chart",
+            "scope": "negative",
+            "kind": "split",
+            "column": "Mechanism of repression",
+            "title": "Restrictive mechanisms among negative alerts",
+            "description": "Explains the leading restriction mechanisms in negative alerts.",
+        },
+        "Negative events — Subjects affected": {
+            "chart_type": "bar chart",
+            "scope": "negative",
+            "kind": "split",
+            "column": "Subject of repression",
+            "title": "Subjects affected by negative alerts",
+            "description": "Explains which groups are most represented among affected subjects.",
+        },
+        "Negative events — Type of event": {
+            "chart_type": "bar chart",
+            "scope": "negative",
+            "kind": "split",
+            "column": "Type of event",
+            "title": "Negative events by event type",
+            "description": "Explains the main types of negative events.",
+        },
+        "Relationship intelligence — Actor × mechanism heatmap": {
+            "chart_type": "heatmap",
+            "scope": "negative",
+            "kind": "cross_tab",
+            "x_col": "Actor of repression",
+            "y_col": "Mechanism of repression",
+            "title": "Actor × mechanism relationship heatmap",
+            "description": "Explains the strongest actor–mechanism relationships.",
+        },
+        "Analytical flow panel — Actor → mechanism → subject Sankey": {
+            "chart_type": "Sankey flow diagram",
+            "scope": "negative",
+            "kind": "sankey_proxy",
+            "x_col": "Actor of repression",
+            "y_col": "Mechanism of repression",
+            "z_col": "Subject of repression",
+            "title": "Actor → mechanism → subject analytical flow",
+            "description": "Explains dominant flow patterns across actor, mechanism, and affected subject.",
+        },
+    }
+
+
+def _eusee_explainer_scope_df(df, scope):
+    """Apply chart-specific scope without changing dashboard filters."""
+    if df is None:
+        return pd.DataFrame()
+    scoped = df.copy()
+    if scope == "negative" and "alert-impact" in scoped.columns:
+        scoped = scoped[scoped["alert-impact"].astype(str).str.strip().str.lower() == "negative"].copy()
+    return scoped
+
+
+def _eusee_explainer_build_chart_data(df, chart_key, top_n=10):
+    """Return chart-data evidence for a selected existing dashboard chart/map."""
+    registry = _eusee_dashboard_chart_registry()
+    meta = registry.get(chart_key, {})
+    scoped = _eusee_explainer_scope_df(df, meta.get("scope", "all"))
+    kind = meta.get("kind")
+
+    if scoped is None or scoped.empty:
+        return pd.DataFrame(), scoped, meta
+
+    if kind == "split":
+        plot_df = _eusee_explainer_split_counts(scoped, meta.get("column"), top_n=top_n)
+        return plot_df, scoped, meta
+
+    if kind == "count":
+        plot_df = _eusee_explainer_count_df(scoped, meta.get("column"), top_n=top_n)
+        return plot_df, scoped, meta
+
+    if kind == "trend":
+        date_col = meta.get("column", "creation_date")
+        if date_col not in scoped.columns:
+            return pd.DataFrame(columns=["period", "count"]), scoped, meta
+        tmp = scoped.copy()
+        tmp[date_col] = pd.to_datetime(tmp[date_col], errors="coerce")
+        tmp = tmp.dropna(subset=[date_col])
+        if tmp.empty:
+            return pd.DataFrame(columns=["period", "count"]), scoped, meta
+        tmp["period"] = tmp[date_col].dt.to_period("M").astype(str)
+        plot_df = tmp.groupby("period").size().reset_index(name="count").sort_values("period")
+        return plot_df, scoped, meta
+
+    if kind in ["cross_tab", "sankey_proxy"]:
+        x_col = meta.get("x_col")
+        y_col = meta.get("y_col")
+        if x_col not in scoped.columns or y_col not in scoped.columns:
+            return pd.DataFrame(columns=[x_col or "x", y_col or "y", "count"]), scoped, meta
+        x_counts = _eusee_explainer_split_counts(scoped, x_col, top_n=max(top_n, 12)).rename(columns={"category": x_col})
+        y_counts = _eusee_explainer_split_counts(scoped, y_col, top_n=max(top_n, 12)).rename(columns={"category": y_col})
+        # For multi-label records, generate a compact pair table by exploding both fields row-wise.
+        rows = []
+        for _, row in scoped[[x_col, y_col]].dropna().head(5000).iterrows():
+            xs = [v.strip() for v in str(row[x_col]).replace("VNSAs", "Violent non-state actors").split(",") if v.strip()]
+            ys = [v.strip() for v in str(row[y_col]).split(",") if v.strip()]
+            for xv in xs[:5]:
+                for yv in ys[:5]:
+                    if xv.lower() not in ["nan", "none"] and yv.lower() not in ["nan", "none"]:
+                        rows.append((xv, yv))
+        if rows:
+            plot_df = pd.DataFrame(rows, columns=[x_col, y_col]).value_counts().head(int(top_n)).reset_index(name="count")
+        else:
+            # fallback: side-by-side top summaries if pair extraction fails
+            plot_df = pd.DataFrame({
+                x_col: list(x_counts[x_col].head(top_n).astype(str)),
+                y_col: list(y_counts[y_col].head(top_n).astype(str).reindex(range(min(len(x_counts), len(y_counts))))),
+                "count": list(x_counts["count"].head(top_n)),
+            })
+        return plot_df, scoped, meta
+
+    return pd.DataFrame(), scoped, meta
+
+
+def eusee_generate_selected_dashboard_chart_insight(df, chart_key, top_n=10, insight_mode="Executive"):
+    """Generate chatbot-only insight for a selected dashboard chart/map option."""
+    plot_df, scoped_df, meta = _eusee_explainer_build_chart_data(df, chart_key, top_n=top_n)
+    title = meta.get("title", chart_key)
+    chart_type = meta.get("chart_type", "dashboard chart")
+    x_col = meta.get("column") or meta.get("x_col") or (plot_df.columns[0] if isinstance(plot_df, pd.DataFrame) and not plot_df.empty else None)
+    group_col = meta.get("y_col")
+
+    if plot_df is None or plot_df.empty:
+        return f"### {title}\n\nNo interpretable records are available for this chart under the current filters. Broaden the filters or select another chart."
+
+    base = eusee_openai_chart_interpretation(
+        plot_df,
+        chart_type=chart_type,
+        x_col=x_col,
+        group_col=group_col,
+        dashboard_df=scoped_df,
+        title=title,
+        user_question=f"Explain the existing dashboard visual: {chart_key}. Insight mode: {insight_mode}. Description: {meta.get('description', '')}",
+    )
+
+    # Add deterministic chart-specific context so the user understands exactly what was selected.
+    coverage_note = f"\n\n**Selected visual**: {chart_key}\n\n**Scope used**: current dashboard filters" + (" + negative alerts only" if meta.get("scope") == "negative" else "") + f". Records in scope: {len(scoped_df):,}."
+    if insight_mode == "Quick":
+        summary = _eusee_plot_data_summary(plot_df, x_col=x_col, group_col=group_col, top_n=3)
+        dominant = summary.get("dominant_item") or "the leading category"
+        return f"### Quick chart insight\n\nFor **{title}**, the strongest signal is **{dominant}**, representing about **{summary.get('dominant_share_pct', 0)}%** of the charted total. Interpret this alongside reporting coverage and current filters.{coverage_note}"
+    if insight_mode == "Technical":
+        preview = plot_df.head(min(8, len(plot_df))).to_markdown(index=False)
+        return f"{base}{coverage_note}\n\n**Chart data preview**\n\n```text\n{preview}\n```"
+    return f"{base}{coverage_note}"
+
+
+def render_chatbot_dashboard_chart_explainer(df):
+    """Render a chatbot-only dropdown for explaining existing dashboard charts/maps."""
+    registry = _eusee_dashboard_chart_registry()
+    st.markdown("""
+    <div class='v2-builder-hero'>
+      <div class='v2-builder-title'>Explain an existing dashboard chart or map</div>
+      <div class='v2-builder-note'>Select the chart/map as it appears on the dashboard. The insight is generated inside the chatbot only and uses the active dashboard filters.</div>
+      <span class='v2-builder-chip'>Dropdown selector</span><span class='v2-builder-chip'>Maps</span><span class='v2-builder-chip'>Heatmaps</span><span class='v2-builder-chip'>Sankey</span><span class='v2-builder-chip'>Executive insight</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    chart_key = st.selectbox(
+        "Select dashboard chart/map to explain",
+        list(registry.keys()),
+        key="v2_dashboard_chart_explainer_select",
+        help="Choose the existing dashboard visual you want the chatbot to explain.",
+    )
+    meta = registry.get(chart_key, {})
+    st.caption(meta.get("description", "The chatbot will interpret this visual using the current filtered data."))
+
+    c1, c2 = st.columns(2)
+    with c1:
+        insight_mode = st.selectbox(
+            "Insight style",
+            ["Executive", "Quick", "Technical"],
+            key="v2_dashboard_chart_explainer_mode",
+        )
+    with c2:
+        top_n = st.selectbox(
+            "Evidence depth",
+            [5, 10, 15, 20, 30],
+            index=1,
+            key="v2_dashboard_chart_explainer_topn",
+            help="Controls how many ranked categories/relationships are used for the explanation.",
+        )
+
+    if st.button("Generate insight for selected chart", use_container_width=True, key="v2_generate_selected_dashboard_chart_insight"):
+        insight = eusee_generate_selected_dashboard_chart_insight(df, chart_key, top_n=top_n, insight_mode=insight_mode)
+        st.session_state.ai_smart_output = {
+            "type": "selected_dashboard_chart_insight",
+            "title": f"Insight: {chart_key}",
+            "content": insight,
+            "selected_chart": chart_key,
+            "insight_mode": insight_mode,
+        }
+        st.session_state.ai_messages.append({
+            "role": "assistant",
+            "content": f"Generated chatbot-only insight for: {chart_key}. Open Smart output to review it.",
+        })
+        st.rerun()
+
 def _copilot_queue_answer(question, df):
     """v2 queue: supports plot commands, advanced style requests, and memory."""
     q = str(question or "").strip()
@@ -8123,7 +8431,7 @@ def render_ai_assistant_panel(df):
         ]
         st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
 
-        tab_chat, tab_plot, tab_output = st.tabs(["Chat", "Plot builder", "Smart output"])
+        tab_chat, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Plot builder", "Explain chart", "Smart output"])
 
         with tab_chat:
             st.markdown("<div class='v2-chat-card'>", unsafe_allow_html=True)
@@ -8581,6 +8889,9 @@ def render_ai_assistant_panel(df):
                     st.rerun()
             else:
                 st.info("No suitable plotting dimensions are available under the current filters.")
+
+        with tab_explain:
+            render_chatbot_dashboard_chart_explainer(df)
 
         with tab_output:
             out = st.session_state.ai_smart_output
