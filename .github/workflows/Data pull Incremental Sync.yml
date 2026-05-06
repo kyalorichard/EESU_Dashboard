@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          token: ${{ github.token }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -63,7 +63,7 @@ jobs:
         if: steps.sync.outputs.new_files == '1'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          token: ${{ github.token }}
           base: main
           branch: automated/csv-update
           delete-branch: true
@@ -80,4 +80,4 @@ jobs:
         run: |
           gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --squash --auto
         env:
-          GH_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          GH_TOKEN: ${{ github.token }}
