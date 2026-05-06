@@ -8462,6 +8462,289 @@ def _copilot_queue_answer(question, df):
     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
 
 
+
+
+# ============================================================================
+# AI COPILOT v4: PROFESSIONAL BOT-STANDARD INTELLIGENCE UPGRADES
+# Adds chatbot-only: dashboard-aware context, conversational memory controls,
+# automatic insight cards, analyst personas, report generator, confidence notes,
+# and suggested follow-up questions. Dashboard charts remain unchanged.
+# ============================================================================
+
+def _v4_safe_pct(n, d):
+    try:
+        return round((float(n) / float(d)) * 100, 1) if d else 0.0
+    except Exception:
+        return 0.0
+
+
+def _v4_top_value(df, col, top_n=1):
+    if df is None or df.empty or col not in df.columns:
+        return "Not available", 0
+    s = df[col].dropna().astype(str).str.strip()
+    s = s[(s != "") & (~s.str.lower().isin(["nan", "none", "null"]))]
+    if s.empty:
+        return "Not available", 0
+    vc = s.value_counts().head(top_n)
+    return str(vc.index[0]), int(vc.iloc[0])
+
+
+def _v4_context_summary(df):
+    """Create compact dashboard state context for chatbot grounding."""
+    if df is None or df.empty:
+        return {
+            "records": 0,
+            "countries": 0,
+            "years": [],
+            "top_country": ("Not available", 0),
+            "top_region": ("Not available", 0),
+            "impact_counts": {},
+            "negative_share": 0.0,
+        }
+    impact_counts = {}
+    if "alert-impact" in df.columns:
+        impact_counts = df["alert-impact"].dropna().astype(str).str.strip().value_counts().to_dict()
+    years = []
+    if "year" in df.columns:
+        try:
+            years = sorted([int(y) for y in df["year"].dropna().unique()])
+        except Exception:
+            years = sorted([str(y) for y in df["year"].dropna().unique()])
+    neg = int(impact_counts.get("Negative", 0))
+    return {
+        "records": int(len(df)),
+        "countries": int(df["alert-country"].nunique()) if "alert-country" in df.columns else 0,
+        "years": years,
+        "top_country": _v4_top_value(df, "alert-country"),
+        "top_region": _v4_top_value(df, "region"),
+        "impact_counts": impact_counts,
+        "negative_share": _v4_safe_pct(neg, len(df)),
+    }
+
+
+def _v4_negative_scope(df):
+    if df is None or df.empty or "alert-impact" not in df.columns:
+        return pd.DataFrame()
+    return df[df["alert-impact"].astype(str).str.strip().str.lower().eq("negative")].copy()
+
+
+def _v4_auto_insights(df, max_items=6):
+    """Deterministic automatic insight engine for the active dashboard filters."""
+    ctx = _v4_context_summary(df)
+    if ctx["records"] == 0:
+        return ["No records are available under the current filters. Broaden the filters to generate insights."]
+
+    insights = []
+    records = ctx["records"]
+    country, country_n = ctx["top_country"]
+    region, region_n = ctx["top_region"]
+    insights.append(f"The active view contains {records:,} records across {ctx['countries']:,} monitored countries.")
+
+    if country_n:
+        insights.append(f"{country} is the leading country by alert volume with {country_n:,} records ({_v4_safe_pct(country_n, records)}% of the filtered view).")
+    if region_n:
+        insights.append(f"{region} is the leading regional concentration with {region_n:,} records ({_v4_safe_pct(region_n, records)}%).")
+
+    impact_counts = ctx.get("impact_counts", {})
+    if impact_counts:
+        dominant_impact = max(impact_counts.items(), key=lambda kv: kv[1])
+        insights.append(f"The dominant alert-impact category is {dominant_impact[0]} ({dominant_impact[1]:,} records; {_v4_safe_pct(dominant_impact[1], records)}%).")
+
+    neg_df = _v4_negative_scope(df)
+    if neg_df is not None and not neg_df.empty:
+        for col, label in [
+            ("Actor of repression", "restrictive actor"),
+            ("Mechanism of repression", "restriction mechanism"),
+            ("Subject of repression", "affected subject"),
+        ]:
+            if col in neg_df.columns:
+                top = _eusee_explainer_split_counts(neg_df, col, top_n=1)
+                if not top.empty:
+                    item = str(top.iloc[0]["category"])
+                    cnt = int(top.iloc[0]["count"])
+                    insights.append(f"Among negative alerts, the leading {label} is {item} ({cnt:,} mentions).")
+
+    if "year" in df.columns and len(ctx.get("years", [])) >= 2:
+        yr = df.dropna(subset=["year"]).copy()
+        if not yr.empty:
+            yc = yr.groupby("year").size().sort_index()
+            if len(yc) >= 2:
+                first_y, last_y = yc.index[0], yc.index[-1]
+                first_v, last_v = int(yc.iloc[0]), int(yc.iloc[-1])
+                delta = last_v - first_v
+                direction = "increased" if delta > 0 else "decreased" if delta < 0 else "remained stable"
+                insights.append(f"Over the selected years, alert volume {direction} from {first_v:,} in {first_y} to {last_v:,} in {last_y}.")
+
+    insights.append("Interpret all counts alongside reporting coverage, partner activity, and monitoring intensity; higher volume does not automatically mean worse conditions.")
+    return insights[:max_items]
+
+
+def _v4_insight_confidence(df):
+    """Simple transparent confidence heuristic for bot output."""
+    if df is None or df.empty:
+        return "Low", "No records are available under current filters."
+    n = len(df)
+    countries = df["alert-country"].nunique() if "alert-country" in df.columns else 0
+    if n >= 250 and countries >= 5:
+        return "High", "The filtered dataset is large enough for stable descriptive patterns."
+    if n >= 50:
+        return "Medium", "The filtered dataset supports directional interpretation, but small subgroup patterns need caution."
+    return "Low", "The filtered dataset is small, so findings should be treated as indicative rather than conclusive."
+
+
+def _v4_render_context_card(df):
+    ctx = _v4_context_summary(df)
+    conf, reason = _v4_insight_confidence(df)
+    years = ctx.get("years", [])
+    year_label = f"{years[0]}–{years[-1]}" if len(years) >= 2 else (str(years[0]) if years else "Not available")
+    st.markdown(f"""
+    <div class='v4-context-card'>
+      <div class='v4-card-eyebrow'>Dashboard-aware context</div>
+      <div class='v4-context-grid'>
+        <div><b>{ctx['records']:,}</b><span>records</span></div>
+        <div><b>{ctx['countries']:,}</b><span>countries</span></div>
+        <div><b>{year_label}</b><span>period</span></div>
+        <div><b>{conf}</b><span>confidence</span></div>
+      </div>
+      <div class='v4-context-note'>{reason}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def _v4_render_insight_cards(df):
+    insights = _v4_auto_insights(df, max_items=6)
+    conf, reason = _v4_insight_confidence(df)
+    st.markdown("<div class='v4-card-eyebrow'>Automatic intelligence scan</div>", unsafe_allow_html=True)
+    for i, item in enumerate(insights, start=1):
+        st.markdown(f"""
+        <div class='v4-insight-card'>
+          <div class='v4-insight-number'>{i}</div>
+          <div class='v4-insight-text'>{item}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    st.markdown(f"<div class='v4-caveat'><b>Confidence:</b> {conf}. {reason} Descriptive insights are not causal findings.</div>", unsafe_allow_html=True)
+
+
+def _v4_followup_questions(df):
+    ctx = _v4_context_summary(df)
+    top_country = ctx.get("top_country", ("", 0))[0]
+    return [
+        "Explain the strongest negative-alert risk signal in this filtered view.",
+        f"Generate a country intelligence profile for {top_country}." if top_country != "Not available" else "Generate a country intelligence profile for the top country.",
+        "Compare restrictive actors and mechanisms in the current view.",
+        "Generate an executive briefing from the current filters.",
+    ]
+
+
+def _v4_local_report(df, report_type="Executive brief", audience="Donor / Executive"):
+    ctx = _v4_context_summary(df)
+    insights = _v4_auto_insights(df, max_items=7)
+    conf, reason = _v4_insight_confidence(df)
+    lines = []
+    lines.append(f"# {report_type}")
+    lines.append("")
+    lines.append(f"**Audience:** {audience}")
+    lines.append(f"**Filtered records:** {ctx['records']:,}")
+    lines.append(f"**Countries covered:** {ctx['countries']:,}")
+    if ctx.get("years"):
+        lines.append(f"**Period represented:** {ctx['years'][0]}–{ctx['years'][-1]}" if len(ctx['years']) > 1 else f"**Period represented:** {ctx['years'][0]}")
+    lines.append(f"**Analytical confidence:** {conf} — {reason}")
+    lines.append("")
+    lines.append("## Key findings")
+    for item in insights:
+        lines.append(f"- {item}")
+    lines.append("")
+    lines.append("## Interpretation")
+    lines.append("The filtered dashboard view points to concentrations in alert volume, geographic distribution, and negative-event patterns that should be interpreted as monitoring intelligence rather than causal attribution. Where volumes are high, users should review whether this reflects deteriorating enabling conditions, stronger reporting coverage, or both.")
+    lines.append("")
+    lines.append("## Recommended follow-up")
+    for q in _v4_followup_questions(df):
+        lines.append(f"- {q}")
+    lines.append("")
+    lines.append("## Caveat")
+    lines.append("Counts may reflect reporting coverage, partner activity, and monitoring thresholds. Use these outputs as decision-support evidence and validate sensitive conclusions with contextual review.")
+    return "\n".join(lines)
+
+
+def _v4_openai_report(df, report_type="Executive brief", audience="Donor / Executive"):
+    fallback = _v4_local_report(df, report_type, audience)
+    status = _ai_openai_status()
+    if not (status.get("configured") and status.get("package_ready")):
+        return fallback
+    try:
+        client = _ai_get_openai_client()
+        if client is None:
+            return fallback
+        ctx = _v4_context_summary(df)
+        insights = _v4_auto_insights(df, max_items=7)
+        prompt = f"""
+Create a professional {report_type} for audience: {audience}.
+Use only this dashboard context and descriptive insights.
+Context: {json.dumps(ctx, default=str)}
+Insights: {json.dumps(insights, default=str)}
+Required structure: Executive summary, Key findings, Analytical interpretation, Recommended follow-up, Caveat.
+Be concise, professional, and avoid unsupported causal claims.
+"""
+        model = status.get("model", "gpt-4o-mini")
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a professional dashboard intelligence analyst. Use only supplied dashboard context."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.15,
+            max_tokens=900,
+        )
+        txt = (resp.choices[0].message.content or "").strip()
+        return txt or fallback
+    except Exception:
+        return fallback
+
+
+def _v4_answer_with_agent(question, df, agent="Executive analyst"):
+    """Agent-aware answer using existing OpenAI/local stack and session memory."""
+    q = str(question or "").strip()
+    ctx = _v4_context_summary(df)
+    recent = st.session_state.get("ai_messages", [])[-6:]
+    memory_txt = "\n".join([f"{m.get('role','user')}: {m.get('content','')[:500]}" for m in recent])
+    agent_instruction = {
+        "Executive analyst": "Focus on concise strategic implications, risks, and decision-ready language.",
+        "Statistical analyst": "Focus on distributions, deltas, ranking concentration, and descriptive statistical caution.",
+        "Geopolitical analyst": "Focus on regional/country patterns, civic-space risk interpretation, and caveats.",
+        "Visualization analyst": "Focus on what the visible chart or requested plot shows and how to read it.",
+        "Report writer": "Focus on polished narrative and briefing-ready structure.",
+    }.get(agent, "Focus on clear dashboard-grounded analysis.")
+
+    enhanced_q = f"""
+Agent mode: {agent}. {agent_instruction}
+Current dashboard context: {json.dumps(ctx, default=str)}
+Recent chat memory:
+{memory_txt}
+User question: {q}
+Answer using only current dashboard context and descriptive patterns. Include confidence/caveat where relevant.
+"""
+    return ai_try_llm_response(enhanced_q, df)
+
+
+def _v4_render_professional_css():
+    st.markdown("""
+    <style>
+    .v4-context-card{background:linear-gradient(135deg,#FFFFFF,#F7ECFB);border:1px solid #E7D4F1;border-radius:16px;padding:11px;margin:7px 0 10px 0;box-shadow:0 8px 20px rgba(45,0,85,.06);}
+    .v4-card-eyebrow{font-size:10px;font-weight:950;color:#660094;text-transform:uppercase;letter-spacing:.10em;margin:5px 0 7px 0;}
+    .v4-context-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
+    .v4-context-grid div{background:#fff;border:1px solid #EEF0F4;border-radius:12px;padding:8px 6px;text-align:center;}
+    .v4-context-grid b{display:block;font-size:13px;color:#2D0055;font-weight:950;line-height:1.1;}
+    .v4-context-grid span{display:block;font-size:9px;color:#667085;font-weight:850;margin-top:3px;}
+    .v4-context-note,.v4-caveat{font-size:10.5px;color:#667085;line-height:1.35;margin-top:8px;background:#F9FAFB;border:1px solid #EEF0F4;border-radius:11px;padding:7px 8px;}
+    .v4-insight-card{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:flex-start;background:#fff;border:1px solid #E6E8EF;border-radius:14px;padding:9px;margin:7px 0;box-shadow:0 5px 14px rgba(16,24,40,.045);}
+    .v4-insight-number{width:24px;height:24px;border-radius:999px;background:#F4EAF8;color:#660094;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:950;}
+    .v4-insight-text{font-size:11.5px;line-height:1.38;color:#344054;font-weight:700;}
+    .v4-followup-chip{display:block;background:#FFFFFF;border:1px solid #E6E8EF;border-radius:12px;padding:8px 9px;margin:6px 0;font-size:10.8px;color:#344054;font-weight:800;line-height:1.3;box-shadow:0 4px 12px rgba(16,24,40,.04);}
+    .v4-action-card{background:#fff;border:1px solid #E6E8EF;border-radius:15px;padding:10px;margin:8px 0;box-shadow:0 7px 18px rgba(16,24,40,.045);}
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def _v2_render_status_bar(df):
     """Render AI Copilot status and OpenAI diagnostics with consistent indentation."""
     status = _ai_openai_status()
@@ -8492,14 +8775,14 @@ def _v2_render_status_bar(df):
 
 
 def render_ai_assistant_panel(df):
-    """AI Copilot v2 repaired: fixed right-side pop-out drawer with advanced plotting."""
+    """AI Copilot v4 repaired: fixed right-side pop-out drawer with advanced plotting."""
     st.session_state.setdefault("copilot_open", True)
     st.session_state.setdefault("ai_messages", [
         {"role": "assistant", "content": "Hello. Ask me about the current filtered dashboard view, or request a chart with chart type, color, font size, title, grouping and Top N."}
     ])
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
-        "title": "AI Copilot v2",
+        "title": "AI Copilot v4",
         "content": "Ask for insights or request a chart, e.g. 'Make a grouped bar chart of actors by alert impact in purple, top 15, font 14'."
     })
     st.session_state.setdefault("ai_last_plot", None)
@@ -8599,7 +8882,7 @@ def render_ai_assistant_panel(df):
         with head_l:
             st.markdown("""
             <div class="v2-pop-brand">
-              <div class="v2-pop-title">🤖 EU SEE AI Copilot v2</div>
+              <div class="v2-pop-title">🤖 EU SEE AI Copilot v4</div>
               <div class="v2-pop-sub">Pop-out assistant grounded in active filters, cleaned data, and dashboard analytics.</div>
               <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plots</span><span class="v2-pop-chip">Styling</span><span class="v2-pop-chip">Insights</span></div>
             </div>
@@ -8618,7 +8901,7 @@ def render_ai_assistant_panel(df):
         ]
         st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
 
-        tab_chat, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Plot builder", "Explain chart", "Smart output"])
+        tab_chat, tab_intel, tab_report, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Insights", "Reports", "Plot builder", "Explain chart", "Smart output"])
 
         with tab_chat:
             st.markdown("<div class='v2-chat-card'>", unsafe_allow_html=True)
@@ -8642,7 +8925,8 @@ def render_ai_assistant_panel(df):
                     st.rerun()
                 else:
                     st.session_state.ai_messages.append({"role": "user", "content": prompt.strip()})
-                    answer = "".join(list(_v2_openai_stream_answer(prompt.strip(), df)))
+                    selected_agent = st.session_state.get("v4_analyst_mode", "Executive analyst")
+                    answer = _v4_answer_with_agent(prompt.strip(), df, selected_agent)
                     st.session_state.ai_messages.append({"role": "assistant", "content": answer})
                     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
                     st.rerun()
@@ -8659,8 +8943,62 @@ def render_ai_assistant_panel(df):
             with b3:
                 if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
                     st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a new question or request a chart."}]
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v2", "content": "Chat cleared. Ask a new question or request a chart."}
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v4", "content": "Chat cleared. Ask a new question or request a chart."}
                     st.rerun()
+
+
+
+        with tab_intel:
+            _v4_render_professional_css()
+            _v4_render_context_card(df)
+            analyst = st.selectbox(
+                "Analyst mode",
+                ["Executive analyst", "Statistical analyst", "Geopolitical analyst", "Visualization analyst", "Report writer"],
+                key="v4_analyst_mode",
+                help="Changes how the bot frames answers while staying grounded in the active dashboard filters.",
+            )
+            _v4_render_insight_cards(df)
+            st.markdown("<div class='v4-card-eyebrow'>Suggested follow-up questions</div>", unsafe_allow_html=True)
+            for fq in _v4_followup_questions(df):
+                st.markdown(f"<div class='v4-followup-chip'>{fq}</div>", unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Generate analyst answer", key="v4_generate_agent_answer", use_container_width=True):
+                    question = "Provide a professional analyst interpretation of the current dashboard filters, including key signals, risk implications, and caveats."
+                    answer = _v4_answer_with_agent(question, df, analyst)
+                    st.session_state.ai_messages.append({"role": "user", "content": question})
+                    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+                    st.session_state.ai_smart_output = {"type": "v4_agent_answer", "title": f"{analyst} insight", "content": answer}
+                    st.rerun()
+            with c2:
+                if st.button("Pin context to memory", key="v4_pin_context", use_container_width=True):
+                    ctx = _v4_context_summary(df)
+                    st.session_state.ai_pinned_context = ctx
+                    st.session_state.ai_messages.append({"role": "assistant", "content": "Pinned the current dashboard context for this session. I will use it when answering follow-up questions."})
+                    st.rerun()
+
+        with tab_report:
+            _v4_render_professional_css()
+            st.markdown("<div class='v4-action-card'>", unsafe_allow_html=True)
+            report_type = st.selectbox(
+                "Report type",
+                ["Executive brief", "Donor briefing", "Country risk note", "Policy memo", "Monitoring summary"],
+                key="v4_report_type",
+            )
+            audience = st.selectbox(
+                "Audience",
+                ["Donor / Executive", "Programme team", "Policy audience", "Technical analyst", "Communications team"],
+                key="v4_report_audience",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            if st.button("Generate professional report", key="v4_generate_report", use_container_width=True):
+                report = _v4_openai_report(df, report_type=report_type, audience=audience)
+                st.session_state.ai_smart_output = {"type": "v4_report", "title": report_type, "content": report}
+                st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {report_type}. Open Smart output to review or copy it."})
+                st.rerun()
+            preview = _v4_local_report(df, report_type=report_type, audience=audience)
+            with st.expander("Preview report structure", expanded=False):
+                st.markdown(_render_chat_content_html(preview[:2500]), unsafe_allow_html=True)
 
         with tab_plot:
             st.markdown("""
