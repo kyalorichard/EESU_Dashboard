@@ -6177,62 +6177,50 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
 
 
 def _ai_get_openai_config():
-    """Read OpenAI config robustly from Render env vars or Streamlit secrets.
+    """Read OpenAI config ONLY from the Streamlit secrets [openai] block.
 
-    Supports all of these formats:
-      OPENAI_API_KEY = "sk-..."                    # root Streamlit secret
-      OPENAI_MODEL = "gpt-4o-mini"                 # root Streamlit secret
+    Required .streamlit/secrets.toml format:
 
-      [openai]
-      OPENAI_API_KEY = "sk-..."                    # your current format
-      api_key = "sk-..."                           # alternative nested format
-      model = "gpt-4o-mini"
+        [openai]
+        OPENAI_API_KEY = "sk-proj-your-real-key-here"
+        OPENAI_MODEL = "gpt-4o-mini"
 
-      Environment variables on Render:
-      OPENAI_API_KEY=sk-...
-      OPENAI_MODEL=gpt-4o-mini
+    This strict loader intentionally ignores root-level secrets and OS environment
+    variables to avoid configuration ambiguity.
     """
-    api_key = None
     model = "gpt-4o-mini"
 
-    # 1) Render / OS environment first.
     try:
-        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_APIKEY")
-        model = os.getenv("OPENAI_MODEL") or os.getenv("OPENAI_CHAT_MODEL") or model
-    except Exception:
-        pass
-
-    # 2) Streamlit secrets: root-level and nested [openai].
-    try:
-        root_key = st.secrets.get("OPENAI_API_KEY", None)
-        root_model = st.secrets.get("OPENAI_MODEL", None)
         openai_cfg = st.secrets.get("openai", {})
-
-        nested_key = None
-        nested_model = None
-        if isinstance(openai_cfg, dict):
-            nested_key = (
-                openai_cfg.get("OPENAI_API_KEY")
-                or openai_cfg.get("api_key")
-                or openai_cfg.get("key")
-            )
-            nested_model = openai_cfg.get("model") or openai_cfg.get("OPENAI_MODEL")
-
-        api_key = api_key or root_key or nested_key
-        model = root_model or nested_model or model
     except Exception:
-        pass
+        openai_cfg = {}
 
-    api_key = str(api_key).strip() if api_key else None
-    model = str(model).strip() if model else "gpt-4o-mini"
+    try:
+        api_key = str(openai_cfg.get("OPENAI_API_KEY", "")).strip()
+    except Exception:
+        api_key = ""
+
+    try:
+        model = str(openai_cfg.get("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+    except Exception:
+        model = "gpt-4o-mini"
 
     invalid_values = {
-        "", "none", "null", "false", "0",
-        "your_new_openai_api_key", "your_openai_api_key", "sk-...",
-        "sk-proj-your-real-key", "sk-proj-xxxxxxxx",
+        "",
+        "none",
+        "null",
+        "false",
+        "0",
+        "your_new_openai_api_key",
+        "your_openai_api_key",
+        "sk-...",
+        "sk-proj-your-real-key",
+        "sk-proj-your-real-key-here",
+        "sk-proj-xxxxxxxx",
     }
-    if api_key and api_key.lower() in invalid_values:
-        api_key = None
+
+    if (not api_key) or api_key.lower() in invalid_values:
+        return None, model
 
     return api_key, model
 
@@ -6266,7 +6254,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model = _ai_get_openai_config()
     if not api_key:
-        return False, "OPENAI_API_KEY was not detected. Check [openai].OPENAI_API_KEY or Render environment variables."
+        return False, 'OPENAI_API_KEY was not detected. Use exactly: [openai] OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini" in .streamlit/secrets.toml, then restart/redeploy.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -6750,7 +6738,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OpenAI API key to enable LLM responses"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add [openai].OPENAI_API_KEY to enable LLM responses"
 
     st.markdown("""
     <style>
