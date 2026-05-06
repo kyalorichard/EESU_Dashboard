@@ -3530,6 +3530,219 @@ def _v3_auto_plot_title(mode, x_col, group_col=None, chart_type=None, metric_lab
     chart = f"{chart_type} — " if chart_type else ""
     return f"{chart}{metric_label} by {x_col}"
 
+
+
+# ---------------- PROFESSIONAL CHATBOT CHART EXPLAINER UX ----------------
+def _copilot_chart_catalog():
+    """Dashboard visuals available for chatbot-only interpretation."""
+    return {
+        "Overview": [
+            "Alert type distribution",
+            "Enabling principles distribution",
+            "Regional distribution",
+            "Country distribution",
+        ],
+        "Geographic intelligence": [
+            "Country-level geographic distribution map",
+            "Country ranking by alert volume",
+        ],
+        "Negative events": [
+            "Restrictive actors",
+            "Affected civil society actors",
+            "Restrictive mechanisms",
+            "Types of negative events",
+        ],
+        "Relationship intelligence": [
+            "Actor × mechanism heatmap",
+            "Mechanism × subject heatmap",
+            "Analytical Sankey flow",
+        ],
+        "Chatbot workspace": [
+            "Last chatbot-generated plot",
+        ],
+    }
+
+
+def _copilot_professional_explanation_prompt(chart_name, insight_style, audience, df):
+    """Create a professional prompt-like user question for the copilot queue."""
+    return (
+        f"Explain the dashboard visual '{chart_name}' using a {insight_style.lower()} interpretation style "
+        f"for a {audience.lower()} audience. Structure the answer as: executive reading, key patterns, "
+        f"risk implication, caveat, and suggested next question. Use only the current filtered dashboard data."
+    )
+
+
+def _format_professional_chart_explanation(raw_text, chart_name, insight_style, audience, df):
+    """Wrap chart explanation in a bot-standard, executive-ready structure."""
+    s = summarize_for_ai(df)
+    base = str(raw_text or "").strip()
+    if not base:
+        base = ai_generate_chart_explanation(df, chart_name)
+
+    # Avoid duplicating the website redirect if append_eusee_redirect() already added it.
+    redirect_marker = "EUSEE website"
+    redirect_text = ""
+    if redirect_marker in base:
+        parts = base.split("For more information")
+        base = parts[0].strip()
+        if len(parts) > 1:
+            redirect_text = "For more information" + parts[-1]
+
+    total_alerts = s.get("total_alerts", 0)
+    countries = s.get("countries_count", 0)
+    neg_pct = s.get("negative_pct", 0)
+
+    formatted = f"""
+### 🧠 Chart Insight Copilot
+
+**Selected visual:** {chart_name}  
+**Insight style:** {insight_style}  
+**Audience:** {audience}  
+**Data scope:** {total_alerts:,} filtered alerts across {countries:,} countries; negative alerts = {neg_pct}%.
+
+---
+
+{base}
+
+---
+
+**Confidence and caveat**  
+This interpretation is grounded in the active filters and dashboard dataset. Alert counts are monitoring signals and may reflect reporting intensity, coverage, partner submissions, or event frequency.
+
+**Suggested next questions**
+- Which countries or categories drive this pattern most strongly?
+- How does this pattern change by year or region?
+- Which actor, mechanism, or affected group should be reviewed first?
+""".strip()
+
+    if redirect_text:
+        formatted += "\n\n" + redirect_text.strip()
+    else:
+        formatted = append_eusee_redirect(formatted)
+    return formatted
+
+
+def render_professional_chart_explainer_tab(df):
+    """Render a professional chatbot-only chart/map explainer with bot-standard UX."""
+    st.markdown("""
+    <style>
+    .insight-copilot-shell{
+        background:linear-gradient(180deg,#FFFFFF 0%,#FBF7FD 100%);
+        border:1px solid #E7D4F1;
+        border-radius:18px;
+        padding:12px;
+        box-shadow:0 10px 24px rgba(102,0,148,.08);
+        margin-bottom:10px;
+        font-family:Arial,sans-serif;
+    }
+    .insight-copilot-kicker{font-size:9.5px;font-weight:950;color:#660094;text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;}
+    .insight-copilot-title{font-size:15px;font-weight:950;color:#23152F;line-height:1.18;}
+    .insight-copilot-note{font-size:10.8px;color:#667085;line-height:1.38;margin-top:5px;}
+    .insight-copilot-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+    .insight-copilot-pill{font-size:9.8px;font-weight:900;color:#660094;background:#F4EAF8;border:1px solid #E7D4F1;border-radius:999px;padding:4px 8px;}
+    .insight-mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:8px 0 10px 0;}
+    .insight-mini-card{background:#fff;border:1px solid #EEF0F4;border-radius:13px;padding:8px;}
+    .insight-mini-label{font-size:8.8px;color:#667085;font-weight:900;text-transform:uppercase;letter-spacing:.04em;}
+    .insight-mini-value{font-size:14px;color:#2D0055;font-weight:950;margin-top:2px;line-height:1.05;}
+    .insight-warning{font-size:10.5px;color:#7A4B00;background:#FFFCED;border:1px solid #F8E9A1;border-left:4px solid #FFDB58;border-radius:12px;padding:8px;margin:8px 0;line-height:1.35;}
+    </style>
+    """, unsafe_allow_html=True)
+
+    s = summarize_for_ai(df)
+    st.markdown(f"""
+    <div class="insight-copilot-shell">
+        <div class="insight-copilot-kicker">Chart intelligence workspace</div>
+        <div class="insight-copilot-title">Explain any dashboard chart or map from inside the chatbot</div>
+        <div class="insight-copilot-note">
+            Select a visual, choose the interpretation style, then generate a structured insight. The dashboard canvas remains clean; all explanations stay inside the copilot.
+        </div>
+        <div class="insight-copilot-pills">
+            <span class="insight-copilot-pill">Grounded</span>
+            <span class="insight-copilot-pill">Executive-ready</span>
+            <span class="insight-copilot-pill">Chart-specific</span>
+            <span class="insight-copilot-pill">With caveats</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="insight-mini-grid">
+        <div class="insight-mini-card"><div class="insight-mini-label">Filtered alerts</div><div class="insight-mini-value">{s.get('total_alerts',0):,}</div></div>
+        <div class="insight-mini-card"><div class="insight-mini-label">Countries</div><div class="insight-mini-value">{s.get('countries_count',0):,}</div></div>
+        <div class="insight-mini-card"><div class="insight-mini-label">Negative share</div><div class="insight-mini-value">{s.get('negative_pct',0)}%</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    catalog = _copilot_chart_catalog()
+    section = st.selectbox(
+        "Visual group",
+        list(catalog.keys()),
+        key="pro_copilot_chart_group",
+        help="Choose the dashboard section that contains the chart or map you want explained.",
+    )
+    chart_name = st.selectbox(
+        "Chart / map to explain",
+        catalog[section],
+        key="pro_copilot_chart_name",
+        help="The copilot will interpret this visual using the current filtered data.",
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        insight_style = st.selectbox(
+            "Insight style",
+            ["Executive", "Analyst", "Technical", "Policy brief", "Quick insight"],
+            index=0,
+            key="pro_copilot_insight_style",
+        )
+    with c2:
+        audience = st.selectbox(
+            "Audience",
+            ["Senior decision-maker", "Programme team", "Data analyst", "Donor / partner", "Public viewer"],
+            index=0,
+            key="pro_copilot_audience",
+        )
+
+    include_followups = st.toggle(
+        "Include suggested follow-up questions",
+        value=True,
+        key="pro_copilot_followups",
+        help="Adds next analytical questions to make the copilot feel more conversational and useful.",
+    )
+
+    st.markdown("""
+    <div class="insight-warning">
+        Bot standard: the explanation is generated only from active filters and dashboard data. It should not infer causes beyond the evidence shown in the selected visual.
+    </div>
+    """, unsafe_allow_html=True)
+
+    b1, b2 = st.columns([0.72, 0.28])
+    with b1:
+        generate = st.button("🧠 Generate professional insight", key="pro_copilot_generate_insight", use_container_width=True)
+    with b2:
+        preview = st.button("Preview", key="pro_copilot_preview_insight", use_container_width=True)
+
+    selected_visual = f"{section}: {chart_name}"
+    if generate:
+        _track_ai_event("professional_chart_explain", selected_visual)
+        raw = ai_generate_chart_explanation(df, selected_visual)
+        explanation = _format_professional_chart_explanation(raw, selected_visual, insight_style, audience, df)
+        if not include_followups:
+            explanation = explanation.split("**Suggested next questions**")[0].strip()
+            explanation = append_eusee_redirect(explanation)
+        st.session_state.ai_messages.append({"role": "user", "content": _copilot_professional_explanation_prompt(selected_visual, insight_style, audience, df)})
+        st.session_state.ai_pending_answer = explanation
+        st.session_state.ai_streaming = True
+        st.session_state.ai_smart_output = {"type": "chart insight", "title": selected_visual, "content": explanation}
+        st.rerun()
+
+    if preview:
+        raw = ai_generate_chart_explanation(df, selected_visual)
+        explanation = _format_professional_chart_explanation(raw, selected_visual, insight_style, audience, df)
+        if not include_followups:
+            explanation = explanation.split("**Suggested next questions**")[0].strip()
+        st.markdown(_render_chat_content_html(explanation), unsafe_allow_html=True)
+
 def render_ai_assistant_panel(df):
     """Render a professional floating ChatGPT-style assistant."""
     st.markdown("""
@@ -7108,33 +7321,7 @@ def render_ai_assistant_panel(df):
         with st.expander("Advanced tools", expanded=False):
             tool_tab1, tool_tab2, tool_tab3, tool_tab4 = st.tabs(["Explain", "Plot", "Export", "Admin"])
             with tool_tab1:
-                chart_context = st.selectbox(
-                    "Chart or dashboard visual",
-                    [
-                        "Overview: alert type distribution",
-                        "Overview: enabling principles distribution",
-                        "Overview: regional distribution",
-                        "Overview: country distribution",
-                        "Map: country-level geographic distribution",
-                        "Negative alerts: restrictive actors",
-                        "Negative alerts: affected civil society actors",
-                        "Negative alerts: restrictive mechanisms",
-                        "Negative alerts: types of negative events",
-                        "Advanced: heatmaps and Sankey flow",
-                        "Chatbot-generated plot",
-                    ],
-                    key="copilot_chart_context",
-                )
-                if st.button("Explain selected visual", key="copilot_explain_btn", use_container_width=True):
-                    _track_ai_event("advanced_explain", chart_context)
-                    explanation = ai_generate_chart_explanation(df, chart_context)
-                    st.session_state.ai_messages.append({"role": "user", "content": f"Explain chart: {chart_context}"})
-                    st.session_state.ai_pending_answer = explanation
-                    st.session_state.ai_streaming = True
-                    st.session_state.ai_smart_output = {"type": "explain", "title": chart_context, "content": explanation}
-                    st.rerun()
-                with st.expander("Preview explanation", expanded=False):
-                    st.markdown(_render_chat_content_html(ai_generate_chart_explanation(df, chart_context)), unsafe_allow_html=True)
+                render_professional_chart_explainer_tab(df)
 
             with tool_tab2:
                 dims = _ai_get_available_plot_dimensions(df)
