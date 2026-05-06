@@ -257,6 +257,98 @@ def align_columns(df_final: pd.DataFrame, df_raw: pd.DataFrame):
     )
 
 
+def is_blank_value(value) -> bool:
+    """
+    Returns True when a value should be treated as missing/blank.
+    """
+    if pd.isna(value):
+        return True
+
+    s = str(value).strip()
+    return s == "" or s.lower() in {"nan", "none", "null", "na", "n/a"}
+
+
+def upsert_existing_records(df_final: pd.DataFrame, df_raw: pd.DataFrame):
+    """
+    Update existing rows in output_final.csv using matching raw_data.csv rows.
+
+    Append-only logic is not enough because a raw export may contain the same
+    event UID but with newly filled columns such as actor, subject, mechanism,
+    type of event, enabling principles, or other classification fields.
+
+    Policy:
+    - New UID in raw_data.csv: append as a new row.
+    - Existing UID: fill blank values in output_final.csv from raw_data.csv.
+    - Existing UID: do not overwrite non-blank values already in output_final.csv.
+
+    Returns:
+    - updated_final_df
+    - new_rows_df
+    - updated_cell_count
+    - updated_row_count
+    """
+    if df_final is None or df_final.empty:
+        new_rows = df_raw.copy()
+        return df_raw.drop(columns=["_uid"], errors="ignore"), new_rows, 0, 0
+
+    final_work = df_final.copy().reset_index(drop=True)
+    raw_work = df_raw.copy().reset_index(drop=True)
+
+    if "_uid" not in final_work.columns:
+        final_work["_uid"] = make_uid(final_work)
+    if "_uid" not in raw_work.columns:
+        raw_work["_uid"] = make_uid(raw_work)
+
+    # Keep the last raw version per UID because it is usually the most recent export state
+    raw_unique = raw_work.drop_duplicates(subset=["_uid"], keep="last").copy()
+
+    final_uid_to_index = {
+        uid: idx for idx, uid in final_work["_uid"].astype(str).items()
+    }
+
+    new_rows = []
+    updated_cell_count = 0
+    updated_row_uids = set()
+
+    for _, raw_row in raw_unique.iterrows():
+        uid = str(raw_row["_uid"])
+
+        if uid not in final_uid_to_index:
+            new_rows.append(raw_row)
+            continue
+
+        final_idx = final_uid_to_index[uid]
+
+        for col in raw_unique.columns:
+            if col == "_uid":
+                continue
+
+            raw_value = raw_row.get(col, "")
+            final_value = final_work.at[final_idx, col] if col in final_work.columns else ""
+
+            if is_blank_value(final_value) and not is_blank_value(raw_value):
+                final_work.at[final_idx, col] = raw_value
+                updated_cell_count += 1
+                updated_row_uids.add(uid)
+
+    if new_rows:
+        new_rows_df = pd.DataFrame(new_rows)
+        updated_final = pd.concat(
+            [
+                final_work.drop(columns=["_uid"], errors="ignore"),
+                new_rows_df.drop(columns=["_uid"], errors="ignore"),
+            ],
+            ignore_index=True,
+        )
+    else:
+        new_rows_df = pd.DataFrame(columns=raw_work.columns)
+        updated_final = final_work.drop(columns=["_uid"], errors="ignore")
+
+    updated_final = dedupe_by_uid(updated_final, keep="last")
+
+    return updated_final, new_rows_df, updated_cell_count, len(updated_row_uids)
+
+
 # ==========================================================
 # EMAIL FUNCTION
 # ==========================================================
@@ -453,51 +545,50 @@ try:
     # Align columns before UID/filter/concat
     df_final, df_raw = align_columns(df_final, df_raw)
 
-    # ---------------- UID + FILTER NEW ----------------
+    # ---------------- UPSERT: APPEND NEW + FILL MISSING EXISTING VALUES ----------------
     df_raw["_uid"] = make_uid(df_raw)
     df_final["_uid"] = make_uid(df_final) if len(df_final) > 0 else pd.Series(dtype=str)
 
-    logging.info(f"df_final rows available for dedupe check: {len(df_final)}")
+    logging.info(f"df_final rows available for upsert check: {len(df_final)}")
 
-    existing_uids = set(df_final["_uid"].astype(str).tolist())
-    new_rows = df_raw[~df_raw["_uid"].astype(str).isin(existing_uids)].copy()
+    updated_final_df, new_rows, updated_cell_count, updated_row_count = upsert_existing_records(
+        df_final,
+        df_raw
+    )
 
-    # ---------------- UPDATE FINAL + CHANGELOG ----------------
-    if not new_rows.empty:
-        combined_df = pd.concat(
-            [
-                df_final.drop(columns=["_uid"], errors="ignore"),
-                new_rows.drop(columns=["_uid"], errors="ignore"),
-            ],
-            ignore_index=True,
-        )
+    has_new_rows = not new_rows.empty
+    has_updated_existing_rows = updated_cell_count > 0
 
-        combined_df = dedupe_by_uid(combined_df, keep="last")
-        combined_df.to_csv(final_path, index=False)
-
-        logging.info(f"New rows appended: {len(new_rows)} -> {final_path}")
+    if has_new_rows or has_updated_existing_rows or final_changed:
+        updated_final_df.to_csv(final_path, index=False)
         final_changed = True
 
-        new_rows_out = new_rows.copy()
-        cols = [c for c in df_raw.columns if c != "_uid"] + ["_uid"]
-        new_rows_out = new_rows_out[cols]
-        new_rows_out.to_csv(
-            change_log_path,
-            mode="a",
-            header=not os.path.exists(change_log_path),
-            index=False
+        logging.info(
+            f"FINAL updated -> {final_path}; "
+            f"new rows appended: {len(new_rows)}; "
+            f"existing rows updated: {updated_row_count}; "
+            f"blank cells filled: {updated_cell_count}"
         )
-        logging.info(f"Change log updated with {len(new_rows)} rows -> {change_log_path}")
 
-        send_update_email(len(new_rows), latest_file, local_raw_path)
+        # Write changelog for genuinely new rows only
+        if has_new_rows:
+            new_rows_out = new_rows.copy()
+            cols = [c for c in df_raw.columns if c != "_uid"] + ["_uid"]
+            new_rows_out = new_rows_out.reindex(columns=cols, fill_value="")
+            new_rows_out.to_csv(
+                change_log_path,
+                mode="a",
+                header=not os.path.exists(change_log_path),
+                index=False
+            )
+            logging.info(f"Change log updated with {len(new_rows)} new rows -> {change_log_path}")
+
+        # Send email when new rows are appended or existing rows were enriched
+        email_count = len(new_rows) if has_new_rows else updated_row_count
+        send_update_email(email_count, latest_file, local_raw_path)
 
     else:
-        logging.info("No new rows to append. Email not sent.")
-
-        # If final was cleaned, save the cleaned version
-        if final_changed:
-            df_final.drop(columns=["_uid"], errors="ignore").to_csv(final_path, index=False)
-            logging.info(f"Cleaned FINAL saved -> {final_path}")
+        logging.info("No new rows and no missing values to update. Email not sent.")
 
         # Ensure final exists on first run
         if not os.path.exists(final_path):
