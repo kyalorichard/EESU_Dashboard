@@ -13,7 +13,7 @@ from datetime import datetime
 # CONFIG (ENVIRONMENT VARIABLES)
 # ==========================================================
 SFTP_HOST = os.getenv("SFTP_HOST")
-SFTP_PORT = 22
+SFTP_PORT = int(os.getenv("SFTP_PORT", "22"))
 SFTP_USERNAME = os.getenv("SFTP_USERNAME")
 SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 REMOTE_DIR = os.getenv("SFTP_REMOTE_DIR") or "exports"
@@ -24,8 +24,8 @@ SMTP_SERVER = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASS")
-EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")  # ✅ FIXED
-EMAIL_TO = os.getenv("NOTIFY_EMAIL")        # ✅ FIXED
+EMAIL_FROM = os.getenv("ALERT_EMAIL_FROM")
+EMAIL_TO = os.getenv("NOTIFY_EMAIL")
 EMAIL_SUBJECT = "Data Download Update Notification"
 
 RAW_FILENAME = "raw_data.csv"
@@ -38,6 +38,9 @@ os.makedirs(LOCAL_DIR, exist_ok=True)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
+# ==========================================================
+# GENERAL HELPERS
+# ==========================================================
 def require_env(name: str) -> str:
     v = os.getenv(name)
     if not v:
@@ -46,14 +49,217 @@ def require_env(name: str) -> str:
 
 
 def set_github_env(key: str, value: str) -> None:
-    """Expose variables to subsequent GitHub Actions steps."""
+    """
+    Expose variables to subsequent GitHub Actions steps.
+    """
     github_env = os.getenv("GITHUB_ENV")
     if github_env:
         with open(github_env, "a", encoding="utf-8") as f:
             f.write(f"{key}={value}\n")
 
 
-# ---------------- EMAIL FUNCTION ----------------
+def set_github_output(key: str, value: str) -> None:
+    """
+    Expose step outputs to GitHub Actions.
+    Useful when workflow checks: steps.sync.outputs.new_files
+    """
+    github_output = os.getenv("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a", encoding="utf-8") as f:
+            f.write(f"{key}={value}\n")
+
+
+def ensure_remote_dir(sftp, path: str):
+    """
+    Create remote directories if missing.
+    Supports nested folders.
+    """
+    parts = [p for p in path.strip("/").split("/") if p]
+    cur = ""
+    for p in parts:
+        cur = f"{cur}/{p}" if cur else p
+        try:
+            sftp.stat(cur)
+        except FileNotFoundError:
+            sftp.mkdir(cur)
+
+
+def extract_date_dt(filename: str):
+    """
+    Extracts date from filenames such as:
+    EventsExports_2026_05_06_1.csv
+    """
+    m = re.search(r"(\d{4}_\d{2}_\d{2})", filename)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%Y_%m_%d")
+    except ValueError:
+        return None
+
+
+# ==========================================================
+# NORMALIZATION + DEDUPLICATION HELPERS
+# ==========================================================
+def normalize_text(series: pd.Series) -> pd.Series:
+    """
+    Normalize text values so minor spacing, case, newline, and punctuation
+    inconsistencies do not create duplicate records.
+    """
+    return (
+        series.fillna("")
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .str.replace(r"[\n\r\t]+", " ", regex=True)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.replace("\u00a0", " ", regex=False)
+    )
+
+
+def normalize_date(series: pd.Series) -> pd.Series:
+    """
+    Normalize date formats before building the UID.
+
+    This prevents duplicates caused by the same date appearing as:
+    - 8/21/2025
+    - 21/08/2025
+    - 2025-08-21
+    - 2025/08/21
+
+    The function first tries normal parsing, then day-first parsing.
+    """
+    s = series.fillna("").astype(str).str.strip()
+
+    parsed = pd.to_datetime(s, errors="coerce", dayfirst=False)
+    parsed_dayfirst = pd.to_datetime(s, errors="coerce", dayfirst=True)
+
+    parsed = parsed.fillna(parsed_dayfirst)
+
+    normalized = parsed.dt.strftime("%Y-%m-%d")
+    fallback = normalize_text(s)
+
+    return normalized.fillna(fallback)
+
+
+def standardize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize incoming/exported dataframe columns and values.
+    """
+    df = df.copy().fillna("")
+
+    rename_map = {
+        "Title": "post_title",
+        "Content": "summary",
+        "Date": "creation_date",
+        "Countries": "alert-country",
+        "Impact": "alert-impact",
+        "Alert types": "alert-type",
+        "Enabling principles": "enabling-principle",
+    }
+    df.rename(columns=rename_map, inplace=True)
+
+    # Remove unnamed CSV index columns if they exist
+    unnamed_cols = [c for c in df.columns if str(c).lower().startswith("unnamed:")]
+    if unnamed_cols:
+        df.drop(columns=unnamed_cols, inplace=True, errors="ignore")
+
+    # Normalize enabling-principle separators
+    if "enabling-principle" in df.columns:
+        df["enabling-principle"] = (
+            df["enabling-principle"]
+            .astype(str)
+            .str.replace(r"\|", ",", regex=True)
+            .str.replace(r"\s*,\s*", ",", regex=True)
+            .str.strip(", ")
+        )
+
+    # Normalize core text fields lightly for storage consistency
+    for col in ["post_title", "summary", "alert-country", "alert-impact", "alert-type", "enabling-principle"]:
+        if col in df.columns:
+            df[col] = (
+                df[col]
+                .astype(str)
+                .str.replace(r"[\n\r\t]+", " ", regex=True)
+                .str.replace(r"\s+", " ", regex=True)
+                .str.strip()
+            )
+
+    # Store dates consistently where possible
+    if "creation_date" in df.columns:
+        parsed = pd.to_datetime(df["creation_date"].astype(str).str.strip(), errors="coerce", dayfirst=False)
+        parsed_dayfirst = pd.to_datetime(df["creation_date"].astype(str).str.strip(), errors="coerce", dayfirst=True)
+        parsed = parsed.fillna(parsed_dayfirst)
+        df["creation_date"] = parsed.dt.strftime("%Y-%m-%d").fillna(df["creation_date"].astype(str).str.strip())
+
+    return df
+
+
+def make_uid(df: pd.DataFrame) -> pd.Series:
+    """
+    Create stable row IDs for incremental deduplication.
+
+    Important:
+    Do not rely on raw date text. Normalize dates first to avoid duplicate rows
+    caused by formats such as 8/21/2025 vs 2025-08-21.
+    """
+    df = df.copy()
+
+    key_cols = ["post_title", "creation_date", "alert-country", "alert-type"]
+    for c in key_cols:
+        if c not in df.columns:
+            df[c] = ""
+
+    key = (
+        normalize_text(df["post_title"]) + "||" +
+        normalize_date(df["creation_date"]) + "||" +
+        normalize_text(df["alert-country"]) + "||" +
+        normalize_text(df["alert-type"])
+    )
+
+    return key.apply(lambda x: hashlib.md5(x.encode("utf-8")).hexdigest())
+
+
+def dedupe_by_uid(df: pd.DataFrame, keep: str = "last") -> pd.DataFrame:
+    """
+    Deduplicate a dataframe using the stable UID.
+    """
+    if df is None or df.empty:
+        return df
+
+    out = df.copy().fillna("")
+    out["_uid"] = make_uid(out)
+
+    before = len(out)
+    out = out.drop_duplicates(subset=["_uid"], keep=keep)
+    after = len(out)
+
+    removed = before - after
+    if removed > 0:
+        logging.info(f"Removed {removed} duplicate rows using stable UID.")
+
+    return out.drop(columns=["_uid"], errors="ignore")
+
+
+def align_columns(df_final: pd.DataFrame, df_raw: pd.DataFrame):
+    """
+    Align columns before concatenation.
+    Keeps existing final columns and appends any new raw columns.
+    """
+    final_cols = list(df_final.columns)
+    raw_cols = list(df_raw.columns)
+
+    all_cols = final_cols + [c for c in raw_cols if c not in final_cols]
+
+    return (
+        df_final.reindex(columns=all_cols, fill_value=""),
+        df_raw.reindex(columns=all_cols, fill_value="")
+    )
+
+
+# ==========================================================
+# EMAIL FUNCTION
+# ==========================================================
 def send_update_email(new_rows_count, latest_file, local_path):
     """
     Sends a professional HTML email summarizing the SFTP CSV update.
@@ -65,7 +271,6 @@ def send_update_email(new_rows_count, latest_file, local_path):
 
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    # Validate email/SMTP config (fail softly)
     if not EMAIL_FROM:
         logging.error("ALERT_EMAIL_FROM is not set; cannot send email.")
         return
@@ -143,53 +348,6 @@ def send_update_email(new_rows_count, latest_file, local_path):
         logging.error(f"Failed to send email: {e}")
 
 
-# ---------------- HELPERS ----------------
-def ensure_remote_dir(sftp, path: str):
-    """Create remote directories if missing (supports nested)."""
-    parts = path.strip("/").split("/")
-    cur = ""
-    for p in parts:
-        cur = f"{cur}/{p}" if cur else p
-        try:
-            sftp.stat(cur)
-        except FileNotFoundError:
-            sftp.mkdir(cur)
-
-
-def normalize_text(series: pd.Series) -> pd.Series:
-    return (
-        series.astype(str)
-        .str.strip()
-        .str.lower()
-        .str.replace(r"[\n\r]+", " ", regex=True)
-        .str.replace(r"\s+", " ", regex=True)
-    )
-
-
-def extract_date_dt(filename: str):
-    m = re.search(r"(\d{4}_\d{2}_\d{2})", filename)
-    if not m:
-        return None
-    try:
-        return datetime.strptime(m.group(1), "%Y_%m_%d")
-    except ValueError:
-        return None
-
-
-def make_uid(df: pd.DataFrame) -> pd.Series:
-    key_cols = ["post_title", "creation_date", "alert-country", "alert-type"]
-    for c in key_cols:
-        if c not in df.columns:
-            df[c] = ""
-    key = (
-        normalize_text(df[key_cols[0]]) + "||" +
-        normalize_text(df[key_cols[1]]) + "||" +
-        normalize_text(df[key_cols[2]]) + "||" +
-        normalize_text(df[key_cols[3]])
-    )
-    return key.apply(lambda x: hashlib.md5(x.encode("utf-8")).hexdigest())
-
-
 # ==========================================================
 # MAIN
 # ==========================================================
@@ -197,7 +355,6 @@ transport = None
 sftp = None
 
 try:
-    # fail-fast for required SFTP envs
     require_env("SFTP_HOST")
     require_env("SFTP_USERNAME")
     require_env("SFTP_PASSWORD")
@@ -209,29 +366,30 @@ try:
 
     ensure_remote_dir(sftp, REMOTE_DIR)
 
-    # Change flags (used for uploads + GitHub Actions)
-    raw_changed = False          # downloaded a newer dated CSV
-    final_changed = False        # output_final.csv actually appended rows
+    raw_changed = False
+    final_changed = False
 
     # ---------------- LIST FILES ----------------
     remote_files = sftp.listdir(REMOTE_DIR)
     csv_files = [f for f in remote_files if f.lower().endswith(".csv")]
 
+    # Ignore generated outputs to avoid selecting output_final.csv as source input
+    generated_files = {RAW_FILENAME.lower(), FINAL_FILENAME.lower(), CHANGELOG_FILENAME.lower()}
+    csv_files = [f for f in csv_files if f.lower() not in generated_files]
+
     csv_files_with_dates = [(f, extract_date_dt(f)) for f in csv_files]
     csv_files_with_dates = [(f, dt) for (f, dt) in csv_files_with_dates if dt is not None]
 
     if not csv_files_with_dates:
-        raise RuntimeError(f"No dated CSV files found in remote folder: {REMOTE_DIR}")
+        raise RuntimeError(f"No dated source CSV files found in remote folder: {REMOTE_DIR}")
 
     latest_file = sorted(csv_files_with_dates, key=lambda x: x[1], reverse=True)[0][0]
     remote_path = f"{REMOTE_DIR}/{latest_file}"
 
-    # Local staging
     local_raw_path = os.path.join(LOCAL_DIR, RAW_FILENAME)
     final_path = os.path.join(LOCAL_DIR, FINAL_FILENAME)
     change_log_path = os.path.join(LOCAL_DIR, CHANGELOG_FILENAME)
 
-    # Remote “same folder” outputs
     remote_raw_path = f"{REMOTE_DIR}/{RAW_FILENAME}"
     remote_final_path = f"{REMOTE_DIR}/{FINAL_FILENAME}"
     remote_changelog_path = f"{REMOTE_DIR}/{CHANGELOG_FILENAME}"
@@ -251,62 +409,60 @@ try:
     if download_needed:
         sftp.get(remote_path, local_raw_path)
         os.utime(local_raw_path, (remote_mtime, remote_mtime))
-        logging.info(f"Downloaded latest file: {latest_file} -> {local_raw_path}")
+        logging.info(f"Downloaded latest source file: {latest_file} -> {local_raw_path}")
         raw_changed = True
     else:
         logging.info(f"{RAW_FILENAME} is already up to date locally. Skipping download.")
 
-    # ---------------- SYNC REMOTE FINAL -> LOCAL (FOR DEDUPE) ----------------
+    # ---------------- SYNC REMOTE FINAL -> LOCAL ----------------
     try:
         sftp.stat(remote_final_path)
         sftp.get(remote_final_path, final_path)
         logging.info(f"Downloaded existing remote FINAL for dedupe -> {final_path}")
     except FileNotFoundError:
-        logging.info("No remote FINAL found yet; starting fresh (first run).")
+        logging.info("No remote FINAL found yet; starting fresh.")
 
-    # ---------------- LOAD RAW CSV ----------------
+    # ---------------- LOAD + STANDARDIZE RAW ----------------
     df_raw = pd.read_csv(local_raw_path).fillna("")
-
-    rename_map = {
-        "Title": "post_title",
-        "Content": "summary",
-        "Date": "creation_date",
-        "Countries": "alert-country",
-        "Impact": "alert-impact",
-        "Alert types": "alert-type",
-        "Enabling principles": "enabling-principle",
-    }
-    df_raw.rename(columns=rename_map, inplace=True)
-
-    if "enabling-principle" in df_raw.columns:
-        df_raw["enabling-principle"] = (
-            df_raw["enabling-principle"]
-            .astype(str)
-            .str.replace(r"\|", ",", regex=True)
-            .str.replace(r"\s*,\s*", ",", regex=True)
-        )
+    df_raw = standardize_dataframe(df_raw)
 
     if "post_title" not in df_raw.columns:
         raise RuntimeError(f"Missing required column post_title after rename. Found: {list(df_raw.columns)}")
 
-    # ---------------- LOAD EXISTING FINAL (LOCAL STAGING) ----------------
+    # Remove duplicates inside the new raw export itself
+    before_raw = len(df_raw)
+    df_raw = dedupe_by_uid(df_raw, keep="last")
+    logging.info(f"Raw rows loaded: {before_raw}; after raw dedupe: {len(df_raw)}")
+
+    # ---------------- LOAD + STANDARDIZE EXISTING FINAL ----------------
     if os.path.exists(final_path):
         df_final = pd.read_csv(final_path).fillna("")
+        df_final = standardize_dataframe(df_final)
     else:
         df_final = pd.DataFrame(columns=df_raw.columns)
 
+    before_final = len(df_final)
+    df_final = dedupe_by_uid(df_final, keep="last")
+    logging.info(f"Final rows loaded: {before_final}; after final dedupe: {len(df_final)}")
+
+    # If the final file had duplicates, rewrite/upload it even if no new rows
+    if before_final != len(df_final):
+        final_changed = True
+        logging.info("Existing FINAL contained duplicates and will be cleaned.")
+
+    # Align columns before UID/filter/concat
+    df_final, df_raw = align_columns(df_final, df_raw)
+
     # ---------------- UID + FILTER NEW ----------------
     df_raw["_uid"] = make_uid(df_raw)
-    if len(df_final) > 0:
-        df_final["_uid"] = make_uid(df_final)
-    else:
-        df_final["_uid"] = pd.Series(dtype=str)
+    df_final["_uid"] = make_uid(df_final) if len(df_final) > 0 else pd.Series(dtype=str)
 
-    logging.info(f"df_final rows loaded for dedupe: {len(df_final)}")
+    logging.info(f"df_final rows available for dedupe check: {len(df_final)}")
 
-    new_rows = df_raw[~df_raw["_uid"].isin(df_final["_uid"])].copy()
+    existing_uids = set(df_final["_uid"].astype(str).tolist())
+    new_rows = df_raw[~df_raw["_uid"].astype(str).isin(existing_uids)].copy()
 
-    # ---------------- UPDATE FINAL + CHANGELOG (LOCAL) ----------------
+    # ---------------- UPDATE FINAL + CHANGELOG ----------------
     if not new_rows.empty:
         combined_df = pd.concat(
             [
@@ -315,11 +471,13 @@ try:
             ],
             ignore_index=True,
         )
+
+        combined_df = dedupe_by_uid(combined_df, keep="last")
         combined_df.to_csv(final_path, index=False)
+
         logging.info(f"New rows appended: {len(new_rows)} -> {final_path}")
         final_changed = True
 
-        # changelog append with uid for traceability
         new_rows_out = new_rows.copy()
         cols = [c for c in df_raw.columns if c != "_uid"] + ["_uid"]
         new_rows_out = new_rows_out[cols]
@@ -331,20 +489,28 @@ try:
         )
         logging.info(f"Change log updated with {len(new_rows)} rows -> {change_log_path}")
 
-        # Send email
         send_update_email(len(new_rows), latest_file, local_raw_path)
+
     else:
         logging.info("No new rows to append. Email not sent.")
 
-        # Ensure final exists even on first run (but do NOT mark as changed)
+        # If final was cleaned, save the cleaned version
+        if final_changed:
+            df_final.drop(columns=["_uid"], errors="ignore").to_csv(final_path, index=False)
+            logging.info(f"Cleaned FINAL saved -> {final_path}")
+
+        # Ensure final exists on first run
         if not os.path.exists(final_path):
             df_final.drop(columns=["_uid"], errors="ignore").to_csv(final_path, index=False)
 
-    # ---------------- EXPORT FLAG TO GITHUB ACTIONS (FINAL-ONLY POLICY) ----------------
-    set_github_env("NEW_FILES_DOWNLOADED", "1" if final_changed else "0")
-    logging.info(f"NEW_FILES_DOWNLOADED={'1' if final_changed else '0'}")
+    # ---------------- EXPORT FLAGS TO GITHUB ACTIONS ----------------
+    flag_value = "1" if final_changed else "0"
+    set_github_env("NEW_FILES_DOWNLOADED", flag_value)
+    set_github_output("new_files", flag_value)
+    logging.info(f"NEW_FILES_DOWNLOADED={flag_value}")
+    logging.info(f"new_files={flag_value}")
 
-    # ---------------- UPLOAD BACK TO SAME REMOTE FOLDER (ONLY IF CHANGED) ----------------
+    # ---------------- UPLOAD BACK TO REMOTE ONLY IF CHANGED ----------------
     try:
         if raw_changed:
             sftp.put(local_raw_path, remote_raw_path)
@@ -360,7 +526,7 @@ try:
                 sftp.put(change_log_path, remote_changelog_path)
                 logging.info(f"Uploaded CHANGELOG -> {remote_changelog_path}")
             else:
-                logging.info("No changelog to upload (unexpected: final changed but changelog missing).")
+                logging.info("No changelog to upload.")
         else:
             logging.info("FINAL unchanged; skipping FINAL/CHANGELOG upload.")
 
