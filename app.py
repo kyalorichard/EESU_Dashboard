@@ -7614,7 +7614,7 @@ def _copilot_queue_answer(question, df):
     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
 
 
-def _v2_render_status_bar(df)
+def _v2_render_status_bar(df):
 
         with st.expander("🧪 OpenAI connection", expanded=False):
             status = _ai_openai_status()
