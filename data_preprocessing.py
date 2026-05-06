@@ -7,11 +7,9 @@ import os
 import posixpath
 import random
 import smtplib
-import tempfile
 from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Any
 
 import openai
 import pandas as pd
@@ -25,13 +23,9 @@ from tqdm.asyncio import tqdm_asyncio
 # ==========================================================
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
-
-if not OPENAI_API_KEY:
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
     raise ValueError("OPENAI_API_KEY is not set. Add it to your environment or .env file.")
-
-openai.api_key = OPENAI_API_KEY
 
 # ==========================================================
 # CONFIG
@@ -63,12 +57,11 @@ OUTPUT_PARQUET = OUTPUT_FOLDER / "output_final.parquet"
 PERMANENTLY_FAILED_FILE = OUTPUT_FOLDER / "permanently_failed_batches.json"
 
 # --- PROCESSING CONFIG ---
-MAX_BATCH_TOKENS = int(os.getenv("MAX_BATCH_TOKENS", "4000"))
-MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "100"))
-CONCURRENT_BATCHES = int(os.getenv("CONCURRENT_BATCHES", "5"))
-MAX_RETRIES = int(os.getenv("MAX_RETRIES", "2"))
-TEST_ROWS = int(os.getenv("TEST_ROWS")) if os.getenv("TEST_ROWS") else None
-MOCK_MODE = os.getenv("MOCK_MODE", "false").strip().lower() in {"1", "true", "yes"}
+MAX_BATCH_TOKENS = 4000
+MAX_BATCH_SIZE = 100
+CONCURRENT_BATCHES = 5
+MAX_RETRIES = 2
+TEST_ROWS = None
 
 FIELDS = [
     "Actor of repression",
@@ -77,27 +70,13 @@ FIELDS = [
     "Type of event",
 ]
 
-CORE_TEXT_COLUMNS = [
-    "post_title",
-    "summary",
-    "creation_date",
-    "alert-country",
-    "alert-impact",
-    "alert-type",
-    "enabling-principle",
-]
-
-
 # ==========================================================
 # TOKEN ESTIMATION
 # ==========================================================
 try:
     import tiktoken
 
-    try:
-        encoding = tiktoken.encoding_for_model(OPENAI_MODEL)
-    except Exception:
-        encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.encoding_for_model("gpt-5-mini")
 
     def estimate_tokens(text: str) -> int:
         return len(encoding.encode(text or "")) + 50
@@ -109,169 +88,18 @@ except ImportError:
 
 
 # ==========================================================
-# DATAFRAME SAFETY HELPERS
-# ==========================================================
-def safe_str(value: Any) -> str:
-    """
-    Convert any value to a clean string.
-
-    This prevents pandas dtype crashes such as:
-    TypeError: Invalid value 'Government' for dtype 'float64'
-    """
-    if value is None:
-        return ""
-
-    try:
-        if pd.isna(value):
-            return ""
-    except Exception:
-        pass
-
-    value = str(value).strip()
-
-    if value.lower() in {"nan", "none", "null", "n/a", "na"}:
-        return ""
-
-    # Never persist synthetic failure marker
-    if value == "Error":
-        return ""
-
-    return value
-
-
-def drop_fully_blank_rows(df: pd.DataFrame) -> pd.DataFrame:
-    if df is None or df.empty:
-        return df
-
-    mask = df.apply(lambda row: any(safe_str(v) for v in row), axis=1)
-    removed = int((~mask).sum())
-
-    if removed > 0:
-        print(f"Removed fully blank rows: {removed}")
-
-    return df.loc[mask].copy().reset_index(drop=True)
-
-
-def normalize_output_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Make dataframe safe for text classification updates.
-
-    Critical protections:
-    - force classification columns to object/string-compatible dtype
-    - convert blank-like values to ""
-    - remove fully blank rows
-    """
-    df = df.copy()
-
-    for col in FIELDS:
-        if col not in df.columns:
-            df[col] = ""
-
-    # Force all columns to object to avoid pandas LossySetitemError.
-    df = df.astype(object)
-
-    # Clean known text/classification columns.
-    for col in CORE_TEXT_COLUMNS + FIELDS:
-        if col in df.columns:
-            df[col] = df[col].map(safe_str)
-
-    # Ensure classification columns remain object.
-    for col in FIELDS:
-        df[col] = df[col].astype(object)
-
-    df = drop_fully_blank_rows(df)
-    return df
-
-
-def safe_set_cell(df: pd.DataFrame, idx: Any, col: str, value: Any) -> int:
-    """
-    Ultra-safe dataframe cell assignment.
-
-    This fixes persistent errors like:
-    TypeError: Invalid value 'Government' for dtype 'float64'
-
-    The column is explicitly converted to object dtype immediately before assignment.
-    Returns 1 if a value was written, otherwise 0.
-    """
-    value = safe_str(value)
-
-    if not value:
-        return 0
-
-    if col not in df.columns:
-        df[col] = ""
-
-    # Critical: force target column to object dtype immediately before assignment.
-    # This is intentionally repeated because pandas can preserve float64 blocks
-    # when columns were empty in the original CSV.
-    df[col] = df[col].astype(object)
-
-    try:
-        df.at[idx, col] = value
-    except Exception:
-        # Last-resort repair for stubborn pandas block dtype issues.
-        df[col] = pd.Series(df[col].astype(object).tolist(), index=df.index, dtype=object)
-        df.at[idx, col] = value
-
-    return 1
-
-
-def atomic_write_csv(df: pd.DataFrame, path: Path) -> None:
-    """
-    Write CSV atomically to avoid corrupted partial files.
-    """
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        delete=False,
-        suffix=".csv",
-        dir=str(path.parent),
-        encoding="utf-8",
-        newline="",
-    ) as tmp:
-        tmp_path = Path(tmp.name)
-
-    try:
-        df.to_csv(tmp_path, index=False)
-        tmp_path.replace(path)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink(missing_ok=True)
-
-
-def atomic_write_parquet(df: pd.DataFrame, path: Path) -> None:
-    """
-    Write parquet atomically to avoid corrupted partial files.
-    """
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(".tmp.parquet")
-
-    try:
-        df.to_parquet(tmp_path, index=False, engine="pyarrow")
-        tmp_path.replace(path)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink(missing_ok=True)
-
-
-# ==========================================================
 # OUTPUT WRITER
 # ==========================================================
 def write_outputs(df: pd.DataFrame) -> None:
     """
-    Write local CSV and parquet outputs after final normalization only.
+    Write local CSV and parquet outputs and log clearly.
     """
     OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
-    df = normalize_output_dataframe(df)
-
-    atomic_write_csv(df, OUTPUT_CSV)
+    df.to_csv(OUTPUT_CSV, index=False)
     print(f"Wrote local CSV: {OUTPUT_CSV}")
 
-    atomic_write_parquet(df, OUTPUT_PARQUET)
+    df.to_parquet(OUTPUT_PARQUET, index=False, engine="pyarrow")
     print(f"Wrote local parquet: {OUTPUT_PARQUET}")
 
 
@@ -293,6 +121,9 @@ def create_sftp_client():
 
 
 def ensure_remote_dir(sftp: paramiko.SFTPClient, remote_directory: str) -> None:
+    """
+    Recursively create remote directory if it does not exist.
+    """
     remote_directory = remote_directory.strip("/")
     if not remote_directory:
         return
@@ -312,9 +143,12 @@ def download_file_from_sftp(
     local_path: Path,
     required: bool = True,
 ) -> bool:
+    """
+    Download one file from REMOTE_DIR into local_path.
+    Returns True if downloaded, False if missing and not required.
+    """
     transport = None
     sftp = None
-
     try:
         transport, sftp = create_sftp_client()
         remote_path = posixpath.join(REMOTE_DIR, remote_filename)
@@ -340,9 +174,11 @@ def download_file_from_sftp(
 
 
 def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
+    """
+    Upload one local file into REMOTE_DIR and overwrite remote file if it exists.
+    """
     transport = None
     sftp = None
-
     try:
         local_path = Path(local_path)
         if not local_path.exists():
@@ -365,9 +201,11 @@ def upload_file_to_sftp(local_path: Path, remote_filename: str) -> None:
 
 
 def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
+    """
+    Verify uploaded file by comparing local and remote file sizes.
+    """
     transport = None
     sftp = None
-
     try:
         local_path = Path(local_path)
         if not local_path.exists():
@@ -403,7 +241,7 @@ def verify_remote_file_matches(local_path: Path, remote_filename: str) -> bool:
 
 def fetch_required_input_files() -> None:
     """
-    Always refresh local working files from remote so remote is source of truth.
+    Always refresh local working files from remote so remote is the source of truth.
     """
     if not sftp_enabled():
         raise RuntimeError("SFTP is required because remote files are the source of truth.")
@@ -415,7 +253,7 @@ def fetch_required_input_files() -> None:
 
 def upload_output_files(verify: bool = True) -> None:
     """
-    Upload only after successful full processing and successful local writes.
+    Overwrite remote output files with the local processed versions.
     """
     if not sftp_enabled():
         print("SFTP not configured. Skipping remote upload.")
@@ -447,23 +285,56 @@ def upload_output_files(verify: bool = True) -> None:
 # ==========================================================
 # EMAIL NOTIFIER
 # ==========================================================
+def send_email(subject: str, body: str, to_email: str) -> None:
+    if not all([subject, body, to_email, SMTP_USER, SMTP_PASS, SMTP_HOST]):
+        print("Email not sent: missing credentials or recipient.")
+        return
+
+    try:
+        msg = EmailMessage()
+        msg.set_content(body)
+        msg["Subject"] = str(subject)
+        msg["From"] = str(SMTP_USER)
+        msg["To"] = str(to_email)
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+
+        print(f"Email successfully sent to {to_email}")
+    except Exception as e:
+        print(f"Email failed: {e}")
+
+
 def send_summary_update_email(
-    to_email: str,
-    total_rows: int,
-    processed_rows: int,
-    skipped_rows: int,
-    output_csv: Path,
-    output_parquet: Path,
-    permanently_failed_count: int = 0,
-    mock_mode: bool = False,
-) -> None:
-    if not all([to_email, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS]):
+    to_email,
+    total_rows,
+    processed_rows,
+    skipped_rows,
+    output_csv,
+    output_parquet,
+    permanently_failed_count=0,
+    mock_mode=False,
+    smtp_host=SMTP_HOST,
+    smtp_port=SMTP_PORT,
+    smtp_user=SMTP_USER,
+    smtp_pass=SMTP_PASS,
+):
+    """
+    Send a formatted HTML email summarizing dataset update results.
+    """
+    if not all([to_email, smtp_host, smtp_port, smtp_user, smtp_pass]):
         print("Email not sent: missing SMTP configuration.")
         return
 
     run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     output_csv = Path(output_csv)
     output_parquet = Path(output_parquet)
+
+    csv_status = "Created" if output_csv.exists() else "Not found"
+    parquet_status = "Created" if output_parquet.exists() else "Not found"
 
     subject = f"Dataset Summary Update Completed | {run_time}"
 
@@ -475,25 +346,132 @@ Mock mode: {mock_mode}
 
 Processing results:
 - Total rows in dataset: {total_rows}
-- Fully blank rows processed/attempted: {processed_rows}
-- Rows skipped: {skipped_rows}
+- Fully blank rows processed: {processed_rows}
+- Rows skipped (already filled): {skipped_rows}
 - Permanently failed batches: {permanently_failed_count}
 
 Output files:
-- CSV: {output_csv.name} ({'Created' if output_csv.exists() else 'Not found'})
-- Parquet: {output_parquet.name} ({'Created' if output_parquet.exists() else 'Not found'})
+- CSV: {output_csv.name} ({csv_status})
+- Parquet: {output_parquet.name} ({parquet_status})
+
+This notification confirms that the dataset summary update pipeline has completed.
 """
+
+    html = f"""
+    <html>
+      <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;padding:24px 0;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="700" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #dfe3e8;">
+                <tr>
+                  <td style="background:#1f4e79;color:#ffffff;padding:24px 32px;">
+                    <h1 style="margin:0;font-size:24px;">Dataset Summary Update Completed</h1>
+                    <p style="margin:8px 0 0 0;font-size:14px;opacity:0.95;">
+                      Automated processing report for summary field updates
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:28px 32px;">
+                    <p style="margin:0 0 18px 0;font-size:15px;color:#222;">Hello,</p>
+                    <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#222;">
+                      The dataset update pipeline has finished processing summary-based classification fields.
+                      Below is the execution summary and output status.
+                    </p>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Run Details
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Run time</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{run_time}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Mock mode</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{mock_mode}</td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Processing Summary
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">Total rows in dataset</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{total_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Fully blank rows processed</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{processed_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Rows skipped</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{skipped_rows}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Permanently failed batches</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{permanently_failed_count}</td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="padding:12px 14px;background:#eef4f8;border:1px solid #dfe3e8;font-weight:bold;color:#1f2937;">
+                          Output Files
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;width:40%;font-weight:bold;">CSV output</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_csv.name} — {csv_status}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;font-weight:bold;">Parquet output</td>
+                        <td style="padding:12px 14px;border:1px solid #dfe3e8;">{output_parquet.name} — {parquet_status}</td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#222;">
+                      This message confirms that the summary update job completed and the output dataset was written successfully.
+                    </p>
+
+                    <p style="margin:20px 0 0 0;font-size:15px;color:#222;">
+                      Regards,<br>
+                      Automated Dataset Update Pipeline
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:16px 32px;background:#f8fafc;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;">
+                    This is an automated notification generated by the dataset processing workflow.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+    """
 
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
-        msg["From"] = SMTP_USER
+        msg["From"] = smtp_user
         msg["To"] = to_email
         msg.set_content(plain_text)
+        msg.add_alternative(html, subtype="html")
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
+            server.login(smtp_user, smtp_pass)
             server.send_message(msg)
 
         print(f"Summary update email sent to {to_email}")
@@ -517,52 +495,40 @@ def load_input_dataframe(input_csv: Path, test_rows: int | None = None) -> pd.Da
     if not input_csv.exists():
         raise FileNotFoundError(f"Input CSV not found: {input_csv}")
 
-    # dtype=str is mandatory. It prevents empty columns from becoming float64.
-    df = pd.read_csv(input_csv, dtype=str, keep_default_na=False)
-    df = normalize_output_dataframe(df)
+    df = pd.read_csv(input_csv)
 
     if test_rows:
         df = df.head(test_rows).copy()
+
+    for col in FIELDS:
+        if col not in df.columns:
+            df[col] = ""
 
     return df
 
 
 # ==========================================================
-# PROMPT HELPERS
+# HELPERS
 # ==========================================================
 def format_theme_options(theme_list: dict, lang: str) -> str:
-    options = theme_list.get(lang, theme_list.get("en", []))
-    return ", ".join([safe_str(t.get("label", "")) for t in options if safe_str(t.get("label", ""))])
+    options = theme_list.get(lang, theme_list["en"])
+    return ", ".join([t["label"] for t in options])
 
 
-def to_comma_separated(item: Any) -> str:
+def to_comma_separated(item) -> str:
     if isinstance(item, list):
-        values = [safe_str(i) for i in item[:2]]
-        values = [v for v in values if v]
-        return ", ".join(values)
-
-    return safe_str(item)
+        return ", ".join(str(i) for i in item[:2])
+    if isinstance(item, str) and item.strip():
+        return item.strip()
+    return ""
 
 
 def pick_random_themes(theme_map: dict, lang: str, n: int = 2) -> list[str]:
     if lang not in theme_map:
         lang = "en"
-
-    options = theme_map.get(lang, [])
-    if not options:
-        return []
-
+    options = theme_map[lang]
     selected = random.sample(options, n) if len(options) >= n else options
-    return [safe_str(c.get("label", "")) for c in selected if safe_str(c.get("label", ""))]
-
-
-def detect_language_safe(summary: str) -> str:
-    try:
-        return detect(summary) if safe_str(summary) else "en"
-    except LangDetectException:
-        return "en"
-    except Exception:
-        return "en"
+    return [c["label"] for c in selected]
 
 
 def build_prompt(
@@ -575,7 +541,10 @@ def build_prompt(
     numbered_texts = []
 
     for idx, summary in enumerate(batch_summaries):
-        lang = detect_language_safe(summary)
+        try:
+            lang = detect(summary) if str(summary).strip() else "en"
+        except LangDetectException:
+            lang = "en"
 
         numbered_texts.append(
             f"{idx + 1}. Summary: {summary}\n"
@@ -588,67 +557,298 @@ def build_prompt(
 
     numbered_text = "\n\n".join(numbered_texts)
 
-    return f"""
+    prompt = f"""
 Extract repression info from each text below. Return a JSON array of objects in the same order.
-Return only valid JSON. Do not include explanations.
-
-Each object must contain exactly these keys:
+- Return only valid JSON, do not include explanations or extra text.
+- Each object must contain:
 {json.dumps({field: "" for field in FIELDS}, indent=4)}
 
-Rules:
-- Use ONLY the provided options for each field.
-- Do NOT invent labels.
-- Select the minimum number of labels necessary.
+- Use ONLY the provided options for each field. Do NOT invent or add new labels.
+- Select the minimum number of labels necessary to reflect the summary accurately.
+- Add a SECOND label only when the summary contains clear, distinct, and explicit evidence of another actor/category/mechanism.
 - Never return more than TWO labels in any field.
-- Return multiple labels as comma-separated strings.
+- Return multiple labels as a comma-separated string, never use `;`.
 - Do NOT assign labels based on weak implication, background context, or speculation.
-- If evidence is insufficient for a field, return an empty string for that field.
+
+ACTOR / SUBJECT RULES
+- Identify the primary affected actor.
+- If more than two actor groups are affected, or the restriction applies broadly across civic space, use "All civil society (indiscriminate)".
+- Use both "All civil society (indiscriminate)" and a specific actor label only when the summary describes a broad restriction and also explicitly highlights a specific targeted actor.
+
+SUBJECT OF REPRESSION RULES
+
+Identify the group directly targeted, restricted, punished, intimidated, surveilled, excluded, or otherwise affected by the repressive action.
+Choose the MOST SPECIFIC subject group explicitly mentioned in the summary.
+Do not choose a broad category when a more specific target is clearly identified.
+Add a SECOND subject label only when the summary clearly describes two distinct targeted groups and both are central to the event.
+Never return more than TWO subject labels.
+Do not assign subject labels based only on general background, possible future impact, or broad implications for society.
+Choose the group that is directly affected in the event itself.
+USE THE MOST SPECIFIC TARGET
+
+Examples:
+- If the summary is about the arrest, harassment, or prosecution of a journalist, blogger, commentator, editor, media house, or influencer
+  → "Journalists, media and influencers"
+- If the summary is about women’s rights groups, feminist movements, LGBTQ+ groups, indigenous peoples, ethnic minorities, religious minorities, migrants, refugees, or persons with disabilities
+  → "Minority groups and their rights"
+- If the summary is about environmental defenders, land defenders, climate activists, anti-extractives campaigners, or communities mobilizing around environmental harm
+  → "Environment Justice"
+- If the summary is about trade unions, labour leaders, workers’ movements, strikes over wages or working conditions, or labour organizing
+  → "Socio-Economic Rights"
+- If the summary is about access to health, housing, education, food, water, land, livelihoods, social welfare, or service delivery
+  → "Socio-Economic Rights"
+- If the summary is about civil society organizations, NGOs, associations, community groups, activists, or defenders as civic actors
+  → use the most relevant specific label if one is clearly stated; otherwise use:
+  → "All civil society (indiscriminate)" only when the restriction broadly affects multiple civic actors and no single primary target is clearly identified.
+
+WHEN TO USE "ALL CIVIL SOCIETY (INDISCRIMINATE)"
+
+Use "All civil society (indiscriminate)" only when:
+- the restriction is broad and applies across civic space, or
+- the event affects multiple civic actors without one clearly primary group, or
+- the measure targets CSOs, activists, associations, and public-interest actors generally.
+
+Examples:
+- A foreign agents law applying to all NGOs
+  → "All civil society (indiscriminate)"
+- A nationwide internet shutdown affecting activists, journalists, and CSOs broadly, with no single main target
+  → "All civil society (indiscriminate)"
+- A rule restricting registration or funding for all associations
+  → "All civil society (indiscriminate)"
+
+WHEN NOT TO USE "ALL CIVIL SOCIETY (INDISCRIMINATE)"
+Do NOT use it when a specific group is clearly targeted.
+Examples:
+- An editor arrested over a corruption story
+  → "Journalists, media and influencers"
+  NOT "All civil society (indiscriminate)"
+- Women denied hospital access under gender-based restrictions
+  → "Minority groups and their rights"
+  and, if the event is explicitly about health access, possibly "Socio-Economic Rights" as a second label only if both are central
+- Indigenous organizations’ accounts frozen during a protest
+  → "Minority groups and their rights"
+  or "Environment Justice" if the event is clearly about environmental defense
+  NOT automatically "All civil society (indiscriminate)"
+
+SECOND SUBJECT LABEL RULE
+Add a second subject label only when the summary clearly identifies two distinct target groups and both are central.
+Examples:
+- Journalists and LGBTQ+ activists both explicitly targeted
+  → "Journalists, media and influencers, Minority groups and their rights"
+- Indigenous environmental defenders targeted for anti-mining advocacy
+  → "Environment Justice, Minority groups and their rights"
+- A law broadly affecting all CSOs but explicitly highlighting journalists as a major target
+  → "All civil society (indiscriminate), Journalists, media and influencers"
+Do not add a second label just because another group may be indirectly affected.
+
+DISAMBIGUATION EXAMPLES
+- Arrest of a blogger for online criticism
+  → "Journalists, media and influencers"
+- Investigation of an LGBTQI+ community organization
+  → "Minority groups and their rights"
+- Ban on an environmental protest group or land defenders
+  → "Environment Justice"
+- Suspension of a trade union or repression of a workers’ strike
+  → "Socio-Economic Rights"
+- Restrictions on NGOs broadly through registration, funding, or foreign agent laws
+  → "All civil society (indiscriminate)"
+- Gender equality rollback affecting women’s organizations
+  → "Minority groups and their rights"
+- Restriction on health access for women
+  → "Minority groups and their rights"
+  Add "Socio-Economic Rights" only if the summary explicitly centers the denial of health rights, not just gender discrimination.
+
+MECHANISM RULES
+- Identify the primary mechanism used.
+- Add a second mechanism only when the text clearly describes a separate and independently applied mechanism.
+- Do not stack mechanisms that are merely related parts of the same event unless both are central and explicit.
+
+Example:
+An activist investigated and then arrested → classify as:
+"Incarceration and Legal Repression" (the arrest is the main repression action).
+
+ADMINISTRATIVE REPRESSION
+
+Definition:
+Restrictions or penalties imposed through administrative procedures, permits, licensing systems, registration rules, fines, or bureaucratic decisions.
+Typical signals:
+permit denial, organization deregistration, asset freezing, funding restrictions, suspension of licenses, administrative fines.
+Examples:
+Example 1
+Authorities refused to renew the operating license of an independent media outlet.
+→ Administrative Repression
+Example 2
+The government froze the bank accounts of several NGOs under new financial regulations.
+→ Administrative Repression
+Example 3
+Police denied permission for a protest organized by civil society groups.
+→ Administrative Repression
+
+INCARCERATION AND LEGAL REPRESSION
+Definition:
+Use of criminal law or judicial processes to detain, prosecute, or imprison individuals.
+Typical signals:
+arrest, detention, criminal charges, prosecution, court trials, imprisonment.
+
+Examples:
+Example 1
+Police arrested a journalist after publishing corruption allegations.
+→ Incarceration and Legal Repression
+Example 2
+Authorities charged an activist with sedition and brought the case to court.
+→ Incarceration and Legal Repression
+Example 3
+A blogger was sentenced to two years in prison for insulting public officials.
+→ Incarceration and Legal Repression
+
+DIGITAL REPRESSION
+Definition:
+Repression carried out through digital technologies, internet regulation, or online censorship.
+Typical signals:
+internet shutdowns, website blocking, social media censorship, cybercrime laws, online surveillance.
+Examples:
+Example 1
+Authorities blocked access to several independent news websites.
+→ Digital Repression
+Example 2
+The government shut down internet services during protests.
+→ Digital Repression
+
+Example 3
+A new cybercrime law criminalizes criticism of public officials online.
+→ Digital Repression
+
+PSYCHOLOGICAL INTIMIDATION ON INDIVIDUALS
+Definition:
+Threats, harassment, intimidation, surveillance, or pressure intended to discourage civic participation without direct physical violence.
+Typical signals:
+threats, harassment campaigns, intimidation by police, stalking, coercive questioning.
+
+Examples:
+Example 1
+Police repeatedly summoned an activist for questioning to pressure them to stop organizing protests.
+→ Psychological intimidation on individuals
+Example 2
+Journalists received threats after reporting on corruption.
+→ Psychological intimidation on individuals
+Example 3
+Security agents followed and monitored a human rights defender.
+→ Psychological intimidation on individuals
+
+PHYSICAL VIOLENCE
+Definition:
+Use of physical force causing harm, injury, or bodily violence against individuals.
+Typical signals:
+beatings, shootings, assaults, violent attacks, excessive use of force.
+
+Examples:
+Example 1
+Police beat protesters during a demonstration.
+→ Physical Violence
+Example 2
+Unknown attackers assaulted a journalist outside their home.
+→ Physical Violence
+Example 3
+Security forces fired live ammunition at protesters.
+→ Physical Violence
+
+DISCOURSES AND BEHAVIOUR
+Definition:
+Public rhetoric, stigmatization, or hostile narratives by authorities or influential actors that delegitimize or attack civic actors.
+Typical signals:
+public accusations, smear campaigns, hostile rhetoric, labeling groups as enemies or criminals.
+Examples:
+Example 1
+Government officials publicly accused NGOs of being foreign agents.
+→ Discourses and Behaviour
+Example 2
+A minister described human rights defenders as traitors during a press conference.
+→ Discourses and Behaviour
+Example 3
+State media repeatedly portrayed activists as terrorists.
+→ Discourses and Behaviour
+
+FINAL MECHANISM DECISION RULE
+Choose the mechanism that represents the MAIN repression action described in the summary.
+Examples:
+Journalist arrested for social media post
+→ Incarceration and Legal Repression
+Activist threatened by police
+→ Psychological intimidation on individuals
+Police beat protesters
+→ Physical Violence
+NGO license revoked
+→ Administrative Repression
+Website blocked by authorities
+→ Digital Repression
+Government publicly labels activists as enemies
+→ Discourses and Behaviour
+
+TYPE OF EVENT CLASSIFICATION
+
+Identify the civic context where repression occurs.
+Examples:
+Journalist arrested for social media posts
+→ Online activities
+Police beat protesters during demonstration
+→ Freedom of assembly
+NGO deregistered by authorities
+→ Freedom of association
+Police raid media office
+→ Media Freedom
+Opposition candidate arrested during election campaign
+→ Electoral Process
+
+RIGHTS DISAMBIGUATION
+- Use "Socio-Economic Rights" only when the text explicitly concerns economic, social, or cultural rights, such as labor, housing, health, education, land, livelihoods, or social welfare.
+- Use "Minority groups and their rights" for women’s rights, feminist organizations, LGBTQ+ groups, ethnic or religious minorities, migrants, refugees, indigenous groups, persons with disabilities, and similar identity-based groups.
+- Do not assign "Socio-Economic Rights" without textual support.
+
+IMPORTANT:
+Subject labels identify WHO is targeted.
+They should not be used to describe the general theme or rights area unless that rights-bearing group is itself the target.
 
 Texts:
 {numbered_text}
 """
+    return prompt
 
 
 # ==========================================================
 # BATCH BUILDER
 # ==========================================================
-def is_field_blank(value: Any) -> bool:
-    return safe_str(value) == ""
-
-
-def is_row_filled(row: pd.Series, fields=FIELDS) -> bool:
-    return any(not is_field_blank(row.get(col, "")) for col in fields)
-
-
-def is_row_fully_blank(row: pd.Series, fields=FIELDS) -> bool:
-    return not is_row_filled(row, fields)
-
-
 def build_batches(
     df_input: pd.DataFrame,
     max_tokens: int = MAX_BATCH_TOKENS,
     max_rows: int | None = None,
 ) -> list[tuple[list[int], list[str]]]:
-    batches: list[tuple[list[int], list[str]]] = []
+    """
+    Build batches of rows from df_input based on token limits and max_rows.
+    Only includes rows that are truly blank in the FIELDS columns.
+    Returns a list of tuples: (row_indices, batch_summaries)
+    """
+    batches = []
     i = 0
+
+    def is_row_filled(row, fields=FIELDS) -> bool:
+        for col in fields:
+            val = row.get(col, None)
+            if pd.notna(val) and str(val).strip() != "":
+                return True
+        return False
 
     while i < len(df_input):
         if is_row_filled(df_input.iloc[i]):
             i += 1
             continue
 
-        batch_summaries: list[str] = []
-        batch_indices: list[int] = []
+        batch_summaries = []
+        batch_indices = []
         batch_tokens = 0
 
         while i < len(df_input):
             row = df_input.iloc[i]
-
-            if is_row_filled(row):
-                i += 1
-                continue
-
-            summary = safe_str(row.get("summary", ""))
+            summary = str(row.get("summary", "") or "")
             est_tokens = estimate_tokens(summary)
 
             if batch_tokens + est_tokens > max_tokens and batch_summaries:
@@ -669,7 +869,7 @@ def build_batches(
 
 
 # ==========================================================
-# EXTRACTORS
+# MOCK EXTRACTOR
 # ==========================================================
 async def mock_extract_batch(
     batch_summaries: list[str],
@@ -683,22 +883,28 @@ async def mock_extract_batch(
 
     if batch_indices is not None:
         print(f"[MOCK] Processing rows with indices: {batch_indices}")
+    else:
+        print(f"[MOCK] Processing batch of size: {len(batch_summaries)}")
 
     results = []
-
     for _summary in batch_summaries:
         lang = "en"
         result = {
-            "Actor of repression": to_comma_separated(pick_random_themes(actor_themes, lang, n=2)),
-            "Subject of repression": to_comma_separated(pick_random_themes(subject_themes, lang, n=2)),
-            "Mechanism of repression": to_comma_separated(pick_random_themes(mechanism_themes, lang, n=2)),
-            "Type of event": to_comma_separated(pick_random_themes(type_themes, lang, n=2)),
+            "Actor of repression": pick_random_themes(actor_themes, lang, n=2),
+            "Subject of repression": pick_random_themes(subject_themes, lang, n=2),
+            "Mechanism of repression": pick_random_themes(mechanism_themes, lang, n=2),
+            "Type of event": pick_random_themes(type_themes, lang, n=2),
         }
+        for key in FIELDS:
+            result[key] = to_comma_separated(result[key])
         results.append(result)
 
     return results, None
 
 
+# ==========================================================
+# OPENAI EXTRACTOR
+# ==========================================================
 async def extract_batch(
     batch_summaries: list[str],
     actor_themes: dict,
@@ -720,6 +926,8 @@ async def extract_batch(
 
     if batch_indices is not None:
         print(f"[OPENAI] Processing rows with indices: {batch_indices}")
+    else:
+        print(f"[OPENAI] Processing batch of size: {len(batch_summaries)}")
 
     prompt = build_prompt(
         batch_summaries=batch_summaries,
@@ -733,11 +941,11 @@ async def extract_batch(
         try:
             response = await asyncio.to_thread(
                 openai.chat.completions.create,
-                model=OPENAI_MODEL,
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            content = safe_str(response.choices[0].message.content)
+            content = response.choices[0].message.content.strip()
 
             try:
                 data = json.loads(content)
@@ -751,33 +959,18 @@ async def extract_batch(
             if not isinstance(data, list):
                 raise ValueError("Model response is not a JSON array.")
 
-            cleaned = []
-
             for res in data:
-                if not isinstance(res, dict):
-                    cleaned.append({})
-                    continue
-
-                row = {}
                 for key in FIELDS:
-                    row[key] = to_comma_separated(res.get(key, ""))
-                cleaned.append(row)
+                    res[key] = to_comma_separated(res.get(key, ""))
 
-            # Align response length to batch length.
-            while len(cleaned) < len(batch_summaries):
-                cleaned.append({})
-            cleaned = cleaned[:len(batch_summaries)]
-
-            return cleaned, None
+            return data, None
 
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
             if attempt < MAX_RETRIES:
                 await asyncio.sleep(2 ** attempt)
 
-    # Important:
-    # Do NOT return "Error" values. Leave rows blank so they can be retried later.
-    return [{} for _ in batch_summaries], "OpenAI extraction failed after retries"
+    return [{k: "Error" for k in FIELDS} for _ in batch_summaries], None
 
 
 # ==========================================================
@@ -791,26 +984,22 @@ async def process_all(
     type_themes: dict,
     mock_mode: bool = False,
 ) -> pd.DataFrame:
-    df_out = normalize_output_dataframe(df_source)
-
-    # Critical: entire dataframe is object dtype so string assignment is safe.
-    df_out = df_out.astype(object)
-
+    df_out = df_source.copy()
     print("Starting processing from latest output_final.csv")
 
     for col in FIELDS:
         if col not in df_out.columns:
             df_out[col] = ""
-        df_out[col] = df_out[col].astype(object).map(safe_str)
 
-    permanently_failed: list[dict[str, Any]] = []
+    permanently_failed = []
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
 
-    # Final defensive dtype repair before async processing.
-    for col in FIELDS:
-        if col not in df_out.columns:
-            df_out[col] = ""
-        df_out[col] = pd.Series(df_out[col].astype(object).tolist(), index=df_out.index, dtype=object)
+    def is_row_fully_blank(row, fields=FIELDS) -> bool:
+        for col in fields:
+            val = row.get(col, None)
+            if pd.notna(val) and str(val).strip() != "":
+                return False
+        return True
 
     rows_to_process = df_out[df_out.apply(is_row_fully_blank, axis=1)]
 
@@ -832,60 +1021,62 @@ async def process_all(
 
     async def process_batch(batch_indices: list[int], batch_summaries: list[str]):
         async with semaphore:
-            results, error = await extract_batch(
-                batch_summaries=batch_summaries,
-                actor_themes=actor_themes,
-                subject_themes=subject_themes,
-                mechanism_themes=mechanism_themes,
-                type_themes=type_themes,
-                mock_mode=mock_mode,
-                batch_indices=batch_indices,
-            )
+            retries = 0
+            last_exception = None
 
-            if error:
+            while retries <= MAX_RETRIES:
+                try:
+                    results, _ = await extract_batch(
+                        batch_summaries=batch_summaries,
+                        actor_themes=actor_themes,
+                        subject_themes=subject_themes,
+                        mechanism_themes=mechanism_themes,
+                        type_themes=type_themes,
+                        mock_mode=mock_mode,
+                        batch_indices=batch_indices,
+                    )
+                    break
+                except Exception as exc:
+                    retries += 1
+                    last_exception = exc
+                    print(f"Batch starting at {batch_indices[0]} failed (attempt {retries}): {exc}")
+                    await asyncio.sleep(2 ** retries)
+            else:
                 permanently_failed.append(
-                    {
-                        "start_idx": batch_indices[0] if batch_indices else None,
-                        "rows": batch_indices,
-                        "error": error,
-                    }
+                    {"start_idx": batch_indices[0], "error": str(last_exception)}
                 )
+                results = [{k: "Error" for k in FIELDS} for _ in batch_summaries]
 
             for j, res in enumerate(results):
-                if j >= len(batch_indices):
-                    break
-
                 idx = batch_indices[j]
-                filled = 0
-
-                if not isinstance(res, dict):
-                    res = {}
+                row_status = []
 
                 for key in FIELDS:
-                    # Ultra-safe assignment. This prevents pandas float64-column crashes.
-                    filled += safe_set_cell(df_out, idx, key, res.get(key, ""))
+                    value = res.get(key, "")
+                    df_out.loc[idx, key] = value
+                    if value == "Error" or not str(value).strip():
+                        row_status.append(f"{key}=ERROR")
 
-                if filled == 0:
-                    print(f"[ROW {idx}] No valid labels returned; row left blank for next run.")
+                if row_status:
+                    print(f"[ROW {idx}] Failed fields: {', '.join(row_status)}")
                 else:
-                    print(f"[ROW {idx}] Filled {filled}/{len(FIELDS)} fields.")
+                    print(f"[ROW {idx}] Successfully filled all fields.")
 
     for i in range(0, len(batches), CONCURRENT_BATCHES):
         chunk = batches[i:i + CONCURRENT_BATCHES]
         tasks = [process_batch(*b) for b in chunk]
         await tqdm_asyncio.gather(*tasks, desc="Processing batches", total=len(chunk))
+        write_outputs(df_out)
 
-    # Write once at the end only. This prevents partial/corrupted CSVs.
     write_outputs(df_out)
 
     if permanently_failed:
         with open(PERMANENTLY_FAILED_FILE, "w", encoding="utf-8") as f:
             json.dump(permanently_failed, f, indent=2)
-        print(f"Wrote permanently failed batch log: {PERMANENTLY_FAILED_FILE}")
     elif PERMANENTLY_FAILED_FILE.exists():
         PERMANENTLY_FAILED_FILE.unlink()
 
-    print(f"Processing complete! Fully blank rows attempted: {blank_rows_count}")
+    print(f"Processing complete! Fully blank rows processed: {blank_rows_count}")
     return df_out
 
 
@@ -893,8 +1084,12 @@ async def process_all(
 # RUN SCRIPT
 # ==========================================================
 if __name__ == "__main__":
+    mock_mode = False  # Set True for testing without API calls
+
+    # 1) Pull latest input files from remote SFTP
     fetch_required_input_files()
 
+    # 2) Load themes and source dataframe after SFTP download
     themes = load_themes(THEMES_FILE)
     ACTOR_THEMES = themes["ACTOR_THEMES"]
     SUBJECT_THEMES = themes["SUBJECT_THEMES"]
@@ -903,8 +1098,22 @@ if __name__ == "__main__":
 
     df_source = load_input_dataframe(INPUT_CSV, test_rows=TEST_ROWS)
 
-    blank_rows = df_source[df_source.apply(is_row_fully_blank, axis=1)]
-    total_rows = len(df_source)
+    # 3) Pre-run summary based on current downloaded input
+    df_prev = pd.read_csv(INPUT_CSV)
+
+    for col in FIELDS:
+        if col not in df_prev.columns:
+            df_prev[col] = ""
+
+    def is_row_fully_blank_for_summary(row) -> bool:
+        for col in FIELDS:
+            val = row.get(col, None)
+            if pd.notna(val) and str(val).strip() != "":
+                return False
+        return True
+
+    blank_rows = df_prev[df_prev.apply(is_row_fully_blank_for_summary, axis=1)]
+    total_rows = len(df_prev)
     skipped_rows = total_rows - len(blank_rows)
 
     print(
@@ -913,6 +1122,7 @@ if __name__ == "__main__":
         f"Skipped rows: {skipped_rows}"
     )
 
+    # 4) Run extraction
     df_out = asyncio.run(
         process_all(
             df_source=df_source,
@@ -920,21 +1130,22 @@ if __name__ == "__main__":
             subject_themes=SUBJECT_THEMES,
             mechanism_themes=MECHANISM_THEMES,
             type_themes=TYPE_THEMES,
-            mock_mode=MOCK_MODE,
+            mock_mode=mock_mode,
         )
     )
 
     summary_message = (
         f"Processing complete! Total rows: {len(df_out)} | "
-        f"Fully blank rows attempted: {len(blank_rows)} | "
+        f"Fully blank rows processed: {len(blank_rows)} | "
         f"Skipped rows: {skipped_rows} | "
-        f"Mock mode: {MOCK_MODE}"
+        f"Mock mode: {mock_mode}"
     )
     print(summary_message)
 
-    # Upload only after the full process completes successfully.
+    # 5) Push updated outputs back to remote
     upload_output_files(verify=True)
 
+    # 6) Optional notification
     if NOTIFY_EMAIL:
         permanently_failed_count = 0
         if PERMANENTLY_FAILED_FILE.exists():
@@ -950,5 +1161,5 @@ if __name__ == "__main__":
             output_csv=OUTPUT_CSV,
             output_parquet=OUTPUT_PARQUET,
             permanently_failed_count=permanently_failed_count,
-            mock_mode=MOCK_MODE,
+            mock_mode=mock_mode,
         )
