@@ -6177,43 +6177,61 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
 
 
 def _ai_get_openai_config():
-    """Read OpenAI configuration from Streamlit secrets or environment variables.
+    """Read OpenAI config robustly from Render env vars or Streamlit secrets.
 
-    Supported configuration formats:
-    1) Streamlit secrets:
-       [openai]
-       api_key = "sk-..."
-       model = "gpt-4o-mini"
+    Supports all of these formats:
+      OPENAI_API_KEY = "sk-..."                    # root Streamlit secret
+      OPENAI_MODEL = "gpt-4o-mini"                 # root Streamlit secret
 
-    2) Streamlit flat secrets:
-       OPENAI_API_KEY = "sk-..."
-       OPENAI_MODEL = "gpt-4o-mini"
+      [openai]
+      OPENAI_API_KEY = "sk-..."                    # your current format
+      api_key = "sk-..."                           # alternative nested format
+      model = "gpt-4o-mini"
 
-    3) Environment variables:
-       OPENAI_API_KEY="sk-..."
-       OPENAI_MODEL="gpt-4o-mini"
+      Environment variables on Render:
+      OPENAI_API_KEY=sk-...
+      OPENAI_MODEL=gpt-4o-mini
     """
     api_key = None
     model = "gpt-4o-mini"
 
+    # 1) Render / OS environment first.
     try:
-        openai_cfg = st.secrets.get("openai", {})
-        if isinstance(openai_cfg, dict):
-            api_key = openai_cfg.get("api_key") or openai_cfg.get("OPENAI_API_KEY")
-            model = openai_cfg.get("model") or openai_cfg.get("OPENAI_MODEL") or model
-
-        api_key = api_key or st.secrets.get("OPENAI_API_KEY")
-        model = st.secrets.get("OPENAI_MODEL") or model
+        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_APIKEY")
+        model = os.getenv("OPENAI_MODEL") or os.getenv("OPENAI_CHAT_MODEL") or model
     except Exception:
         pass
 
-    api_key = api_key or os.getenv("OPENAI_API_KEY")
-    model = os.getenv("OPENAI_MODEL", model)
+    # 2) Streamlit secrets: root-level and nested [openai].
+    try:
+        root_key = st.secrets.get("OPENAI_API_KEY", None)
+        root_model = st.secrets.get("OPENAI_MODEL", None)
+        openai_cfg = st.secrets.get("openai", {})
+
+        nested_key = None
+        nested_model = None
+        if isinstance(openai_cfg, dict):
+            nested_key = (
+                openai_cfg.get("OPENAI_API_KEY")
+                or openai_cfg.get("api_key")
+                or openai_cfg.get("key")
+            )
+            nested_model = openai_cfg.get("model") or openai_cfg.get("OPENAI_MODEL")
+
+        api_key = api_key or root_key or nested_key
+        model = root_model or nested_model or model
+    except Exception:
+        pass
 
     api_key = str(api_key).strip() if api_key else None
     model = str(model).strip() if model else "gpt-4o-mini"
 
-    if api_key and api_key.lower() in {"none", "null", "your_new_openai_api_key", "your_openai_api_key", "sk-..."}:
+    invalid_values = {
+        "", "none", "null", "false", "0",
+        "your_new_openai_api_key", "your_openai_api_key", "sk-...",
+        "sk-proj-your-real-key", "sk-proj-xxxxxxxx",
+    }
+    if api_key and api_key.lower() in invalid_values:
         api_key = None
 
     return api_key, model
@@ -6230,16 +6248,41 @@ def _ai_get_openai_client(api_key):
 
 
 def _ai_openai_status():
-    """Small diagnostic helper for the sidebar/debug UI."""
+    """Diagnostic helper for the AI Copilot status bar and debug panel."""
     api_key, model = _ai_get_openai_config()
     package_ready = OpenAI is not None
+    configured = bool(api_key and package_ready)
     return {
-        "enabled": bool(api_key and package_ready),
+        "configured": configured,
+        "enabled": configured,
         "has_key": bool(api_key),
         "package_ready": package_ready,
         "model": model,
         "key_preview": f"{api_key[:7]}...{api_key[-4:]}" if api_key else "Not configured",
     }
+
+
+def _ai_test_openai_connection():
+    """Return a human-readable OpenAI runtime test result for the dashboard UI."""
+    api_key, model = _ai_get_openai_config()
+    if not api_key:
+        return False, "OPENAI_API_KEY was not detected. Check [openai].OPENAI_API_KEY or Render environment variables."
+    if OpenAI is None:
+        return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
+    try:
+        client = _ai_get_openai_client(api_key)
+        if client is None:
+            return False, "OpenAI client could not be initialized."
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "Reply exactly: OpenAI is working"}],
+            max_tokens=20,
+            temperature=0,
+        )
+        reply = (resp.choices[0].message.content or "").strip()
+        return True, f"OpenAI connection successful using {model}. Response: {reply}"
+    except Exception as e:
+        return False, f"OpenAI connection failed: {e}"
 
 
 def _ai_build_grounded_context(df):
@@ -7571,7 +7614,20 @@ def _copilot_queue_answer(question, df):
     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
 
 
-def _v2_render_status_bar(df):
+def _v2_render_status_bar(df)
+
+        with st.expander("🧪 OpenAI connection", expanded=False):
+            status = _ai_openai_status()
+            st.caption(f"Key detected: {status.get('has_key')}")
+            st.caption(f"OpenAI package ready: {status.get('package_ready')}")
+            st.caption(f"Model: {status.get('model')}")
+            st.caption(f"Key preview: {status.get('key_preview')}")
+            if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
+                ok, msg = _ai_test_openai_connection()
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg):
     status = _ai_openai_status()
     mode = "OpenAI enabled" if status.get("configured") and status.get("package_ready") else "Local fallback mode"
     model = status.get("model", "gpt-4o-mini")
@@ -8334,56 +8390,7 @@ render_feedback_callout()
 # Feedback is rendered as a floating callout and does not push dashboard content downward.
 # Footer image
 
-import streamlit as st
-from openai import OpenAI
-
-def get_openai_config():
-    import os
-
-    api_key = (
-        os.getenv("OPENAI_API_KEY")
-        or st.secrets.get("OPENAI_API_KEY", None)
-        or st.secrets.get("openai", {}).get("OPENAI_API_KEY", None)
-        or st.secrets.get("openai", {}).get("api_key", None)
-    )
-
-    model = st.secrets.get("openai", {}).get("model", "gpt-4o-mini")
-
-    return api_key, model
-
-
-st.markdown("## 🧪 OpenAI Test")
-
-api_key, model = get_openai_config()
-
-st.write("Key detected:", bool(api_key))
-st.write("Model:", model)
-
-if st.button("Run OpenAI Test"):
-
-    if not api_key:
-        st.error("❌ No API key found")
-    else:
-        try:
-            client = OpenAI(api_key=api_key)
-
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": "Reply with: OpenAI is working"}
-                ],
-                max_tokens=20,
-            )
-
-            reply = response.choices[0].message.content
-
-            st.success("✅ OpenAI is working!")
-            st.write("Response:", reply)
-
-        except Exception as e:
-            st.error("❌ OpenAI failed")
-            st.code(str(e))
-
+# OpenAI test UI is now integrated inside the AI Copilot drawer.
 
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
