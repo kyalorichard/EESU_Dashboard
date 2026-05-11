@@ -55,12 +55,28 @@ import tempfile
 import os
 import re
 
+# ---------------- OPENAI / ENV CONFIG ----------------
+# Production: read OPENAI_API_KEY and OPENAI_MODEL from deployment environment variables.
+# Local development: optionally load the same variables from a local .env file.
+try:
+    from dotenv import load_dotenv
+    DOTENV_AVAILABLE = True
+    # Load .env without overriding variables injected by Render/DigitalOcean/GitHub Actions.
+    load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
+    load_dotenv(override=False)
+except Exception:
+    DOTENV_AVAILABLE = False
+
 try:
     from openai import OpenAI
 except Exception:
     OpenAI = None
 
-# OPENAI PACKAGE NOTE: install with `pip install --upgrade openai` and set OPENAI_API_KEY as a deployment environment variable.
+# OPENAI PACKAGE NOTE:
+# requirements.txt should include:
+#   openai>=1.0.0
+#   python-dotenv>=1.0.0
+# The app does NOT read .streamlit/secrets.toml for OpenAI.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6553,21 +6569,25 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
 
 
 def _ai_get_openai_config():
-    """Read OpenAI config from deployment environment variables only.
+    """Read OpenAI config from environment variables.
 
-    Required environment variables:
-        OPENAI_API_KEY = sk-proj-...
+    Production deployment:
+        OPENAI_API_KEY is injected by the host environment.
 
-    Optional environment variable:
-        OPENAI_MODEL = gpt-4o-mini
+    Local development:
+        load_dotenv() can populate os.environ from a local .env file.
+
+    Required:
+        OPENAI_API_KEY=sk-proj-...
+
+    Optional:
+        OPENAI_MODEL=gpt-4o-mini
 
     This loader intentionally does not read .streamlit/secrets.toml or st.secrets
-    for OpenAI, so the deployed app depends only on platform secret variables
-    such as Render Environment Variables, DigitalOcean App Platform variables,
-    Docker/Kubernetes env vars, or GitHub Actions secrets passed into runtime.
+    for OpenAI. It only uses os.environ after optional .env loading.
     """
-    api_key = str(os.environ.get("OPENAI_API_KEY", "")).strip()
-    model = str(os.environ.get("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+    api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
+    model = str(os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
 
     invalid_values = {
         "",
@@ -6609,6 +6629,7 @@ def _ai_openai_status():
         "has_key": bool(api_key),
         "package_ready": package_ready,
         "model": model,
+        "dotenv_available": DOTENV_AVAILABLE,
         "key_preview": f"{api_key[:7]}...{api_key[-4:]}" if api_key else "Not configured",
     }
 
@@ -6617,7 +6638,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. Add OPENAI_API_KEY as a deployment environment variable, optionally add OPENAI_MODEL=gpt-4o-mini, then restart/redeploy.'
+        return False, 'OPENAI_API_KEY was not detected. Add OPENAI_API_KEY as a deployment environment variable or local .env variable, optionally add OPENAI_MODEL=gpt-4o-mini, then restart/redeploy.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -7101,7 +7122,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY environment variable to enable LLM responses"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY environment variable or .env entry to enable LLM responses"
 
     st.markdown("""
     <style>
@@ -8743,6 +8764,7 @@ def _v2_render_status_bar(df):
     with st.expander("🧪 OpenAI connection", expanded=False):
         st.caption(f"Key detected: {status.get('has_key')}")
         st.caption(f"OpenAI package ready: {status.get('package_ready')}")
+        st.caption(f"python-dotenv available: {status.get('dotenv_available')}")
         st.caption(f"Model: {model}")
         st.caption(f"Key preview: {status.get('key_preview')}")
 
