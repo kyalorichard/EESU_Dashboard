@@ -8837,7 +8837,9 @@ def _v2_render_status_bar(df):
     model = status.get("model", "gpt-4o-mini")
     records = len(df) if df is not None else 0
 
-        st.markdown(f"""
+    
+
+    st.markdown(f"""
     <div class="v2-statusbar">
       <span><b>Mode:</b> {mode}</span>
       <span><b>Model:</b> {model}</span>
