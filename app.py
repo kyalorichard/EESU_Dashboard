@@ -62,10 +62,11 @@ except Exception:
 
 # OPENAI PACKAGE NOTE:
 #   Add openai>=1.0.0 to requirements.txt.
-#   Preferred Streamlit Cloud secrets format:
+#   Preferred Streamlit Cloud secrets format now uses a nested section:
+#       [openai]
 #       OPENAI_API_KEY = "sk-proj-..."
 #       OPENAI_MODEL = "gpt-4o-mini"
-#   Also supports nested [openai] secrets and deployment environment variables.
+#   The loader also supports flat Streamlit secrets and deployment environment variables.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6584,54 +6585,92 @@ def _ai_get_nested_secret_from_streamlit(section, key, default=""):
     """Safely read a nested Streamlit secret, e.g. [openai]."""
     try:
         section_obj = st.secrets.get(section, {})
+        if not section_obj:
+            return _ai_clean_secret_value(default)
         return _ai_clean_secret_value(section_obj.get(key, default))
     except Exception:
         return _ai_clean_secret_value(default)
 
 
+def _ai_first_non_empty(*values):
+    """Return the first cleaned non-empty value from a list of candidates."""
+    for value in values:
+        cleaned = _ai_clean_secret_value(value)
+        if cleaned:
+            return cleaned
+    return ""
+
+
 def _ai_get_openai_config():
     """Read OpenAI config from Streamlit Secrets first, then environment variables.
 
-    Preferred Streamlit Cloud format, pasted into App → Settings → Secrets:
-
-        OPENAI_API_KEY = "sk-proj-your-real-key-here"
-        OPENAI_MODEL = "gpt-4o-mini"
-
-    Backward-compatible nested format is also supported:
+    Recommended Streamlit Cloud format, pasted into App → Settings → Secrets:
 
         [openai]
         OPENAI_API_KEY = "sk-proj-your-real-key-here"
         OPENAI_MODEL = "gpt-4o-mini"
+
+    Also supported:
+
+        [openai]
+        api_key = "sk-proj-your-real-key-here"
+        model = "gpt-4o-mini"
+
+    Flat Streamlit secrets and runtime environment variables are also supported.
     """
     model = "gpt-4o-mini"
     api_key = ""
     source = "not configured"
 
-    # 1) Preferred: flat Streamlit Secrets.
-    api_key = _ai_get_secret_from_streamlit("OPENAI_API_KEY", "")
-    flat_model = _ai_get_secret_from_streamlit("OPENAI_MODEL", "")
-    if flat_model:
-        model = flat_model
-    if api_key:
-        source = "Streamlit Secrets: OPENAI_API_KEY"
+    # 1) Preferred: nested Streamlit Secrets under [openai].
+    nested_api_key = _ai_first_non_empty(
+        _ai_get_nested_secret_from_streamlit("openai", "OPENAI_API_KEY", ""),
+        _ai_get_nested_secret_from_streamlit("openai", "openai_api_key", ""),
+        _ai_get_nested_secret_from_streamlit("openai", "api_key", ""),
+    )
+    nested_model = _ai_first_non_empty(
+        _ai_get_nested_secret_from_streamlit("openai", "OPENAI_MODEL", ""),
+        _ai_get_nested_secret_from_streamlit("openai", "openai_model", ""),
+        _ai_get_nested_secret_from_streamlit("openai", "model", ""),
+    )
 
-    # 2) Backward-compatible: nested Streamlit Secrets under [openai].
+    if nested_api_key:
+        api_key = nested_api_key
+        source = "Streamlit Secrets: [openai]"
+    if nested_model:
+        model = nested_model
+
+    # 2) Flat Streamlit Secrets fallback.
     if not api_key:
-        api_key = _ai_get_nested_secret_from_streamlit("openai", "OPENAI_API_KEY", "")
-        nested_model = _ai_get_nested_secret_from_streamlit("openai", "OPENAI_MODEL", "")
-        if nested_model:
-            model = nested_model
-        if api_key:
-            source = "Streamlit Secrets: [openai].OPENAI_API_KEY"
+        flat_api_key = _ai_first_non_empty(
+            _ai_get_secret_from_streamlit("OPENAI_API_KEY", ""),
+            _ai_get_secret_from_streamlit("openai_api_key", ""),
+        )
+        flat_model = _ai_first_non_empty(
+            _ai_get_secret_from_streamlit("OPENAI_MODEL", ""),
+            _ai_get_secret_from_streamlit("openai_model", ""),
+        )
+        if flat_api_key:
+            api_key = flat_api_key
+            source = "Streamlit Secrets: OPENAI_API_KEY"
+        if flat_model:
+            model = flat_model
 
     # 3) Runtime environment fallback for Docker/Render/DigitalOcean.
     if not api_key:
-        api_key = _ai_clean_secret_value(os.getenv("OPENAI_API_KEY", ""))
-        env_model = _ai_clean_secret_value(os.getenv("OPENAI_MODEL", ""))
+        env_api_key = _ai_first_non_empty(
+            os.getenv("OPENAI_API_KEY", ""),
+            os.getenv("openai_api_key", ""),
+        )
+        env_model = _ai_first_non_empty(
+            os.getenv("OPENAI_MODEL", ""),
+            os.getenv("openai_model", ""),
+        )
+        if env_api_key:
+            api_key = env_api_key
+            source = "Environment variable: OPENAI_API_KEY"
         if env_model:
             model = env_model
-        if api_key:
-            source = "Environment variable: OPENAI_API_KEY"
 
     invalid_values = {
         "",
@@ -6653,15 +6692,17 @@ def _ai_get_openai_config():
 
     return api_key, model, source
 
+
 @st.cache_resource(show_spinner=False)
-def _ai_get_openai_client(api_key):
+def _ai_get_openai_client(api_key=None):
     """Create a cached OpenAI client. Returns None if the package/key is unavailable."""
+    if api_key is None:
+        api_key, _, _ = _ai_get_openai_config()
     if not api_key:
         return None
     if OpenAI is None:
         return None
     return OpenAI(api_key=api_key)
-
 
 def _ai_openai_status():
     """Diagnostic helper for the AI Copilot status bar and debug panel."""
