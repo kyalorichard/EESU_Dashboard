@@ -6724,7 +6724,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model, source = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. In Streamlit Cloud, open App → Settings → Secrets and add: OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini", then Save and Reboot app.'
+        return False, 'OPENAI_API_KEY was not detected. In Streamlit Cloud, open App → Settings → Secrets and add the nested [openai] block: [openai] OPENAI_API_KEY = "sk-proj-..." OPENAI_MODEL = "gpt-4o-mini", then Save and Reboot app.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
