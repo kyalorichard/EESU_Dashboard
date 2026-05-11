@@ -76,7 +76,7 @@ except Exception:
 # requirements.txt should include:
 #   openai>=1.0.0
 #   python-dotenv>=1.0.0
-# The app does NOT read .streamlit/secrets.toml for OpenAI.
+# The app reads OpenAI credentials from environment variables, local .env, or Streamlit Cloud secrets.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6568,26 +6568,62 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
     return append_eusee_redirect("\n".join(lines))
 
 
+def _safe_streamlit_secret(path, default=None):
+    """Safely read a Streamlit secret without breaking local/runtime execution."""
+    try:
+        node = st.secrets
+        for key in path:
+            if hasattr(node, "get"):
+                node = node.get(key, None)
+            else:
+                node = node[key]
+            if node is None:
+                return default
+        return node
+    except Exception:
+        return default
+
+
+def _clean_secret_value(value):
+    """Normalize secret/env values and remove accidental wrapping quotes/spaces."""
+    if value is None:
+        return ""
+    value = str(value).strip()
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+        value = value[1:-1].strip()
+    return value
+
+
 def _ai_get_openai_config():
-    """Read OpenAI config from environment variables.
+    """Read OpenAI config from every supported secure source.
 
-    Production deployment:
-        OPENAI_API_KEY is injected by the host environment.
+    Priority order:
+      1. Deployment environment variables / local .env loaded into os.environ
+      2. Streamlit Cloud flat secrets:
+           OPENAI_API_KEY = "sk-proj-..."
+           OPENAI_MODEL = "gpt-4o-mini"
+      3. Streamlit Cloud nested secrets:
+           [openai]
+           OPENAI_API_KEY = "sk-proj-..."
+           OPENAI_MODEL = "gpt-4o-mini"
 
-    Local development:
-        load_dotenv() can populate os.environ from a local .env file.
-
-    Required:
-        OPENAI_API_KEY=sk-proj-...
-
-    Optional:
-        OPENAI_MODEL=gpt-4o-mini
-
-    This loader intentionally does not read .streamlit/secrets.toml or st.secrets
-    for OpenAI. It only uses os.environ after optional .env loading.
+    This fixes the common Streamlit Cloud issue where secrets are saved in
+    st.secrets but os.getenv("OPENAI_API_KEY") remains empty.
     """
-    api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
-    model = str(os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+    api_key = _clean_secret_value(
+        os.getenv("OPENAI_API_KEY")
+        or _safe_streamlit_secret(["OPENAI_API_KEY"])
+        or _safe_streamlit_secret(["openai", "OPENAI_API_KEY"])
+        or _safe_streamlit_secret(["openai", "api_key"])
+    )
+
+    model = _clean_secret_value(
+        os.getenv("OPENAI_MODEL")
+        or _safe_streamlit_secret(["OPENAI_MODEL"])
+        or _safe_streamlit_secret(["openai", "OPENAI_MODEL"])
+        or _safe_streamlit_secret(["openai", "model"])
+        or "gpt-4o-mini"
+    ) or "gpt-4o-mini"
 
     invalid_values = {
         "",
@@ -6601,6 +6637,7 @@ def _ai_get_openai_config():
         "sk-proj-your-real-key",
         "sk-proj-your-real-key-here",
         "sk-proj-xxxxxxxx",
+        "sk-proj-xxxx",
     }
 
     if (not api_key) or api_key.lower() in invalid_values:
@@ -6638,7 +6675,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. Add OPENAI_API_KEY as a deployment environment variable or local .env variable, optionally add OPENAI_MODEL=gpt-4o-mini, then restart/redeploy.'
+        return False, 'OPENAI_API_KEY was not detected. Add it as a deployment environment variable, local .env variable, or Streamlit Cloud secret. Supported formats: OPENAI_API_KEY = \"sk-proj-...\" or [openai] OPENAI_API_KEY = \"sk-proj-...\". Then reboot/redeploy.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -7122,7 +7159,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY environment variable or .env entry to enable LLM responses"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY via environment variable, .env, or Streamlit Cloud Secrets"
 
     st.markdown("""
     <style>
