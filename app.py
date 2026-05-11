@@ -55,33 +55,63 @@ import tempfile
 import os
 import re
 
-# ---------------- OPENAI / .ENV CONFIG ONLY ----------------
-# This app reads OpenAI settings ONLY from a local .env file loaded into os.environ.
-# It does NOT read Streamlit secrets for OpenAI.
-# Required .env file location: same folder as this app.py file.
-# Required .env content:
-#   OPENAI_API_KEY=sk-proj-xxxxxxxx
-# Optional:
-#   OPENAI_MODEL=gpt-4o-mini
-
-OPENAI_ENV_PATH = Path(__file__).resolve().parent / ".env"
-DOTENV_AVAILABLE = False
-DOTENV_LOADED = False
-
-try:
-    from dotenv import load_dotenv
-    DOTENV_AVAILABLE = True
-    # Load ONLY the .env file beside app.py. Override is enabled so edits to .env
-    # are picked up after a Streamlit restart, even if an old value exists.
-    DOTENV_LOADED = load_dotenv(dotenv_path=OPENAI_ENV_PATH, override=True)
-except Exception:
-    DOTENV_AVAILABLE = False
-    DOTENV_LOADED = False
+# ---------------- OPENAI CONFIG (STREAMLIT SECRETS) ----------------
+# Streamlit Cloud:
+# App → Settings → Secrets
+#
+# Example:
+#
+# OPENAI_API_KEY = "sk-proj-xxxxxxxx"
+# OPENAI_MODEL = "gpt-4o-mini"
 
 try:
     from openai import OpenAI
+    OPENAI_PACKAGE_READY = True
 except Exception:
     OpenAI = None
+    OPENAI_PACKAGE_READY = False
+
+OPENAI_API_KEY = None
+OPENAI_MODEL = "gpt-4o-mini"
+
+# ---------- LOAD FROM STREAMLIT SECRETS ----------
+try:
+    OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", None)
+    OPENAI_MODEL = st.secrets.get("OPENAI_MODEL", "gpt-4o-mini")
+except Exception:
+    OPENAI_API_KEY = None
+    OPENAI_MODEL = "gpt-4o-mini"
+
+# ---------- OPTIONAL ENV FALLBACK ----------
+if not OPENAI_API_KEY:
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if os.getenv("OPENAI_MODEL"):
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL")
+
+# ---------- DEBUG STATUS ----------
+st.write("Key detected:", bool(OPENAI_API_KEY))
+st.write("OpenAI package ready:", OPENAI_PACKAGE_READY)
+st.write("Model:", OPENAI_MODEL)
+
+if OPENAI_API_KEY:
+    st.write("Key preview:", OPENAI_API_KEY[:12] + "...")
+else:
+    st.write("Key preview: Not configured")
+
+# ---------- CREATE OPENAI CLIENT ----------
+client = None
+
+if OPENAI_API_KEY and OPENAI_PACKAGE_READY:
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        st.success("✅ OpenAI connected successfully")
+    except Exception as e:
+        st.error(f"❌ OpenAI connection failed: {e}")
+else:
+    st.warning(
+        "⚠️ OPENAI_API_KEY not found in Streamlit Secrets."
+    )
 
 # OPENAI PACKAGE NOTE:
 # requirements.txt should include:
