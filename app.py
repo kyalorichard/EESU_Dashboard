@@ -55,17 +55,28 @@ import tempfile
 import os
 import re
 
-# ---------------- OPENAI / ENV CONFIG ----------------
-# Production: read OPENAI_API_KEY and OPENAI_MODEL from deployment environment variables.
-# Local development: optionally load the same variables from a local .env file.
+# ---------------- OPENAI / .ENV CONFIG ONLY ----------------
+# This app reads OpenAI settings ONLY from a local .env file loaded into os.environ.
+# It does NOT read Streamlit secrets for OpenAI.
+# Required .env file location: same folder as this app.py file.
+# Required .env content:
+#   OPENAI_API_KEY=sk-proj-xxxxxxxx
+# Optional:
+#   OPENAI_MODEL=gpt-4o-mini
+
+OPENAI_ENV_PATH = Path(__file__).resolve().parent / ".env"
+DOTENV_AVAILABLE = False
+DOTENV_LOADED = False
+
 try:
     from dotenv import load_dotenv
     DOTENV_AVAILABLE = True
-    # Load .env without overriding variables injected by Render/DigitalOcean/GitHub Actions.
-    load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
-    load_dotenv(override=False)
+    # Load ONLY the .env file beside app.py. Override is enabled so edits to .env
+    # are picked up after a Streamlit restart, even if an old value exists.
+    DOTENV_LOADED = load_dotenv(dotenv_path=OPENAI_ENV_PATH, override=True)
 except Exception:
     DOTENV_AVAILABLE = False
+    DOTENV_LOADED = False
 
 try:
     from openai import OpenAI
@@ -76,7 +87,7 @@ except Exception:
 # requirements.txt should include:
 #   openai>=1.0.0
 #   python-dotenv>=1.0.0
-# The app reads OpenAI credentials from environment variables, local .env, or Streamlit Cloud secrets.
+# This app intentionally does NOT read .streamlit/secrets.toml for OpenAI.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6568,62 +6579,21 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
     return append_eusee_redirect("\n".join(lines))
 
 
-def _safe_streamlit_secret(path, default=None):
-    """Safely read a Streamlit secret without breaking local/runtime execution."""
-    try:
-        node = st.secrets
-        for key in path:
-            if hasattr(node, "get"):
-                node = node.get(key, None)
-            else:
-                node = node[key]
-            if node is None:
-                return default
-        return node
-    except Exception:
-        return default
-
-
-def _clean_secret_value(value):
-    """Normalize secret/env values and remove accidental wrapping quotes/spaces."""
-    if value is None:
-        return ""
-    value = str(value).strip()
-    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-        value = value[1:-1].strip()
-    return value
-
-
 def _ai_get_openai_config():
-    """Read OpenAI config from every supported secure source.
+    """Read OpenAI config ONLY from .env values loaded into os.environ.
 
-    Priority order:
-      1. Deployment environment variables / local .env loaded into os.environ
-      2. Streamlit Cloud flat secrets:
-           OPENAI_API_KEY = "sk-proj-..."
-           OPENAI_MODEL = "gpt-4o-mini"
-      3. Streamlit Cloud nested secrets:
-           [openai]
-           OPENAI_API_KEY = "sk-proj-..."
-           OPENAI_MODEL = "gpt-4o-mini"
+    The .env file must be in the same folder as this script and should contain:
+        OPENAI_API_KEY=sk-proj-xxxxxxxx
+        OPENAI_MODEL=gpt-4o-mini
 
-    This fixes the common Streamlit Cloud issue where secrets are saved in
-    st.secrets but os.getenv("OPENAI_API_KEY") remains empty.
+    This function intentionally does not read st.secrets or .streamlit/secrets.toml.
     """
-    api_key = _clean_secret_value(
-        os.getenv("OPENAI_API_KEY")
-        or _safe_streamlit_secret(["OPENAI_API_KEY"])
-        or _safe_streamlit_secret(["openai", "OPENAI_API_KEY"])
-        or _safe_streamlit_secret(["openai", "api_key"])
-    )
+    api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
+    model = str(os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
 
-    model = _clean_secret_value(
-        os.getenv("OPENAI_MODEL")
-        or _safe_streamlit_secret(["OPENAI_MODEL"])
-        or _safe_streamlit_secret(["openai", "OPENAI_MODEL"])
-        or _safe_streamlit_secret(["openai", "model"])
-        or "gpt-4o-mini"
-    ) or "gpt-4o-mini"
+    # Remove accidental surrounding quotes if the .env file was written with quotes.
+    api_key = api_key.strip('"').strip("'").strip()
+    model = model.strip('"').strip("'").strip()
 
     invalid_values = {
         "",
@@ -6637,7 +6607,6 @@ def _ai_get_openai_config():
         "sk-proj-your-real-key",
         "sk-proj-your-real-key-here",
         "sk-proj-xxxxxxxx",
-        "sk-proj-xxxx",
     }
 
     if (not api_key) or api_key.lower() in invalid_values:
@@ -6667,6 +6636,9 @@ def _ai_openai_status():
         "package_ready": package_ready,
         "model": model,
         "dotenv_available": DOTENV_AVAILABLE,
+        "dotenv_loaded": DOTENV_LOADED,
+        "env_path": str(OPENAI_ENV_PATH),
+        "env_file_exists": OPENAI_ENV_PATH.exists(),
         "key_preview": f"{api_key[:7]}...{api_key[-4:]}" if api_key else "Not configured",
     }
 
@@ -6675,7 +6647,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. Add it as a deployment environment variable, local .env variable, or Streamlit Cloud secret. Supported formats: OPENAI_API_KEY = \"sk-proj-...\" or [openai] OPENAI_API_KEY = \"sk-proj-...\". Then reboot/redeploy.'
+        return False, f'OPENAI_API_KEY was not detected in .env. Create this file beside app.py: {OPENAI_ENV_PATH}. Add OPENAI_API_KEY=sk-proj-xxxx and restart Streamlit.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -7159,7 +7131,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY via environment variable, .env, or Streamlit Cloud Secrets"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY to the .env file beside app.py to enable LLM responses"
 
     st.markdown("""
     <style>
@@ -8802,6 +8774,9 @@ def _v2_render_status_bar(df):
         st.caption(f"Key detected: {status.get('has_key')}")
         st.caption(f"OpenAI package ready: {status.get('package_ready')}")
         st.caption(f"python-dotenv available: {status.get('dotenv_available')}")
+        st.caption(f".env loaded: {status.get('dotenv_loaded')}")
+        st.caption(f".env file exists: {status.get('env_file_exists')}")
+        st.caption(f".env path: {status.get('env_path')}")
         st.caption(f"Model: {model}")
         st.caption(f"Key preview: {status.get('key_preview')}")
 
