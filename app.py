@@ -57,10 +57,17 @@ import re
 
 try:
     from openai import OpenAI
+    OPENAI_PACKAGE_READY = True
 except Exception:
     OpenAI = None
+    OPENAI_PACKAGE_READY = False
 
-# OPENAI PACKAGE NOTE: install with `pip install --upgrade openai` and set OPENAI_API_KEY in .streamlit/secrets.toml.
+# OPENAI PACKAGE NOTE:
+#   Add openai>=1.0.0 to requirements.txt.
+#   For Streamlit Cloud, store credentials in App Settings → Secrets:
+#     OPENAI_API_KEY = "sk-proj-..."
+#     OPENAI_MODEL = "gpt-4o-mini"
+#   Nested [openai] secrets and OS environment variables are also supported as fallbacks.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6553,33 +6560,44 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
 
 
 def _ai_get_openai_config():
-    """Read OpenAI config ONLY from the Streamlit secrets [openai] block.
+    """Read OpenAI config from Streamlit Secrets, with safe fallbacks.
 
-    Required .streamlit/secrets.toml format:
+    Preferred Streamlit Cloud flat secrets format:
+        OPENAI_API_KEY = "sk-proj-your-real-key-here"
+        OPENAI_MODEL = "gpt-4o-mini"
 
+    Also supports nested secrets:
         [openai]
         OPENAI_API_KEY = "sk-proj-your-real-key-here"
         OPENAI_MODEL = "gpt-4o-mini"
 
-    This strict loader intentionally ignores root-level secrets and OS environment
-    variables to avoid configuration ambiguity.
+    Optional fallback: OS environment variables with the same names.
     """
     model = "gpt-4o-mini"
+    api_key = ""
 
+    # 1) Preferred: flat Streamlit Secrets
+    try:
+        api_key = str(st.secrets.get("OPENAI_API_KEY", "")).strip()
+        model = str(st.secrets.get("OPENAI_MODEL", model)).strip() or model
+    except Exception:
+        pass
+
+    # 2) Backward-compatible: nested Streamlit Secrets under [openai]
     try:
         openai_cfg = st.secrets.get("openai", {})
+        if not api_key:
+            api_key = str(openai_cfg.get("OPENAI_API_KEY", "")).strip()
+        model = str(openai_cfg.get("OPENAI_MODEL", model)).strip() or model
     except Exception:
-        openai_cfg = {}
+        pass
 
-    try:
-        api_key = str(openai_cfg.get("OPENAI_API_KEY", "")).strip()
-    except Exception:
-        api_key = ""
-
-    try:
-        model = str(openai_cfg.get("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
-    except Exception:
-        model = "gpt-4o-mini"
+    # 3) Optional fallback: deployment environment variables
+    if not api_key:
+        api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
+    env_model = str(os.getenv("OPENAI_MODEL", "")).strip()
+    if env_model:
+        model = env_model
 
     invalid_values = {
         "",
@@ -6593,6 +6611,7 @@ def _ai_get_openai_config():
         "sk-proj-your-real-key",
         "sk-proj-your-real-key-here",
         "sk-proj-xxxxxxxx",
+        "sk-proj-xxxx",
     }
 
     if (not api_key) or api_key.lower() in invalid_values:
@@ -6600,10 +6619,11 @@ def _ai_get_openai_config():
 
     return api_key, model
 
-
 @st.cache_resource(show_spinner=False)
-def _ai_get_openai_client(api_key):
+def _ai_get_openai_client(api_key=None):
     """Create a cached OpenAI client. Returns None if the package/key is unavailable."""
+    if api_key is None:
+        api_key, _ = _ai_get_openai_config()
     if not api_key:
         return None
     if OpenAI is None:
@@ -6630,7 +6650,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. Use exactly: [openai] OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini" in .streamlit/secrets.toml, then restart/redeploy.'
+        return False, 'OPENAI_API_KEY was not detected. Add OPENAI_API_KEY in Streamlit Cloud → App Settings → Secrets using the flat format: OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini", then reboot the app.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -7114,7 +7134,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add [openai].OPENAI_API_KEY to enable LLM responses"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY in Streamlit Secrets to enable LLM responses"
 
     st.markdown("""
     <style>
