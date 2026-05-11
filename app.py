@@ -60,7 +60,7 @@ try:
 except Exception:
     OpenAI = None
 
-# OPENAI PACKAGE NOTE: install with `pip install --upgrade openai` and set OPENAI_API_KEY in .streamlit/secrets.toml.
+# OPENAI PACKAGE NOTE: install with `pip install --upgrade openai` and set OPENAI_API_KEY as a deployment environment variable.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6553,33 +6553,21 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
 
 
 def _ai_get_openai_config():
-    """Read OpenAI config ONLY from the Streamlit secrets [openai] block.
+    """Read OpenAI config from deployment environment variables only.
 
-    Required .streamlit/secrets.toml format:
+    Required environment variables:
+        OPENAI_API_KEY = sk-proj-...
 
-        [openai]
-        OPENAI_API_KEY = "sk-proj-your-real-key-here"
-        OPENAI_MODEL = "gpt-4o-mini"
+    Optional environment variable:
+        OPENAI_MODEL = gpt-4o-mini
 
-    This strict loader intentionally ignores root-level secrets and OS environment
-    variables to avoid configuration ambiguity.
+    This loader intentionally does not read .streamlit/secrets.toml or st.secrets
+    for OpenAI, so the deployed app depends only on platform secret variables
+    such as Render Environment Variables, DigitalOcean App Platform variables,
+    Docker/Kubernetes env vars, or GitHub Actions secrets passed into runtime.
     """
-    model = "gpt-4o-mini"
-
-    try:
-        openai_cfg = st.secrets.get("openai", {})
-    except Exception:
-        openai_cfg = {}
-
-    try:
-        api_key = str(openai_cfg.get("OPENAI_API_KEY", "")).strip()
-    except Exception:
-        api_key = ""
-
-    try:
-        model = str(openai_cfg.get("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
-    except Exception:
-        model = "gpt-4o-mini"
+    api_key = str(os.environ.get("OPENAI_API_KEY", "")).strip()
+    model = str(os.environ.get("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
 
     invalid_values = {
         "",
@@ -6599,7 +6587,6 @@ def _ai_get_openai_config():
         return None, model
 
     return api_key, model
-
 
 @st.cache_resource(show_spinner=False)
 def _ai_get_openai_client(api_key):
@@ -6630,7 +6617,7 @@ def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
     api_key, model = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. Use exactly: [openai] OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini" in .streamlit/secrets.toml, then restart/redeploy.'
+        return False, 'OPENAI_API_KEY was not detected. Add OPENAI_API_KEY as a deployment environment variable, optionally add OPENAI_MODEL=gpt-4o-mini, then restart/redeploy.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -7114,7 +7101,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add [openai].OPENAI_API_KEY to enable LLM responses"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY environment variable to enable LLM responses"
 
     st.markdown("""
     <style>
@@ -8672,7 +8659,8 @@ def _v4_openai_report(df, report_type="Executive brief", audience="Donor / Execu
     if not (status.get("configured") and status.get("package_ready")):
         return fallback
     try:
-        client = _ai_get_openai_client()
+        api_key, model = _ai_get_openai_config()
+        client = _ai_get_openai_client(api_key)
         if client is None:
             return fallback
         ctx = _v4_context_summary(df)
