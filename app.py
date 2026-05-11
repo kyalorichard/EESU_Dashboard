@@ -8837,7 +8837,19 @@ def _v2_render_status_bar(df):
     model = status.get("model", "gpt-4o-mini")
     records = len(df) if df is not None else 0
 
-    
+    with st.expander("🧪 OpenAI connection", expanded=False):
+        st.caption(f"Key detected: {status.get('has_key')}")
+        st.caption(f"OpenAI package ready: {status.get('package_ready')}")
+        st.caption(f"Model: {model}")
+        st.caption(f"Key preview: {status.get('key_preview')}")
+        st.caption(f"Config source: {status.get('source', 'not configured')}")
+
+        if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
+            ok, msg = _ai_test_openai_connection()
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
 
     st.markdown(f"""
     <div class="v2-statusbar">
