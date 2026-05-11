@@ -1294,16 +1294,7 @@ if is_authenticated() and admin_is_admin():
         render_admin_page(data=data)
         st.stop()
 
-# ---------------- ACCESS STATUS DEBUG PANEL ----------------
-with st.sidebar.expander("🔎 Access status", expanded=False):
-    st.caption(f"Role: {get_current_role()}")
-    st.caption(f"Email: {get_current_email() or 'Guest / not signed in'}")
-    st.caption(f"User manual: {has_permission('view_user_manual')}")
-    st.caption(f"Visualization map: {has_permission('view_maps')}")
-    st.caption(f"Summary data preview: {has_permission('view_data_table')}")
-    st.caption(f"Coverage countries: {has_permission('view_coverage_monitored_countries')}")
-    st.caption(f"Relationship intelligence: {has_permission('view_negative_relationship_intelligence')}")
-    st.caption(f"Analytical flow panel: {has_permission('view_analytical_flow_panel')}")
+
 
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
@@ -8846,21 +8837,7 @@ def _v2_render_status_bar(df):
     model = status.get("model", "gpt-4o-mini")
     records = len(df) if df is not None else 0
 
-    with st.expander("🧪 OpenAI connection", expanded=False):
-        st.caption(f"Key detected: {status.get('has_key')}")
-        st.caption(f"OpenAI package ready: {status.get('package_ready')}")
-        st.caption(f"Model: {model}")
-        st.caption(f"Key preview: {status.get('key_preview')}")
-        st.caption(f"Config source: {status.get('source', 'not configured')}")
-
-        if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
-            ok, msg = _ai_test_openai_connection()
-            if ok:
-                st.success(msg)
-            else:
-                st.error(msg)
-
-    st.markdown(f"""
+        st.markdown(f"""
     <div class="v2-statusbar">
       <span><b>Mode:</b> {mode}</span>
       <span><b>Model:</b> {model}</span>
