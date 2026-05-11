@@ -57,17 +57,15 @@ import re
 
 try:
     from openai import OpenAI
-    OPENAI_PACKAGE_READY = True
 except Exception:
     OpenAI = None
-    OPENAI_PACKAGE_READY = False
 
 # OPENAI PACKAGE NOTE:
 #   Add openai>=1.0.0 to requirements.txt.
-#   For Streamlit Cloud, store credentials in App Settings → Secrets:
-#     OPENAI_API_KEY = "sk-proj-..."
-#     OPENAI_MODEL = "gpt-4o-mini"
-#   Nested [openai] secrets and OS environment variables are also supported as fallbacks.
+#   Preferred Streamlit Cloud secrets format:
+#       OPENAI_API_KEY = "sk-proj-..."
+#       OPENAI_MODEL = "gpt-4o-mini"
+#   Also supports nested [openai] secrets and deployment environment variables.
 
 # Optional dependency for real Plotly map click events.
 # If not installed, the app falls back to the country drill-down dropdown.
@@ -6559,45 +6557,81 @@ def ai_generate_chart_explanation(df, chart_context="current dashboard view"):
     return append_eusee_redirect("\n".join(lines))
 
 
-def _ai_get_openai_config():
-    """Read OpenAI config from Streamlit Secrets, with safe fallbacks.
+def _ai_clean_secret_value(value):
+    """Normalize secret/env values without exposing them."""
+    if value is None:
+        return ""
+    value = str(value).strip()
 
-    Preferred Streamlit Cloud flat secrets format:
+    # Remove accidental wrapping quotes copied into secret values.
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+        value = value[1:-1].strip()
+
+    # Remove invisible whitespace/newlines that often appear after copy-paste.
+    value = value.replace("\n", "").replace("\r", "").replace("\t", "").strip()
+    return value
+
+
+def _ai_get_secret_from_streamlit(key, default=""):
+    """Safely read a flat Streamlit secret."""
+    try:
+        return _ai_clean_secret_value(st.secrets.get(key, default))
+    except Exception:
+        return _ai_clean_secret_value(default)
+
+
+def _ai_get_nested_secret_from_streamlit(section, key, default=""):
+    """Safely read a nested Streamlit secret, e.g. [openai]."""
+    try:
+        section_obj = st.secrets.get(section, {})
+        return _ai_clean_secret_value(section_obj.get(key, default))
+    except Exception:
+        return _ai_clean_secret_value(default)
+
+
+def _ai_get_openai_config():
+    """Read OpenAI config from Streamlit Secrets first, then environment variables.
+
+    Preferred Streamlit Cloud format, pasted into App → Settings → Secrets:
+
         OPENAI_API_KEY = "sk-proj-your-real-key-here"
         OPENAI_MODEL = "gpt-4o-mini"
 
-    Also supports nested secrets:
+    Backward-compatible nested format is also supported:
+
         [openai]
         OPENAI_API_KEY = "sk-proj-your-real-key-here"
         OPENAI_MODEL = "gpt-4o-mini"
-
-    Optional fallback: OS environment variables with the same names.
     """
     model = "gpt-4o-mini"
     api_key = ""
+    source = "not configured"
 
-    # 1) Preferred: flat Streamlit Secrets
-    try:
-        api_key = str(st.secrets.get("OPENAI_API_KEY", "")).strip()
-        model = str(st.secrets.get("OPENAI_MODEL", model)).strip() or model
-    except Exception:
-        pass
+    # 1) Preferred: flat Streamlit Secrets.
+    api_key = _ai_get_secret_from_streamlit("OPENAI_API_KEY", "")
+    flat_model = _ai_get_secret_from_streamlit("OPENAI_MODEL", "")
+    if flat_model:
+        model = flat_model
+    if api_key:
+        source = "Streamlit Secrets: OPENAI_API_KEY"
 
-    # 2) Backward-compatible: nested Streamlit Secrets under [openai]
-    try:
-        openai_cfg = st.secrets.get("openai", {})
-        if not api_key:
-            api_key = str(openai_cfg.get("OPENAI_API_KEY", "")).strip()
-        model = str(openai_cfg.get("OPENAI_MODEL", model)).strip() or model
-    except Exception:
-        pass
-
-    # 3) Optional fallback: deployment environment variables
+    # 2) Backward-compatible: nested Streamlit Secrets under [openai].
     if not api_key:
-        api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
-    env_model = str(os.getenv("OPENAI_MODEL", "")).strip()
-    if env_model:
-        model = env_model
+        api_key = _ai_get_nested_secret_from_streamlit("openai", "OPENAI_API_KEY", "")
+        nested_model = _ai_get_nested_secret_from_streamlit("openai", "OPENAI_MODEL", "")
+        if nested_model:
+            model = nested_model
+        if api_key:
+            source = "Streamlit Secrets: [openai].OPENAI_API_KEY"
+
+    # 3) Runtime environment fallback for Docker/Render/DigitalOcean.
+    if not api_key:
+        api_key = _ai_clean_secret_value(os.getenv("OPENAI_API_KEY", ""))
+        env_model = _ai_clean_secret_value(os.getenv("OPENAI_MODEL", ""))
+        if env_model:
+            model = env_model
+        if api_key:
+            source = "Environment variable: OPENAI_API_KEY"
 
     invalid_values = {
         "",
@@ -6615,15 +6649,13 @@ def _ai_get_openai_config():
     }
 
     if (not api_key) or api_key.lower() in invalid_values:
-        return None, model
+        return None, model, "not configured"
 
-    return api_key, model
+    return api_key, model, source
 
 @st.cache_resource(show_spinner=False)
-def _ai_get_openai_client(api_key=None):
+def _ai_get_openai_client(api_key):
     """Create a cached OpenAI client. Returns None if the package/key is unavailable."""
-    if api_key is None:
-        api_key, _ = _ai_get_openai_config()
     if not api_key:
         return None
     if OpenAI is None:
@@ -6633,7 +6665,7 @@ def _ai_get_openai_client(api_key=None):
 
 def _ai_openai_status():
     """Diagnostic helper for the AI Copilot status bar and debug panel."""
-    api_key, model = _ai_get_openai_config()
+    api_key, model, source = _ai_get_openai_config()
     package_ready = OpenAI is not None
     configured = bool(api_key and package_ready)
     return {
@@ -6643,14 +6675,15 @@ def _ai_openai_status():
         "package_ready": package_ready,
         "model": model,
         "key_preview": f"{api_key[:7]}...{api_key[-4:]}" if api_key else "Not configured",
+        "source": source,
     }
 
 
 def _ai_test_openai_connection():
     """Return a human-readable OpenAI runtime test result for the dashboard UI."""
-    api_key, model = _ai_get_openai_config()
+    api_key, model, source = _ai_get_openai_config()
     if not api_key:
-        return False, 'OPENAI_API_KEY was not detected. Add OPENAI_API_KEY in Streamlit Cloud → App Settings → Secrets using the flat format: OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini", then reboot the app.'
+        return False, 'OPENAI_API_KEY was not detected. In Streamlit Cloud, open App → Settings → Secrets and add: OPENAI_API_KEY = "sk-proj-..." and OPENAI_MODEL = "gpt-4o-mini", then Save and Reboot app.'
     if OpenAI is None:
         return False, "The openai package is not installed. Add openai>=1.0.0 to requirements.txt and redeploy."
     try:
@@ -6986,7 +7019,7 @@ def ai_try_llm_response(question, df):
     except Exception:
         pass
 
-    api_key, model = _ai_get_openai_config()
+    api_key, model, source = _ai_get_openai_config()
     status = _ai_openai_status()
 
     if not api_key:
@@ -7134,7 +7167,7 @@ def render_ai_assistant_panel(df):
     s = summarize_for_ai(df)
     level, level_color, level_note = ai_priority_signal(s)
     api_key, active_model = _ai_get_openai_config()
-    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add OPENAI_API_KEY in Streamlit Secrets to enable LLM responses"
+    ai_mode = f"OpenAI enabled · {active_model}" if api_key else "Local deterministic mode · add [openai].OPENAI_API_KEY to enable LLM responses"
 
     st.markdown("""
     <style>
@@ -7908,7 +7941,7 @@ def _v2_is_plot_request(text):
 
 def _v2_openai_stream_answer(question, df):
     """Return a generator for OpenAI streaming when available, else deterministic stream."""
-    api_key, model = _ai_get_openai_config()
+    api_key, model, source = _ai_get_openai_config()
     if not api_key or OpenAI is None:
         return _copilot_stream_text(ai_try_llm_response(question, df))
     try:
@@ -8059,7 +8092,7 @@ This pattern suggests that the dashboard user should first inspect the leading c
 def eusee_openai_chart_interpretation(plot_df, chart_type="Chart", x_col=None, group_col=None, dashboard_df=None, title="Chart", user_question=""):
     """OpenAI-assisted chart interpretation with deterministic fallback."""
     fallback = eusee_local_chart_interpretation(plot_df, chart_type, x_col, group_col, dashboard_df, title)
-    api_key, model = _ai_get_openai_config()
+    api_key, model, source = _ai_get_openai_config()
     if not api_key or OpenAI is None:
         return fallback
 
@@ -8777,6 +8810,7 @@ def _v2_render_status_bar(df):
         st.caption(f"OpenAI package ready: {status.get('package_ready')}")
         st.caption(f"Model: {model}")
         st.caption(f"Key preview: {status.get('key_preview')}")
+        st.caption(f"Config source: {status.get('source', 'not configured')}")
 
         if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
             ok, msg = _ai_test_openai_connection()
