@@ -9723,6 +9723,41 @@ def _fast_ai_local_summary(df):
     return "\n\n".join(lines)
 
 
+
+def _fast_ai_empty_state_message():
+    """Professional empty-state guidance when filters remove all records."""
+    return (
+        "### No dashboard records found\n\n"
+        "The current filter combination returns **0 records**, so the Copilot cannot generate a reliable dashboard insight yet.\n\n"
+        "**Recommended next steps:**\n\n"
+        "1. Click **Reset** in the sidebar filters.\n"
+        "2. Broaden the country, region, year, month, or alert-impact selection.\n"
+        "3. Start with a summary question after records appear, such as: *Summarize the current dashboard view.*\n\n"
+        "**Confidence:** Limited — no filtered data are currently available."
+    )
+
+
+def _fast_ai_memory_context(limit=5):
+    """Return compact recent conversation memory for follow-up questions."""
+    history = st.session_state.get("fast_ai_history", []) if "st" in globals() else []
+    if not history:
+        return "No previous Copilot conversation in this session."
+
+    memory_lines = []
+    for item in history[-int(limit):]:
+        q = str(item.get("question", "")).strip()
+        ans = item.get("answer", "")
+        if isinstance(ans, pd.DataFrame):
+            a = "Returned a table: " + ", ".join(map(str, ans.columns.tolist()))
+        else:
+            a = str(ans).replace("\n", " ").strip()
+            if len(a) > 450:
+                a = a[:447].rstrip() + "..."
+        if q:
+            memory_lines.append(f"Q: {q}\nA: {a}")
+
+    return "\n---\n".join(memory_lines) if memory_lines else "No previous Copilot conversation in this session."
+
 def _fast_ai_rule_based_answer(question, df):
     """Answer common dashboard questions instantly without using the LLM."""
     q = str(question or "").lower().strip()
@@ -9730,7 +9765,7 @@ def _fast_ai_rule_based_answer(question, df):
         return None, "text"
 
     if df is None or df.empty:
-        return "No records are available under the current filters.", "text"
+        return _fast_ai_empty_state_message(), "text"
 
     if any(x in q for x in ["summary", "summarize", "overview", "brief", "snapshot"]):
         return _fast_ai_local_summary(df), "text"
@@ -9815,6 +9850,9 @@ Be concise, professional, and decision-support oriented.
 Dashboard context:
 {_fast_ai_context(df)}
 
+Recent conversation memory:
+{_fast_ai_memory_context(limit=5)}
+
 User question:
 {question}
 
@@ -9894,6 +9932,29 @@ def render_fast_professional_copilot(df):
             font-size: 12px;
             line-height: 1.45;
         }
+
+        .fast-ai-empty-box {
+            background: #FFFCF5;
+            border: 1px solid #FEC84B;
+            border-radius: 14px;
+            padding: 11px 12px;
+            margin: 8px 0 10px 0;
+            color: #7A4B00;
+            font-size: 11.5px;
+            line-height: 1.4;
+        }
+        .fast-ai-memory-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 4px 8px;
+            background: #F4EAF8;
+            border: 1px solid #E7D4F1;
+            color: #660094;
+            font-size: 10px;
+            font-weight: 900;
+            margin-bottom: 6px;
+        }
         </style>
         """, unsafe_allow_html=True)
 
@@ -9909,10 +9970,29 @@ def render_fast_professional_copilot(df):
         </div>
         """, unsafe_allow_html=True)
 
+        # Professional empty-state handling: keep Copilot visible even when filters return no data.
+        has_rows = df is not None and not df.empty
+        if not has_rows:
+            st.markdown(
+                """
+                <div class="fast-ai-empty-box">
+                    <strong>No records under current filters.</strong><br>
+                    The assistant remains available, but insights will be limited until filters return data. Use the sidebar <strong>Reset</strong> button or broaden country, region, year, month, or alert-impact filters.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
         st.session_state.setdefault("fast_ai_history", [])
         st.session_state.setdefault("fast_ai_last_answer", None)
         st.session_state.setdefault("fast_ai_last_type", "text")
         st.session_state.setdefault("fast_ai_last_source", "")
+
+        memory_count = len(st.session_state.fast_ai_history)
+        st.markdown(
+            f"<div class='fast-ai-memory-badge'>Conversation memory: {memory_count} saved turns</div>",
+            unsafe_allow_html=True,
+        )
 
         quick_options = [
             "Ask manually",
@@ -9992,10 +10072,10 @@ def render_fast_professional_copilot(df):
                     st.caption(item.get("source", ""))
                     st.divider()
 
-if has_permission("use_ai_copilot"):
-    render_fast_professional_copilot(filtered_global)
-else:
-    AI_ASSISTANT_SLOT.info("AI Copilot is disabled for your access level.")
+# Render the Copilot for all users. The previous permission guard could hide it for
+# guests/viewers when `use_ai_copilot` was not included in the role-permission map.
+# Data access is still governed by `apply_data_scope(load_data())` above.
+render_fast_professional_copilot(filtered_global)
 
 
 
