@@ -1213,6 +1213,236 @@ filtered_global = data[
 
 #render_filter_status_card(filtered_global)
 
+# ============================================================
+# GUARANTEED VISIBLE AI COPILOT
+# Placed immediately after filtered_global is created, before any
+# later dashboard section can stop or fail before rendering the bot.
+# ============================================================
+def _gv_value_counts(df, col, n=8):
+    if df is None or df.empty or col not in df.columns:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    s = df[col].dropna().astype(str).str.strip()
+    s = s[(s != "") & (~s.str.lower().isin(["nan", "none", "null"]))]
+    if s.empty:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    out = s.value_counts().head(int(n)).reset_index()
+    out.columns = ["Category", "Alerts"]
+    return out
+
+
+def _gv_split_counts(df, col, n=8):
+    if df is None or df.empty or col not in df.columns:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    protected = "Journalists, media and influencers"
+    placeholder = "Journalists__MEDIA__and__influencers"
+    s = df[col].dropna().astype(str).str.strip()
+    s = s.str.replace(protected, placeholder, regex=False)
+    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+    exploded = (
+        s.str.split(",")
+        .explode()
+        .astype(str)
+        .str.strip()
+        .str.replace(placeholder, protected, regex=False)
+    )
+    exploded = exploded[(exploded != "") & (~exploded.str.lower().isin(["nan", "none", "null"]))]
+    if exploded.empty:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    out = exploded.value_counts().head(int(n)).reset_index()
+    out.columns = ["Category", "Alerts"]
+    return out
+
+
+def _gv_context_text(df):
+    if df is None or df.empty:
+        return "No records are available under the active filters."
+    parts = [f"Filtered records: {len(df):,}"]
+    if "alert-country" in df.columns:
+        parts.append(f"Countries: {df['alert-country'].nunique():,}")
+        top_country = _gv_value_counts(df, "alert-country", 1)
+        if not top_country.empty:
+            parts.append(f"Top country: {top_country.iloc[0]['Category']} ({int(top_country.iloc[0]['Alerts']):,})")
+    if "region" in df.columns:
+        top_region = _gv_value_counts(df, "region", 1)
+        if not top_region.empty:
+            parts.append(f"Top region: {top_region.iloc[0]['Category']} ({int(top_region.iloc[0]['Alerts']):,})")
+    if "alert-impact" in df.columns:
+        impact = _gv_value_counts(df, "alert-impact", 5)
+        if not impact.empty:
+            parts.append("Impact mix: " + ", ".join([f"{r.Category}: {int(r.Alerts):,}" for r in impact.itertuples(index=False)]))
+    return " | ".join(parts)
+
+
+def _gv_empty_state(df):
+    total_loaded = len(data) if isinstance(data, pd.DataFrame) else 0
+    return f"""
+**No records match the current filters.**
+
+Try one of these actions:
+
+1. Click **Reset** in the sidebar filters.
+2. Select fewer countries, months, years, or alert types.
+3. Check that Region, Country, Nature of event/alert, Impact of alert, Month, and Year all have available selections.
+
+Loaded source records before filtering: **{total_loaded:,}**.
+"""
+
+
+def _gv_local_answer(question, df):
+    q = str(question or "").lower().strip()
+    if df is None or df.empty:
+        return _gv_empty_state(df), "text", "Empty-state guidance"
+    if any(x in q for x in ["summary", "overview", "brief"]):
+        return _gv_context_text(df), "text", "Fast local dashboard summary"
+    if "country" in q or "countries" in q:
+        return _gv_value_counts(df, "alert-country", 10), "table", "Fast local country ranking"
+    if "region" in q:
+        return _gv_value_counts(df, "region", 10), "table", "Fast local regional ranking"
+    if "negative" in q:
+        if "alert-impact" not in df.columns:
+            return "Alert-impact data is unavailable.", "text", "Column check"
+        neg = df[df["alert-impact"].astype(str).str.lower().eq("negative")]
+        share = round((len(neg) / len(df)) * 100, 1) if len(df) else 0
+        return f"Negative alerts: **{len(neg):,}** of **{len(df):,}** filtered records (**{share}%**).", "text", "Fast local negative-alert calculation"
+    if "actor" in q:
+        return _gv_split_counts(df, "Actor of repression", 10), "table", "Fast local actor ranking"
+    if "mechanism" in q:
+        return _gv_split_counts(df, "Mechanism of repression", 10), "table", "Fast local mechanism ranking"
+    if "subject" in q:
+        return _gv_split_counts(df, "Subject of repression", 10), "table", "Fast local subject ranking"
+    return None, None, None
+
+
+def _gv_openai_answer(question, df):
+    local_answer, answer_type, source = _gv_local_answer(question, df)
+    if local_answer is not None:
+        return local_answer, answer_type, source
+    if OpenAI is None:
+        return "OpenAI is not available. Add `openai>=1.0.0` to requirements.txt.", "text", "OpenAI package check"
+    try:
+        openai_cfg = st.secrets.get("openai", {})
+        api_key = openai_cfg.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        model = openai_cfg.get("OPENAI_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        if not api_key:
+            return "OPENAI_API_KEY is missing. Add it under `[openai]` in Streamlit Secrets.", "text", "Secrets check"
+        memory = st.session_state.get("gv_copilot_memory", [])[-6:]
+        memory_text = "\n".join([f"User: {m.get('question','')}\nAssistant: {str(m.get('answer',''))[:600]}" for m in memory])
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a concise professional EU SEE Dashboard analyst. Use only the provided dashboard context. Do not invent figures."},
+                {"role": "user", "content": f"Dashboard context:\n{_gv_context_text(df)}\n\nRecent conversation memory:\n{memory_text or 'None'}\n\nQuestion:\n{question}"},
+            ],
+            temperature=0.2,
+            max_tokens=450,
+        )
+        return response.choices[0].message.content.strip(), "text", "OpenAI response using filtered dashboard context + conversation memory"
+    except Exception as e:
+        return f"OpenAI response failed: {e}", "text", "OpenAI error"
+
+
+def render_guaranteed_visible_copilot(df):
+    st.session_state.setdefault("gv_copilot_memory", [])
+    with AI_ASSISTANT_SLOT:
+        st.markdown("""
+        <style>
+        .gv-ai-shell {background:linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 100%);border:1px solid rgba(102,0,148,.20);border-radius:16px;padding:13px;margin:10px 0 14px 0;box-shadow:0 10px 24px rgba(16,24,40,.075);font-family:Arial,sans-serif;}
+        .gv-ai-title {font-size:14px;font-weight:950;color:#23152F;margin-bottom:3px;}
+        .gv-ai-sub {font-size:10.8px;color:#667085;line-height:1.35;}
+        .gv-ai-badge {display:inline-block;margin-top:7px;background:#EFFBFE;color:#008CAA;border:1px solid rgba(0,140,170,.18);border-radius:999px;padding:4px 8px;font-size:9.5px;font-weight:900;}
+        .gv-ai-empty {background:#FFFCED;border:1px solid #F8E9A1;border-radius:13px;padding:10px;color:#7A4E00;font-size:11px;line-height:1.4;margin:8px 0;}
+        .gv-ai-answer {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:13px;padding:10px;font-size:11.5px;line-height:1.42;color:#344054;box-shadow:0 4px 12px rgba(16,24,40,.045);}
+        </style>
+        <div class="gv-ai-shell">
+            <div class="gv-ai-title">🤖 EU SEE AI Copilot</div>
+            <div class="gv-ai-sub">Always visible assistant grounded in the active filters, with memory and empty-state guidance.</div>
+            <div class="gv-ai-badge">Conversation memory: enabled</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if df is None or df.empty:
+            st.markdown(f"<div class='gv-ai-empty'>{_gv_empty_state(df).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+
+        quick = st.selectbox(
+            "Copilot quick action",
+            [
+                "Ask manually",
+                "Summarize current dashboard",
+                "Show top countries",
+                "Explain negative alerts",
+                "Show regional pattern",
+                "Show top actors",
+                "Show top mechanisms",
+                "Show top subjects",
+            ],
+            key="gv_copilot_quick_action",
+        )
+        default_q = {
+            "Ask manually": "",
+            "Summarize current dashboard": "Give me a concise executive summary of the current dashboard.",
+            "Show top countries": "Show the top countries by alert volume.",
+            "Explain negative alerts": "Explain the negative alerts in the current filtered dashboard.",
+            "Show regional pattern": "Show the regional alert pattern.",
+            "Show top actors": "Show the top actors of repression.",
+            "Show top mechanisms": "Show the top mechanisms of repression.",
+            "Show top subjects": "Show the top subjects of repression.",
+        }.get(quick, "")
+        question = st.text_area(
+            "Ask the dashboard",
+            value=default_q,
+            height=86,
+            placeholder="Example: Which countries have the highest negative alerts?",
+            key="gv_copilot_question",
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            ask = st.button("Ask", use_container_width=True, key="gv_copilot_ask")
+        with c2:
+            clear = st.button("Clear", use_container_width=True, key="gv_copilot_clear")
+        if clear:
+            st.session_state.gv_copilot_memory = []
+            st.session_state.pop("gv_copilot_last_answer", None)
+            st.session_state.pop("gv_copilot_last_type", None)
+            st.session_state.pop("gv_copilot_last_source", None)
+            st.rerun()
+        if ask and question.strip():
+            with st.spinner("Generating dashboard insight..."):
+                ans, ans_type, src = _gv_openai_answer(question.strip(), df)
+            st.session_state.gv_copilot_last_answer = ans
+            st.session_state.gv_copilot_last_type = ans_type
+            st.session_state.gv_copilot_last_source = src
+            st.session_state.gv_copilot_memory.append({
+                "question": question.strip(),
+                "answer": ans,
+                "type": ans_type,
+                "source": src,
+                "time": pd.Timestamp.now().strftime("%H:%M"),
+            })
+            st.session_state.gv_copilot_memory = st.session_state.gv_copilot_memory[-10:]
+        last = st.session_state.get("gv_copilot_last_answer")
+        if last is not None:
+            st.markdown("**Latest insight**")
+            if st.session_state.get("gv_copilot_last_type") == "table" and isinstance(last, pd.DataFrame):
+                st.dataframe(last, use_container_width=True, hide_index=True, height=245)
+            else:
+                st.markdown(f"<div class='gv-ai-answer'>{str(last).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+            st.caption(st.session_state.get("gv_copilot_last_source", ""))
+        if st.session_state.gv_copilot_memory:
+            with st.expander("Conversation memory", expanded=False):
+                for item in reversed(st.session_state.gv_copilot_memory[-6:]):
+                    st.markdown(f"**{item.get('time','')} · Q:** {item.get('question','')}")
+                    if item.get("type") == "table" and isinstance(item.get("answer"), pd.DataFrame):
+                        st.dataframe(item.get("answer"), use_container_width=True, hide_index=True)
+                    else:
+                        st.markdown(str(item.get("answer", "")))
+                    st.caption(item.get("source", ""))
+                    st.divider()
+
+
+# Render before login/admin/dashboard sections so it cannot be skipped by later page logic.
+render_guaranteed_visible_copilot(filtered_global)
+
 # ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
 st.sidebar.markdown("""
 <style>
@@ -10072,10 +10302,6 @@ def render_fast_professional_copilot(df):
                     st.caption(item.get("source", ""))
                     st.divider()
 
-# Render the Copilot for all users. The previous permission guard could hide it for
-# guests/viewers when `use_ai_copilot` was not included in the role-permission map.
-# Data access is still governed by `apply_data_scope(load_data())` above.
-render_fast_professional_copilot(filtered_global)
 
 
 
