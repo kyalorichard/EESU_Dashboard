@@ -802,7 +802,7 @@ data = apply_data_scope(load_data())
 latest_date_display = st.session_state.get("latest_dataset_date", "Not available")
 latest_date_source = st.session_state.get(
     "latest_dataset_date_source",
-    "Based on latest creation_date in the loaded dataset",
+    "Based on latest loaded dataset",
 )
 
 st.markdown(f"""
