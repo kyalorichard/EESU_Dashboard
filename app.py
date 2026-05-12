@@ -9584,8 +9584,416 @@ def render_ai_assistant_panel(df):
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
+
+
+# ============================================================
+# FAST PROFESSIONAL AI COPILOT - PRODUCTION SIDEBAR MODE
+# ============================================================
+def _fast_ai_clean_value(value, fallback="Not available"):
+    """Return a safe compact value for dashboard text output."""
+    if value is None:
+        return fallback
+    value = str(value).strip()
+    if value == "" or value.lower() in ["nan", "none", "null"]:
+        return fallback
+    return value
+
+
+def _fast_ai_top_counts(df, column, n=8):
+    """Fast deterministic top-count table for the active filtered dataframe."""
+    if df is None or df.empty or column not in df.columns:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    s = (
+        df[column]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .replace("", np.nan)
+        .dropna()
+    )
+    if s.empty:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    out = s.value_counts().head(int(n)).reset_index()
+    out.columns = ["Category", "Alerts"]
+    return out
+
+
+def _fast_ai_split_top_counts(df, column, n=8):
+    """Top counts for comma-separated dashboard fields such as actors, subjects, mechanisms."""
+    if df is None or df.empty or column not in df.columns:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    protected = "Journalists, media and influencers"
+    placeholder = "Journalists__MEDIA__and__influencers"
+    s = df[column].dropna().astype(str).str.strip()
+    s = s.str.replace(protected, placeholder, regex=False)
+    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
+    exploded = (
+        s.str.split(",")
+        .explode()
+        .astype(str)
+        .str.strip()
+        .str.replace(placeholder, protected, regex=False)
+    )
+    exploded = exploded[
+        (exploded != "")
+        & (~exploded.str.lower().isin(["nan", "none", "null"]))
+    ]
+    if exploded.empty:
+        return pd.DataFrame(columns=["Category", "Alerts"])
+    out = exploded.value_counts().head(int(n)).reset_index()
+    out.columns = ["Category", "Alerts"]
+    return out
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def _fast_ai_cached_context(df_signature, records, countries, years, impact_counts, region_counts, country_counts):
+    """Cache a compact text context. Arguments are hashable summaries, not the dataframe."""
+    impact_text = ", ".join([f"{k}: {v:,}" for k, v in impact_counts]) if impact_counts else "Not available"
+    region_text = ", ".join([f"{k}: {v:,}" for k, v in region_counts[:5]]) if region_counts else "Not available"
+    country_text = ", ".join([f"{k}: {v:,}" for k, v in country_counts[:8]]) if country_counts else "Not available"
+    year_text = ", ".join([str(y) for y in years]) if years else "Not available"
+    return (
+        f"Filtered records: {records:,}\n"
+        f"Countries covered: {countries:,}\n"
+        f"Years represented: {year_text}\n"
+        f"Alert impact distribution: {impact_text}\n"
+        f"Top regions: {region_text}\n"
+        f"Top countries: {country_text}"
+    )
+
+
+def _fast_ai_context(df):
+    """Build a compact, cached, dashboard-grounded context for OpenAI prompts and local summaries."""
+    if df is None or df.empty:
+        return "No filtered records are currently available."
+
+    records = len(df)
+    countries = int(df["alert-country"].nunique()) if "alert-country" in df.columns else 0
+    years = []
+    if "year" in df.columns:
+        years = [int(y) if float(y).is_integer() else y for y in sorted(pd.Series(df["year"]).dropna().unique())]
+
+    impact_counts = []
+    if "alert-impact" in df.columns:
+        impact_counts = list(df["alert-impact"].value_counts().items())
+
+    region_counts = []
+    if "region" in df.columns:
+        region_counts = list(df["region"].value_counts().items())
+
+    country_counts = []
+    if "alert-country" in df.columns:
+        country_counts = list(df["alert-country"].value_counts().head(8).items())
+
+    signature = (
+        records,
+        countries,
+        tuple(years),
+        tuple((str(k), int(v)) for k, v in impact_counts),
+        tuple((str(k), int(v)) for k, v in region_counts[:5]),
+        tuple((str(k), int(v)) for k, v in country_counts[:8]),
+    )
+    return _fast_ai_cached_context(signature, records, countries, years, impact_counts, region_counts, country_counts)
+
+
+def _fast_ai_local_summary(df):
+    """Instant executive summary without calling OpenAI."""
+    if df is None or df.empty:
+        return "No records are available under the current filters. Adjust filters to restore dashboard context."
+
+    lines = ["### Executive snapshot", "", _fast_ai_context(df), ""]
+
+    if "alert-impact" in df.columns:
+        impact = df["alert-impact"].value_counts()
+        if not impact.empty:
+            top = impact.index[0]
+            lines.append(f"**Main signal:** {top} alerts represent the largest share of the current filtered view.")
+
+    if "alert-country" in df.columns:
+        top_country = df["alert-country"].value_counts().head(1)
+        if not top_country.empty:
+            lines.append(f"**Highest-volume country:** {top_country.index[0]} with {int(top_country.iloc[0]):,} alerts.")
+
+    if "region" in df.columns:
+        top_region = df["region"].value_counts().head(1)
+        if not top_region.empty:
+            lines.append(f"**Highest-volume region:** {top_region.index[0]} with {int(top_region.iloc[0]):,} alerts.")
+
+    lines.append("**Caveat:** Counts describe submitted/filtered monitoring records and should be interpreted alongside reporting coverage and country context.")
+    return "\n\n".join(lines)
+
+
+def _fast_ai_rule_based_answer(question, df):
+    """Answer common dashboard questions instantly without using the LLM."""
+    q = str(question or "").lower().strip()
+    if not q:
+        return None, "text"
+
+    if df is None or df.empty:
+        return "No records are available under the current filters.", "text"
+
+    if any(x in q for x in ["summary", "summarize", "overview", "brief", "snapshot"]):
+        return _fast_ai_local_summary(df), "text"
+
+    if any(x in q for x in ["top country", "top countries", "country ranking", "countries"]):
+        table = _fast_ai_top_counts(df, "alert-country", n=10)
+        if table.empty:
+            return "Country data is not available in the current filtered view.", "text"
+        return table.rename(columns={"Category": "Country"}), "table"
+
+    if any(x in q for x in ["region", "regional"]):
+        table = _fast_ai_top_counts(df, "region", n=10)
+        if table.empty:
+            return "Region data is not available in the current filtered view.", "text"
+        return table.rename(columns={"Category": "Region"}), "table"
+
+    if any(x in q for x in ["negative", "repression", "restrictive"]):
+        if "alert-impact" not in df.columns:
+            return "Alert impact data is not available in the current view.", "text"
+        neg = df[df["alert-impact"].astype(str).str.lower().eq("negative")].copy()
+        if neg.empty:
+            return "There are no negative alerts under the current filters.", "text"
+        actor_table = _fast_ai_split_top_counts(neg, "Actor of repression", n=5)
+        mechanism_table = _fast_ai_split_top_counts(neg, "Mechanism of repression", n=5)
+        text = [
+            f"### Negative alerts overview",
+            f"Negative alerts: **{len(neg):,}** out of **{len(df):,}** filtered records.",
+        ]
+        if not actor_table.empty:
+            text.append(f"Top restrictive actor category: **{actor_table.iloc[0]['Category']}** ({int(actor_table.iloc[0]['Alerts']):,}).")
+        if not mechanism_table.empty:
+            text.append(f"Top mechanism: **{mechanism_table.iloc[0]['Category']}** ({int(mechanism_table.iloc[0]['Alerts']):,}).")
+        text.append("Use the Negative Events tab for the full heatmap, Sankey, and relationship intelligence view.")
+        return "\n\n".join(text), "text"
+
+    if any(x in q for x in ["actor", "actors"]):
+        table = _fast_ai_split_top_counts(df, "Actor of repression", n=10)
+        if table.empty:
+            return "Actor of repression data is not available in the current filtered view.", "text"
+        return table.rename(columns={"Category": "Actor of repression"}), "table"
+
+    if any(x in q for x in ["mechanism", "mechanisms"]):
+        table = _fast_ai_split_top_counts(df, "Mechanism of repression", n=10)
+        if table.empty:
+            return "Mechanism data is not available in the current filtered view.", "text"
+        return table.rename(columns={"Category": "Mechanism of repression"}), "table"
+
+    if any(x in q for x in ["subject", "subjects"]):
+        table = _fast_ai_split_top_counts(df, "Subject of repression", n=10)
+        if table.empty:
+            return "Subject data is not available in the current filtered view.", "text"
+        return table.rename(columns={"Category": "Subject of repression"}), "table"
+
+    return None, "text"
+
+
+def _fast_ai_openai_answer(question, df):
+    """LLM fallback for deeper questions. Keeps prompts small for speed."""
+    local_answer, answer_type = _fast_ai_rule_based_answer(question, df)
+    if local_answer is not None:
+        return local_answer, answer_type, "Instant local answer"
+
+    status = _ai_openai_status() if "_ai_openai_status" in globals() else {"configured": False, "model": "gpt-4o-mini"}
+    if not status.get("configured"):
+        return (
+            "OpenAI is not configured, so I answered only instant dashboard questions. "
+            "Add `[openai] OPENAI_API_KEY` in Streamlit Secrets to enable deeper AI responses.",
+            "text",
+            "Local mode",
+        )
+
+    try:
+        client = _ai_get_openai_client() if "_ai_get_openai_client" in globals() else None
+        if client is None:
+            return "OpenAI client could not be initialized.", "text", "OpenAI unavailable"
+
+        prompt = f"""
+You are the EU SEE Dashboard AI Copilot.
+Use only the dashboard context below. Do not invent facts.
+Be concise, professional, and decision-support oriented.
+
+Dashboard context:
+{_fast_ai_context(df)}
+
+User question:
+{question}
+
+Answer format:
+- Start with the key answer.
+- Add 2-4 analytical bullets if useful.
+- End with a short caveat if interpretation could depend on reporting coverage.
+"""
+        resp = client.chat.completions.create(
+            model=status.get("model", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": "You are a fast, grounded dashboard analyst for EU SEE monitoring data."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.15,
+            max_tokens=420,
+        )
+        return (resp.choices[0].message.content or "").strip(), "text", f"OpenAI · {status.get('model', 'model')}"
+    except Exception as e:
+        return f"OpenAI response failed: {e}", "text", "OpenAI error"
+
+
+def render_fast_professional_copilot(df):
+    """Clean, fast, easy-to-use Copilot rendered in the reserved sidebar slot."""
+    with AI_ASSISTANT_SLOT:
+        st.markdown("""
+        <style>
+        .fast-ai-card {
+            margin: 12px 0 12px 0;
+            padding: 14px;
+            border-radius: 17px;
+            background: radial-gradient(circle at 100% 0%, rgba(0,140,170,.08), transparent 35%), linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 100%);
+            border: 1px solid rgba(102,0,148,.16);
+            box-shadow: 0 10px 24px rgba(16,24,40,.07);
+            font-family: Arial, sans-serif;
+        }
+        .fast-ai-eyebrow {
+            font-size: 9px;
+            font-weight: 900;
+            color: #660094;
+            letter-spacing: .13em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .fast-ai-title {
+            font-size: 15px;
+            font-weight: 950;
+            color: #23152F;
+            line-height: 1.15;
+        }
+        .fast-ai-subtitle {
+            font-size: 10.8px;
+            color: #667085;
+            line-height: 1.35;
+            margin-top: 5px;
+        }
+        .fast-ai-status {
+            margin-top: 9px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 5px 9px;
+            background: #EFFBFE;
+            color: #008CAA;
+            font-size: 10px;
+            font-weight: 900;
+            border: 1px solid rgba(0,140,170,.18);
+        }
+        .fast-ai-answer-box {
+            background: #FFFFFF;
+            border: 1px solid #E6E8EF;
+            border-radius: 14px;
+            padding: 11px 12px;
+            margin-top: 9px;
+            box-shadow: 0 6px 16px rgba(16,24,40,.045);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        status = _ai_openai_status() if "_ai_openai_status" in globals() else {"configured": False, "model": "gpt-4o-mini"}
+        mode_label = f"Fast mode + OpenAI ({status.get('model', 'model')})" if status.get("configured") else "Fast local mode"
+
+        st.markdown(f"""
+        <div class="fast-ai-card">
+            <div class="fast-ai-eyebrow">AI Copilot</div>
+            <div class="fast-ai-title">🤖 EU SEE Assistant</div>
+            <div class="fast-ai-subtitle">Fast dashboard answers, executive summaries, top rankings, and negative-alert interpretation from the active filters.</div>
+            <div class="fast-ai-status">● {mode_label}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.session_state.setdefault("fast_ai_history", [])
+        st.session_state.setdefault("fast_ai_last_answer", None)
+        st.session_state.setdefault("fast_ai_last_type", "text")
+        st.session_state.setdefault("fast_ai_last_source", "")
+
+        quick_options = [
+            "Ask manually",
+            "Summarize current dashboard",
+            "Show top countries",
+            "Explain negative alerts",
+            "Show regional pattern",
+            "Show top actors",
+            "Show top mechanisms",
+        ]
+        quick_action = st.selectbox("Quick action", quick_options, key="fast_ai_quick_action")
+        preset_questions = {
+            "Ask manually": "",
+            "Summarize current dashboard": "Summarize the current dashboard view.",
+            "Show top countries": "Show top countries by alert volume.",
+            "Explain negative alerts": "Explain negative alerts in the current filtered view.",
+            "Show regional pattern": "Show the regional pattern of alerts.",
+            "Show top actors": "Show top actors of repression.",
+            "Show top mechanisms": "Show top mechanisms of repression.",
+        }
+
+        question = st.text_area(
+            "Ask the dashboard",
+            value=preset_questions.get(quick_action, ""),
+            placeholder="Example: Which countries have the highest negative alerts?",
+            height=88,
+            key="fast_ai_question",
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            run_ai = st.button("Ask", use_container_width=True, key="fast_ai_run")
+        with c2:
+            clear_ai = st.button("Clear", use_container_width=True, key="fast_ai_clear")
+
+        if clear_ai:
+            st.session_state.fast_ai_history = []
+            st.session_state.fast_ai_last_answer = None
+            st.session_state.fast_ai_last_type = "text"
+            st.session_state.fast_ai_last_source = ""
+            st.rerun()
+
+        if run_ai and question.strip():
+            with st.spinner("Generating insight..."):
+                answer, answer_type, source = _fast_ai_openai_answer(question.strip(), df)
+            st.session_state.fast_ai_last_answer = answer
+            st.session_state.fast_ai_last_type = answer_type
+            st.session_state.fast_ai_last_source = source
+            st.session_state.fast_ai_history.append({
+                "question": question.strip(),
+                "answer": answer,
+                "type": answer_type,
+                "source": source,
+                "time": pd.Timestamp.now().strftime("%H:%M"),
+            })
+            st.session_state.fast_ai_history = st.session_state.fast_ai_history[-8:]
+
+        last_answer = st.session_state.get("fast_ai_last_answer")
+        if last_answer is not None:
+            st.markdown("**Latest insight**")
+            if st.session_state.get("fast_ai_last_type") == "table" and isinstance(last_answer, pd.DataFrame):
+                st.dataframe(last_answer, use_container_width=True, hide_index=True, height=250)
+            else:
+                st.markdown(f"<div class='fast-ai-answer-box'>{str(last_answer).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+            if st.session_state.get("fast_ai_last_source"):
+                st.caption(st.session_state.fast_ai_last_source)
+
+        if st.session_state.fast_ai_history:
+            with st.expander("Recent Copilot history", expanded=False):
+                for item in reversed(st.session_state.fast_ai_history[-5:]):
+                    st.markdown(f"**{item.get('time', '')} · Q:** {item.get('question', '')}")
+                    ans = item.get("answer")
+                    if item.get("type") == "table" and isinstance(ans, pd.DataFrame):
+                        st.dataframe(ans, use_container_width=True, hide_index=True)
+                    else:
+                        st.markdown(str(ans))
+                    st.caption(item.get("source", ""))
+                    st.divider()
+
 if has_permission("use_ai_copilot"):
-    render_ai_assistant_panel(filtered_global)
+    render_fast_professional_copilot(filtered_global)
 else:
     AI_ASSISTANT_SLOT.info("AI Copilot is disabled for your access level.")
 
