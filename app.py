@@ -8792,7 +8792,7 @@ def _v4_followup_questions(df):
     ctx = _v4_context_summary(df)
     top_country = ctx.get("top_country", ("", 0))[0]
     return [
-        "Explain the strongest negative-alert risk signal in this filtered view.",
+        "Compare alert changes using the latest available years in this filtered view.",
         f"Generate a country intelligence profile for {top_country}." if top_country != "Not available" else "Generate a country intelligence profile for the top country.",
         "Compare restrictive actors and mechanisms in the current view.",
         "Generate an executive briefing from the current filters.",
@@ -9254,20 +9254,6 @@ def _v2_render_status_bar(df):
     model = status.get("model", "gpt-4o-mini")
     records = len(df) if df is not None else 0
 
-    with st.expander("🧪 OpenAI connection", expanded=False):
-        st.caption(f"Key detected: {status.get('has_key')}")
-        st.caption(f"OpenAI package ready: {status.get('package_ready')}")
-        st.caption(f"Model: {model}")
-        st.caption(f"Key preview: {status.get('key_preview')}")
-        st.caption(f"Config source: {status.get('source', 'not configured')}")
-
-        if st.button("Run OpenAI test", key="ai_run_openai_connection_test"):
-            ok, msg = _ai_test_openai_connection()
-            if ok:
-                st.success(msg)
-            else:
-                st.error(msg)
-
     st.markdown(f"""
     <div class="v2-statusbar">
       <span><b>Mode:</b> {mode}</span>
@@ -9487,7 +9473,7 @@ def render_ai_assistant_panel(df):
         examples = [
             "summarize the current filtered dashboard view",
             "create a summary table of alert changes using the latest available years",
-            "which countries have the strongest negative-alert signals?",
+            "which countries have the highest alert volume?",
             "bar chart of negative alerts by country top 10 purple font 14",
         ]
         st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
@@ -9510,16 +9496,6 @@ def render_ai_assistant_panel(df):
                     value=st.session_state.get("ai_fast_mode", True),
                     help="Keeps answers shorter and faster.",
                 )
-
-            st.selectbox(
-                "Prompt mode",
-                list(EUSEE_PROMPT_LIBRARY.keys()),
-                key="ai_prompt_mode",
-                index=list(EUSEE_PROMPT_LIBRARY.keys()).index(st.session_state.get("ai_prompt_mode", "Executive analyst"))
-                if st.session_state.get("ai_prompt_mode", "Executive analyst") in EUSEE_PROMPT_LIBRARY else 0,
-                help="Controls how the AI prompt frames the answer while staying grounded in the dashboard data.",
-            )
-            st.caption("Prompt engine: dynamic intent detection, non-hardcoded year comparisons, dashboard-only grounding, and conversation memory.")
 
             if not st.session_state.ai_messages:
                 _v4_render_chat_empty_state(df)
@@ -9559,8 +9535,8 @@ def render_ai_assistant_panel(df):
                     _copilot_queue_answer("Give an executive summary of the current filtered dashboard view", df)
                     st.rerun()
             with b2:
-                if st.button("Risks", use_container_width=True, key="v2_pop_risks"):
-                    _copilot_queue_answer("Identify the main negative alert risk signals in the current filtered dashboard view", df)
+                if st.button("Compare", use_container_width=True, key="v2_pop_compare"):
+                    _copilot_queue_answer("Create a concise comparison table using the latest available years in the current filtered dashboard view", df)
                     st.rerun()
             with b3:
                 if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
