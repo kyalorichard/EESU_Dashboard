@@ -7967,37 +7967,54 @@ def _v2_make_plot_from_config(config):
 
 
 def _v2_is_plot_request(text):
+    """Detect explicit plot requests only.
+
+    Important: comparison questions such as "compare alerts between years" should
+    be answered as analysis unless the user explicitly asks for a chart/plot/graph.
+    """
     q = str(text or "").lower()
-    return any(w in q for w in ["plot", "chart", "graph", "visual", "visualize", "draw", "show me", "compare"])
+    explicit_plot_terms = [
+        "plot", "chart", "graph", "visual", "visualize", "draw", "heatmap",
+        "treemap", "sunburst", "donut", "bar chart", "line chart", "scatter",
+        "make a chart", "create a chart", "show a chart", "show me a chart",
+    ]
+    return any(w in q for w in explicit_plot_terms)
 
 
 def _v2_openai_stream_answer(question, df):
-    """Return a generator for OpenAI streaming when available, else deterministic stream."""
+    """Return a streaming OpenAI answer using the v5 prompt-driven context engine."""
     api_key, model, source = _ai_get_openai_config()
     if not api_key or OpenAI is None:
-        return _copilot_stream_text(ai_try_llm_response(question, df))
+        return _copilot_stream_text(_v5_answer_with_prompt_engine(question, df))
     try:
         client = _ai_get_openai_client(api_key)
-        context = _ai_build_focused_context(question, df)
-        system = (
-            "You are the EU SEE Dashboard AI Copilot. Use only the supplied dashboard context. "
-            "Give concise analytical answers with exact counts when available. Never invent facts."
+        prompt_context = _v5_build_dashboard_prompt_context(question, df)
+        prompt_mode = st.session_state.get("ai_prompt_mode", "Executive analyst")
+        prompt_instruction = EUSEE_PROMPT_LIBRARY.get(prompt_mode, EUSEE_PROMPT_LIBRARY["Executive analyst"])
+        memory_txt = _v4_memory_as_text(limit=6, char_limit=420)
+        user_prompt = f"""
+Prompt mode: {prompt_mode}
+Prompt mode instruction: {prompt_instruction}
+Conversation memory:
+{memory_txt if memory_txt else "No prior memory."}
+
+Dashboard prompt context JSON:
+{json.dumps(prompt_context, ensure_ascii=False, default=str)}
+
+User question:
+{str(question)}
+""".strip()
+        messages = [
+            {"role": "system", "content": EUSEE_COPILOT_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
+        stream = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.12,
+            max_tokens=700 if st.session_state.get("ai_fast_mode", True) else 1100,
+            stream=True,
         )
-        messages = [{"role": "system", "content": system}]
-
-        # Keep a compact memory window so answers stay conversational without slowing the app.
-        for m in _v4_recent_chat_memory(limit=6):
-            if m.get("role") in ["user", "assistant"]:
-                messages.append({
-                    "role": m.get("role"),
-                    "content": str(m.get("content", ""))[:900],
-                })
-
-        messages.append({
-            "role": "user",
-            "content": "dashboard_context:\n" + json.dumps(context, ensure_ascii=False, default=str) + "\n\nquestion:\n" + str(question),
-        })
-        stream = client.chat.completions.create(model=model, messages=messages, temperature=0.1, max_tokens=650, stream=True)
         def gen():
             collected = ""
             try:
@@ -8007,14 +8024,13 @@ def _v2_openai_stream_answer(question, df):
                     yield delta
                 st.session_state.ai_last_streamed_answer = collected
             except Exception:
-                fallback = ai_try_llm_response(question, df)
+                fallback = _v5_answer_with_prompt_engine(question, df)
                 st.session_state.ai_last_streamed_answer = fallback
                 yield fallback
         return gen()
     except Exception:
-        fallback = ai_try_llm_response(question, df)
+        fallback = _v5_answer_with_prompt_engine(question, df)
         return _copilot_stream_text(fallback)
-
 
 
 # ---------------- AI CHART INTERPRETATION ENGINE ----------------
@@ -8632,6 +8648,7 @@ def _v4_init_chat_memory_state():
     st.session_state.setdefault("ai_messages", [])
     st.session_state.setdefault("ai_memory_enabled", True)
     st.session_state.setdefault("ai_fast_mode", True)
+    st.session_state.setdefault("ai_prompt_mode", "Executive analyst")
 
 def _v4_recent_chat_memory(limit=AI_CHAT_MEMORY_TURNS):
     """Return recent chat turns only when conversation memory is enabled."""
@@ -8847,40 +8864,369 @@ Be concise, professional, and avoid unsupported causal claims.
         return fallback
 
 
-def _v4_answer_with_agent(question, df, agent="Executive analyst"):
-    """Agent-aware answer using compact memory and reduced token budget for speed."""
+
+
+# ============================================================================
+# AI COPILOT v5: PROMPT-DRIVEN DYNAMIC DASHBOARD INTELLIGENCE
+# This layer makes the chatbot dynamic without hardcoding years or question types.
+# It builds a compact analytical prompt from the active filtered dataframe, then
+# asks OpenAI to answer strictly within that dashboard context. If OpenAI is not
+# available, the deterministic fallback still uses the same context.
+# ============================================================================
+
+EUSEE_COPILOT_SYSTEM_PROMPT = """
+You are the EU SEE Dashboard AI Copilot embedded in a Streamlit dashboard.
+
+Your mandate:
+- Answer any user question that can be answered from the supplied dashboard context.
+- Use only the active filtered EU SEE dashboard data and computed context provided in the prompt.
+- Never invent countries, years, counts, percentages, causes, external events, or policy claims.
+- Never browse or use outside knowledge.
+- If the requested answer is not supported by the dashboard context, say exactly what is missing and suggest a dashboard-grounded follow-up.
+
+Dynamic analysis rules:
+- Do not hardcode specific years such as 2025 or 2026. Use the years available in the current filtered data.
+- For generic year comparisons, compare the two most recent years available in the current filtered data.
+- If the user explicitly names years and those years exist in the context, compare those years.
+- If a table is requested, return a clean markdown table using the supplied table rows.
+- For trends, state direction, absolute change, and percentage change when available.
+- For rankings, report the top items and their counts.
+- For charts/maps, interpret the supplied dashboard context only; do not claim to see visuals unless chart data is supplied.
+- Always mention that the answer is based on the current filtered dashboard view.
+- Include a short caution when counts or rankings may reflect reporting coverage as well as event frequency.
+
+Response style:
+- Start with the direct answer.
+- Prefer concise bullets unless the user asks for a report.
+- Use exact numbers from context.
+- Keep the language professional and executive-dashboard oriented.
+""".strip()
+
+EUSEE_PROMPT_LIBRARY = {
+    "Executive analyst": "Focus on decision-ready insights, key risks, shifts, and implications for leadership.",
+    "Data analyst": "Focus on exact counts, shares, ranking logic, comparisons, and descriptive statistics.",
+    "Comparison / trend analyst": "Focus on temporal changes, deltas, percentage changes, and direction of movement without hardcoding years.",
+    "Country intelligence analyst": "Focus on country-level evidence, country profiles, regional signals, and monitoring caveats.",
+    "Report writer": "Write polished briefing-ready text with headings, findings, interpretation, and caveat.",
+    "Fast answer": "Answer in 3 to 5 concise bullets with the most important evidence only.",
+}
+
+
+def _v5_json_safe(value):
+    """Convert numpy/pandas values to JSON-safe Python values."""
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except Exception:
+            pass
+    if isinstance(value, (pd.Timestamp,)):
+        return value.isoformat()
+    return value
+
+
+def _v5_normalize_text(x):
+    return str(x or "").strip().lower()
+
+
+def _v5_detect_intent(question):
+    q = _v5_normalize_text(question)
+    if any(k in q for k in ["table", "summary table", "dataframe", "tabulate", "list"]):
+        return "table"
+    if any(k in q for k in ["compare", "comparison", "change", "increase", "decrease", "difference", "between", "versus", "vs"]):
+        return "comparison"
+    if any(k in q for k in ["trend", "over time", "monthly", "yearly", "time series", "evolution"]):
+        return "trend"
+    if any(k in q for k in ["top", "rank", "highest", "lowest", "most", "least", "leading"]):
+        return "ranking"
+    if any(k in q for k in ["country", "countries", "region", "regional"]):
+        return "geography"
+    if any(k in q for k in ["actor", "mechanism", "subject", "principle", "alert type", "event type"]):
+        return "theme"
+    if any(k in q for k in ["chart", "map", "graph", "visual", "explain"]):
+        return "visual_interpretation"
+    if any(k in q for k in ["summary", "summarize", "summarise", "overview", "brief", "what is happening"]):
+        return "summary"
+    return "general"
+
+
+def _v5_extract_requested_years(question, available_years):
+    q = str(question or "")
+    years_in_q = [int(y) for y in re.findall(r"\b(20\d{2}|19\d{2})\b", q)]
+    available = {int(y) for y in available_years if str(y).isdigit() or isinstance(y, (int, float, np.integer))}
+    return [y for y in years_in_q if y in available]
+
+
+def _v5_clean_records(df, limit=30):
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+    rows = []
+    for rec in df.head(int(limit)).to_dict(orient="records"):
+        rows.append({str(k): _v5_json_safe(v) for k, v in rec.items()})
+    return rows
+
+
+def build_dynamic_year_comparison_table(df, question=None, group_col="alert-country", top_n=50):
+    """Build a non-hardcoded year comparison table.
+
+    Generic comparison = latest two available years in the active filter.
+    Explicit comparison = user-named years if present in the active filter.
+    """
+    if df is None or df.empty or "year" not in df.columns or group_col not in df.columns:
+        return pd.DataFrame()
+
+    tmp = df.copy()
+    tmp["year"] = pd.to_numeric(tmp["year"], errors="coerce")
+    tmp = tmp.dropna(subset=["year"])
+    if tmp.empty:
+        return pd.DataFrame()
+    tmp["year"] = tmp["year"].astype(int)
+
+    years = sorted(tmp["year"].unique().tolist())
+    if len(years) < 2:
+        return pd.DataFrame()
+
+    requested = _v5_extract_requested_years(question or "", years)
+    if len(requested) >= 2:
+        compare_years = sorted(requested[:2])
+    else:
+        compare_years = years[-2:]
+
+    previous_year, latest_year = compare_years[0], compare_years[1]
+    yearly = tmp.groupby([group_col, "year"], dropna=False).size().reset_index(name="alerts")
+    pivot = yearly.pivot(index=group_col, columns="year", values="alerts").fillna(0)
+
+    for year in [previous_year, latest_year]:
+        if year not in pivot.columns:
+            pivot[year] = 0
+
+    out = pd.DataFrame({
+        group_col: pivot.index.astype(str),
+        "comparison_period": f"{previous_year} vs {latest_year}",
+        "previous_year": int(previous_year),
+        "latest_year": int(latest_year),
+        "previous_alerts": pivot[previous_year].astype(int).values,
+        "latest_alerts": pivot[latest_year].astype(int).values,
+    })
+    out["absolute_change"] = out["latest_alerts"] - out["previous_alerts"]
+    out["percentage_change"] = np.where(
+        out["previous_alerts"] > 0,
+        (out["absolute_change"] / out["previous_alerts"]) * 100,
+        np.nan,
+    )
+    out["change_direction"] = np.where(
+        out["absolute_change"] > 0, "Increase",
+        np.where(out["absolute_change"] < 0, "Decrease", "No change")
+    )
+    out = out.sort_values(["absolute_change", "latest_alerts"], ascending=[False, False]).head(int(top_n))
+    out["percentage_change"] = out["percentage_change"].round(1)
+    return out.reset_index(drop=True)
+
+
+def _v5_period_trend_table(df, question=None, period="year", top_n=50):
+    if df is None or df.empty:
+        return pd.DataFrame()
+    tmp = df.copy()
+    if period == "month" and "creation_date" in tmp.columns:
+        tmp["creation_date"] = pd.to_datetime(tmp["creation_date"], errors="coerce")
+        tmp = tmp.dropna(subset=["creation_date"])
+        if tmp.empty:
+            return pd.DataFrame()
+        tmp["period"] = tmp["creation_date"].dt.to_period("M").astype(str)
+    elif "year" in tmp.columns:
+        tmp["period"] = pd.to_numeric(tmp["year"], errors="coerce").dropna().astype(int).astype(str)
+    else:
+        return pd.DataFrame()
+    out = tmp.groupby("period").size().reset_index(name="alerts").sort_values("period")
+    return out.tail(int(top_n)).reset_index(drop=True)
+
+
+def _v5_top_counts(df, col, top_n=10, split=False):
+    if df is None or df.empty or col not in df.columns:
+        return {}
+    if split:
+        return _safe_exploded_counts(df, col, top_n)
+    return _safe_series_counts(df, col, top_n)
+
+
+def _v5_build_dashboard_prompt_context(question, df):
+    """Build a dynamic, compact context package for the prompt engine."""
+    intent = _v5_detect_intent(question)
+    ctx = _v4_context_summary(df)
+    focused = _ai_build_focused_context(question, df) if df is not None else {}
+    years = ctx.get("years", []) or []
+    requested_years = _v5_extract_requested_years(question, years)
+
+    context = {
+        "scope": "Current filtered EU SEE dashboard view only.",
+        "intent": intent,
+        "user_question": str(question or ""),
+        "base_context": ctx,
+        "requested_years_found_in_current_filter": requested_years,
+        "available_years_in_current_filter": years,
+        "focused_context": focused,
+        "dynamic_rules_applied": {
+            "year_handling": "No hardcoded years. Generic comparisons use the two most recent years available in the current filter; explicitly requested years are used only if present.",
+            "data_scope": "All outputs are descriptive and use the active dashboard filters.",
+        },
+    }
+
+    if df is None or df.empty:
+        context["empty_filter_state"] = True
+        return context
+
+    # Core counts useful for almost any question.
+    for col, key, split in [
+        ("alert-country", "top_countries", False),
+        ("region", "top_regions", False),
+        ("alert-impact", "alert_impact_counts", False),
+        ("alert-type", "top_alert_types", False),
+        ("enabling-principle", "top_enabling_principles", True),
+        ("Actor of repression", "top_restrictive_actors", True),
+        ("Mechanism of repression", "top_restrictive_mechanisms", True),
+        ("Subject of repression", "top_affected_subjects", True),
+        ("Type of event", "top_event_types", True),
+    ]:
+        counts = _v5_top_counts(df, col, top_n=12, split=split)
+        if counts:
+            context[key] = counts
+
+    # Dynamic comparison and trend evidence.
+    comparison = build_dynamic_year_comparison_table(df, question=question, group_col="alert-country", top_n=40)
+    if not comparison.empty:
+        context["dynamic_year_comparison_by_country"] = _v5_clean_records(comparison, 40)
+
+    if "region" in df.columns:
+        region_comparison = build_dynamic_year_comparison_table(df, question=question, group_col="region", top_n=20)
+        if not region_comparison.empty:
+            context["dynamic_year_comparison_by_region"] = _v5_clean_records(region_comparison, 20)
+
+    yearly_trend = _v5_period_trend_table(df, question=question, period="year", top_n=20)
+    if not yearly_trend.empty:
+        context["yearly_trend"] = _v5_clean_records(yearly_trend, 20)
+
+    monthly_trend = _v5_period_trend_table(df, question=question, period="month", top_n=18)
+    if not monthly_trend.empty:
+        context["recent_monthly_trend"] = _v5_clean_records(monthly_trend, 18)
+
+    # Country-specific profiles if the user names countries.
+    requested_countries = _ai_find_requested_countries(question, df)
+    if requested_countries:
+        context["country_profiles"] = [_ai_country_profile(df, c) for c in requested_countries]
+
+    return context
+
+
+def _v5_local_prompt_response(question, df, prompt_context):
+    """Prompt-engine fallback response when OpenAI is unavailable."""
+    intent = prompt_context.get("intent", "general")
+    base = prompt_context.get("base_context", {})
+    if base.get("records", 0) == 0:
+        return "No records are available in the current filtered dashboard view. Please broaden the filters or select a different dashboard scope."
+
+    if intent in ["comparison", "table", "trend"] and prompt_context.get("dynamic_year_comparison_by_country"):
+        rows = prompt_context["dynamic_year_comparison_by_country"][:10]
+        header = "| Country | Period | Previous alerts | Latest alerts | Change | % change | Direction |\n|---|---:|---:|---:|---:|---:|---|"
+        body = []
+        for r in rows:
+            pct = r.get("percentage_change")
+            pct_txt = "N/A" if pct is None or (isinstance(pct, float) and np.isnan(pct)) else f"{pct:+.1f}%"
+            body.append(
+                f"| {r.get('alert-country')} | {r.get('comparison_period')} | {int(r.get('previous_alerts',0)):,} | {int(r.get('latest_alerts',0)):,} | {int(r.get('absolute_change',0)):+,} | {pct_txt} | {r.get('change_direction')} |"
+            )
+        return (
+            "Based on the current filtered dashboard view, here is the dynamic year comparison using the available years in the data:\n\n"
+            + header + "\n" + "\n".join(body)
+            + "\n\nCaution: alert volumes may reflect reporting coverage as well as event frequency."
+        )
+
+    insights = _v4_auto_insights(df, max_items=5)
+    return "Based on the current filtered dashboard view:\n\n" + "\n".join([f"- {x}" for x in insights])
+
+
+def _v5_answer_with_prompt_engine(question, df, agent="Executive analyst"):
+    """Full prompt-driven answer engine for the chatbot."""
     q = str(question or "").strip()
     if not q:
         return "Please enter a question about the current dashboard view."
 
-    ctx = _v4_context_summary(df)
+    prompt_mode = st.session_state.get("ai_prompt_mode", agent or "Executive analyst")
+    prompt_instruction = EUSEE_PROMPT_LIBRARY.get(prompt_mode, EUSEE_PROMPT_LIBRARY.get(agent, "Use dashboard-grounded analysis."))
+    fast = bool(st.session_state.get("ai_fast_mode", True))
     memory_txt = _v4_memory_as_text(limit=6, char_limit=420)
-    agent_instruction = {
-        "Executive analyst": "Focus on concise strategic implications, risks, and decision-ready language.",
-        "Statistical analyst": "Focus on distributions, deltas, ranking concentration, and descriptive statistical caution.",
-        "Geopolitical analyst": "Focus on regional/country patterns, civic-space risk interpretation, and caveats.",
-        "Visualization analyst": "Focus on what the visible chart or requested plot shows and how to read it.",
-        "Report writer": "Focus on polished narrative and briefing-ready structure.",
-    }.get(agent, "Focus on clear dashboard-grounded analysis.")
+    prompt_context = _v5_build_dashboard_prompt_context(q, df)
 
-    # Fast mode keeps prompts short and makes the app feel more responsive.
-    fast_instruction = (
-        "Answer in 3 to 5 concise bullets. Use exact counts from context. "
-        "Avoid long introductions. Include one caveat only when necessary."
-    ) if st.session_state.get("ai_fast_mode", True) else (
-        "Provide a structured answer with evidence, interpretation, and caveat."
+    response_format = (
+        "Use 3 to 5 concise bullets unless the user explicitly asks for a table or report."
+        if fast else
+        "Use a structured response with direct answer, evidence, interpretation, and caveat."
     )
 
-    enhanced_q = f"""
-Agent mode: {agent}. {agent_instruction}
-Response style: {fast_instruction}
-Current dashboard context: {json.dumps(ctx, default=str)}
-Recent conversation memory:
-{memory_txt if memory_txt else "No prior conversation memory."}
-User question: {q}
-Answer using only current dashboard context and descriptive patterns.
-"""
-    return ai_try_llm_response(enhanced_q, df)
+    api_key, model, source = _ai_get_openai_config()
+    status = _ai_openai_status()
+    if not (api_key and status.get("package_ready")):
+        return append_eusee_redirect(_v5_local_prompt_response(q, df, prompt_context))
+
+    user_prompt = f"""
+Prompt mode: {prompt_mode}
+Prompt mode instruction: {prompt_instruction}
+Response format: {response_format}
+Conversation memory, if relevant:
+{memory_txt if memory_txt else "No prior memory."}
+
+Dashboard prompt context JSON:
+{json.dumps(prompt_context, ensure_ascii=False, default=str)}
+
+User question:
+{q}
+""".strip()
+
+    try:
+        client = _ai_get_openai_client(api_key)
+        if client is None:
+            raise RuntimeError("OpenAI client could not be initialized.")
+        try:
+            resp = client.responses.create(
+                model=model,
+                input=[
+                    {"role": "developer", "content": EUSEE_COPILOT_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.12,
+                max_output_tokens=700 if fast else 1100,
+            )
+            answer = getattr(resp, "output_text", "").strip()
+        except Exception:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": EUSEE_COPILOT_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.12,
+                max_tokens=700 if fast else 1100,
+            )
+            answer = (resp.choices[0].message.content or "").strip()
+        if not answer:
+            answer = _v5_local_prompt_response(q, df, prompt_context)
+        return append_eusee_redirect(answer)
+    except Exception as e:
+        return append_eusee_redirect(
+            "⚠️ OpenAI ChatGPT connection failed, so I am using the built-in dashboard intelligence only.\n\n"
+            f"Connection error: {e}\n\n" + _v5_local_prompt_response(q, df, prompt_context)
+        )
+
+def _v4_answer_with_agent(question, df, agent="Executive analyst"):
+    """Prompt-driven dynamic chatbot answer.
+
+    This wrapper keeps the original UI compatible while routing all non-plot
+    questions through the v5 prompt engine.
+    """
+    return _v5_answer_with_prompt_engine(question, df, agent=agent)
 
 def _v4_render_professional_css():
     st.markdown("""
@@ -9139,9 +9485,10 @@ def render_ai_assistant_panel(df):
         _v2_render_status_bar(df)
 
         examples = [
+            "summarize the current filtered dashboard view",
+            "create a summary table of alert changes using the latest available years",
+            "which countries have the strongest negative-alert signals?",
             "bar chart of negative alerts by country top 10 purple font 14",
-            "heatmap of actors by mechanisms top 15",
-            "donut chart of alert impact with title: Alert composition",
         ]
         st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
 
@@ -9163,6 +9510,16 @@ def render_ai_assistant_panel(df):
                     value=st.session_state.get("ai_fast_mode", True),
                     help="Keeps answers shorter and faster.",
                 )
+
+            st.selectbox(
+                "Prompt mode",
+                list(EUSEE_PROMPT_LIBRARY.keys()),
+                key="ai_prompt_mode",
+                index=list(EUSEE_PROMPT_LIBRARY.keys()).index(st.session_state.get("ai_prompt_mode", "Executive analyst"))
+                if st.session_state.get("ai_prompt_mode", "Executive analyst") in EUSEE_PROMPT_LIBRARY else 0,
+                help="Controls how the AI prompt frames the answer while staying grounded in the dashboard data.",
+            )
+            st.caption("Prompt engine: dynamic intent detection, non-hardcoded year comparisons, dashboard-only grounding, and conversation memory.")
 
             if not st.session_state.ai_messages:
                 _v4_render_chat_empty_state(df)
