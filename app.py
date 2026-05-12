@@ -8,6 +8,8 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import base64
+import hashlib
+from datetime import datetime
 from auth import auth_ui, is_privileged, is_authenticated
 
 # Optional admin page integration. Firebase/Auth handles login;
@@ -3593,7 +3595,6 @@ def _format_professional_chart_explanation(raw_text, chart_name, insight_style, 
 ### 🧠 Chart Insight Copilot
 
 **Selected visual:** {chart_name}  
-**Insight style:** {insight_style}  
 **Audience:** {audience}  
 **Data scope:** {total_alerts:,} filtered alerts across {countries:,} countries; negative alerts = {neg_pct}%.
 
@@ -3684,21 +3685,14 @@ def render_professional_chart_explainer_tab(df):
         help="The copilot will interpret this visual using the current filtered data.",
     )
 
-    c1, c2 = st.columns(2)
-    with c1:
-        insight_style = st.selectbox(
-            "Insight style",
-            ["Executive", "Analyst", "Technical", "Policy brief", "Quick insight"],
-            index=0,
-            key="pro_copilot_insight_style",
-        )
-    with c2:
-        audience = st.selectbox(
-            "Audience",
-            ["Senior decision-maker", "Programme team", "Data analyst", "Donor / partner", "Public viewer"],
-            index=0,
-            key="pro_copilot_audience",
-        )
+    # Keep the chart explainer clean and minimal.
+    insight_style = "Executive"
+    audience = st.selectbox(
+        "Audience",
+        ["Senior decision-maker", "Programme team", "Data analyst", "Donor / partner", "Public viewer"],
+        index=0,
+        key="pro_copilot_audience",
+    )
 
     include_followups = st.toggle(
         "Include suggested follow-up questions",
@@ -8486,21 +8480,9 @@ def render_chatbot_dashboard_chart_explainer(df):
     meta = registry.get(chart_key, {})
     st.caption(meta.get("description", "The chatbot will interpret this visual using the current filtered data."))
 
-    c1, c2 = st.columns(2)
-    with c1:
-        insight_mode = st.selectbox(
-            "Insight style",
-            ["Executive", "Quick", "Technical"],
-            key="v2_dashboard_chart_explainer_mode",
-        )
-    with c2:
-        top_n = st.selectbox(
-            "Evidence depth",
-            [5, 10, 15, 20, 30],
-            index=1,
-            key="v2_dashboard_chart_explainer_topn",
-            help="Controls how many ranked categories/relationships are used for the explanation.",
-        )
+    # Fixed defaults keep the Explain chart experience clean and conversational.
+    insight_mode = "Executive"
+    top_n = 10
 
     if st.button("Generate insight for selected chart", use_container_width=True, key="v2_generate_selected_dashboard_chart_insight"):
         insight = eusee_generate_selected_dashboard_chart_insight(df, chart_key, top_n=top_n, insight_mode=insight_mode)
@@ -8511,10 +8493,10 @@ def render_chatbot_dashboard_chart_explainer(df):
             "selected_chart": chart_key,
             "insight_mode": insight_mode,
         }
-        st.session_state.ai_messages.append({
-            "role": "assistant",
-            "content": f"Generated chatbot-only insight for: {chart_key}. Open Smart output to review it.",
-        })
+        _ai_append_message(
+            "assistant",
+            f"Generated chatbot-only insight for: {chart_key}. Open Smart output to review it.",
+        )
         st.rerun()
 
 def _copilot_queue_answer(question, df):
@@ -8522,8 +8504,7 @@ def _copilot_queue_answer(question, df):
     q = str(question or "").strip()
     if not q:
         return
-    st.session_state.setdefault("ai_messages", [])
-    st.session_state.ai_messages.append({"role": "user", "content": q})
+    _ai_append_message("user", q)
 
     if _v2_is_plot_request(q):
         config = _v2_parse_plot_config(q, df)
@@ -8565,11 +8546,11 @@ def _copilot_queue_answer(question, df):
             "plot_data": plot_df,
             "config": session_config,
         }
-        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated and interpreted {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}. Open Smart output to review the graph interpretation."})
+        _ai_append_message("assistant", f"Generated and interpreted {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}. Open Smart output to review the graph interpretation.")
         return
 
     answer = ai_try_llm_response(q, df)
-    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+    _ai_append_message("assistant", answer)
     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
 
 
@@ -8639,16 +8620,118 @@ def _v4_negative_scope(df):
     return df[df["alert-impact"].astype(str).str.strip().str.lower().eq("negative")].copy()
 
 
-# ---------------- AI COPILOT SPEED, EMPTY STATE AND MEMORY ----------------
+# ---------------- AI COPILOT SPEED, EMPTY STATE AND PER-USER MEMORY ----------------
 AI_CHAT_MEMORY_TURNS = 8
 AI_CHAT_MAX_RENDER_CHARS = 2200
+AI_CHAT_HISTORY_MAX_MESSAGES = 80
+AI_CHAT_HISTORY_FILE = EXPORT_DIR / "ai_chat_history_by_user.json"
+
+def _ai_current_user_key():
+    """Return a stable, privacy-safe key for the active dashboard user."""
+    try:
+        email = (get_current_email() or st.session_state.get("email") or "").strip().lower()
+    except Exception:
+        email = str(st.session_state.get("email", "")).strip().lower()
+
+    if email:
+        raw_key = f"user:{email}"
+    else:
+        # Guest users keep history within the browser session only.
+        st.session_state.setdefault("guest_chat_session_id", os.urandom(8).hex())
+        raw_key = f"guest:{st.session_state.guest_chat_session_id}"
+
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:24]
+
+def _ai_load_all_user_histories():
+    """Load persisted AI chat histories from the exports folder."""
+    try:
+        if AI_CHAT_HISTORY_FILE.exists():
+            with open(AI_CHAT_HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+    return {}
+
+def _ai_save_all_user_histories(histories):
+    """Persist AI chat histories safely."""
+    try:
+        AI_CHAT_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = AI_CHAT_HISTORY_FILE.with_suffix(".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(histories, f, ensure_ascii=False, indent=2, default=str)
+        tmp_path.replace(AI_CHAT_HISTORY_FILE)
+    except Exception:
+        # Do not break the dashboard if persistence is unavailable on the host.
+        pass
+
+def _ai_sanitize_messages(messages):
+    """Keep only clean user/assistant turns and cap stored size."""
+    cleaned = []
+    for msg in messages or []:
+        role = str(msg.get("role", "")).strip().lower()
+        content = str(msg.get("content", "")).strip()
+        if role in ["user", "assistant"] and content:
+            cleaned.append({
+                "role": role,
+                "content": content[:5000],
+                "ts": msg.get("ts") or datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            })
+    return cleaned[-AI_CHAT_HISTORY_MAX_MESSAGES:]
+
+def _ai_load_user_chat_history():
+    """Load chat history for the current authenticated user; guest history remains session based."""
+    if not is_authenticated():
+        st.session_state.setdefault("ai_messages", [])
+        return st.session_state.ai_messages
+
+    user_key = _ai_current_user_key()
+    if st.session_state.get("ai_history_user_key") == user_key and "ai_messages" in st.session_state:
+        return st.session_state.ai_messages
+
+    histories = _ai_load_all_user_histories()
+    st.session_state.ai_history_user_key = user_key
+    st.session_state.ai_messages = _ai_sanitize_messages(histories.get(user_key, []))
+    return st.session_state.ai_messages
+
+def _ai_save_user_chat_history():
+    """Save the current user's chat history. For guests, keep only the active session."""
+    st.session_state.ai_messages = _ai_sanitize_messages(st.session_state.get("ai_messages", []))
+
+    if not is_authenticated():
+        return
+
+    user_key = _ai_current_user_key()
+    histories = _ai_load_all_user_histories()
+    histories[user_key] = st.session_state.ai_messages[-AI_CHAT_HISTORY_MAX_MESSAGES:]
+    _ai_save_all_user_histories(histories)
+
+def _ai_append_message(role, content):
+    """Append one chat message and persist it for the current user."""
+    _v4_init_chat_memory_state()
+    st.session_state.ai_messages.append({
+        "role": str(role).strip().lower(),
+        "content": str(content).strip(),
+        "ts": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    })
+    st.session_state.ai_messages = st.session_state.ai_messages[-AI_CHAT_HISTORY_MAX_MESSAGES:]
+    _ai_save_user_chat_history()
+
+def _ai_clear_user_chat_history():
+    """Clear chat history for only the current user."""
+    st.session_state.ai_messages = []
+    if is_authenticated():
+        user_key = _ai_current_user_key()
+        histories = _ai_load_all_user_histories()
+        histories[user_key] = []
+        _ai_save_all_user_histories(histories)
 
 def _v4_init_chat_memory_state():
-    """Initialize professional AI chat state without forcing a greeting message."""
-    st.session_state.setdefault("ai_messages", [])
+    """Initialize professional AI chat state and load persisted history for the active user."""
     st.session_state.setdefault("ai_memory_enabled", True)
     st.session_state.setdefault("ai_fast_mode", True)
     st.session_state.setdefault("ai_prompt_mode", "Executive analyst")
+    _ai_load_user_chat_history()
 
 def _v4_recent_chat_memory(limit=AI_CHAT_MEMORY_TURNS):
     """Return recent chat turns only when conversation memory is enabled."""
@@ -9567,15 +9650,14 @@ def render_ai_assistant_panel(df):
 
             if submitted and prompt.strip():
                 clean_prompt = prompt.strip()
-                st.session_state.ai_messages.append({"role": "user", "content": clean_prompt})
+                _ai_append_message("user", clean_prompt)
 
                 if _v2_is_plot_request(clean_prompt):
                     _copilot_queue_answer(clean_prompt, df)
                     st.rerun()
                 else:
                     answer = _v4_answer_with_agent(clean_prompt, df, "Executive analyst")
-                    st.session_state.ai_messages.append({"role": "assistant", "content": answer})
-                    st.session_state.ai_messages = st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]
+                    _ai_append_message("assistant", answer)
                     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
                     st.rerun()
 
@@ -9590,8 +9672,8 @@ def render_ai_assistant_panel(df):
                     st.rerun()
             with b3:
                 if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
-                    st.session_state.ai_messages = []
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot", "content": "Conversation cleared. Ask a new dashboard question."}
+                    _ai_clear_user_chat_history()
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot", "content": "Conversation history cleared for this user. Ask a new dashboard question."}
                     st.rerun()
 
 
@@ -9961,7 +10043,7 @@ def render_ai_assistant_panel(df):
                             "legend_position": legend_position_choice, "show_grid": (gridline_choice == "Show gridlines"),
                             "plot_theme": plot_theme_choice,
                         }
-                        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated comparison plot: {x_col} × {y_col}."})
+                        _ai_append_message("assistant", f"Generated comparison plot: {x_col} × {y_col}.")
                     else:
                         x_col = label_to_col[dim_label]
                         config = {
@@ -9989,7 +10071,7 @@ def render_ai_assistant_panel(df):
                         )
                         insight = _v3_plot_insight(plot_df, x_col, group_col, metric_label=metric_mode, comparison_mode="Absolute")
                         config.pop("filtered_df", None)
-                        st.session_state.ai_messages.append({"role": "assistant", "content": f"Generated {chart_type} for {x_col}."})
+                        _ai_append_message("assistant", f"Generated {chart_type} for {x_col}.")
 
                     plot_quality_checks = _v3_plot_quality_checks(
                         plot_df,
