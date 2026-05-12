@@ -9481,49 +9481,99 @@ def render_ai_assistant_panel(df):
         tab_chat, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Plot builder", "Explain chart", "Smart output"])
 
         with tab_chat:
+            st.markdown("""
+            <style>
+            .qa-copilot-shell{
+                background:#FFFFFF;
+                border:1px solid #E6E8EF;
+                border-radius:16px;
+                padding:10px;
+                margin:8px 0;
+                box-shadow:0 7px 18px rgba(16,24,40,.045);
+            }
+            .qa-copilot-toolbar{
+                display:flex;
+                gap:8px;
+                align-items:center;
+                justify-content:space-between;
+                margin:6px 0 8px 0;
+            }
+            .qa-copilot-note{
+                background:#F9FAFB;
+                border:1px solid #EEF0F4;
+                border-radius:13px;
+                padding:8px 10px;
+                color:#667085;
+                font-size:10.8px;
+                line-height:1.35;
+                margin:7px 0;
+            }
+            .qa-followup-chip{
+                display:inline-flex;
+                margin:3px 3px 3px 0;
+                padding:5px 8px;
+                border-radius:999px;
+                background:#F4EAF8;
+                border:1px solid #E7D4F1;
+                color:#660094;
+                font-size:10px;
+                font-weight:900;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
             chat_tools = st.columns([1, 1])
             with chat_tools[0]:
                 st.toggle(
                     "Conversation memory",
                     key="ai_memory_enabled",
                     value=st.session_state.get("ai_memory_enabled", True),
-                    help="When enabled, the Copilot uses the latest chat turns for context.",
+                    help="Keeps recent Q&A turns so follow-up questions like 'what about Kenya?' are understood.",
                 )
             with chat_tools[1]:
                 st.toggle(
                     "Fast mode",
                     key="ai_fast_mode",
                     value=st.session_state.get("ai_fast_mode", True),
-                    help="Keeps answers shorter and faster.",
+                    help="Keeps responses concise for faster conversation.",
                 )
 
             if not st.session_state.ai_messages:
                 _v4_render_chat_empty_state(df)
+                st.markdown(
+                    "<span class='qa-followup-chip'>Ask a direct question</span>"
+                    "<span class='qa-followup-chip'>Then ask a follow-up</span>"
+                    "<span class='qa-followup-chip'>Request a table</span>"
+                    "<span class='qa-followup-chip'>Ask for interpretation</span>",
+                    unsafe_allow_html=True,
+                )
 
-            st.markdown("<div class='v2-chat-card'>", unsafe_allow_html=True)
-            for msg in st.session_state.ai_messages[-AI_CHAT_MEMORY_TURNS:]:
-                klass = "v2-user-msg" if msg.get("role") == "user" else "v2-ai-msg"
-                safe_msg = _render_chat_content_html(str(msg.get("content", ""))[:AI_CHAT_MAX_RENDER_CHARS])
-                st.markdown(f"<div class='{klass}'>{safe_msg}</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div class='qa-copilot-note'><b>Q&A mode:</b> Ask naturally. The Copilot will use the current filters and recent conversation history, while staying within the dashboard data.</div>", unsafe_allow_html=True)
+
+            for msg in st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]:
+                role = msg.get("role", "assistant")
+                content = str(msg.get("content", ""))[:AI_CHAT_MAX_RENDER_CHARS]
+                with st.chat_message(role):
+                    st.markdown(content)
 
             with st.form("v2_pop_chat_form", clear_on_submit=True):
                 prompt = st.text_area(
-                    "Ask the AI Copilot",
-                    placeholder="Ask for an insight or chart, e.g. summarize negative-alert signals or make a treemap of mechanisms top 12",
-                    height=70,
+                    "Your question",
+                    placeholder="Example: Compare alert changes using the latest available years. Then ask: what about Hong Kong?",
+                    height=74,
                     key="v2_pop_prompt",
                 )
                 submitted = st.form_submit_button("Send", use_container_width=True)
+
             if submitted and prompt.strip():
-                if _v2_is_plot_request(prompt):
-                    _copilot_queue_answer(prompt, df)
+                clean_prompt = prompt.strip()
+                st.session_state.ai_messages.append({"role": "user", "content": clean_prompt})
+
+                if _v2_is_plot_request(clean_prompt):
+                    _copilot_queue_answer(clean_prompt, df)
                     st.rerun()
                 else:
-                    clean_prompt = prompt.strip()
-                    st.session_state.ai_messages.append({"role": "user", "content": clean_prompt})
-                    selected_agent = st.session_state.get("v4_analyst_mode", "Executive analyst")
-                    answer = _v4_answer_with_agent(clean_prompt, df, selected_agent)
+                    answer = _v4_answer_with_agent(clean_prompt, df, "Executive analyst")
                     st.session_state.ai_messages.append({"role": "assistant", "content": answer})
                     st.session_state.ai_messages = st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]
                     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
@@ -9532,7 +9582,7 @@ def render_ai_assistant_panel(df):
             b1, b2, b3 = st.columns(3)
             with b1:
                 if st.button("Summary", use_container_width=True, key="v2_pop_summary"):
-                    _copilot_queue_answer("Give an executive summary of the current filtered dashboard view", df)
+                    _copilot_queue_answer("Give a concise conversational summary of the current filtered dashboard view", df)
                     st.rerun()
             with b2:
                 if st.button("Compare", use_container_width=True, key="v2_pop_compare"):
@@ -9541,7 +9591,7 @@ def render_ai_assistant_panel(df):
             with b3:
                 if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
                     st.session_state.ai_messages = []
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v4", "content": "Conversation cleared. Ask a new question or request a chart."}
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot", "content": "Conversation cleared. Ask a new dashboard question."}
                     st.rerun()
 
 
