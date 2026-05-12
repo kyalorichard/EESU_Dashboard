@@ -392,76 +392,6 @@ EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pd
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
 
-# ---------------- DATASET LAST UPDATED BADGE ----------------
-@st.cache_data(ttl=300, show_spinner=False)
-def get_dataset_last_updated_badge_info():
-    """Return a polished last-updated label based on the latest date in the dataset."""
-    parquet_file = EXPORT_DIR / "output_final.parquet"
-
-    if not parquet_file.exists():
-        return {
-            "label": "Last updated unavailable",
-            "subtext": "Dataset file not found",
-            "iso": "",
-        }
-
-    try:
-        # Read only the date columns where possible for faster startup.
-        candidate_columns = [
-            "creation_date",
-            "Date of submission",
-            "date",
-            "created_at",
-            "updated_at",
-        ]
-
-        try:
-            df_dates = pd.read_parquet(parquet_file, columns=candidate_columns)
-        except Exception:
-            df_all = pd.read_parquet(parquet_file)
-            available = [c for c in candidate_columns if c in df_all.columns]
-            df_dates = df_all[available].copy() if available else pd.DataFrame()
-
-        if df_dates.empty:
-            return {
-                "label": "Last updated unavailable",
-                "subtext": "No date column found in dataset",
-                "iso": "",
-            }
-
-        best_col = None
-        best_latest = pd.NaT
-
-        for col in df_dates.columns:
-            parsed = pd.to_datetime(df_dates[col], errors="coerce")
-            if parsed.notna().any():
-                latest = parsed.max()
-                if pd.isna(best_latest) or latest > best_latest:
-                    best_latest = latest
-                    best_col = col
-
-        if pd.isna(best_latest):
-            return {
-                "label": "Last updated unavailable",
-                "subtext": "Date values could not be parsed",
-                "iso": "",
-            }
-
-        return {
-            "label": best_latest.strftime("%d %B %Y"),
-            "subtext": f"Based on latest {best_col} in the dataset",
-            "iso": best_latest.strftime("%Y-%m-%d"),
-        }
-
-    except Exception as e:
-        return {
-            "label": "Last updated unavailable",
-            "subtext": f"Could not read dataset date: {e}",
-            "iso": "",
-        }
-
-
-LAST_UPDATED_INFO = get_dataset_last_updated_badge_info()
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
@@ -481,14 +411,6 @@ st.markdown(f"""
     in the enabling environment for civil society.
 </div>
 
-<div class="last-updated-badge" title="{LAST_UPDATED_INFO['subtext']}">
-    <div class="last-updated-icon">⏱</div>
-    <div class="last-updated-copy">
-        <span class="last-updated-label">Last updated</span>
-        <strong>{LAST_UPDATED_INFO['label']}</strong>
-        <small>{LAST_UPDATED_INFO['subtext']}</small>
-    </div>
-</div>
 
 </div>
 
@@ -839,12 +761,31 @@ def load_data():
             + ", ".join(sorted(missing_countries))
         )
 
-    # --- Step 9: Process dates ---
+    # --- Step 9: Process dates and expose latest dataset date for the UX badge ---
     if "creation_date" in df.columns:
         df["creation_date"] = pd.to_datetime(df["creation_date"], errors="coerce")
         df["year"] = df["creation_date"].dt.year
         df["month_name"] = df["creation_date"].dt.strftime("%B")
+
+        latest_dataset_date = df["creation_date"].dropna().max()
+
+        if pd.notna(latest_dataset_date):
+            latest_dataset_date_display = latest_dataset_date.strftime("%d %B %Y")
+            latest_dataset_date_iso = latest_dataset_date.strftime("%Y-%m-%d")
+        else:
+            latest_dataset_date_display = "Not available"
+            latest_dataset_date_iso = ""
+
+        # Keep the badge metadata tied to the exact dataset ingestion step.
+        st.session_state["latest_dataset_date"] = latest_dataset_date_display
+        st.session_state["latest_dataset_date_iso"] = latest_dataset_date_iso
+        st.session_state["latest_dataset_date_source"] = "Based on latest creation_date in the loaded dataset"
+        df.attrs["latest_dataset_date"] = latest_dataset_date_display
+        df.attrs["latest_dataset_date_iso"] = latest_dataset_date_iso
     else:
+        st.session_state["latest_dataset_date"] = "Not available"
+        st.session_state["latest_dataset_date_iso"] = ""
+        st.session_state["latest_dataset_date_source"] = "creation_date column not found in the loaded dataset"
         st.warning("No 'creation_date' column found in dataset.")
 
     # --- Step 10: Update alert-impact based on alert-type ---
@@ -856,6 +797,24 @@ def load_data():
 
 # --- Load data safely ---
 data = apply_data_scope(load_data())
+
+# ---------------- PROFESSIONAL LAST UPDATED BADGE ----------------
+latest_date_display = st.session_state.get("latest_dataset_date", "Not available")
+latest_date_source = st.session_state.get(
+    "latest_dataset_date_source",
+    "Based on latest creation_date in the loaded dataset",
+)
+
+st.markdown(f"""
+<div class="last-updated-badge" title="{latest_date_source}">
+    <div class="last-updated-icon">⏱</div>
+    <div class="last-updated-copy">
+        <span class="last-updated-label">Last updated</span>
+        <strong>{latest_date_display}</strong>
+        <small>{latest_date_source}</small>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
