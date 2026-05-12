@@ -391,8 +391,80 @@ EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
 USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
 
+
+# ---------------- DATASET LAST UPDATED BADGE ----------------
+@st.cache_data(ttl=300, show_spinner=False)
+def get_dataset_last_updated_badge_info():
+    """Return a polished last-updated label based on the latest date in the dataset."""
+    parquet_file = EXPORT_DIR / "output_final.parquet"
+
+    if not parquet_file.exists():
+        return {
+            "label": "Last updated unavailable",
+            "subtext": "Dataset file not found",
+            "iso": "",
+        }
+
+    try:
+        # Read only the date columns where possible for faster startup.
+        candidate_columns = [
+            "creation_date",
+            "Date of submission",
+            "date",
+            "created_at",
+            "updated_at",
+        ]
+
+        try:
+            df_dates = pd.read_parquet(parquet_file, columns=candidate_columns)
+        except Exception:
+            df_all = pd.read_parquet(parquet_file)
+            available = [c for c in candidate_columns if c in df_all.columns]
+            df_dates = df_all[available].copy() if available else pd.DataFrame()
+
+        if df_dates.empty:
+            return {
+                "label": "Last updated unavailable",
+                "subtext": "No date column found in dataset",
+                "iso": "",
+            }
+
+        best_col = None
+        best_latest = pd.NaT
+
+        for col in df_dates.columns:
+            parsed = pd.to_datetime(df_dates[col], errors="coerce")
+            if parsed.notna().any():
+                latest = parsed.max()
+                if pd.isna(best_latest) or latest > best_latest:
+                    best_latest = latest
+                    best_col = col
+
+        if pd.isna(best_latest):
+            return {
+                "label": "Last updated unavailable",
+                "subtext": "Date values could not be parsed",
+                "iso": "",
+            }
+
+        return {
+            "label": best_latest.strftime("%d %B %Y"),
+            "subtext": f"Based on latest {best_col} in the dataset",
+            "iso": best_latest.strftime("%Y-%m-%d"),
+        }
+
+    except Exception as e:
+        return {
+            "label": "Last updated unavailable",
+            "subtext": f"Could not read dataset date: {e}",
+            "iso": "",
+        }
+
+
+LAST_UPDATED_INFO = get_dataset_last_updated_badge_info()
+
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
-st.markdown("""
+st.markdown(f"""
 <!-- Container for animations -->
 <div style="overflow: hidden;">
 
@@ -409,11 +481,20 @@ st.markdown("""
     in the enabling environment for civil society.
 </div>
 
+<div class="last-updated-badge" title="{LAST_UPDATED_INFO['subtext']}">
+    <div class="last-updated-icon">⏱</div>
+    <div class="last-updated-copy">
+        <span class="last-updated-label">Last updated</span>
+        <strong>{LAST_UPDATED_INFO['label']}</strong>
+        <small>{LAST_UPDATED_INFO['subtext']}</small>
+    </div>
+</div>
+
 </div>
 
 <style>
 /* ---------------- Title ---------------- */
-.animated-title {
+.animated-title {{
     margin: 0 0 4px 0 !important;
     line-height: 1.05;
     color: #660094;
@@ -424,16 +505,16 @@ st.markdown("""
     transform: translateY(-20px);
     animation: titleFadeSlide 0.8s ease-out forwards;
     animation-delay: 0.2s;
-}
+}}
 
 /* Title animation */
-@keyframes titleFadeSlide {
-    from { opacity: 0; transform: translateY(-20px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
+@keyframes titleFadeSlide {{
+    from {{ opacity: 0; transform: translateY(-20px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
+}}
 
 /* ---------------- Divider ---------------- */
-.animated-divider {
+.animated-divider {{
     width: 15%;
     max-width: 120px;
     height: 4px;
@@ -444,15 +525,15 @@ st.markdown("""
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
     animation-delay: 0.6s;
-}
+}}
 
-@keyframes dividerSlide {
-    from { transform: translateX(-120%); opacity: 0; }
-    to   { transform: translateX(0); opacity: 1; }
-}
+@keyframes dividerSlide {{
+    from {{ transform: translateX(-120%); opacity: 0; }}
+    to   {{ transform: translateX(0); opacity: 1; }}
+}}
 
 /* ---------------- Subtitle ---------------- */
-.animated-subtitle {
+.animated-subtitle {{
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
@@ -462,12 +543,70 @@ st.markdown("""
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.0s;
-}
+}}
 
-@keyframes subtitleFade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
+@keyframes subtitleFade {{
+    from {{ opacity: 0; }}
+    to   {{ opacity: 1; }}
+}}
+
+
+/* ---------------- Last updated badge ---------------- */
+.last-updated-badge {{
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 2px 0 14px 0;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%);
+    border: 1px solid rgba(102, 0, 148, 0.14);
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255,255,255,0.95);
+    font-family: Arial, sans-serif;
+    opacity: 0;
+    animation: subtitleFade 0.8s ease-out forwards;
+    animation-delay: 1.15s;
+}}
+.last-updated-icon {{
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+    color: #660094;
+    border: 1px solid rgba(102,0,148,.10);
+    font-size: 14px;
+    font-weight: 900;
+}}
+.last-updated-copy {{
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    color: #344054;
+}}
+.last-updated-label {{
+    color: #660094;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}}
+.last-updated-copy strong {{
+    color: #23152F;
+    font-size: 12.5px;
+    font-weight: 950;
+}}
+.last-updated-copy small {{
+    color: #667085;
+    font-size: 10.5px;
+    font-weight: 700;
+}}
 </style>
 """, unsafe_allow_html=True)
 
