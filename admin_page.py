@@ -85,28 +85,6 @@ def inject_admin_css():
         max-width: 980px;
     }
 
-    .admin-card {
-        background: #ffffff;
-        border: 1px solid #e6e8ef;
-        border-radius: 16px;
-        padding: 16px 18px;
-        box-shadow: 0 8px 22px rgba(16,24,40,.045);
-        margin-bottom: 14px;
-    }
-
-    .admin-card-title {
-        font-size: 15px;
-        font-weight: 900;
-        color: #101828;
-        margin-bottom: 4px;
-    }
-
-    .admin-card-note {
-        font-size: 12px;
-        color: #667085;
-        line-height: 1.4;
-    }
-
     .admin-info {
         background: #eff8ff;
         border: 1px solid #b2ddff;
@@ -115,49 +93,6 @@ def inject_admin_css():
         color: #175cd3;
         font-size: 12px;
         margin: 12px 0 14px 0;
-    }
-
-    .admin-side-card {
-        background: #ffffff;
-        border: 1px solid #e6e8ef;
-        border-radius: 16px;
-        padding: 16px;
-        box-shadow: 0 8px 22px rgba(16,24,40,.045);
-        margin-bottom: 14px;
-    }
-
-    .admin-side-title {
-        font-size: 14px;
-        font-weight: 900;
-        color: #101828;
-        margin-bottom: 12px;
-    }
-
-    .admin-label {
-        font-size: 10px;
-        font-weight: 800;
-        color: #667085;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        margin-top: 12px;
-    }
-
-    .admin-value {
-        font-size: 13px;
-        color: #101828;
-        font-weight: 700;
-        margin-top: 4px;
-    }
-
-    .admin-badge {
-        display: inline-block;
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: #f2f4f7;
-        color: #344054;
-        font-size: 12px;
-        font-weight: 800;
-        margin-top: 5px;
     }
 
     .admin-footer {
@@ -263,128 +198,115 @@ def _render_header():
 
 
 def _render_role_summary(role: str):
-    st.markdown(f"""
-    <div class="admin-side-card">
-        <div class="admin-side-title">👥 Role summary</div>
-
-        <div class="admin-label">Current role</div>
-        <div class="admin-badge">{role.capitalize()}</div>
-
-        <div class="admin-label">Last updated</div>
-        <div class="admin-value">{datetime.now().strftime("%b %d, %Y %I:%M %p")}</div>
-
-        <div class="admin-label">Updated by</div>
-        <div class="admin-value">Admin</div>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown("### 👥 Role summary")
+        st.caption("Current role")
+        st.info(role.capitalize())
+        st.caption("Last updated")
+        st.write(datetime.now().strftime("%b %d, %Y %I:%M %p"))
+        st.caption("Updated by")
+        st.write("Admin")
 
 
 def _render_help_card():
-    st.markdown("""
-    <div class="admin-side-card">
-        <div class="admin-side-title">❔ Need help?</div>
-        <div style="font-size:12px;color:#667085;line-height:1.45;">
-            Use this page to control what each access role can view or download.
-            Save changes after editing permissions.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown("### ❔ Need help?")
+        st.caption(
+            "Use this page to control what each access role can view or download. "
+            "Save changes after editing permissions."
+        )
+        st.button("View documentation", use_container_width=True)
 
 
 def _render_visibility_tab(config: dict):
     left, right = st.columns([4.3, 1.35])
 
     with left:
-        st.markdown("""
-        <div class="admin-card">
-            <div class="admin-card-title">Configure role</div>
-            <div class="admin-card-note">
-                Define what content and features this role can see and access.
+        with st.container(border=True):
+            st.markdown("### Configure role")
+            st.caption("Define what content and features this role can see and access.")
+
+            role = st.selectbox(
+                "Configure role",
+                ["guest", "viewer", "privileged"],
+                index=0,
+                key="admin_visibility_role",
+            )
+
+            config = _safe_role_config(config, role)
+            features = config[role]["features"]
+
+            st.markdown("""
+            <div class="admin-info">
+                ℹ️ Click Save after changes. Settings persist after logout only if this config path is on persistent storage.
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        role = st.selectbox(
-            "Configure role",
-            ["guest", "viewer", "privileged"],
-            index=0,
-            key="admin_visibility_role",
-        )
+            c1, c2 = st.columns(2)
 
-        config = _safe_role_config(config, role)
-        features = config[role]["features"]
+            left_features = [
+                "view_public_summary",
+                "view_overview",
+                "view_country_counts",
+                "view_negative_alerts",
+                "view_analytical_flow_panel",
+                "download_data",
+                "view_user_manual",
+            ]
 
-        st.markdown("""
-        <div class="admin-info">
-            ℹ️ Click Save after changes. Settings persist after logout only if this config path is on persistent storage.
-        </div>
-        """, unsafe_allow_html=True)
+            right_features = [
+                "view_dashboard",
+                "view_coverage_monitored_countries",
+                "view_maps",
+                "view_negative_relationship_intelligence",
+                "view_data_table",
+                "use_ai_copilot",
+                "view_admin_page",
+            ]
 
-        c1, c2 = st.columns(2)
+            with c1:
+                with st.expander("Content visibility", expanded=True):
+                    for key in left_features:
+                        features[key] = st.checkbox(
+                            FEATURE_LABELS[key],
+                            value=bool(features.get(key, False)),
+                            key=f"persist_feature_{role}_{key}",
+                            disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
+                        )
 
-        left_features = [
-            "view_public_summary",
-            "view_overview",
-            "view_country_counts",
-            "view_negative_alerts",
-            "view_analytical_flow_panel",
-            "download_data",
-            "view_user_manual",
-        ]
+            with c2:
+                with st.expander("Additional permissions", expanded=True):
+                    for key in right_features:
+                        features[key] = st.checkbox(
+                            FEATURE_LABELS[key],
+                            value=bool(features.get(key, False)),
+                            key=f"persist_feature_{role}_{key}",
+                            disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
+                        )
 
-        right_features = [
-            "view_dashboard",
-            "view_coverage_monitored_countries",
-            "view_maps",
-            "view_negative_relationship_intelligence",
-            "view_data_table",
-            "use_ai_copilot",
-            "view_admin_page",
-        ]
+            config[role]["features"] = features
 
-        with c1:
-            with st.expander("Content visibility", expanded=True):
-                for key in left_features:
-                    features[key] = st.checkbox(
-                        FEATURE_LABELS[key],
-                        value=bool(features.get(key, False)),
-                        key=f"persist_feature_{role}_{key}",
-                        disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
-                    )
+            save_col, reset_col = st.columns(2)
 
-        with c2:
-            with st.expander("Additional permissions", expanded=True):
-                for key in right_features:
-                    features[key] = st.checkbox(
-                        FEATURE_LABELS[key],
-                        value=bool(features.get(key, False)),
-                        key=f"persist_feature_{role}_{key}",
-                        disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
-                    )
+            with save_col:
+                if st.button("💾 Save visibility settings", type="primary", use_container_width=True):
+                    if save_access_config(config):
+                        st.success("Visibility settings saved.")
+                        st.rerun()
 
-        config[role]["features"] = features
+            with reset_col:
+                if st.button("↩ Reset all roles to defaults", use_container_width=True):
+                    if save_access_config(default_access_config()):
+                        st.success("Defaults restored.")
+                        st.rerun()
 
-        save_col, reset_col = st.columns(2)
-
-        with save_col:
-            if st.button("💾 Save visibility settings", type="primary", use_container_width=True):
-                if save_access_config(config):
-                    st.success("Visibility settings saved.")
-                    st.rerun()
-
-        with reset_col:
-            if st.button("↩ Reset all roles to defaults", use_container_width=True):
-                if save_access_config(default_access_config()):
-                    st.success("Defaults restored.")
-                    st.rerun()
-
-        st.download_button(
-            "⬇️ Download access config (JSON)",
-            data=json.dumps(config, indent=2),
-            file_name="eusee_access_config.json",
-            mime="application/json",
-            use_container_width=True,
-        )
+            st.download_button(
+                "⬇️ Download access config (JSON)",
+                data=json.dumps(config, indent=2),
+                file_name="eusee_access_config.json",
+                mime="application/json",
+                use_container_width=True,
+            )
 
     with right:
         _render_role_summary(role)
@@ -477,7 +399,7 @@ def _render_users_tab():
 admin_emails = ["admin@example.org"]
 
 [access]
-privileged_domains = ["icarda.org", "cgiar.org"]
+privileged_domains = ["example.org", "example.org"]
 
 [access_control]
 config_path = "/exports/eusee_access_config.json"
