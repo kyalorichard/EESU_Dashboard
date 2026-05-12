@@ -37,175 +37,170 @@ FEATURE_LABELS = {
     "view_admin_page": "Admin page",
 }
 
+GUEST_LOCKED_FEATURES = {
+    "download_data",
+    "use_ai_copilot",
+    "view_admin_page",
+}
 
-# =========================================================
-# PROFESSIONAL ADMIN CSS
-# =========================================================
+
 def inject_admin_css():
-
     st.markdown("""
     <style>
-
-    .admin-shell * {
-        font-family: Arial, sans-serif !important;
-    }
-
-    .admin-shell {
-        margin-top: 4px;
+    .main .block-container {
+        padding-top: 0.75rem !important;
+        max-width: 1500px !important;
     }
 
     .admin-hero {
-        background:
-            radial-gradient(circle at top right, rgba(102,0,148,.08), transparent 28%),
-            linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 62%,#EFFBFE 100%);
-        border: 1px solid rgba(102,0,148,.14);
-        border-radius: 22px;
-        padding: 22px;
-        box-shadow: 0 14px 36px rgba(16,24,40,.07);
+        background: linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);
+        border: 1px solid #e6e8ef;
+        border-radius: 18px;
+        padding: 22px 24px;
+        box-shadow: 0 10px 28px rgba(16,24,40,.06);
         margin-bottom: 16px;
     }
 
     .admin-eyebrow {
         font-size: 10px;
         font-weight: 900;
-        color: #660094;
-        letter-spacing: .13em;
+        color: #344054;
+        letter-spacing: .12em;
         text-transform: uppercase;
         margin-bottom: 6px;
     }
 
     .admin-title {
-        font-size: 32px;
-        font-weight: 950;
-        color: #23152F;
-        line-height: 1.05;
-        letter-spacing: -.03em;
-    }
-
-    .admin-subtitle {
-        margin-top: 8px;
-        font-size: 12px;
-        color: #667085;
-        line-height: 1.45;
-        max-width: 900px;
-    }
-
-    .admin-card {
-        background: #FFFFFF;
-        border: 1px solid #E6E8EF;
-        border-radius: 18px;
-        padding: 18px;
-        box-shadow: 0 10px 26px rgba(16,24,40,.05);
-        margin-bottom: 16px;
-    }
-
-    .admin-card-title {
-        font-size: 18px;
+        font-size: 26px;
         font-weight: 900;
-        color: #23152F;
+        color: #101828;
+        line-height: 1.1;
         margin-bottom: 6px;
     }
 
-    .admin-card-note {
-        font-size: 11px;
-        color: #667085;
-        line-height: 1.4;
-        margin-bottom: 16px;
-    }
-
-    .admin-section-title {
+    .admin-subtitle {
         font-size: 13px;
-        font-weight: 900;
-        color: #344054;
-        margin-bottom: 12px;
+        color: #667085;
+        line-height: 1.45;
+        max-width: 980px;
     }
 
-    .admin-info-banner {
-        background: #EFF8FF;
-        border: 1px solid #B2DDFF;
-        border-radius: 12px;
-        padding: 12px 14px;
-        color: #175CD3;
-        font-size: 11px;
-        margin-top: 12px;
-        margin-bottom: 18px;
+    .admin-card {
+        background: #ffffff;
+        border: 1px solid #e6e8ef;
+        border-radius: 16px;
+        padding: 16px 18px;
+        box-shadow: 0 8px 22px rgba(16,24,40,.045);
+        margin-bottom: 14px;
     }
 
-    .admin-right-card {
-        background: linear-gradient(180deg,#FFFFFF 0%,#FAFAFC 100%);
-        border: 1px solid #E6E8EF;
-        border-radius: 18px;
-        padding: 16px;
-        box-shadow: 0 8px 20px rgba(16,24,40,.05);
-        margin-bottom: 16px;
-    }
-
-    .admin-right-title {
+    .admin-card-title {
         font-size: 15px;
         font-weight: 900;
-        color: #23152F;
+        color: #101828;
+        margin-bottom: 4px;
+    }
+
+    .admin-card-note {
+        font-size: 12px;
+        color: #667085;
+        line-height: 1.4;
+    }
+
+    .admin-info {
+        background: #eff8ff;
+        border: 1px solid #b2ddff;
+        border-radius: 12px;
+        padding: 11px 13px;
+        color: #175cd3;
+        font-size: 12px;
+        margin: 12px 0 14px 0;
+    }
+
+    .admin-side-card {
+        background: #ffffff;
+        border: 1px solid #e6e8ef;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 22px rgba(16,24,40,.045);
+        margin-bottom: 14px;
+    }
+
+    .admin-side-title {
+        font-size: 14px;
+        font-weight: 900;
+        color: #101828;
         margin-bottom: 12px;
     }
 
-    .admin-role-badge {
-        display: inline-flex;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #F4EAF8;
-        border: 1px solid #E7D4F1;
-        color: #660094;
-        font-size: 11px;
-        font-weight: 900;
-        margin-top: 6px;
-    }
-
-    .admin-meta-label {
+    .admin-label {
         font-size: 10px;
-        color: #667085;
-        margin-top: 14px;
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: .06em;
         font-weight: 800;
+        color: #667085;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        margin-top: 12px;
     }
 
-    .admin-meta-value {
+    .admin-value {
         font-size: 13px;
-        color: #23152F;
+        color: #101828;
         font-weight: 700;
+        margin-top: 4px;
     }
 
-    .stButton > button {
-        border-radius: 12px !important;
-        height: 42px !important;
-        font-weight: 900 !important;
-    }
-
-    div[data-baseweb="select"] > div {
-        border-radius: 12px !important;
-        min-height: 42px !important;
-    }
-
-    [data-testid="stHorizontalBlock"] {
-        gap: 1rem !important;
+    .admin-badge {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #f2f4f7;
+        color: #344054;
+        font-size: 12px;
+        font-weight: 800;
+        margin-top: 5px;
     }
 
     .admin-footer {
         text-align: center;
-        color: #98A2B3;
         font-size: 11px;
-        margin-top: 14px;
+        color: #98a2b3;
+        margin-top: 16px;
     }
 
+    .stButton > button {
+        border-radius: 11px !important;
+        font-weight: 800 !important;
+        height: 42px !important;
+    }
+
+    .stDownloadButton > button {
+        border-radius: 11px !important;
+        font-weight: 800 !important;
+        height: 42px !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        border-radius: 11px !important;
+        min-height: 42px !important;
+    }
+
+    div[data-testid="stExpander"] {
+        border-radius: 14px !important;
+        border: 1px solid #e6e8ef !important;
+        box-shadow: 0 6px 18px rgba(16,24,40,.04) !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stExpander"] summary {
+        font-weight: 900 !important;
+        color: #101828 !important;
+        background: #ffffff !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 
-# =========================================================
-# SIDEBAR NAVIGATION
-# =========================================================
 def render_admin_sidebar_navigation():
-
     if not is_admin():
         return "Dashboard"
 
@@ -213,43 +208,26 @@ def render_admin_sidebar_navigation():
     <div style="
         margin-top:14px;
         padding:14px;
-        border-radius:18px;
-        background:linear-gradient(135deg,#FFFFFF 0%,#F4EAF8 100%);
-        border:1px solid rgba(102,0,148,.15);
-        box-shadow:0 10px 22px rgba(16,24,40,.06);
+        border-radius:16px;
+        background:#ffffff;
+        border:1px solid #e6e8ef;
+        box-shadow:0 8px 20px rgba(16,24,40,.05);
+        font-family:Arial,sans-serif;
     ">
-        <div style="
-            font-size:9px;
-            font-weight:900;
-            color:#660094;
-            letter-spacing:.13em;
-            text-transform:uppercase;
-        ">
-            Admin workspace
+        <div style="font-size:9px;font-weight:900;color:#667085;letter-spacing:.12em;text-transform:uppercase;">
+            Workspace
         </div>
-
-        <div style="
-            font-size:15px;
-            font-weight:900;
-            color:#23152F;
-            margin-top:5px;
-        ">
-            🔐 Administration
+        <div style="font-size:14px;font-weight:900;color:#101828;margin-top:5px;">
+            ⚙️ Administration
         </div>
-
-        <div style="
-            font-size:11px;
-            color:#667085;
-            margin-top:5px;
-            line-height:1.4;
-        ">
-            Configure visibility, permissions and data scope.
+        <div style="font-size:11px;color:#667085;line-height:1.4;margin-top:5px;">
+            Manage visibility, data scope and access roles.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     return st.sidebar.radio(
-        "Navigation",
+        "Admin navigation",
         ["Dashboard", "Admin"],
         index=0,
         key="admin_navigation_choice",
@@ -257,375 +235,244 @@ def render_admin_sidebar_navigation():
     )
 
 
-# =========================================================
-# MAIN ADMIN PAGE
-# =========================================================
-def render_admin_page(data=None):
+def _safe_role_config(config: dict, role: str) -> dict:
+    config.setdefault(role, {})
+    config[role].setdefault("features", {})
+    config[role].setdefault("regions", [])
+    config[role].setdefault("countries", [])
+    config[role].setdefault("years", [])
 
-    if not is_admin():
-        st.error("Access restricted.")
-        st.stop()
+    for key in FEATURE_LABELS:
+        config[role]["features"].setdefault(key, False)
 
-    inject_admin_css()
+    return config
 
-    config = load_access_config()
 
-    st.markdown('<div class="admin-shell">', unsafe_allow_html=True)
-
-    # =====================================================
-    # HERO
-    # =====================================================
+def _render_header():
     st.markdown(f"""
     <div class="admin-hero">
-
-        <div class="admin-eyebrow">
-            Admin workspace
-        </div>
-
-        <div class="admin-title">
-            EU SEE Dashboard Administration
-        </div>
-
+        <div class="admin-eyebrow">Admin workspace</div>
+        <div class="admin-title">EU SEE Dashboard Administration</div>
         <div class="admin-subtitle">
-            Configure access roles, visibility settings and manage dashboard
-            permissions and data governance.
-            <br><br>
-            Saved config:
-            <code>{get_access_config_path()}</code>
+            Configure access roles, visibility settings, data scope and dashboard governance.
+            <br>
+            Saved config: <code>{get_access_config_path()}</code>
         </div>
-
     </div>
     """, unsafe_allow_html=True)
 
-    # =====================================================
-    # TABS
-    # =====================================================
-    tab_visibility, tab_scope, tab_users, tab_system = st.tabs(
-        ["Visibility", "Data scope", "Users", "Diagnostics"]
-    )
 
-    # =====================================================
-    # VISIBILITY TAB
-    # =====================================================
-    with tab_visibility:
+def _render_role_summary(role: str):
+    st.markdown(f"""
+    <div class="admin-side-card">
+        <div class="admin-side-title">👥 Role summary</div>
 
-        left, right = st.columns([4.2, 1.3])
+        <div class="admin-label">Current role</div>
+        <div class="admin-badge">{role.capitalize()}</div>
 
-        # -------------------------------------------------
-        # LEFT PANEL
-        # -------------------------------------------------
-        with left:
+        <div class="admin-label">Last updated</div>
+        <div class="admin-value">{datetime.now().strftime("%b %d, %Y %I:%M %p")}</div>
 
-            st.markdown("""
-            <div class="admin-card">
-                <div class="admin-card-title">
-                    Configure role
-                </div>
+        <div class="admin-label">Updated by</div>
+        <div class="admin-value">Admin</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-                <div class="admin-card-note">
-                    Define what content and features this role can see and access.
-                </div>
-            """, unsafe_allow_html=True)
 
-            role = st.selectbox(
-                "Role",
-                ["guest", "viewer", "privileged"],
-                label_visibility="collapsed",
-            )
+def _render_help_card():
+    st.markdown("""
+    <div class="admin-side-card">
+        <div class="admin-side-title">❔ Need help?</div>
+        <div style="font-size:12px;color:#667085;line-height:1.45;">
+            Use this page to control what each access role can view or download.
+            Save changes after editing permissions.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-            st.markdown("""
-            <div class="admin-info-banner">
-                ℹ️ Click Save after changes. Settings persist after logout only
-                if the config path is on persistent storage.
+
+def _render_visibility_tab(config: dict):
+    left, right = st.columns([4.3, 1.35])
+
+    with left:
+        st.markdown("""
+        <div class="admin-card">
+            <div class="admin-card-title">Configure role</div>
+            <div class="admin-card-note">
+                Define what content and features this role can see and access.
             </div>
-            """, unsafe_allow_html=True)
-
-            features = config[role]["features"]
-
-            col1, col2 = st.columns(2)
-
-            LEFT_FEATURES = [
-                "view_public_summary",
-                "view_overview",
-                "view_country_counts",
-                "view_negative_alerts",
-                "view_analytical_flow_panel",
-                "download_data",
-                "view_user_manual",
-            ]
-
-            RIGHT_FEATURES = [
-                "view_dashboard",
-                "view_coverage_monitored_countries",
-                "view_maps",
-                "view_negative_relationship_intelligence",
-                "view_data_table",
-                "use_ai_copilot",
-                "view_admin_page",
-            ]
-
-            with col1:
-
-                st.markdown("""
-                <div class="admin-section-title">
-                    Content visibility
-                </div>
-                """, unsafe_allow_html=True)
-
-                for key in LEFT_FEATURES:
-
-                    features[key] = st.checkbox(
-                        FEATURE_LABELS[key],
-                        value=bool(features.get(key, False)),
-                        key=f"persist_feature_{role}_{key}",
-                        disabled=(
-                            role == "guest"
-                            and key in [
-                                "download_data",
-                                "use_ai_copilot",
-                                "view_admin_page",
-                            ]
-                        ),
-                    )
-
-            with col2:
-
-                st.markdown("""
-                <div class="admin-section-title">
-                    Additional permissions
-                </div>
-                """, unsafe_allow_html=True)
-
-                for key in RIGHT_FEATURES:
-
-                    features[key] = st.checkbox(
-                        FEATURE_LABELS[key],
-                        value=bool(features.get(key, False)),
-                        key=f"persist_feature_{role}_{key}",
-                        disabled=(
-                            role == "guest"
-                            and key in [
-                                "download_data",
-                                "use_ai_copilot",
-                                "view_admin_page",
-                            ]
-                        ),
-                    )
-
-            config[role]["features"] = features
-
-            save_col, reset_col = st.columns(2)
-
-            with save_col:
-
-                if st.button(
-                    "💾 Save visibility settings",
-                    use_container_width=True,
-                    type="primary",
-                ):
-
-                    if save_access_config(config):
-                        st.success("Visibility settings saved.")
-                        st.rerun()
-
-            with reset_col:
-
-                if st.button(
-                    "↩ Reset all roles to defaults",
-                    use_container_width=True,
-                ):
-
-                    if save_access_config(default_access_config()):
-                        st.success("Defaults restored.")
-                        st.rerun()
-
-            st.download_button(
-                "⬇️ Download access config (JSON)",
-                data=json.dumps(config, indent=2),
-                file_name="eusee_access_config.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # -------------------------------------------------
-        # RIGHT PANEL
-        # -------------------------------------------------
-        with right:
-
-            st.markdown(f"""
-            <div class="admin-right-card">
-
-                <div class="admin-right-title">
-                    Role summary
-                </div>
-
-                <div class="admin-meta-label">
-                    Current role
-                </div>
-
-                <div class="admin-role-badge">
-                    {role.capitalize()}
-                </div>
-
-                <div class="admin-meta-label">
-                    Last updated
-                </div>
-
-                <div class="admin-meta-value">
-                    {datetime.now().strftime("%b %d, %Y %I:%M %p")}
-                </div>
-
-                <div class="admin-meta-label">
-                    Updated by
-                </div>
-
-                <div class="admin-meta-value">
-                    Admin
-                </div>
-
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown("""
-            <div class="admin-right-card">
-
-                <div class="admin-right-title">
-                    Need help?
-                </div>
-
-                <div style="
-                    font-size:11px;
-                    color:#667085;
-                    line-height:1.5;
-                    margin-bottom:16px;
-                ">
-                    Read the documentation or contact support for assistance.
-                </div>
-
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.button(
-                "View documentation",
-                use_container_width=True,
-            )
-
-    # =====================================================
-    # DATA SCOPE TAB
-    # =====================================================
-    with tab_scope:
+        </div>
+        """, unsafe_allow_html=True)
 
         role = st.selectbox(
-            "Configure data scope for role",
+            "Configure role",
             ["guest", "viewer", "privileged"],
-            key="scope_role",
+            index=0,
+            key="admin_visibility_role",
         )
 
-        st.caption(
-            "Leave selections empty to allow all available values."
-        )
+        config = _safe_role_config(config, role)
+        features = config[role]["features"]
 
-        regions, countries, years = [], [], []
+        st.markdown("""
+        <div class="admin-info">
+            ℹ️ Click Save after changes. Settings persist after logout only if this config path is on persistent storage.
+        </div>
+        """, unsafe_allow_html=True)
 
-        if data is not None and not getattr(data, "empty", True):
+        c1, c2 = st.columns(2)
 
-            if "region" in data.columns:
-                regions = sorted(
-                    data["region"].dropna().astype(str).unique()
-                )
+        left_features = [
+            "view_public_summary",
+            "view_overview",
+            "view_country_counts",
+            "view_negative_alerts",
+            "view_analytical_flow_panel",
+            "download_data",
+            "view_user_manual",
+        ]
 
-            if "alert-country" in data.columns:
-                countries = sorted(
-                    data["alert-country"].dropna().astype(str).unique()
-                )
+        right_features = [
+            "view_dashboard",
+            "view_coverage_monitored_countries",
+            "view_maps",
+            "view_negative_relationship_intelligence",
+            "view_data_table",
+            "use_ai_copilot",
+            "view_admin_page",
+        ]
 
-            if "year" in data.columns:
-                years = sorted(
-                    [int(y) for y in data["year"].dropna().unique()]
-                )
+        with c1:
+            with st.expander("Content visibility", expanded=True):
+                for key in left_features:
+                    features[key] = st.checkbox(
+                        FEATURE_LABELS[key],
+                        value=bool(features.get(key, False)),
+                        key=f"persist_feature_{role}_{key}",
+                        disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
+                    )
 
-        col1, col2, col3 = st.columns(3)
+        with c2:
+            with st.expander("Additional permissions", expanded=True):
+                for key in right_features:
+                    features[key] = st.checkbox(
+                        FEATURE_LABELS[key],
+                        value=bool(features.get(key, False)),
+                        key=f"persist_feature_{role}_{key}",
+                        disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
+                    )
 
-        with col1:
-            config[role]["regions"] = st.multiselect(
-                "Allowed regions",
-                regions,
-                default=[
-                    x for x in config[role].get("regions", [])
-                    if x in regions
-                ],
-                key=f"persist_regions_{role}",
-            )
+        config[role]["features"] = features
 
-        with col2:
-            config[role]["countries"] = st.multiselect(
-                "Allowed countries",
-                countries,
-                default=[
-                    x for x in config[role].get("countries", [])
-                    if x in countries
-                ],
-                key=f"persist_countries_{role}",
-            )
+        save_col, reset_col = st.columns(2)
 
-        with col3:
-            config[role]["years"] = st.multiselect(
-                "Allowed years",
-                years,
-                default=[
-                    x for x in config[role].get("years", [])
-                    if x in years
-                ],
-                key=f"persist_years_{role}",
-            )
+        with save_col:
+            if st.button("💾 Save visibility settings", type="primary", use_container_width=True):
+                if save_access_config(config):
+                    st.success("Visibility settings saved.")
+                    st.rerun()
 
-        if st.button(
-            "💾 Save data scope",
-            type="primary",
+        with reset_col:
+            if st.button("↩ Reset all roles to defaults", use_container_width=True):
+                if save_access_config(default_access_config()):
+                    st.success("Defaults restored.")
+                    st.rerun()
+
+        st.download_button(
+            "⬇️ Download access config (JSON)",
+            data=json.dumps(config, indent=2),
+            file_name="eusee_access_config.json",
+            mime="application/json",
             use_container_width=True,
-        ):
+        )
 
-            if save_access_config(config):
-                st.success("Data scope saved.")
-                st.rerun()
+    with right:
+        _render_role_summary(role)
+        _render_help_card()
 
-    # =====================================================
-    # USERS TAB
-    # =====================================================
-    with tab_users:
 
-        rows = []
+def _render_scope_tab(config: dict, data=None):
+    role = st.selectbox(
+        "Configure data scope for role",
+        ["guest", "viewer", "privileged"],
+        index=0,
+        key="scope_role",
+    )
 
-        for email in get_admin_emails():
-            rows.append({
-                "identity": email,
-                "role": "admin",
-                "source": "[auth].admin_emails",
-            })
+    config = _safe_role_config(config, role)
 
-        for domain in get_privileged_domains():
-            rows.append({
-                "identity": f"*@{domain}",
-                "role": "privileged",
-                "source": "[access].privileged_domains",
-            })
+    st.info("Leave selections empty to allow all available values for that role.")
 
-        if rows:
+    regions, countries, years = [], [], []
 
-            st.dataframe(
-                pd.DataFrame(rows),
-                use_container_width=True,
-                hide_index=True,
-            )
+    if data is not None and not getattr(data, "empty", True):
+        if "region" in data.columns:
+            regions = sorted(data["region"].dropna().astype(str).unique())
 
-        else:
-            st.warning(
-                "No admin emails or privileged domains configured."
-            )
+        if "alert-country" in data.columns:
+            countries = sorted(data["alert-country"].dropna().astype(str).unique())
 
-        st.code("""
+        if "year" in data.columns:
+            years = sorted([int(y) for y in data["year"].dropna().unique()])
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        config[role]["regions"] = st.multiselect(
+            "Allowed regions",
+            regions,
+            default=[x for x in config[role].get("regions", []) if x in regions],
+            key=f"persist_regions_{role}",
+        )
+
+    with c2:
+        config[role]["countries"] = st.multiselect(
+            "Allowed countries",
+            countries,
+            default=[x for x in config[role].get("countries", []) if x in countries],
+            key=f"persist_countries_{role}",
+        )
+
+    with c3:
+        config[role]["years"] = st.multiselect(
+            "Allowed years",
+            years,
+            default=[x for x in config[role].get("years", []) if x in years],
+            key=f"persist_years_{role}",
+        )
+
+    if st.button("💾 Save data scope", use_container_width=True, type="primary"):
+        if save_access_config(config):
+            st.success("Data scope saved.")
+            st.rerun()
+
+    with st.expander("Current role scope JSON", expanded=False):
+        st.json(config[role])
+
+
+def _render_users_tab():
+    rows = []
+
+    for email in get_admin_emails():
+        rows.append({
+            "identity": email,
+            "role": "admin",
+            "source": "[auth].admin_emails",
+        })
+
+    for domain in get_privileged_domains():
+        rows.append({
+            "identity": f"*@{domain}",
+            "role": "privileged",
+            "source": "[access].privileged_domains",
+        })
+
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    else:
+        st.warning("No admin emails or privileged domains configured.")
+
+    st.code("""
 [auth]
 admin_emails = ["admin@example.org"]
 
@@ -636,48 +483,71 @@ privileged_domains = ["icarda.org", "cgiar.org"]
 config_path = "/exports/eusee_access_config.json"
 """, language="toml")
 
-    # =====================================================
-    # DIAGNOSTICS TAB
-    # =====================================================
+
+def _render_diagnostics_tab():
+    st.json({
+        "current_email": get_current_email(),
+        "current_role": get_current_role(),
+        "is_admin": is_admin(),
+        "config_path": str(get_access_config_path()),
+        "can_download": has_permission("download_data"),
+        "timestamp_utc": datetime.utcnow().isoformat() + "Z",
+        "session_email_verified": st.session_state.get("email_verified"),
+        "session_user": st.session_state.get("user"),
+    })
+
+    st.subheader("Access config reset")
+
+    st.warning(
+        "Use this if guest permissions do not update after saving. "
+        "It deletes the stale JSON and rebuilds it using the current permission keys."
+    )
+
+    if st.button(
+        "🧹 Reset access config and rebuild permissions",
+        type="primary",
+        use_container_width=True,
+    ):
+        if reset_access_config():
+            st.success("Access config reset successfully. Refresh the app, then configure Guest visibility again.")
+            st.rerun()
+
+    st.subheader("Loaded access config")
+    st.json(load_access_config())
+
+
+def render_admin_page(data=None):
+    if not is_admin():
+        st.error("Access restricted. This page is only available to configured admin emails.")
+        st.stop()
+
+    inject_admin_css()
+
+    config = load_access_config()
+
+    for role_name in ["guest", "viewer", "privileged"]:
+        config = _safe_role_config(config, role_name)
+
+    _render_header()
+
+    tab_visibility, tab_scope, tab_users, tab_system = st.tabs(
+        ["Visibility", "Data scope", "Users", "Diagnostics"]
+    )
+
+    with tab_visibility:
+        _render_visibility_tab(config)
+
+    with tab_scope:
+        _render_scope_tab(config, data=data)
+
+    with tab_users:
+        _render_users_tab()
+
     with tab_system:
-
-        st.json({
-            "current_email": get_current_email(),
-            "current_role": get_current_role(),
-            "is_admin": is_admin(),
-            "config_path": str(get_access_config_path()),
-            "can_download": has_permission("download_data"),
-            "timestamp_utc": datetime.utcnow().isoformat() + "Z",
-            "session_email_verified": st.session_state.get("email_verified"),
-            "session_user": st.session_state.get("user"),
-        })
-
-        st.subheader("Access config reset")
-
-        st.warning(
-            "Use this if guest permissions do not update after saving."
-        )
-
-        if st.button(
-            "🧹 Reset access config and rebuild permissions",
-            type="primary",
-            use_container_width=True,
-        ):
-
-            if reset_access_config():
-                st.success(
-                    "Access config reset successfully."
-                )
-                st.rerun()
-
-        st.subheader("Loaded access config")
-
-        st.json(load_access_config())
+        _render_diagnostics_tab()
 
     st.markdown("""
     <div class="admin-footer">
         © 2026 EU SEE Project. All rights reserved.
     </div>
     """, unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
