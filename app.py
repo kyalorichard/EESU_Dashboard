@@ -779,7 +779,7 @@ def load_data():
         # Keep the badge metadata tied to the exact dataset ingestion step.
         st.session_state["latest_dataset_date"] = latest_dataset_date_display
         st.session_state["latest_dataset_date_iso"] = latest_dataset_date_iso
-        st.session_state["latest_dataset_date_source"] = "Based on latest creation_date in the loaded dataset"
+        st.session_state["latest_dataset_date_source"] = "Based on latest loaded dataset"
         df.attrs["latest_dataset_date"] = latest_dataset_date_display
         df.attrs["latest_dataset_date_iso"] = latest_dataset_date_iso
     else:
