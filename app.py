@@ -7108,7 +7108,7 @@ Core rules:
                     {"role": "user", "content": user_payload},
                 ],
                 temperature=0.15,
-                max_output_tokens=900,
+                max_output_tokens=650,
             )
             answer = getattr(resp, "output_text", "").strip()
         except Exception:
@@ -7119,7 +7119,7 @@ Core rules:
                     {"role": "user", "content": user_payload},
                 ],
                 temperature=0.15,
-                max_tokens=900,
+                max_tokens=650,
             )
             answer = (resp.choices[0].message.content or "").strip()
 
@@ -7983,11 +7983,21 @@ def _v2_openai_stream_answer(question, df):
             "You are the EU SEE Dashboard AI Copilot. Use only the supplied dashboard context. "
             "Give concise analytical answers with exact counts when available. Never invent facts."
         )
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": "dashboard_context:\n" + json.dumps(context, ensure_ascii=False, default=str) + "\n\nquestion:\n" + str(question)},
-        ]
-        stream = client.chat.completions.create(model=model, messages=messages, temperature=0.15, max_tokens=900, stream=True)
+        messages = [{"role": "system", "content": system}]
+
+        # Keep a compact memory window so answers stay conversational without slowing the app.
+        for m in _v4_recent_chat_memory(limit=6):
+            if m.get("role") in ["user", "assistant"]:
+                messages.append({
+                    "role": m.get("role"),
+                    "content": str(m.get("content", ""))[:900],
+                })
+
+        messages.append({
+            "role": "user",
+            "content": "dashboard_context:\n" + json.dumps(context, ensure_ascii=False, default=str) + "\n\nquestion:\n" + str(question),
+        })
+        stream = client.chat.completions.create(model=model, messages=messages, temperature=0.1, max_tokens=650, stream=True)
         def gen():
             collected = ""
             try:
@@ -8613,6 +8623,57 @@ def _v4_negative_scope(df):
     return df[df["alert-impact"].astype(str).str.strip().str.lower().eq("negative")].copy()
 
 
+# ---------------- AI COPILOT SPEED, EMPTY STATE AND MEMORY ----------------
+AI_CHAT_MEMORY_TURNS = 8
+AI_CHAT_MAX_RENDER_CHARS = 2200
+
+def _v4_init_chat_memory_state():
+    """Initialize professional AI chat state without forcing a greeting message."""
+    st.session_state.setdefault("ai_messages", [])
+    st.session_state.setdefault("ai_memory_enabled", True)
+    st.session_state.setdefault("ai_fast_mode", True)
+
+def _v4_recent_chat_memory(limit=AI_CHAT_MEMORY_TURNS):
+    """Return recent chat turns only when conversation memory is enabled."""
+    _v4_init_chat_memory_state()
+    if not st.session_state.get("ai_memory_enabled", True):
+        return []
+    return st.session_state.get("ai_messages", [])[-int(limit):]
+
+def _v4_memory_as_text(limit=AI_CHAT_MEMORY_TURNS, char_limit=450):
+    """Compact memory string for LLM grounding; prevents slow prompts."""
+    memory = []
+    for m in _v4_recent_chat_memory(limit=limit):
+        role = str(m.get("role", "user")).strip()
+        content = str(m.get("content", "")).strip().replace("\n", " ")[:int(char_limit)]
+        if content:
+            memory.append(f"{role}: {content}")
+    return "\n".join(memory)
+
+def _v4_render_chat_empty_state(df):
+    """Professional empty-state card shown before the first user message."""
+    ctx = _v4_context_summary(df)
+    records = int(ctx.get("records", 0))
+    countries = int(ctx.get("countries", 0))
+    neg_share = ctx.get("negative_share", 0)
+    st.markdown(f"""
+    <div class="v4-empty-state">
+        <div class="v4-empty-eyebrow">AI Copilot ready</div>
+        <div class="v4-empty-title">Ask about the current filtered dashboard view</div>
+        <div class="v4-empty-text">
+            Current scope: <b>{records:,}</b> records across <b>{countries:,}</b> countries.
+            Negative-alert share: <b>{neg_share}%</b>.
+        </div>
+        <div class="v4-empty-grid">
+            <div><b>Summarize</b><span>Executive overview</span></div>
+            <div><b>Compare</b><span>Countries or regions</span></div>
+            <div><b>Explain</b><span>Patterns and caveats</span></div>
+        </div>
+        <div class="v4-empty-prompt">Try: <b>Which countries have the highest negative-alert signals?</b></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def _v4_auto_insights(df, max_items=6):
     """Deterministic automatic insight engine for the active dashboard filters."""
     ctx = _v4_context_summary(df)
@@ -8778,7 +8839,7 @@ Be concise, professional, and avoid unsupported causal claims.
                 {"role": "user", "content": prompt},
             ],
             temperature=0.15,
-            max_tokens=900,
+            max_tokens=650,
         )
         txt = (resp.choices[0].message.content or "").strip()
         return txt or fallback
@@ -8787,11 +8848,13 @@ Be concise, professional, and avoid unsupported causal claims.
 
 
 def _v4_answer_with_agent(question, df, agent="Executive analyst"):
-    """Agent-aware answer using existing OpenAI/local stack and session memory."""
+    """Agent-aware answer using compact memory and reduced token budget for speed."""
     q = str(question or "").strip()
+    if not q:
+        return "Please enter a question about the current dashboard view."
+
     ctx = _v4_context_summary(df)
-    recent = st.session_state.get("ai_messages", [])[-6:]
-    memory_txt = "\n".join([f"{m.get('role','user')}: {m.get('content','')[:500]}" for m in recent])
+    memory_txt = _v4_memory_as_text(limit=6, char_limit=420)
     agent_instruction = {
         "Executive analyst": "Focus on concise strategic implications, risks, and decision-ready language.",
         "Statistical analyst": "Focus on distributions, deltas, ranking concentration, and descriptive statistical caution.",
@@ -8800,16 +8863,24 @@ def _v4_answer_with_agent(question, df, agent="Executive analyst"):
         "Report writer": "Focus on polished narrative and briefing-ready structure.",
     }.get(agent, "Focus on clear dashboard-grounded analysis.")
 
+    # Fast mode keeps prompts short and makes the app feel more responsive.
+    fast_instruction = (
+        "Answer in 3 to 5 concise bullets. Use exact counts from context. "
+        "Avoid long introductions. Include one caveat only when necessary."
+    ) if st.session_state.get("ai_fast_mode", True) else (
+        "Provide a structured answer with evidence, interpretation, and caveat."
+    )
+
     enhanced_q = f"""
 Agent mode: {agent}. {agent_instruction}
+Response style: {fast_instruction}
 Current dashboard context: {json.dumps(ctx, default=str)}
-Recent chat memory:
-{memory_txt}
+Recent conversation memory:
+{memory_txt if memory_txt else "No prior conversation memory."}
 User question: {q}
-Answer using only current dashboard context and descriptive patterns. Include confidence/caveat where relevant.
+Answer using only current dashboard context and descriptive patterns.
 """
     return ai_try_llm_response(enhanced_q, df)
-
 
 def _v4_render_professional_css():
     st.markdown("""
@@ -8863,9 +8934,7 @@ def _v2_render_status_bar(df):
 def render_ai_assistant_panel(df):
     """AI Copilot v4 repaired: fixed right-side pop-out drawer with advanced plotting."""
     st.session_state.setdefault("copilot_open", True)
-    st.session_state.setdefault("ai_messages", [
-        {"role": "assistant", "content": "Hello. Ask me about the current filtered dashboard view, or request a chart with chart type, color, font size, title, grouping and Top N."}
-    ])
+    _v4_init_chat_memory_state()
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
         "title": "AI Copilot v4",
@@ -9011,6 +9080,15 @@ def render_ai_assistant_panel(df):
     }
     .v2-memory-note {font-size:10.8px;color:#667085;line-height:1.4;margin-top:8px;}
     .v2-chat-card {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:10px;margin:8px 0;}
+    .v4-empty-state{background:linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 100%);border:1px solid #E7D4F1;border-radius:18px;padding:14px;margin:8px 0 10px 0;box-shadow:0 10px 24px rgba(45,0,85,.08);}
+    .v4-empty-eyebrow{font-size:9.5px;font-weight:950;color:#660094;text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px;}
+    .v4-empty-title{font-size:15px;font-weight:950;color:#2D0055;line-height:1.18;margin-bottom:5px;}
+    .v4-empty-text{font-size:11.5px;color:#667085;line-height:1.42;margin-bottom:10px;}
+    .v4-empty-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0;}
+    .v4-empty-grid div{background:#fff;border:1px solid #EEF0F4;border-radius:12px;padding:8px 5px;text-align:center;}
+    .v4-empty-grid b{display:block;font-size:10.8px;color:#2D0055;font-weight:950;}
+    .v4-empty-grid span{display:block;font-size:8.8px;color:#667085;font-weight:800;margin-top:2px;}
+    .v4-empty-prompt{background:#FFFCED;border:1px solid #F8E9A1;border-radius:12px;padding:8px 9px;color:#55420A;font-size:10.8px;line-height:1.35;}
     .v2-user-msg {background:#2d0055;color:#fff;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:12px;line-height:1.45;}
     .v2-ai-msg {background:#f6f2ff;border-left:4px solid #660094;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:12px;line-height:1.45;color:#344054;}
     .v2-section-title {font-size:12.5px;color:#2D0055;font-weight:950;margin:8px 0 5px 0;}
@@ -9070,18 +9148,37 @@ def render_ai_assistant_panel(df):
         tab_chat, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Plot builder", "Explain chart", "Smart output"])
 
         with tab_chat:
+            chat_tools = st.columns([1, 1])
+            with chat_tools[0]:
+                st.toggle(
+                    "Conversation memory",
+                    key="ai_memory_enabled",
+                    value=st.session_state.get("ai_memory_enabled", True),
+                    help="When enabled, the Copilot uses the latest chat turns for context.",
+                )
+            with chat_tools[1]:
+                st.toggle(
+                    "Fast mode",
+                    key="ai_fast_mode",
+                    value=st.session_state.get("ai_fast_mode", True),
+                    help="Keeps answers shorter and faster.",
+                )
+
+            if not st.session_state.ai_messages:
+                _v4_render_chat_empty_state(df)
+
             st.markdown("<div class='v2-chat-card'>", unsafe_allow_html=True)
-            for msg in st.session_state.ai_messages[-8:]:
+            for msg in st.session_state.ai_messages[-AI_CHAT_MEMORY_TURNS:]:
                 klass = "v2-user-msg" if msg.get("role") == "user" else "v2-ai-msg"
-                safe_msg = _render_chat_content_html(str(msg.get("content", ""))[:2500])
+                safe_msg = _render_chat_content_html(str(msg.get("content", ""))[:AI_CHAT_MAX_RENDER_CHARS])
                 st.markdown(f"<div class='{klass}'>{safe_msg}</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
             with st.form("v2_pop_chat_form", clear_on_submit=True):
                 prompt = st.text_area(
                     "Ask the AI Copilot",
-                    placeholder="Ask for an insight or chart, e.g. make a treemap of mechanisms top 12 teal font 13",
-                    height=82,
+                    placeholder="Ask for an insight or chart, e.g. summarize negative-alert signals or make a treemap of mechanisms top 12",
+                    height=70,
                     key="v2_pop_prompt",
                 )
                 submitted = st.form_submit_button("Send", use_container_width=True)
@@ -9090,10 +9187,12 @@ def render_ai_assistant_panel(df):
                     _copilot_queue_answer(prompt, df)
                     st.rerun()
                 else:
-                    st.session_state.ai_messages.append({"role": "user", "content": prompt.strip()})
+                    clean_prompt = prompt.strip()
+                    st.session_state.ai_messages.append({"role": "user", "content": clean_prompt})
                     selected_agent = st.session_state.get("v4_analyst_mode", "Executive analyst")
-                    answer = _v4_answer_with_agent(prompt.strip(), df, selected_agent)
+                    answer = _v4_answer_with_agent(clean_prompt, df, selected_agent)
                     st.session_state.ai_messages.append({"role": "assistant", "content": answer})
+                    st.session_state.ai_messages = st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]
                     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
                     st.rerun()
 
@@ -9108,10 +9207,9 @@ def render_ai_assistant_panel(df):
                     st.rerun()
             with b3:
                 if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
-                    st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a new question or request a chart."}]
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v4", "content": "Chat cleared. Ask a new question or request a chart."}
+                    st.session_state.ai_messages = []
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot v4", "content": "Conversation cleared. Ask a new question or request a chart."}
                     st.rerun()
-
 
 
         with tab_plot:
