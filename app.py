@@ -10882,7 +10882,7 @@ def render_feedback_callout():
       }}
       style.innerHTML = `
         #eusee-feedback-callout {{
-          position: fixed; left: 24px; top: 86px; width: 304px; max-width: calc(100vw - 32px);
+          position: fixed; left: 240px; top: 86px; width: 304px; max-width: calc(100vw - 32px);
           background: linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
           border: 1px solid rgba(102,0,148,.14); border-left: 5px solid #660094; border-radius: 16px;
           box-shadow: 0 16px 36px rgba(17,24,39,.18); z-index: 2147483000; font-family: Arial,sans-serif;
@@ -10925,7 +10925,7 @@ def render_feedback_callout():
         <div class="eusee-feedback-body">
           <div class="eusee-feedback-top"><div class="eusee-feedback-icon">💬</div><div class="eusee-feedback-title">Help us improve the EUSEE Dashboard</div></div>
           <div class="eusee-feedback-text">Share your feedback on usability, insights, and dashboard improvements using the feedback form.</div>
-          <div class="eusee-feedback-actions"><a class="eusee-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">Formular ausfüllen</a><div class="eusee-feedback-linknote">opens Microsoft Forms</div></div>
+          <div class="eusee-feedback-actions"><a class="eusee-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">Fill in the form</a><div class="eusee-feedback-linknote">opens Microsoft Forms</div></div>
         </div>`;
       const tab = doc.createElement("div");
       tab.id = "eusee-feedback-tab";
