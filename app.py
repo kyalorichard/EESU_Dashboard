@@ -1286,7 +1286,7 @@ st.sidebar.image("assets/eu-see-logo.png", width=400)
 
 
 # Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
-#AI_ASSISTANT_SLOT = st.sidebar.container()
+AI_ASSISTANT_SLOT = st.sidebar.container()
 
 # ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
 st.sidebar.markdown("""
