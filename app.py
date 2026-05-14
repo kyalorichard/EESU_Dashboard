@@ -412,121 +412,57 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
 
 inject_classic_dashboard_css()
 
-# ---------------- BLOCKING LOADER FOR FILTER / UI RERUNS ----------------
+# ---------------- LIGHTWEIGHT LOADING FEEDBACK FOR FILTER / UI RERUNS ----------------
 def inject_blocking_filter_loader():
     """
-    Client-side blocking overlay shown immediately when filters/buttons trigger a rerun.
-    This prevents double-clicks and accidental interactions while Streamlit recomputes.
+    Lightweight replacement for the previous full-page JavaScript blocking loader.
+
+    Why this version:
+    - The previous loader attached global click/change listeners to the whole app.
+    - It created a full-screen overlay with blur and pointer interception.
+    - On Streamlit, that can make every filter interaction feel extremely slow,
+      especially when charts, tables, maps, Sankey diagrams and chatbot sections rerender.
+
+    This version keeps loading feedback visible but avoids freezing the dashboard.
+    It does not intercept clicks and does not attach expensive JS event listeners.
     """
-    components.html("""
-    <script>
-    (function(){
-        const parentDoc = window.parent.document;
-        const overlayId = 'eusee-blocking-loader-overlay';
+    st.markdown("""
+    <style>
+    /* Keep Streamlit's native running indicator visible and polished instead of using a heavy full-screen blocker. */
+    [data-testid="stStatusWidget"] {
+        visibility: visible !important;
+        right: 18px !important;
+        top: 14px !important;
+        z-index: 999999 !important;
+    }
 
-        function ensureOverlay(){
-            let overlay = parentDoc.getElementById(overlayId);
-            if (!overlay){
-                overlay = parentDoc.createElement('div');
-                overlay.id = overlayId;
-                overlay.innerHTML = `
-                    <div class="eusee-loader-card">
-                        <div class="eusee-loader-spinner"></div>
-                        <div class="eusee-loader-title">Updating dashboard</div>
-                        <div class="eusee-loader-note">Please wait while filters and visuals refresh.</div>
-                    </div>`;
-                parentDoc.body.appendChild(overlay);
-            }
-            return overlay;
+    /* Soft visual feedback during reruns without disabling the whole UI. */
+    .stApp[data-testid="stApp"] {
+        transition: opacity .12s ease-in-out;
+    }
+
+    /* Remove any old injected blocking overlay if a browser cache still has it. */
+    #eusee-blocking-loader-overlay {
+        display: none !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Performance: avoid expensive blur filters on low-power devices. */
+    @media (max-width: 900px), (prefers-reduced-motion: reduce) {
+        * {
+            scroll-behavior: auto !important;
         }
-
-        function injectStyles(){
-            if (parentDoc.getElementById('eusee-blocking-loader-style')) return;
-            const style = parentDoc.createElement('style');
-            style.id = 'eusee-blocking-loader-style';
-            style.innerHTML = `
-                #${overlayId}{
-                    position:fixed;
-                    inset:0;
-                    display:none;
-                    align-items:center;
-                    justify-content:center;
-                    background:rgba(247,248,251,.72);
-                    backdrop-filter:blur(8px);
-                    -webkit-backdrop-filter:blur(8px);
-                    z-index:2147483647;
-                    pointer-events:auto;
-                    cursor:progress;
-                }
-                #${overlayId}.active{display:flex;}
-                #${overlayId} .eusee-loader-card{
-                    width:min(360px,calc(100vw - 32px));
-                    background:#ffffff;
-                    border:1px solid #E6E8EF;
-                    border-radius:20px;
-                    box-shadow:0 24px 70px rgba(16,24,40,.24);
-                    padding:24px 22px;
-                    text-align:center;
-                    font-family:Arial,sans-serif;
-                }
-                #${overlayId} .eusee-loader-spinner{
-                    width:42px;height:42px;margin:0 auto 12px auto;
-                    border-radius:50%;
-                    border:4px solid #F4EAF8;
-                    border-top-color:#660094;
-                    animation:euseeSpin .75s linear infinite;
-                }
-                #${overlayId} .eusee-loader-title{
-                    font-size:15px;font-weight:950;color:#23152F;margin-bottom:5px;
-                }
-                #${overlayId} .eusee-loader-note{
-                    font-size:12px;font-weight:700;color:#667085;line-height:1.35;
-                }
-                @keyframes euseeSpin{to{transform:rotate(360deg);}}
-            `;
-            parentDoc.head.appendChild(style);
+        .eusee-kpi-card,
+        .executive-table-shell,
+        div[data-testid="stExpander"],
+        section[data-testid="stSidebar"] {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
-
-        function showOverlay(){
-            injectStyles();
-            const overlay = ensureOverlay();
-            overlay.classList.add('active');
-        }
-
-        function hideOverlay(){
-            const overlay = parentDoc.getElementById(overlayId);
-            if (overlay) overlay.classList.remove('active');
-        }
-
-        injectStyles();
-        ensureOverlay();
-        setTimeout(hideOverlay, 350);
-
-        if (!parentDoc.__euseeBlockingLoaderBound){
-            parentDoc.__euseeBlockingLoaderBound = true;
-            parentDoc.addEventListener('click', function(e){
-                const target = e.target;
-                const interactive = target.closest(
-                    'button, [role="option"], [data-baseweb="select"], input[type="checkbox"], input[type="radio"], .stDownloadButton button'
-                );
-                if (!interactive) return;
-                const text = (interactive.innerText || '').toLowerCase();
-                if (text.includes('download')) return;
-                showOverlay();
-                setTimeout(hideOverlay, 12000);
-            }, true);
-
-            parentDoc.addEventListener('change', function(e){
-                const target = e.target;
-                if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')){
-                    showOverlay();
-                    setTimeout(hideOverlay, 12000);
-                }
-            }, true);
-        }
-    })();
-    </script>
-    """, height=0)
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 inject_blocking_filter_loader()
 
