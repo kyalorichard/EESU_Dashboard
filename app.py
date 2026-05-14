@@ -2005,9 +2005,9 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
             borderwidth=1,
             font=dict(family=CHART_FONT, size=9, color="#344054"),
             title=None,
-            itemsizing="constant",
+            itemsizing="trace",
             itemwidth=30,
-            tracegroupgap=1,
+            tracegroupgap=0,
         ),
         showlegend=showlegend,
     )
@@ -4762,13 +4762,6 @@ def inject_full_tab_responsive_css():
         letter-spacing: -0.01em !important;
     }
 
-    .js-plotly-plot .legendpoints path,
-    .js-plotly-plot .legendpoints circle,
-    .js-plotly-plot .legendpoints rect {
-        transform: scale(0.82) !important;
-        transform-origin: center !important;
-    }
-
     /* ---------- Plotly: responsive legends without changing legend location ---------- */
     div[data-testid="stPlotlyChart"],
     .stPlotlyChart,
@@ -4971,23 +4964,22 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
     try:
         existing_legend = fig.layout.legend.to_plotly_json() if fig.layout.legend else {}
         existing_legend.update({
-            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.82)"),
-            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.65)"),
+            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.86)"),
+            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.60)"),
             "borderwidth": existing_legend.get("borderwidth", 1),
             "font": dict(size=9, family="Arial", color="#344054"),
-            "itemsizing": "constant",
-            "itemwidth": existing_legend.get("itemwidth", 30),
-            "tracegroupgap": 1,
+            # Keep Plotly's native colored markers visible. Do not force symbol scaling via CSS.
+            "itemsizing": existing_legend.get("itemsizing", "trace"),
+            # 30 is Plotly's practical compact minimum; larger values create excessive label gaps.
+            "itemwidth": min(int(existing_legend.get("itemwidth", 30) or 30), 30),
+            "tracegroupgap": 0,
         })
         fig.update_layout(legend=existing_legend)
     except Exception:
         pass
 
-    # Wrap/truncate long legend entries when supported, without relocating the legend.
-    try:
-        fig.update_layout(legend_entrywidth=86, legend_entrywidthmode="pixels")
-    except Exception:
-        pass
+    # Do not set legend_entrywidth: fixed entry widths create large gaps between legend labels.
+    # Long labels keep their native Plotly spacing and are handled by smaller font + compact itemwidth.
 
     try:
         fig.update_xaxes(automargin=True, tickfont=dict(size=10), title_standoff=8)
@@ -5052,14 +5044,7 @@ def inject_compact_tabs_and_legend_ux():
     .js-plotly-plot .legendtext {
         font-size: clamp(8px, .68vw, 9.6px) !important;
         font-weight: 750 !important;
-    }
-    .js-plotly-plot .legendpoints path,
-    .js-plotly-plot .legendpoints circle,
-    .js-plotly-plot .legendpoints rect {
-        transform: scale(.78) !important;
-        transform-origin: center !important;
-    }
-    .eusee-kpi-card {
+    }    .eusee-kpi-card {
         height: 190px !important;
         min-height: 190px !important;
         max-height: none !important;
@@ -5077,6 +5062,43 @@ def inject_compact_tabs_and_legend_ux():
     """, unsafe_allow_html=True)
 
 inject_compact_tabs_and_legend_ux()
+
+
+# ---------------- FINAL LEGEND COLOR + SPACING FIX ----------------
+def inject_plotly_legend_color_spacing_fix():
+    """Preserve Plotly legend color swatches and tighten label spacing without relocating legends."""
+    st.markdown("""
+    <style>
+    .js-plotly-plot .legend rect.bg {
+        fill: rgba(255,255,255,.88) !important;
+        stroke: rgba(230,232,239,.62) !important;
+        stroke-width: 1px !important;
+    }
+    .js-plotly-plot .legend .traces,
+    .js-plotly-plot .legendpoints,
+    .js-plotly-plot .legendsymbols {
+        opacity: 1 !important;
+    }
+    .js-plotly-plot .legendpoints path,
+    .js-plotly-plot .legendpoints circle,
+    .js-plotly-plot .legendpoints rect,
+    .js-plotly-plot .legendsymbols path,
+    .js-plotly-plot .legendsymbols circle,
+    .js-plotly-plot .legendsymbols rect {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    .js-plotly-plot .legend text,
+    .js-plotly-plot .legendtext {
+        font-family: Arial, sans-serif !important;
+        font-size: clamp(8px, .66vw, 9.2px) !important;
+        font-weight: 760 !important;
+        letter-spacing: -0.025em !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_plotly_legend_color_spacing_fix()
 
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
