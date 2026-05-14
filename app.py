@@ -2684,7 +2684,7 @@ def render_analytical_flow_panel(df):
         st.session_state.top_n_option = "Top 5"
 
     total_records = len(df) if df is not None else 0
-    top_n_map = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5, "All": None}
+    top_n_map = {"Top 2": 2, "Top 3": 3, "Top 4": 4, "Top 5": 5: None}
     if st.session_state.get("top_n_option") not in top_n_map:
         st.session_state.top_n_option = "Top 5"
 
@@ -2711,34 +2711,31 @@ def render_analytical_flow_panel(df):
     .flow-divider {height: 1px; background: linear-gradient(90deg, rgba(102,0,148,.22), rgba(0,140,170,.16), rgba(255,219,88,.10)); margin: 14px 0 10px 0;}
     </style>
     <div class="flow-panel-shell">
-        <div class="flow-panel-eyebrow">Negative events relationship intelligence</div>
-        <div class="flow-panel-title">Analytical Flow Panel</div>
+        <div class="flow-panel-eyebrow">Negative Events Relationship Analysis</div>
+        <div class="flow-panel-title">Relationship Explorer</div>
         <div class="flow-panel-subtitle">
-            A unified diagnostic view linking restrictive actors, restrictive mechanisms, and affected civil society groups. Use the heatmaps to identify concentrated relationships, then use the Sankey diagram to follow the end-to-end pathway.
+            This section helps you explore how restrictive actors, restrictive mechanisms, and affected civil society groups are connected. 
+            Use the heatmaps to identify the strongest links between them, and the flow diagram to follow the pathway from actor to mechanism to affected group.
         </div>
-        <div class="flow-panel-badges">
-            <span class="flow-panel-badge">Actor → Mechanism → Affected group</span>
-            <span class="flow-panel-badge">Heatmaps + Sankey</span>
-            <span class="flow-panel-badge">Filter-aware analysis</span>
-        </div>
+       
     </div>
     """, unsafe_allow_html=True)
 
     g1, g2, g3 = st.columns(3, gap="medium")
     with g1:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">1. Diagnose concentration</div><div class="flow-guide-text">Start with heatmaps. Darker cells show where alerts are concentrated across actor, mechanism, and affected-group relationships.</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">1. Identify key links</div><div class="flow-guide-text">Use the heatmaps to see which restrictive actors, mechanisms, and affected civil society groups appear most frequently together. Darker cells indicate stronger links.</div></div>', unsafe_allow_html=True)
     with g2:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">2. Follow the pathway</div><div class="flow-guide-text">Use the Sankey to trace how restrictive actors connect to mechanisms and then to affected civil society groups.</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">2. Follow the pathway</div><div class="flow-guide-text">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups.</div></div>', unsafe_allow_html=True)
     with g3:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">3. Adjust complexity</div><div class="flow-guide-text">Use Top-N controls for executive readability. Smaller values simplify the view; All supports deeper analytical exploration.</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">3. Adjust the level of detail</div><div class="flow-guide-text">Use the Top-N selector to choose how many restrictive actors, mechanisms, and affected civil society groups are shown. Lower values simplify the view; higher values provide a more detailed analysis.</div></div>', unsafe_allow_html=True)
 
     ctrl_left, ctrl_right = st.columns([1.15, 2.85], gap="large")
     with ctrl_left:
         selected = st.selectbox(
-            "Relationship view depth",
+            "Top-N selector",
             options=list(top_n_map.keys()),
             index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
-            help="Controls the number of leading actors, mechanisms, and affected groups shown in the heatmaps and Sankey flow.",
+            help="Select how many top restrictive actors, mechanisms, and affected civil society groups are shown in the heatmaps and flow diagram.",
             key="flow_panel_top_n_select",
         )
         st.session_state.top_n_option = selected
@@ -2748,13 +2745,13 @@ def render_analytical_flow_panel(df):
         st.markdown(f"""
         <div class="flow-panel-badges" style="margin-top: 27px;">
             <span class="flow-panel-badge">View: {'All categories' if top_n is None else 'Top ' + str(top_n)}</span>
-            <span class="flow-panel-badge">Tip: hover cells and flows for counts</span>
+            <span class="flow-panel-badge">Tip: Hover over the heatmap squares and flow lines to see the number of alerts</span>
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-label">Diagnostic heatmaps</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Use these matrices to identify concentrated pairwise relationships before interpreting the full flow.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-label">Heatmaps</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-note">Use these matrices to see which restrictive actors, mechanisms, and affected civil society groups appear most frequently together. Darker cells indicate stronger links.</div>', unsafe_allow_html=True)
     render_heatmaps(df, top_n=top_n)
 
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
