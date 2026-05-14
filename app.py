@@ -2000,11 +2000,14 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
             y=1.02,
             xanchor="right",
             x=1,
-            bgcolor="rgba(255,255,255,0.85)",
-            bordercolor="#EEF1F6",
+            bgcolor="rgba(255,255,255,0.82)",
+            bordercolor="rgba(230,232,239,0.65)",
             borderwidth=1,
-            font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
+            font=dict(family=CHART_FONT, size=9, color="#344054"),
             title=None,
+            itemsizing="constant",
+            itemwidth=30,
+            tracegroupgap=1,
         ),
         showlegend=showlegend,
     )
@@ -4671,27 +4674,40 @@ def inject_full_tab_responsive_css():
     }
 
     div[data-testid="stTabs"] div[role="tablist"] {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        gap: 8px !important;
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
+        gap: 6px !important;
         border-bottom: 1px solid #E6E8EF !important;
-        overflow-x: auto !important;
-        overflow-y: hidden !important;
-        padding-bottom: 6px !important;
-        scrollbar-width: thin !important;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+        padding: 4px 0 7px 0 !important;
+        scrollbar-width: none !important;
+        align-items: stretch !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tablist"]::-webkit-scrollbar {
+        display: none !important;
     }
 
     div[data-testid="stTabs"] button[role="tab"] {
-        min-height: 38px !important;
+        min-height: 32px !important;
+        height: 32px !important;
+        max-height: 32px !important;
         border-radius: 999px !important;
-        padding: 8px 14px !important;
+        padding: 5px 8px !important;
         white-space: nowrap !important;
-        flex: 0 0 auto !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        flex: 1 1 auto !important;
         background: #FFFFFF !important;
         border: 1px solid #E6E8EF !important;
         color: #344054 !important;
+        font-size: clamp(10px, 0.8vw, 12px) !important;
+        line-height: 1.05 !important;
         font-weight: 850 !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.035) !important;
     }
 
     div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
@@ -4719,6 +4735,38 @@ def inject_full_tab_responsive_css():
     div[data-testid="column"] {
         min-width: 0 !important;
         overflow: visible !important;
+    }
+
+    /* ---------- Plotly: compact, professional legends without changing legend location ---------- */
+    .js-plotly-plot .legend {
+        pointer-events: auto !important;
+    }
+
+    .js-plotly-plot .legend rect.bg {
+        fill: rgba(255,255,255,0.82) !important;
+        stroke: rgba(230,232,239,0.65) !important;
+        stroke-width: 1px !important;
+        rx: 8px !important;
+        ry: 8px !important;
+    }
+
+    .js-plotly-plot .legend .traces {
+        opacity: 0.98 !important;
+    }
+
+    .js-plotly-plot .legend text,
+    .js-plotly-plot .legendtext {
+        font-family: Arial, sans-serif !important;
+        font-size: clamp(8.5px, 0.75vw, 10px) !important;
+        font-weight: 750 !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    .js-plotly-plot .legendpoints path,
+    .js-plotly-plot .legendpoints circle,
+    .js-plotly-plot .legendpoints rect {
+        transform: scale(0.82) !important;
+        transform-origin: center !important;
     }
 
     /* ---------- Plotly: responsive legends without changing legend location ---------- */
@@ -4798,7 +4846,14 @@ def inject_full_tab_responsive_css():
         }
 
         div[data-testid="stTabs"] div[role="tablist"] {
-            gap: 6px !important;
+            gap: 5px !important;
+            grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"] {
+            font-size: 10.5px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
         }
 
         .eusee-kpi-card {
@@ -4831,14 +4886,22 @@ def inject_full_tab_responsive_css():
             max-width: 100% !important;
         }
 
+        div[data-testid="stTabs"] div[role="tablist"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+        }
+
         div[data-testid="stTabs"] button[role="tab"] {
-            font-size: 11.5px !important;
-            padding: 7px 11px !important;
+            height: 32px !important;
+            min-height: 32px !important;
+            max-height: 32px !important;
+            font-size: 10.5px !important;
+            padding: 5px 7px !important;
         }
 
         .eusee-kpi-card {
-            height: auto !important;
-            min-height: 178px !important;
+            height: 190px !important;
+            min-height: 190px !important;
             padding: 13px 14px 12px 14px !important;
         }
 
@@ -4908,12 +4971,13 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
     try:
         existing_legend = fig.layout.legend.to_plotly_json() if fig.layout.legend else {}
         existing_legend.update({
-            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.72)"),
-            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.75)"),
-            "borderwidth": existing_legend.get("borderwidth", 0),
-            "font": dict(size=10, family="Arial"),
+            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.82)"),
+            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.65)"),
+            "borderwidth": existing_legend.get("borderwidth", 1),
+            "font": dict(size=9, family="Arial", color="#344054"),
             "itemsizing": "constant",
-            "tracegroupgap": existing_legend.get("tracegroupgap", 4),
+            "itemwidth": existing_legend.get("itemwidth", 30),
+            "tracegroupgap": 1,
         })
         fig.update_layout(legend=existing_legend)
     except Exception:
@@ -4921,7 +4985,7 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
 
     # Wrap/truncate long legend entries when supported, without relocating the legend.
     try:
-        fig.update_layout(legend_entrywidth=120, legend_entrywidthmode="pixels")
+        fig.update_layout(legend_entrywidth=86, legend_entrywidthmode="pixels")
     except Exception:
         pass
 
@@ -4934,6 +4998,85 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
     return fig
 
 inject_full_tab_responsive_css()
+
+# ---------------- COMPACT TAB + PROFESSIONAL LEGEND FINAL OVERRIDE ----------------
+def inject_compact_tabs_and_legend_ux():
+    """Final UI polish: all tabs visible without horizontal scrolling; compact legends preserve original placement."""
+    st.markdown("""
+    <style>
+    div[data-testid="stTabs"] div[role="tablist"] {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
+        gap: 5px !important;
+        overflow-x: hidden !important;
+        padding: 3px 0 6px 0 !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 31px !important;
+        min-height: 31px !important;
+        max-height: 31px !important;
+        padding: 4px 7px !important;
+        border-radius: 999px !important;
+        font-size: clamp(9.5px, .72vw, 11.2px) !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    @media (max-width: 720px) {
+        div[data-testid="stTabs"] div[role="tablist"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+        }
+        div[data-testid="stTabs"] button[role="tab"] {
+            font-size: 10.2px !important;
+            height: 32px !important;
+            min-height: 32px !important;
+        }
+    }
+    @media (max-width: 360px) {
+        div[data-testid="stTabs"] button[role="tab"] {
+            font-size: 9.4px !important;
+            padding-left: 5px !important;
+            padding-right: 5px !important;
+        }
+    }
+    .js-plotly-plot .legend rect.bg {
+        fill: rgba(255,255,255,.86) !important;
+        stroke: rgba(230,232,239,.65) !important;
+        stroke-width: 1px !important;
+    }
+    .js-plotly-plot .legend text,
+    .js-plotly-plot .legendtext {
+        font-size: clamp(8px, .68vw, 9.6px) !important;
+        font-weight: 750 !important;
+    }
+    .js-plotly-plot .legendpoints path,
+    .js-plotly-plot .legendpoints circle,
+    .js-plotly-plot .legendpoints rect {
+        transform: scale(.78) !important;
+        transform-origin: center !important;
+    }
+    .eusee-kpi-card {
+        height: 190px !important;
+        min-height: 190px !important;
+        max-height: none !important;
+    }
+    @media (max-width: 1100px) {
+        .eusee-kpi-card { height: 200px !important; min-height: 200px !important; }
+    }
+    @media (max-width: 640px) {
+        .eusee-kpi-card { height: 190px !important; min-height: 190px !important; }
+    }
+    @media (max-width: 430px) {
+        .eusee-kpi-card { height: 210px !important; min-height: 210px !important; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_compact_tabs_and_legend_ux()
 
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
