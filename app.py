@@ -2688,7 +2688,7 @@ def render_analytical_flow_panel(df):
     if st.session_state.get("top_n_option") not in top_n_map:
         st.session_state.top_n_option = "Top 5"
 
-    st.markdown(""""""
+    st.markdown("""
     <style>
     .flow-panel-shell {
         background: linear-gradient(180deg, #FFFFFF 0%, #FBF9FE 100%);
