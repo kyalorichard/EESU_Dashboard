@@ -1886,8 +1886,9 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div class="negintel-icon">🌍</div>
                 </div>
                 <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
-                <div class="negintel-pill" style="background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);">Countries with reported negative alerts</div>
+                <div class="negintel-pill" style="background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);">Negative-alert scope</div>
             </div>
+            <div class="negintel-note">Countries represented by current negative-alert filters</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1896,12 +1897,14 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Monitoring volume</div><div class="negintel-title">Total Negative Alerts</div></div>
+                    <div><div class="negintel-eyebrow">Negative alert scope</div><div class="negintel-title">Negative Alerts Intelligence</div></div>
                     <div class="negintel-icon">⚠️</div>
                 </div>
                 <div class="negintel-value">{negative_total:,}</div>
                 <div class="negintel-pill">{negative_share}% of filtered alerts</div>
+                <div class="negintel-compact-line"><strong>Top country:</strong> {_compact_text_for_card(top_country, 34)} <span style="color:#667085;">({top_country_count:,})</span></div>
             </div>
+            <div class="negintel-note">Focused diagnostic view for restrictive events only</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1910,16 +1913,16 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Most frequent restriction pattern</div><div class="negintel-title">Restrictive actor → Mechanism → Affected actor</div></div>
+                    <div><div class="negintel-eyebrow">Dominant pathway</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
                     <div class="negintel-icon">⛓️</div>
                 </div>
                 <div class="negintel-row-list">
-                    <div class="negintel-row" title="Most frequent restrictive actor: {top_actor}"><span class="negintel-row-label">Restrictive actor: {_compact_text_for_card(top_actor, 23)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Most frequent restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">Restrictive mechanism: {_compact_text_for_card(top_mechanism, 19)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Most frequent affected civil society actor: {top_subject}"><span class="negintel-row-label">Affected civil society actor: {_compact_text_for_card(top_subject, 21)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label">Actor: {_compact_text_for_card(top_actor, 23)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">Mechanism: {_compact_text_for_card(top_mechanism, 19)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
+                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label">Subject: {_compact_text_for_card(top_subject, 21)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
                 </div>
             </div>
-
+            <div class="negintel-note">Use heatmaps and Sankey below to inspect the relationship structure</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -4250,7 +4253,7 @@ def render_access_locked(section_title: str, required_level: str = "logged-in us
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
         "📊 Overview",
-        "⚠️ Negative Alerts Analysis",
+        "⚠️ Negative Alerts",
         "🗺️ Visualization Map",
         "📘 User Manual",
     ]
@@ -5421,18 +5424,17 @@ with tab_negative:
                 st.markdown(
                     """
                     <div class="negative-filter-shell">
-                        <div class="negative-filter-title">Negative Alerts Analysis</div>
+                        <div class="negative-filter-eyebrow">Focused diagnostic controls</div>
+                        <div class="negative-filter-title">Negative Alerts Filter Panel</div>
                         <div class="negative-filter-note">
-                            Explore negative alerts in more detail, including affected civil society actors,
-                            restrictive actors and mechanisms, negative event types, and alert distribution
-                            across types and enabling principles. Use the filters to focus on specific
-                            restrictive actors, affected civil society actors, mechanisms, and negative event types.
+                            Refine restrictive-event analysis by actor, affected civil society group,
+                            restrictive mechanism, and event type. Empty selections keep all available values active.
                         </div>
                         <div class="negative-filter-chip-row">
-                            <span class="negative-filter-chip">Restrictive actor</span>
-                            <span class="negative-filter-chip">Affected civil society actor</span>
-                            <span class="negative-filter-chip">Restrictive mechanism</span>
-                            <span class="negative-filter-chip">Negative event type</span>
+                            <span class="negative-filter-chip">Actor</span>
+                            <span class="negative-filter-chip">Subject</span>
+                            <span class="negative-filter-chip">Mechanism</span>
+                            <span class="negative-filter-chip">Event type</span>
                         </div>
                     </div>
                     """,
