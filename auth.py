@@ -7,9 +7,6 @@ import streamlit as st
 DEBUG = False
 
 
-# -----------------------------
-# Optional Imports
-# -----------------------------
 try:
     import pyrebase
     HAS_PYREBASE = True
@@ -34,9 +31,6 @@ except ImportError:
     HAS_COOKIES = False
 
 
-# -----------------------------
-# Firebase Admin
-# -----------------------------
 def init_firebase_admin():
     if not HAS_FIREBASE_ADMIN:
         return None
@@ -72,9 +66,6 @@ def init_firebase_admin():
         return None
 
 
-# -----------------------------
-# Firebase Client
-# -----------------------------
 def _firebase_required_keys():
     return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
 
@@ -90,8 +81,8 @@ def init_firebase_client():
         return None, None
 
     cfg = dict(cfg_raw)
-
     missing = [k for k in _firebase_required_keys() if not cfg.get(k)]
+
     if missing:
         st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
         return None, None
@@ -106,9 +97,6 @@ def init_firebase_client():
             st.error("❌ Firebase auth object was not created.")
             return None, None
 
-        if DEBUG:
-            st.success("Firebase authentication initialized successfully.")
-
         return firebase, auth
 
     except Exception as e:
@@ -120,9 +108,6 @@ firebase_admin_app = init_firebase_admin()
 firebase_client, firebase_auth = init_firebase_client()
 
 
-# -----------------------------
-# Access Control
-# -----------------------------
 PRIVILEGED_DOMAINS = set(
     str(d).lower().strip()
     for d in st.secrets.get("access", {}).get("privileged_domains", [])
@@ -167,9 +152,6 @@ def is_privileged():
     )
 
 
-# -----------------------------
-# Cookies
-# -----------------------------
 def get_cookies():
     if not HAS_COOKIES:
         return None
@@ -298,9 +280,6 @@ def parse_error(e):
     return friendly.get(msg, msg)
 
 
-# -----------------------------
-# Auth Styling
-# -----------------------------
 def _auth_page_css():
     st.markdown(
         """
@@ -388,38 +367,30 @@ def _auth_page_css():
             color: #6f667a;
             font-size: 13px;
             line-height: 1.55;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
         }
 
         .mode-card {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            background: #f8f5fb;
-            border: 1px solid #eee6f6;
-            border-radius: 14px;
-            padding: 4px;
-            margin-bottom: 16px;
-            gap: 4px;
-        }
-
-        .mode-active,
-        .mode-inactive {
-            text-align: center;
-            border-radius: 11px;
-            padding: 9px 10px;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            font-weight: 900;
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #ece7f2;
         }
 
         .mode-active {
-            color: white;
-            background: linear-gradient(135deg, #660094, #008CAA);
-            box-shadow: 0 8px 20px rgba(102,0,148,0.20);
-        }
-
-        .mode-inactive {
-            color: #6f667a;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            color: #231942;
+            background: #f4eef9;
+            border: 1px solid #e5d8f1;
+            border-radius: 999px;
+            padding: 6px 12px;
+            box-shadow: none;
+            cursor: default;
+            pointer-events: none;
+            user-select: none;
         }
 
         .auth-note {
@@ -511,9 +482,6 @@ def _back_to_dashboard():
     st.rerun()
 
 
-# -----------------------------
-# Forms
-# -----------------------------
 def _login_form():
     with st.form("eusee_login_form"):
         email = st.text_input(
@@ -618,9 +586,7 @@ def _register_form():
             user = firebase_auth.create_user_with_email_and_password(email, password)
             firebase_auth.send_email_verification(user["idToken"])
 
-            st.success(
-                "Registration successful. Check your email to verify your account, then sign in."
-            )
+            st.success("Registration successful. Check your email to verify your account, then sign in.")
 
         except Exception as e:
             st.error(parse_error(e))
@@ -665,9 +631,6 @@ def _reset_form():
         _set_auth_mode("Login")
 
 
-# -----------------------------
-# Auth Page
-# -----------------------------
 def _render_premium_auth_page():
     _auth_page_css()
 
@@ -711,22 +674,14 @@ def _render_premium_auth_page():
                 if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
                     _back_to_dashboard()
 
-            st.markdown(
-                f'<div class="form-title">{mode_title}</div>',
-                unsafe_allow_html=True,
-            )
-
-            st.markdown(
-                f'<div class="form-subtitle">{mode_subtitle}</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<div class="form-title">{mode_title}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="form-subtitle">{mode_subtitle}</div>', unsafe_allow_html=True)
 
             if mode == "Login":
                 st.markdown(
                     """
                     <div class="mode-card">
-                        <div class="mode-active">Sign in</div>
-                        <div class="mode-inactive">Create account</div>
+                        <div class="mode-active">Current view: Sign in</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -737,8 +692,7 @@ def _render_premium_auth_page():
                 st.markdown(
                     """
                     <div class="mode-card">
-                        <div class="mode-inactive">Sign in</div>
-                        <div class="mode-active">Create account</div>
+                        <div class="mode-active">Current view: Create account</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -749,8 +703,7 @@ def _render_premium_auth_page():
                 st.markdown(
                     """
                     <div class="mode-card">
-                        <div class="mode-active">Password reset</div>
-                        <div class="mode-inactive">Email link</div>
+                        <div class="mode-active">Current view: Password reset</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -773,9 +726,6 @@ def _render_premium_auth_page():
             )
 
 
-# -----------------------------
-# Authentication UI Entrypoint
-# -----------------------------
 def auth_ui():
     init_session()
     restore_session()
