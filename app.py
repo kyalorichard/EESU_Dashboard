@@ -257,7 +257,7 @@ def render_filter_status_card(df):
     """, unsafe_allow_html=True)
 
 
-def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
+def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview"):
     """Render a professional searchable table with alert-impact conditional formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
@@ -1710,9 +1710,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     col1, col2, col3 = st.columns(3)
 
-    countries_value = f"{total_countries:,}" if is_privileged() else "On request"
-    countries_size = "38px" if is_privileged() else "21px"
-
+    countries_value = f"{total_countries:,}" 
+    countries_size = "38px" 
     with col1:
         st.markdown(f"""
         <div class="eusee-kpi-card">
@@ -1881,8 +1880,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
-        countries_size = "34px" if is_privileged() else "21px"
+        countries_value = f"{monitored_countries:,}" 
+        countries_size = "34px" 
         st.markdown(f"""
         <div class="negintel-card">
             <div>
@@ -5341,7 +5340,7 @@ with tab_overview:
             # ---------------- Tab two data preview ------------------
 
         if has_permission("view_data_table"):
-            render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
+            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview")  
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -5596,12 +5595,10 @@ with tab_negative:
             )
         
             # ---------------- Tab two data preview ----------------
-            #if is_privileged():        
+              
             if has_permission("view_data_table"):
-                render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
-            #else:
-                #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
-    
+                render_professional_data_preview(reactive_df_updated_prev, title="Data Preview and Download", key="negative_summary_data_preview")
+           
             # ---------------- TAB 3 (MAP) ----------------
     else:
         render_access_locked("Negative Alerts", "privileged")
@@ -11272,7 +11269,7 @@ def render_filter_status_card(df):
     """, unsafe_allow_html=True)
 
 
-def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
+def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview"):
     """Render a professional searchable table with alert-impact conditional formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
@@ -12721,8 +12718,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     col1, col2, col3 = st.columns(3)
 
-    countries_value = f"{total_countries:,}" if is_privileged() else "On request"
-    countries_size = "38px" if is_privileged() else "21px"
+    countries_value = f"{total_countries:,}" 
+    countries_size = "38px"
 
     with col1:
         st.markdown(f"""
@@ -12734,7 +12731,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                 </div>
                 <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
-            <div class="eusee-kpi-note">Countries represented by current filters</div>
+            
         </div>
         """, unsafe_allow_html=True)
 
@@ -12892,8 +12889,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
-        countries_size = "34px" if is_privileged() else "21px"
+        countries_value = f"{monitored_countries:,}" 
+        countries_size = "34px" 
         st.markdown(f"""
         <div class="negintel-card">
             <div>
@@ -16352,7 +16349,7 @@ with tab_overview:
             # ---------------- Tab two data preview ------------------
 
         if has_permission("view_data_table"):
-            render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
+            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview")  
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -16609,7 +16606,7 @@ with tab_negative:
             # ---------------- Tab two data preview ----------------
             #if is_privileged():        
             if has_permission("view_data_table"):
-                render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
+                render_professional_data_preview(reactive_df_updated_prev, title="Data Preview and Download", key="negative_summary_data_preview")
             #else:
                 #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
     
