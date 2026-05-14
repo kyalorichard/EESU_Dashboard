@@ -110,28 +110,7 @@ def inject_classic_dashboard_css():
         --eusee-muted: #667085;
     }
     .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
-    header[data-testid="stHeader"] {
-        height: 48px !important;
-        min-height: 48px !important;
-        background: rgba(247,248,251,0.92) !important;
-        backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid rgba(230,232,239,0.75) !important;
-        z-index: 999999 !important;
-    }
-    div[data-testid="stToolbar"] { right: 0.75rem !important; }
-    button[data-testid="collapsedControl"],
-    [data-testid="collapsedControl"] {
-        position: fixed !important;
-        top: 10px !important;
-        left: 12px !important;
-        z-index: 1000000 !important;
-        width: 38px !important;
-        height: 38px !important;
-        border-radius: 12px !important;
-        background: #FFFFFF !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 6px 18px rgba(16,24,40,.12) !important;
-    }
+    header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; background: transparent !important; }
     div[data-testid="stDecoration"] { display: none !important; }
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
@@ -198,39 +177,7 @@ def inject_classic_dashboard_css():
     .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
     .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
     @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
-    
-
-    /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
-    html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
-    .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
-    [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
-    div[data-testid="column"] { min-width: 0 !important; }
-    .stPlotlyChart, div[data-testid="stPlotlyChart"], .js-plotly-plot, .plot-container {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: hidden !important;
-    }
-    iframe { max-width: 100% !important; }
-    .animated-title { font-size: clamp(30px, 4vw, 48px) !important; }
-    .animated-subtitle { font-size: clamp(12px, 1.2vw, 14px) !important; }
-    .last-updated-badge { flex-wrap: wrap !important; }
-
-    @media (max-width: 1100px) {
-        .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
-        section[data-testid="stSidebar"] { width: min(86vw, 360px) !important; }
-    }
-    @media (max-width: 900px) {
-        div[data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; }
-        .last-updated-badge { width: 100% !important; border-radius: 16px !important; }
-        .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-    }
-    @media (max-width: 700px) {
-        .main .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
-        section[data-testid="stSidebar"] { width: 90vw !important; }
-        .stButton > button { width: 100% !important; }
-        div[data-testid="stDataFrame"] { max-height: 70vh !important; overflow: auto !important; }
-    }
-</style>
+    </style>
     """, unsafe_allow_html=True)
 
 
@@ -239,7 +186,7 @@ def render_classic_filter_header():
     <div class="classic-filter-header">
         <div class="classic-filter-eyebrow">Dashboard controls</div>
         <div class="classic-filter-title">🌍 Global Filters</div>
-        <div class="classic-filter-note">Use the filters to narrow the data by region, country, alert type, enabling principle, and time period if needed.</div>
+        <div class="classic-filter-note">Refine the analytical view by geography, alert characteristics, enabling principle, and time period.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -257,7 +204,7 @@ def render_filter_status_card(df):
     """, unsafe_allow_html=True)
 
 
-def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview"):
+def render_professional_data_preview(df, title="Summary Data preview", key="summary_data_preview"):
     """Render a professional searchable table with alert-impact conditional formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
@@ -283,8 +230,12 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         st.markdown("""
         <div class="executive-table-shell">
             <div class="executive-table-header">
-                <div>                    
-                    <div class="executive-table-subtitle">Review a sample of the filtered data and download the full dataset based on the filters currently applied</div>                   
+                <div>
+                    <div class="executive-table-eyebrow">Executive analytics table</div>
+                    <div class="executive-table-title">Filtered records preview</div>
+                    <div class="executive-table-subtitle">
+                        Search, inspect, and review the records represented in the active dashboard view.
+                    </div>
                 </div>
                 <div class="executive-table-badge">Live filtered view</div>
             </div>
@@ -407,119 +358,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
-
-# ---------------- LIGHTWEIGHT LOADING FEEDBACK FOR FILTER / UI RERUNS ----------------
-def inject_blocking_filter_loader():
-    """
-    Lightweight replacement for the previous full-page JavaScript blocking loader.
-
-    Why this version:
-    - The previous loader attached global click/change listeners to the whole app.
-    - It created a full-screen overlay with blur and pointer interception.
-    - On Streamlit, that can make every filter interaction feel extremely slow,
-      especially when charts, tables, maps, Sankey diagrams and chatbot sections rerender.
-
-    This version keeps loading feedback visible but avoids freezing the dashboard.
-    It does not intercept clicks and does not attach expensive JS event listeners.
-    """
-    st.markdown("""
-    <style>
-    /* Keep Streamlit's native running indicator visible and polished instead of using a heavy full-screen blocker. */
-    [data-testid="stStatusWidget"] {
-        visibility: visible !important;
-        right: 18px !important;
-        top: 14px !important;
-        z-index: 999999 !important;
-    }
-
-    /* Soft visual feedback during reruns without disabling the whole UI. */
-    .stApp[data-testid="stApp"] {
-        transition: opacity .12s ease-in-out;
-    }
-
-    /* Remove any old injected blocking overlay if a browser cache still has it. */
-    #eusee-blocking-loader-overlay {
-        display: none !important;
-        pointer-events: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Performance: avoid expensive blur filters on low-power devices. */
-    @media (max-width: 900px), (prefers-reduced-motion: reduce) {
-        * {
-            scroll-behavior: auto !important;
-        }
-        .eusee-kpi-card,
-        .executive-table-shell,
-        div[data-testid="stExpander"],
-        section[data-testid="stSidebar"] {
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_blocking_filter_loader()
-
-
-# ---------------- FINAL RESPONSIVE OVERRIDES FOR KPI / SIDEBAR / HEADER ----------------
-def inject_final_responsive_overrides():
-    st.markdown("""
-    <style>
-    header[data-testid="stHeader"] {
-        height: 48px !important;
-        min-height: 48px !important;
-        background: rgba(247,248,251,.94) !important;
-        backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid rgba(230,232,239,.8) !important;
-        z-index: 999999 !important;
-    }
-    button[data-testid="collapsedControl"], [data-testid="collapsedControl"] {
-        position: fixed !important;
-        top: 10px !important;
-        left: 12px !important;
-        z-index: 1000000 !important;
-        transform: none !important;
-    }
-    .eusee-kpi-card {
-        height: 190px !important;
-        min-height: 190px !important;
-        overflow: visible !important;
-    }
-    .eusee-kpi-note {
-        display: block !important;
-        overflow: visible !important;
-        white-space: normal !important;
-        line-height: 1.28 !important;
-        margin-top: 8px !important;
-    }
-    .eusee-donut-layout {
-        grid-template-columns: 76px minmax(0, 1fr) !important;
-        overflow: visible !important;
-    }
-    .eusee-breakdown-row {
-        grid-template-columns: 10px minmax(56px, 1fr) 44px 44px !important;
-    }
-    @media (max-width: 1200px) {
-        .eusee-kpi-card { height: 200px !important; min-height: 200px !important; }
-        .eusee-donut-layout { grid-template-columns: 68px minmax(0, 1fr) !important; gap: 7px !important; }
-        .eusee-donut { width: 66px !important; height: 66px !important; }
-    }
-    @media (max-width: 640px) {
-        .eusee-kpi-card { height: auto !important; min-height: 178px !important; }
-        .eusee-donut-layout { grid-template-columns: 82px minmax(0, 1fr) !important; }
-        .eusee-donut { width: 76px !important; height: 76px !important; }
-    }
-    @media (max-width: 520px) {
-        .eusee-donut-layout { grid-template-columns: 1fr !important; justify-items: center !important; }
-        .eusee-breakdown-list { width: 100% !important; }
-        .eusee-breakdown-row { grid-template-columns: 10px minmax(80px, 1fr) 44px 44px !important; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_final_responsive_overrides()
 
 # ---------------- AUTH ROUTING STATE ----------------
 # Dashboard opens normally. When the user clicks Sign in / Access,
@@ -796,7 +634,7 @@ def render_top_feedback_bar():
 
 
 # ---------------- LOAD DATA ----------------
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=0)
 def load_data():
     parquet_file = EXPORT_DIR / "output_final.parquet"
     meta_file = EXPORT_DIR / "countries_metadata.json"
@@ -980,20 +818,9 @@ st.markdown(f"""
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
-def _make_streamlit_safe_key(value):
-    """Create a deterministic Streamlit-safe key fragment."""
-    value = re.sub(r"[^0-9a-zA-Z_]+", "_", str(value).strip().lower())
-    value = re.sub(r"_+", "_", value).strip("_")
-    return value or "widget"
-
-
-def safe_multiselect(label, options, session_key, sidebar=True, container=None, key_suffix=None):
+def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     """
     Professional multiselect helper with Select all behavior.
-
-    Fixes StreamlitDuplicateElementKey by separating:
-    - logical filter state: session_key
-    - rendered widget state: session_key + unique key_suffix
 
     Compatible with both calling styles used in this dashboard:
     - safe_multiselect(..., container=some_expander) for sidebar/grouped controls
@@ -1019,9 +846,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None, 
 
     options = sorted(clean_options, key=lambda v: str(v).lower())
     options_with_all = ["Select all"] + options
-
-    suffix = _make_streamlit_safe_key(key_suffix or label)
-    widget_key = f"{session_key}_{suffix}_widget"
+    widget_key = f"{session_key}_widget"
 
     # Initialize internal state: all options active by default.
     if session_key not in st.session_state:
@@ -1029,19 +854,12 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None, 
 
     current_internal = st.session_state.get(session_key, options.copy())
 
-    # Keep current state valid when upstream options change.
-    option_lookup = {str(x): x for x in options}
-    current_internal = [option_lookup[str(x)] for x in current_internal if str(x) in option_lookup]
-    if not current_internal and options:
-        current_internal = options.copy()
-        st.session_state[session_key] = current_internal
-
     # Keep the visible widget compact when everything is selected.
     if widget_key not in st.session_state:
         if set(map(str, current_internal)) == set(map(str, options)):
             st.session_state[widget_key] = []
         else:
-            st.session_state[widget_key] = current_internal
+            st.session_state[widget_key] = [x for x in current_internal if str(x) in set(map(str, options))]
 
     selected = target.multiselect(
         label,
@@ -1323,7 +1141,6 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
         regions_labels,
         "selected_regions",
         container=geo_filter_box,
-        key_suffix="sidebar_geo_region",
     )
 
     filtered_countries = (
@@ -1339,7 +1156,6 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
         else [],
         "selected_countries",
         container=geo_filter_box,
-        key_suffix="sidebar_geo_country",
     )
 
 with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_filter_box:
@@ -1355,7 +1171,6 @@ with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_
         else [],
         "selected_alert_impacts",
         container=alert_filter_box,
-        key_suffix="sidebar_alert_impact",
     )
 
     selected_alert_types = safe_multiselect(
@@ -1365,7 +1180,6 @@ with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_
         else [],
         "selected_alert_types",
         container=alert_filter_box,
-        key_suffix="sidebar_alert_type",
     )
 
 with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
@@ -1394,7 +1208,6 @@ with st.sidebar.expander("🧭 Enabling environment", expanded=False) as princip
         principle_options,
         "selected_enabling_principle",
         container=principle_filter_box,
-        key_suffix="sidebar_enabling_principle",
     )
 
 with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
@@ -1410,7 +1223,6 @@ with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
         else [],
         "selected_years",
         container=time_filter_box,
-        key_suffix="sidebar_year",
     )
 
     if (
@@ -1437,7 +1249,6 @@ with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
         available_months,
         "selected_months",
         container=time_filter_box,
-        key_suffix="sidebar_month",
     )
 
 reset_col1, reset_col2 = st.sidebar.columns([1, 1])
@@ -1472,11 +1283,7 @@ if reset_filters:
         "selected_event_types",
     ]:
         st.session_state.pop(key, None)
-        # Remove every rendered widget key associated with this logical filter.
-        # This supports both the old key format and the new unique suffix format.
-        for state_key in list(st.session_state.keys()):
-            if state_key == f"{key}_widget" or state_key.startswith(f"{key}_"):
-                st.session_state.pop(state_key, None)
+        st.session_state.pop(f"{key}_widget", None)
     st.rerun()
 
 st.sidebar.markdown(
@@ -1655,8 +1462,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     st.markdown("""
     <style>
     .eusee-kpi-card {
-        height: auto;
-        min-height: 172px;
+        height: 150px;
+        min-height: 150px;
         background: radial-gradient(circle at 100% 0%, rgba(102,0,148,0.055), transparent 34%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
         border: 1px solid rgba(102, 0, 148, 0.115);
         border-radius: 17px;
@@ -1664,7 +1471,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         padding: 11px 14px 10px 14px;
         margin: 2px 0 8px 0;
         box-sizing: border-box;
-        overflow: visible;
+        overflow: hidden;
         font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
@@ -1733,8 +1540,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     col1, col2, col3 = st.columns(3)
 
-    countries_value = f"{total_countries:,}" 
-    countries_size = "38px"
+    countries_value = f"{total_countries:,}" if is_privileged() else "On request"
+    countries_size = "38px" if is_privileged() else "21px"
 
     with col1:
         st.markdown(f"""
@@ -1746,7 +1553,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                 </div>
                 <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
-            
+            <div class="eusee-kpi-note">Countries represented by current filters</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1867,8 +1674,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     st.markdown("""
     <style>
     .negintel-card {
-        height: auto;
-        min-height: 172px;
+        height: 150px;
+        min-height: 150px;
         background: radial-gradient(circle at 100% 0%, rgba(180,35,24,0.06), transparent 35%), linear-gradient(180deg, #FFFFFF 0%, #FFFCFB 100%);
         border: 1px solid rgba(180, 35, 24, 0.12);
         border-radius: 17px;
@@ -1876,7 +1683,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         padding: 11px 14px 10px 14px;
         margin: 2px 0 8px 0;
         box-sizing: border-box;
-        overflow: visible;
+        overflow: hidden;
         font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
@@ -1904,8 +1711,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        countries_value = f"{monitored_countries:,}" 
-        countries_size = "34px" 
+        countries_value = f"{monitored_countries:,}" if is_privileged() else "On request"
+        countries_size = "34px" if is_privileged() else "21px"
         st.markdown(f"""
         <div class="negintel-card">
             <div>
@@ -2027,14 +1834,11 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
             y=1.02,
             xanchor="right",
             x=1,
-            bgcolor="rgba(255,255,255,0.82)",
-            bordercolor="rgba(230,232,239,0.65)",
+            bgcolor="rgba(255,255,255,0.85)",
+            bordercolor="#EEF1F6",
             borderwidth=1,
-            font=dict(family=CHART_FONT, size=9, color="#344054"),
+            font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
             title=None,
-            itemsizing="trace",
-            itemwidth=30,
-            tracegroupgap=0,
         ),
         showlegend=showlegend,
     )
@@ -4688,445 +4492,6 @@ def inject_chart_floating_tip_css():
 inject_chart_floating_tip_css()
 
 
-# ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
-def inject_full_tab_responsive_css():
-    """Responsive shell that stacks tab content only on small screens and preserves chart legend placement."""
-    st.markdown("""
-    <style>
-    /* ---------- Streamlit tab shell: keep desktop/tablet layouts intact ---------- */
-    div[data-testid="stTabs"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: visible !important;
-    }
-
-    div[data-testid="stTabs"] div[role="tablist"] {
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
-        gap: 6px !important;
-        border-bottom: 1px solid #E6E8EF !important;
-        overflow-x: hidden !important;
-        overflow-y: visible !important;
-        padding: 4px 0 7px 0 !important;
-        scrollbar-width: none !important;
-        align-items: stretch !important;
-    }
-
-    div[data-testid="stTabs"] div[role="tablist"]::-webkit-scrollbar {
-        display: none !important;
-    }
-
-    div[data-testid="stTabs"] button[role="tab"] {
-        min-height: 32px !important;
-        height: 32px !important;
-        max-height: 32px !important;
-        border-radius: 999px !important;
-        padding: 5px 8px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        min-width: 0 !important;
-        width: 100% !important;
-        flex: 1 1 auto !important;
-        background: #FFFFFF !important;
-        border: 1px solid #E6E8EF !important;
-        color: #344054 !important;
-        font-size: clamp(10px, 0.8vw, 12px) !important;
-        line-height: 1.05 !important;
-        font-weight: 850 !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.035) !important;
-    }
-
-    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-        color: #660094 !important;
-        background: #F4EAF8 !important;
-        border-color: #E7D4F1 !important;
-    }
-
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        padding-top: 12px !important;
-    }
-
-    /* ---------- Universal containment without forcing desktop columns to stack ---------- */
-    .main .block-container,
-    .element-container,
-    div[data-testid="stVerticalBlock"],
-    div[data-testid="stHorizontalBlock"] {
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    div[data-testid="column"] {
-        min-width: 0 !important;
-        overflow: visible !important;
-    }
-
-    /* ---------- Plotly: compact, professional legends without changing legend location ---------- */
-    .js-plotly-plot .legend {
-        pointer-events: auto !important;
-    }
-
-    .js-plotly-plot .legend rect.bg {
-        fill: rgba(255,255,255,0.82) !important;
-        stroke: rgba(230,232,239,0.65) !important;
-        stroke-width: 1px !important;
-        rx: 8px !important;
-        ry: 8px !important;
-    }
-
-    .js-plotly-plot .legend .traces {
-        opacity: 0.98 !important;
-    }
-
-    .js-plotly-plot .legend text,
-    .js-plotly-plot .legendtext {
-        font-family: Arial, sans-serif !important;
-        font-size: clamp(8.5px, 0.75vw, 10px) !important;
-        font-weight: 750 !important;
-        letter-spacing: -0.01em !important;
-    }
-
-    /* ---------- Plotly: responsive legends without changing legend location ---------- */
-    div[data-testid="stPlotlyChart"],
-    .stPlotlyChart,
-    .js-plotly-plot,
-    .plot-container,
-    .svg-container {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: visible !important;
-        box-sizing: border-box !important;
-    }
-
-    .js-plotly-plot .legend text {
-        font-family: Arial, sans-serif !important;
-        font-size: clamp(9px, 1.1vw, 11px) !important;
-    }
-
-    .js-plotly-plot .legendtoggle {
-        cursor: pointer !important;
-    }
-
-    /* ---------- KPI cards: equal height and visible descriptions ---------- */
-    .eusee-kpi-card {
-        height: 190px !important;
-        min-height: 190px !important;
-        max-height: none !important;
-        overflow: visible !important;
-        gap: 8px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-    }
-
-    .eusee-kpi-note {
-        display: block !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-        line-height: 1.32 !important;
-        min-height: 28px !important;
-    }
-
-    .eusee-donut-layout {
-        grid-template-columns: minmax(70px, 78px) minmax(0, 1fr) !important;
-        align-items: center !important;
-        min-width: 0 !important;
-    }
-
-    .eusee-breakdown-row {
-        grid-template-columns: 10px minmax(0, 1fr) minmax(34px, 42px) minmax(36px, 46px) !important;
-    }
-
-    .eusee-breakdown-label {
-        min-width: 0 !important;
-    }
-
-    /* ---------- Tables and dataframes ---------- */
-    div[data-testid="stDataFrame"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: auto !important;
-    }
-
-    iframe,
-    canvas,
-    svg {
-        max-width: 100% !important;
-    }
-
-    /* ---------- Tablet: preserve side-by-side layout where Streamlit columns fit ---------- */
-    @media (max-width: 1100px) {
-        .main .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-        }
-
-        div[data-testid="stTabs"] div[role="tablist"] {
-            gap: 5px !important;
-            grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
-        }
-
-        div[data-testid="stTabs"] button[role="tab"] {
-            font-size: 10.5px !important;
-            padding-left: 6px !important;
-            padding-right: 6px !important;
-        }
-
-        .eusee-kpi-card {
-            height: 200px !important;
-            min-height: 200px !important;
-        }
-
-        .eusee-donut-layout {
-            grid-template-columns: 68px minmax(0, 1fr) !important;
-            gap: 7px !important;
-        }
-
-        .eusee-donut {
-            width: 66px !important;
-            height: 66px !important;
-        }
-    }
-
-    /* ---------- Small screens only: stack Streamlit columns ---------- */
-    @media (max-width: 640px) {
-        div[data-testid="stHorizontalBlock"] {
-            flex-wrap: wrap !important;
-            gap: 0.8rem !important;
-        }
-
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            flex: 1 1 100% !important;
-            width: 100% !important;
-            min-width: 100% !important;
-            max-width: 100% !important;
-        }
-
-        div[data-testid="stTabs"] div[role="tablist"] {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 6px !important;
-        }
-
-        div[data-testid="stTabs"] button[role="tab"] {
-            height: 32px !important;
-            min-height: 32px !important;
-            max-height: 32px !important;
-            font-size: 10.5px !important;
-            padding: 5px 7px !important;
-        }
-
-        .eusee-kpi-card {
-            height: 190px !important;
-            min-height: 190px !important;
-            padding: 13px 14px 12px 14px !important;
-        }
-
-        .eusee-donut-layout {
-            grid-template-columns: 82px minmax(0, 1fr) !important;
-        }
-
-        .eusee-donut {
-            width: 76px !important;
-            height: 76px !important;
-        }
-    }
-
-    /* ---------- Very small phones ---------- */
-    @media (max-width: 430px) {
-        .main .block-container {
-            padding-left: 0.7rem !important;
-            padding-right: 0.7rem !important;
-        }
-
-        .eusee-donut-layout {
-            grid-template-columns: 1fr !important;
-            justify-items: center !important;
-            gap: 10px !important;
-        }
-
-        .eusee-breakdown-list {
-            width: 100% !important;
-        }
-
-        .eusee-kpi-value {
-            font-size: 30px !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
-    """Make Plotly charts responsive while preserving each chart's original legend location."""
-    if fig is None:
-        return fig
-
-    try:
-        current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
-    except Exception:
-        current_margin = {}
-
-    try:
-        fig.update_layout(
-            autosize=True,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(
-                l=max(int(current_margin.get("l", 40) or 40), 36),
-                r=max(int(current_margin.get("r", 24) or 24), 24),
-                t=max(int(current_margin.get("t", 50) or 50), 52),
-                b=max(int(current_margin.get("b", 44) or 44), 48),
-            ),
-            uniformtext_minsize=9,
-            uniformtext_mode="hide",
-        )
-    except Exception:
-        pass
-
-    # Preserve existing x/y/orientation. Only make legend text and boxes adaptive.
-    try:
-        existing_legend = fig.layout.legend.to_plotly_json() if fig.layout.legend else {}
-        existing_legend.update({
-            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.86)"),
-            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.60)"),
-            "borderwidth": existing_legend.get("borderwidth", 1),
-            "font": dict(size=9, family="Arial", color="#344054"),
-            # Keep Plotly's native colored markers visible. Do not force symbol scaling via CSS.
-            "itemsizing": existing_legend.get("itemsizing", "trace"),
-            # 30 is Plotly's practical compact minimum; larger values create excessive label gaps.
-            "itemwidth": min(int(existing_legend.get("itemwidth", 30) or 30), 30),
-            "tracegroupgap": 0,
-        })
-        fig.update_layout(legend=existing_legend)
-    except Exception:
-        pass
-
-    # Do not set legend_entrywidth: fixed entry widths create large gaps between legend labels.
-    # Long labels keep their native Plotly spacing and are handled by smaller font + compact itemwidth.
-
-    try:
-        fig.update_xaxes(automargin=True, tickfont=dict(size=10), title_standoff=8)
-        fig.update_yaxes(automargin=True, tickfont=dict(size=10), title_standoff=8)
-    except Exception:
-        pass
-
-    return fig
-
-inject_full_tab_responsive_css()
-
-# ---------------- COMPACT TAB + PROFESSIONAL LEGEND FINAL OVERRIDE ----------------
-def inject_compact_tabs_and_legend_ux():
-    """Final UI polish: all tabs visible without horizontal scrolling; compact legends preserve original placement."""
-    st.markdown("""
-    <style>
-    div[data-testid="stTabs"] div[role="tablist"] {
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
-        gap: 5px !important;
-        overflow-x: hidden !important;
-        padding: 3px 0 6px 0 !important;
-    }
-    div[data-testid="stTabs"] button[role="tab"] {
-        width: 100% !important;
-        min-width: 0 !important;
-        height: 31px !important;
-        min-height: 31px !important;
-        max-height: 31px !important;
-        padding: 4px 7px !important;
-        border-radius: 999px !important;
-        font-size: clamp(9.5px, .72vw, 11.2px) !important;
-        line-height: 1 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    @media (max-width: 720px) {
-        div[data-testid="stTabs"] div[role="tablist"] {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 6px !important;
-        }
-        div[data-testid="stTabs"] button[role="tab"] {
-            font-size: 10.2px !important;
-            height: 32px !important;
-            min-height: 32px !important;
-        }
-    }
-    @media (max-width: 360px) {
-        div[data-testid="stTabs"] button[role="tab"] {
-            font-size: 9.4px !important;
-            padding-left: 5px !important;
-            padding-right: 5px !important;
-        }
-    }
-    .js-plotly-plot .legend rect.bg {
-        fill: rgba(255,255,255,.86) !important;
-        stroke: rgba(230,232,239,.65) !important;
-        stroke-width: 1px !important;
-    }
-    .js-plotly-plot .legend text,
-    .js-plotly-plot .legendtext {
-        font-size: clamp(8px, .68vw, 9.6px) !important;
-        font-weight: 750 !important;
-    }    .eusee-kpi-card {
-        height: 190px !important;
-        min-height: 190px !important;
-        max-height: none !important;
-    }
-    @media (max-width: 1100px) {
-        .eusee-kpi-card { height: 200px !important; min-height: 200px !important; }
-    }
-    @media (max-width: 640px) {
-        .eusee-kpi-card { height: 190px !important; min-height: 190px !important; }
-    }
-    @media (max-width: 430px) {
-        .eusee-kpi-card { height: 210px !important; min-height: 210px !important; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_compact_tabs_and_legend_ux()
-
-
-# ---------------- FINAL LEGEND COLOR + SPACING FIX ----------------
-def inject_plotly_legend_color_spacing_fix():
-    """Preserve Plotly legend color swatches and tighten label spacing without relocating legends."""
-    st.markdown("""
-    <style>
-    .js-plotly-plot .legend rect.bg {
-        fill: rgba(255,255,255,.88) !important;
-        stroke: rgba(230,232,239,.62) !important;
-        stroke-width: 1px !important;
-    }
-    .js-plotly-plot .legend .traces,
-    .js-plotly-plot .legendpoints,
-    .js-plotly-plot .legendsymbols {
-        opacity: 1 !important;
-    }
-    .js-plotly-plot .legendpoints path,
-    .js-plotly-plot .legendpoints circle,
-    .js-plotly-plot .legendpoints rect,
-    .js-plotly-plot .legendsymbols path,
-    .js-plotly-plot .legendsymbols circle,
-    .js-plotly-plot .legendsymbols rect {
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    .js-plotly-plot .legend text,
-    .js-plotly-plot .legendtext {
-        font-family: Arial, sans-serif !important;
-        font-size: clamp(8px, .66vw, 9.2px) !important;
-        font-weight: 760 !important;
-        letter-spacing: -0.025em !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_plotly_legend_color_spacing_fix()
-
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
 def _dashboard_plain_title(fig, fallback="Dashboard visual"):
@@ -5287,7 +4652,6 @@ def render_dashboard_plotly_chart(
     for backward compatibility with earlier calls.
     """
     target = container if container is not None else st
-    fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
 
@@ -5364,7 +4728,7 @@ with tab_overview:
             # ---------------- Tab two data preview ------------------
 
         if has_permission("view_data_table"):
-            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview")  
+            render_professional_data_preview(filtered_global_prev, title="Summary Data preview", key="overview_summary_data_preview")  
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
@@ -5477,7 +4841,6 @@ with tab_negative:
                         formatted_options(df_exploded["Actor of repression"]),
                         "selected_actor_types",
                         sidebar=False,
-                        key_suffix="negative_actor_types",
                     )
 
                     selected_subject_types = safe_multiselect(
@@ -5485,7 +4848,6 @@ with tab_negative:
                         formatted_options(df_exploded["Subject of repression"]),
                         "selected_subject_types",
                         sidebar=False,
-                        key_suffix="negative_subject_types",
                     )
 
                 with neg_f2:
@@ -5494,7 +4856,6 @@ with tab_negative:
                         formatted_options(df_exploded["Mechanism of repression"]),
                         "selected_mechanism_types",
                         sidebar=False,
-                        key_suffix="negative_mechanism_types",
                     )
 
                     selected_event_types = safe_multiselect(
@@ -5502,7 +4863,6 @@ with tab_negative:
                         formatted_options(df_exploded["Type of event"]),
                         "selected_event_types",
                         sidebar=False,
-                        key_suffix="negative_event_types",
                     )
             ##### -------- Tab 2 Summary card totals--------------------------
             reactive_df_updated= reactive_df[(reactive_df['Actor of repression'].apply(lambda x: contains_any(x, selected_actor_types))) &
@@ -5625,7 +4985,7 @@ with tab_negative:
             # ---------------- Tab two data preview ----------------
             #if is_privileged():        
             if has_permission("view_data_table"):
-                render_professional_data_preview(reactive_df_updated_prev, title="Data Preview and Download", key="negative_summary_data_preview")
+                render_professional_data_preview(reactive_df_updated_prev, title="Summary Data preview", key="negative_summary_data_preview")
             #else:
                 #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")      
     
@@ -10851,7 +10211,7 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
+                st.plotly_chart(out["fig"], use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
                     title="AI graph interpretation",
