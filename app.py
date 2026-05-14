@@ -463,274 +463,6 @@ def inject_blocking_filter_loader():
 inject_blocking_filter_loader()
 
 
-# ---------------- WCAG AA CONTRAST + NON-BLOCKING CHART SKELETONS ----------------
-# Brand colors are preserved, but yellow is treated as an accent/fill color rather than text on light backgrounds.
-EUSEE_COLORS = {
-    "purple": "#660094",
-    "purple_dark": "#3B005F",
-    "teal": "#008CAA",
-    "yellow": "#FFDB58",
-    "amber_readable": "#B54708",
-    "text": "#232633",
-    "muted": "#667085",
-    "border": "#E6E8EF",
-    "bg": "#F7F8FB",
-    "white": "#FFFFFF",
-}
-
-# WCAG-conscious chart palette. Yellow remains available for accents, but not as a primary label/text color.
-EUSEE_CHART_COLORS = [
-    "#660094",  # EU SEE purple: strong contrast on white
-    "#008CAA",  # EU SEE teal
-    "#3B005F",  # dark purple
-    "#B54708",  # readable amber-brown replacement where yellow text would fail on white
-    "#344054",  # slate
-    "#667085",  # muted gray
-]
-
-ALERT_IMPACT_COLORS = {
-    "Negative": "#660094",
-    "Positive": "#008CAA",
-    "Postive": "#008CAA",
-    "Context to watch": "#B54708",
-    "Default": "#344054",
-}
-
-
-def _hex_to_rgb(hex_color):
-    hex_color = str(hex_color).strip().replace("#", "")
-    if len(hex_color) == 3:
-        hex_color = "".join(ch * 2 for ch in hex_color)
-    return tuple(int(hex_color[i:i + 2], 16) / 255 for i in (0, 2, 4))
-
-
-def _relative_luminance(hex_color):
-    def channel(c):
-        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
-    r, g, b = _hex_to_rgb(hex_color)
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-
-
-def contrast_ratio(foreground, background="#FFFFFF"):
-    """Return WCAG contrast ratio for two hex colors."""
-    l1 = _relative_luminance(foreground)
-    l2 = _relative_luminance(background)
-    lighter, darker = max(l1, l2), min(l1, l2)
-    return (lighter + 0.05) / (darker + 0.05)
-
-
-def wcag_aa_passes(foreground, background="#FFFFFF", large_text=False):
-    """WCAG AA threshold: 4.5:1 for normal text, 3:1 for large text/UI graphics."""
-    return contrast_ratio(foreground, background) >= (3.0 if large_text else 4.5)
-
-
-def ensure_wcag_text_color(preferred_color, background="#FFFFFF", fallback="#232633", large_text=False):
-    """Use the preferred color only when it passes WCAG AA; otherwise use a safe fallback."""
-    try:
-        return preferred_color if wcag_aa_passes(preferred_color, background, large_text=large_text) else fallback
-    except Exception:
-        return fallback
-
-
-def inject_accessibility_and_skeleton_css():
-    """Accessible text tokens plus skeleton chart placeholders for perceived performance."""
-    st.markdown("""
-    <style>
-    :root {
-        --eusee-accessible-purple: #660094;
-        --eusee-accessible-purple-dark: #3B005F;
-        --eusee-accessible-teal: #008CAA;
-        --eusee-accessible-yellow: #FFDB58;
-        --eusee-accessible-amber-text: #B54708;
-        --eusee-accessible-text: #232633;
-        --eusee-accessible-muted: #667085;
-    }
-
-    /* Yellow is brand accent only; readable text must use dark colors. */
-    .eusee-yellow-text-safe,
-    .eusee-accessible-warning-text {
-        color: #4A3A00 !important;
-    }
-
-    .eusee-skeleton-card {
-        width: 100%;
-        border-radius: 18px;
-        border: 1px solid #E6E8EF;
-        background: #FFFFFF;
-        padding: 18px;
-        box-shadow: 0 10px 24px rgba(16,24,40,.06);
-        overflow: hidden;
-        box-sizing: border-box;
-        margin-bottom: 14px;
-    }
-    .eusee-skeleton-title,
-    .eusee-skeleton-line {
-        border-radius: 999px;
-        background: linear-gradient(90deg, #EEF0F4 0%, #F7F8FB 50%, #EEF0F4 100%);
-        background-size: 220% 100%;
-        animation: euseeSkeleton 1.15s ease-in-out infinite;
-    }
-    .eusee-skeleton-title {
-        width: min(360px, 44%);
-        height: 16px;
-        margin-bottom: 22px;
-    }
-    .eusee-skeleton-line {
-        height: 13px;
-        margin: 14px 0;
-    }
-    .eusee-skeleton-bars {
-        display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
-        gap: 12px;
-        align-items: end;
-        height: 260px;
-        margin-top: 18px;
-    }
-    .eusee-skeleton-bar {
-        border-radius: 12px 12px 4px 4px;
-        background: linear-gradient(180deg, rgba(102,0,148,.15), rgba(0,140,170,.10));
-        min-height: 42px;
-    }
-    .eusee-skeleton-bar:nth-child(1) { height: 44%; }
-    .eusee-skeleton-bar:nth-child(2) { height: 70%; }
-    .eusee-skeleton-bar:nth-child(3) { height: 52%; }
-    .eusee-skeleton-bar:nth-child(4) { height: 86%; }
-    .eusee-skeleton-bar:nth-child(5) { height: 62%; }
-    .eusee-skeleton-bar:nth-child(6) { height: 76%; }
-    .eusee-skeleton-bar:nth-child(7) { height: 48%; }
-    .eusee-skeleton-bar:nth-child(8) { height: 68%; }
-
-    @keyframes euseeSkeleton {
-        0% { background-position: 220% 0; }
-        100% { background-position: -220% 0; }
-    }
-
-    @media (max-width: 760px) {
-        .eusee-skeleton-card { padding: 14px; }
-        .eusee-skeleton-title { width: 64%; }
-        .eusee-skeleton-bars {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            height: 220px;
-        }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .eusee-skeleton-title,
-        .eusee-skeleton-line {
-            animation: none !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_chart_skeleton(title="Loading chart...", height=430):
-    """Render a lightweight skeleton placeholder before expensive chart output appears."""
-    skeleton_height = max(int(height or 430), 280)
-    st.markdown(f"""
-    <div class="eusee-skeleton-card" aria-label="{title}" style="min-height:{skeleton_height}px;">
-        <div class="eusee-skeleton-title"></div>
-        <div class="eusee-skeleton-line" style="width:72%;"></div>
-        <div class="eusee-skeleton-line" style="width:54%;"></div>
-        <div class="eusee-skeleton-bars">
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def apply_accessible_plotly_layout(fig, height=None, legend_orientation=None):
-    """Apply contrast-safe fonts, hover labels, colorway, and compact legends to Plotly figures."""
-    if fig is None:
-        return fig
-
-    try:
-        current_height = fig.layout.height if getattr(fig, "layout", None) else None
-        fig.update_layout(
-            height=height or current_height,
-            colorway=EUSEE_CHART_COLORS,
-            font=dict(
-                family="Arial, sans-serif",
-                size=12,
-                color=EUSEE_COLORS["text"],
-            ),
-            hoverlabel=dict(
-                bgcolor="#FFFFFF",
-                bordercolor=EUSEE_COLORS["border"],
-                font=dict(color=EUSEE_COLORS["text"], size=12),
-            ),
-        )
-    except Exception:
-        pass
-
-    try:
-        existing_legend = fig.layout.legend.to_plotly_json() if fig.layout.legend else {}
-        if legend_orientation:
-            existing_legend["orientation"] = legend_orientation
-        existing_legend.update({
-            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.90)"),
-            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.75)"),
-            "borderwidth": existing_legend.get("borderwidth", 1),
-            "font": dict(size=10, family="Arial, sans-serif", color=EUSEE_COLORS["text"]),
-            "itemsizing": existing_legend.get("itemsizing", "trace"),
-            "itemwidth": min(int(existing_legend.get("itemwidth", 30) or 30), 30),
-            "tracegroupgap": 2,
-        })
-        fig.update_layout(legend=existing_legend)
-    except Exception:
-        pass
-
-    try:
-        fig.update_xaxes(
-            automargin=True,
-            tickfont=dict(size=10, color=EUSEE_COLORS["text"]),
-            title_font=dict(size=12, color=EUSEE_COLORS["text"]),
-            gridcolor="#EEF0F4",
-        )
-        fig.update_yaxes(
-            automargin=True,
-            tickfont=dict(size=10, color=EUSEE_COLORS["text"]),
-            title_font=dict(size=12, color=EUSEE_COLORS["text"]),
-            gridcolor="#EEF0F4",
-        )
-    except Exception:
-        pass
-
-    return fig
-
-
-def render_plotly_chart_with_skeleton(fig, *, key=None, height=430, config=None, legend_bottom=False):
-    """Render Plotly charts with a fast skeleton placeholder and WCAG-safe styling."""
-    chart_slot = st.empty()
-    with chart_slot.container():
-        render_chart_skeleton("Loading chart...", height=height)
-
-    try:
-        fig = apply_responsive_plotly_layout(fig, legend_bottom=legend_bottom)
-    except Exception:
-        pass
-
-    fig = apply_accessible_plotly_layout(fig, height=height)
-    chart_slot.empty()
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-        key=key,
-        config=config or {"displayModeBar": False, "responsive": True},
-    )
-
-
-inject_accessibility_and_skeleton_css()
-
-
 # ---------------- FINAL RESPONSIVE OVERRIDES FOR KPI / SIDEBAR / HEADER ----------------
 def inject_final_responsive_overrides():
     st.markdown("""
@@ -2225,11 +1957,11 @@ def safe_wrap_label(label, axis="y", words_per_line=4):
 
 # ---------------- PROFESSIONAL CHART UX THEME ----------------
 CHART_COLORS = {
-    "Positive": "#008CAA",
-    "Postive": "#008CAA",
-    "Negative": "#660094",
-    "Context to watch": "#B54708",
-    "Default": "#344054",
+    "Positive": "#660094",
+    "Postive": "#660094",
+    "Negative": "#FFDB58",
+    "Context to watch": "#008CAA",
+    "Default": "#FFDB58",
 }
 
 CHART_FONT = "Inter, Arial, sans-serif"
@@ -7028,7 +6760,7 @@ AI_COLOR_PRESETS = {
 # These palettes are used by single-variable charts, comparison charts, heatmaps,
 # legends and chart previews so dashboard users can build publication-ready plots.
 AI_PLOT_PALETTES = {
-    "EU SEE brand — Purple / Teal / Accessible amber": ["#660094", "#008CAA", "#B54708", "#B692C8", "#2D0055", "#00A6C8", "#F79009", "#344054"],
+    "EU SEE brand — Purple / Teal / Gold": ["#660094", "#008CAA", "#FFDB58", "#B692C8", "#2D0055", "#00A6C8", "#F79009", "#344054"],
     "Executive muted — Slate / Gray": ["#344054", "#667085", "#98A2B3", "#475467", "#101828", "#D0D5DD", "#EAECF0", "#F2F4F7"],
     "Risk signal — Red / Amber / Green": ["#B42318", "#F79009", "#FFDB58", "#067647", "#008CAA", "#660094", "#475467", "#98A2B3"],
     "Office professional — Blue / Orange": ["#4472C4", "#ED7D31", "#A5A5A5", "#FFC000", "#5B9BD5", "#70AD47", "#7030A0", "#C00000"],
@@ -8832,7 +8564,7 @@ def _v2_make_comparison_plot(df, x_col, y_col, chart_type="Heatmap", top_x=10, t
         fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title)
         fig.update_xaxes(tickangle=-35)
     fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True)
-    fig.update_layout(colorway=[color, secondary_color, "#B54708", "#D92D20", "#039855", "#1570EF", "#F79009", "#344054"])
+    fig.update_layout(colorway=[color, secondary_color, "#FFDB58", "#D92D20", "#039855", "#1570EF", "#F79009", "#344054"])
     return fig, comp
 
 
@@ -11085,7 +10817,7 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                render_plotly_chart_with_skeleton(out["fig"], key="v2_pop_smart_plot", height=470)
+                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
                     title="AI graph interpretation",
@@ -11737,274 +11469,6 @@ def inject_blocking_filter_loader():
     """, unsafe_allow_html=True)
 
 inject_blocking_filter_loader()
-
-
-# ---------------- WCAG AA CONTRAST + NON-BLOCKING CHART SKELETONS ----------------
-# Brand colors are preserved, but yellow is treated as an accent/fill color rather than text on light backgrounds.
-EUSEE_COLORS = {
-    "purple": "#660094",
-    "purple_dark": "#3B005F",
-    "teal": "#008CAA",
-    "yellow": "#FFDB58",
-    "amber_readable": "#B54708",
-    "text": "#232633",
-    "muted": "#667085",
-    "border": "#E6E8EF",
-    "bg": "#F7F8FB",
-    "white": "#FFFFFF",
-}
-
-# WCAG-conscious chart palette. Yellow remains available for accents, but not as a primary label/text color.
-EUSEE_CHART_COLORS = [
-    "#660094",  # EU SEE purple: strong contrast on white
-    "#008CAA",  # EU SEE teal
-    "#3B005F",  # dark purple
-    "#B54708",  # readable amber-brown replacement where yellow text would fail on white
-    "#344054",  # slate
-    "#667085",  # muted gray
-]
-
-ALERT_IMPACT_COLORS = {
-    "Negative": "#660094",
-    "Positive": "#008CAA",
-    "Postive": "#008CAA",
-    "Context to watch": "#B54708",
-    "Default": "#344054",
-}
-
-
-def _hex_to_rgb(hex_color):
-    hex_color = str(hex_color).strip().replace("#", "")
-    if len(hex_color) == 3:
-        hex_color = "".join(ch * 2 for ch in hex_color)
-    return tuple(int(hex_color[i:i + 2], 16) / 255 for i in (0, 2, 4))
-
-
-def _relative_luminance(hex_color):
-    def channel(c):
-        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
-    r, g, b = _hex_to_rgb(hex_color)
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-
-
-def contrast_ratio(foreground, background="#FFFFFF"):
-    """Return WCAG contrast ratio for two hex colors."""
-    l1 = _relative_luminance(foreground)
-    l2 = _relative_luminance(background)
-    lighter, darker = max(l1, l2), min(l1, l2)
-    return (lighter + 0.05) / (darker + 0.05)
-
-
-def wcag_aa_passes(foreground, background="#FFFFFF", large_text=False):
-    """WCAG AA threshold: 4.5:1 for normal text, 3:1 for large text/UI graphics."""
-    return contrast_ratio(foreground, background) >= (3.0 if large_text else 4.5)
-
-
-def ensure_wcag_text_color(preferred_color, background="#FFFFFF", fallback="#232633", large_text=False):
-    """Use the preferred color only when it passes WCAG AA; otherwise use a safe fallback."""
-    try:
-        return preferred_color if wcag_aa_passes(preferred_color, background, large_text=large_text) else fallback
-    except Exception:
-        return fallback
-
-
-def inject_accessibility_and_skeleton_css():
-    """Accessible text tokens plus skeleton chart placeholders for perceived performance."""
-    st.markdown("""
-    <style>
-    :root {
-        --eusee-accessible-purple: #660094;
-        --eusee-accessible-purple-dark: #3B005F;
-        --eusee-accessible-teal: #008CAA;
-        --eusee-accessible-yellow: #FFDB58;
-        --eusee-accessible-amber-text: #B54708;
-        --eusee-accessible-text: #232633;
-        --eusee-accessible-muted: #667085;
-    }
-
-    /* Yellow is brand accent only; readable text must use dark colors. */
-    .eusee-yellow-text-safe,
-    .eusee-accessible-warning-text {
-        color: #4A3A00 !important;
-    }
-
-    .eusee-skeleton-card {
-        width: 100%;
-        border-radius: 18px;
-        border: 1px solid #E6E8EF;
-        background: #FFFFFF;
-        padding: 18px;
-        box-shadow: 0 10px 24px rgba(16,24,40,.06);
-        overflow: hidden;
-        box-sizing: border-box;
-        margin-bottom: 14px;
-    }
-    .eusee-skeleton-title,
-    .eusee-skeleton-line {
-        border-radius: 999px;
-        background: linear-gradient(90deg, #EEF0F4 0%, #F7F8FB 50%, #EEF0F4 100%);
-        background-size: 220% 100%;
-        animation: euseeSkeleton 1.15s ease-in-out infinite;
-    }
-    .eusee-skeleton-title {
-        width: min(360px, 44%);
-        height: 16px;
-        margin-bottom: 22px;
-    }
-    .eusee-skeleton-line {
-        height: 13px;
-        margin: 14px 0;
-    }
-    .eusee-skeleton-bars {
-        display: grid;
-        grid-template-columns: repeat(8, minmax(0, 1fr));
-        gap: 12px;
-        align-items: end;
-        height: 260px;
-        margin-top: 18px;
-    }
-    .eusee-skeleton-bar {
-        border-radius: 12px 12px 4px 4px;
-        background: linear-gradient(180deg, rgba(102,0,148,.15), rgba(0,140,170,.10));
-        min-height: 42px;
-    }
-    .eusee-skeleton-bar:nth-child(1) { height: 44%; }
-    .eusee-skeleton-bar:nth-child(2) { height: 70%; }
-    .eusee-skeleton-bar:nth-child(3) { height: 52%; }
-    .eusee-skeleton-bar:nth-child(4) { height: 86%; }
-    .eusee-skeleton-bar:nth-child(5) { height: 62%; }
-    .eusee-skeleton-bar:nth-child(6) { height: 76%; }
-    .eusee-skeleton-bar:nth-child(7) { height: 48%; }
-    .eusee-skeleton-bar:nth-child(8) { height: 68%; }
-
-    @keyframes euseeSkeleton {
-        0% { background-position: 220% 0; }
-        100% { background-position: -220% 0; }
-    }
-
-    @media (max-width: 760px) {
-        .eusee-skeleton-card { padding: 14px; }
-        .eusee-skeleton-title { width: 64%; }
-        .eusee-skeleton-bars {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            height: 220px;
-        }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .eusee-skeleton-title,
-        .eusee-skeleton-line {
-            animation: none !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_chart_skeleton(title="Loading chart...", height=430):
-    """Render a lightweight skeleton placeholder before expensive chart output appears."""
-    skeleton_height = max(int(height or 430), 280)
-    st.markdown(f"""
-    <div class="eusee-skeleton-card" aria-label="{title}" style="min-height:{skeleton_height}px;">
-        <div class="eusee-skeleton-title"></div>
-        <div class="eusee-skeleton-line" style="width:72%;"></div>
-        <div class="eusee-skeleton-line" style="width:54%;"></div>
-        <div class="eusee-skeleton-bars">
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-            <div class="eusee-skeleton-bar"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def apply_accessible_plotly_layout(fig, height=None, legend_orientation=None):
-    """Apply contrast-safe fonts, hover labels, colorway, and compact legends to Plotly figures."""
-    if fig is None:
-        return fig
-
-    try:
-        current_height = fig.layout.height if getattr(fig, "layout", None) else None
-        fig.update_layout(
-            height=height or current_height,
-            colorway=EUSEE_CHART_COLORS,
-            font=dict(
-                family="Arial, sans-serif",
-                size=12,
-                color=EUSEE_COLORS["text"],
-            ),
-            hoverlabel=dict(
-                bgcolor="#FFFFFF",
-                bordercolor=EUSEE_COLORS["border"],
-                font=dict(color=EUSEE_COLORS["text"], size=12),
-            ),
-        )
-    except Exception:
-        pass
-
-    try:
-        existing_legend = fig.layout.legend.to_plotly_json() if fig.layout.legend else {}
-        if legend_orientation:
-            existing_legend["orientation"] = legend_orientation
-        existing_legend.update({
-            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.90)"),
-            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.75)"),
-            "borderwidth": existing_legend.get("borderwidth", 1),
-            "font": dict(size=10, family="Arial, sans-serif", color=EUSEE_COLORS["text"]),
-            "itemsizing": existing_legend.get("itemsizing", "trace"),
-            "itemwidth": min(int(existing_legend.get("itemwidth", 30) or 30), 30),
-            "tracegroupgap": 2,
-        })
-        fig.update_layout(legend=existing_legend)
-    except Exception:
-        pass
-
-    try:
-        fig.update_xaxes(
-            automargin=True,
-            tickfont=dict(size=10, color=EUSEE_COLORS["text"]),
-            title_font=dict(size=12, color=EUSEE_COLORS["text"]),
-            gridcolor="#EEF0F4",
-        )
-        fig.update_yaxes(
-            automargin=True,
-            tickfont=dict(size=10, color=EUSEE_COLORS["text"]),
-            title_font=dict(size=12, color=EUSEE_COLORS["text"]),
-            gridcolor="#EEF0F4",
-        )
-    except Exception:
-        pass
-
-    return fig
-
-
-def render_plotly_chart_with_skeleton(fig, *, key=None, height=430, config=None, legend_bottom=False):
-    """Render Plotly charts with a fast skeleton placeholder and WCAG-safe styling."""
-    chart_slot = st.empty()
-    with chart_slot.container():
-        render_chart_skeleton("Loading chart...", height=height)
-
-    try:
-        fig = apply_responsive_plotly_layout(fig, legend_bottom=legend_bottom)
-    except Exception:
-        pass
-
-    fig = apply_accessible_plotly_layout(fig, height=height)
-    chart_slot.empty()
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-        key=key,
-        config=config or {"displayModeBar": False, "responsive": True},
-    )
-
-
-inject_accessibility_and_skeleton_css()
 
 
 # ---------------- FINAL RESPONSIVE OVERRIDES FOR KPI / SIDEBAR / HEADER ----------------
@@ -13498,11 +12962,11 @@ def safe_wrap_label(label, axis="y", words_per_line=4):
 
 # ---------------- PROFESSIONAL CHART UX THEME ----------------
 CHART_COLORS = {
-    "Positive": "#008CAA",
-    "Postive": "#008CAA",
-    "Negative": "#660094",
-    "Context to watch": "#B54708",
-    "Default": "#344054",
+    "Positive": "#660094",
+    "Postive": "#660094",
+    "Negative": "#FFDB58",
+    "Context to watch": "#008CAA",
+    "Default": "#FFDB58",
 }
 
 CHART_FONT = "Inter, Arial, sans-serif"
@@ -18303,7 +17767,7 @@ AI_COLOR_PRESETS = {
 # These palettes are used by single-variable charts, comparison charts, heatmaps,
 # legends and chart previews so dashboard users can build publication-ready plots.
 AI_PLOT_PALETTES = {
-    "EU SEE brand — Purple / Teal / Accessible amber": ["#660094", "#008CAA", "#B54708", "#B692C8", "#2D0055", "#00A6C8", "#F79009", "#344054"],
+    "EU SEE brand — Purple / Teal / Gold": ["#660094", "#008CAA", "#FFDB58", "#B692C8", "#2D0055", "#00A6C8", "#F79009", "#344054"],
     "Executive muted — Slate / Gray": ["#344054", "#667085", "#98A2B3", "#475467", "#101828", "#D0D5DD", "#EAECF0", "#F2F4F7"],
     "Risk signal — Red / Amber / Green": ["#B42318", "#F79009", "#FFDB58", "#067647", "#008CAA", "#660094", "#475467", "#98A2B3"],
     "Office professional — Blue / Orange": ["#4472C4", "#ED7D31", "#A5A5A5", "#FFC000", "#5B9BD5", "#70AD47", "#7030A0", "#C00000"],
@@ -20107,7 +19571,7 @@ def _v2_make_comparison_plot(df, x_col, y_col, chart_type="Heatmap", top_x=10, t
         fig = px.bar(comp, x=x_col, y=value_col, color=y_col, barmode="group", text="value_label" if show_values else None, title=title)
         fig.update_xaxes(tickangle=-35)
     fig = _ai_apply_plot_theme(fig, title, font_size, title_size, color, height, showlegend=True)
-    fig.update_layout(colorway=[color, secondary_color, "#B54708", "#D92D20", "#039855", "#1570EF", "#F79009", "#344054"])
+    fig.update_layout(colorway=[color, secondary_color, "#FFDB58", "#D92D20", "#039855", "#1570EF", "#F79009", "#344054"])
     return fig, comp
 
 
@@ -22360,7 +21824,7 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                render_plotly_chart_with_skeleton(out["fig"], key="v2_pop_smart_plot", height=470)
+                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
                     title="AI graph interpretation",
