@@ -487,8 +487,8 @@ def inject_final_responsive_overrides():
         transform: none !important;
     }
     .eusee-kpi-card {
-        height: auto !important;
-        min-height: 172px !important;
+        height: 190px !important;
+        min-height: 190px !important;
         overflow: visible !important;
     }
     .eusee-kpi-note {
@@ -506,12 +506,12 @@ def inject_final_responsive_overrides():
         grid-template-columns: 10px minmax(56px, 1fr) 44px 44px !important;
     }
     @media (max-width: 1200px) {
-        .eusee-kpi-card { min-height: 188px !important; }
+        .eusee-kpi-card { height: 200px !important; min-height: 200px !important; }
         .eusee-donut-layout { grid-template-columns: 68px minmax(0, 1fr) !important; gap: 7px !important; }
         .eusee-donut { width: 66px !important; height: 66px !important; }
     }
-    @media (max-width: 900px) {
-        .eusee-kpi-card { min-height: auto !important; }
+    @media (max-width: 640px) {
+        .eusee-kpi-card { height: auto !important; min-height: 178px !important; }
         .eusee-donut-layout { grid-template-columns: 82px minmax(0, 1fr) !important; }
         .eusee-donut { width: 76px !important; height: 76px !important; }
     }
@@ -4658,12 +4658,12 @@ def inject_chart_floating_tip_css():
 inject_chart_floating_tip_css()
 
 
-# ---------------- FULL TAB RESPONSIVENESS + LEGEND READABILITY PATCH ----------------
+# ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
 def inject_full_tab_responsive_css():
-    """Make all Streamlit tabs, chart containers, KPI cards and data panels responsive."""
+    """Responsive shell that stacks tab content only on small screens and preserves chart legend placement."""
     st.markdown("""
     <style>
-    /* ---------- Streamlit tab shell ---------- */
+    /* ---------- Streamlit tab shell: keep desktop/tablet layouts intact ---------- */
     div[data-testid="stTabs"] {
         width: 100% !important;
         max-width: 100% !important;
@@ -4672,10 +4672,11 @@ def inject_full_tab_responsive_css():
 
     div[data-testid="stTabs"] div[role="tablist"] {
         display: flex !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 8px !important;
         border-bottom: 1px solid #E6E8EF !important;
         overflow-x: auto !important;
+        overflow-y: hidden !important;
         padding-bottom: 6px !important;
         scrollbar-width: thin !important;
     }
@@ -4685,6 +4686,7 @@ def inject_full_tab_responsive_css():
         border-radius: 999px !important;
         padding: 8px 14px !important;
         white-space: nowrap !important;
+        flex: 0 0 auto !important;
         background: #FFFFFF !important;
         border: 1px solid #E6E8EF !important;
         color: #344054 !important;
@@ -4705,7 +4707,7 @@ def inject_full_tab_responsive_css():
         padding-top: 12px !important;
     }
 
-    /* ---------- Universal responsive content ---------- */
+    /* ---------- Universal containment without forcing desktop columns to stack ---------- */
     .main .block-container,
     .element-container,
     div[data-testid="stVerticalBlock"],
@@ -4719,7 +4721,7 @@ def inject_full_tab_responsive_css():
         overflow: visible !important;
     }
 
-    /* ---------- Plotly: prevent clipping and allow legend space ---------- */
+    /* ---------- Plotly: responsive legends without changing legend location ---------- */
     div[data-testid="stPlotlyChart"],
     .stPlotlyChart,
     .js-plotly-plot,
@@ -4733,15 +4735,23 @@ def inject_full_tab_responsive_css():
 
     .js-plotly-plot .legend text {
         font-family: Arial, sans-serif !important;
-        font-size: 11px !important;
+        font-size: clamp(9px, 1.1vw, 11px) !important;
     }
 
-    /* ---------- KPI cards: never hide descriptions ---------- */
+    .js-plotly-plot .legendtoggle {
+        cursor: pointer !important;
+    }
+
+    /* ---------- KPI cards: equal height and visible descriptions ---------- */
     .eusee-kpi-card {
-        height: auto !important;
-        min-height: 172px !important;
+        height: 190px !important;
+        min-height: 190px !important;
+        max-height: none !important;
         overflow: visible !important;
         gap: 8px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
     }
 
     .eusee-kpi-note {
@@ -4749,12 +4759,14 @@ def inject_full_tab_responsive_css():
         white-space: normal !important;
         overflow: visible !important;
         text-overflow: unset !important;
-        line-height: 1.35 !important;
+        line-height: 1.32 !important;
+        min-height: 28px !important;
     }
 
     .eusee-donut-layout {
-        grid-template-columns: minmax(72px, 82px) minmax(0, 1fr) !important;
+        grid-template-columns: minmax(70px, 78px) minmax(0, 1fr) !important;
         align-items: center !important;
+        min-width: 0 !important;
     }
 
     .eusee-breakdown-row {
@@ -4778,7 +4790,7 @@ def inject_full_tab_responsive_css():
         max-width: 100% !important;
     }
 
-    /* ---------- Tablet breakpoint ---------- */
+    /* ---------- Tablet: preserve side-by-side layout where Streamlit columns fit ---------- */
     @media (max-width: 1100px) {
         .main .block-container {
             padding-left: 1rem !important;
@@ -4788,10 +4800,25 @@ def inject_full_tab_responsive_css():
         div[data-testid="stTabs"] div[role="tablist"] {
             gap: 6px !important;
         }
+
+        .eusee-kpi-card {
+            height: 200px !important;
+            min-height: 200px !important;
+        }
+
+        .eusee-donut-layout {
+            grid-template-columns: 68px minmax(0, 1fr) !important;
+            gap: 7px !important;
+        }
+
+        .eusee-donut {
+            width: 66px !important;
+            height: 66px !important;
+        }
     }
 
-    /* ---------- Mobile/tablet: stack every Streamlit column inside tabs ---------- */
-    @media (max-width: 900px) {
+    /* ---------- Small screens only: stack Streamlit columns ---------- */
+    @media (max-width: 640px) {
         div[data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
             gap: 0.8rem !important;
@@ -4805,35 +4832,31 @@ def inject_full_tab_responsive_css():
         }
 
         div[data-testid="stTabs"] button[role="tab"] {
-            font-size: 12px !important;
+            font-size: 11.5px !important;
             padding: 7px 11px !important;
         }
 
         .eusee-kpi-card {
-            min-height: auto !important;
+            height: auto !important;
+            min-height: 178px !important;
             padding: 13px 14px 12px 14px !important;
         }
 
         .eusee-donut-layout {
             grid-template-columns: 82px minmax(0, 1fr) !important;
         }
+
+        .eusee-donut {
+            width: 76px !important;
+            height: 76px !important;
+        }
     }
 
-    /* ---------- Small phone breakpoint ---------- */
-    @media (max-width: 560px) {
+    /* ---------- Very small phones ---------- */
+    @media (max-width: 430px) {
         .main .block-container {
             padding-left: 0.7rem !important;
             padding-right: 0.7rem !important;
-        }
-
-        div[data-testid="stTabs"] div[role="tablist"] {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-        }
-
-        div[data-testid="stTabs"] button[role="tab"] {
-            flex: 0 0 auto !important;
-            font-size: 11.5px !important;
         }
 
         .eusee-donut-layout {
@@ -4854,8 +4877,8 @@ def inject_full_tab_responsive_css():
     """, unsafe_allow_html=True)
 
 
-def apply_responsive_plotly_layout(fig, *, legend_bottom=True):
-    """Standardize Plotly sizing and move legends away from chart areas."""
+def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
+    """Make Plotly charts responsive while preserving each chart's original legend location."""
     if fig is None:
         return fig
 
@@ -4864,7 +4887,6 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=True):
     except Exception:
         current_margin = {}
 
-    # Make every chart autosize and reserve enough room for wrapped legends.
     try:
         fig.update_layout(
             autosize=True,
@@ -4873,8 +4895,8 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=True):
             margin=dict(
                 l=max(int(current_margin.get("l", 40) or 40), 36),
                 r=max(int(current_margin.get("r", 24) or 24), 24),
-                t=max(int(current_margin.get("t", 60) or 60), 64),
-                b=max(int(current_margin.get("b", 92) or 92), 104),
+                t=max(int(current_margin.get("t", 50) or 50), 52),
+                b=max(int(current_margin.get("b", 44) or 44), 48),
             ),
             uniformtext_minsize=9,
             uniformtext_mode="hide",
@@ -4882,27 +4904,22 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=True):
     except Exception:
         pass
 
-    # Horizontal bottom legends prevent overlap with bars/maps/heatmaps in narrow containers.
+    # Preserve existing x/y/orientation. Only make legend text and boxes adaptive.
     try:
-        fig.update_layout(
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.22,
-                xanchor="center",
-                x=0.5,
-                bgcolor="rgba(255,255,255,0.88)",
-                bordercolor="rgba(230,232,239,0.90)",
-                borderwidth=1,
-                font=dict(size=10, family="Arial"),
-                itemsizing="constant",
-                tracegroupgap=6,
-            )
-        )
+        existing_legend = fig.layout.legend.to_plotly_json() if fig.layout.legend else {}
+        existing_legend.update({
+            "bgcolor": existing_legend.get("bgcolor", "rgba(255,255,255,0.72)"),
+            "bordercolor": existing_legend.get("bordercolor", "rgba(230,232,239,0.75)"),
+            "borderwidth": existing_legend.get("borderwidth", 0),
+            "font": dict(size=10, family="Arial"),
+            "itemsizing": "constant",
+            "tracegroupgap": existing_legend.get("tracegroupgap", 4),
+        })
+        fig.update_layout(legend=existing_legend)
     except Exception:
         pass
 
-    # Newer Plotly versions support entry wrapping controls; harmlessly skip otherwise.
+    # Wrap/truncate long legend entries when supported, without relocating the legend.
     try:
         fig.update_layout(legend_entrywidth=120, legend_entrywidthmode="pixels")
     except Exception:
@@ -4917,7 +4934,6 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=True):
     return fig
 
 inject_full_tab_responsive_css()
-
 
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
