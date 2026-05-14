@@ -11254,7 +11254,7 @@ def render_classic_filter_header():
     <div class="classic-filter-header">
         <div class="classic-filter-eyebrow">Dashboard controls</div>
         <div class="classic-filter-title">🌍 Global Filters</div>
-        <div class="classic-filter-note">Refine the analytical view by geography, alert characteristics, enabling principle, and time period.</div>
+        <div class="classic-filter-note">Use the filters to narrow the data by region, country, alert type, enabling principle, and time period if needed.</div>
     </div>
     """, unsafe_allow_html=True)
 
