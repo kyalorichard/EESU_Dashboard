@@ -10741,7 +10741,7 @@ def render_feedback_callout():
         .eusee-feedback-linknote {{ color:#8A6AA0; font-size:9.5px; font-weight:800; line-height:1.1; text-align:right; }}
         #eusee-feedback-tab {{ position:fixed; left:24px; top:86px; z-index:2147483000; display:none; align-items:center; gap:7px; padding:8px 11px; border-radius:999px; border:1px solid rgba(102,0,148,.16); background:linear-gradient(90deg,#FFFFFF 0%,#FCFAFF 100%); color:#2D0055; box-shadow:0 12px 26px rgba(17,24,39,.14); font-family:Arial,sans-serif; font-size:11px; font-weight:950; cursor:pointer; user-select:none; }}
         #eusee-feedback-tab:hover {{ background:#F4EAF8; transform:translateY(-1px); }}
-        @media (max-width:700px) {{ #eusee-feedback-callout {{ left:12px !important; top:76px !important; width:calc(100vw - 24px); }} #eusee-feedback-tab {{ left:12px !important; top:76px !important; }} .eusee-feedback-linknote {{ display:none; }} }}
+        @media (max-width:700px) {{ #eusee-feedback-callout {{ left:10px !important; top:auto !important; bottom:14px !important; width:calc(100vw - 20px); max-height:42vh; overflow:auto; }} #eusee-feedback-tab {{ left:10px !important; top:auto !important; bottom:14px !important; }} .eusee-feedback-linknote {{ display:none; }} .eusee-feedback-body {{ padding:10px 12px; }} .eusee-feedback-text {{ font-size:10.5px; }} }}
       `;
 
       const callout = doc.createElement("div");
@@ -10808,8 +10808,427 @@ def render_feedback_callout():
     </script>
     """, height=0, width=0)
 
+
+
+# ---------------- FULL DEVICE RESPONSIVE LAYOUT HARDENING ----------------
+def inject_full_device_responsive_css():
+    """Final responsive override layer for desktop, laptop, tablet and phone.
+
+    This is intentionally CSS-only. It preserves all Streamlit callbacks,
+    permissions, filters, charts, chatbot logic, admin logic and exports.
+    """
+    st.markdown("""
+    <style>
+    /* ============================================================
+       FULL RESPONSIVE APPLICATION SHELL
+       ============================================================ */
+    :root {
+        --eusee-safe-bottom: 108px;
+        --eusee-mobile-safe-bottom: 32px;
+        --eusee-content-max: 1500px;
+        --eusee-card-radius: 18px;
+        --eusee-card-shadow: 0 10px 24px rgba(16,24,40,.065);
+    }
+
+    *, *::before, *::after {
+        box-sizing: border-box !important;
+    }
+
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    .main .block-container {
+        width: 100% !important;
+        max-width: var(--eusee-content-max) !important;
+        padding-left: clamp(0.75rem, 1.4vw, 1.6rem) !important;
+        padding-right: clamp(0.75rem, 1.4vw, 1.6rem) !important;
+        padding-bottom: var(--eusee-safe-bottom) !important;
+    }
+
+    /* Streamlit vertical rhythm and rerun stability */
+    div[data-testid="stVerticalBlock"] {
+        gap: clamp(0.45rem, 0.9vw, 0.9rem) !important;
+    }
+
+    div[data-testid="stHorizontalBlock"] {
+        gap: clamp(0.55rem, 1vw, 1rem) !important;
+        align-items: stretch !important;
+    }
+
+    div[data-testid="column"] {
+        min-width: 0 !important;
+    }
+
+    /* All visual objects stay within the viewport */
+    img, svg, canvas, video, iframe {
+        max-width: 100% !important;
+    }
+
+    iframe {
+        border: 0 !important;
+    }
+
+    /* Inputs/selectors adapt on smaller screens */
+    input, textarea, [data-baseweb="select"] > div, [data-baseweb="input"] {
+        max-width: 100% !important;
+    }
+
+    [data-baseweb="popover"], div[role="listbox"] {
+        max-width: min(92vw, 520px) !important;
+        z-index: 2147481000 !important;
+    }
+
+    /* ============================================================
+       RESPONSIVE CARDS / KPI / PANELS
+       ============================================================ */
+    .eusee-kpi-card,
+    .executive-table-shell,
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-filter-footer,
+    .eusee-access-card,
+    .negative-filter-shell,
+    .data-preview-toolbar,
+    div[data-testid="stExpander"] {
+        max-width: 100% !important;
+    }
+
+    .eusee-kpi-card {
+        height: auto !important;
+        min-height: 150px !important;
+    }
+
+    .eusee-kpi-value {
+        font-size: clamp(24px, 3.1vw, 36px) !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .eusee-donut-layout {
+        grid-template-columns: minmax(64px, 76px) minmax(0, 1fr) !important;
+        width: 100% !important;
+    }
+
+    .eusee-breakdown-row {
+        grid-template-columns: 10px minmax(0, 1fr) minmax(38px, auto) minmax(36px, auto) !important;
+    }
+
+    .executive-table-header,
+    .executive-table-status,
+    .data-preview-toolbar,
+    .eusee-feedback-topbar {
+        flex-wrap: wrap !important;
+    }
+
+    .executive-metric-grid {
+        grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)) !important;
+    }
+
+    /* ============================================================
+       PLOTLY / MAP / CHART CONTAINMENT
+       ============================================================ */
+    .stPlotlyChart,
+    div[data-testid="stPlotlyChart"],
+    .js-plotly-plot,
+    .plot-container,
+    .plotly,
+    .user-select-none.svg-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .js-plotly-plot .plotly .main-svg,
+    .js-plotly-plot .main-svg {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .modebar-container {
+        right: 8px !important;
+        left: auto !important;
+        max-width: calc(100% - 16px) !important;
+        overflow-x: auto !important;
+    }
+
+    /* Floating chart tip cannot block chart interaction on small screens */
+    .eusee-floating-tip-layer {
+        max-width: 100% !important;
+    }
+
+    .eusee-floating-tip-card {
+        max-width: min(360px, calc(100vw - 42px)) !important;
+    }
+
+    /* ============================================================
+       TABLE RESPONSIVENESS
+       ============================================================ */
+    div[data-testid="stDataFrame"],
+    div[data-testid="stTable"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    div[data-testid="stDataFrame"] [data-testid="stDataFrameResizable"] {
+        max-width: 100% !important;
+    }
+
+    /* ============================================================
+       TABS RESPONSIVENESS
+       ============================================================ */
+    div[data-testid="stTabs"] [role="tablist"] {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: thin !important;
+    }
+
+    div[data-testid="stTabs"] [role="tab"] {
+        white-space: nowrap !important;
+        min-width: max-content !important;
+    }
+
+    /* ============================================================
+       SIDEBAR RESPONSIVENESS
+       ============================================================ */
+    section[data-testid="stSidebar"] {
+        max-width: min(420px, 92vw) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button,
+    section[data-testid="stSidebar"] [data-testid="stDownloadButton"] > button {
+        width: 100% !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        max-width: 100% !important;
+    }
+
+    /* ============================================================
+       CHATBOT / SMART OUTPUT RESPONSIVENESS
+       ============================================================ */
+    .v2-smart-footer,
+    .chatbot-shell,
+    .chatbot-panel,
+    .ai-copilot-panel,
+    .eusee-ai-panel,
+    .eusee-chat-panel {
+        max-width: 100% !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    textarea {
+        resize: vertical !important;
+    }
+
+    /* ============================================================
+       RESPONSIVE BREAKPOINTS
+       ============================================================ */
+    @media (max-width: 1200px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        div[data-testid="stTabs"] [role="tablist"] {
+            grid-template-columns: repeat(4, minmax(max-content, 1fr)) !important;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .main .block-container {
+            padding-top: 0.25rem !important;
+            padding-bottom: 5.5rem !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+
+        div[data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+
+        .eusee-kpi-card {
+            min-height: 132px !important;
+        }
+
+        .executive-table-header,
+        .executive-table-status,
+        .data-preview-toolbar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+        }
+
+        .data-preview-pill-row {
+            justify-content: flex-start !important;
+        }
+
+        div[data-testid="stTabs"] [role="tablist"] {
+            display: flex !important;
+            position: sticky !important;
+            top: 0 !important;
+            gap: 8px !important;
+            padding-bottom: 8px !important;
+            background: #FFFFFF !important;
+        }
+
+        div[data-testid="stTabs"] [role="tab"] {
+            font-size: 12px !important;
+            min-height: 40px !important;
+            padding: 9px 11px !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        :root {
+            --eusee-safe-bottom: var(--eusee-mobile-safe-bottom);
+        }
+
+        .main .block-container {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            padding-bottom: 2.25rem !important;
+        }
+
+        .animated-title {
+            font-size: clamp(27px, 9vw, 34px) !important;
+            line-height: 1.08 !important;
+        }
+
+        .animated-divider {
+            width: 34% !important;
+            max-width: 110px !important;
+        }
+
+        .animated-subtitle {
+            font-size: 12.5px !important;
+            line-height: 1.45 !important;
+            margin-bottom: 10px !important;
+        }
+
+        .last-updated-badge {
+            width: 100% !important;
+            border-radius: 15px !important;
+            align-items: flex-start !important;
+        }
+
+        .last-updated-copy {
+            display: block !important;
+        }
+
+        .eusee-kpi-card {
+            min-height: auto !important;
+            padding: 12px !important;
+        }
+
+        .eusee-donut-layout {
+            grid-template-columns: 1fr !important;
+            justify-items: start !important;
+        }
+
+        .eusee-breakdown-list {
+            width: 100% !important;
+        }
+
+        section[data-testid="stSidebar"] {
+            width: 90vw !important;
+            max-width: 90vw !important;
+        }
+
+        div[data-testid="stDataFrame"] {
+            max-height: 70vh !important;
+        }
+
+        .eusee-floating-tip-layer {
+            display: none !important;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .main .block-container {
+            padding-left: 0.55rem !important;
+            padding-right: 0.55rem !important;
+        }
+
+        .animated-title {
+            font-size: 27px !important;
+        }
+
+        .classic-filter-header,
+        .classic-filter-status,
+        .sidebar-filter-footer,
+        .eusee-access-card,
+        .executive-table-shell,
+        div[data-testid="stExpander"] {
+            border-radius: 14px !important;
+        }
+
+        .eusee-kpi-top,
+        .eusee-feedback-topbar-left,
+        .last-updated-badge {
+            gap: 7px !important;
+        }
+
+        .eusee-kpi-icon,
+        .last-updated-icon {
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+        }
+
+        .eusee-breakdown-row {
+            grid-template-columns: 9px minmax(0, 1fr) auto !important;
+        }
+
+        .eusee-breakdown-count {
+            display: none !important;
+        }
+
+        .eusee-breakdown-bar {
+            grid-column: 2 / 4 !important;
+        }
+
+        .stButton > button,
+        [data-testid="stDownloadButton"] > button {
+            width: 100% !important;
+            min-height: 40px !important;
+        }
+
+        [data-baseweb="tag"] {
+            font-size: 9px !important;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .animated-title {
+            font-size: 24px !important;
+        }
+
+        .animated-subtitle,
+        .eusee-kpi-note,
+        .executive-table-subtitle {
+            font-size: 11px !important;
+        }
+
+        div[data-testid="stTabs"] [role="tab"] {
+            font-size: 11px !important;
+            padding: 8px 9px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # ---------------- FLOATING FEEDBACK CALLOUT ----------------
 render_feedback_callout()
+inject_full_device_responsive_css()
 
 # ---------------- RESPONSIVE FOOTER ----------------
 def render_responsive_footer():
@@ -10836,6 +11255,7 @@ def render_responsive_footer():
 
     components.html(f"""
     <style>
+    html, body {{ margin:0; padding:0; overflow:hidden; }}
     .eusee-footer {{
         position: fixed;
         left: 0;
