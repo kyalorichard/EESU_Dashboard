@@ -367,30 +367,44 @@ def _auth_page_css():
             color: #6f667a;
             font-size: 13px;
             line-height: 1.55;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
         }
 
         .mode-card {
             display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #ece7f2;
+            align-items: flex-end;
+            gap: 24px;
+            margin-bottom: 22px;
+            border-bottom: 1px solid #e9e3f1;
+            padding-bottom: 0;
         }
 
         .mode-active {
+            position: relative;
             font-family: Arial, sans-serif;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 800;
             color: #231942;
-            background: #f4eef9;
-            border: 1px solid #e5d8f1;
-            border-radius: 999px;
-            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0 2px 12px 2px;
             box-shadow: none;
             cursor: default;
             pointer-events: none;
             user-select: none;
+            letter-spacing: 0.1px;
+        }
+
+        .mode-active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 100%;
+            height: 3px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #660094, #008CAA);
         }
 
         .auth-note {
@@ -681,7 +695,7 @@ def _render_premium_auth_page():
                 st.markdown(
                     """
                     <div class="mode-card">
-                        <div class="mode-active">Current view: Sign in</div>
+                        <div class="mode-active">Sign in</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -692,7 +706,7 @@ def _render_premium_auth_page():
                 st.markdown(
                     """
                     <div class="mode-card">
-                        <div class="mode-active">Current view: Create account</div>
+                        <div class="mode-active">Create account</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -703,7 +717,7 @@ def _render_premium_auth_page():
                 st.markdown(
                     """
                     <div class="mode-card">
-                        <div class="mode-active">Current view: Password reset</div>
+                        <div class="mode-active">Password reset</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
