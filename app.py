@@ -284,11 +284,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         <div class="executive-table-shell">
             <div class="executive-table-header">
                 <div>
-                    <div class="executive-table-eyebrow">Executive analytics table</div>
-                    <div class="executive-table-title">Filtered records preview</div>
-                    <div class="executive-table-subtitle">
-                        Search, inspect, and review the records represented in the active dashboard view.
-                    </div>
+                    <div class="executive-table-title">Review a sample of the filtered data and download the full dataset based on the filters currently applied</div>
                 </div>
                 <div class="executive-table-badge">Live filtered view</div>
             </div>
@@ -11295,12 +11291,8 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         st.markdown("""
         <div class="executive-table-shell">
             <div class="executive-table-header">
-                <div>
-                    <div class="executive-table-eyebrow">Executive analytics table</div>
-                    <div class="executive-table-title">Filtered records preview</div>
-                    <div class="executive-table-subtitle">
-                        Search, inspect, and review the records represented in the active dashboard view.
-                    </div>
+                <div>                    
+                    <div class="executive-table-title">Review a sample of the filtered data and download the full dataset based on the filters currently applied</div>                   
                 </div>
                 <div class="executive-table-badge">Live filtered view</div>
             </div>
