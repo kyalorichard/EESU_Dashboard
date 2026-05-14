@@ -1283,8 +1283,82 @@ def inject_professional_sidebar_filter_css():
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=400)
 
+
+
 # Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
-AI_ASSISTANT_SLOT = st.sidebar.container()
+#AI_ASSISTANT_SLOT = st.sidebar.container()
+
+# ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
+st.sidebar.markdown("""
+<style>
+.eusee-access-card {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
+    border: 1px solid rgba(102, 0, 148, 0.16);
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.07);
+    font-family: Arial, sans-serif;
+}
+.eusee-access-eyebrow {
+    font-size: 9px;
+    font-weight: 900;
+    color: #660094;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.eusee-access-title {
+    font-size: 14px;
+    font-weight: 900;
+    color: #23152F;
+}
+.eusee-access-note {
+    font-size: 11px;
+    color: #667085;
+    margin-top: 4px;
+}
+.eusee-access-status {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #EFFBFE;
+    color: #008CAA;
+    font-size: 10px;
+    font-weight: 900;
+    width: fit-content;
+}
+</style>
+""", unsafe_allow_html=True)
+
+if is_authenticated():
+    st.sidebar.markdown(f"""
+    <div class="eusee-access-card">
+        <div class="eusee-access-eyebrow">Privileged access</div>
+        <div class="eusee-access-title">🔐 Secure session</div>
+        <div class="eusee-access-note">Signed in as <strong>{st.session_state.get('name','User')}</strong></div>
+        <div class="eusee-access-status">Access enabled</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.sidebar.button("Logout", use_container_width=True):
+        from auth import logout
+        logout()
+
+else:
+    st.sidebar.markdown("""
+    <div class="eusee-access-card">
+        <div class="eusee-access-eyebrow">Privileged access</div>
+        <div class="eusee-access-title">🔐 Secure access</div>
+        <div class="eusee-access-note">
+            Sign in to access advanced features and analyses available to EUSEE partners.
+        </div>
+        <div class="eusee-access-status">Public mode</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.sidebar.button("🔐 Sign in / Register", use_container_width=True):
+        st.session_state.auth_view = True
+        st.rerun()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
@@ -1479,77 +1553,7 @@ filtered_global = data[
 
 #render_filter_status_card(filtered_global)
 
-# ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
-st.sidebar.markdown("""
-<style>
-.eusee-access-card {
-    margin-top: 14px;
-    padding: 14px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
-    border: 1px solid rgba(102, 0, 148, 0.16);
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.07);
-    font-family: Arial, sans-serif;
-}
-.eusee-access-eyebrow {
-    font-size: 9px;
-    font-weight: 900;
-    color: #660094;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-}
-.eusee-access-title {
-    font-size: 14px;
-    font-weight: 900;
-    color: #23152F;
-}
-.eusee-access-note {
-    font-size: 11px;
-    color: #667085;
-    margin-top: 4px;
-}
-.eusee-access-status {
-    margin-top: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #EFFBFE;
-    color: #008CAA;
-    font-size: 10px;
-    font-weight: 900;
-    width: fit-content;
-}
-</style>
-""", unsafe_allow_html=True)
 
-if is_authenticated():
-    st.sidebar.markdown(f"""
-    <div class="eusee-access-card">
-        <div class="eusee-access-eyebrow">Privileged access</div>
-        <div class="eusee-access-title">🔐 Secure session</div>
-        <div class="eusee-access-note">Signed in as <strong>{st.session_state.get('name','User')}</strong></div>
-        <div class="eusee-access-status">Access enabled</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.sidebar.button("Logout", use_container_width=True):
-        from auth import logout
-        logout()
-
-else:
-    st.sidebar.markdown("""
-    <div class="eusee-access-card">
-        <div class="eusee-access-eyebrow">Privileged access</div>
-        <div class="eusee-access-title">🔐 Secure access</div>
-        <div class="eusee-access-note">
-            Sign in to access advanced features and analyses available to EUSEE partners.
-        </div>
-        <div class="eusee-access-status">Public mode</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.sidebar.button("🔐 Sign in / Register", use_container_width=True):
-        st.session_state.auth_view = True
-        st.rerun()
 
 # ---------------- ADMIN NAVIGATION AFTER LOGIN ----------------
 # Admin users are configured in .streamlit/secrets.toml under [auth].admin_emails.
