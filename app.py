@@ -110,7 +110,28 @@ def inject_classic_dashboard_css():
         --eusee-muted: #667085;
     }
     .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
-    header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; background: transparent !important; }
+    header[data-testid="stHeader"] {
+        height: 48px !important;
+        min-height: 48px !important;
+        background: rgba(247,248,251,0.92) !important;
+        backdrop-filter: blur(10px) !important;
+        border-bottom: 1px solid rgba(230,232,239,0.75) !important;
+        z-index: 999999 !important;
+    }
+    div[data-testid="stToolbar"] { right: 0.75rem !important; }
+    button[data-testid="collapsedControl"],
+    [data-testid="collapsedControl"] {
+        position: fixed !important;
+        top: 10px !important;
+        left: 12px !important;
+        z-index: 1000000 !important;
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 12px !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 6px 18px rgba(16,24,40,.12) !important;
+    }
     div[data-testid="stDecoration"] { display: none !important; }
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
@@ -177,7 +198,39 @@ def inject_classic_dashboard_css():
     .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
     .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
     @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
-    </style>
+    
+
+    /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
+    html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
+    .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
+    [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
+    div[data-testid="column"] { min-width: 0 !important; }
+    .stPlotlyChart, div[data-testid="stPlotlyChart"], .js-plotly-plot, .plot-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+    iframe { max-width: 100% !important; }
+    .animated-title { font-size: clamp(30px, 4vw, 48px) !important; }
+    .animated-subtitle { font-size: clamp(12px, 1.2vw, 14px) !important; }
+    .last-updated-badge { flex-wrap: wrap !important; }
+
+    @media (max-width: 1100px) {
+        .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+        section[data-testid="stSidebar"] { width: min(86vw, 360px) !important; }
+    }
+    @media (max-width: 900px) {
+        div[data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; }
+        .last-updated-badge { width: 100% !important; border-radius: 16px !important; }
+        .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    }
+    @media (max-width: 700px) {
+        .main .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
+        section[data-testid="stSidebar"] { width: 90vw !important; }
+        .stButton > button { width: 100% !important; }
+        div[data-testid="stDataFrame"] { max-height: 70vh !important; overflow: auto !important; }
+    }
+</style>
     """, unsafe_allow_html=True)
 
 
@@ -358,6 +411,183 @@ def render_professional_data_preview(df, title="Summary Data preview", key="summ
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
+
+# ---------------- BLOCKING LOADER FOR FILTER / UI RERUNS ----------------
+def inject_blocking_filter_loader():
+    """
+    Client-side blocking overlay shown immediately when filters/buttons trigger a rerun.
+    This prevents double-clicks and accidental interactions while Streamlit recomputes.
+    """
+    components.html("""
+    <script>
+    (function(){
+        const parentDoc = window.parent.document;
+        const overlayId = 'eusee-blocking-loader-overlay';
+
+        function ensureOverlay(){
+            let overlay = parentDoc.getElementById(overlayId);
+            if (!overlay){
+                overlay = parentDoc.createElement('div');
+                overlay.id = overlayId;
+                overlay.innerHTML = `
+                    <div class="eusee-loader-card">
+                        <div class="eusee-loader-spinner"></div>
+                        <div class="eusee-loader-title">Updating dashboard</div>
+                        <div class="eusee-loader-note">Please wait while filters and visuals refresh.</div>
+                    </div>`;
+                parentDoc.body.appendChild(overlay);
+            }
+            return overlay;
+        }
+
+        function injectStyles(){
+            if (parentDoc.getElementById('eusee-blocking-loader-style')) return;
+            const style = parentDoc.createElement('style');
+            style.id = 'eusee-blocking-loader-style';
+            style.innerHTML = `
+                #${overlayId}{
+                    position:fixed;
+                    inset:0;
+                    display:none;
+                    align-items:center;
+                    justify-content:center;
+                    background:rgba(247,248,251,.72);
+                    backdrop-filter:blur(8px);
+                    -webkit-backdrop-filter:blur(8px);
+                    z-index:2147483647;
+                    pointer-events:auto;
+                    cursor:progress;
+                }
+                #${overlayId}.active{display:flex;}
+                #${overlayId} .eusee-loader-card{
+                    width:min(360px,calc(100vw - 32px));
+                    background:#ffffff;
+                    border:1px solid #E6E8EF;
+                    border-radius:20px;
+                    box-shadow:0 24px 70px rgba(16,24,40,.24);
+                    padding:24px 22px;
+                    text-align:center;
+                    font-family:Arial,sans-serif;
+                }
+                #${overlayId} .eusee-loader-spinner{
+                    width:42px;height:42px;margin:0 auto 12px auto;
+                    border-radius:50%;
+                    border:4px solid #F4EAF8;
+                    border-top-color:#660094;
+                    animation:euseeSpin .75s linear infinite;
+                }
+                #${overlayId} .eusee-loader-title{
+                    font-size:15px;font-weight:950;color:#23152F;margin-bottom:5px;
+                }
+                #${overlayId} .eusee-loader-note{
+                    font-size:12px;font-weight:700;color:#667085;line-height:1.35;
+                }
+                @keyframes euseeSpin{to{transform:rotate(360deg);}}
+            `;
+            parentDoc.head.appendChild(style);
+        }
+
+        function showOverlay(){
+            injectStyles();
+            const overlay = ensureOverlay();
+            overlay.classList.add('active');
+        }
+
+        function hideOverlay(){
+            const overlay = parentDoc.getElementById(overlayId);
+            if (overlay) overlay.classList.remove('active');
+        }
+
+        injectStyles();
+        ensureOverlay();
+        setTimeout(hideOverlay, 350);
+
+        if (!parentDoc.__euseeBlockingLoaderBound){
+            parentDoc.__euseeBlockingLoaderBound = true;
+            parentDoc.addEventListener('click', function(e){
+                const target = e.target;
+                const interactive = target.closest(
+                    'button, [role="option"], [data-baseweb="select"], input[type="checkbox"], input[type="radio"], .stDownloadButton button'
+                );
+                if (!interactive) return;
+                const text = (interactive.innerText || '').toLowerCase();
+                if (text.includes('download')) return;
+                showOverlay();
+                setTimeout(hideOverlay, 12000);
+            }, true);
+
+            parentDoc.addEventListener('change', function(e){
+                const target = e.target;
+                if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')){
+                    showOverlay();
+                    setTimeout(hideOverlay, 12000);
+                }
+            }, true);
+        }
+    })();
+    </script>
+    """, height=0)
+
+inject_blocking_filter_loader()
+
+
+# ---------------- FINAL RESPONSIVE OVERRIDES FOR KPI / SIDEBAR / HEADER ----------------
+def inject_final_responsive_overrides():
+    st.markdown("""
+    <style>
+    header[data-testid="stHeader"] {
+        height: 48px !important;
+        min-height: 48px !important;
+        background: rgba(247,248,251,.94) !important;
+        backdrop-filter: blur(10px) !important;
+        border-bottom: 1px solid rgba(230,232,239,.8) !important;
+        z-index: 999999 !important;
+    }
+    button[data-testid="collapsedControl"], [data-testid="collapsedControl"] {
+        position: fixed !important;
+        top: 10px !important;
+        left: 12px !important;
+        z-index: 1000000 !important;
+        transform: none !important;
+    }
+    .eusee-kpi-card {
+        height: auto !important;
+        min-height: 172px !important;
+        overflow: visible !important;
+    }
+    .eusee-kpi-note {
+        display: block !important;
+        overflow: visible !important;
+        white-space: normal !important;
+        line-height: 1.28 !important;
+        margin-top: 8px !important;
+    }
+    .eusee-donut-layout {
+        grid-template-columns: 76px minmax(0, 1fr) !important;
+        overflow: visible !important;
+    }
+    .eusee-breakdown-row {
+        grid-template-columns: 10px minmax(56px, 1fr) 44px 44px !important;
+    }
+    @media (max-width: 1200px) {
+        .eusee-kpi-card { min-height: 188px !important; }
+        .eusee-donut-layout { grid-template-columns: 68px minmax(0, 1fr) !important; gap: 7px !important; }
+        .eusee-donut { width: 66px !important; height: 66px !important; }
+    }
+    @media (max-width: 900px) {
+        .eusee-kpi-card { min-height: auto !important; }
+        .eusee-donut-layout { grid-template-columns: 82px minmax(0, 1fr) !important; }
+        .eusee-donut { width: 76px !important; height: 76px !important; }
+    }
+    @media (max-width: 520px) {
+        .eusee-donut-layout { grid-template-columns: 1fr !important; justify-items: center !important; }
+        .eusee-breakdown-list { width: 100% !important; }
+        .eusee-breakdown-row { grid-template-columns: 10px minmax(80px, 1fr) 44px 44px !important; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_final_responsive_overrides()
 
 # ---------------- AUTH ROUTING STATE ----------------
 # Dashboard opens normally. When the user clicks Sign in / Access,
@@ -1462,8 +1692,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     st.markdown("""
     <style>
     .eusee-kpi-card {
-        height: 150px;
-        min-height: 150px;
+        height: auto;
+        min-height: 172px;
         background: radial-gradient(circle at 100% 0%, rgba(102,0,148,0.055), transparent 34%), linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
         border: 1px solid rgba(102, 0, 148, 0.115);
         border-radius: 17px;
@@ -1471,7 +1701,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         padding: 11px 14px 10px 14px;
         margin: 2px 0 8px 0;
         box-sizing: border-box;
-        overflow: hidden;
+        overflow: visible;
         font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
@@ -1674,8 +1904,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     st.markdown("""
     <style>
     .negintel-card {
-        height: 150px;
-        min-height: 150px;
+        height: auto;
+        min-height: 172px;
         background: radial-gradient(circle at 100% 0%, rgba(180,35,24,0.06), transparent 35%), linear-gradient(180deg, #FFFFFF 0%, #FFFCFB 100%);
         border: 1px solid rgba(180, 35, 24, 0.12);
         border-radius: 17px;
@@ -1683,7 +1913,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         padding: 11px 14px 10px 14px;
         margin: 2px 0 8px 0;
         box-sizing: border-box;
-        overflow: hidden;
+        overflow: visible;
         font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
