@@ -4657,7 +4657,9 @@ def inject_chart_floating_tip_css():
 
 
 
-inject_chart_floating_tip_css()
+# Floating chart tips are intentionally disabled. Chart guidance is now provided
+# through Plotly-native title info badges and hover interactions.
+# inject_chart_floating_tip_css()
 
 
 # ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
@@ -4955,6 +4957,7 @@ def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
             ),
             uniformtext_minsize=9,
             uniformtext_mode="hide",
+            hovermode="closest",
         )
     except Exception:
         pass
@@ -5293,15 +5296,11 @@ with tab_overview:
             normalize_labels=False
         )
 
-        # Floating interpretation tip overlays the chart without changing layout height.
-        render_chart_floating_tip(
-            message=(
-                "Alerts may be classified under more than one enabling principle "
-                "and can therefore be counted in multiple principles."
-            ),
-            title="Reading this chart",
-            icon="i",
-            container=r1c2,
+        # Standard Plotly-native info badge: replaces the former floating “TIP click” overlay.
+        fig12 = add_chart_info_badge(
+            fig12,
+            "Alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.",
+            chart_width_px=620,
         )
 
         # Add source line if needed
@@ -5545,15 +5544,11 @@ with tab_negative:
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
           
-            # Floating interpretation tip overlays the chart without changing layout height.
-            render_chart_floating_tip(
-                message=(
-                    "Negative alerts may be classified under more than one enabling principle "
-                    "and can therefore be counted in multiple principles."
-                ),
-                title="Reading this chart",
-                icon="i",
-                container=r2c3,
+            # Standard Plotly-native info badge: replaces the former floating “TIP click” overlay.
+            fig23 = add_chart_info_badge(
+                fig23,
+                "Negative alerts may be classified under more than one enabling principle and can therefore be counted in multiple principles.",
+                chart_width_px=500,
             )
 
             # Add source line if needed
@@ -7407,6 +7402,55 @@ def _ai_openai_status():
         "key_preview": f"{api_key[:7]}...{api_key[-4:]}" if api_key else "Not configured",
         "source": source,
     }
+
+
+def render_sidebar_profile_settings(df=None, container=None):
+    """Render compact sidebar profile, access, and AI status in one standard section.
+
+    This consolidates sidebar status messages into a low-noise expander instead
+    of showing large, intrusive info boxes near the filters.
+    """
+    target = container if container is not None else st.sidebar
+    try:
+        status = _ai_openai_status()
+    except Exception:
+        status = {"configured": False, "package_ready": False, "model": "gpt-4o-mini"}
+
+    ai_state = "Online" if status.get("configured") and status.get("package_ready") else "Local mode"
+    model = status.get("model", "gpt-4o-mini")
+    role = get_current_role().title() if callable(get_current_role) else "Guest"
+    email = get_current_email() if callable(get_current_email) else ""
+    records = len(df) if df is not None else 0
+
+    with target.expander("⚙️ Settings / Profile", expanded=False):
+        st.markdown(f"""
+        <div style="
+            background:#FFFFFF;
+            border:1px solid #E6E8EF;
+            border-radius:14px;
+            padding:10px 11px;
+            font-family:Arial,sans-serif;
+            box-shadow:0 4px 12px rgba(16,24,40,.05);
+        ">
+            <div style="font-size:10px;color:#667085;font-weight:900;text-transform:uppercase;letter-spacing:.08em;">Access mode</div>
+            <div style="font-size:13px;color:#23152F;font-weight:950;margin:2px 0 8px 0;">{role}</div>
+            <div style="font-size:10px;color:#667085;font-weight:900;text-transform:uppercase;letter-spacing:.08em;">User</div>
+            <div style="font-size:11px;color:#344054;font-weight:800;margin:2px 0 8px 0;word-break:break-word;">{email or "Public guest"}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+                <div style="background:#F7F8FB;border:1px solid #EEF0F4;border-radius:11px;padding:8px;">
+                    <div style="font-size:10px;color:#667085;font-weight:850;">AI Copilot</div>
+                    <div style="font-size:12px;color:#660094;font-weight:950;">{ai_state}</div>
+                </div>
+                <div style="background:#F7F8FB;border:1px solid #EEF0F4;border-radius:11px;padding:8px;">
+                    <div style="font-size:10px;color:#667085;font-weight:850;">Records</div>
+                    <div style="font-size:12px;color:#660094;font-weight:950;">{records:,}</div>
+                </div>
+            </div>
+            <div style="font-size:10px;color:#667085;font-weight:750;margin-top:8px;line-height:1.3;">
+                Model: {model}. Open the AI Copilot from the floating drawer when advanced analysis is available.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def _ai_test_openai_connection():
@@ -10851,10 +10895,14 @@ def render_ai_assistant_panel(df):
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
+# Compact sidebar profile/settings replaces intrusive sidebar AI status messages.
+try:
+    render_sidebar_profile_settings(filtered_global, container=AI_ASSISTANT_SLOT)
+except Exception:
+    pass
+
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
-else:
-    AI_ASSISTANT_SLOT.info("AI Copilot is disabled for your access level.")
 
 
 
