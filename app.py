@@ -4658,6 +4658,267 @@ def inject_chart_floating_tip_css():
 inject_chart_floating_tip_css()
 
 
+# ---------------- FULL TAB RESPONSIVENESS + LEGEND READABILITY PATCH ----------------
+def inject_full_tab_responsive_css():
+    """Make all Streamlit tabs, chart containers, KPI cards and data panels responsive."""
+    st.markdown("""
+    <style>
+    /* ---------- Streamlit tab shell ---------- */
+    div[data-testid="stTabs"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tablist"] {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        border-bottom: 1px solid #E6E8EF !important;
+        overflow-x: auto !important;
+        padding-bottom: 6px !important;
+        scrollbar-width: thin !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"] {
+        min-height: 38px !important;
+        border-radius: 999px !important;
+        padding: 8px 14px !important;
+        white-space: nowrap !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        color: #344054 !important;
+        font-weight: 850 !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: #660094 !important;
+        background: #F4EAF8 !important;
+        border-color: #E7D4F1 !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        padding-top: 12px !important;
+    }
+
+    /* ---------- Universal responsive content ---------- */
+    .main .block-container,
+    .element-container,
+    div[data-testid="stVerticalBlock"],
+    div[data-testid="stHorizontalBlock"] {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    div[data-testid="column"] {
+        min-width: 0 !important;
+        overflow: visible !important;
+    }
+
+    /* ---------- Plotly: prevent clipping and allow legend space ---------- */
+    div[data-testid="stPlotlyChart"],
+    .stPlotlyChart,
+    .js-plotly-plot,
+    .plot-container,
+    .svg-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+        box-sizing: border-box !important;
+    }
+
+    .js-plotly-plot .legend text {
+        font-family: Arial, sans-serif !important;
+        font-size: 11px !important;
+    }
+
+    /* ---------- KPI cards: never hide descriptions ---------- */
+    .eusee-kpi-card {
+        height: auto !important;
+        min-height: 172px !important;
+        overflow: visible !important;
+        gap: 8px !important;
+    }
+
+    .eusee-kpi-note {
+        display: block !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        line-height: 1.35 !important;
+    }
+
+    .eusee-donut-layout {
+        grid-template-columns: minmax(72px, 82px) minmax(0, 1fr) !important;
+        align-items: center !important;
+    }
+
+    .eusee-breakdown-row {
+        grid-template-columns: 10px minmax(0, 1fr) minmax(34px, 42px) minmax(36px, 46px) !important;
+    }
+
+    .eusee-breakdown-label {
+        min-width: 0 !important;
+    }
+
+    /* ---------- Tables and dataframes ---------- */
+    div[data-testid="stDataFrame"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: auto !important;
+    }
+
+    iframe,
+    canvas,
+    svg {
+        max-width: 100% !important;
+    }
+
+    /* ---------- Tablet breakpoint ---------- */
+    @media (max-width: 1100px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        div[data-testid="stTabs"] div[role="tablist"] {
+            gap: 6px !important;
+        }
+    }
+
+    /* ---------- Mobile/tablet: stack every Streamlit column inside tabs ---------- */
+    @media (max-width: 900px) {
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 0.8rem !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"] {
+            font-size: 12px !important;
+            padding: 7px 11px !important;
+        }
+
+        .eusee-kpi-card {
+            min-height: auto !important;
+            padding: 13px 14px 12px 14px !important;
+        }
+
+        .eusee-donut-layout {
+            grid-template-columns: 82px minmax(0, 1fr) !important;
+        }
+    }
+
+    /* ---------- Small phone breakpoint ---------- */
+    @media (max-width: 560px) {
+        .main .block-container {
+            padding-left: 0.7rem !important;
+            padding-right: 0.7rem !important;
+        }
+
+        div[data-testid="stTabs"] div[role="tablist"] {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"] {
+            flex: 0 0 auto !important;
+            font-size: 11.5px !important;
+        }
+
+        .eusee-donut-layout {
+            grid-template-columns: 1fr !important;
+            justify-items: center !important;
+            gap: 10px !important;
+        }
+
+        .eusee-breakdown-list {
+            width: 100% !important;
+        }
+
+        .eusee-kpi-value {
+            font-size: 30px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def apply_responsive_plotly_layout(fig, *, legend_bottom=True):
+    """Standardize Plotly sizing and move legends away from chart areas."""
+    if fig is None:
+        return fig
+
+    try:
+        current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+    except Exception:
+        current_margin = {}
+
+    # Make every chart autosize and reserve enough room for wrapped legends.
+    try:
+        fig.update_layout(
+            autosize=True,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(
+                l=max(int(current_margin.get("l", 40) or 40), 36),
+                r=max(int(current_margin.get("r", 24) or 24), 24),
+                t=max(int(current_margin.get("t", 60) or 60), 64),
+                b=max(int(current_margin.get("b", 92) or 92), 104),
+            ),
+            uniformtext_minsize=9,
+            uniformtext_mode="hide",
+        )
+    except Exception:
+        pass
+
+    # Horizontal bottom legends prevent overlap with bars/maps/heatmaps in narrow containers.
+    try:
+        fig.update_layout(
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.22,
+                xanchor="center",
+                x=0.5,
+                bgcolor="rgba(255,255,255,0.88)",
+                bordercolor="rgba(230,232,239,0.90)",
+                borderwidth=1,
+                font=dict(size=10, family="Arial"),
+                itemsizing="constant",
+                tracegroupgap=6,
+            )
+        )
+    except Exception:
+        pass
+
+    # Newer Plotly versions support entry wrapping controls; harmlessly skip otherwise.
+    try:
+        fig.update_layout(legend_entrywidth=120, legend_entrywidthmode="pixels")
+    except Exception:
+        pass
+
+    try:
+        fig.update_xaxes(automargin=True, tickfont=dict(size=10), title_standoff=8)
+        fig.update_yaxes(automargin=True, tickfont=dict(size=10), title_standoff=8)
+    except Exception:
+        pass
+
+    return fig
+
+inject_full_tab_responsive_css()
+
+
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
 def _dashboard_plain_title(fig, fallback="Dashboard visual"):
@@ -4818,6 +5079,7 @@ def render_dashboard_plotly_chart(
     for backward compatibility with earlier calls.
     """
     target = container if container is not None else st
+    fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
 
@@ -10377,7 +10639,7 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                st.plotly_chart(out["fig"], use_container_width=True, key="v2_pop_smart_plot")
+                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
                     title="AI graph interpretation",
