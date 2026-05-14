@@ -1072,7 +1072,7 @@ def render_top_feedback_bar():
 
 
 # ---------------- LOAD DATA ----------------
-@st.cache_data(ttl=0)
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
     parquet_file = EXPORT_DIR / "output_final.parquet"
     meta_file = EXPORT_DIR / "countries_metadata.json"
