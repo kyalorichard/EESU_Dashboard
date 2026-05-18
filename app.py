@@ -5281,6 +5281,54 @@ def _figure_has_chart_info_badge(fig):
     return False
 
 
+def _escape_plotly_title_attr(value):
+    """Escape text used inside the Plotly title HTML tooltip attribute."""
+    return (
+        str(value or "")
+        .replace("&", "&amp;")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("'", "&#39;")
+    )
+
+
+def _build_plotly_title_with_info(title_text, tooltip_text):
+    """Build a Plotly-safe title with the info icon locked beside the title.
+
+    This keeps the badge inside the chart title area instead of using Plotly
+    annotations or a separate Streamlit markdown header. It is intentionally
+    compact so it does not disturb chart layout or column spacing.
+    """
+    clean_title = _escape_plotly_title_attr(_strip_plotly_html(title_text))
+    clean_tooltip = _escape_plotly_title_attr(_strip_plotly_html(tooltip_text))
+
+    if not clean_title or not clean_tooltip:
+        return title_text
+
+    return f"""
+<span style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;">
+    <span>{clean_title}</span>
+    <span title="{clean_tooltip}" style="
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:17px;
+        height:17px;
+        border-radius:50%;
+        background:#F4EAF8;
+        border:1px solid #E7D4F1;
+        color:#660094;
+        font-size:10px;
+        font-weight:900;
+        line-height:17px;
+        vertical-align:middle;
+        cursor:help;
+    ">i</span>
+</span>
+""".strip()
+
+
 def add_chart_info_badge(
     fig,
     message,
@@ -5291,96 +5339,66 @@ def add_chart_info_badge(
     title_x=None,
     title_xanchor=None,
 ):
-    """Add a compact Plotly-native info badge immediately beside the chart title.
+    """Attach the info badge directly inside the Plotly chart title.
 
-    UX intent:
-    - The badge sits in the title band, not as a separate floating overlay.
-    - The hover label opens beside the title and does not cover the chart body.
-    - Long messages are wrapped to avoid oversized tooltip boxes.
-    - Duplicate badges are automatically avoided.
+    This version intentionally avoids `fig.add_annotation()` because annotation
+    positioning and hoverlabel support vary across Plotly versions and can
+    disrupt the Streamlit layout. The badge is embedded in the title HTML, so it
+    stays next to the title and remains inside the chart area.
     """
     if fig is None or not message:
         return fig
 
-    if _figure_has_chart_info_badge(fig):
+    title = fig.layout.title
+    raw_title_text = getattr(title, "text", "") or ""
+    plain_title = _strip_plotly_html(raw_title_text)
+
+    if not plain_title:
         return fig
 
-    title = fig.layout.title
-    title_text = getattr(title, "text", "") or ""
+    # Avoid duplicate badges if the title already contains the inline info span.
+    if "cursor:help" in str(raw_title_text) or "title=" in str(raw_title_text):
+        return fig
+
+    title_font = getattr(title, "font", None)
+    title_font_size = getattr(title_font, "size", None) or 15
+    title_font_family = getattr(title_font, "family", None) or CHART_FONT
+    title_font_color = getattr(title_font, "color", None) or "#23152F"
 
     inferred_title_x = title_x
     if inferred_title_x is None:
         inferred_title_x = getattr(title, "x", None)
-        inferred_title_x = 0.5 if inferred_title_x is None else inferred_title_x
+        inferred_title_x = 0.01 if inferred_title_x is None else inferred_title_x
 
     inferred_xanchor = title_xanchor
     if inferred_xanchor is None:
-        inferred_xanchor = getattr(title, "xanchor", None) or "center"
+        inferred_xanchor = getattr(title, "xanchor", None) or "left"
 
-    title_font = getattr(title, "font", None)
-    inferred_font_size = getattr(title_font, "size", None) or 14
+    html_title = _build_plotly_title_with_info(plain_title, message)
 
-    badge_x = x
-    if badge_x is None:
-        badge_x = _estimate_badge_x_from_title(
-            title_text=title_text,
-            title_x=float(inferred_title_x),
-            title_xanchor=str(inferred_xanchor),
-            title_font_size=float(inferred_font_size),
-            chart_width_px=chart_width_px,
-            right_padding=0.026,
-            max_x=0.975,
-        )
+    current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
 
-    tooltip_text = _wrap_chart_tooltip_text(message)
-
-    fig.add_annotation(
-        xref="paper",
-        yref="paper",
-        x=badge_x,
-        y=y,
-        text=badge_text,
-        showarrow=False,
-        xanchor="center",
-        yanchor="middle",
-        align="center",
-        font=dict(
-            family=CHART_FONT,
-            size=10,
-            color="#660094",
-        ),
-        bgcolor="#F4EAF8",
-        bordercolor="#E7D4F1",
-        borderwidth=1,
-        borderpad=4,
-        opacity=1.0,
-        hovertext=tooltip_text,
-        # Keep hoverlabel strictly Plotly-version-safe.
-        # Some Plotly releases do not support annotation.hoverlabel.align,
-        # which caused a runtime validation error during deployment.
-        hoverlabel=dict(
-            bgcolor="#23152F",
-            bordercolor="#660094",
+    fig.update_layout(
+        title=dict(
+            text=html_title,
+            x=float(inferred_title_x),
+            xanchor=str(inferred_xanchor),
+            y=getattr(title, "y", None) or 0.97,
+            yanchor=getattr(title, "yanchor", None) or "top",
             font=dict(
-                family=CHART_FONT,
-                size=12,
-                color="#FFFFFF",
+                family=title_font_family,
+                size=title_font_size,
+                color=title_font_color,
             ),
         ),
-    )
-
-    # Reserve consistent top space for title, legend, and badge.
-    current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
-    fig.update_layout(
         margin=dict(
             l=current_margin.get("l", 135),
-            r=max(int(current_margin.get("r", 28) or 28), 34),
-            t=max(int(current_margin.get("t", 58) or 58), 76),
+            r=current_margin.get("r", 28),
+            t=max(int(current_margin.get("t", 58) or 58), 72),
             b=current_margin.get("b", 58),
-        )
+        ),
     )
     return fig
-
 
 def build_default_chart_tooltip(fig, visual_type="chart", x_col=None, group_col=None):
     """Create a concise fallback tooltip for charts that do not have a custom note."""
