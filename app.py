@@ -318,7 +318,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         }
         </style>
         <div class="eusee-data-preview-note">
-            <strong>Filtered data preview:</strong> review and download the dataset based on the filters currently applied.
+            <strong>Filtered data preview:</strong> Review a sample of the filtered data and download the full dataset based on the filters currently applied
         </div>
         """, unsafe_allow_html=True)
 
@@ -328,7 +328,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             search_text = st.text_input(
                 "Search table",
                 value="",
-                placeholder="Search country, alert type, actor, principle...",
+                placeholder="Search by country, alert type, principle, date or keyword.",
                 key=f"{key}_search",
             )
 
