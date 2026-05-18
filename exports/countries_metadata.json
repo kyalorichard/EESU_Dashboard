@@ -108,6 +108,7 @@
   "Mexico": {"iso_alpha3": "MEX", "continent": "North America"},
   "Mongolia": {"iso_alpha3": "MNG", "continent": "Asia"},
   "Morocco": {"iso_alpha3": "MAR", "continent": "Africa"},
+  "Mozambique": {"iso_alpha3": "MOZ", "continent": "Africa"},
   "Myanmar": {"iso_alpha3": "MMR", "continent": "Asia"},
   "Namibia": {"iso_alpha3": "NAM", "continent": "Africa"},
   "Nepal": {"iso_alpha3": "NPL", "continent": "Asia"},
