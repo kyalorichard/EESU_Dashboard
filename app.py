@@ -2728,13 +2728,13 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
+                    <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title">Restrictive actor → Restrictive mechanism → Civil society actor affected</div></div>
                     <div class="negintel-icon">⛓️</div>
                 </div>
                 <div class="negintel-row-list">
-                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label"><strong>Actor:</strong> {top_actor}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label"><strong>Mechanism:</strong> {top_mechanism}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label"><strong>Subject:</strong> {top_subject}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label"><strong> Restrictive Actor:</strong> {top_actor}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label"><strong>Restrictive Mechanism:</strong> {top_mechanism}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
+                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label"><strong>Civil society actor affected:</strong> {top_subject}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
                 </div>
             </div>
         </div>
