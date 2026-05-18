@@ -1925,6 +1925,93 @@ def inject_sidebar_typography_standardization():
 
 inject_sidebar_typography_standardization()
 
+
+# ---------------- SIDEBAR EXPANDER ICON / LABEL ALIGNMENT FIX ----------------
+def inject_sidebar_expander_alignment_fix():
+    """
+    Final override for Streamlit sidebar expander headers.
+
+    Purpose:
+    - Align the native expander chevron with emoji/icons and text labels.
+    - Prevent label text from sitting too high/low relative to the chevron.
+    - Keep long labels readable without breaking the sidebar layout.
+    - Scope the rules only to sidebar expanders so page-level expanders are not affected.
+    """
+    st.markdown("""
+    <style>
+    /* Sidebar expander header as one aligned row */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details > summary,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        min-height: 42px !important;
+        padding: 10px 12px !important;
+        line-height: 1.2 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Remove browser-native marker spacing that can push labels out of alignment */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary::marker {
+        content: "" !important;
+        font-size: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary::-webkit-details-marker {
+        display: none !important;
+    }
+
+    /* Streamlit expander label text */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: 18px !important;
+        line-height: 1.2 !important;
+        font-size: 12.4px !important;
+        font-weight: 850 !important;
+        color: #23152F !important;
+        letter-spacing: -0.01em !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    /* Native Streamlit chevron */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
+        width: 15px !important;
+        height: 15px !important;
+        min-width: 15px !important;
+        max-width: 15px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        color: #660094 !important;
+        flex-shrink: 0 !important;
+        align-self: center !important;
+        transform: translateY(0) !important;
+    }
+
+    /* Defensive alignment for nested Streamlit label wrappers */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary div,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary span {
+        display: inline-flex !important;
+        align-items: center !important;
+        line-height: 1.2 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Keep header hover polished after alignment override */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_sidebar_expander_alignment_fix()
+
+
 regions_labels = [
     "Africa",
     "The Middle East",
