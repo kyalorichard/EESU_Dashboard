@@ -1926,27 +1926,44 @@ def inject_sidebar_typography_standardization():
 inject_sidebar_typography_standardization()
 
 
-# ---------------- SIDEBAR EXPANDER ICON / LABEL ALIGNMENT FIX ----------------
+# ---------------- SIDEBAR EXPANDER TITLE / ICON SAFE ALIGNMENT FIX ----------------
 def inject_sidebar_expander_alignment_fix():
     """
-    Strict final override for Streamlit sidebar expander headers.
+    Safe final override for Streamlit sidebar expanders.
 
-    This version uses a grid layout instead of broad flex rules. It avoids styling every
-    nested div/span inside the expander header, which can push Streamlit's native chevron
-    away from the label or make the emoji/title baseline look off.
+    Important:
+    - Do not convert the expander summary to CSS grid.
+    - Do not assign grid columns to Streamlit's internal SVG/text nodes.
+    - Do not hide or rewrite Streamlit's native title wrapper.
+
+    The previous grid override could expose internal icon fragments such as
+    "_arr" or "I_an" in some Streamlit builds. This version keeps the native
+    expander DOM intact and only normalizes vertical alignment, spacing, and
+    typography.
     """
     st.markdown("""
     <style>
-    /* Make only sidebar expander headers compact, stable, and aligned. */
+    /* Sidebar expander card shell */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        border-radius: 15px !important;
+        border: 1px solid #E6E8EF !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.052) !important;
+        margin-bottom: 10px !important;
+        overflow: hidden !important;
+    }
+
+    /* Keep Streamlit's native expander header structure; only align it. */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary {
-        display: grid !important;
-        grid-template-columns: 18px minmax(0, 1fr) !important;
-        column-gap: 8px !important;
-        align-items: center !important;
         min-height: 42px !important;
         padding: 9px 12px !important;
         box-sizing: border-box !important;
-        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        list-style: none !important;
+        cursor: pointer !important;
         background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
         border-bottom: 1px solid #EEF0F4 !important;
     }
@@ -1955,7 +1972,7 @@ def inject_sidebar_expander_alignment_fix():
         background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
     }
 
-    /* Remove browser marker spacing; Streamlit already provides the chevron SVG. */
+    /* Remove only the browser marker. Do not affect Streamlit's own chevron. */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary::marker {
         content: "" !important;
         font-size: 0 !important;
@@ -1965,28 +1982,32 @@ def inject_sidebar_expander_alignment_fix():
         display: none !important;
     }
 
-    /* Native Streamlit chevron: fixed first column, true vertical center. */
+    /* Align Streamlit's native wrapper elements without changing their order. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary > * {
+        display: inline-flex !important;
+        align-items: center !important;
+        min-height: 18px !important;
+    }
+
+    /* Chevron/icon alignment. Keep it visible and fixed-size. */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary svg {
-        grid-column: 1 !important;
-        justify-self: center !important;
-        align-self: center !important;
         width: 14px !important;
         height: 14px !important;
         min-width: 14px !important;
         max-width: 14px !important;
+        display: block !important;
         margin: 0 !important;
         padding: 0 !important;
         color: #660094 !important;
-        transform: none !important;
-        position: static !important;
+        fill: currentColor !important;
+        flex-shrink: 0 !important;
+        transform-origin: center center !important;
     }
 
-    /* Header label wrapper: second column only. */
+    /* Expander title. This preserves emoji/title text and prevents clipping. */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p {
-        grid-column: 2 !important;
         margin: 0 !important;
         padding: 0 !important;
-        min-width: 0 !important;
         color: #23152F !important;
         font-size: 12.4px !important;
         font-weight: 850 !important;
@@ -1995,17 +2016,17 @@ def inject_sidebar_expander_alignment_fix():
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-        display: block !important;
-        transform: translateY(0) !important;
+        display: inline-flex !important;
+        align-items: center !important;
     }
 
-    /* Prevent inherited sidebar paragraph/span rules from resizing the header label. */
+    /* Prevent global sidebar paragraph/span overrides from distorting expander titles. */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p * {
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p span {
         vertical-align: middle !important;
     }
 
-    /* Keep the expander body visually connected but not cramped. */
+    /* Expander body spacing */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > div {
         padding-top: 8px !important;
     }
