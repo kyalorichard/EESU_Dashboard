@@ -557,6 +557,31 @@ def inject_final_responsive_overrides():
 
 inject_final_responsive_overrides()
 
+# ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
+def can_view_monitored_countries_value() -> bool:
+    """Return True only when the active role is allowed to see monitored-country counts.
+
+    The admin page controls this through the existing "Monitored Countries"
+    permission: view_coverage_monitored_countries. The card itself may remain
+    visible through broader summary permissions, but the numeric country value
+    is masked unless this permission is enabled for the current role.
+    """
+    try:
+        return bool(has_permission("view_coverage_monitored_countries"))
+    except Exception:
+        return False
+
+
+def monitored_countries_display_value(value) -> str:
+    """Format monitored-country values only for permitted users."""
+    if not can_view_monitored_countries_value():
+        return "Restricted"
+    try:
+        return f"{int(value):,}"
+    except Exception:
+        return "0"
+
+
 # ---------------- AUTH ROUTING STATE ----------------
 # Dashboard opens normally. When the user clicks Sign in / Access,
 # this flag routes to the premium sign-in view.
@@ -1974,7 +1999,7 @@ def render_sidebar_access_settings_profile():
         metric_cols = st.columns(2)
         with metric_cols[0]:
             st.metric("Role", role_label)
-            st.metric("Monitored Countries", f"{monitored_countries_value:,}")
+            st.metric("Monitored Countries", monitored_countries_display_value(monitored_countries_value))
             st.metric("AI Copilot", copilot_status)
         with metric_cols[1]:
             st.metric("Access", access_status)
@@ -2525,8 +2550,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     col1, col2, col3 = st.columns(3)
 
-    countries_value = f"{total_countries:,}" 
-    countries_size = "38px" 
+    countries_value = monitored_countries_display_value(total_countries)
+    countries_size = "38px" if can_view_monitored_countries_value() else "18px" 
     with col1:
         st.markdown(f"""
         <div class="eusee-kpi-card">
@@ -2732,8 +2757,8 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        countries_value = f"{monitored_countries:,}" 
-        countries_size = "34px" 
+        countries_value = monitored_countries_display_value(monitored_countries)
+        countries_size = "34px" if can_view_monitored_countries_value() else "18px" 
         st.markdown(f"""
         <div class="negintel-card">
             <div>
