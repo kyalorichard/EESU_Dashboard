@@ -5757,6 +5757,7 @@ with tab_map:
                 margin-bottom: 0;
             }
             .map-visual-card {
+                position: relative;
                 background:#FFFFFF;
                 border:1px solid #E8EAF0;
                 border-radius:18px;
@@ -5850,78 +5851,104 @@ with tab_map:
                 line-height:1.5;
                 font-weight:650;
             }
-            .map-visualization-wrapper {
-                position:relative;
-                width:100%;
-                margin-top:4px;
-                margin-bottom:10px;
+            .map-overview-guide {
+                display:grid;
+                grid-template-columns: minmax(220px, .72fr) minmax(0, 1fr);
+                gap:12px;
+                align-items:stretch;
+                margin-top:13px;
             }
             .map-guide-card {
-                position:absolute;
-                top:14px;
-                right:14px;
-                width:310px;
-                z-index:1000;
-                background:rgba(255,255,255,0.97);
-                backdrop-filter:blur(12px);
-                -webkit-backdrop-filter:blur(12px);
+                background:linear-gradient(180deg,#FFFFFF 0%,#FAF7FC 100%);
                 border:1px solid rgba(102,0,148,.14);
-                border-radius:18px;
-                padding:13px 15px;
-                box-shadow:0 14px 34px rgba(16,24,40,.16);
+                border-radius:16px;
+                padding:12px 14px;
+                box-shadow:0 8px 18px rgba(45,0,85,.065);
                 margin:0;
                 font-family:Arial, sans-serif;
             }
             .map-guide-title {
                 color:#2D0055;
-                font-size:14px;
+                font-size:13.5px;
                 font-weight:950;
                 letter-spacing:-.12px;
                 margin-bottom:4px;
             }
             .map-guide-sub {
                 color:#64748B;
-                font-size:11px;
-                line-height:1.45;
+                font-size:10.8px;
+                line-height:1.42;
                 margin-bottom:10px;
             }
             .map-guide-step {
                 display:grid;
-                grid-template-columns:25px 1fr;
+                grid-template-columns:23px 1fr;
                 gap:8px;
                 align-items:flex-start;
                 padding:7px 0;
                 border-top:1px solid #EEF0F4;
             }
             .map-guide-num {
-                width:23px;
-                height:23px;
-                border-radius:999px;
+                width:21px;
+                height:21px;
+                border-radius:8px;
                 background:linear-gradient(135deg,#660094 0%,#008CAA 100%);
                 color:#FFFFFF;
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                font-size:10px;
+                font-size:9.5px;
                 font-weight:950;
-                box-shadow:0 3px 8px rgba(102,0,148,.16), inset 0 1px 0 rgba(255,255,255,.35);
+                box-shadow:0 4px 9px rgba(102,0,148,.18);
             }
             .map-guide-text {
-                font-size:11px;
+                font-size:10.8px;
                 color:#344054;
-                line-height:1.4;
+                line-height:1.38;
                 font-weight:650;
             }
             .map-guide-text b {color:#23152F; font-weight:950;}
-            @media (max-width: 980px) {
-                .map-guide-card {
-                    position:relative;
-                    top:auto;
-                    right:auto;
-                    width:100%;
-                    margin:0 0 12px 0;
-                    box-sizing:border-box;
-                }
+            .map-overview-stat-grid {
+                display:grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap:8px;
+            }
+            .map-overview-stat {
+                background:#FFFFFF;
+                border:1px solid #E8EAF0;
+                border-radius:14px;
+                padding:11px 12px;
+                box-shadow:0 6px 14px rgba(17,24,39,.04);
+            }
+            .map-overview-stat span {
+                display:block;
+                color:#64748B;
+                font-size:9.5px;
+                font-weight:900;
+                text-transform:uppercase;
+                letter-spacing:.06em;
+                margin-bottom:4px;
+            }
+            .map-overview-stat strong {
+                color:#2D0055;
+                font-size:18px;
+                font-weight:950;
+                line-height:1.05;
+            }
+            .map-overview-stat small {
+                display:block;
+                color:#667085;
+                font-size:10.3px;
+                line-height:1.32;
+                margin-top:5px;
+                font-weight:650;
+            }
+            @media (max-width: 1000px) {
+                .map-overview-guide { grid-template-columns:1fr; }
+                .map-overview-stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            }
+            @media (max-width: 620px) {
+                .map-overview-stat-grid { grid-template-columns:1fr; }
             }
             .priority-country-panel {
                 background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
@@ -6148,7 +6175,39 @@ with tab_map:
                         </div>
                         <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
                     </div>
-                  
+
+                    <div class="map-overview-guide">
+                        <div class="map-guide-card">
+                            <div class="map-guide-title">🧭 How to read this map</div>
+                            <div class="map-guide-sub">Use this map to see where filtered alerts are concentrated and where follow-up review may be needed.</div>
+                            <div class="map-guide-step">
+                                <div class="map-guide-num">1</div>
+                                <div class="map-guide-text"><b>Look at color intensity:</b> darker countries indicate a higher number of filtered alerts.</div>
+                            </div>
+                            <div class="map-guide-step">
+                                <div class="map-guide-num">2</div>
+                                <div class="map-guide-text"><b>Hover for details:</b> hover over a country to see the alert breakdown and priority level.</div>
+                            </div>
+                        </div>
+
+                        <div class="map-overview-stat-grid">
+                            <div class="map-overview-stat">
+                                <span>Mapped countries</span>
+                                <strong>{mapped_countries:,}</strong>
+                                <small>Countries represented in the current map view.</small>
+                            </div>
+                            <div class="map-overview-stat">
+                                <span>Mapped alerts</span>
+                                <strong>{total_mapped:,}</strong>
+                                <small>Filtered alerts successfully linked to map geometry.</small>
+                            </div>
+                            <div class="map-overview-stat">
+                                <span>Priority countries</span>
+                                <strong>{very_high_count + high_count:,}</strong>
+                                <small>Countries classified as high or very high priority.</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -6256,23 +6315,6 @@ with tab_map:
                         font=dict(family=MAP_FONT, color="#334155"),
                     )
 
-                    st.markdown('<div class="map-visualization-wrapper">', unsafe_allow_html=True)
-
-                    st.markdown("""
-                    <div class="map-guide-card">
-                        <div class="map-guide-title">🧭 How to read this map</div>
-                        <div class="map-guide-sub">Use this map to see where filtered alerts are concentrated.</div>
-                        <div class="map-guide-step">
-                            <div class="map-guide-num">1</div>
-                            <div class="map-guide-text"><b>Look at color intensity:</b> Darker countries indicate a higher number of alerts.</div>
-                        </div>
-                        <div class="map-guide-step">
-                            <div class="map-guide-num">2</div>
-                            <div class="map-guide-text"><b>However for details:</b> Hover over a country to see the alert breakdown.</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
                     st.markdown('<div class="map-visual-card">', unsafe_allow_html=True)
                     render_dashboard_plotly_chart(
                         fig,
@@ -6284,7 +6326,6 @@ with tab_map:
                         config={"displayModeBar": False, "responsive": True},
                         key="professional_geo_intelligence_map",
                     )
-                    st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
                     st.markdown(f"""
