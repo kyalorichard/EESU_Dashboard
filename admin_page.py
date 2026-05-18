@@ -24,7 +24,7 @@ FEATURE_LABELS = {
     "view_public_summary": "Public summary",
     "view_dashboard": "Dashboard access",
     "view_overview": "Overview tab",
-    "view_coverage_monitored_countries": "Coverage / Monitored Countries",
+    "view_coverage_monitored_countries": "Monitored Countries",
     "view_country_counts": "Country count KPIs",
     "view_maps": "Visualization Map",
     "view_negative_alerts": "Negative Alerts tab",
