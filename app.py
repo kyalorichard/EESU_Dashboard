@@ -5273,7 +5273,6 @@ def _figure_has_chart_info_badge(fig):
             ann_hover = str(getattr(ann, "hovertext", "") or "")
             if (
                 "eusee-chart-info-badge" in ann_text
-                or ann_text.startswith("<b>tip:</b>")
                 or (ann_text in ["<b>i</b>", "i", "<b>ⓘ</b>", "ⓘ"] and ann_hover.strip())
             ):
                 return True
@@ -5334,18 +5333,19 @@ def add_chart_info_badge(
     fig,
     message,
     x=None,
-    y=1.075,
-    badge_text="<b>Tip:</b>",
+    y=1.065,
+    badge_text="<b>ⓘ Tip</b>",
     chart_width_px=620,
     title_x=None,
     title_xanchor=None,
 ):
-    """Add a hidden chart-area tooltip that appears only when the mouse enters the chart.
+    """Add a reliable in-chart tooltip aid for the two enabling-principle charts.
 
-    This replaces title/icon hover behavior because Plotly title HTML and annotation
-    hover can be inconsistent inside Streamlit. The title remains clean, and the
-    contextual note is revealed by a lightweight JS listener scoped to the two
-    opt-in charts only.
+    This version avoids fragile Streamlit DOM JavaScript and unreliable Plotly
+    title HTML hover. It keeps the chart title layout stable, adds a small
+    visible Tip pill inside the Plotly title band, and adds a near-invisible
+    hover zone across the chart rows so users see the same note when moving
+    the mouse inside the chart area.
     """
     if fig is None or not message:
         return fig
@@ -5357,7 +5357,7 @@ def add_chart_info_badge(
     if not plain_title:
         return fig
 
-    # Avoid duplicate chart-area tips on reruns or repeated layout calls.
+    # Avoid duplicate info aids on reruns or repeated layout calls.
     if _figure_has_chart_info_badge(fig):
         return fig
 
@@ -5372,7 +5372,8 @@ def add_chart_info_badge(
 
     current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
 
-    # Keep the normal chart title unchanged and left aligned.
+    # Keep the title clean and stable. The visible pill sits inside the chart
+    # title band, not in a separate Streamlit block.
     fig.update_layout(
         title=dict(
             text=plain_title,
@@ -5389,15 +5390,17 @@ def add_chart_info_badge(
         margin=dict(
             l=current_margin.get("l", 135),
             r=current_margin.get("r", 28),
-            t=max(int(current_margin.get("t", 58) or 58), 78),
+            t=max(int(current_margin.get("t", 58) or 58), 76),
             b=current_margin.get("b", 58),
         ),
         hovermode="closest",
     )
 
-    wrapped_message = _wrap_chart_tooltip_text(message, line_length=86)
+    wrapped_message = _wrap_chart_tooltip_text(message, line_length=80)
 
-    # Hidden by default; JS toggles opacity when the user enters/leaves the chart.
+    # 1) Always-visible, compact in-chart Tip pill. This guarantees users can
+    # see that contextual help exists even if browser/Plotly hover behavior
+    # changes across deployments.
     fig.add_annotation(
         xref="paper",
         yref="paper",
@@ -5405,100 +5408,78 @@ def add_chart_info_badge(
         y=float(y),
         xanchor="left",
         yanchor="top",
-        text=f"<b>Tip:</b> {wrapped_message}",
+        text=badge_text,
+        hovertext=wrapped_message,
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor="#E6E8EF",
+            font=dict(size=11, color="#344054", family=CHART_FONT),
+        ),
         showarrow=False,
-        align="left",
-        bgcolor="rgba(255,255,255,0.96)",
-        bordercolor="#E6E8EF",
+        align="center",
+        bgcolor="rgba(244,234,248,0.98)",
+        bordercolor="#E7D4F1",
         borderwidth=1,
-        borderpad=7,
-        font=dict(size=11, color="#344054", family=CHART_FONT),
-        opacity=0,
-        captureevents=False,
+        borderpad=5,
+        font=dict(size=10, color="#660094", family=CHART_FONT),
+        opacity=1,
+        captureevents=True,
     )
+
+    # 2) Plotly-native hover zone inside the chart body. This is more reliable
+    # than JavaScript because Plotly itself handles the hoverlabel.
+    try:
+        y_values = []
+        numeric_x_values = []
+
+        for trace in list(fig.data or []):
+            orientation = str(getattr(trace, "orientation", "") or "").lower()
+            trace_y = list(getattr(trace, "y", []) or [])
+            trace_x = list(getattr(trace, "x", []) or [])
+
+            # The two target charts are horizontal bar charts with categories on y.
+            if orientation == "h" and trace_y:
+                for val in trace_y:
+                    if val is not None and str(val).strip() and str(val).lower() != "nan":
+                        if val not in y_values:
+                            y_values.append(val)
+                for val in trace_x:
+                    try:
+                        numeric_x_values.append(float(val))
+                    except Exception:
+                        pass
+
+        if y_values:
+            max_x = max(numeric_x_values) if numeric_x_values else 1.0
+            hover_x = max(max_x * 0.72, 1.0)
+            fig.add_trace(
+                go.Scatter(
+                    x=[hover_x] * len(y_values),
+                    y=y_values,
+                    mode="markers",
+                    marker=dict(
+                        size=44,
+                        color="rgba(102,0,148,0.001)",
+                        line=dict(width=0, color="rgba(102,0,148,0)"),
+                    ),
+                    text=[wrapped_message] * len(y_values),
+                    hovertemplate="<b>Tip</b><br>%{text}<extra></extra>",
+                    hoverlabel=dict(
+                        bgcolor="#FFFFFF",
+                        bordercolor="#E6E8EF",
+                        font=dict(size=11, color="#344054", family=CHART_FONT),
+                    ),
+                    showlegend=False,
+                    name="EUSEE chart information",
+                    cliponaxis=False,
+                )
+            )
+    except Exception:
+        # The visible Tip pill above remains available even if the invisible
+        # hover zone cannot be created for a specific Plotly version.
+        pass
+
     return fig
-
-
-def inject_chart_area_hover_tooltip_js(target_title):
-    """Attach mouseenter/mouseleave events to the specific Plotly chart by title.
-
-    The JS searches only for charts whose SVG title matches `target_title`, then
-    toggles the opacity of the hidden annotation whose text begins with "Tip:".
-    This keeps the behavior limited to the two charts rendered with
-    show_title_tooltip=True.
-    """
-    safe_title = (
-        str(target_title or "")
-        .replace("\\", "\\\\")
-        .replace("`", "\\`")
-        .replace("$", "\\$")
-    )
-
-    components.html(f"""
-    <script>
-    (function() {{
-        const doc = window.parent.document;
-        const targetTitle = `{safe_title}`.trim();
-
-        function getPlotTitle(plot) {{
-            try {{
-                const titleNode = plot.querySelector('.g-gtitle text, .gtitle, text.gtitle');
-                return (titleNode ? titleNode.textContent : '').trim();
-            }} catch (e) {{
-                return '';
-            }}
-        }}
-
-        function bindChartAreaTooltip() {{
-            const plots = Array.from(doc.querySelectorAll('.js-plotly-plot'));
-            plots.forEach(function(plot) {{
-                const title = getPlotTitle(plot);
-                if (!title || title !== targetTitle || plot.dataset.euseeAreaTooltipBound === '1') {{
-                    return;
-                }}
-
-                const gd = plot;
-                let tipIndex = -1;
-
-                try {{
-                    const annotations = (((gd || {{}}).layout || {{}}).annotations || []);
-                    tipIndex = annotations.findIndex(function(annotation) {{
-                        return String((annotation || {{}}).text || '').indexOf('<b>Tip:</b>') === 0;
-                    }});
-                }} catch (e) {{
-                    tipIndex = -1;
-                }}
-
-                if (tipIndex < 0 || !window.Plotly) {{
-                    return;
-                }}
-
-                plot.dataset.euseeAreaTooltipBound = '1';
-
-                function showTip() {{
-                    const update = {{}};
-                    update['annotations[' + tipIndex + '].opacity'] = 1;
-                    window.Plotly.relayout(gd, update);
-                }}
-
-                function hideTip() {{
-                    const update = {{}};
-                    update['annotations[' + tipIndex + '].opacity'] = 0;
-                    window.Plotly.relayout(gd, update);
-                }}
-
-                plot.addEventListener('mouseenter', showTip);
-                plot.addEventListener('mouseleave', hideTip);
-            }});
-        }}
-
-        bindChartAreaTooltip();
-        setTimeout(bindChartAreaTooltip, 250);
-        setTimeout(bindChartAreaTooltip, 900);
-    }})();
-    </script>
-    """, height=0, width=0)
-
 
 def build_default_chart_tooltip(fig, visual_type="chart", x_col=None, group_col=None):
     """Create a concise fallback tooltip for charts that do not have a custom note."""
@@ -6499,13 +6480,6 @@ def render_dashboard_plotly_chart(
 
     fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
-
-    if show_title_tooltip and chart_info:
-        try:
-            chart_title = _strip_plotly_html(getattr(fig.layout.title, "text", "") or "")
-            inject_chart_area_hover_tooltip_js(chart_title)
-        except Exception:
-            pass
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
