@@ -32,14 +32,11 @@ except Exception:
         return ""
     def has_permission(permission):
         return permission in [
-            "view_public_summary",
             "view_dashboard",
             "view_overview",
             "view_coverage_monitored_countries",
-            "view_country_counts",
             "view_maps",
             "view_negative_alerts",
-            "view_negative_relationship_intelligence",
             "view_analytical_flow_panel",
             "view_data_table",
             "view_user_manual",
@@ -6152,9 +6149,9 @@ def render_dashboard_plotly_chart(
 # ---------------- TAB 1 ------------------------
 with tab_overview:
 
-    if has_permission("view_overview") or has_permission("view_public_summary"):
+    if has_permission("view_overview"):
         #st.subheader("Overview Metrics")
-        if has_permission("view_coverage_monitored_countries") or has_permission("view_country_counts"):
+        if has_permission("view_coverage_monitored_countries"):
             render_summary_cards(filtered_global, card_key="overview_summary")
         a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
         df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
@@ -6364,12 +6361,11 @@ with tab_negative:
                 (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
                 (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
             ]
-            if has_permission("view_negative_relationship_intelligence"):
-                render_negative_alerts_intelligence_cards(
-                    reactive_df_updated,
-                    all_filtered_df=filtered_global,
-                    card_key="negative_events_summary"
-                )
+            render_negative_alerts_intelligence_cards(
+                reactive_df_updated,
+                all_filtered_df=filtered_global,
+                card_key="negative_events_summary"
+            )
 
             #df_exploded['Subject of repression'] = df_exploded['Subject of repression'].apply(safe_split)
 
@@ -6490,7 +6486,7 @@ with tab_map:
 
         if has_permission("view_maps"):
             # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
-            if has_permission("view_coverage_monitored_countries") or has_permission("view_country_counts"):
+            if has_permission("view_coverage_monitored_countries"):
                 render_summary_cards(filtered_global, card_key="map_summary")
 
             MAP_FONT = "Arial, sans-serif"
