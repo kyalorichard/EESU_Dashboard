@@ -6118,247 +6118,190 @@ with tab_map:
                     - set(df_map["alert-country"].astype(str))
                 )
 
-                # Render the Geographic Overview panel through an HTML component.
-                # This prevents Streamlit from displaying the HTML markup as raw text.
-                components.html(
+                # ---------------- Professional Geographic Overview Guide ----------------
+                # Render as native Streamlit markdown instead of an iframe/component.
+                # This avoids the empty panel before the map and keeps the guide fully visible.
+                st.markdown(
                     f"""
                     <style>
-                    html, body {{
-                        margin: 0;
+                    .eusee-map-guide-panel {{
+                        width: 100%;
+                        box-sizing: border-box;
+                        margin: 0 0 14px 0;
                         padding: 0;
-                        background: transparent;
                         font-family: Arial, sans-serif;
-                        overflow-x: hidden;
                     }}
 
-                    .map-intel-hero {{
+                    .eusee-map-guide-card {{
+                        position: relative;
+                        overflow: hidden;
+                        display: grid;
+                        grid-template-columns: minmax(260px, 0.85fr) minmax(360px, 1.35fr);
+                        gap: 18px;
+                        align-items: stretch;
                         background:
-                            radial-gradient(circle at top right, rgba(102,0,148,.07), transparent 35%),
-                            linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
-                        border: 1px solid rgba(102,0,148,.10);
+                            radial-gradient(circle at 98% 0%, rgba(102,0,148,.08), transparent 34%),
+                            linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
+                        border: 1px solid rgba(102,0,148,.12);
                         border-radius: 22px;
                         padding: 18px 20px;
-                        box-shadow: 0 14px 34px rgba(16,24,40,.06);
-                        box-sizing: border-box;
+                        box-shadow: 0 12px 30px rgba(16,24,40,.065);
                     }}
 
-                    .map-hero-top {{
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-start;
-                        gap: 16px;
-                        margin-bottom: 16px;
+                    .eusee-map-guide-card::before {{
+                        content: "";
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 4px;
+                        background: linear-gradient(90deg, #660094 0%, #008CAA 58%, #FFDB58 100%);
                     }}
 
-                    .map-intel-eyebrow {{
+                    .eusee-map-guide-header {{
+                        min-width: 0;
+                        padding-right: 4px;
+                    }}
+
+                    .eusee-map-guide-eyebrow {{
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 7px;
                         color: #660094;
-                        font-size: 10px;
-                        font-weight: 900;
-                        letter-spacing: .10em;
-                        text-transform: uppercase;
-                        margin-bottom: 5px;
-                    }}
-
-                    .map-intel-title {{
-                        color: #23152F;
-                        font-size: 22px;
-                        font-weight: 950;
-                        letter-spacing: -0.03em;
-                        line-height: 1.08;
-                        margin-bottom: 7px;
-                    }}
-
-                    .map-intel-subtitle {{
-                        color: #667085;
-                        font-size: 12px;
-                        line-height: 1.55;
-                        max-width: 850px;
-                    }}
-
-                    .map-legend-chip {{
-                        padding: 7px 12px;
-                        border-radius: 999px;
                         background: #F4EAF8;
-                        color: #660094;
                         border: 1px solid #E7D4F1;
-                        font-size: 11px;
-                        font-weight: 900;
-                        white-space: nowrap;
-                    }}
-
-                    .map-overview-guide {{
-                        display: grid;
-                        grid-template-columns: minmax(300px, 1.05fr) minmax(360px, 1fr);
-                        gap: 14px;
-                        align-items: stretch;
-                    }}
-
-                    .map-guide-card {{
-                        background: #FFFFFF;
-                        border: 1px solid rgba(102,0,148,.12);
-                        border-radius: 18px;
-                        padding: 15px 16px;
-                        box-shadow: 0 8px 18px rgba(45,0,85,.055);
-                    }}
-
-                    .map-guide-title {{
-                        color: #23152F;
-                        font-size: 15px;
+                        border-radius: 999px;
+                        padding: 5px 10px;
+                        font-size: 10px;
                         font-weight: 950;
-                        margin-bottom: 5px;
-                    }}
-
-                    .map-guide-sub {{
-                        color: #667085;
-                        font-size: 11px;
-                        line-height: 1.45;
+                        letter-spacing: .08em;
+                        text-transform: uppercase;
                         margin-bottom: 10px;
                     }}
 
-                    .map-guide-step {{
+                    .eusee-map-guide-title {{
+                        color: #23152F;
+                        font-size: 21px;
+                        font-weight: 950;
+                        line-height: 1.12;
+                        letter-spacing: -0.03em;
+                        margin: 0 0 7px 0;
+                    }}
+
+                    .eusee-map-guide-subtitle {{
+                        color: #667085;
+                        font-size: 12.2px;
+                        line-height: 1.55;
+                        max-width: 620px;
+                        margin: 0;
+                    }}
+
+                    .eusee-map-guide-steps {{
                         display: grid;
-                        grid-template-columns: 26px 1fr;
-                        gap: 10px;
-                        align-items: flex-start;
-                        padding: 9px 0;
-                        border-top: 1px solid #EEF0F4;
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        gap: 12px;
+                        align-items: stretch;
                     }}
 
-                    .map-guide-step:first-of-type {{
-                        border-top: none;
-                        padding-top: 0;
+                    .eusee-map-guide-step {{
+                        display: grid;
+                        grid-template-columns: 34px minmax(0, 1fr);
+                        gap: 11px;
+                        align-items: start;
+                        background: #FFFFFF;
+                        border: 1px solid #EEF0F4;
+                        border-radius: 16px;
+                        padding: 13px 14px;
+                        box-shadow: 0 6px 16px rgba(16,24,40,.045);
                     }}
 
-                    .map-guide-num {{
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 999px;
-                        background: linear-gradient(135deg,#660094 0%,#008CAA 100%);
+                    .eusee-map-guide-num {{
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 12px;
+                        background: linear-gradient(135deg, #660094 0%, #008CAA 100%);
                         color: #FFFFFF;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-size: 11px;
+                        font-size: 12px;
                         font-weight: 950;
-                        box-shadow: 0 4px 9px rgba(102,0,148,.18);
+                        box-shadow: 0 7px 14px rgba(102,0,148,.18);
                     }}
 
-                    .map-guide-text {{
-                        font-size: 11px;
-                        color: #344054;
+                    .eusee-map-guide-step-title {{
+                        color: #23152F;
+                        font-size: 12.4px;
+                        font-weight: 950;
+                        line-height: 1.25;
+                        margin-bottom: 4px;
+                    }}
+
+                    .eusee-map-guide-step-text {{
+                        color: #667085;
+                        font-size: 11.3px;
                         line-height: 1.45;
                         font-weight: 650;
                     }}
 
-                    .map-guide-text b {{
-                        color: #23152F;
-                        font-weight: 950;
-                    }}
-
-                    .map-overview-stat-grid {{
-                        display: grid;
-                        grid-template-columns: repeat(3, minmax(0, 1fr));
-                        gap: 9px;
-                    }}
-
-                    .map-overview-stat {{
-                        background: #FFFFFF;
-                        border: 1px solid #E8EAF0;
-                        border-radius: 16px;
-                        padding: 13px 14px;
-                        box-shadow: 0 6px 14px rgba(17,24,39,.04);
-                    }}
-
-                    .map-overview-stat span {{
-                        display: block;
-                        color: #667085;
-                        font-size: 9.5px;
-                        font-weight: 900;
-                        text-transform: uppercase;
-                        letter-spacing: .06em;
-                        margin-bottom: 5px;
-                    }}
-
-                    .map-overview-stat strong {{
-                        display: block;
-                        color: #23152F;
-                        font-size: 24px;
-                        font-weight: 950;
-                        line-height: 1.05;
-                        margin-bottom: 5px;
-                    }}
-
-                    .map-overview-stat small {{
-                        display: block;
-                        color: #667085;
-                        font-size: 10.3px;
-                        line-height: 1.35;
-                        font-weight: 650;
-                    }}
-
-                    @media (max-width: 980px) {{
-                        .map-hero-top {{
-                            flex-direction: column;
-                        }}
-                        .map-overview-guide {{
+                    @media (max-width: 1000px) {{
+                        .eusee-map-guide-card {{
                             grid-template-columns: 1fr;
+                            gap: 14px;
                         }}
                     }}
 
-                    @media (max-width: 620px) {{
-                        .map-intel-hero {{
-                            padding: 15px;
+                    @media (max-width: 700px) {{
+                        .eusee-map-guide-card {{
+                            padding: 16px;
                             border-radius: 18px;
                         }}
-                        .map-overview-stat-grid {{
+                        .eusee-map-guide-steps {{
                             grid-template-columns: 1fr;
                         }}
-                        .map-intel-title {{
-                            font-size: 19px;
+                        .eusee-map-guide-title {{
+                            font-size: 18px;
                         }}
                     }}
                     </style>
 
-                    <div class="map-intel-hero">
-                        <div class="map-hero-top">
-                            <div>
-                                <div class="map-intel-eyebrow">Geographic Overview</div>
-                                <div class="map-intel-title">Visualization Map: Alerts by Country</div>
-                                <div class="map-intel-subtitle">
-                                    This map shows where alerts are concentrated across countries based on the filters selected.
-                                    Use it to identify countries that may require closer review. Darker countries indicate a higher
-                                    filtered alert volume.
-                                </div>
+                    <div class="eusee-map-guide-panel">
+                        <div class="eusee-map-guide-card">
+                            <div class="eusee-map-guide-header">
+                                <div class="eusee-map-guide-eyebrow">Geographic Overview</div>
+                                <div class="eusee-map-guide-title">🧭 How to read this map</div>
+                                <p class="eusee-map-guide-subtitle">
+                                    Use this map to explore where filtered alerts are concentrated across countries.
+                                    The map below updates automatically based on the active dashboard filters.
+                                </p>
                             </div>
-                            <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
-                        </div>
 
-                        <div class="map-overview-guide">
-                            <div class="map-guide-card">
-                                <div class="map-guide-title">🧭 How to read this map</div>
-                                <div class="map-guide-sub">
-                                    Use this map to see where filtered alerts are concentrated and where follow-up review may be needed.
-                                </div>
-                                <div class="map-guide-step">
-                                    <div class="map-guide-num">1</div>
-                                    <div class="map-guide-text">
-                                        <b>Look at color intensity:</b> darker countries indicate a higher number of filtered alerts.
+                            <div class="eusee-map-guide-steps">
+                                <div class="eusee-map-guide-step">
+                                    <div class="eusee-map-guide-num">1</div>
+                                    <div>
+                                        <div class="eusee-map-guide-step-title">Read the color intensity</div>
+                                        <div class="eusee-map-guide-step-text">
+                                            Darker countries indicate higher concentrations of filtered alerts.
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="map-guide-step">
-                                    <div class="map-guide-num">2</div>
-                                    <div class="map-guide-text">
-                                        <b>Hover for details:</b> hover over a country to see the alert breakdown and priority level.
+
+                                <div class="eusee-map-guide-step">
+                                    <div class="eusee-map-guide-num">2</div>
+                                    <div>
+                                        <div class="eusee-map-guide-step-title">Hover for country details</div>
+                                        <div class="eusee-map-guide-step-text">
+                                            Hover over any country to view the alert breakdown and priority level.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     """,
-                    height=220,
-                    scrolling=False,
+                    unsafe_allow_html=True,
                 )
-
                 
                 if unmapped_meta or unmapped_geo:
                     issue_bits = []
