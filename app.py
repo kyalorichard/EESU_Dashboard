@@ -1929,82 +1929,85 @@ inject_sidebar_typography_standardization()
 # ---------------- SIDEBAR EXPANDER ICON / LABEL ALIGNMENT FIX ----------------
 def inject_sidebar_expander_alignment_fix():
     """
-    Final override for Streamlit sidebar expander headers.
+    Strict final override for Streamlit sidebar expander headers.
 
-    Purpose:
-    - Align the native expander chevron with emoji/icons and text labels.
-    - Prevent label text from sitting too high/low relative to the chevron.
-    - Keep long labels readable without breaking the sidebar layout.
-    - Scope the rules only to sidebar expanders so page-level expanders are not affected.
+    This version uses a grid layout instead of broad flex rules. It avoids styling every
+    nested div/span inside the expander header, which can push Streamlit's native chevron
+    away from the label or make the emoji/title baseline look off.
     """
     st.markdown("""
     <style>
-    /* Sidebar expander header as one aligned row */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] details > summary,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
-        display: flex !important;
+    /* Make only sidebar expander headers compact, stable, and aligned. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary {
+        display: grid !important;
+        grid-template-columns: 18px minmax(0, 1fr) !important;
+        column-gap: 8px !important;
         align-items: center !important;
-        gap: 8px !important;
         min-height: 42px !important;
-        padding: 10px 12px !important;
-        line-height: 1.2 !important;
+        padding: 9px 12px !important;
         box-sizing: border-box !important;
+        line-height: 1 !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
     }
 
-    /* Remove browser-native marker spacing that can push labels out of alignment */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary::marker {
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    }
+
+    /* Remove browser marker spacing; Streamlit already provides the chevron SVG. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary::marker {
         content: "" !important;
         font-size: 0 !important;
     }
 
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary::-webkit-details-marker {
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary::-webkit-details-marker {
         display: none !important;
     }
 
-    /* Streamlit expander label text */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
-        margin: 0 !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        min-height: 18px !important;
-        line-height: 1.2 !important;
-        font-size: 12.4px !important;
-        font-weight: 850 !important;
-        color: #23152F !important;
-        letter-spacing: -0.01em !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-    }
-
-    /* Native Streamlit chevron */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
-        width: 15px !important;
-        height: 15px !important;
-        min-width: 15px !important;
-        max-width: 15px !important;
+    /* Native Streamlit chevron: fixed first column, true vertical center. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary svg {
+        grid-column: 1 !important;
+        justify-self: center !important;
+        align-self: center !important;
+        width: 14px !important;
+        height: 14px !important;
+        min-width: 14px !important;
+        max-width: 14px !important;
         margin: 0 !important;
         padding: 0 !important;
         color: #660094 !important;
-        flex-shrink: 0 !important;
-        align-self: center !important;
+        transform: none !important;
+        position: static !important;
+    }
+
+    /* Header label wrapper: second column only. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p {
+        grid-column: 2 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        min-width: 0 !important;
+        color: #23152F !important;
+        font-size: 12.4px !important;
+        font-weight: 850 !important;
+        line-height: 18px !important;
+        letter-spacing: -0.01em !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
         transform: translateY(0) !important;
     }
 
-    /* Defensive alignment for nested Streamlit label wrappers */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary div,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary span {
-        display: inline-flex !important;
-        align-items: center !important;
-        line-height: 1.2 !important;
-        margin-top: 0 !important;
-        margin-bottom: 0 !important;
+    /* Prevent inherited sidebar paragraph/span rules from resizing the header label. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p * {
+        vertical-align: middle !important;
     }
 
-    /* Keep header hover polished after alignment override */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover {
-        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    /* Keep the expander body visually connected but not cramped. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > div {
+        padding-top: 8px !important;
     }
     </style>
     """, unsafe_allow_html=True)
