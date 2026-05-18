@@ -1517,6 +1517,45 @@ def inject_professional_sidebar_filter_css():
         background: #EFFBFE !important;
         border-color: rgba(0,140,170,.18) !important;
     }
+
+
+    /* ---------------- SIDEBAR EXPANDER ICON / LABEL ALIGNMENT FIX ---------------- */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        display: flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+        min-height: 42px !important;
+        line-height: 1.15 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary > div {
+        display: flex !important;
+        align-items: center !important;
+        min-width: 0 !important;
+        line-height: 1.15 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.15 !important;
+        font-family: Inter, Arial, sans-serif !important;
+        font-size: 12.4px !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.01em !important;
+        color: #23152F !important;
+        white-space: nowrap !important;
+        text-rendering: geometricPrecision !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
+        align-self: center !important;
+        margin: 0 !important;
+        transform: translateY(0) !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1610,18 +1649,7 @@ def render_sidebar_access_settings_profile():
             else "Sign in or register to request partner access."
         )
 
-        status_col, role_col = st.columns(2)
-        with status_col:
-            st.metric("Access", access_status)
-        with role_col:
-            st.metric("Role", role_label)
-
-        with st.expander("Account and feature status", expanded=False):
-            st.write(f"**Account:** {display_email}")
-            st.write(f"**AI Copilot:** {copilot_status}")
-            st.write(f"**Exports:** {export_status}")
-            st.write(f"**Admin tools:** {admin_status}")
-
+        
         if is_admin_user:
             workspace = st.radio(
                 "Workspace",
@@ -1649,6 +1677,292 @@ render_sidebar_access_settings_profile()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
+
+
+# ---------------- SIDEBAR TYPOGRAPHY AND PROFESSIONAL UX STANDARDIZATION ----------------
+def inject_sidebar_typography_standardization():
+    """Final sidebar typography pass: consistent font, sizing, spacing, labels, buttons, and controls."""
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-sidebar-font: "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+        --eusee-sidebar-title: #23152F;
+        --eusee-sidebar-body: #344054;
+        --eusee-sidebar-muted: #667085;
+        --eusee-sidebar-border: #E6E8EF;
+        --eusee-sidebar-purple: #660094;
+    }
+
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] * {
+        font-family: var(--eusee-sidebar-font) !important;
+        letter-spacing: -0.005em;
+    }
+
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 12% 0%, rgba(102,0,148,.06), transparent 32%),
+            linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+        border-right: 1px solid var(--eusee-sidebar-border) !important;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: var(--eusee-sidebar-title) !important;
+        font-weight: 850 !important;
+        line-height: 1.18 !important;
+        letter-spacing: -0.025em !important;
+    }
+
+    section[data-testid="stSidebar"] h3 {
+        font-size: 15px !important;
+        margin: 0 0 0.2rem 0 !important;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div,
+    section[data-testid="stSidebar"] small,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        font-size: 11.2px !important;
+        line-height: 1.42 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: var(--eusee-sidebar-muted) !important;
+        font-weight: 500 !important;
+    }
+
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stTextInput label,
+    section[data-testid="stSidebar"] .stRadio label {
+        color: var(--eusee-sidebar-body) !important;
+        font-size: 11px !important;
+        font-weight: 760 !important;
+        line-height: 1.25 !important;
+        margin-bottom: 5px !important;
+        letter-spacing: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        border-radius: 15px !important;
+        border: 1px solid var(--eusee-sidebar-border) !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.052) !important;
+        margin-bottom: 10px !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        min-height: 40px !important;
+        padding: 10px 12px !important;
+        color: var(--eusee-sidebar-title) !important;
+        font-size: 12.2px !important;
+        font-weight: 820 !important;
+        line-height: 1.2 !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] {
+        min-height: 37px !important;
+        border-radius: 11px !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] span,
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea {
+        font-size: 11.5px !important;
+        font-weight: 520 !important;
+        color: var(--eusee-sidebar-body) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        border-radius: 999px !important;
+        background: #F4EAF8 !important;
+        border: 1px solid #E7D4F1 !important;
+        color: var(--eusee-sidebar-purple) !important;
+        font-size: 10px !important;
+        font-weight: 720 !important;
+        line-height: 1.1 !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button {
+        height: 38px !important;
+        border-radius: 11px !important;
+        font-size: 11.5px !important;
+        font-weight: 760 !important;
+        letter-spacing: -0.005em !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button[kind="primary"],
+    section[data-testid="stSidebar"] button[kind="primary"] {
+        background: linear-gradient(90deg, #660094 0%, #008CAA 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(102,0,148,.22) !important;
+        box-shadow: 0 7px 16px rgba(102,0,148,.16) !important;
+    }
+
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-filter-footer,
+    .sidebar-profile-card,
+    .sidebar-access-shell {
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .classic-filter-eyebrow {
+        font-size: 9px !important;
+        font-weight: 850 !important;
+        letter-spacing: .11em !important;
+    }
+
+    .classic-filter-title {
+        font-size: 13.8px !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    .classic-filter-note,
+    .sidebar-filter-footer-note,
+    .sidebar-filter-footer-applied {
+        font-size: 10.6px !important;
+        font-weight: 500 !important;
+        color: var(--eusee-sidebar-muted) !important;
+        line-height: 1.42 !important;
+    }
+
+    .sidebar-filter-footer-applied {
+        margin-top: 7px;
+        padding-top: 7px;
+        border-top: 1px solid #EEF0F4;
+    }
+
+    .sidebar-filter-footer-applied strong {
+        color: var(--eusee-sidebar-purple) !important;
+        font-weight: 800 !important;
+    }
+
+    .sidebar-active-summary {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid var(--eusee-sidebar-border);
+        border-radius: 15px;
+        padding: 10px 11px;
+        margin: 8px 0 10px 0;
+        box-shadow: 0 8px 18px rgba(16,24,40,.05);
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .sidebar-active-summary-title {
+        font-size: 11.2px !important;
+        font-weight: 850 !important;
+        color: var(--eusee-sidebar-title) !important;
+        margin-bottom: 7px;
+    }
+
+    .sidebar-active-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .sidebar-active-summary-pill {
+        background: #F9FAFB;
+        border: 1px solid #EEF0F4;
+        border-radius: 11px;
+        padding: 7px 8px;
+    }
+
+    .sidebar-active-summary-pill span {
+        display: block;
+        font-size: 9px !important;
+        color: var(--eusee-sidebar-muted) !important;
+        font-weight: 760 !important;
+        text-transform: uppercase;
+        letter-spacing: .045em;
+        margin-bottom: 2px;
+    }
+
+    .sidebar-active-summary-pill strong {
+        display: block;
+        font-size: 13px !important;
+        color: var(--eusee-sidebar-title) !important;
+        font-weight: 850 !important;
+    }
+
+    .sidebar-unsaved-indicator {
+        margin: 7px 0 10px 0;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #FFFAEB;
+        border: 1px solid #FEDF89;
+        color: #93370D !important;
+        font-size: 10.6px !important;
+        font-weight: 720 !important;
+        line-height: 1.35 !important;
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .sidebar-applied-indicator {
+        margin: 7px 0 10px 0;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #ECFDF3;
+        border: 1px solid #ABEFC6;
+        color: #067647 !important;
+        font-size: 10.6px !important;
+        font-weight: 720 !important;
+        line-height: 1.35 !important;
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .sidebar-sticky-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 99999;
+        background: linear-gradient(180deg, rgba(247,248,251,.72) 0%, #FFFFFF 42%);
+        padding: 9px 0 8px 0;
+        margin-top: 4px;
+        border-top: 1px solid rgba(230,232,239,.8);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .sidebar-footer-version {
+        color: var(--eusee-sidebar-muted) !important;
+        font-size: 9.8px !important;
+        font-weight: 560 !important;
+        line-height: 1.35 !important;
+        margin-top: 7px;
+    }
+
+    div[role="listbox"] * {
+        font-family: var(--eusee-sidebar-font) !important;
+        font-size: 11.5px !important;
+    }
+
+    div[role="option"] {
+        font-weight: 540 !important;
+        color: #344054 !important;
+    }
+
+    div[aria-selected="true"] {
+        font-weight: 760 !important;
+        color: var(--eusee-sidebar-purple) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_sidebar_typography_standardization()
 
 regions_labels = [
     "Africa",
@@ -1762,6 +2076,66 @@ with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
         container=time_filter_box,
     )
 
+# ---------------- SIDEBAR FILTER SUMMARY, APPLY STATE, AND STICKY ACTIONS ----------------
+def _filter_signature(filter_dict):
+    """Create a stable comparable signature for current/applied sidebar filters."""
+    signature = {}
+    for key, values in filter_dict.items():
+        if values is None:
+            signature[key] = tuple()
+        elif isinstance(values, (list, tuple, set, pd.Series, np.ndarray)):
+            signature[key] = tuple(sorted([str(v) for v in list(values)]))
+        else:
+            signature[key] = (str(values),)
+    return signature
+
+current_sidebar_filters = {
+    "regions": selected_regions,
+    "countries": selected_countries,
+    "alert_impacts": selected_alert_impacts,
+    "alert_types": selected_alert_types,
+    "enabling_principles": selected_enabling_principle,
+    "years": selected_years,
+    "months": selected_months,
+}
+
+current_filter_signature = _filter_signature(current_sidebar_filters)
+
+if "applied_sidebar_filters" not in st.session_state:
+    st.session_state["applied_sidebar_filters"] = current_sidebar_filters.copy()
+    st.session_state["applied_filter_signature"] = current_filter_signature
+    st.session_state["filters_last_applied_at"] = "Initial view"
+
+applied_filter_signature = st.session_state.get("applied_filter_signature", current_filter_signature)
+filters_have_unsaved_changes = current_filter_signature != applied_filter_signature
+
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-active-summary">
+        <div class="sidebar-active-summary-title">Active filter summary</div>
+        <div class="sidebar-active-summary-grid">
+            <div class="sidebar-active-summary-pill"><span>Regions</span><strong>{len(selected_regions):,}</strong></div>
+            <div class="sidebar-active-summary-pill"><span>Countries</span><strong>{len(selected_countries):,}</strong></div>
+            <div class="sidebar-active-summary-pill"><span>Years</span><strong>{len(selected_years):,}</strong></div>
+            <div class="sidebar-active-summary-pill"><span>Months</span><strong>{len(selected_months):,}</strong></div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if filters_have_unsaved_changes:
+    st.sidebar.markdown(
+        '<div class="sidebar-unsaved-indicator">Unsaved filter changes. Click Apply to update the dashboard view.</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.sidebar.markdown(
+        '<div class="sidebar-applied-indicator">Filters are applied to the current dashboard view.</div>',
+        unsafe_allow_html=True,
+    )
+
+st.sidebar.markdown('<div class="sidebar-sticky-actions">', unsafe_allow_html=True)
 reset_col1, reset_col2 = st.sidebar.columns([1, 1])
 
 with reset_col1:
@@ -1769,15 +2143,25 @@ with reset_col1:
         "🔄 Reset",
         use_container_width=True,
         key="reset_sidebar_filters",
+        help="Clear all sidebar filters and return to the default full-data view.",
     )
 
 with reset_col2:
-    st.button(
-        "✅ Applied",
+    apply_filters = st.button(
+        "✅ Apply",
         use_container_width=True,
-        disabled=True,
-        key="filters_applied_note",
+        key="apply_sidebar_filters",
+        type="primary",
+        help="Apply the current sidebar selections to the dashboard view.",
     )
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
+if apply_filters:
+    st.session_state["applied_sidebar_filters"] = current_sidebar_filters.copy()
+    st.session_state["applied_filter_signature"] = current_filter_signature
+    st.session_state["filters_last_applied_at"] = datetime.now().strftime("%H:%M:%S")
+    st.toast("Filters applied successfully.", icon="✅")
+    st.rerun()
 
 if reset_filters:
     for key in [
@@ -1792,16 +2176,32 @@ if reset_filters:
         "selected_subject_types",
         "selected_mechanism_types",
         "selected_event_types",
+        "applied_sidebar_filters",
+        "applied_filter_signature",
+        "filters_last_applied_at",
     ]:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
     st.rerun()
 
+# Use the last applied filters for dashboard calculations. This makes Apply meaningful.
+applied_sidebar_filters = st.session_state.get("applied_sidebar_filters", current_sidebar_filters)
+selected_regions = applied_sidebar_filters.get("regions", selected_regions)
+selected_countries = applied_sidebar_filters.get("countries", selected_countries)
+selected_alert_impacts = applied_sidebar_filters.get("alert_impacts", selected_alert_impacts)
+selected_alert_types = applied_sidebar_filters.get("alert_types", selected_alert_types)
+selected_enabling_principle = applied_sidebar_filters.get("enabling_principles", selected_enabling_principle)
+selected_years = applied_sidebar_filters.get("years", selected_years)
+selected_months = applied_sidebar_filters.get("months", selected_months)
+
+last_applied_time = st.session_state.get("filters_last_applied_at", "Initial view")
 st.sidebar.markdown(
-    """
+    f"""
     <div class="sidebar-filter-footer">
         <div class="sidebar-filter-footer-title">Filter behavior</div>
-        <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
+        <div class="sidebar-filter-footer-note">Select filter values, then click <strong>Apply</strong>. Empty selections include all available values.</div>
+        <div class="sidebar-filter-footer-applied">Last applied: <strong>{last_applied_time}</strong></div>
+        <div class="sidebar-footer-version">EUSEE Dashboard · Sidebar UX v2 · Current dataset update: {latest_date_display}</div>
     </div>
     """,
     unsafe_allow_html=True,
