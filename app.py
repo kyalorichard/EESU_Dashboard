@@ -1654,8 +1654,29 @@ def inject_sidebar_typography_standardization():
         --eusee-sidebar-purple: #660094;
     }
 
-    section[data-testid="stSidebar"],
-    section[data-testid="stSidebar"] * {
+    /* Apply the dashboard font to sidebar text containers only.
+       Do NOT apply font-family to every child with `*`: Streamlit icons are
+       Material Symbols ligatures, and forcing Inter/Arial makes them display
+       as raw text such as keyboard_double_arrow_left or I_arrow_right. */
+    section[data-testid="stSidebar"] {
+        font-family: var(--eusee-sidebar-font) !important;
+        letter-spacing: -0.005em;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5,
+    section[data-testid="stSidebar"] h6,
+    section[data-testid="stSidebar"] small,
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea,
+    section[data-testid="stSidebar"] button,
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
         font-family: var(--eusee-sidebar-font) !important;
         letter-spacing: -0.005em;
     }
@@ -1926,24 +1947,81 @@ def inject_sidebar_typography_standardization():
 inject_sidebar_typography_standardization()
 
 
-# ---------------- SIDEBAR EXPANDER TITLE / ICON SAFE ALIGNMENT FIX ----------------
-def inject_sidebar_expander_alignment_fix():
+# ---------------- SIDEBAR STREAMLIT ICON + EXPANDER ALIGNMENT FIX ----------------
+def inject_sidebar_streamlit_icon_and_expander_fix():
     """
-    Safe final override for Streamlit sidebar expanders.
+    Final sidebar icon fix.
 
-    Important:
-    - Do not convert the expander summary to CSS grid.
-    - Do not assign grid columns to Streamlit's internal SVG/text nodes.
-    - Do not hide or rewrite Streamlit's native title wrapper.
+    Root cause:
+    - The earlier global selector `section[data-testid="stSidebar"] * { font-family: ... }`
+      forces Streamlit's Material Symbols ligature icons to use the dashboard text font.
+    - When that happens, icons render as raw words such as `keyboard_double_arrow_left`,
+      `keyboard_double_arrow_right`, or `I_arrow_right`.
 
-    The previous grid override could expose internal icon fragments such as
-    "_arr" or "I_an" in some Streamlit builds. This version keeps the native
-    expander DOM intact and only normalizes vertical alignment, spacing, and
-    typography.
+    This fix restores the Material icon font for Streamlit controls and keeps expander
+    headers aligned without rewriting Streamlit's internal DOM.
     """
     st.markdown("""
     <style>
-    /* Sidebar expander card shell */
+    /* Restore Streamlit / Material Symbols icons everywhere, including the sidebar collapse button. */
+    [data-testid="collapsedControl"] span,
+    [data-testid="collapsedControl"] i,
+    [data-testid="collapsedControl"] svg,
+    [data-testid="baseButton-header"] span,
+    [data-testid="baseButton-header"] i,
+    [data-testid="stHeader"] span[aria-hidden="true"],
+    [data-testid="stHeader"] i,
+    section[data-testid="stSidebar"] span[aria-hidden="true"],
+    section[data-testid="stSidebar"] i,
+    section[data-testid="stSidebar"] [class*="material"],
+    section[data-testid="stSidebar"] [class*="Material"],
+    section[data-testid="stSidebar"] [class*="icon"],
+    section[data-testid="stSidebar"] [class*="Icon"] {
+        font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons" !important;
+        font-weight: normal !important;
+        font-style: normal !important;
+        font-size: 18px !important;
+        line-height: 1 !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+        white-space: nowrap !important;
+        word-wrap: normal !important;
+        direction: ltr !important;
+        -webkit-font-feature-settings: "liga" !important;
+        font-feature-settings: "liga" !important;
+        -webkit-font-smoothing: antialiased !important;
+        font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24 !important;
+    }
+
+    /* Keep SVG icons as SVGs; do not force a text font on them. */
+    [data-testid="collapsedControl"] svg,
+    section[data-testid="stSidebar"] svg {
+        font-family: initial !important;
+        width: 18px !important;
+        height: 18px !important;
+        min-width: 18px !important;
+        color: #660094 !important;
+        fill: currentColor !important;
+        vertical-align: middle !important;
+    }
+
+    /* Collapse control: professional positioning and no text leakage. */
+    button[data-testid="collapsedControl"],
+    [data-testid="collapsedControl"] {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 12px !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 6px 18px rgba(16,24,40,.12) !important;
+        overflow: hidden !important;
+        text-indent: 0 !important;
+    }
+
+    /* Sidebar expander shell. */
     section[data-testid="stSidebar"] div[data-testid="stExpander"] {
         border-radius: 15px !important;
         border: 1px solid #E6E8EF !important;
@@ -1953,87 +2031,67 @@ def inject_sidebar_expander_alignment_fix():
         overflow: hidden !important;
     }
 
-    /* Keep Streamlit's native expander header structure; only align it. */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary {
+    /* Expander header: align, but do not hide/rebuild Streamlit's title/icon nodes. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary {
         min-height: 42px !important;
-        padding: 9px 12px !important;
+        padding: 10px 12px !important;
         box-sizing: border-box !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 8px !important;
-        list-style: none !important;
-        cursor: pointer !important;
         background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
         border-bottom: 1px solid #EEF0F4 !important;
+        cursor: pointer !important;
+        list-style: none !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
     }
 
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary:hover {
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary:hover {
         background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
     }
 
-    /* Remove only the browser marker. Do not affect Streamlit's own chevron. */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary::marker {
-        content: "" !important;
-        font-size: 0 !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary::-webkit-details-marker {
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary::marker,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary::-webkit-details-marker {
         display: none !important;
+        content: "" !important;
     }
 
-    /* Align Streamlit's native wrapper elements without changing their order. */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary > * {
-        display: inline-flex !important;
-        align-items: center !important;
-        min-height: 18px !important;
-    }
-
-    /* Chevron/icon alignment. Keep it visible and fixed-size. */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary svg {
-        width: 14px !important;
-        height: 14px !important;
-        min-width: 14px !important;
-        max-width: 14px !important;
-        display: block !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        color: #660094 !important;
-        fill: currentColor !important;
-        flex-shrink: 0 !important;
-        transform-origin: center center !important;
-    }
-
-    /* Expander title. This preserves emoji/title text and prevents clipping. */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p {
+    /* Expander title text. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary p,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary [data-testid="stMarkdownContainer"] {
         margin: 0 !important;
         padding: 0 !important;
         color: #23152F !important;
+        font-family: var(--eusee-sidebar-font) !important;
         font-size: 12.4px !important;
         font-weight: 850 !important;
-        line-height: 18px !important;
+        line-height: 20px !important;
         letter-spacing: -0.01em !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+    }
+
+    /* Expander chevron alignment. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary > span:first-child,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary svg:first-child {
+        flex: 0 0 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+        min-width: 18px !important;
         display: inline-flex !important;
         align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        color: #660094 !important;
     }
 
-    /* Prevent global sidebar paragraph/span overrides from distorting expander titles. */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > summary p span {
-        vertical-align: middle !important;
-    }
-
-    /* Expander body spacing */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] > details > div {
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details > div {
         padding-top: 8px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-inject_sidebar_expander_alignment_fix()
+inject_sidebar_streamlit_icon_and_expander_fix()
 
 
 regions_labels = [
