@@ -6228,17 +6228,20 @@ def render_dashboard_plotly_chart(
     config=None,
     expanded=False,
     chart_info=None,
-    show_title_tooltip=True,
+    show_title_tooltip=False,
     chart_width_px=620,
 ):
-    """Render dashboard Plotly visuals with a standardized title-adjacent tooltip.
+    """Render dashboard Plotly visuals without adding automatic tooltips.
 
-    The small info badge is positioned directly beside the Plotly chart title.
-    It replaces scattered floating tips and keeps chart explanations contextual,
-    compact, and consistent across desktop and mobile layouts.
+    Title-adjacent info badges should be applied only to specific charts by
+    calling add_chart_info_badge(...) before rendering. This preserves the
+    original UX where only the two enabling-principle charts carry explanatory
+    notes, instead of adding badges to every chart.
     """
     target = container if container is not None else st
 
+    # Disabled by default. Use show_title_tooltip=True only for a specific chart,
+    # or preferably apply add_chart_info_badge(...) manually before rendering.
     if show_title_tooltip:
         fig = apply_title_adjacent_tooltip(
             fig,
