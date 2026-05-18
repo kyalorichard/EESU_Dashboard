@@ -6357,38 +6357,26 @@ def render_dashboard_plotly_chart(
 ):
     """Render dashboard Plotly visuals without adding automatic tooltips.
 
-    Title-adjacent info badges should be applied only to specific charts by
-    calling add_chart_info_badge(...) before rendering. This preserves the
-    original UX where only the two enabling-principle charts carry explanatory
-    notes, instead of adding badges to every chart.
+    Info badges remain opt-in. Only charts passed with show_title_tooltip=True
+    receive the title-band tooltip badge, preserving the original behavior
+    where only the two enabling-principle charts carry explanatory notes.
     """
     target = container if container is not None else st
 
-    # Disabled by default. For the two enabling-principle charts, render the
-    # title and info tooltip together as one Streamlit header row. This is more
-    # stable than Plotly annotations across desktop and mobile layouts.
+    # Tooltip is disabled by default. For the two existing enabling-principle
+    # charts only, keep the info badge inside the Plotly figure title band so
+    # it appears together with the chart title rather than as a separate
+    # Streamlit header above the chart.
     if show_title_tooltip and chart_info:
         try:
-            title_text_for_header = title or getattr(fig.layout.title, "text", "") or ""
-        except Exception:
-            title_text_for_header = title or ""
-
-        render_chart_title_with_tooltip(target, title_text_for_header, chart_info)
-
-        # Remove the Plotly title to avoid a duplicate title below the custom
-        # header. Keep enough top margin for legend spacing.
-        try:
-            current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
-            fig.update_layout(
-                title=dict(text=""),
-                margin=dict(
-                    l=current_margin.get("l", 135),
-                    r=current_margin.get("r", 28),
-                    t=max(32, int(current_margin.get("t", 48) or 48) - 24),
-                    b=current_margin.get("b", 58),
-                ),
+            fig = add_chart_info_badge(
+                fig,
+                chart_info,
+                y=1.065,
+                chart_width_px=chart_width_px,
             )
         except Exception:
+            # Never allow the optional info badge to break chart rendering.
             pass
 
     fig = apply_responsive_plotly_layout(fig)
