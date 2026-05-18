@@ -691,8 +691,158 @@ st.markdown(f"""
     font-size: 10.5px;
     font-weight: 700;
 }}
+
 </style>
 """, unsafe_allow_html=True)
+
+# ---------------- TOP-RIGHT PRIVILEGED ACCESS / PROFILE HEADER ----------------
+def render_top_right_privileged_access():
+    """Render compact role-aware access controls in the dashboard header."""
+    role = get_current_role() if callable(get_current_role) else "guest"
+    email = get_current_email() if callable(get_current_email) else ""
+    display_name = st.session_state.get("name", "User")
+    display_email = email or st.session_state.get("email", "Public user")
+    signed_in = is_authenticated()
+
+    if signed_in:
+        access_title = f"{display_name}"
+        access_subtitle = "Secure dashboard session"
+        access_mode = role.title() if role else "Privileged"
+        access_icon = "🔐"
+    else:
+        access_title = "Public mode"
+        access_subtitle = "Sign in for partner-only analytics"
+        access_mode = "Sign in available"
+        access_icon = "🔓"
+
+    st.markdown("""
+    <style>
+    .eusee-header-access-wrap {
+        margin: -4px 0 12px 0;
+    }
+    .eusee-header-access-card {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 11px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #FCF7FF 100%);
+        border: 1px solid rgba(102,0,148,.15);
+        box-shadow: 0 8px 20px rgba(16,24,40,.06);
+        font-family: Arial, sans-serif;
+        box-sizing: border-box;
+    }
+    .eusee-header-access-left {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+    }
+    .eusee-header-access-icon {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+        border: 1px solid rgba(102,0,148,.10);
+        color: #660094;
+        font-size: 14px;
+        font-weight: 900;
+    }
+    .eusee-header-access-copy {
+        min-width: 0;
+        line-height: 1.15;
+    }
+    .eusee-header-access-title {
+        color: #23152F;
+        font-size: 12.5px;
+        font-weight: 950;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 210px;
+    }
+    .eusee-header-access-subtitle {
+        color: #667085;
+        font-size: 10px;
+        font-weight: 750;
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 210px;
+    }
+    .eusee-header-access-badge {
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: #EFFBFE;
+        color: #008CAA;
+        border: 1px solid rgba(0,140,170,.14);
+        font-size: 9.5px;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+    .eusee-header-access-help {
+        margin-top: 6px;
+        color: #667085;
+        font-size: 10px;
+        line-height: 1.35;
+        font-family: Arial, sans-serif;
+    }
+    div[data-testid="stExpander"] summary p {
+        font-size: 11px !important;
+        font-weight: 900 !important;
+    }
+    @media (max-width: 900px) {
+        .eusee-header-access-wrap { margin-top: 4px; }
+        .eusee-header-access-card { border-radius: 15px; align-items: flex-start; }
+        .eusee-header-access-title,
+        .eusee-header-access-subtitle { max-width: 100%; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    spacer_col, access_col = st.columns([5.2, 2.2])
+    with access_col:
+        st.markdown(f"""
+        <div class="eusee-header-access-wrap">
+            <div class="eusee-header-access-card" title="Privileged access unlocks partner-only analyses, exports, and advanced intelligence tools.">
+                <div class="eusee-header-access-left">
+                    <div class="eusee-header-access-icon">{access_icon}</div>
+                    <div class="eusee-header-access-copy">
+                        <div class="eusee-header-access-title">{access_title}</div>
+                        <div class="eusee-header-access-subtitle">{access_subtitle}</div>
+                    </div>
+                </div>
+                <div class="eusee-header-access-badge">{access_mode}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if signed_in:
+            with st.expander("Profile / Settings", expanded=False):
+                st.caption(f"Role: {role}")
+                st.caption(f"Account: {display_email}")
+                st.caption("AI Copilot: " + ("Available" if has_permission("use_ai_copilot") else "Unavailable for current access level"))
+                if st.button("Logout", use_container_width=True, key="top_header_logout_btn"):
+                    from auth import logout
+                    logout()
+        else:
+            if st.button("🔐 Sign in / Register", use_container_width=True, key="top_header_login_btn"):
+                st.session_state.auth_view = True
+                st.rerun()
+            st.markdown(
+                "<div class='eusee-header-access-help'>ⓘ Privileged access unlocks advanced analyses, exports, and AI-assisted tools.</div>",
+                unsafe_allow_html=True,
+            )
+
+
+render_top_right_privileged_access()
 
 # ---------------- TOP-LEFT FEEDBACK BAR ----------------
 def render_top_feedback_bar():
@@ -1336,78 +1486,9 @@ def render_sidebar_settings_profile():
         """, unsafe_allow_html=True)
 
 
-# ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
-st.sidebar.markdown("""
-<style>
-.eusee-access-card {
-    margin-top: 14px;
-    padding: 14px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
-    border: 1px solid rgba(102, 0, 148, 0.16);
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.07);
-    font-family: Arial, sans-serif;
-}
-.eusee-access-eyebrow {
-    font-size: 9px;
-    font-weight: 900;
-    color: #660094;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-}
-.eusee-access-title {
-    font-size: 14px;
-    font-weight: 900;
-    color: #23152F;
-}
-.eusee-access-note {
-    font-size: 11px;
-    color: #667085;
-    margin-top: 4px;
-}
-.eusee-access-status {
-    margin-top: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #EFFBFE;
-    color: #008CAA;
-    font-size: 10px;
-    font-weight: 900;
-    width: fit-content;
-}
-</style>
-""", unsafe_allow_html=True)
-
-if is_authenticated():
-    st.sidebar.markdown(f"""
-    <div class="eusee-access-card">
-        <div class="eusee-access-eyebrow">Privileged access</div>
-        <div class="eusee-access-title">🔐 Secure session</div>
-        <div class="eusee-access-note">Signed in as <strong>{st.session_state.get('name','User')}</strong></div>
-        <div class="eusee-access-status">Access enabled</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.sidebar.button("Logout", use_container_width=True):
-        from auth import logout
-        logout()
-
-else:
-    st.sidebar.markdown("""
-    <div class="eusee-access-card">
-        <div class="eusee-access-eyebrow">Privileged access</div>
-        <div class="eusee-access-title">🔐 Secure access</div>
-        <div class="eusee-access-note">
-            Sign in to access advanced features and analyses available to EUSEE partners.
-        </div>
-        <div class="eusee-access-status">Public mode</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.sidebar.button("🔐 Sign in / Register", use_container_width=True):
-        st.session_state.auth_view = True
-        st.rerun()
-
+# ---------------- SIDEBAR ACCOUNT STATUS ----------------
+# Login controls now live in the compact top-right dashboard header.
+# The sidebar keeps only a small Settings / Profile summary plus filters.
 render_sidebar_settings_profile()
 
 render_classic_filter_header()
