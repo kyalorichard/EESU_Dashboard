@@ -258,7 +258,7 @@ def render_filter_status_card(df):
 
 
 def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview"):
-    """Render a polished searchable data preview without the column-filter control."""
+    """Render a clean searchable table with alert-impact conditional formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
@@ -279,191 +279,56 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             impact_col = candidate
             break
 
-    # Keep all columns, but place the most decision-useful fields first for better UX.
-    priority_columns = [
-        "creation_date",
-        "Date of submission",
-        "alert-country",
-        "region",
-        "alert-impact",
-        "alert-type",
-        "enabling-principle",
-        "Actor of repression",
-        "Restrictive actor",
-        "Civil society actor affected",
-        "Restrictive mechanism",
-        "Description",
-        "source",
-        "year",
-        "month_name",
-    ]
-    ordered_columns = [c for c in priority_columns if c in display_df.columns]
-    ordered_columns += [c for c in display_df.columns if c not in ordered_columns]
-    display_df = display_df[ordered_columns]
-
-    total_records = len(display_df)
-    country_count = (
-        display_df["alert-country"].nunique()
-        if "alert-country" in display_df.columns
-        else 0
-    )
-    impact_count = (
-        display_df[impact_col].nunique()
-        if impact_col and impact_col in display_df.columns
-        else 0
-    )
-
-    date_label = "Not available"
-    date_source_col = "creation_date" if "creation_date" in df.columns else None
-    if date_source_col:
-        raw_dates = pd.to_datetime(df[date_source_col], errors="coerce").dropna()
-        if not raw_dates.empty:
-            date_label = f"{raw_dates.min().strftime('%Y-%m-%d')} to {raw_dates.max().strftime('%Y-%m-%d')}"
-
     with st.expander(f"📋 {title}", expanded=False):
         st.markdown("""
         <style>
-        .eusee-table-panel {
+        .eusee-data-preview-note {
             background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
             border: 1px solid #E6E8EF;
-            border-radius: 18px;
-            padding: 14px;
-            margin: 2px 0 14px 0;
-            box-shadow: 0 10px 24px rgba(16,24,40,.06);
+            border-left: 4px solid #660094;
+            border-radius: 14px;
+            padding: 10px 12px;
+            margin: 2px 0 12px 0;
+            color: #667085;
             font-family: Arial, sans-serif;
-        }
-        .eusee-table-panel-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 14px;
-            margin-bottom: 12px;
-        }
-        .eusee-table-eyebrow {
-            font-size: 9.5px;
-            font-weight: 900;
-            color: #660094;
-            letter-spacing: .13em;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .eusee-table-title {
-            font-size: 15px;
-            font-weight: 900;
-            color: #23152F;
-            line-height: 1.15;
-        }
-        .eusee-table-subtitle {
             font-size: 11px;
-            color: #667085;
-            margin-top: 4px;
-            line-height: 1.38;
-            max-width: 780px;
+            line-height: 1.4;
+            box-shadow: 0 6px 16px rgba(16,24,40,.045);
         }
-        .eusee-table-badge {
-            background: #F4EAF8;
-            color: #660094;
-            border: 1px solid #E7D4F1;
-            border-radius: 999px;
-            padding: 6px 10px;
-            font-size: 10px;
-            font-weight: 900;
-            white-space: nowrap;
-        }
-        .eusee-table-metric-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 8px;
-        }
-        .eusee-table-mini-kpi {
-            background: #FFFFFF;
-            border: 1px solid #EEF0F4;
-            border-radius: 13px;
-            padding: 9px 10px;
-            box-shadow: 0 2px 8px rgba(16,24,40,.04);
-        }
-        .eusee-table-mini-kpi span {
-            display: block;
-            font-size: 9.5px;
-            color: #667085;
-            font-weight: 850;
-            margin-bottom: 3px;
-            text-transform: uppercase;
-            letter-spacing: .04em;
-        }
-        .eusee-table-mini-kpi strong {
-            font-size: 14px;
+        .eusee-data-preview-note strong {
             color: #23152F;
-            font-weight: 950;
-            line-height: 1.15;
-        }
-        .eusee-table-controls-note {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin: 8px 0 10px 0;
-            padding: 8px 10px;
-            border-radius: 12px;
-            background: #F9FAFB;
-            border: 1px solid #EEF0F4;
-            color: #667085;
-            font-size: 10.5px;
-            line-height: 1.35;
-            font-family: Arial, sans-serif;
+            font-weight: 900;
         }
         div[data-testid="stDataFrame"] {
+            border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
             overflow: hidden !important;
-            border: 1px solid #E6E8EF !important;
-            box-shadow: 0 8px 18px rgba(16,24,40,.055) !important;
+            box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
             background: #FFFFFF !important;
         }
         div[data-testid="stDataFrame"] [role="columnheader"] {
             background: #F4EAF8 !important;
             color: #23152F !important;
             font-weight: 900 !important;
+            border-bottom: 1px solid #E7D4F1 !important;
         }
-        @media (max-width: 900px) {
-            .eusee-table-panel-head,
-            .eusee-table-controls-note { flex-direction: column; align-items: flex-start; }
-            .eusee-table-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 560px) {
-            .eusee-table-metric-grid { grid-template-columns: 1fr; }
+        div[data-testid="stDataFrame"] [role="gridcell"] {
+            color: #344054 !important;
+            font-size: 12px !important;
         }
         </style>
-        """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-        <div class="eusee-table-panel">
-            <div class="eusee-table-panel-head">
-                <div>
-                    <div class="eusee-table-eyebrow">Filtered dataset</div>
-                    <div class="eusee-table-title">Professional data preview</div>
-                    <div class="eusee-table-subtitle">
-                        Review the filtered records currently powering the dashboard. Use search and row limits only;
-                        column filtering has been removed to keep the table cleaner and more consistent.
-                    </div>
-                </div>
-                <div class="eusee-table-badge">Live filtered view</div>
-            </div>
-            <div class="eusee-table-metric-grid">
-                <div class="eusee-table-mini-kpi"><span>Records</span><strong>{total_records:,}</strong></div>
-                <div class="eusee-table-mini-kpi"><span>Countries</span><strong>{country_count:,}</strong></div>
-                <div class="eusee-table-mini-kpi"><span>Alert groups</span><strong>{impact_count:,}</strong></div>
-                <div class="eusee-table-mini-kpi"><span>Date range</span><strong>{date_label}</strong></div>
-            </div>
+        <div class="eusee-data-preview-note">
+            <strong>Filtered data preview:</strong> review and download the dataset based on the filters currently applied.
         </div>
         """, unsafe_allow_html=True)
 
-        control_col1, control_col2 = st.columns([1.8, 0.7])
+        control_col1, control_col2 = st.columns([1.7, 0.7])
 
         with control_col1:
             search_text = st.text_input(
                 "Search table",
                 value="",
-                placeholder="Search country, alert type, actor, principle, description...",
+                placeholder="Search country, alert type, actor, principle...",
                 key=f"{key}_search",
             )
 
@@ -477,7 +342,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
 
         table_df = display_df.copy()
 
-        # Search across all columns; underlying filtered dataset remains unchanged.
+        # Search across all columns; underlying data remain unchanged.
         if search_text.strip():
             query = search_text.strip().lower()
             mask = table_df.astype(str).apply(
@@ -491,13 +356,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         else:
             table_view = table_df.copy()
 
-        st.markdown(f"""
-        <div class="eusee-table-controls-note">
-            <span><strong>{len(table_view):,}</strong> rows displayed from <strong>{len(table_df):,}</strong> matching records.</span>
-            <span>Columns are shown in a fixed professional order for consistency.</span>
-        </div>
-        """, unsafe_allow_html=True)
-
         # Style the alert impact column using professional status colors.
         def style_alert_impact(value):
             value_clean = str(value).strip().lower()
@@ -506,21 +364,21 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                 return (
                     "background-color:#FEE4E2;"
                     "color:#B42318;"
-                    "font-weight:850;"
+                    "font-weight:800;"
                 )
 
             if value_clean == "positive":
                 return (
                     "background-color:#DCFAE6;"
                     "color:#067647;"
-                    "font-weight:850;"
+                    "font-weight:800;"
                 )
 
             if value_clean == "context to watch":
                 return (
                     "background-color:#FEF0C7;"
                     "color:#B54708;"
-                    "font-weight:850;"
+                    "font-weight:800;"
                 )
 
             return ""
@@ -543,14 +401,14 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             table_to_render,
             use_container_width=True,
             hide_index=True,
-            height=min(620, max(330, 36 * min(len(table_view), 13) + 96)),
+            height=min(560, max(320, 34 * min(len(table_view), 12) + 92)),
             key=key,
         )
 
         csv = table_df.to_csv(index=False).encode("utf-8")
         if has_permission("download_data"):
             st.download_button(
-                "⬇️ Download matching records as CSV",
+                "⬇️ Download filtered table as CSV",
                 data=csv,
                 file_name=f"{key}.csv",
                 mime="text/csv",
@@ -562,11 +420,10 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
 
         st.markdown("""
         <div class="data-preview-footnote">
-            Interpretation note: this table reflects the active dashboard filters and any search term entered above.
-            Negative alerts are highlighted in red, positive alerts in green, and context-to-watch records in amber.
+            Interpretation note: this table reflects the active filters. Negative alerts are highlighted in red,
+            positive alerts in green, and context-to-watch records in amber.
         </div>
         """, unsafe_allow_html=True)
-
 
 inject_classic_dashboard_css()
 
