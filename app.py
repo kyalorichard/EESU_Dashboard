@@ -934,21 +934,21 @@ def render_top_feedback_bar():
                 -webkit-backdrop-filter: blur(14px) !important;
             }}
 
-            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {
+            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {{
                 display: flex !important;
-            }
+            }}
 
-            #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {
+            #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {{
                 display: none !important;
-            }
+            }}
 
-            #eusee-feedback-floating-root:not(.is-open) .eusee-feedback-panel {
+            #eusee-feedback-floating-root:not(.is-open) .eusee-feedback-panel {{
                 display: none !important;
-            }
+            }}
 
-            #eusee-feedback-floating-root:not(.is-open) > #eusee-feedback-toggle {
+            #eusee-feedback-floating-root:not(.is-open) > #eusee-feedback-toggle {{
                 display: inline-flex !important;
-            }
+            }}
 
             .eusee-feedback-panel-left {{
                 display: flex !important;
