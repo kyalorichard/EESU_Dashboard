@@ -6398,23 +6398,6 @@ with tab_map:
                                 </div>
                             </div>
 
-                            <div class="map-overview-stat-grid">
-                                <div class="map-overview-stat">
-                                    <span>Mapped countries</span>
-                                    <strong>{mapped_countries:,}</strong>
-                                    <small>Countries represented in the current map view.</small>
-                                </div>
-                                <div class="map-overview-stat">
-                                    <span>Mapped alerts</span>
-                                    <strong>{total_mapped:,}</strong>
-                                    <small>Filtered alerts successfully linked to map geometry.</small>
-                                </div>
-                                <div class="map-overview-stat">
-                                    <span>Priority countries</span>
-                                    <strong>{very_high_count + high_count:,}</strong>
-                                    <small>Countries classified as high or very high priority.</small>
-                                </div>
-                            </div>
                         </div>
                     </div>
                     """,
@@ -6539,12 +6522,6 @@ with tab_map:
                     )
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                    st.markdown(f"""
-                    <div class="map-reading-strip">
-                        <span><b>Reading guide:</b> darker countries show higher filtered alert volume; hover over any country for the alert breakdown.</span>
-                        <span><b>Mapped countries:</b> {mapped_countries:,} &nbsp; | &nbsp; <b>Top country:</b> {top_country} &nbsp; | &nbsp; <b>Coverage:</b> {mapping_coverage}%</span>
-                    </div>
-                    """, unsafe_allow_html=True)
 
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
