@@ -1528,7 +1528,11 @@ st.sidebar.image("assets/eu-see-logo.png", width=400)
 
 # ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
 def render_sidebar_access_settings_profile():
-    """Render one simple, professional sidebar panel for access, account, navigation, and feature status."""
+    """Render one clean, native Streamlit sidebar panel for access, account, navigation, and feature status.
+
+    This version intentionally avoids rendering the panel body with raw HTML so users never see
+    HTML tags/scripts if Streamlit sanitization or markdown rendering changes.
+    """
     signed_in = is_authenticated()
     is_admin_user = bool(signed_in and admin_is_admin())
 
@@ -1537,79 +1541,108 @@ def render_sidebar_access_settings_profile():
 
     email = get_current_email() if callable(get_current_email) else ""
     display_email = email or st.session_state.get("email", "Public user")
-    display_name = st.session_state.get("name", "User") if signed_in else "Public user"
+    display_name = st.session_state.get("name", "User") if signed_in else "Guest access"
 
     copilot_status = "Available" if has_permission("use_ai_copilot") else "Limited"
     export_status = "Enabled" if has_permission("download_data") else "Restricted"
     admin_status = "Enabled" if is_admin_user else "Not available"
-
     access_status = "Signed in" if signed_in else "Public mode"
-    access_icon = "🔐" if signed_in else "🔓"
-    access_title = display_name if signed_in else "Guest access"
-    access_note = (
-        "Your dashboard permissions are controlled by your approved EUSEE role."
-        if signed_in
-        else "Sign in or register to request access to partner-only dashboard features."
-    )
 
     st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
     if not is_admin_user:
         st.session_state["eusee_sidebar_workspace"] = "Dashboard"
 
-    st.sidebar.markdown(f"""
-    <div class="sidebar-access-shell sidebar-access-center">
-        <div class="sidebar-access-top">
-            <div class="sidebar-access-icon">{access_icon}</div>
-            <div class="sidebar-access-copy">
-                <div class="sidebar-access-eyebrow">User privilege center</div>
-                <div class="sidebar-access-title">{access_title}</div>
-                <div class="sidebar-access-note">{access_note}</div>
-            </div>
-        </div>
-
-        <div class="sidebar-access-pill-row">
-            <span class="sidebar-access-pill">{access_status}</span>
-            <span class="sidebar-access-pill secondary">{role_label}</span>
-        </div>
-
-        <div class="sidebar-profile-card sidebar-profile-card-merged">
-            <div class="sidebar-profile-row"><span>Account</span><strong>{display_email}</strong></div>
-            <div class="sidebar-profile-row"><span>AI Copilot</span><strong>{copilot_status}</strong></div>
-            <div class="sidebar-profile-row"><span>Exports</span><strong>{export_status}</strong></div>
-            <div class="sidebar-profile-row"><span>Admin tools</span><strong>{admin_status}</strong></div>
-        </div>
-    </div>
+    # Small CSS only for Streamlit widgets in the privilege center; no visible HTML content is rendered.
+    st.sidebar.markdown("""
+    <style>
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
+        gap: 0.45rem;
+    }
+    .eusee-privilege-marker { display: none; }
+    section[data-testid="stSidebar"] .eusee-privilege-title {
+        font-size: 12px;
+        font-weight: 900;
+        color: #23152F;
+        margin-bottom: -2px;
+    }
+    section[data-testid="stSidebar"] .eusee-privilege-note {
+        font-size: 10.5px;
+        color: #667085;
+        line-height: 1.35;
+        margin-top: -4px;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetric"] {
+        background: #FFFFFF;
+        border: 1px solid #EEF0F4;
+        border-radius: 12px;
+        padding: 7px 8px;
+        box-shadow: 0 2px 8px rgba(16,24,40,.035);
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+        font-size: 9px !important;
+        font-weight: 900 !important;
+        color: #667085 !important;
+        text-transform: uppercase;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        font-size: 13px !important;
+        font-weight: 900 !important;
+        color: #23152F !important;
+    }
+    </style>
     """, unsafe_allow_html=True)
 
-    if is_admin_user:
-        nav_left, nav_right = st.sidebar.columns(2)
-        with nav_left:
-            if st.button(
-                "Dashboard",
-                use_container_width=True,
-                key="privilege_center_dashboard_btn",
-                type="primary" if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else "secondary",
-            ):
-                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
-                st.rerun()
-        with nav_right:
-            if st.button(
-                "Admin",
-                use_container_width=True,
-                key="privilege_center_admin_btn",
-                type="primary" if st.session_state.get("eusee_sidebar_workspace") == "Admin" else "secondary",
-            ):
-                st.session_state["eusee_sidebar_workspace"] = "Admin"
+    # Use a bordered native container where available; fallback gracefully for older Streamlit versions.
+    try:
+        panel = st.sidebar.container(border=True)
+    except TypeError:
+        panel = st.sidebar.container()
+
+    with panel:
+        st.markdown('<span class="eusee-privilege-marker"></span>', unsafe_allow_html=True)
+        st.markdown("### 🔐 User Privilege Center")
+        st.caption("Central access, role, navigation, and feature availability.")
+
+        st.markdown(f"**{display_name}**")
+        st.caption(
+            "Your dashboard permissions are controlled by your approved EUSEE role."
+            if signed_in
+            else "Sign in or register to request partner access."
+        )
+
+        status_col, role_col = st.columns(2)
+        with status_col:
+            st.metric("Access", access_status)
+        with role_col:
+            st.metric("Role", role_label)
+
+        with st.expander("Account and feature status", expanded=False):
+            st.write(f"**Account:** {display_email}")
+            st.write(f"**AI Copilot:** {copilot_status}")
+            st.write(f"**Exports:** {export_status}")
+            st.write(f"**Admin tools:** {admin_status}")
+
+        if is_admin_user:
+            workspace = st.radio(
+                "Workspace",
+                options=["Dashboard", "Admin"],
+                horizontal=True,
+                key="eusee_sidebar_workspace_radio",
+                index=0 if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else 1,
+                label_visibility="collapsed",
+            )
+            if workspace != st.session_state.get("eusee_sidebar_workspace"):
+                st.session_state["eusee_sidebar_workspace"] = workspace
                 st.rerun()
 
-    if signed_in:
-        if st.sidebar.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
-            from auth import logout
-            logout()
-    else:
-        if st.sidebar.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_login_btn"):
-            st.session_state.auth_view = True
-            st.rerun()
+        if signed_in:
+            if st.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
+                from auth import logout
+                logout()
+        else:
+            if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_login_btn"):
+                st.session_state.auth_view = True
+                st.rerun()
 
 
 render_sidebar_access_settings_profile()
