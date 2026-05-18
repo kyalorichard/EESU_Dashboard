@@ -6606,40 +6606,50 @@ with tab_manual:
                 .manual-kpi-grid {
                     display: grid;
                     grid-template-columns: repeat(4, minmax(0, 1fr));
-                    gap: 12px;
-                    margin: 14px 0 18px 0;
+                    gap: 10px;
+                    margin: 10px 0 14px 0;
                 }
                 .manual-mini-card {
+                    display: grid;
+                    grid-template-columns: 34px minmax(0, 1fr);
+                    gap: 9px;
+                    align-items: start;
                     background: #FFFFFF;
-                    border: 1px solid #ECE5F3;
-                    border-radius: 15px;
-                    padding: 13px 14px;
-                    box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
-                    min-height: 92px;
+                    border: 1px solid #E8DFF0;
+                    border-radius: 14px;
+                    padding: 10px 12px;
+                    box-shadow: 0 6px 16px rgba(16, 24, 40, 0.055);
+                    min-height: 86px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-mini-icon {
-                    width: 30px;
-                    height: 30px;
-                    border-radius: 10px;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 11px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #F8F3FB;
+                    background: #F4EAF8;
                     color: #660094;
-                    font-size: 16px;
-                    margin-bottom: 8px;
+                    font-size: 15px;
+                    border: 1px solid #E7D4F1;
+                    margin-bottom: 0;
+                }
+                .manual-mini-body {
+                    min-width: 0;
                 }
                 .manual-mini-title {
                     color: #2D0055;
-                    font-size: 12px;
+                    font-size: 12.5px;
                     font-weight: 900;
-                    margin-bottom: 4px;
+                    line-height: 1.15;
+                    margin-bottom: 3px;
                 }
                 .manual-mini-text {
-                    color: #64748B;
-                    font-size: 11px;
+                    color: #667085;
+                    font-size: 10.8px;
                     line-height: 1.35;
+                    font-weight: 650;
                 }
                 .manual-section-card {
                     background: #FFFFFF;
@@ -6751,6 +6761,22 @@ with tab_manual:
                     line-height: 1.45;
                     font-family: Arial, sans-serif;
                 }
+                @media (max-width: 1100px) {
+                    .manual-kpi-grid {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                }
+                @media (max-width: 640px) {
+                    .manual-hero {
+                        padding: 18px 16px;
+                    }
+                    .manual-kpi-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    .manual-mini-card {
+                        min-height: auto;
+                    }
+                }
                 </style>
                 """,
                 unsafe_allow_html=True,
@@ -6774,11 +6800,34 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-kpi-grid">
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand what the dashboard shows and how each section can support EU SEE monitoring.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
-                    Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
+                    <div class="manual-mini-card">
+                        <div class="manual-mini-icon">🎯</div>
+                        <div class="manual-mini-body">
+                            <div class="manual-mini-title">Purpose</div>
+                            <div class="manual-mini-text">Understand what the dashboard shows and how it supports EU SEE monitoring.</div>
+                        </div>
+                    </div>
+                    <div class="manual-mini-card">
+                        <div class="manual-mini-icon">🧭</div>
+                        <div class="manual-mini-body">
+                            <div class="manual-mini-title">Navigation</div>
+                            <div class="manual-mini-text">Move across Overview, Negative Alerts Analysis, Visualization Map, and User Manual.</div>
+                        </div>
+                    </div>
+                    <div class="manual-mini-card">
+                        <div class="manual-mini-icon">🔎</div>
+                        <div class="manual-mini-body">
+                            <div class="manual-mini-title">Analysis</div>
+                            <div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country patterns.</div>
+                        </div>
+                    </div>
+                    <div class="manual-mini-card">
+                        <div class="manual-mini-icon">⬇</div>
+                        <div class="manual-mini-body">
+                            <div class="manual-mini-title">Outputs</div>
+                            <div class="manual-mini-text">Download the manual or access data tools where permissions allow.</div>
+                        </div>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -6806,7 +6855,7 @@ with tab_manual:
                     """
                     <div class="manual-section-card">
                         <div class="manual-section-title">How to interpret dashboard findings</div>
-                        <div class="manual-section-note">: Keep these principles in mind when using or presenting findings from the dashboard.</div>
+                        <div class="manual-section-note">Keep these principles in mind when using or presenting findings from the dashboard.</div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect more incidents, stronger reporting, better monitoring coverage, or a combination of these factors.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">When sharing charts or tables, mention the selected region, period, alert impact, alert type, and other relevant filters.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Compare different views</div><div class="manual-step-text">Use figures, charts, maps, and available data records together before drawing conclusions.</div></div></div>
