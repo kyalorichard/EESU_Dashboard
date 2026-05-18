@@ -5493,6 +5493,176 @@ def inject_compact_tabs_and_legend_ux():
 inject_compact_tabs_and_legend_ux()
 
 
+# ---------------- FINAL RESPONSIVE TAB TEXT UX OVERRIDE ----------------
+def inject_final_responsive_tab_text_ux():
+    """Final override for responsive Streamlit tabs.
+
+    Purpose:
+    - Keep all tab labels readable on desktop, tablet, and mobile.
+    - Allow long labels such as "Negative Alerts Analysis" to wrap cleanly.
+    - Avoid horizontal scrolling, clipped text, and ellipsis-only labels.
+    - Preserve a compact professional tab style for nested tabs as well.
+    """
+    st.markdown("""
+    <style>
+    /* Apply to all Streamlit tabs, including nested dashboard/AI tabs. */
+    div[data-testid="stTabs"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tablist"],
+    div[data-testid="stTabs"] [role="tablist"] {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 5px 0 9px 0 !important;
+        margin: 0 0 4px 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+        align-items: stretch !important;
+        border-bottom: 1px solid #E8E2EF !important;
+        scrollbar-width: none !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tablist"]::-webkit-scrollbar,
+    div[data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"],
+    div[data-testid="stTabs"] [role="tab"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 42px !important;
+        max-height: none !important;
+        padding: 8px 10px !important;
+        margin: 0 !important;
+        border-radius: 13px !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        color: #344054 !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.035) !important;
+        font-family: Arial, sans-serif !important;
+        font-size: clamp(10.5px, 0.9vw, 12.5px) !important;
+        font-weight: 850 !important;
+        line-height: 1.16 !important;
+        text-align: center !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+        hyphens: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"] p,
+    div[data-testid="stTabs"] [role="tab"] p,
+    div[data-testid="stTabs"] button[role="tab"] span,
+    div[data-testid="stTabs"] [role="tab"] span {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        line-height: 1.16 !important;
+        text-align: center !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"]:hover,
+    div[data-testid="stTabs"] [role="tab"]:hover {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        border-color: #E7D4F1 !important;
+        box-shadow: inset 0 -3px 0 #660094, 0 2px 6px rgba(16,24,40,.045) !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"],
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, #660094 0%, #7A1FA2 100%) !important;
+        color: #FFFFFF !important;
+        border-color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #FFDB58, 0 3px 9px rgba(102,0,148,.12) !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p,
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] p,
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] span,
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] span {
+        color: #FFFFFF !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tabpanel"],
+    div[data-testid="stTabs"] [role="tabpanel"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        padding-top: 10px !important;
+    }
+
+    /* Tablet: two-column tab grid with readable wrapped labels. */
+    @media (max-width: 900px) {
+        div[data-testid="stTabs"] div[role="tablist"],
+        div[data-testid="stTabs"] [role="tablist"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 7px !important;
+            padding-bottom: 8px !important;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"],
+        div[data-testid="stTabs"] [role="tab"] {
+            min-height: 44px !important;
+            padding: 8px 9px !important;
+            font-size: 11.5px !important;
+            line-height: 1.18 !important;
+        }
+    }
+
+    /* Mobile: keep labels readable and prevent compressed/clipped tab text. */
+    @media (max-width: 520px) {
+        div[data-testid="stTabs"] div[role="tablist"],
+        div[data-testid="stTabs"] [role="tablist"] {
+            grid-template-columns: 1fr !important;
+            gap: 6px !important;
+            position: relative !important;
+            top: auto !important;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"],
+        div[data-testid="stTabs"] [role="tab"] {
+            min-height: 40px !important;
+            padding: 8px 10px !important;
+            font-size: 11.2px !important;
+            border-radius: 12px !important;
+        }
+    }
+
+    /* Very narrow devices: still no ellipsis, but slightly tighter spacing. */
+    @media (max-width: 360px) {
+        div[data-testid="stTabs"] button[role="tab"],
+        div[data-testid="stTabs"] [role="tab"] {
+            min-height: 38px !important;
+            padding: 7px 8px !important;
+            font-size: 10.6px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_final_responsive_tab_text_ux()
+
+
 # ---------------- FINAL LEGEND COLOR + SPACING FIX ----------------
 def inject_plotly_legend_color_spacing_fix():
     """Preserve Plotly legend color swatches and tighten label spacing without relocating legends."""
