@@ -1993,17 +1993,7 @@ def render_sidebar_access_settings_profile():
             else "Sign in or register to request partner access."
         )
 
-        metric_cols = st.columns(2)
-        with metric_cols[0]:
-            st.metric("Role", role_label)
-            st.metric("Monitored Countries", monitored_countries_display_value(monitored_countries_value))
-            st.metric("AI Copilot", copilot_status)
-        with metric_cols[1]:
-            st.metric("Access", access_status)
-            st.metric("Downloads", export_status)
-            st.metric("Admin", admin_status)
-
-       
+           
         if is_admin_user:
             workspace = st.radio(
                 "Workspace",
