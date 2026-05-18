@@ -5355,6 +5355,9 @@ def add_chart_info_badge(
         borderpad=4,
         opacity=1.0,
         hovertext=tooltip_text,
+        # Keep hoverlabel strictly Plotly-version-safe.
+        # Some Plotly releases do not support annotation.hoverlabel.align,
+        # which caused a runtime validation error during deployment.
         hoverlabel=dict(
             bgcolor="#23152F",
             bordercolor="#660094",
@@ -5363,7 +5366,6 @@ def add_chart_info_badge(
                 size=12,
                 color="#FFFFFF",
             ),
-            align="left",
         ),
     )
 
