@@ -829,6 +829,12 @@ def render_top_feedback_bar():
             if (el) el.remove();
         }});
 
+        // Reset old hidden state so the feedback widget is visible after deployment refresh.
+        try {{
+            window.localStorage.removeItem("eusee_feedback_widget_closed");
+            window.localStorage.removeItem("eusee_feedback_widget_dismissed");
+        }} catch (e) {{}}
+
         const style = doc.createElement("style");
         style.id = styleId;
         doc.head.appendChild(style);
@@ -848,6 +854,38 @@ def render_top_feedback_bar():
 
             #eusee-feedback-floating-root * {{
                 box-sizing: border-box;
+            }}
+
+            .eusee-feedback-mini-shell {{
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 6px !important;
+            }}
+
+            .eusee-feedback-dismiss-mini {{
+                width: 30px !important;
+                height: 30px !important;
+                min-width: 30px !important;
+                border-radius: 999px !important;
+                border: 1px solid rgba(102,0,148,.14) !important;
+                background: #FFFFFF !important;
+                color: #660094 !important;
+                font-size: 17px !important;
+                font-weight: 950 !important;
+                line-height: 1 !important;
+                cursor: pointer !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-shadow: 0 8px 18px rgba(17,24,39,.10) !important;
+                appearance: none !important;
+                -webkit-appearance: none !important;
+            }}
+
+            .eusee-feedback-dismiss-mini:hover {{
+                background: #F4EAF8 !important;
+                transform: translateY(-1px) !important;
             }}
 
             .eusee-feedback-mini-tab {{
@@ -1135,7 +1173,7 @@ def render_top_feedback_bar():
         const storageKey = "eusee_feedback_widget_closed";
 
         function closeFeedbackWidget() {{
-            try {{ window.localStorage.setItem(storageKey, "1"); }} catch (e) {{}}
+            // Hide only for the current page session; do not persist a hidden state across reloads.
             root.style.display = "none";
         }}
 
@@ -1151,14 +1189,10 @@ def render_top_feedback_bar():
             tab.setAttribute("aria-expanded", "true");
         }}
 
-        if (window.localStorage && window.localStorage.getItem(storageKey) === "1") {{
-            root.style.display = "none";
-        }} else {{
-            collapseFeedback();
-        }}
+        collapseFeedback();
 
         tab.addEventListener("click", expandFeedback);
-        close.addEventListener("click", closeFeedbackWidget);
+        close.addEventListener("click", collapseFeedback);
         dismissMini.addEventListener("click", closeFeedbackWidget);
 
         doc.addEventListener("keydown", function(event) {{
@@ -1166,7 +1200,7 @@ def render_top_feedback_bar():
         }});
     }})();
     </script>
-    """, height=0, width=0)
+    """, height=1, width=1)
 
 render_top_feedback_bar()  # Collapsed responsive floating dashboard feedback overlay.
 
@@ -7624,10 +7658,48 @@ with tab_manual:
                     line-height: 1.45;
                     font-family: Arial, sans-serif;
                 }
+
+                /* Remove internal scrolling from the User Manual tab while preserving normal page scroll. */
+                .user-manual-shell,
+                .user-manual-shell * {
+                    scrollbar-width: none !important;
+                }
+
+                .user-manual-shell::-webkit-scrollbar,
+                .user-manual-shell *::-webkit-scrollbar {
+                    width: 0 !important;
+                    height: 0 !important;
+                    display: none !important;
+                }
+
+                .user-manual-shell,
+                .user-manual-shell div,
+                .user-manual-shell section,
+                .user-manual-shell article,
+                .user-manual-shell [data-testid="stVerticalBlock"],
+                .user-manual-shell [data-testid="stHorizontalBlock"],
+                .user-manual-shell [data-testid="stExpander"],
+                .user-manual-shell [data-testid="stMarkdownContainer"] {
+                    overflow: visible !important;
+                    max-height: none !important;
+                    height: auto !important;
+                }
+
+                .manual-hero,
+                .manual-kpi-grid,
+                .manual-mini-card,
+                .manual-section-card,
+                .manual-doc-card,
+                .manual-tip {
+                    overflow: visible !important;
+                    max-height: none !important;
+                }
                 </style>
                 """,
                 unsafe_allow_html=True,
             )
+
+            st.markdown('<div class="user-manual-shell">', unsafe_allow_html=True)
 
             st.markdown(
                 """
@@ -7726,6 +7798,8 @@ with tab_manual:
                     """,
                     unsafe_allow_html=True,
                 )
+
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
             render_access_locked("User Manual", "guest or higher")
 
