@@ -5239,39 +5239,70 @@ def _estimate_badge_x_from_title(
     return min(max(badge_x, 0.04), max_x)
 
 
+def _wrap_chart_tooltip_text(message, line_length=82):
+    """Format long tooltip text so Plotly hover labels remain readable."""
+    raw = _strip_plotly_html(message)
+    if not raw:
+        return ""
+    words = raw.split()
+    lines = []
+    current = []
+    current_len = 0
+
+    for word in words:
+        extra = 1 if current else 0
+        if current and current_len + len(word) + extra > line_length:
+            lines.append(" ".join(current))
+            current = [word]
+            current_len = len(word)
+        else:
+            current.append(word)
+            current_len += len(word) + extra
+
+    if current:
+        lines.append(" ".join(current))
+
+    return "<br>".join(lines)
+
+
+def _figure_has_chart_info_badge(fig):
+    """Avoid duplicate info badges when a chart already received one manually."""
+    try:
+        for ann in list(fig.layout.annotations or []):
+            ann_text = str(getattr(ann, "text", "") or "").lower()
+            ann_hover = str(getattr(ann, "hovertext", "") or "")
+            if (
+                "eusee-chart-info-badge" in ann_text
+                or (ann_text in ["<b>i</b>", "i", "<b>ⓘ</b>", "ⓘ"] and ann_hover.strip())
+            ):
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def add_chart_info_badge(
     fig,
     message,
     x=None,
-    y=1.065,
+    y=1.055,
     badge_text="<b>i</b>",
     chart_width_px=620,
     title_x=None,
     title_xanchor=None,
 ):
-    """Add a compact Plotly-native info badge aligned next to the chart title.
+    """Add a compact Plotly-native info badge immediately beside the chart title.
 
-    This avoids external Streamlit HTML/popovers, keeps the chart layout consistent,
-    and uses only Plotly-valid annotation properties.
-
-    Parameters
-    ----------
-    fig : plotly.graph_objects.Figure
-        Chart figure to update.
-    message : str
-        Tooltip text shown on hover. HTML line breaks are supported.
-    x : float | None
-        Optional manual paper-coordinate x override. Leave as None for automatic
-        title-aware placement.
-    y : float
-        Paper-coordinate vertical position in the title band.
-    chart_width_px : int
-        Approximate rendered chart width. Use ~620 for two-column charts and
-        ~430-500 for three-column charts.
-    title_x, title_xanchor : optional
-        Overrides if your chart titles are manually aligned.
+    UX intent:
+    - The badge sits in the title band, not as a separate floating overlay.
+    - The hover label opens beside the title and does not cover the chart body.
+    - Long messages are wrapped to avoid oversized tooltip boxes.
+    - Duplicate badges are automatically avoided.
     """
-    if fig is None:
+    if fig is None or not message:
+        return fig
+
+    if _figure_has_chart_info_badge(fig):
         return fig
 
     title = fig.layout.title
@@ -5297,7 +5328,11 @@ def add_chart_info_badge(
             title_xanchor=str(inferred_xanchor),
             title_font_size=float(inferred_font_size),
             chart_width_px=chart_width_px,
+            right_padding=0.026,
+            max_x=0.975,
         )
+
+    tooltip_text = _wrap_chart_tooltip_text(message)
 
     fig.add_annotation(
         xref="paper",
@@ -5312,22 +5347,23 @@ def add_chart_info_badge(
         font=dict(
             family=CHART_FONT,
             size=10,
-            color="#FFFFFF",
+            color="#660094",
         ),
-        bgcolor="#660094",
-        bordercolor="rgba(102,0,148,0.22)",
+        bgcolor="#F4EAF8",
+        bordercolor="#E7D4F1",
         borderwidth=1,
         borderpad=4,
-        opacity=0.96,
-        hovertext=message,
+        opacity=1.0,
+        hovertext=tooltip_text,
         hoverlabel=dict(
-            bgcolor="#1F1F29",
+            bgcolor="#23152F",
             bordercolor="#660094",
             font=dict(
                 family=CHART_FONT,
                 size=12,
                 color="#FFFFFF",
             ),
+            align="left",
         ),
     )
 
@@ -5336,13 +5372,76 @@ def add_chart_info_badge(
     fig.update_layout(
         margin=dict(
             l=current_margin.get("l", 135),
-            r=current_margin.get("r", 28),
-            t=max(int(current_margin.get("t", 58) or 58), 70),
+            r=max(int(current_margin.get("r", 28) or 28), 34),
+            t=max(int(current_margin.get("t", 58) or 58), 76),
             b=current_margin.get("b", 58),
         )
     )
     return fig
 
+
+def build_default_chart_tooltip(fig, visual_type="chart", x_col=None, group_col=None):
+    """Create a concise fallback tooltip for charts that do not have a custom note."""
+    try:
+        title_text = _strip_plotly_html(getattr(fig.layout.title, "text", "") or "")
+    except Exception:
+        title_text = ""
+
+    chart_label = str(visual_type or "chart").strip().lower()
+    parts = []
+
+    if title_text:
+        parts.append(f"{title_text}.")
+    else:
+        parts.append("This chart summarizes the filtered dashboard records.")
+
+    if x_col and group_col:
+        parts.append(f"It compares {x_col} and groups the results by {group_col}.")
+    elif x_col:
+        parts.append(f"It summarizes results by {x_col}.")
+    elif group_col:
+        parts.append(f"It groups the filtered records by {group_col}.")
+
+    parts.append("Values update automatically when the dashboard filters change.")
+    parts.append("Use Plotly hover for exact counts and legend controls to isolate categories.")
+
+    return " ".join(parts)
+
+
+def apply_title_adjacent_tooltip(
+    fig,
+    *,
+    message=None,
+    visual_type="chart",
+    x_col=None,
+    group_col=None,
+    chart_width_px=620,
+):
+    """Apply the standardized title-adjacent tooltip to any dashboard Plotly figure."""
+    if fig is None:
+        return fig
+
+    try:
+        title_text = _strip_plotly_html(getattr(fig.layout.title, "text", "") or "")
+    except Exception:
+        title_text = ""
+
+    # Only add title-adjacent badges to charts with visible titles.
+    if not title_text:
+        return fig
+
+    tooltip_message = message or build_default_chart_tooltip(
+        fig,
+        visual_type=visual_type,
+        x_col=x_col,
+        group_col=group_col,
+    )
+
+    return add_chart_info_badge(
+        fig,
+        tooltip_message,
+        chart_width_px=chart_width_px,
+    )
 
 # ---------------- STANDARD IN-CHART INFO BADGES ----------------
 def render_chart_floating_tip(*args, **kwargs):
@@ -6126,17 +6225,30 @@ def render_dashboard_plotly_chart(
     use_container_width=True,
     config=None,
     expanded=False,
+    chart_info=None,
+    show_title_tooltip=True,
+    chart_width_px=620,
 ):
-    """Render dashboard Plotly visuals without inline interpretation panels.
+    """Render dashboard Plotly visuals with a standardized title-adjacent tooltip.
 
-    Chart and map explanations are intentionally handled inside the AI chatbot only
-    to keep the dashboard canvas clean. The extra keyword arguments are preserved
-    for backward compatibility with earlier calls.
+    The small info badge is positioned directly beside the Plotly chart title.
+    It replaces scattered floating tips and keeps chart explanations contextual,
+    compact, and consistent across desktop and mobile layouts.
     """
     target = container if container is not None else st
+
+    if show_title_tooltip:
+        fig = apply_title_adjacent_tooltip(
+            fig,
+            message=chart_info,
+            visual_type=visual_type,
+            x_col=x_col,
+            group_col=group_col,
+            chart_width_px=chart_width_px,
+        )
+
     fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
-
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
