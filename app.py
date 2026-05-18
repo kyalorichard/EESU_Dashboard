@@ -788,9 +788,9 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- TOP-LEFT FEEDBACK BAR ----------------
+# ---------------- TOP-CENTER FEEDBACK BAR ----------------
 def render_top_feedback_bar():
-    """Render a slim top-left feedback callout below the dashboard title."""
+    """Render a slim top-center feedback panel below the dashboard title."""
     feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
     st.markdown(f"""
     <style>
@@ -805,7 +805,7 @@ def render_top_feedback_bar():
         border-left: 5px solid #660094;
         border-radius: 14px;
         padding: 9px 12px;
-        margin: -6px 0 14px 0;
+        margin: 2px auto 16px auto;
         box-shadow: 0 8px 22px rgba(17, 24, 39, 0.075), inset 0 1px 0 rgba(255,255,255,0.96);
         font-family: Arial, sans-serif;
         box-sizing: border-box;
@@ -886,7 +886,7 @@ def render_top_feedback_bar():
     </div>
     """, unsafe_allow_html=True)
 
-# render_top_feedback_bar()  # Disabled: feedback is rendered as a floating callout instead.
+render_top_feedback_bar()  # Top-center dashboard feedback panel.
 
 
 # ---------------- LOAD DATA ----------------
@@ -1723,7 +1723,6 @@ def render_sidebar_access_settings_profile():
 
 
 render_sidebar_access_settings_profile()
-render_sidebar_last_updated_panel()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
@@ -1884,6 +1883,9 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# Keep the dataset update status as the final sidebar panel.
+render_sidebar_last_updated_panel()
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
@@ -11304,10 +11306,11 @@ def render_feedback_callout():
     """, height=0, width=0)
 
 # ---------------- FLOATING FEEDBACK CALLOUT ----------------
-render_feedback_callout()
+# Disabled: feedback is now rendered as a top-center dashboard panel.
+# render_feedback_callout()
 
 # ---------------- FOOTER ----------------
-# Feedback is rendered as a floating callout and does not push dashboard content downward.
+# Feedback is rendered near the dashboard header and does not use a floating overlay.
 # Footer image
 
 # OpenAI test UI is now integrated inside the AI Copilot drawer.
