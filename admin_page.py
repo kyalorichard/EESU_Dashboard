@@ -24,7 +24,6 @@ FEATURE_LABELS = {
     "view_dashboard": "Dashboard access",
     "view_overview": "Overview tab",
     "view_coverage_monitored_countries": "Monitored Countries card",
-    "view_monitored_countries_value": "Monitored Countries value",
     "view_maps": "Visualization Map",
     "view_negative_alerts": "Negative Alerts tab",
     "view_analytical_flow_panel": "Analytical Flow Panels (Heatmaps / Sankey)",
@@ -244,7 +243,6 @@ def _render_visibility_tab(config: dict):
 
             left_features = [
                 "view_overview",
-                "view_country_counts",
                 "view_negative_alerts",
                 "view_analytical_flow_panel",
                 "download_data",
