@@ -6476,12 +6476,12 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-hero">
-                    <div class="manual-eyebrow">📘 Dashboard user guidance</div>
-                    <div class="manual-title">EU SEE Dashboard User Manual</div>
+                    <div class="manual-eyebrow">📘 Quick guide</div>
+                    <div class="manual-title">Dashboard User Guide</div>
                     <p class="manual-lead">
-                        A concise, decision-ready help centre for navigating filters, charts, maps, negative-alert analytics,
-                        data preview tables, exports, and AI-assisted interpretation. Use this section to onboard new users,
-                        support stakeholder demonstrations, and standardize dashboard interpretation.
+                        A quick guide to help you navigate the dashboard, use filters, read charts and maps, 
+                        explore alert analysis, search the data preview, export results, and use the AI assistant for additional exploration. 
+                        Some features are only available to users with privileged access (EUSEE stakeholders), including the AI assistant and the data summary preview.
                     </p>
                 </div>
                 """,
