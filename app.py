@@ -5852,10 +5852,7 @@ with tab_map:
                 font-weight:650;
             }
             .map-overview-guide {
-                display:grid;
-                grid-template-columns: minmax(220px, .72fr) minmax(0, 1fr);
-                gap:12px;
-                align-items:stretch;
+                display:block;
                 margin-top:13px;
             }
             .map-guide-card {
@@ -5908,48 +5905,6 @@ with tab_map:
                 font-weight:650;
             }
             .map-guide-text b {color:#23152F; font-weight:950;}
-            .map-overview-stat-grid {
-                display:grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap:8px;
-            }
-            .map-overview-stat {
-                background:#FFFFFF;
-                border:1px solid #E8EAF0;
-                border-radius:14px;
-                padding:11px 12px;
-                box-shadow:0 6px 14px rgba(17,24,39,.04);
-            }
-            .map-overview-stat span {
-                display:block;
-                color:#64748B;
-                font-size:9.5px;
-                font-weight:900;
-                text-transform:uppercase;
-                letter-spacing:.06em;
-                margin-bottom:4px;
-            }
-            .map-overview-stat strong {
-                color:#2D0055;
-                font-size:18px;
-                font-weight:950;
-                line-height:1.05;
-            }
-            .map-overview-stat small {
-                display:block;
-                color:#667085;
-                font-size:10.3px;
-                line-height:1.32;
-                margin-top:5px;
-                font-weight:650;
-            }
-            @media (max-width: 1000px) {
-                .map-overview-guide { grid-template-columns:1fr; }
-                .map-overview-stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-            }
-            @media (max-width: 620px) {
-                .map-overview-stat-grid { grid-template-columns:1fr; }
-            }
             .priority-country-panel {
                 background:linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
                 border:1px solid #E7D4F1;
@@ -6397,28 +6352,10 @@ with tab_map:
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="map-overview-stat-grid">
-                                <div class="map-overview-stat">
-                                    <span>Mapped countries</span>
-                                    <strong>{mapped_countries:,}</strong>
-                                    <small>Countries represented in the current map view.</small>
-                                </div>
-                                <div class="map-overview-stat">
-                                    <span>Mapped alerts</span>
-                                    <strong>{total_mapped:,}</strong>
-                                    <small>Filtered alerts successfully linked to map geometry.</small>
-                                </div>
-                                <div class="map-overview-stat">
-                                    <span>Priority countries</span>
-                                    <strong>{very_high_count + high_count:,}</strong>
-                                    <small>Countries classified as high or very high priority.</small>
-                                </div>
-                            </div>
                         </div>
                     </div>
                     """,
-                    height=315,
+                    height=220,
                     scrolling=False,
                 )
 
@@ -6538,13 +6475,6 @@ with tab_map:
                         key="professional_geo_intelligence_map",
                     )
                     st.markdown('</div>', unsafe_allow_html=True)
-
-                    st.markdown(f"""
-                    <div class="map-reading-strip">
-                        <span><b>Reading guide:</b> darker countries show higher filtered alert volume; hover over any country for the alert breakdown.</span>
-                        <span><b>Mapped countries:</b> {mapped_countries:,} &nbsp; | &nbsp; <b>Top country:</b> {top_country} &nbsp; | &nbsp; <b>Coverage:</b> {mapping_coverage}%</span>
-                    </div>
-                    """, unsafe_allow_html=True)
 
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
