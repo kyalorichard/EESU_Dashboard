@@ -5333,18 +5333,21 @@ def add_chart_info_badge(
     fig,
     message,
     x=None,
-    y=1.055,
+    y=1.075,
     badge_text="<b>i</b>",
     chart_width_px=620,
     title_x=None,
     title_xanchor=None,
 ):
-    """Attach the info badge directly inside the Plotly chart title.
+    """Attach a hoverable info badge at the start of the Plotly title band.
 
-    This version intentionally avoids `fig.add_annotation()` because annotation
-    positioning and hoverlabel support vary across Plotly versions and can
-    disrupt the Streamlit layout. The badge is embedded in the title HTML, so it
-    stays next to the title and remains inside the chart area.
+    Why this version:
+    - Plotly title HTML can display the icon, but browser `title` hover is not
+      reliable once Plotly renders title text inside SVG layers.
+    - A Plotly annotation with `hovertext` is reliably hoverable.
+    - The annotation is placed inside the chart title band, immediately before
+      the chart title, and the title is shifted slightly right so both stay
+      together without changing the Streamlit page layout.
     """
     if fig is None or not message:
         return fig
@@ -5356,8 +5359,8 @@ def add_chart_info_badge(
     if not plain_title:
         return fig
 
-    # Avoid duplicate badges if the title already contains the inline info span.
-    if "cursor:help" in str(raw_title_text) or "title=" in str(raw_title_text):
+    # Avoid duplicate info badges on reruns or repeated layout calls.
+    if _figure_has_chart_info_badge(fig):
         return fig
 
     title_font = getattr(title, "font", None)
@@ -5365,23 +5368,23 @@ def add_chart_info_badge(
     title_font_family = getattr(title_font, "family", None) or CHART_FONT
     title_font_color = getattr(title_font, "color", None) or "#23152F"
 
-    inferred_title_x = title_x
-    if inferred_title_x is None:
-        inferred_title_x = getattr(title, "x", None)
-        inferred_title_x = 0.01 if inferred_title_x is None else inferred_title_x
+    # Keep the title text plain and shift it right to make space for the badge.
+    # This preserves a stable, compact layout and lets the annotation handle hover.
+    badge_x = 0.005 if x is None else x
+    title_start_x = title_x
+    if title_start_x is None:
+        title_start_x = 0.045
 
     inferred_xanchor = title_xanchor
     if inferred_xanchor is None:
         inferred_xanchor = getattr(title, "xanchor", None) or "left"
 
-    html_title = _build_plotly_title_with_info(plain_title, message)
-
     current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
 
     fig.update_layout(
         title=dict(
-            text=html_title,
-            x=float(inferred_title_x),
+            text=plain_title,
+            x=float(title_start_x),
             xanchor=str(inferred_xanchor),
             y=getattr(title, "y", None) or 0.97,
             yanchor=getattr(title, "yanchor", None) or "top",
@@ -5397,6 +5400,34 @@ def add_chart_info_badge(
             t=max(int(current_margin.get("t", 58) or 58), 72),
             b=current_margin.get("b", 58),
         ),
+    )
+
+    wrapped_message = _wrap_chart_tooltip_text(message, line_length=78)
+
+    # Use only annotation properties supported by broad Plotly versions.
+    fig.add_annotation(
+        xref="paper",
+        yref="paper",
+        x=float(badge_x),
+        y=float(y),
+        xanchor="left",
+        yanchor="middle",
+        text=badge_text,
+        hovertext=wrapped_message,
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor="#E6E8EF",
+            font=dict(size=11, color="#344054", family=CHART_FONT),
+        ),
+        showarrow=False,
+        align="center",
+        bgcolor="#F4EAF8",
+        bordercolor="#E7D4F1",
+        borderwidth=1,
+        borderpad=4,
+        font=dict(size=10, color="#660094", family=CHART_FONT),
+        opacity=1,
+        captureevents=True,
     )
     return fig
 
