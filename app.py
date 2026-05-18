@@ -532,10 +532,84 @@ st.session_state.setdefault("auth_reset_open", False)
 if is_authenticated():
     st.session_state.auth_view = False
 
-# Dedicated sign-in route. This is not a modal, so it does not blur or block the page.
-# The dashboard is rendered again immediately after successful login or Back to dashboard.
+# Dedicated sign-in route. Render authentication as a normal page route, not as a modal overlay.
+# This prevents the dashboard from becoming blurred, dimmed, or unreachable during login.
 if st.session_state.get("auth_view", False) and not is_authenticated():
+    st.markdown("""
+    <style>
+    /* Force the login route to stay usable even if auth_ui or cached CSS tries to behave like a modal. */
+    html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container {
+        filter: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+    }
+
+    /* Neutralize Streamlit dialog / modal backdrops that can blur and block the dashboard. */
+    div[data-testid="stDialog"],
+    div[role="dialog"],
+    .stDialog,
+    [data-testid="stModal"],
+    .modal-backdrop,
+    .modal-overlay,
+    .overlay,
+    [class*="backdrop"],
+    [class*="modal"] {
+        filter: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        pointer-events: auto !important;
+    }
+
+    /* Login page shell: clean, centered, and independent from the dashboard behind it. */
+    .eusee-login-route-shell {
+        max-width: 760px;
+        margin: 24px auto 18px auto;
+        padding: 18px 20px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
+        border: 1px solid rgba(102,0,148,.14);
+        box-shadow: 0 14px 34px rgba(16,24,40,.08);
+        font-family: Arial, sans-serif;
+    }
+    .eusee-login-route-eyebrow {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        color: #660094;
+        margin-bottom: 5px;
+    }
+    .eusee-login-route-title {
+        font-size: 24px;
+        font-weight: 950;
+        color: #23152F;
+        line-height: 1.15;
+        margin-bottom: 6px;
+    }
+    .eusee-login-route-note {
+        font-size: 12.5px;
+        color: #667085;
+        line-height: 1.45;
+    }
+    </style>
+
+    <div class="eusee-login-route-shell">
+        <div class="eusee-login-route-eyebrow">Privileged access</div>
+        <div class="eusee-login-route-title">EUSEE Dashboard Sign in / Register</div>
+        <div class="eusee-login-route-note">
+            Sign in to access advanced features and analyses available to EUSEE partners.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     auth_ui()
+
+    if st.button("← Back to dashboard", use_container_width=True, key="back_to_dashboard_from_login"):
+        st.session_state.auth_view = False
+        st.rerun()
+
     st.stop()
 
 ## ---------------- BASE DIRECTORIES ----------------
@@ -691,6 +765,7 @@ st.markdown(f"""
     font-size: 10.5px;
     font-weight: 700;
 }}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1054,6 +1129,123 @@ def inject_professional_sidebar_filter_css():
         font-family: Arial, sans-serif;
     }
 
+
+    .sidebar-access-shell {
+        margin: 12px 0 10px 0;
+        padding: 12px 12px 11px 12px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #FCF7FF 100%);
+        border: 1px solid rgba(102,0,148,.16);
+        box-shadow: 0 10px 24px rgba(16,24,40,.065);
+        font-family: Arial, sans-serif;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .sidebar-access-shell::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #660094 0%, #008CAA 58%, #FFDB58 100%);
+    }
+
+    .sidebar-access-top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 3px;
+    }
+
+    .sidebar-access-icon {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #660094;
+        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+        border: 1px solid rgba(102,0,148,.10);
+        font-size: 16px;
+        font-weight: 900;
+    }
+
+    .sidebar-access-copy {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .sidebar-access-eyebrow {
+        font-size: 9px;
+        font-weight: 950;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: #660094;
+        line-height: 1.1;
+    }
+
+    .sidebar-access-title {
+        margin-top: 3px;
+        color: #23152F;
+        font-size: 13px;
+        font-weight: 950;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sidebar-access-note {
+        margin-top: 4px;
+        color: #667085;
+        font-size: 10.5px;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .sidebar-access-pill-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
+
+    .sidebar-access-pill {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: #EFFBFE;
+        color: #008CAA;
+        border: 1px solid rgba(0,140,170,.14);
+        font-size: 9.5px;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .sidebar-access-pill.secondary {
+        background: #F4EAF8;
+        color: #660094;
+        border-color: #E7D4F1;
+    }
+
+    .sidebar-access-help {
+        margin-top: 9px;
+        padding: 8px 9px;
+        border-radius: 12px;
+        background: #F9FAFB;
+        border: 1px solid #EEF0F4;
+        color: #667085;
+        font-size: 10.2px;
+        line-height: 1.35;
+        font-weight: 650;
+    }
+
     .sidebar-profile-row {
         display: flex;
         justify-content: space-between;
@@ -1316,99 +1508,69 @@ st.sidebar.image("assets/eu-see-logo.png", width=400)
 
 
 
-# Sidebar status messages are consolidated in a compact Settings / Profile section.
-def render_sidebar_settings_profile():
-    """Render compact account and feature status without adding intrusive sidebar alerts."""
+# ---------------- SIDEBAR ACCESS / SETTINGS PANEL ----------------
+def render_sidebar_access_settings_profile():
+    """Render one merged, professional sidebar panel for access, account, and feature status."""
     role = get_current_role() if callable(get_current_role) else "guest"
     email = get_current_email() if callable(get_current_email) else ""
+    signed_in = is_authenticated()
+
+    display_name = st.session_state.get("name", "User")
     display_email = email or st.session_state.get("email", "Public user")
-    copilot_status = "Available" if has_permission("use_ai_copilot") else "Unavailable for current access level"
-    access_status = "Signed in" if is_authenticated() else "Public mode"
+    role_label = (role or "guest").replace("_", " ").title()
+    access_status = "Signed in" if signed_in else "Public mode"
+    access_icon = "🔐" if signed_in else "🔓"
+    access_title = f"{display_name}" if signed_in else "Sign in / Register"
+    access_note = (
+        "Secure partner session with access based on your approved role."
+        if signed_in
+        else "Sign in to access advanced features and analyses available to EUSEE partners."
+    )
+    copilot_status = "Available" if has_permission("use_ai_copilot") else "Limited"
+    export_status = "Enabled" if has_permission("download_data") else "Restricted"
+
+    st.sidebar.markdown(f"""
+    <div class="sidebar-access-shell">
+        <div class="sidebar-access-top">
+            <div class="sidebar-access-icon">{access_icon}</div>
+            <div class="sidebar-access-copy">
+                <div class="sidebar-access-eyebrow">Privileged access</div>
+                <div class="sidebar-access-title">{access_title}</div>
+                <div class="sidebar-access-note">{access_note}</div>
+            </div>
+        </div>
+        <div class="sidebar-access-pill-row">
+            <span class="sidebar-access-pill">{access_status}</span>
+            <span class="sidebar-access-pill secondary">{role_label}</span>
+        </div>
+        <div class="sidebar-access-help">
+            Partner access unlocks role-based analytics, exports, and AI-assisted dashboard tools where enabled.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if signed_in:
+        if st.sidebar.button("Logout", use_container_width=True, key="sidebar_access_logout_btn"):
+            from auth import logout
+            logout()
+    else:
+        if st.sidebar.button("🔐 Sign in / Register", use_container_width=True, key="sidebar_access_login_btn"):
+            st.session_state.auth_view = True
+            st.rerun()
 
     with st.sidebar.expander("⚙️ Settings / Profile", expanded=False):
         st.markdown(f"""
         <div class="sidebar-profile-card">
             <div class="sidebar-profile-row"><span>Access</span><strong>{access_status}</strong></div>
-            <div class="sidebar-profile-row"><span>Role</span><strong>{role}</strong></div>
+            <div class="sidebar-profile-row"><span>Role</span><strong>{role_label}</strong></div>
             <div class="sidebar-profile-row"><span>Account</span><strong>{display_email}</strong></div>
             <div class="sidebar-profile-row"><span>AI Copilot</span><strong>{copilot_status}</strong></div>
+            <div class="sidebar-profile-row"><span>Exports</span><strong>{export_status}</strong></div>
         </div>
         """, unsafe_allow_html=True)
 
 
-# ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
-st.sidebar.markdown("""
-<style>
-.eusee-access-card {
-    margin-top: 14px;
-    padding: 14px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
-    border: 1px solid rgba(102, 0, 148, 0.16);
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.07);
-    font-family: Arial, sans-serif;
-}
-.eusee-access-eyebrow {
-    font-size: 9px;
-    font-weight: 900;
-    color: #660094;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-}
-.eusee-access-title {
-    font-size: 14px;
-    font-weight: 900;
-    color: #23152F;
-}
-.eusee-access-note {
-    font-size: 11px;
-    color: #667085;
-    margin-top: 4px;
-}
-.eusee-access-status {
-    margin-top: 8px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #EFFBFE;
-    color: #008CAA;
-    font-size: 10px;
-    font-weight: 900;
-    width: fit-content;
-}
-</style>
-""", unsafe_allow_html=True)
-
-if is_authenticated():
-    st.sidebar.markdown(f"""
-    <div class="eusee-access-card">
-        <div class="eusee-access-eyebrow">Privileged access</div>
-        <div class="eusee-access-title">🔐 Secure session</div>
-        <div class="eusee-access-note">Signed in as <strong>{st.session_state.get('name','User')}</strong></div>
-        <div class="eusee-access-status">Access enabled</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.sidebar.button("Logout", use_container_width=True):
-        from auth import logout
-        logout()
-
-else:
-    st.sidebar.markdown("""
-    <div class="eusee-access-card">
-        <div class="eusee-access-eyebrow">Privileged access</div>
-        <div class="eusee-access-title">🔐 Secure access</div>
-        <div class="eusee-access-note">
-            Sign in to access advanced features and analyses available to EUSEE partners.
-        </div>
-        <div class="eusee-access-status">Public mode</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.sidebar.button("🔐 Sign in / Register", use_container_width=True):
-        st.session_state.auth_view = True
-        st.rerun()
-
-render_sidebar_settings_profile()
+render_sidebar_access_settings_profile()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
