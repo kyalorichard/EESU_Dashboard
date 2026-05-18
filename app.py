@@ -5591,23 +5591,23 @@ with tab_map:
             st.markdown("""
             <style>
             .map-page-shell {
-                background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-                border: 1px solid #E6E8EF;
-                border-radius: 22px;
-                padding: 18px;
-                margin: 8px 0 18px 0;
-                box-shadow: 0 16px 38px rgba(17,24,39,0.065);
+                background: transparent;
+                border: 0;
+                border-radius: 0;
+                padding: 0;
+                margin: 2px 0 8px 0;
+                box-shadow: none;
                 font-family: Arial, sans-serif;
             }
             .map-intel-hero {
                 background:
-                    radial-gradient(circle at 96% 10%, rgba(0,140,170,.10), transparent 28%),
+                    radial-gradient(circle at 96% 10%, rgba(0,140,170,.08), transparent 28%),
                     linear-gradient(135deg, #FFFFFF 0%, #FBF7FF 100%);
-                border: 1px solid rgba(102,0,148,0.14);
-                border-radius: 20px;
-                padding: 17px 19px;
-                box-shadow: 0 12px 30px rgba(17,24,39,0.06);
-                margin: 10px 0 14px 0;
+                border: 1px solid rgba(102,0,148,0.12);
+                border-radius: 18px;
+                padding: 12px 15px;
+                box-shadow: 0 8px 20px rgba(17,24,39,0.045);
+                margin: 4px 0 8px 0;
             }
             .map-hero-top {
                 display:flex;
@@ -5625,18 +5625,18 @@ with tab_map:
                 margin-bottom: 5px;
             }
             .map-intel-title {
-                font-size: 20px;
+                font-size: 18px;
                 font-weight: 950;
                 color: #2D0055;
-                margin-bottom: 5px;
+                margin-bottom: 4px;
                 letter-spacing: -0.3px;
                 line-height:1.12;
             }
             .map-intel-subtitle {
-                font-size: 12.7px;
+                font-size: 12px;
                 color: #52616B;
-                line-height: 1.48;
-                max-width: 980px;
+                line-height: 1.38;
+                max-width: 1100px;
             }
             .map-legend-chip {
                 background:#FFFFFF;
@@ -5753,9 +5753,39 @@ with tab_map:
                 font-family:Arial, sans-serif;
             }
             .map-layout-tight {
-                margin-top: 4px;
-                margin-bottom: 6px;
+                margin-top: 0;
+                margin-bottom: 0;
             }
+            .map-visual-card {
+                background:#FFFFFF;
+                border:1px solid #E8EAF0;
+                border-radius:18px;
+                padding:8px 8px 4px 8px;
+                box-shadow:0 10px 24px rgba(17,24,39,.055);
+                margin: 4px 0 8px 0;
+                overflow:hidden;
+            }
+            .map-reading-strip {
+                display:flex;
+                flex-wrap:wrap;
+                gap:8px;
+                align-items:center;
+                justify-content:space-between;
+                background:#FFFFFF;
+                border:1px solid #E8EAF0;
+                border-radius:15px;
+                padding:9px 11px;
+                margin: 8px 0 0 0;
+                box-shadow:0 6px 14px rgba(17,24,39,.04);
+                font-family:Arial, sans-serif;
+            }
+            .map-reading-strip span {
+                color:#334155;
+                font-size:11.2px;
+                font-weight:750;
+                line-height:1.35;
+            }
+            .map-reading-strip b {color:#2D0055; font-weight:950;}
             .map-support-grid {
                 margin-top: -4px;
                 margin-bottom: 4px;
@@ -6090,7 +6120,7 @@ with tab_map:
                             <div class="map-intel-eyebrow">Geographic Overview</div>
                             <div class="map-intel-title">Visualization Map: Alerts by Country</div>
                             <div class="map-intel-subtitle">
-                                This map shows where alerts are concentrated across countries based on the filters selected. Use it to identify countries that may require closer review. Darker countries indicate a higher filtered alert volume..
+                                This map shows where alerts are concentrated across countries based on the filters selected. Use it to identify countries that may require closer review. Darker countries indicate a higher filtered alert volume.
                             </div>
                         </div>
                         <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
@@ -6136,96 +6166,95 @@ with tab_map:
                 else:
                     center, zoom = {"lat": 10, "lon": 0}, 1.6
 
-                # ---------------- Map + guided reading panel ----------------
+                # ---------------- Enlarged full-width map workspace ----------------
                 st.markdown('<div class="map-layout-tight">', unsafe_allow_html=True)
-                map_col, guide_col = st.columns([1.62, 0.78], gap="medium")
 
-                with map_col:
-                  
-                    if df_map.empty:
-                        st.info("No mapped country records are available under the current filters.")
-                    else:
-                        fig = px.choropleth_mapbox(
-                            df_map,
-                            geojson=countries_gj,
-                            locations="iso_alpha3",
-                            featureidkey="properties.ISO3166-1-Alpha-3",
-                            color="total_alerts",
-                            hover_name="alert-country",
-                            color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
-                            mapbox_style="carto-positron",
-                            zoom=zoom,
-                            center=center,
-                            opacity=0.90,
-                        )
+                if df_map.empty:
+                    st.info("No mapped country records are available under the current filters.")
+                else:
+                    fig = px.choropleth_mapbox(
+                        df_map,
+                        geojson=countries_gj,
+                        locations="iso_alpha3",
+                        featureidkey="properties.ISO3166-1-Alpha-3",
+                        color="total_alerts",
+                        hover_name="alert-country",
+                        color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
+                        mapbox_style="carto-positron",
+                        zoom=zoom,
+                        center=center,
+                        opacity=0.92,
+                    )
 
-                        fig.update_traces(
-                            customdata=df_map[[
-                                "alert-country", "total_alerts", "negative_alerts", "positive_alerts", "context_to_watch_alerts",
-                                "perc_negative", "priority_level", "regions", "priority_score"
-                            ]].values,
-                            hovertemplate=(
-                                "<b>%{customdata[0]}</b><br>"
-                                "Region: %{customdata[7]}<br>"
-                                "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
-                                "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
-                                "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
-                                "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
-                                "Negative share: %{customdata[5]}%<br>"
-                                "Priority score: %{customdata[8]}<br>"
-                                "Priority level: <b>%{customdata[6]}</b><extra></extra>"
-                            ),
-                            hoverlabel=dict(
-                                bgcolor="#2D0055",
-                                font_size=12,
-                                font_family=MAP_FONT,
-                                font_color="white",
-                                bordercolor="#ffffff"
-                            ),
-                            marker_line_width=0.65,
-                            marker_line_color="rgba(45,0,85,0.55)",
-                        )
+                    fig.update_traces(
+                        customdata=df_map[[
+                            "alert-country", "total_alerts", "negative_alerts", "positive_alerts",
+                            "context_to_watch_alerts", "perc_negative", "priority_level",
+                            "regions", "priority_score"
+                        ]].values,
+                        hovertemplate=(
+                            "<b>%{customdata[0]}</b><br>"
+                            "Region: %{customdata[7]}<br>"
+                            "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
+                            "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
+                            "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
+                            "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
+                            "Negative share: %{customdata[5]}%<br>"
+                            "Priority score: %{customdata[8]}<br>"
+                            "Priority level: <b>%{customdata[6]}</b><extra></extra>"
+                        ),
+                        hoverlabel=dict(
+                            bgcolor="#2D0055",
+                            font_size=12,
+                            font_family=MAP_FONT,
+                            font_color="white",
+                            bordercolor="#ffffff"
+                        ),
+                        marker_line_width=0.55,
+                        marker_line_color="rgba(45,0,85,0.50)",
+                    )
 
-                        fig.update_layout(
-                            margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                            height=520,
-                            coloraxis_colorbar=dict(
-                                title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
-                                tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
-                                thickness=12,
-                                len=0.72,
-                                outlinewidth=0,
-                            ),
-                            font=dict(family=MAP_FONT, color="#334155"),
-                        )
-                        render_dashboard_plotly_chart(fig, plot_df=df_map, visual_type="map", x_col="alert-country", group_col="priority_level", dashboard_df=filtered_global, config={"displayModeBar": False}, key="professional_geo_intelligence_map")
+                    fig.update_layout(
+                        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                        height=720,
+                        coloraxis_colorbar=dict(
+                            title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
+                            tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
+                            thickness=12,
+                            len=0.68,
+                            x=0.985,
+                            xanchor="left",
+                            outlinewidth=0,
+                        ),
+                        mapbox=dict(
+                            bearing=0,
+                            pitch=0,
+                        ),
+                        font=dict(family=MAP_FONT, color="#334155"),
+                    )
+
+                    st.markdown('<div class="map-visual-card">', unsafe_allow_html=True)
+                    render_dashboard_plotly_chart(
+                        fig,
+                        plot_df=df_map,
+                        visual_type="map",
+                        x_col="alert-country",
+                        group_col="priority_level",
+                        dashboard_df=filtered_global,
+                        config={"displayModeBar": False, "responsive": True},
+                        key="professional_geo_intelligence_map",
+                    )
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                with guide_col:
-                    st.markdown("""
-                    <div class="map-guide-card">
-                        <div class="map-guide-title">🧭 How to read this map</div>
-                        <div class="map-guide-sub">Use this map to see where filtered alerts are concentrated.</div>
-                        <div class="map-guide-step">
-                            <div class="map-guide-num">1</div>
-                            <div class="map-guide-text"><b>Look at color intensity:</b> Darker countries indicate a higher number of alerts.</div>
-                        </div>
-                        <div class="map-guide-step">
-                            <div class="map-guide-num">2</div>
-                            <div class="map-guide-text"><b>However for details:</b> Hover over a country to see the alert breakdown.</div>
-                        </div>
-                        
+                    st.markdown(f"""
+                    <div class="map-reading-strip">
+                        <span><b>Reading guide:</b> darker countries show higher filtered alert volume; hover over any country for the alert breakdown.</span>
+                        <span><b>Mapped countries:</b> {mapped_countries:,} &nbsp; | &nbsp; <b>Top country:</b> {top_country} &nbsp; | &nbsp; <b>Coverage:</b> {mapping_coverage}%</span>
                     </div>
                     """, unsafe_allow_html=True)
 
-                    
-
                 st.markdown('</div>', unsafe_allow_html=True)
-
-                
-
-                
-
+                st.markdown('</div>', unsafe_allow_html=True)
 
     else:
         render_access_locked("Visualization Map", "viewer or privileged")
