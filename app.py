@@ -2236,10 +2236,12 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     .eusee-kpi-card {
         height: auto;
         min-height: 172px;
-        background: #FFFFFF;
-        border: 1px solid #E6E8EF;
+        background:
+            radial-gradient(circle at 100% 0%, rgba(102, 0, 148, 0.055), transparent 34%),
+            linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
+        border: 1px solid rgba(102, 0, 148, 0.115);
         border-radius: 18px;
-        box-shadow: 0 10px 24px rgba(16, 24, 40, 0.060);
+        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
         padding: 14px 15px 13px 15px;
         margin: 2px 0 8px 0;
         box-sizing: border-box;
@@ -2252,7 +2254,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     }
 
-    /* Remove the old colored top strip/shade from summary cards. */
+    /* Remove only the old top color strip; keep the card background shading. */
     .eusee-kpi-card::before {
         display: none !important;
         content: none !important;
@@ -2262,8 +2264,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     .eusee-kpi-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 16px 32px rgba(16, 24, 40, 0.085);
-        border-color: #D0D5DD;
+        box-shadow: 0 15px 32px rgba(17, 24, 39, 0.090), inset 0 1px 0 rgba(255,255,255,0.95);
+        border-color: rgba(102, 0, 148, 0.180);
     }
 
     .eusee-kpi-top {
