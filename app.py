@@ -1639,6 +1639,199 @@ render_sidebar_access_settings_profile()
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
+
+# ---------------- SIDEBAR TYPOGRAPHY AND PROFESSIONAL UX STANDARDIZATION ----------------
+def inject_sidebar_typography_standardization():
+    """Final sidebar typography pass: consistent font, sizing, spacing, labels, buttons, and controls."""
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-sidebar-font: "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+        --eusee-sidebar-title: #23152F;
+        --eusee-sidebar-body: #344054;
+        --eusee-sidebar-muted: #667085;
+        --eusee-sidebar-border: #E6E8EF;
+        --eusee-sidebar-purple: #660094;
+    }
+
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] * {
+        font-family: var(--eusee-sidebar-font) !important;
+        letter-spacing: -0.005em;
+    }
+
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 12% 0%, rgba(102,0,148,.06), transparent 32%),
+            linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+        border-right: 1px solid var(--eusee-sidebar-border) !important;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: var(--eusee-sidebar-title) !important;
+        font-weight: 850 !important;
+        line-height: 1.18 !important;
+        letter-spacing: -0.025em !important;
+    }
+
+    section[data-testid="stSidebar"] h3 {
+        font-size: 15px !important;
+        margin: 0 0 0.2rem 0 !important;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div,
+    section[data-testid="stSidebar"] small,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        font-size: 11.2px !important;
+        line-height: 1.42 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: var(--eusee-sidebar-muted) !important;
+        font-weight: 500 !important;
+    }
+
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stTextInput label,
+    section[data-testid="stSidebar"] .stRadio label {
+        color: var(--eusee-sidebar-body) !important;
+        font-size: 11px !important;
+        font-weight: 760 !important;
+        line-height: 1.25 !important;
+        margin-bottom: 5px !important;
+        letter-spacing: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        border-radius: 15px !important;
+        border: 1px solid var(--eusee-sidebar-border) !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.052) !important;
+        margin-bottom: 10px !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        min-height: 40px !important;
+        padding: 10px 12px !important;
+        color: var(--eusee-sidebar-title) !important;
+        font-size: 12.2px !important;
+        font-weight: 820 !important;
+        line-height: 1.2 !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] {
+        min-height: 37px !important;
+        border-radius: 11px !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] span,
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea {
+        font-size: 11.5px !important;
+        font-weight: 520 !important;
+        color: var(--eusee-sidebar-body) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        border-radius: 999px !important;
+        background: #F4EAF8 !important;
+        border: 1px solid #E7D4F1 !important;
+        color: var(--eusee-sidebar-purple) !important;
+        font-size: 10px !important;
+        font-weight: 720 !important;
+        line-height: 1.1 !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button {
+        height: 38px !important;
+        border-radius: 11px !important;
+        font-size: 11.5px !important;
+        font-weight: 760 !important;
+        letter-spacing: -0.005em !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button[kind="primary"],
+    section[data-testid="stSidebar"] button[kind="primary"] {
+        background: linear-gradient(90deg, #660094 0%, #008CAA 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(102,0,148,.22) !important;
+        box-shadow: 0 7px 16px rgba(102,0,148,.16) !important;
+    }
+
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-filter-footer,
+    .sidebar-profile-card,
+    .sidebar-access-shell {
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .classic-filter-eyebrow {
+        font-size: 9px !important;
+        font-weight: 850 !important;
+        letter-spacing: .11em !important;
+    }
+
+    .classic-filter-title {
+        font-size: 13.8px !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    .classic-filter-note,
+    .sidebar-filter-footer-note,
+    .sidebar-filter-footer-applied {
+        font-size: 10.6px !important;
+        font-weight: 500 !important;
+        color: var(--eusee-sidebar-muted) !important;
+        line-height: 1.42 !important;
+    }
+
+    .sidebar-filter-footer-applied {
+        margin-top: 7px;
+        padding-top: 7px;
+        border-top: 1px solid #EEF0F4;
+    }
+
+    .sidebar-filter-footer-applied strong {
+        color: var(--eusee-sidebar-purple) !important;
+        font-weight: 800 !important;
+    }
+
+    div[role="listbox"] * {
+        font-family: var(--eusee-sidebar-font) !important;
+        font-size: 11.5px !important;
+    }
+
+    div[role="option"] {
+        font-weight: 540 !important;
+        color: #344054 !important;
+    }
+
+    div[aria-selected="true"] {
+        font-weight: 760 !important;
+        color: var(--eusee-sidebar-purple) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_sidebar_typography_standardization()
+
 regions_labels = [
     "Africa",
     "The Middle East",
@@ -1761,12 +1954,17 @@ with reset_col1:
     )
 
 with reset_col2:
-    st.button(
-        "✅ Applied",
+    apply_filters = st.button(
+        "✅ Apply",
         use_container_width=True,
-        disabled=True,
-        key="filters_applied_note",
+        key="apply_sidebar_filters",
+        type="primary",
+        help="Apply the current sidebar selections to the dashboard view.",
     )
+
+if apply_filters:
+    st.session_state["filters_last_applied_at"] = datetime.now().strftime("%H:%M:%S")
+    st.toast("Filters applied successfully.", icon="✅")
 
 if reset_filters:
     for key in [
@@ -1786,11 +1984,13 @@ if reset_filters:
         st.session_state.pop(f"{key}_widget", None)
     st.rerun()
 
+last_applied_time = st.session_state.get("filters_last_applied_at", "Not applied this session")
 st.sidebar.markdown(
-    """
+    f"""
     <div class="sidebar-filter-footer">
         <div class="sidebar-filter-footer-title">Filter behavior</div>
-        <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
+        <div class="sidebar-filter-footer-note">Select filter values, then click <strong>Apply</strong>. Empty selections include all available values.</div>
+        <div class="sidebar-filter-footer-applied">Last applied: <strong>{last_applied_time}</strong></div>
     </div>
     """,
     unsafe_allow_html=True,
