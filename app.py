@@ -6537,8 +6537,8 @@ with tab_manual:
                 st.markdown(
                     """
                     <div class="manual-section-card">
-                        <div class="manual-section-title">Documentation downloads</div>
-                        <div class="manual-section-note">Use the executive brief for quick stakeholder reporting and the full manual for analyst onboarding.</div>
+                        <div class="manual-section-title">Full user manual</div>
+                        <div class="manual-section-note">Download the full user manual to understand the dashboard’s goal, indicators, navigation, and how to interpret the data responsibly.</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
