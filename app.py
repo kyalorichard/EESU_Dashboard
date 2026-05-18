@@ -35,6 +35,7 @@ except Exception:
             "view_dashboard",
             "view_overview",
             "view_coverage_monitored_countries",
+            "view_monitored_countries_value",
             "view_maps",
             "view_negative_alerts",
             "view_analytical_flow_panel",
@@ -556,15 +557,15 @@ inject_final_responsive_overrides()
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
 def can_view_monitored_countries_value() -> bool:
-    """Return True only when the active role is allowed to see monitored-country counts.
+    """Return True only when the active role can see the Monitored Countries numeric value.
 
-    The admin page controls this through the existing "Monitored Countries"
-    permission: view_coverage_monitored_countries. The card itself may remain
-    visible through broader summary permissions, but the numeric country value
-    is masked unless this permission is enabled for the current role.
+    This must use the dedicated admin-controlled permission
+    `view_monitored_countries_value`. The broader
+    `view_coverage_monitored_countries` permission controls whether summary
+    cards are visible; it must not expose the numeric countries_value.
     """
     try:
-        return bool(has_permission("view_coverage_monitored_countries"))
+        return bool(has_permission("view_monitored_countries_value"))
     except Exception:
         return False
 
@@ -1920,7 +1921,7 @@ def render_sidebar_access_settings_profile():
     # privilege/access list. Use the already scoped dataframe so the value
     # respects the active role's data scope.
     try:
-        monitored_countries_value = (
+        raw_monitored_countries_value = (
             int(data["alert-country"].nunique())
             if "data" in globals()
             and isinstance(data, pd.DataFrame)
@@ -1928,6 +1929,7 @@ def render_sidebar_access_settings_profile():
             and "alert-country" in data.columns
             else 0
         )
+        monitored_countries_value = monitored_countries_display_value(raw_monitored_countries_value)
     except Exception:
         monitored_countries_value = 0
 
