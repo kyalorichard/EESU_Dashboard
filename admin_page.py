@@ -21,15 +21,12 @@ from authz import (
 )
 
 FEATURE_LABELS = {
-    "view_public_summary": "Public summary",
     "view_dashboard": "Dashboard access",
     "view_overview": "Overview tab",
     "view_coverage_monitored_countries": "Summary cards",
     "view_monitored_countries_value": "Monitored Countries value",
-    "view_country_counts": "Country count KPIs",
     "view_maps": "Visualization Map",
     "view_negative_alerts": "Negative Alerts tab",
-    "view_negative_relationship_intelligence": "Negative events relationship intelligence",
     "view_analytical_flow_panel": "Analytical Flow Panels (Heatmaps / Sankey)",
     "view_data_table": "Summary data preview",
     "download_data": "CSV/XLSX downloads",
@@ -178,6 +175,15 @@ def _safe_role_config(config: dict, role: str) -> dict:
     config[role].setdefault("countries", [])
     config[role].setdefault("years", [])
 
+    removed_permissions = {
+        "view_public_summary",
+        "view_country_counts",
+        "view_negative_relationship_intelligence",
+    }
+
+    for removed_permission in removed_permissions:
+        config[role]["features"].pop(removed_permission, None)
+
     for key in FEATURE_LABELS:
         config[role]["features"].setdefault(key, False)
 
@@ -246,9 +252,7 @@ def _render_visibility_tab(config: dict):
             c1, c2 = st.columns(2)
 
             left_features = [
-                "view_public_summary",
                 "view_overview",
-                "view_country_counts",
                 "view_negative_alerts",
                 "view_analytical_flow_panel",
                 "download_data",
@@ -260,7 +264,6 @@ def _render_visibility_tab(config: dict):
                 "view_coverage_monitored_countries",
                 "view_monitored_countries_value",
                 "view_maps",
-                "view_negative_relationship_intelligence",
                 "view_data_table",
                 "use_ai_copilot",
                 "view_admin_page",
