@@ -905,8 +905,8 @@ def render_top_feedback_bar():
                 display: none;
                 align-items: center;
                 justify-content: space-between;
-                gap: 14px;
-                padding: 12px 14px;
+                gap: 12px;
+                padding: 12px 12px 12px 14px;
                 border-radius: 18px;
                 background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98));
                 border: 1px solid rgba(102,0,148,.14);
@@ -955,8 +955,10 @@ def render_top_feedback_bar():
             .eusee-feedback-panel-actions {{
                 display: inline-flex;
                 align-items: center;
+                justify-content: flex-end;
                 gap: 8px;
                 flex-shrink: 0;
+                align-self: center;
             }}
 
             .eusee-feedback-panel-button {{
@@ -985,14 +987,21 @@ def render_top_feedback_bar():
                 width: 34px;
                 height: 34px;
                 min-width: 34px;
+                padding: 0;
+                margin: 0;
                 border-radius: 11px;
                 border: 1px solid rgba(102,0,148,.14);
                 background: rgba(255,255,255,.90);
                 color: #660094;
-                font-size: 17px;
+                font-size: 18px;
                 font-weight: 950;
                 line-height: 1;
                 cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                appearance: none;
+                -webkit-appearance: none;
             }}
 
             .eusee-feedback-close:hover {{
@@ -1052,11 +1061,13 @@ def render_top_feedback_bar():
                 .eusee-feedback-panel-actions {{
                     width: 100%;
                     gap: 8px;
+                    align-items: center;
+                    justify-content: space-between;
                 }}
 
                 .eusee-feedback-panel-button {{
                     flex: 1;
-                    width: 100%;
+                    width: auto;
                 }}
             }}
 
@@ -1881,7 +1892,7 @@ def inject_professional_sidebar_filter_css():
 
 
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
-st.sidebar.image("assets/eu-see-logo.png", width=400)
+st.sidebar.image("assets/eu-see-logo.png", width=230)
 
 
 
@@ -1998,6 +2009,239 @@ render_sidebar_access_settings_profile()
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
+
+def inject_compact_responsive_sidebar_css():
+    """Final sidebar compaction layer to reduce scrolling while preserving readability."""
+    st.markdown("""
+    <style>
+    /* ---------------- COMPACT RESPONSIVE SIDEBAR FINAL OVERRIDES ---------------- */
+    section[data-testid="stSidebar"] {
+        width: clamp(290px, 22vw, 340px) !important;
+        min-width: 290px !important;
+    }
+
+    section[data-testid="stSidebar"] > div {
+        padding-top: 0.55rem !important;
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+        padding-bottom: 0.7rem !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stImage"] {
+        margin: -2px auto 4px auto !important;
+        max-width: 230px !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stImage"] img {
+        max-height: 54px !important;
+        object-fit: contain !important;
+    }
+
+    /* Reduce default Streamlit vertical gaps inside the sidebar. */
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 0.38rem !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
+        gap: 0.45rem !important;
+    }
+
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] .stRadio,
+    section[data-testid="stSidebar"] .stButton,
+    section[data-testid="stSidebar"] .stMultiSelect,
+    section[data-testid="stSidebar"] .stSelectbox {
+        margin-bottom: 0 !important;
+    }
+
+    /* Compact privilege/access center. */
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 13px !important;
+        padding: 0.45rem 0.55rem !important;
+        margin-bottom: 0.4rem !important;
+        box-shadow: 0 4px 14px rgba(16,24,40,.045) !important;
+    }
+
+    section[data-testid="stSidebar"] h3 {
+        font-size: 13px !important;
+        line-height: 1.1 !important;
+        margin: 0 0 0.12rem 0 !important;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] .stCaption {
+        font-size: 10px !important;
+        line-height: 1.25 !important;
+    }
+
+    /* Compact dashboard control header. */
+    .classic-filter-header {
+        padding: 8px 10px !important;
+        margin: 6px 0 7px 0 !important;
+        border-radius: 13px !important;
+        box-shadow: 0 4px 14px rgba(102,0,148,.055) !important;
+    }
+
+    .classic-filter-eyebrow {
+        font-size: 8.5px !important;
+        margin-bottom: 2px !important;
+    }
+
+    .classic-filter-title {
+        font-size: 12.5px !important;
+        line-height: 1.05 !important;
+    }
+
+    .classic-filter-note {
+        font-size: 9.5px !important;
+        line-height: 1.25 !important;
+        margin-top: 3px !important;
+    }
+
+    /* Compact expander cards and headers. */
+    div[data-testid="stExpander"] {
+        margin-bottom: 6px !important;
+        border-radius: 13px !important;
+        box-shadow: 0 4px 14px rgba(16,24,40,.045) !important;
+    }
+
+    div[data-testid="stExpander"] summary {
+        min-height: 34px !important;
+        padding: 7px 10px !important;
+        font-size: 11.5px !important;
+        line-height: 1.15 !important;
+    }
+
+    div[data-testid="stExpander"] details > div {
+        padding-top: 0.45rem !important;
+        padding-bottom: 0.45rem !important;
+    }
+
+    /* Compact form controls without sacrificing touch usability. */
+    section[data-testid="stSidebar"] label {
+        font-size: 9.7px !important;
+        margin-bottom: 2px !important;
+        line-height: 1.1 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] {
+        min-height: 32px !important;
+        border-radius: 10px !important;
+        font-size: 10.5px !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        max-width: 120px !important;
+        min-height: 20px !important;
+        padding: 1px 5px !important;
+        font-size: 9px !important;
+        line-height: 1.1 !important;
+    }
+
+    section[data-testid="stSidebar"] input {
+        font-size: 10.5px !important;
+        padding-top: 3px !important;
+        padding-bottom: 3px !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button {
+        height: 32px !important;
+        min-height: 32px !important;
+        border-radius: 10px !important;
+        font-size: 10.5px !important;
+        padding: 4px 8px !important;
+    }
+
+    /* Make footer/status panels less tall. */
+    .sidebar-filter-footer {
+        padding: 7px 9px !important;
+        margin: 6px 0 7px 0 !important;
+        border-radius: 12px !important;
+    }
+
+    .sidebar-filter-footer-title {
+        font-size: 10px !important;
+        margin-bottom: 2px !important;
+    }
+
+    .sidebar-filter-footer-note {
+        font-size: 9.3px !important;
+        line-height: 1.25 !important;
+    }
+
+    .sidebar-last-updated {
+        padding: 8px 9px !important;
+        margin: 6px 0 8px 0 !important;
+        border-radius: 13px !important;
+        box-shadow: 0 4px 14px rgba(16,24,40,.045) !important;
+    }
+
+    .sidebar-last-updated-icon {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        border-radius: 10px !important;
+        font-size: 12px !important;
+    }
+
+    .sidebar-last-updated-label {
+        font-size: 8px !important;
+    }
+
+    .sidebar-last-updated-date {
+        font-size: 11px !important;
+        margin-top: 1px !important;
+    }
+
+    .sidebar-last-updated-note {
+        font-size: 9px !important;
+        line-height: 1.22 !important;
+        margin-top: 4px !important;
+    }
+
+    /* Mobile: use drawer width, larger touch targets, but compact spacing. */
+    @media (max-width: 900px) {
+        section[data-testid="stSidebar"] {
+            width: min(88vw, 330px) !important;
+            min-width: min(88vw, 330px) !important;
+        }
+
+        section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+        section[data-testid="stSidebar"] [data-baseweb="input"],
+        section[data-testid="stSidebar"] .stButton > button {
+            min-height: 36px !important;
+            height: 36px !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stImage"] img {
+            max-height: 48px !important;
+        }
+    }
+
+    @media (max-height: 760px) {
+        .classic-filter-note,
+        .sidebar-filter-footer-note,
+        .sidebar-last-updated-note {
+            display: none !important;
+        }
+
+        div[data-testid="stExpander"] summary {
+            min-height: 31px !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            padding-top: 0.38rem !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_compact_responsive_sidebar_css()
+
 regions_labels = [
     "Africa",
     "The Middle East",
@@ -2029,7 +2273,7 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
         container=geo_filter_box,
     )
 
-with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_filter_box:
+with st.sidebar.expander("⚠️ Alert classification", expanded=False) as alert_filter_box:
  
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
@@ -2073,7 +2317,7 @@ with st.sidebar.expander("🧭 Enabling environment", expanded=False) as princip
         container=principle_filter_box,
     )
 
-with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
+with st.sidebar.expander("📅 Time period", expanded=False) as time_filter_box:
   
     selected_years = safe_multiselect(
         "Year",
@@ -6044,80 +6288,6 @@ Alert counts are monitoring signals. They may reflect event frequency, reporting
 """
 
 
-def inject_chart_skeleton_css():
-    st.markdown("""
-    <style>
-    .eusee-chart-skeleton {
-        position: relative;
-        min-height: 320px;
-        border-radius: 18px;
-        border: 1px solid #E6E8EF;
-        background: linear-gradient(135deg, #FFFFFF 0%, #FCFAFF 100%);
-        box-shadow: 0 10px 24px rgba(16,24,40,.055);
-        overflow: hidden;
-        margin: 2px 0 10px 0;
-    }
-    .eusee-chart-skeleton::before {
-        content: "";
-        position: absolute; inset: 0;
-        background: linear-gradient(90deg, transparent 0%, rgba(102,0,148,.055) 45%, transparent 90%);
-        animation: euseeSkeletonSweep 1.15s ease-in-out infinite;
-    }
-    .eusee-chart-skeleton-inner {
-        position: absolute; inset: 18px;
-        display: grid; gap: 12px;
-    }
-    .eusee-skel-line, .eusee-skel-bar, .eusee-skel-axis {
-        border-radius: 999px;
-        background: #EEF0F4;
-    }
-    .eusee-skel-line { width: 38%; height: 13px; }
-    .eusee-skel-axis { width: 100%; height: 9px; align-self: end; }
-    .eusee-skel-bars {
-        height: 230px;
-        display: grid; grid-template-columns: repeat(7, 1fr);
-        align-items: end; gap: 10px;
-    }
-    .eusee-skel-bar:nth-child(1) { height: 42%; }
-    .eusee-skel-bar:nth-child(2) { height: 68%; }
-    .eusee-skel-bar:nth-child(3) { height: 54%; }
-    .eusee-skel-bar:nth-child(4) { height: 78%; }
-    .eusee-skel-bar:nth-child(5) { height: 47%; }
-    .eusee-skel-bar:nth-child(6) { height: 63%; }
-    .eusee-skel-bar:nth-child(7) { height: 72%; }
-    @keyframes euseeSkeletonSweep {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
-    }
-    @media (max-width: 700px) { .eusee-chart-skeleton { min-height: 260px; } .eusee-skel-bars { height: 180px; } }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_chart_skeleton(container=None, key="chart", height=320):
-    target = container if container is not None else st
-    safe_key = re.sub(r"[^A-Za-z0-9_-]", "_", str(key or "chart"))
-    target.markdown(f"""
-    <div class="eusee-chart-skeleton" id="eusee-chart-skeleton-{safe_key}" style="min-height:{height}px" aria-label="Loading chart preview">
-        <div class="eusee-chart-skeleton-inner">
-            <div class="eusee-skel-line"></div>
-            <div class="eusee-skel-bars">
-                <div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div>
-                <div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div>
-            </div>
-            <div class="eusee-skel-axis"></div>
-        </div>
-    </div>
-    <script>
-    setTimeout(function() {{
-        const el = window.parent.document.getElementById("eusee-chart-skeleton-{safe_key}");
-        if (el) el.style.display = "none";
-    }}, 650);
-    </script>
-    """, unsafe_allow_html=True)
-
-
-inject_chart_skeleton_css()
 
 
 def render_dashboard_plotly_chart(
@@ -6143,7 +6313,6 @@ def render_dashboard_plotly_chart(
     """
     target = container if container is not None else st
     fig = apply_responsive_plotly_layout(fig)
-    render_chart_skeleton(target, key=key or visual_type, height=340)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
 
@@ -7131,7 +7300,7 @@ with tab_map:
                         background: #F4EAF8;
                         color: #660094;
                         border: 1px solid #E7D4F1;
-                        font-size: 11px;
+                        font-size: 9.5px;
                         font-weight: 900;
                         white-space: nowrap;
                     }}
@@ -7153,16 +7322,16 @@ with tab_map:
 
                     .map-guide-title {{
                         color: #23152F;
-                        font-size: 15px;
+                        font-size: 12px;
                         font-weight: 950;
                         margin-bottom: 5px;
                     }}
 
                     .map-guide-sub {{
                         color: #667085;
-                        font-size: 11px;
+                        font-size: 9.5px;
                         line-height: 1.45;
-                        margin-bottom: 10px;
+                        margin-bottom: 7px;
                     }}
 
                     .map-guide-step {{
@@ -7188,13 +7357,13 @@ with tab_map:
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-size: 11px;
+                        font-size: 9.5px;
                         font-weight: 950;
                         box-shadow: 0 4px 9px rgba(102,0,148,.18);
                     }}
 
                     .map-guide-text {{
-                        font-size: 11px;
+                        font-size: 9.5px;
                         color: #344054;
                         line-height: 1.45;
                         font-weight: 650;
@@ -7473,10 +7642,10 @@ with tab_manual:
                 .manual-hero {
                     background: linear-gradient(135deg, #FFFFFF 0%, #F8F3FB 56%, #FFF9DC 100%);
                     border: 1px solid #E8DFF0;
-                    border-radius: 20px;
-                    padding: 24px 26px;
-                    box-shadow: 0 12px 34px rgba(54, 26, 83, 0.10);
-                    margin-bottom: 18px;
+                    border-radius: 18px;
+                    padding: 16px 18px;
+                    box-shadow: 0 8px 22px rgba(54, 26, 83, 0.075);
+                    margin-bottom: 12px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-eyebrow {
@@ -7487,69 +7656,69 @@ with tab_manual:
                     color: #660094;
                     border: 1px solid #E2D2EC;
                     border-radius: 999px;
-                    padding: 6px 10px;
-                    font-size: 11px;
+                    padding: 4px 8px;
+                    font-size: 9.8px;
                     font-weight: 900;
                     letter-spacing: .04em;
                     text-transform: uppercase;
-                    margin-bottom: 10px;
+                    margin-bottom: 7px;
                 }
                 .manual-title {
                     color: #2D0055;
-                    font-size: 28px;
+                    font-size: 22px;
                     font-weight: 900;
-                    margin: 0 0 8px 0;
+                    margin: 0 0 5px 0;
                     line-height: 1.15;
                 }
                 .manual-lead {
                     color: #475569;
-                    font-size: 12px;
-                    line-height: 1.55;
+                    font-size: 11.2px;
+                    line-height: 1.38;
                     max-width: 980px;
                     margin: 0;
                 }
                 .manual-kpi-grid {
                     display: grid;
                     grid-template-columns: repeat(4, minmax(0, 1fr));
-                    gap: 9px;
-                    margin: 10px 0 14px 0;
+                    gap: 7px;
+                    margin: 8px 0 11px 0;
                 }
                 .manual-mini-card {
                     display: grid;
-                    grid-template-columns: 30px minmax(0, 1fr);
-                    column-gap: 9px;
+                    grid-template-columns: 24px minmax(0, 1fr);
+                    column-gap: 7px;
                     align-items: start;
                     background: #FFFFFF;
                     border: 1px solid #ECE5F3;
-                    border-radius: 14px;
-                    padding: 10px 11px;
-                    box-shadow: 0 6px 16px rgba(54, 26, 83, 0.055);
-                    min-height: 66px;
+                    border-radius: 12px;
+                    padding: 7px 8px;
+                    box-shadow: 0 4px 12px rgba(54, 26, 83, 0.045);
+                    min-height: 50px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-mini-icon {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 10px;
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 8px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     background: #F8F3FB;
                     color: #660094;
-                    font-size: 15px;
+                    font-size: 12px;
                     margin-bottom: 0;
                     grid-row: span 2;
                 }
                 .manual-mini-title {
                     color: #2D0055;
-                    font-size: 12px;
+                    font-size: 9.5px;
                     font-weight: 900;
-                    margin-bottom: 4px;
+                    margin-bottom: 2px;
                 }
                 .manual-mini-text {
                     color: #64748B;
-                    font-size: 10.6px;
-                    line-height: 1.28;
+                    font-size: 9.8px;
+                    line-height: 1.22;
                 }
                 @media (max-width: 1050px) {
                     .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -7561,108 +7730,126 @@ with tab_manual:
                 .manual-section-card {
                     background: #FFFFFF;
                     border: 1px solid #ECE5F3;
-                    border-radius: 18px;
-                    padding: 18px;
-                    box-shadow: 0 10px 28px rgba(54, 26, 83, 0.08);
-                    margin-bottom: 16px;
+                    border-radius: 15px;
+                    padding: 12px 13px;
+                    box-shadow: 0 7px 18px rgba(54, 26, 83, 0.06);
+                    margin-bottom: 11px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-section-title {
                     color: #2D0055;
-                    font-size: 16px;
+                    font-size: 13.5px;
                     font-weight: 900;
-                    margin-bottom: 4px;
+                    margin-bottom: 2px;
                 }
                 .manual-section-note {
                     color: #64748B;
-                    font-size: 12px;
-                    line-height: 1.45;
-                    margin-bottom: 12px;
+                    font-size: 10.8px;
+                    line-height: 1.28;
+                    margin-bottom: 7px;
                 }
                 .manual-step {
                     display: grid;
-                    grid-template-columns: 30px 1fr;
-                    gap: 10px;
+                    grid-template-columns: 24px 1fr;
+                    gap: 7px;
                     align-items: start;
-                    padding: 10px 0;
+                    padding: 6px 0;
                     border-bottom: 1px solid #F1EEF5;
                 }
                 .manual-step:last-child { border-bottom: none; }
                 .manual-step-num {
                     background: #660094;
                     color: white;
-                    width: 26px;
-                    height: 26px;
+                    width: 21px;
+                    height: 21px;
                     border-radius: 999px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 11px;
+                    font-size: 9.5px;
                     font-weight: 900;
                 }
                 .manual-step-title {
                     color: #334155;
-                    font-size: 12px;
+                    font-size: 10.8px;
                     font-weight: 900;
-                    margin-bottom: 2px;
+                    margin-bottom: 1px;
                 }
                 .manual-step-text {
                     color: #64748B;
-                    font-size: 11.5px;
-                    line-height: 1.38;
+                    font-size: 10.3px;
+                    line-height: 1.25;
                 }
                 .manual-doc-card {
                     display: grid;
-                    grid-template-columns: 46px 1fr;
-                    gap: 12px;
+                    grid-template-columns: 34px 1fr;
+                    gap: 9px;
                     align-items: center;
                     background: #FFFFFF;
                     border: 1px solid #ECE5F3;
                     border-left: 5px solid #660094;
-                    border-radius: 16px;
-                    padding: 14px;
+                    border-radius: 13px;
+                    padding: 10px;
                     box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
-                    margin-bottom: 10px;
+                    margin-bottom: 7px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-doc-icon {
-                    width: 42px;
-                    height: 42px;
-                    border-radius: 14px;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 11px;
                     background: linear-gradient(135deg, #660094, #8A2DB2);
                     color: #FFFFFF;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 20px;
+                    font-size: 15px;
                 }
                 .manual-doc-title {
                     color: #2D0055;
-                    font-size: 13px;
+                    font-size: 11.8px;
                     font-weight: 900;
-                    margin-bottom: 3px;
+                    margin-bottom: 2px;
                 }
                 .manual-doc-subtitle {
                     color: #475569;
-                    font-size: 11.5px;
-                    line-height: 1.35;
-                    margin-bottom: 5px;
+                    font-size: 10.2px;
+                    line-height: 1.24;
+                    margin-bottom: 4px;
                 }
                 .manual-doc-audience {
                     color: #660094;
-                    font-size: 10.5px;
+                    font-size: 9.4px;
                     font-weight: 800;
                     background: #F8F3FB;
                     border: 1px solid #E8DFF0;
                     display: inline-block;
-                    padding: 3px 8px;
+                    padding: 2px 7px;
                     border-radius: 999px;
+                }
+                .manual-compact-note {
+                    margin-top: 4px;
+                    color: #64748B;
+                    font-size: 10px;
+                    line-height: 1.25;
+                }
+                @media (max-width: 760px) {
+                    .manual-hero { padding: 13px 14px; }
+                    .manual-title { font-size: 19px; }
+                    .manual-lead { font-size: 10.8px; }
+                    .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                    .manual-mini-card { min-height: auto; }
+                    .manual-section-card { padding: 11px; }
+                    .manual-step-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                }
+                @media (max-width: 480px) {
+                    .manual-kpi-grid { grid-template-columns: 1fr; }
                 }
                 .manual-tip {
                     background: #FFF9DC;
                     border: 1px solid #F2E7A8;
-                    border-radius: 14px;
-                    padding: 12px 14px;
+                    border-radius: 12px;
+                    padding: 9px 10px;
                     color: #55420A;
                     font-size: 11.5px;
                     line-height: 1.45;
@@ -7691,11 +7878,10 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-kpi-grid">
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand what the dashboard shows and how each section can support EU SEE monitoring.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
-                    Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand dashboard scope and monitoring use.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Move across Overview, Negative Alerts, Map, Data Preview, and AI tools.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables for trend review.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the detailed manual when needed.</div></div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -7723,7 +7909,7 @@ with tab_manual:
                     """
                     <div class="manual-section-card">
                         <div class="manual-section-title">How to interpret dashboard findings</div>
-                        <div class="manual-section-note">: Keep these principles in mind when using or presenting findings from the dashboard.</div>
+                        <div class="manual-section-note">Keep these principles in mind when using or presenting dashboard findings.</div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect more incidents, stronger reporting, better monitoring coverage, or a combination of these factors.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">When sharing charts or tables, mention the selected region, period, alert impact, alert type, and other relevant filters.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Compare different views</div><div class="manual-step-text">Use figures, charts, maps, and available data records together before drawing conclusions.</div></div></div>
@@ -11858,7 +12044,6 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                render_chart_skeleton(st, key="v2_pop_smart_plot", height=340)
                 st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
