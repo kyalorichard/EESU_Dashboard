@@ -6224,20 +6224,13 @@ with tab_map:
                         <div class="map-guide-sub">Use this map to see where filtered alerts are concentrated.</div>
                         <div class="map-guide-step">
                             <div class="map-guide-num">1</div>
-                            <div class="map-guide-text"><b>Start with intensity:</b> darker countries indicate higher filtered alert volume.</div>
+                            <div class="map-guide-text"><b>Look at color intensity:</b> Darker countries indicate a higher number of alerts.</div>
                         </div>
                         <div class="map-guide-step">
                             <div class="map-guide-num">2</div>
-                            <div class="map-guide-text"><b>Check hover details:</b> compare total, negative, positive, and context-to-watch alerts.</div>
+                            <div class="map-guide-text"><b>However for details:</b> Hover over a country to see the alert breakdown.</div>
                         </div>
-                        <div class="map-guide-step">
-                            <div class="map-guide-num">3</div>
-                            <div class="map-guide-text"><b>Use priority carefully:</b> priority combines negative-alert volume and negative share.</div>
-                        </div>
-                        <div class="map-guide-step">
-                            <div class="map-guide-num">4</div>
-                            <div class="map-guide-text"><b>Validate with rankings:</b> high alert counts may reflect event frequency, monitoring coverage, or reporting intensity.</div>
-                        </div>
+                        
                     </div>
                     """, unsafe_allow_html=True)
 
