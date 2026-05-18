@@ -32,11 +32,14 @@ except Exception:
         return ""
     def has_permission(permission):
         return permission in [
+            "view_public_summary",
             "view_dashboard",
             "view_overview",
             "view_coverage_monitored_countries",
+            "view_country_counts",
             "view_maps",
             "view_negative_alerts",
+            "view_negative_relationship_intelligence",
             "view_analytical_flow_panel",
             "view_data_table",
             "view_user_manual",
@@ -556,7 +559,13 @@ inject_final_responsive_overrides()
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
 def can_view_monitored_countries_value() -> bool:
-    """Use the main Monitored Countries card permission; no separate value privilege is used."""
+    """Return True only when the active role is allowed to see monitored-country counts.
+
+    The admin page controls this through the existing "Monitored Countries"
+    permission: view_coverage_monitored_countries. The card itself may remain
+    visible through broader summary permissions, but the numeric country value
+    is masked unless this permission is enabled for the current role.
+    """
     try:
         return bool(has_permission("view_coverage_monitored_countries"))
     except Exception:
@@ -564,7 +573,7 @@ def can_view_monitored_countries_value() -> bool:
 
 
 def monitored_countries_display_value(value) -> str:
-    """Format monitored-country values only when the Monitored Countries card is allowed."""
+    """Format monitored-country values only for permitted users."""
     if not can_view_monitored_countries_value():
         return "Restricted"
     try:
@@ -6143,9 +6152,9 @@ def render_dashboard_plotly_chart(
 # ---------------- TAB 1 ------------------------
 with tab_overview:
 
-    if has_permission("view_overview"):
+    if has_permission("view_overview") or has_permission("view_public_summary"):
         #st.subheader("Overview Metrics")
-        if has_permission("view_coverage_monitored_countries"):
+        if has_permission("view_coverage_monitored_countries") or has_permission("view_country_counts"):
             render_summary_cards(filtered_global, card_key="overview_summary")
         a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
         df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
@@ -6355,7 +6364,7 @@ with tab_negative:
                 (reactive_df['Mechanism of repression'].apply(lambda x: contains_any(x, selected_mechanism_types))) &
                 (reactive_df['Type of event'].apply(lambda x: contains_any(x, selected_event_types)))
             ]
-            if has_permission("view_analytical_flow_panel"):
+            if has_permission("view_negative_relationship_intelligence"):
                 render_negative_alerts_intelligence_cards(
                     reactive_df_updated,
                     all_filtered_df=filtered_global,
@@ -6481,7 +6490,7 @@ with tab_map:
 
         if has_permission("view_maps"):
             # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
-            if has_permission("view_coverage_monitored_countries"):
+            if has_permission("view_coverage_monitored_countries") or has_permission("view_country_counts"):
                 render_summary_cards(filtered_global, card_key="map_summary")
 
             MAP_FONT = "Arial, sans-serif"
