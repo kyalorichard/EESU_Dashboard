@@ -5273,6 +5273,7 @@ def _figure_has_chart_info_badge(fig):
             ann_hover = str(getattr(ann, "hovertext", "") or "")
             if (
                 "eusee-chart-info-badge" in ann_text
+                or ann_text.startswith("<b>tip:</b>")
                 or (ann_text in ["<b>i</b>", "i", "<b>ⓘ</b>", "ⓘ"] and ann_hover.strip())
             ):
                 return True
@@ -5334,20 +5335,17 @@ def add_chart_info_badge(
     message,
     x=None,
     y=1.075,
-    badge_text="<b>i</b>",
+    badge_text="<b>Tip:</b>",
     chart_width_px=620,
     title_x=None,
     title_xanchor=None,
 ):
-    """Attach a hoverable info badge at the start of the Plotly title band.
+    """Add a hidden chart-area tooltip that appears only when the mouse enters the chart.
 
-    Why this version:
-    - Plotly title HTML can display the icon, but browser `title` hover is not
-      reliable once Plotly renders title text inside SVG layers.
-    - A Plotly annotation with `hovertext` is reliably hoverable.
-    - The annotation is placed inside the chart title band, immediately before
-      the chart title, and the title is shifted slightly right so both stay
-      together without changing the Streamlit page layout.
+    This replaces title/icon hover behavior because Plotly title HTML and annotation
+    hover can be inconsistent inside Streamlit. The title remains clean, and the
+    contextual note is revealed by a lightweight JS listener scoped to the two
+    opt-in charts only.
     """
     if fig is None or not message:
         return fig
@@ -5359,7 +5357,7 @@ def add_chart_info_badge(
     if not plain_title:
         return fig
 
-    # Avoid duplicate info badges on reruns or repeated layout calls.
+    # Avoid duplicate chart-area tips on reruns or repeated layout calls.
     if _figure_has_chart_info_badge(fig):
         return fig
 
@@ -5368,23 +5366,17 @@ def add_chart_info_badge(
     title_font_family = getattr(title_font, "family", None) or CHART_FONT
     title_font_color = getattr(title_font, "color", None) or "#23152F"
 
-    # Keep the title text plain and shift it right to make space for the badge.
-    # This preserves a stable, compact layout and lets the annotation handle hover.
-    badge_x = 0.005 if x is None else x
-    title_start_x = title_x
-    if title_start_x is None:
-        title_start_x = 0.045
-
     inferred_xanchor = title_xanchor
     if inferred_xanchor is None:
         inferred_xanchor = getattr(title, "xanchor", None) or "left"
 
     current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
 
+    # Keep the normal chart title unchanged and left aligned.
     fig.update_layout(
         title=dict(
             text=plain_title,
-            x=float(title_start_x),
+            x=float(title_x) if title_x is not None else (getattr(title, "x", None) or 0.01),
             xanchor=str(inferred_xanchor),
             y=getattr(title, "y", None) or 0.97,
             yanchor=getattr(title, "yanchor", None) or "top",
@@ -5397,39 +5389,116 @@ def add_chart_info_badge(
         margin=dict(
             l=current_margin.get("l", 135),
             r=current_margin.get("r", 28),
-            t=max(int(current_margin.get("t", 58) or 58), 72),
+            t=max(int(current_margin.get("t", 58) or 58), 78),
             b=current_margin.get("b", 58),
         ),
+        hovermode="closest",
     )
 
-    wrapped_message = _wrap_chart_tooltip_text(message, line_length=78)
+    wrapped_message = _wrap_chart_tooltip_text(message, line_length=86)
 
-    # Use only annotation properties supported by broad Plotly versions.
+    # Hidden by default; JS toggles opacity when the user enters/leaves the chart.
     fig.add_annotation(
         xref="paper",
         yref="paper",
-        x=float(badge_x),
+        x=float(0.005 if x is None else x),
         y=float(y),
         xanchor="left",
-        yanchor="middle",
-        text=badge_text,
-        hovertext=wrapped_message,
-        hoverlabel=dict(
-            bgcolor="#FFFFFF",
-            bordercolor="#E6E8EF",
-            font=dict(size=11, color="#344054", family=CHART_FONT),
-        ),
+        yanchor="top",
+        text=f"<b>Tip:</b> {wrapped_message}",
         showarrow=False,
-        align="center",
-        bgcolor="#F4EAF8",
-        bordercolor="#E7D4F1",
+        align="left",
+        bgcolor="rgba(255,255,255,0.96)",
+        bordercolor="#E6E8EF",
         borderwidth=1,
-        borderpad=4,
-        font=dict(size=10, color="#660094", family=CHART_FONT),
-        opacity=1,
-        captureevents=True,
+        borderpad=7,
+        font=dict(size=11, color="#344054", family=CHART_FONT),
+        opacity=0,
+        captureevents=False,
     )
     return fig
+
+
+def inject_chart_area_hover_tooltip_js(target_title):
+    """Attach mouseenter/mouseleave events to the specific Plotly chart by title.
+
+    The JS searches only for charts whose SVG title matches `target_title`, then
+    toggles the opacity of the hidden annotation whose text begins with "Tip:".
+    This keeps the behavior limited to the two charts rendered with
+    show_title_tooltip=True.
+    """
+    safe_title = (
+        str(target_title or "")
+        .replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("$", "\\$")
+    )
+
+    components.html(f"""
+    <script>
+    (function() {{
+        const doc = window.parent.document;
+        const targetTitle = `{safe_title}`.trim();
+
+        function getPlotTitle(plot) {{
+            try {{
+                const titleNode = plot.querySelector('.g-gtitle text, .gtitle, text.gtitle');
+                return (titleNode ? titleNode.textContent : '').trim();
+            }} catch (e) {{
+                return '';
+            }}
+        }}
+
+        function bindChartAreaTooltip() {{
+            const plots = Array.from(doc.querySelectorAll('.js-plotly-plot'));
+            plots.forEach(function(plot) {{
+                const title = getPlotTitle(plot);
+                if (!title || title !== targetTitle || plot.dataset.euseeAreaTooltipBound === '1') {{
+                    return;
+                }}
+
+                const gd = plot;
+                let tipIndex = -1;
+
+                try {{
+                    const annotations = (((gd || {{}}).layout || {{}}).annotations || []);
+                    tipIndex = annotations.findIndex(function(annotation) {{
+                        return String((annotation || {{}}).text || '').indexOf('<b>Tip:</b>') === 0;
+                    }});
+                }} catch (e) {{
+                    tipIndex = -1;
+                }}
+
+                if (tipIndex < 0 || !window.Plotly) {{
+                    return;
+                }}
+
+                plot.dataset.euseeAreaTooltipBound = '1';
+
+                function showTip() {{
+                    const update = {{}};
+                    update['annotations[' + tipIndex + '].opacity'] = 1;
+                    window.Plotly.relayout(gd, update);
+                }}
+
+                function hideTip() {{
+                    const update = {{}};
+                    update['annotations[' + tipIndex + '].opacity'] = 0;
+                    window.Plotly.relayout(gd, update);
+                }}
+
+                plot.addEventListener('mouseenter', showTip);
+                plot.addEventListener('mouseleave', hideTip);
+            }});
+        }}
+
+        bindChartAreaTooltip();
+        setTimeout(bindChartAreaTooltip, 250);
+        setTimeout(bindChartAreaTooltip, 900);
+    }})();
+    </script>
+    """, height=0, width=0)
+
 
 def build_default_chart_tooltip(fig, visual_type="chart", x_col=None, group_col=None):
     """Create a concise fallback tooltip for charts that do not have a custom note."""
@@ -6430,6 +6499,13 @@ def render_dashboard_plotly_chart(
 
     fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
+
+    if show_title_tooltip and chart_info:
+        try:
+            chart_title = _strip_plotly_html(getattr(fig.layout.title, "text", "") or "")
+            inject_chart_area_hover_tooltip_js(chart_title)
+        except Exception:
+            pass
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
