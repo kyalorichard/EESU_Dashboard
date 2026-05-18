@@ -1054,23 +1054,92 @@ def load_data():
 # --- Load data safely ---
 data = apply_data_scope(load_data())
 
-# ---------------- PROFESSIONAL LAST UPDATED BADGE ----------------
-latest_date_display = st.session_state.get("latest_dataset_date", "Not available")
-latest_date_source = st.session_state.get(
-    "latest_dataset_date_source",
-    "Based on latest loaded dataset",
-)
+# ---------------- SIDEBAR LAST UPDATED PANEL ----------------
+def render_sidebar_last_updated_panel():
+    """Render the latest dataset update status inside the sidebar.
 
-st.markdown(f"""
-<div class="last-updated-badge" title="{latest_date_source}">
-    <div class="last-updated-icon">⏱</div>
-    <div class="last-updated-copy">
-        <span class="last-updated-label">Last updated</span>
-        <strong>{latest_date_display}</strong>
-        <small>{latest_date_source}</small>
+    This replaces the former main-page badge so the dashboard header remains clean
+    while keeping update metadata visible near access and filter controls.
+    """
+    latest_date_display = st.session_state.get("latest_dataset_date", "Not available")
+    latest_date_source = st.session_state.get(
+        "latest_dataset_date_source",
+        "Based on latest loaded dataset",
+    )
+
+    st.sidebar.markdown(f"""
+    <style>
+    .sidebar-last-updated {{
+        margin: 10px 0 14px 0;
+        padding: 12px 13px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%);
+        border: 1px solid rgba(102,0,148,.14);
+        box-shadow: 0 8px 22px rgba(16,24,40,.06);
+        font-family: Arial, sans-serif;
+    }}
+
+    .sidebar-last-updated-top {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+
+    .sidebar-last-updated-icon {{
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+        color: #660094;
+        font-size: 15px;
+        font-weight: 900;
+        border: 1px solid rgba(102,0,148,.10);
+    }}
+
+    .sidebar-last-updated-copy {{
+        min-width: 0;
+    }}
+
+    .sidebar-last-updated-label {{
+        font-size: 9px;
+        font-weight: 950;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: #660094;
+        line-height: 1.1;
+    }}
+
+    .sidebar-last-updated-date {{
+        margin-top: 3px;
+        font-size: 13px;
+        font-weight: 950;
+        color: #23152F;
+        line-height: 1.15;
+    }}
+
+    .sidebar-last-updated-note {{
+        margin-top: 7px;
+        font-size: 10px;
+        line-height: 1.35;
+        color: #667085;
+    }}
+    </style>
+
+    <div class="sidebar-last-updated" title="{latest_date_source}">
+        <div class="sidebar-last-updated-top">
+            <div class="sidebar-last-updated-icon">⏱</div>
+            <div class="sidebar-last-updated-copy">
+                <div class="sidebar-last-updated-label">Last updated</div>
+                <div class="sidebar-last-updated-date">{latest_date_display}</div>
+            </div>
+        </div>
+        <div class="sidebar-last-updated-note">{latest_date_source}</div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
@@ -1654,6 +1723,7 @@ def render_sidebar_access_settings_profile():
 
 
 render_sidebar_access_settings_profile()
+render_sidebar_last_updated_panel()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
