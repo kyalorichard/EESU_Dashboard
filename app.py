@@ -788,148 +788,261 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- FLOATING FEEDBACK OVERLAY ----------------
+# ---------------- COLLAPSED FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
-    """Render a floating centered feedback overlay above the dashboard content."""
+    """Inject a collapsed floating feedback widget without rendering raw HTML in Streamlit."""
     feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
-    st.markdown(f"""
-    <style>
-    .eusee-floating-feedback {{
-        position: fixed;
-        top: 72px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(760px, calc(100vw - 32px));
-        z-index: 999995;
 
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
+    components.html(f"""
+    <script>
+    (function() {{
+        const doc = window.parent.document;
+        const rootId = "eusee-feedback-floating-root";
+        const styleId = "eusee-feedback-floating-style";
 
-        padding: 11px 14px;
-        border-radius: 18px;
+        const oldRoot = doc.getElementById(rootId);
+        if (oldRoot) oldRoot.remove();
 
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,.96) 0%,
-                rgba(252,247,255,.97) 100%
-            );
-
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        border: 1px solid rgba(102,0,148,.14);
-
-        box-shadow:
-            0 16px 38px rgba(17,24,39,.12),
-            0 2px 8px rgba(102,0,148,.08);
-
-        font-family: Arial, sans-serif;
-        box-sizing: border-box;
-    }}
-
-    .eusee-floating-feedback-left {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-    }}
-
-    .eusee-floating-feedback-icon {{
-        width: 34px;
-        height: 34px;
-        min-width: 34px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
-        border: 1px solid rgba(102,0,148,.10);
-        color: #660094;
-        font-size: 15px;
-        font-weight: 900;
-    }}
-
-    .eusee-floating-feedback-copy {{
-        color: #344054;
-        font-size: 12px;
-        line-height: 1.3;
-        font-weight: 750;
-        white-space: normal;
-    }}
-
-    .eusee-floating-feedback-copy strong {{
-        color: #2D0055;
-        font-weight: 950;
-    }}
-
-    .eusee-floating-feedback-button {{
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 7px 14px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
-        color: #FFFFFF !important;
-        text-decoration: none !important;
-        font-size: 11px;
-        font-weight: 900;
-        white-space: nowrap;
-        box-shadow: 0 8px 18px rgba(102,0,148,.18);
-        transition: all .16s ease;
-    }}
-
-    .eusee-floating-feedback-button:hover {{
-        transform: translateY(-1px);
-        filter: brightness(1.04);
-    }}
-
-    /* Give the fixed overlay enough breathing room above the dashboard title. */
-    .main .block-container {{
-        padding-top: 5.5rem !important;
-    }}
-
-    @media (max-width: 900px) {{
-        .eusee-floating-feedback {{
-            top: 64px;
-            width: calc(100vw - 22px);
-            padding: 10px 12px;
-        }}
-    }}
-
-    @media (max-width: 700px) {{
-        .eusee-floating-feedback {{
-            flex-direction: column;
-            align-items: stretch;
-            gap: 10px;
+        let style = doc.getElementById(styleId);
+        if (!style) {{
+            style = doc.createElement("style");
+            style.id = styleId;
+            doc.head.appendChild(style);
         }}
 
-        .eusee-floating-feedback-button {{
-            width: 100%;
-        }}
+        style.innerHTML = `
+            #eusee-feedback-floating-root {{
+                position: fixed;
+                top: 72px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 2147482500;
+                font-family: Arial, sans-serif;
+                pointer-events: auto;
+            }}
 
-        .main .block-container {{
-            padding-top: 8rem !important;
-        }}
-    }}
-    </style>
+            #eusee-feedback-floating-root * {{
+                box-sizing: border-box;
+            }}
 
-    <div class="eusee-floating-feedback">
-        <div class="eusee-floating-feedback-left">
-            <div class="eusee-floating-feedback-icon">💬</div>
-            <div class="eusee-floating-feedback-copy">
-                <strong>Share your feedback</strong> on usability, insights, and dashboard improvements.
+            .eusee-feedback-mini-tab {{
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 9px 14px;
+                border-radius: 999px;
+                border: 1px solid rgba(102,0,148,.16);
+                background: linear-gradient(135deg, rgba(255,255,255,.97), rgba(252,247,255,.98));
+                color: #2D0055;
+                box-shadow: 0 14px 30px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08);
+                font-size: 12px;
+                font-weight: 950;
+                cursor: pointer;
+                user-select: none;
+                backdrop-filter: blur(14px);
+                -webkit-backdrop-filter: blur(14px);
+                transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+            }}
+
+            .eusee-feedback-mini-tab:hover {{
+                transform: translateY(-1px);
+                background: linear-gradient(135deg, #FFFFFF, #F4EAF8);
+                box-shadow: 0 16px 34px rgba(17,24,39,.16), 0 3px 10px rgba(102,0,148,.10);
+            }}
+
+            .eusee-feedback-mini-icon {{
+                width: 24px;
+                height: 24px;
+                min-width: 24px;
+                border-radius: 9px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
+                border: 1px solid rgba(102,0,148,.10);
+                color: #660094;
+                font-size: 13px;
+                font-weight: 900;
+            }}
+
+            .eusee-feedback-panel {{
+                width: min(760px, calc(100vw - 32px));
+                display: none;
+                align-items: center;
+                justify-content: space-between;
+                gap: 14px;
+                padding: 11px 14px;
+                border-radius: 18px;
+                background: linear-gradient(135deg, rgba(255,255,255,.97), rgba(252,247,255,.98));
+                border: 1px solid rgba(102,0,148,.14);
+                box-shadow: 0 16px 38px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08);
+                backdrop-filter: blur(14px);
+                -webkit-backdrop-filter: blur(14px);
+            }}
+
+            .eusee-feedback-panel-left {{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-width: 0;
+            }}
+
+            .eusee-feedback-panel-icon {{
+                width: 34px;
+                height: 34px;
+                min-width: 34px;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
+                border: 1px solid rgba(102,0,148,.10);
+                color: #660094;
+                font-size: 15px;
+                font-weight: 900;
+            }}
+
+            .eusee-feedback-panel-copy {{
+                color: #344054;
+                font-size: 12px;
+                line-height: 1.3;
+                font-weight: 750;
+                white-space: normal;
+            }}
+
+            .eusee-feedback-panel-copy strong {{
+                color: #2D0055;
+                font-weight: 950;
+            }}
+
+            .eusee-feedback-panel-actions {{
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                flex-shrink: 0;
+            }}
+
+            .eusee-feedback-panel-button {{
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 7px 14px;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
+                color: #FFFFFF !important;
+                text-decoration: none !important;
+                font-size: 11px;
+                font-weight: 900;
+                white-space: nowrap;
+                box-shadow: 0 8px 18px rgba(102,0,148,.18);
+                transition: all .16s ease;
+            }}
+
+            .eusee-feedback-panel-button:hover {{
+                transform: translateY(-1px);
+                filter: brightness(1.04);
+            }}
+
+            .eusee-feedback-close {{
+                width: 30px;
+                height: 30px;
+                min-width: 30px;
+                border-radius: 10px;
+                border: 1px solid rgba(102,0,148,.14);
+                background: rgba(255,255,255,.88);
+                color: #660094;
+                font-size: 16px;
+                font-weight: 950;
+                line-height: 1;
+                cursor: pointer;
+            }}
+
+            .eusee-feedback-close:hover {{
+                background: #F4EAF8;
+                transform: translateY(-1px);
+            }}
+
+            @media (max-width: 700px) {{
+                #eusee-feedback-floating-root {{
+                    top: 64px;
+                    width: calc(100vw - 22px);
+                }}
+
+                .eusee-feedback-mini-tab {{
+                    width: fit-content;
+                    margin: 0 auto;
+                }}
+
+                .eusee-feedback-panel {{
+                    width: 100%;
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 10px;
+                    padding: 10px 12px;
+                }}
+
+                .eusee-feedback-panel-actions {{
+                    width: 100%;
+                }}
+
+                .eusee-feedback-panel-button {{
+                    flex: 1;
+                }}
+            }}
+        `;
+
+        const root = doc.createElement("div");
+        root.id = rootId;
+        root.innerHTML = `
+            <div class="eusee-feedback-mini-tab" id="eusee-feedback-mini-tab" title="Open feedback panel">
+                <span class="eusee-feedback-mini-icon">💬</span>
+                <span>Feedback</span>
+                <span style="font-size:11px;color:#667085;font-weight:900;">+</span>
             </div>
-        </div>
 
-        <a class="eusee-floating-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
-            Formular ausfüllen
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
+            <div class="eusee-feedback-panel" id="eusee-feedback-panel">
+                <div class="eusee-feedback-panel-left">
+                    <div class="eusee-feedback-panel-icon">💬</div>
+                    <div class="eusee-feedback-panel-copy">
+                        <strong>Share your feedback</strong> on usability, insights, and dashboard improvements.
+                    </div>
+                </div>
 
-render_top_feedback_bar()  # Floating dashboard feedback overlay.
+                <div class="eusee-feedback-panel-actions">
+                    <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
+                        Formular ausfüllen
+                    </a>
+                    <button class="eusee-feedback-close" id="eusee-feedback-close" title="Collapse feedback panel">×</button>
+                </div>
+            </div>
+        `;
+        doc.body.appendChild(root);
+
+        const tab = doc.getElementById("eusee-feedback-mini-tab");
+        const panel = doc.getElementById("eusee-feedback-panel");
+        const close = doc.getElementById("eusee-feedback-close");
+
+        function collapseFeedback() {{
+            panel.style.display = "none";
+            tab.style.display = "inline-flex";
+        }}
+
+        function expandFeedback() {{
+            tab.style.display = "none";
+            panel.style.display = "flex";
+        }}
+
+        // Always load collapsed to avoid blocking the dashboard header.
+        collapseFeedback();
+
+        tab.addEventListener("click", expandFeedback);
+        close.addEventListener("click", collapseFeedback);
+    }})();
+    </script>
+    """, height=0, width=0)
+
+render_top_feedback_bar()  # Collapsed floating dashboard feedback overlay.
 
 
 # ---------------- LOAD DATA ----------------
