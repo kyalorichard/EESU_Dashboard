@@ -1517,6 +1517,45 @@ def inject_professional_sidebar_filter_css():
         background: #EFFBFE !important;
         border-color: rgba(0,140,170,.18) !important;
     }
+
+
+    /* ---------------- SIDEBAR EXPANDER ICON / LABEL ALIGNMENT FIX ---------------- */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        display: flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+        min-height: 42px !important;
+        line-height: 1.15 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary > div {
+        display: flex !important;
+        align-items: center !important;
+        min-width: 0 !important;
+        line-height: 1.15 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.15 !important;
+        font-family: Inter, Arial, sans-serif !important;
+        font-size: 12.4px !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.01em !important;
+        color: #23152F !important;
+        white-space: nowrap !important;
+        text-rendering: geometricPrecision !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
+        align-self: center !important;
+        margin: 0 !important;
+        transform: translateY(0) !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
