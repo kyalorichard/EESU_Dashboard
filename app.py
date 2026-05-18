@@ -6114,18 +6114,6 @@ with tab_map:
                   
                 </div>
               
-
-                if unmapped_meta or unmapped_geo:
-                    issue_bits = []
-                    if unmapped_meta:
-                        issue_bits.append("Missing metadata: " + ", ".join(unmapped_meta[:12]) + (" ..." if len(unmapped_meta) > 12 else ""))
-                    if unmapped_geo:
-                        issue_bits.append("No GeoJSON geometry match: " + ", ".join(unmapped_geo[:12]) + (" ..." if len(unmapped_geo) > 12 else ""))
-                    st.markdown(
-                        f"""<div class="map-quality-strip"><span class="map-quality-pill">Data quality check</span><span class="map-quality-pill">{' | '.join(issue_bits)}</span></div>""",
-                        unsafe_allow_html=True
-                    )
-
                 # ---------------- Dynamic center and zoom ----------------
                 if not df_map.empty:
                     coords = []
