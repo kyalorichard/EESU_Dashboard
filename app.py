@@ -2667,7 +2667,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     .negintel-row-label {
         color:#344054;
         font-size:10.2px;
-        font-weight:850;
+        font-weight:750;
         overflow:visible;
         text-overflow:unset;
         white-space:normal;
