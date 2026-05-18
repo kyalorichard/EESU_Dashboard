@@ -2659,7 +2659,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     }
     .negintel-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
     .negintel-eyebrow { color:#9A6B66; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
-    .negintel-title { color:#2D0055; font-size:10.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
+    .negintel-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
     .negintel-icon { width:30px; height:30px; min-width:30px; border-radius:12px; background:linear-gradient(135deg, rgba(180,35,24,.12), rgba(255,219,88,.14)); color:#B42318; border:1px solid rgba(180,35,24,.10); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; }
     .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; color:#B42318; }
     .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
@@ -2741,7 +2741,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title">Restrictive actor → Restrictive mechanism → Civil society actor affected</div></div>
+                    <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title">Actor → Mechanism → Subject</div></div>
                     <div class="negintel-icon">⛓️</div>
                 </div>
                 <div class="negintel-row-list">
