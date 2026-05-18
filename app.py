@@ -1894,6 +1894,21 @@ def render_sidebar_access_settings_profile():
     admin_status = "Enabled" if is_admin_user else "Not available"
     access_status = "Signed in" if signed_in else "Public mode"
 
+    # Show the monitored-country value as a first-class item in the
+    # privilege/access list. Use the already scoped dataframe so the value
+    # respects the active role's data scope.
+    try:
+        monitored_countries_value = (
+            int(data["alert-country"].nunique())
+            if "data" in globals()
+            and isinstance(data, pd.DataFrame)
+            and not data.empty
+            and "alert-country" in data.columns
+            else 0
+        )
+    except Exception:
+        monitored_countries_value = 0
+
     st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
     if not is_admin_user:
         st.session_state["eusee_sidebar_workspace"] = "Dashboard"
@@ -1955,6 +1970,16 @@ def render_sidebar_access_settings_profile():
             if signed_in
             else "Sign in or register to request partner access."
         )
+
+        metric_cols = st.columns(2)
+        with metric_cols[0]:
+            st.metric("Role", role_label)
+            st.metric("Monitored Countries", f"{monitored_countries_value:,}")
+            st.metric("AI Copilot", copilot_status)
+        with metric_cols[1]:
+            st.metric("Access", access_status)
+            st.metric("Downloads", export_status)
+            st.metric("Admin", admin_status)
 
        
         if is_admin_user:
