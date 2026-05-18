@@ -1964,6 +1964,110 @@ def inject_sidebar_typography_standardization():
 
 inject_sidebar_typography_standardization()
 
+# ---------------- FINAL SIDEBAR EXPANDER ALIGNMENT OVERRIDE ----------------
+def inject_final_sidebar_expander_alignment_fix():
+    """Final override for Streamlit sidebar expanders.
+
+    Streamlit renders the expander caret as an SVG and the label text in a nested
+    paragraph. Emoji icons inside expander labels often sit on a different font
+    baseline, so filter section labels are kept as clean text and this block
+    normalizes the caret, text, spacing, and vertical centering.
+    """
+    st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        margin-bottom: 10px !important;
+        border-radius: 16px !important;
+        border: 1px solid #E6E8EF !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details {
+        border-radius: 16px !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        min-height: 44px !important;
+        height: 44px !important;
+        padding: 0 14px !important;
+        margin: 0 !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+        font-family: "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif !important;
+        font-size: 12.5px !important;
+        font-weight: 850 !important;
+        color: #23152F !important;
+        line-height: 1 !important;
+        letter-spacing: -0.01em !important;
+        cursor: pointer !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary > div {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+        display: flex !important;
+        align-items: center !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        color: #23152F !important;
+        font-family: "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif !important;
+        font-size: 12.5px !important;
+        font-weight: 850 !important;
+        line-height: 1 !important;
+        letter-spacing: -0.01em !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        text-rendering: geometricPrecision !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
+        width: 14px !important;
+        height: 14px !important;
+        min-width: 14px !important;
+        min-height: 14px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: relative !important;
+        top: 0 !important;
+        align-self: center !important;
+        flex-shrink: 0 !important;
+        color: #660094 !important;
+        stroke-width: 2.2 !important;
+        transform: translateY(0) !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] [data-testid="stVerticalBlock"] {
+        padding-top: 4px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_final_sidebar_expander_alignment_fix()
+
 regions_labels = [
     "Africa",
     "The Middle East",
@@ -1971,7 +2075,7 @@ regions_labels = [
     "Americas and the Caribbean",
 ]
 
-with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_box:
+with st.sidebar.expander("Geography filters", expanded=True) as geo_filter_box:
    
     selected_regions = safe_multiselect(
         "Region",
@@ -1995,7 +2099,7 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
         container=geo_filter_box,
     )
 
-with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_filter_box:
+with st.sidebar.expander("Alert classification", expanded=True) as alert_filter_box:
  
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
@@ -2015,7 +2119,7 @@ with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_
         container=alert_filter_box,
     )
 
-with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
+with st.sidebar.expander("Enabling environment", expanded=False) as principle_filter_box:
   
     principle_options = (
         data["enabling-principle"]
@@ -2039,7 +2143,7 @@ with st.sidebar.expander("🧭 Enabling environment", expanded=False) as princip
         container=principle_filter_box,
     )
 
-with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
+with st.sidebar.expander("Time period", expanded=True) as time_filter_box:
   
     selected_years = safe_multiselect(
         "Year",
