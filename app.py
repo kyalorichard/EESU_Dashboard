@@ -6113,7 +6113,32 @@ with tab_map:
                     </div>
                   
                 </div>
-              
+                """, unsafe_allow_html=True)
+
+                k1, k2, k3, k4, k5 = st.columns(5)
+                with k1:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Filtered records linked to ISO3 country geometry.</div></div>""", unsafe_allow_html=True)
+                with k2:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Map coverage</div><div class="map-intel-card-value">{mapping_coverage}%</div><div class="map-intel-card-note">{unmapped_alerts:,} filtered alerts are not currently mapped.</div></div>""", unsafe_allow_html=True)
+                with k3:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the spatial view.</div></div>""", unsafe_allow_html=True)
+                with k4:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest volume</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_country}</div><div class="map-intel-card-note">Largest filtered alert count.</div></div>""", unsafe_allow_html=True)
+                with k5:
+                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Priority focus</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_priority_country}</div><div class="map-intel-card-note">Highest combined negative-alert priority score.</div></div>""", unsafe_allow_html=True)
+
+
+                if unmapped_meta or unmapped_geo:
+                    issue_bits = []
+                    if unmapped_meta:
+                        issue_bits.append("Missing metadata: " + ", ".join(unmapped_meta[:12]) + (" ..." if len(unmapped_meta) > 12 else ""))
+                    if unmapped_geo:
+                        issue_bits.append("No GeoJSON geometry match: " + ", ".join(unmapped_geo[:12]) + (" ..." if len(unmapped_geo) > 12 else ""))
+                    st.markdown(
+                        f"""<div class="map-quality-strip"><span class="map-quality-pill">Data quality check</span><span class="map-quality-pill">{' | '.join(issue_bits)}</span></div>""",
+                        unsafe_allow_html=True
+                    )
+
                 # ---------------- Dynamic center and zoom ----------------
                 if not df_map.empty:
                     coords = []
