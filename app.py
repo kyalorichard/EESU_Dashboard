@@ -802,14 +802,13 @@ st.markdown(f"""
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
     """
-    Inject a single-button responsive feedback widget.
+    Inject a reliable single-control floating feedback widget.
 
-    UX behavior:
-    - One floating pill acts as the main control.
-    - Click the pill to expand the feedback panel.
-    - Click the same control inside the expanded panel to collapse it.
-    - The panel has no separate close/minimize buttons, reducing clutter.
-    - Hidden state is not persisted, so the widget reappears after refresh/deployment.
+    Fix applied:
+    - Uses one click listener per button only.
+    - Avoids duplicate onclick + addEventListener bindings, which caused the widget
+      to open and immediately close again.
+    - Uses CSS class toggling only; no competing inline display overrides.
     """
     feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
 
@@ -820,7 +819,7 @@ def render_top_feedback_bar():
         const rootId = "eusee-feedback-floating-root";
         const styleId = "eusee-feedback-floating-style";
 
-        // Remove all previous feedback variants so only this clean toggle widget remains.
+        // Remove previous/cached feedback widgets and styles.
         [
             "eusee-feedback-floating-root",
             "eusee-feedback-callout",
@@ -838,7 +837,6 @@ def render_top_feedback_bar():
             if (el) el.remove();
         }});
 
-        // Prevent old browser state from keeping the widget invisible.
         try {{
             window.localStorage.removeItem("eusee_feedback_widget_closed");
             window.localStorage.removeItem("eusee_feedback_widget_dismissed");
@@ -847,8 +845,6 @@ def render_top_feedback_bar():
 
         const style = doc.createElement("style");
         style.id = styleId;
-        doc.head.appendChild(style);
-
         style.innerHTML = `
             #eusee-feedback-floating-root {{
                 position: fixed !important;
@@ -916,7 +912,6 @@ def render_top_feedback_bar():
                 font-size: 13px !important;
                 font-weight: 950 !important;
                 line-height: 1 !important;
-                transition: transform .16s ease !important;
             }}
 
             .eusee-feedback-panel {{
@@ -934,20 +929,12 @@ def render_top_feedback_bar():
                 -webkit-backdrop-filter: blur(14px) !important;
             }}
 
-            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {{
-                display: flex !important;
-            }}
-
             #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {{
                 display: none !important;
             }}
 
-            #eusee-feedback-floating-root:not(.is-open) .eusee-feedback-panel {{
-                display: none !important;
-            }}
-
-            #eusee-feedback-floating-root:not(.is-open) > #eusee-feedback-toggle {{
-                display: inline-flex !important;
+            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {{
+                display: flex !important;
             }}
 
             .eusee-feedback-panel-left {{
@@ -1026,10 +1013,6 @@ def render_top_feedback_bar():
                 background: rgba(255,255,255,.92) !important;
             }}
 
-            .eusee-feedback-panel-toggle .eusee-feedback-toggle-caret {{
-                transform: rotate(180deg) !important;
-            }}
-
             @media (max-width: 900px) {{
                 #eusee-feedback-floating-root {{
                     top: 62px !important;
@@ -1092,9 +1075,11 @@ def render_top_feedback_bar():
                 }}
             }}
         `;
+        doc.head.appendChild(style);
 
         const root = doc.createElement("div");
         root.id = rootId;
+        root.className = "is-collapsed";
         root.innerHTML = `
             <button class="eusee-feedback-toggle" id="eusee-feedback-toggle" type="button" aria-label="Open feedback panel" aria-expanded="false" title="Open feedback panel">
                 <span class="eusee-feedback-toggle-icon">💬</span>
@@ -1123,57 +1108,32 @@ def render_top_feedback_bar():
         `;
         doc.body.appendChild(root);
 
-        const toggle = doc.getElementById("eusee-feedback-toggle");
-        const panelToggle = doc.getElementById("eusee-feedback-panel-toggle");
-        const panel = doc.getElementById("eusee-feedback-panel");
-        const toggleLabel = doc.getElementById("eusee-feedback-toggle-label");
-        const toggleCaret = doc.getElementById("eusee-feedback-toggle-caret");
+        const openButton = doc.getElementById("eusee-feedback-toggle");
+        const closeButton = doc.getElementById("eusee-feedback-panel-toggle");
 
-        function collapseFeedback() {{
-            root.classList.remove("is-open");
-            root.classList.add("is-collapsed");
-            panel.style.removeProperty("display");
-            toggle.style.removeProperty("display");
-            toggle.setAttribute("aria-expanded", "false");
-            toggle.setAttribute("aria-label", "Open feedback panel");
-            toggle.setAttribute("title", "Open feedback panel");
-            toggleLabel.textContent = "Feedback";
-            toggleCaret.textContent = "+";
+        function setFeedbackOpen(isOpen) {{
+            root.classList.toggle("is-open", isOpen);
+            root.classList.toggle("is-collapsed", !isOpen);
+            openButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
         }}
 
-        function expandFeedback() {{
-            root.classList.add("is-open");
-            root.classList.remove("is-collapsed");
-            panel.style.setProperty("display", "flex", "important");
-            toggle.style.setProperty("display", "none", "important");
-            toggle.setAttribute("aria-expanded", "true");
-        }}
+        openButton.addEventListener("click", function(event) {{
+            event.preventDefault();
+            event.stopPropagation();
+            setFeedbackOpen(true);
+        }});
 
-        function toggleFeedback(event) {{
-            if (event) event.preventDefault();
-            if (root.classList.contains("is-open")) {{
-                collapseFeedback();
-            }} else {{
-                expandFeedback();
-            }}
-        }}
-
-        collapseFeedback();
-
-        toggle.onclick = toggleFeedback;
-        panelToggle.onclick = function(event) {{
-            if (event) event.preventDefault();
-            collapseFeedback();
-        }};
-        toggle.addEventListener("click", toggleFeedback);
-        panelToggle.addEventListener("click", function(event) {{
-            if (event) event.preventDefault();
-            collapseFeedback();
+        closeButton.addEventListener("click", function(event) {{
+            event.preventDefault();
+            event.stopPropagation();
+            setFeedbackOpen(false);
         }});
 
         doc.addEventListener("keydown", function(event) {{
-            if (event.key === "Escape") collapseFeedback();
+            if (event.key === "Escape") setFeedbackOpen(false);
         }});
+
+        setFeedbackOpen(false);
     }})();
     </script>
     """, height=1, width=1)
