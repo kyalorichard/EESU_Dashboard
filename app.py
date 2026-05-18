@@ -6157,8 +6157,7 @@ with tab_map:
                 map_col, guide_col = st.columns([1.62, 0.78], gap="medium")
 
                 with map_col:
-                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Spatial distribution of filtered alerts</div><div class="map-panel-help">Darker countries indicate higher filtered alert volume. Hover over a country to inspect total alerts, negative/positive/context breakdown, negative share, and priority level.</div>', unsafe_allow_html=True)
-
+                  
                     if df_map.empty:
                         st.info("No mapped country records are available under the current filters.")
                     else:
@@ -6222,7 +6221,7 @@ with tab_map:
                     st.markdown("""
                     <div class="map-guide-card">
                         <div class="map-guide-title">🧭 How to read this map</div>
-                        <div class="map-guide-sub">Use this guide to interpret spatial alert patterns consistently and avoid over-reading raw counts.</div>
+                        <div class="map-guide-sub">Use this map to see where filtered alerts are concentrated.</div>
                         <div class="map-guide-step">
                             <div class="map-guide-num">1</div>
                             <div class="map-guide-text"><b>Start with intensity:</b> darker countries indicate higher filtered alert volume.</div>
