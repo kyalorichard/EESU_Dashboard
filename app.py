@@ -788,9 +788,9 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- COLLAPSED FLOATING FEEDBACK OVERLAY ----------------
+# ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
-    """Inject a collapsed floating feedback widget without rendering raw HTML in Streamlit."""
+    """Inject one collapsed responsive feedback widget without rendering raw HTML in Streamlit."""
     feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
 
     components.html(f"""
@@ -800,25 +800,39 @@ def render_top_feedback_bar():
         const rootId = "eusee-feedback-floating-root";
         const styleId = "eusee-feedback-floating-style";
 
-        const oldRoot = doc.getElementById(rootId);
-        if (oldRoot) oldRoot.remove();
+        // Remove all previous feedback variants so only the new responsive widget remains.
+        [
+            "eusee-feedback-floating-root",
+            "eusee-feedback-callout",
+            "eusee-feedback-tab"
+        ].forEach(function(id) {{
+            const el = doc.getElementById(id);
+            if (el) el.remove();
+        }});
 
-        let style = doc.getElementById(styleId);
-        if (!style) {{
-            style = doc.createElement("style");
-            style.id = styleId;
-            doc.head.appendChild(style);
-        }}
+        [
+            "eusee-feedback-floating-style",
+            "eusee-feedback-style"
+        ].forEach(function(id) {{
+            const el = doc.getElementById(id);
+            if (el) el.remove();
+        }});
+
+        const style = doc.createElement("style");
+        style.id = styleId;
+        doc.head.appendChild(style);
 
         style.innerHTML = `
             #eusee-feedback-floating-root {{
                 position: fixed;
-                top: 72px;
+                top: clamp(58px, 7vh, 78px);
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 2147482500;
                 font-family: Arial, sans-serif;
                 pointer-events: auto;
+                width: auto;
+                max-width: calc(100vw - 24px);
             }}
 
             #eusee-feedback-floating-root * {{
@@ -830,12 +844,13 @@ def render_top_feedback_bar():
                 align-items: center;
                 justify-content: center;
                 gap: 8px;
-                padding: 9px 14px;
+                min-height: 38px;
+                padding: 8px 14px;
                 border-radius: 999px;
                 border: 1px solid rgba(102,0,148,.16);
-                background: linear-gradient(135deg, rgba(255,255,255,.97), rgba(252,247,255,.98));
+                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98));
                 color: #2D0055;
-                box-shadow: 0 14px 30px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08);
+                box-shadow: 0 12px 28px rgba(17,24,39,.13), 0 2px 8px rgba(102,0,148,.08);
                 font-size: 12px;
                 font-weight: 950;
                 cursor: pointer;
@@ -843,6 +858,7 @@ def render_top_feedback_bar():
                 backdrop-filter: blur(14px);
                 -webkit-backdrop-filter: blur(14px);
                 transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+                white-space: nowrap;
             }}
 
             .eusee-feedback-mini-tab:hover {{
@@ -866,15 +882,22 @@ def render_top_feedback_bar():
                 font-weight: 900;
             }}
 
+            .eusee-feedback-plus {{
+                color: #667085;
+                font-size: 12px;
+                font-weight: 950;
+                line-height: 1;
+            }}
+
             .eusee-feedback-panel {{
-                width: min(760px, calc(100vw - 32px));
+                width: min(760px, calc(100vw - 28px));
                 display: none;
                 align-items: center;
                 justify-content: space-between;
                 gap: 14px;
-                padding: 11px 14px;
+                padding: 12px 14px;
                 border-radius: 18px;
-                background: linear-gradient(135deg, rgba(255,255,255,.97), rgba(252,247,255,.98));
+                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98));
                 border: 1px solid rgba(102,0,148,.14);
                 box-shadow: 0 16px 38px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08);
                 backdrop-filter: blur(14px);
@@ -886,6 +909,7 @@ def render_top_feedback_bar():
                 align-items: center;
                 gap: 10px;
                 min-width: 0;
+                flex: 1;
             }}
 
             .eusee-feedback-panel-icon {{
@@ -906,9 +930,10 @@ def render_top_feedback_bar():
             .eusee-feedback-panel-copy {{
                 color: #344054;
                 font-size: 12px;
-                line-height: 1.3;
+                line-height: 1.32;
                 font-weight: 750;
                 white-space: normal;
+                min-width: 0;
             }}
 
             .eusee-feedback-panel-copy strong {{
@@ -927,7 +952,8 @@ def render_top_feedback_bar():
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                padding: 7px 14px;
+                min-height: 34px;
+                padding: 8px 14px;
                 border-radius: 999px;
                 background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
                 color: #FFFFFF !important;
@@ -945,14 +971,14 @@ def render_top_feedback_bar():
             }}
 
             .eusee-feedback-close {{
-                width: 30px;
-                height: 30px;
-                min-width: 30px;
-                border-radius: 10px;
+                width: 34px;
+                height: 34px;
+                min-width: 34px;
+                border-radius: 11px;
                 border: 1px solid rgba(102,0,148,.14);
-                background: rgba(255,255,255,.88);
+                background: rgba(255,255,255,.90);
                 color: #660094;
-                font-size: 16px;
+                font-size: 17px;
                 font-weight: 950;
                 line-height: 1;
                 cursor: pointer;
@@ -963,31 +989,88 @@ def render_top_feedback_bar():
                 transform: translateY(-1px);
             }}
 
+            @media (max-width: 900px) {{
+                #eusee-feedback-floating-root {{
+                    top: 62px;
+                    max-width: calc(100vw - 20px);
+                }}
+
+                .eusee-feedback-panel {{
+                    width: min(640px, calc(100vw - 20px));
+                    padding: 11px 12px;
+                }}
+            }}
+
             @media (max-width: 700px) {{
                 #eusee-feedback-floating-root {{
-                    top: 64px;
-                    width: calc(100vw - 22px);
+                    top: 58px;
+                    left: 50%;
+                    width: calc(100vw - 18px);
+                    max-width: calc(100vw - 18px);
                 }}
 
                 .eusee-feedback-mini-tab {{
                     width: fit-content;
+                    max-width: 92vw;
                     margin: 0 auto;
+                    min-height: 36px;
+                    padding: 7px 12px;
+                    font-size: 11.5px;
                 }}
 
                 .eusee-feedback-panel {{
                     width: 100%;
+                    max-height: calc(100vh - 88px);
+                    overflow-y: auto;
                     flex-direction: column;
                     align-items: stretch;
                     gap: 10px;
-                    padding: 10px 12px;
+                    padding: 11px;
+                    border-radius: 16px;
+                }}
+
+                .eusee-feedback-panel-left {{
+                    align-items: flex-start;
+                }}
+
+                .eusee-feedback-panel-copy {{
+                    font-size: 11.5px;
+                    line-height: 1.35;
                 }}
 
                 .eusee-feedback-panel-actions {{
                     width: 100%;
+                    gap: 8px;
                 }}
 
                 .eusee-feedback-panel-button {{
                     flex: 1;
+                    width: 100%;
+                }}
+            }}
+
+            @media (max-width: 420px) {{
+                #eusee-feedback-floating-root {{
+                    top: 56px;
+                    width: calc(100vw - 14px);
+                    max-width: calc(100vw - 14px);
+                }}
+
+                .eusee-feedback-mini-tab {{
+                    padding: 7px 10px;
+                }}
+
+                .eusee-feedback-panel-icon {{
+                    width: 30px;
+                    height: 30px;
+                    min-width: 30px;
+                    border-radius: 10px;
+                }}
+
+                .eusee-feedback-close {{
+                    width: 32px;
+                    height: 32px;
+                    min-width: 32px;
                 }}
             }}
         `;
@@ -995,13 +1078,13 @@ def render_top_feedback_bar():
         const root = doc.createElement("div");
         root.id = rootId;
         root.innerHTML = `
-            <div class="eusee-feedback-mini-tab" id="eusee-feedback-mini-tab" title="Open feedback panel">
+            <button class="eusee-feedback-mini-tab" id="eusee-feedback-mini-tab" type="button" aria-label="Open feedback panel" title="Open feedback panel">
                 <span class="eusee-feedback-mini-icon">💬</span>
                 <span>Feedback</span>
-                <span style="font-size:11px;color:#667085;font-weight:900;">+</span>
-            </div>
+                <span class="eusee-feedback-plus">+</span>
+            </button>
 
-            <div class="eusee-feedback-panel" id="eusee-feedback-panel">
+            <div class="eusee-feedback-panel" id="eusee-feedback-panel" role="dialog" aria-label="Feedback panel">
                 <div class="eusee-feedback-panel-left">
                     <div class="eusee-feedback-panel-icon">💬</div>
                     <div class="eusee-feedback-panel-copy">
@@ -1013,7 +1096,7 @@ def render_top_feedback_bar():
                     <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
                         Formular ausfüllen
                     </a>
-                    <button class="eusee-feedback-close" id="eusee-feedback-close" title="Collapse feedback panel">×</button>
+                    <button class="eusee-feedback-close" id="eusee-feedback-close" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">×</button>
                 </div>
             </div>
         `;
@@ -1026,23 +1109,29 @@ def render_top_feedback_bar():
         function collapseFeedback() {{
             panel.style.display = "none";
             tab.style.display = "inline-flex";
+            tab.setAttribute("aria-expanded", "false");
         }}
 
         function expandFeedback() {{
             tab.style.display = "none";
             panel.style.display = "flex";
+            tab.setAttribute("aria-expanded", "true");
         }}
 
-        // Always load collapsed to avoid blocking the dashboard header.
+        // Always load collapsed to avoid blocking the dashboard header on desktop or mobile.
         collapseFeedback();
 
         tab.addEventListener("click", expandFeedback);
         close.addEventListener("click", collapseFeedback);
+
+        doc.addEventListener("keydown", function(event) {{
+            if (event.key === "Escape") collapseFeedback();
+        }});
     }})();
     </script>
     """, height=0, width=0)
 
-render_top_feedback_bar()  # Collapsed floating dashboard feedback overlay.
+render_top_feedback_bar()  # Collapsed responsive floating dashboard feedback overlay.
 
 
 # ---------------- LOAD DATA ----------------
@@ -11343,130 +11432,9 @@ if has_permission("use_ai_copilot"):
 
 
 
-# ---------------- FEEDBACK CALLOUT ----------------
-def render_feedback_callout():
-    """Render a top-left floating feedback callout that users can drag or hide."""
-    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
-
-    components.html(f"""
-    <script>
-    (function() {{
-      const doc = window.parent.document;
-      const hiddenKey = "eusee_feedback_hidden";
-      const posKey = "eusee_feedback_pos";
-      const old = doc.getElementById("eusee-feedback-callout");
-      if (old) old.remove();
-      const oldTab = doc.getElementById("eusee-feedback-tab");
-      if (oldTab) oldTab.remove();
-
-      let style = doc.getElementById("eusee-feedback-style");
-      if (!style) {{
-        style = doc.createElement("style");
-        style.id = "eusee-feedback-style";
-        doc.head.appendChild(style);
-      }}
-      style.innerHTML = `
-        #eusee-feedback-callout {{
-          position: fixed; left: 240px; top: 86px; width: 304px; max-width: calc(100vw - 32px);
-          background: linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
-          border: 1px solid rgba(102,0,148,.14); border-left: 5px solid #660094; border-radius: 16px;
-          box-shadow: 0 16px 36px rgba(17,24,39,.18); z-index: 2147483000; font-family: Arial,sans-serif;
-          overflow: hidden; box-sizing: border-box; user-select: none;
-        }}
-        .eusee-feedback-dragbar {{
-          height: 34px; padding: 7px 9px 6px 12px; box-sizing: border-box; cursor: move;
-          background: linear-gradient(90deg,rgba(102,0,148,.08),rgba(0,140,170,.055));
-          border-bottom: 1px solid rgba(102,0,148,.10); display: flex; align-items: center; justify-content: space-between; gap: 8px;
-        }}
-        .eusee-feedback-drag-title {{ color:#2D0055; font-size:11.5px; font-weight:950; display:flex; align-items:center; gap:7px; }}
-        .eusee-feedback-drag-icon {{ width:21px; height:21px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:#FFF; color:#660094; border:1px solid rgba(102,0,148,.12); }}
-        .eusee-feedback-controls {{ display:flex; gap:5px; align-items:center; }}
-        .eusee-feedback-control-btn {{ width:24px; height:24px; border:1px solid rgba(102,0,148,.14); background:rgba(255,255,255,.88); color:#660094; border-radius:8px; cursor:pointer; font-size:13px; font-weight:950; line-height:1; }}
-        .eusee-feedback-control-btn:hover {{ background:#F4EAF8; transform:translateY(-1px); }}
-        .eusee-feedback-body {{ padding: 12px 14px 13px 14px; }}
-        .eusee-feedback-top {{ display:flex; align-items:center; gap:9px; margin-bottom:7px; }}
-        .eusee-feedback-icon {{ width:31px; height:31px; min-width:31px; border-radius:12px; background:linear-gradient(135deg,rgba(102,0,148,.13),rgba(0,140,170,.10)); color:#660094; border:1px solid rgba(102,0,148,.10); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; }}
-        .eusee-feedback-title {{ color:#2D0055; font-size:12.8px; font-weight:950; line-height:1.16; }}
-        .eusee-feedback-text {{ color:#475467; font-size:11px; line-height:1.38; font-weight:650; margin-bottom:10px; }}
-        .eusee-feedback-actions {{ display:flex; align-items:center; justify-content:space-between; gap:8px; }}
-        .eusee-feedback-button {{ display:inline-flex; align-items:center; justify-content:center; padding:7px 12px; border-radius:999px; background:linear-gradient(90deg,#660094 0%,#008CAA 100%); color:#FFFFFF !important; text-decoration:none !important; font-size:11px; font-weight:900; box-shadow:0 6px 14px rgba(102,0,148,.20); white-space:nowrap; }}
-        .eusee-feedback-button:hover {{ filter:brightness(1.04); transform:scale(1.02); }}
-        .eusee-feedback-linknote {{ color:#8A6AA0; font-size:9.5px; font-weight:800; line-height:1.1; text-align:right; }}
-        #eusee-feedback-tab {{ position:fixed; left:24px; top:86px; z-index:2147483000; display:none; align-items:center; gap:7px; padding:8px 11px; border-radius:999px; border:1px solid rgba(102,0,148,.16); background:linear-gradient(90deg,#FFFFFF 0%,#FCFAFF 100%); color:#2D0055; box-shadow:0 12px 26px rgba(17,24,39,.14); font-family:Arial,sans-serif; font-size:11px; font-weight:950; cursor:pointer; user-select:none; }}
-        #eusee-feedback-tab:hover {{ background:#F4EAF8; transform:translateY(-1px); }}
-        @media (max-width:700px) {{ #eusee-feedback-callout {{ left:12px !important; top:76px !important; width:calc(100vw - 24px); }} #eusee-feedback-tab {{ left:12px !important; top:76px !important; }} .eusee-feedback-linknote {{ display:none; }} }}
-      `;
-
-      const callout = doc.createElement("div");
-      callout.id = "eusee-feedback-callout";
-      callout.innerHTML = `
-        <div class="eusee-feedback-dragbar" title="Drag to reposition">
-          <div class="eusee-feedback-drag-title"><span class="eusee-feedback-drag-icon">↕</span><span>Feedback</span></div>
-          <div class="eusee-feedback-controls">
-            <button class="eusee-feedback-control-btn" id="eusee-feedback-reset" title="Reset position">↺</button>
-            <button class="eusee-feedback-control-btn" id="eusee-feedback-hide" title="Hide feedback panel">×</button>
-          </div>
-        </div>
-        <div class="eusee-feedback-body">
-          <div class="eusee-feedback-top"><div class="eusee-feedback-icon">💬</div><div class="eusee-feedback-title">Help us improve the EUSEE Dashboard</div></div>
-          <div class="eusee-feedback-text">Share your feedback on usability, insights, and dashboard improvements using the feedback form.</div>
-          <div class="eusee-feedback-actions"><a class="eusee-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">Fill in the form</a><div class="eusee-feedback-linknote">opens Microsoft Forms</div></div>
-        </div>`;
-      const tab = doc.createElement("div");
-      tab.id = "eusee-feedback-tab";
-      tab.innerHTML = "💬 Feedback";
-      doc.body.appendChild(callout);
-      doc.body.appendChild(tab);
-
-      function clamp(left, top) {{
-        const m = 12, r = callout.getBoundingClientRect();
-        return {{ left: Math.min(Math.max(left, m), Math.max(m, window.parent.innerWidth - r.width - m)), top: Math.min(Math.max(top, m), Math.max(m, window.parent.innerHeight - r.height - m)) }};
-      }}
-      function setPos(left, top, save) {{
-        const p = clamp(left, top);
-        callout.style.left = p.left + "px"; callout.style.top = p.top + "px";
-        tab.style.left = p.left + "px"; tab.style.top = p.top + "px";
-        if (save) localStorage.setItem(posKey, JSON.stringify(p));
-      }}
-      function setHidden(hidden) {{
-        localStorage.setItem(hiddenKey, hidden ? "1" : "0");
-        callout.style.display = hidden ? "none" : "block";
-        tab.style.display = hidden ? "inline-flex" : "none";
-      }}
-      try {{ const p = JSON.parse(localStorage.getItem(posKey) || "null"); if (p) setTimeout(() => setPos(+p.left || 24, +p.top || 86, false), 50); }} catch(e) {{}}
-      setHidden(localStorage.getItem(hiddenKey) === "1");
-      doc.getElementById("eusee-feedback-hide").onclick = (e) => {{ e.stopPropagation(); setHidden(true); }};
-      doc.getElementById("eusee-feedback-reset").onclick = (e) => {{ e.stopPropagation(); localStorage.removeItem(posKey); setPos(24,86,true); }};
-      tab.onclick = () => setHidden(false);
-
-      let dragging = false, sx = 0, sy = 0, sl = 0, stp = 0;
-      const bar = callout.querySelector(".eusee-feedback-dragbar");
-      bar.addEventListener("mousedown", (e) => {{
-        if (e.target.closest("button")) return;
-        dragging = true; sx = e.clientX; sy = e.clientY;
-        const r = callout.getBoundingClientRect(); sl = r.left; stp = r.top;
-        e.preventDefault();
-      }});
-      doc.addEventListener("mousemove", (e) => {{ if (dragging) setPos(sl + e.clientX - sx, stp + e.clientY - sy, false); }});
-      doc.addEventListener("mouseup", () => {{ if (!dragging) return; dragging = false; const r = callout.getBoundingClientRect(); setPos(r.left, r.top, true); }});
-
-      bar.addEventListener("touchstart", (e) => {{
-        const t = e.touches[0]; dragging = true; sx = t.clientX; sy = t.clientY;
-        const r = callout.getBoundingClientRect(); sl = r.left; stp = r.top;
-      }}, {{ passive:true }});
-      doc.addEventListener("touchmove", (e) => {{ if (!dragging) return; const t = e.touches[0]; setPos(sl + t.clientX - sx, stp + t.clientY - sy, false); }}, {{ passive:true }});
-      doc.addEventListener("touchend", () => {{ if (!dragging) return; dragging = false; const r = callout.getBoundingClientRect(); setPos(r.left, r.top, true); }});
-      window.parent.addEventListener("resize", () => {{ const r = callout.getBoundingClientRect(); setPos(r.left, r.top, true); }});
-    }})();
-    </script>
-    """, height=0, width=0)
-
-# ---------------- FLOATING FEEDBACK CALLOUT ----------------
-# Disabled: feedback now uses the lightweight floating overlay rendered near the dashboard header.
-# render_feedback_callout()
-
 # ---------------- FOOTER ----------------
-# Feedback is rendered as a lightweight floating overlay near the dashboard header.
+# Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
+# Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 # Footer image
 
 # OpenAI test UI is now integrated inside the AI Copilot drawer.
