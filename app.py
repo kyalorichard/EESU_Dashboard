@@ -6242,123 +6242,13 @@ with tab_map:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    priority_df = df_map.sort_values("priority_score", ascending=False).head(5).copy() if not df_map.empty else pd.DataFrame()
-                    st.markdown("""
-                    <div class="priority-country-panel">
-                        <div class="priority-title">🌍 Top Priority Countries</div>
-                        <div class="priority-sub">Countries ranked by combined negative-alert priority score under the active filters.</div>
-                    """, unsafe_allow_html=True)
-
-                    if priority_df.empty:
-                        st.info("No priority ranking available.")
-                    else:
-                        for rank, (_, r) in enumerate(priority_df.iterrows(), start=1):
-                            priority_label = str(r["priority_level"])
-                            priority_class = priority_label.lower().replace(" ", "-")
-                            st.markdown(
-                                f"""
-                                <div class="priority-row">
-                                    <div class="priority-rank">{rank}</div>
-                                    <div>
-                                        <div class="priority-country" title="{r['alert-country']}">{r['alert-country']}</div>
-                                        <div class="priority-meta">
-                                            Negative <b>{int(r['negative_alerts']):,}</b> · Negative share <b>{r['perc_negative']}%</b>
-                                        </div>
-                                        <span class="priority-badge priority-{priority_class}">{priority_label}</span>
-                                    </div>
-                                    <div class="priority-score"><span>Score</span>{r['priority_score']}</div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-
-                        st.markdown("""
-                            <div class="priority-footnote">
-                                Priority is a triage signal for analytical review. It should be interpreted together with the map hover details, country ranking, and qualitative context.
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                # ---------------- Supporting map intelligence panels ----------------
-                st.markdown('<div class="map-support-grid">', unsafe_allow_html=True)
-                p1, p2 = st.columns([1.35, 1], gap="medium")
-                with p1:
-                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country ranking by alert volume</div><div class="map-panel-help">This chart ranks countries by total filtered alert volume. Use it to identify where reporting or event concentration is highest.</div>', unsafe_allow_html=True)
-                    rank_df = df_map.sort_values("total_alerts", ascending=False).head(10).copy()
-                    if rank_df.empty:
-                        st.info("No country ranking available for the current filters.")
-                    else:
-                        fig_rank = go.Figure(go.Bar(
-                            x=rank_df["total_alerts"],
-                            y=rank_df["alert-country"].astype(str),
-                            orientation="h",
-                            marker=dict(color="#660094", line=dict(color="rgba(45,0,85,0.25)", width=0.5)),
-                            text=rank_df["total_alerts"],
-                            textposition="outside",
-                            customdata=rank_df[["negative_alerts", "positive_alerts", "context_to_watch_alerts", "perc_negative", "priority_level"]].values,
-                            hovertemplate=(
-                                "<b>%{y}</b><br>"
-                                "Total alerts: %{x}<br>"
-                                "Negative: %{customdata[0]}<br>"
-                                "Positive: %{customdata[1]}<br>"
-                                "Context: %{customdata[2]}<br>"
-                                "Negative share: %{customdata[3]}%<br>"
-                                "Priority: %{customdata[4]}<extra></extra>"
-                            ),
-                        ))
-                        fig_rank.update_layout(
-                            height=max(300, len(rank_df) * 31),
-                            margin=dict(l=8, r=42, t=4, b=8),
-                            xaxis=dict(title=None, showgrid=True, gridcolor="#EEF2F6", zeroline=False),
-                            yaxis=dict(title=None, autorange="reversed", tickfont=dict(size=11, family=MAP_FONT, color="#334155")),
-                            font=dict(family=MAP_FONT, size=11, color="#334155"),
-                            plot_bgcolor="#ffffff",
-                            paper_bgcolor="#ffffff",
-                        )
-                        render_dashboard_plotly_chart(fig_rank, plot_df=rank_df, visual_type="country ranking chart", x_col="alert-country", group_col="priority_level", dashboard_df=filtered_global, config={"displayModeBar": False}, key="map_country_rank_bar")
-                    st.markdown('</div>', unsafe_allow_html=True)
+                
 
-                with p2:
-                    st.markdown('<div class="map-panel-card"><div class="map-panel-title">Country intelligence drill-down</div><div class="map-panel-help">Select a country to generate a clear interpretation of its mapped alert profile under the current filters.</div>', unsafe_allow_html=True)
-                    country_options = sorted(df_map["alert-country"].dropna().astype(str).unique()) if not df_map.empty else []
-                    selected_map_country = st.selectbox(
-                        "Select country for map intelligence",
-                        options=country_options,
-                        index=0 if country_options else None,
-                        key="map_country_intelligence_selector",
-                        label_visibility="collapsed",
-                        placeholder="Choose a mapped country"
-                    ) if country_options else None
-
-                    if selected_map_country:
-                        row = df_map[df_map["alert-country"].astype(str) == selected_map_country].iloc[0]
-                        dominant_country_signal = "negative" if row["negative_alerts"] >= max(row["positive_alerts"], row["context_to_watch_alerts"]) else ("positive" if row["positive_alerts"] >= row["context_to_watch_alerts"] else "context-to-watch")
-                        st.markdown(f"""
-                        <div class="country-insight-box">
-                            <b>{selected_map_country}</b><br>
-                            <div class="country-mini-grid">
-                                <div class="country-mini-kpi"><span>Total alerts</span><strong>{int(row['total_alerts']):,}</strong></div>
-                                <div class="country-mini-kpi"><span>Priority level</span><strong>{row['priority_level']}</strong></div>
-                                <div class="country-mini-kpi"><span>Negative share</span><strong>{row['perc_negative']}%</strong></div>
-                                <div class="country-mini-kpi"><span>Priority score</span><strong>{row['priority_score']}</strong></div>
-                            </div>
-                            <b>Signal composition:</b> Negative {int(row['negative_alerts']):,} · Positive {int(row['positive_alerts']):,} · Context {int(row['context_to_watch_alerts']):,}.<br><br>
-                            <b>Interpretation:</b> the dominant mapped signal is <b>{dominant_country_signal}</b>. Review this country alongside the pathway charts, evidence table, and qualitative context before drawing conclusions about severity or trend direction.
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.info("No mapped countries are available under the current filters.")
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            else:
-                st.warning("GeoJSON file not found for map visualization. Add countries.geojson to the exports folder.")
-
-            st.markdown('</div>', unsafe_allow_html=True)
+                
 
 
     else:
