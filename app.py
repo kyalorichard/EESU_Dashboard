@@ -1610,18 +1610,7 @@ def render_sidebar_access_settings_profile():
             else "Sign in or register to request partner access."
         )
 
-        status_col, role_col = st.columns(2)
-        with status_col:
-            st.metric("Access", access_status)
-        with role_col:
-            st.metric("Role", role_label)
-
-        with st.expander("Account and feature status", expanded=False):
-            st.write(f"**Account:** {display_email}")
-            st.write(f"**AI Copilot:** {copilot_status}")
-            st.write(f"**Exports:** {export_status}")
-            st.write(f"**Admin tools:** {admin_status}")
-
+        
         if is_admin_user:
             workspace = st.radio(
                 "Workspace",
