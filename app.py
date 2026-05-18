@@ -1021,7 +1021,8 @@ def render_top_feedback_bar():
                 filter: brightness(1.04);
             }}
 
-            .eusee-feedback-close {{
+            .eusee-feedback-close,
+            .eusee-feedback-hide {{
                 width: 34px;
                 height: 34px;
                 min-width: 34px;
@@ -1042,9 +1043,18 @@ def render_top_feedback_bar():
                 -webkit-appearance: none;
             }}
 
-            .eusee-feedback-close:hover {{
+            .eusee-feedback-close:hover,
+            .eusee-feedback-hide:hover {{
                 background: #F4EAF8;
                 transform: translateY(-1px);
+            }}
+
+            .eusee-feedback-close {{
+                font-size: 20px;
+            }}
+
+            .eusee-feedback-hide {{
+                color: #B42318;
             }}
 
             @media (max-width: 900px) {{
@@ -1159,7 +1169,8 @@ def render_top_feedback_bar():
                     <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
                         Fill in the form
                     </a>
-                    <button class="eusee-feedback-close" id="eusee-feedback-close" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">×</button>
+                    <button class="eusee-feedback-close" id="eusee-feedback-close" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">−</button>
+                    <button class="eusee-feedback-hide" id="eusee-feedback-hide" type="button" aria-label="Minimize and hide feedback widget" title="Hide feedback widget">×</button>
                 </div>
             </div>
         `;
@@ -1169,6 +1180,7 @@ def render_top_feedback_bar():
         const tab = doc.getElementById("eusee-feedback-mini-tab");
         const panel = doc.getElementById("eusee-feedback-panel");
         const close = doc.getElementById("eusee-feedback-close");
+        const hide = doc.getElementById("eusee-feedback-hide");
         const dismissMini = doc.getElementById("eusee-feedback-dismiss-mini");
         const storageKey = "eusee_feedback_widget_closed";
 
@@ -1193,6 +1205,7 @@ def render_top_feedback_bar():
 
         tab.addEventListener("click", expandFeedback);
         close.addEventListener("click", collapseFeedback);
+        hide.addEventListener("click", closeFeedbackWidget);
         dismissMini.addEventListener("click", closeFeedbackWidget);
 
         doc.addEventListener("keydown", function(event) {{
