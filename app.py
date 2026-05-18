@@ -1045,6 +1045,41 @@ def inject_professional_sidebar_filter_css():
     st.markdown("""
     <style>
 
+    .sidebar-profile-card {
+        background: #FFFFFF;
+        border: 1px solid #E6E8EF;
+        border-radius: 14px;
+        padding: 9px 10px;
+        box-shadow: 0 6px 16px rgba(16,24,40,.045);
+        font-family: Arial, sans-serif;
+    }
+
+    .sidebar-profile-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
+        border-bottom: 1px solid #F2F4F7;
+        font-size: 10.5px;
+        color: #667085;
+    }
+
+    .sidebar-profile-row:last-child {
+        border-bottom: 0;
+    }
+
+    .sidebar-profile-row strong {
+        color: #2D0055;
+        font-size: 10.5px;
+        font-weight: 900;
+        text-align: right;
+        max-width: 155px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
     [data-baseweb="select"] > div {
         background: #FFFFFF !important;
@@ -1281,8 +1316,25 @@ st.sidebar.image("assets/eu-see-logo.png", width=400)
 
 
 
-# Reserve visible top-sidebar slot for AI Copilot; it is populated after filters are computed.
-AI_ASSISTANT_SLOT = st.sidebar.container()
+# Sidebar status messages are consolidated in a compact Settings / Profile section.
+def render_sidebar_settings_profile():
+    """Render compact account and feature status without adding intrusive sidebar alerts."""
+    role = get_current_role() if callable(get_current_role) else "guest"
+    email = get_current_email() if callable(get_current_email) else ""
+    display_email = email or st.session_state.get("email", "Public user")
+    copilot_status = "Available" if has_permission("use_ai_copilot") else "Unavailable for current access level"
+    access_status = "Signed in" if is_authenticated() else "Public mode"
+
+    with st.sidebar.expander("⚙️ Settings / Profile", expanded=False):
+        st.markdown(f"""
+        <div class="sidebar-profile-card">
+            <div class="sidebar-profile-row"><span>Access</span><strong>{access_status}</strong></div>
+            <div class="sidebar-profile-row"><span>Role</span><strong>{role}</strong></div>
+            <div class="sidebar-profile-row"><span>Account</span><strong>{display_email}</strong></div>
+            <div class="sidebar-profile-row"><span>AI Copilot</span><strong>{copilot_status}</strong></div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 # ---------------- PROFESSIONAL LOGIN / ACCESS CARD ----------------
 st.sidebar.markdown("""
@@ -1355,6 +1407,8 @@ else:
     if st.sidebar.button("🔐 Sign in / Register", use_container_width=True):
         st.session_state.auth_view = True
         st.rerun()
+
+render_sidebar_settings_profile()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
@@ -4458,182 +4512,22 @@ def add_chart_info_badge(
     return fig
 
 
-# ---------------- FLOATING DISMISSIBLE CHART TIP OVERLAY ----------------
-def render_chart_floating_tip(
-    message,
-    title="Reading this chart",
-    icon="i",
-    container=None,
-    open_by_default=False,
-    top_px=46,
-):
-    """Render a minimized interpretation tip below the Plotly chart title.
+# ---------------- STANDARD IN-CHART INFO BADGES ----------------
+def render_chart_floating_tip(*args, **kwargs):
+    """Deprecated compatibility wrapper.
 
-    Use this immediately before st.plotly_chart(...). The wrapper has zero
-    height, so it overlays the chart area without pushing the plot down.
-    The tip loads minimized by default and expands only when the user clicks it.
+    Chart interpretation notes are now integrated directly into Plotly charts
+    through add_chart_info_badge(...), so no floating Streamlit overlay is rendered.
     """
-    import html
-
-    target = container if container is not None else st
-    safe_title = html.escape(str(title or "Reading this chart"))
-    safe_message = html.escape(str(message or ""))
-    safe_icon = html.escape(str(icon or "i"))
-    open_attr = " open" if open_by_default else ""
-
-    target.markdown(f"""
-    <div class="eusee-floating-tip-layer" aria-label="Chart interpretation tip" style="--floating-tip-top:{int(top_px)}px;">
-        <details class="eusee-floating-tip"{open_attr}>
-            <summary title="Open chart interpretation note">
-                <span class="eusee-floating-tip-icon">{safe_icon}</span>
-                <span class="eusee-floating-tip-label">Tip</span>
-                <span class="eusee-floating-tip-toggle">click</span>
-            </summary>
-            <div class="eusee-floating-tip-card" role="note" aria-label="{safe_title}">
-                <div class="eusee-floating-tip-title">{safe_title}</div>
-                <div class="eusee-floating-tip-text">{safe_message}</div>
-            </div>
-        </details>
-    </div>
-    """, unsafe_allow_html=True)
+    return None
 
 
 def inject_chart_floating_tip_css():
-    """Central styling for floating chart interpretation notes."""
-    st.markdown("""
-    <style>
-    .eusee-floating-tip-layer {
-        position: relative;
-        height: 0;
-        min-height: 0;
-        overflow: visible;
-        z-index: 30;
-        pointer-events: none;
-        font-family: Arial, sans-serif;
-    }
-
-    .eusee-floating-tip {
-        position: absolute;
-        top: var(--floating-tip-top, 46px); /* below Plotly title */
-        right: 14px;
-        width: min(315px, calc(100% - 28px));
-        pointer-events: auto;
-        z-index: 40;
-    }
-
-    .eusee-floating-tip summary {
-        list-style: none;
-        width: fit-content;
-        margin-left: auto;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 8px 5px 6px;
-        border-radius: 999px;
-        cursor: pointer;
-        background: rgba(255,255,255,.97);
-        border: 1px solid rgba(102, 0, 148, .18);
-        box-shadow: 0 6px 16px rgba(16, 24, 40, .11);
-        color: #2D0055;
-        font-size: 10px;
-        font-weight: 900;
-        user-select: none;
-    }
-
-    .eusee-floating-tip summary::-webkit-details-marker { display: none; }
-
-    .eusee-floating-tip summary:hover {
-        background: #FBF7FD;
-        border-color: rgba(102, 0, 148, .30);
-        box-shadow: 0 8px 20px rgba(16, 24, 40, .14);
-    }
-
-    .eusee-floating-tip-icon {
-        width: 18px;
-        height: 18px;
-        min-width: 18px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #660094 0%, #3B005F 100%);
-        color: #FFFFFF;
-        font-size: 10px;
-        font-weight: 950;
-        line-height: 1;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
-    }
-
-    .eusee-floating-tip-label {
-        letter-spacing: .02em;
-        text-transform: uppercase;
-    }
-
-    .eusee-floating-tip-toggle {
-        color: #667085;
-        font-size: 9px;
-        font-weight: 800;
-        text-transform: lowercase;
-    }
-
-    .eusee-floating-tip-card {
-        margin-top: 7px;
-        margin-left: auto;
-        padding: 10px 11px;
-        border-radius: 13px;
-        background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(251,247,253,.98) 100%);
-        border: 1px solid rgba(102, 0, 148, .16);
-        border-left: 4px solid #660094;
-        box-shadow: 0 12px 26px rgba(16, 24, 40, .16);
-        backdrop-filter: blur(6px);
-    }
-
-    .eusee-floating-tip-title {
-        color: #2D0055;
-        font-size: 10px;
-        font-weight: 950;
-        letter-spacing: .09em;
-        text-transform: uppercase;
-        line-height: 1.1;
-        margin-bottom: 4px;
-    }
-
-    .eusee-floating-tip-text {
-        color: #344054;
-        font-size: 11.2px;
-        font-weight: 650;
-        line-height: 1.35;
-    }
-
-    .eusee-floating-tip:not([open]) .eusee-floating-tip-card {
-        display: none;
-    }
-
-    .eusee-floating-tip[open] .eusee-floating-tip-toggle::after {
-        content: " close";
-    }
-
-    @media (max-width: 900px) {
-        .eusee-floating-tip {
-            top: 40px;
-            right: 8px;
-            width: min(280px, calc(100% - 16px));
-        }
-        .eusee-floating-tip-card {
-            padding: 9px 10px;
-        }
-        .eusee-floating-tip-text {
-            font-size: 10.8px;
-        }
-        .eusee-floating-tip-toggle {
-            display: none;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    """Deprecated compatibility hook kept to avoid breaking older calls."""
+    return None
 
 
-
+# Floating chart tips intentionally disabled; chart notes now use Plotly-native info badges.
 inject_chart_floating_tip_css()
 
 
@@ -5270,15 +5164,14 @@ with tab_overview:
             normalize_labels=False
         )
 
-        # Floating interpretation tip overlays the chart without changing layout height.
-        render_chart_floating_tip(
+        # Standard info tooltip integrated into the Plotly chart title band.
+        fig12 = add_chart_info_badge(
+            fig12,
             message=(
                 "Alerts may be classified under more than one enabling principle "
                 "and can therefore be counted in multiple principles."
             ),
-            title="Reading this chart",
-            icon="i",
-            container=r1c2,
+            chart_width_px=620,
         )
 
         # Add source line if needed
@@ -5523,15 +5416,14 @@ with tab_negative:
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
           
-            # Floating interpretation tip overlays the chart without changing layout height.
-            render_chart_floating_tip(
+            # Standard info tooltip integrated into the Plotly chart title band.
+            fig23 = add_chart_info_badge(
+                fig23,
                 message=(
                     "Negative alerts may be classified under more than one enabling principle "
                     "and can therefore be counted in multiple principles."
                 ),
-                title="Reading this chart",
-                icon="i",
-                container=r2c3,
+                chart_width_px=500,
             )
 
             # Add source line if needed
@@ -6606,50 +6498,40 @@ with tab_manual:
                 .manual-kpi-grid {
                     display: grid;
                     grid-template-columns: repeat(4, minmax(0, 1fr));
-                    gap: 10px;
-                    margin: 10px 0 14px 0;
+                    gap: 12px;
+                    margin: 14px 0 18px 0;
                 }
                 .manual-mini-card {
-                    display: grid;
-                    grid-template-columns: 34px minmax(0, 1fr);
-                    gap: 9px;
-                    align-items: start;
                     background: #FFFFFF;
-                    border: 1px solid #E8DFF0;
-                    border-radius: 14px;
-                    padding: 10px 12px;
-                    box-shadow: 0 6px 16px rgba(16, 24, 40, 0.055);
-                    min-height: 86px;
+                    border: 1px solid #ECE5F3;
+                    border-radius: 15px;
+                    padding: 13px 14px;
+                    box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
+                    min-height: 92px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-mini-icon {
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 11px;
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #F4EAF8;
+                    background: #F8F3FB;
                     color: #660094;
-                    font-size: 15px;
-                    border: 1px solid #E7D4F1;
-                    margin-bottom: 0;
-                }
-                .manual-mini-body {
-                    min-width: 0;
+                    font-size: 16px;
+                    margin-bottom: 8px;
                 }
                 .manual-mini-title {
                     color: #2D0055;
-                    font-size: 12.5px;
+                    font-size: 12px;
                     font-weight: 900;
-                    line-height: 1.15;
-                    margin-bottom: 3px;
+                    margin-bottom: 4px;
                 }
                 .manual-mini-text {
-                    color: #667085;
-                    font-size: 10.8px;
+                    color: #64748B;
+                    font-size: 11px;
                     line-height: 1.35;
-                    font-weight: 650;
                 }
                 .manual-section-card {
                     background: #FFFFFF;
@@ -6761,22 +6643,6 @@ with tab_manual:
                     line-height: 1.45;
                     font-family: Arial, sans-serif;
                 }
-                @media (max-width: 1100px) {
-                    .manual-kpi-grid {
-                        grid-template-columns: repeat(2, minmax(0, 1fr));
-                    }
-                }
-                @media (max-width: 640px) {
-                    .manual-hero {
-                        padding: 18px 16px;
-                    }
-                    .manual-kpi-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    .manual-mini-card {
-                        min-height: auto;
-                    }
-                }
                 </style>
                 """,
                 unsafe_allow_html=True,
@@ -6800,34 +6666,11 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-kpi-grid">
-                    <div class="manual-mini-card">
-                        <div class="manual-mini-icon">🎯</div>
-                        <div class="manual-mini-body">
-                            <div class="manual-mini-title">Purpose</div>
-                            <div class="manual-mini-text">Understand what the dashboard shows and how it supports EU SEE monitoring.</div>
-                        </div>
-                    </div>
-                    <div class="manual-mini-card">
-                        <div class="manual-mini-icon">🧭</div>
-                        <div class="manual-mini-body">
-                            <div class="manual-mini-title">Navigation</div>
-                            <div class="manual-mini-text">Move across Overview, Negative Alerts Analysis, Visualization Map, and User Manual.</div>
-                        </div>
-                    </div>
-                    <div class="manual-mini-card">
-                        <div class="manual-mini-icon">🔎</div>
-                        <div class="manual-mini-body">
-                            <div class="manual-mini-title">Analysis</div>
-                            <div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country patterns.</div>
-                        </div>
-                    </div>
-                    <div class="manual-mini-card">
-                        <div class="manual-mini-icon">⬇</div>
-                        <div class="manual-mini-body">
-                            <div class="manual-mini-title">Outputs</div>
-                            <div class="manual-mini-text">Download the manual or access data tools where permissions allow.</div>
-                        </div>
-                    </div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand what the dashboard shows and how each section can support EU SEE monitoring.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
+                    Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -6855,7 +6698,7 @@ with tab_manual:
                     """
                     <div class="manual-section-card">
                         <div class="manual-section-title">How to interpret dashboard findings</div>
-                        <div class="manual-section-note">Keep these principles in mind when using or presenting findings from the dashboard.</div>
+                        <div class="manual-section-note">: Keep these principles in mind when using or presenting findings from the dashboard.</div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect more incidents, stronger reporting, better monitoring coverage, or a combination of these factors.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">When sharing charts or tables, mention the selected region, period, alert impact, alert type, and other relevant filters.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Compare different views</div><div class="manual-step-text">Use figures, charts, maps, and available data records together before drawing conclusions.</div></div></div>
@@ -11026,8 +10869,7 @@ def render_ai_assistant_panel(df):
 
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
-else:
-    AI_ASSISTANT_SLOT.info("AI Copilot is disabled for your access level.")
+# When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
 
 
 
