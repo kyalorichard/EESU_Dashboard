@@ -788,64 +788,87 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- TOP-CENTER FEEDBACK BAR ----------------
+# ---------------- FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
-    """Render a slim top-center feedback panel below the dashboard title."""
+    """Render a floating centered feedback overlay above the dashboard content."""
     feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
     st.markdown(f"""
     <style>
-    .eusee-feedback-topbar {{
-        width: min(760px, 100%);
+    .eusee-floating-feedback {{
+        position: fixed;
+        top: 72px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(760px, calc(100vw - 32px));
+        z-index: 999995;
+
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
-        border: 1px solid rgba(102, 0, 148, 0.14);
-        border-left: 5px solid #660094;
-        border-radius: 14px;
-        padding: 9px 12px;
-        margin: 2px auto 16px auto;
-        box-shadow: 0 8px 22px rgba(17, 24, 39, 0.075), inset 0 1px 0 rgba(255,255,255,0.96);
+        gap: 14px;
+
+        padding: 11px 14px;
+        border-radius: 18px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,255,255,.96) 0%,
+                rgba(252,247,255,.97) 100%
+            );
+
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(102,0,148,.14);
+
+        box-shadow:
+            0 16px 38px rgba(17,24,39,.12),
+            0 2px 8px rgba(102,0,148,.08);
+
         font-family: Arial, sans-serif;
         box-sizing: border-box;
     }}
-    .eusee-feedback-topbar-left {{
+
+    .eusee-floating-feedback-left {{
         display: flex;
         align-items: center;
-        gap: 9px;
+        gap: 10px;
         min-width: 0;
     }}
-    .eusee-feedback-topbar-icon {{
-        width: 28px;
-        height: 28px;
-        min-width: 28px;
-        border-radius: 11px;
+
+    .eusee-floating-feedback-icon {{
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10));
-        color: #660094;
         border: 1px solid rgba(102,0,148,.10);
-        font-size: 14px;
+        color: #660094;
+        font-size: 15px;
         font-weight: 900;
     }}
-    .eusee-feedback-topbar-text {{
+
+    .eusee-floating-feedback-copy {{
         color: #344054;
         font-size: 12px;
-        line-height: 1.25;
+        line-height: 1.3;
         font-weight: 750;
         white-space: normal;
     }}
-    .eusee-feedback-topbar-text strong {{
+
+    .eusee-floating-feedback-copy strong {{
         color: #2D0055;
         font-weight: 950;
     }}
-    .eusee-feedback-topbar-button {{
+
+    .eusee-floating-feedback-button {{
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 6px 12px;
+        padding: 7px 14px;
         border-radius: 999px;
         background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
         color: #FFFFFF !important;
@@ -853,40 +876,60 @@ def render_top_feedback_bar():
         font-size: 11px;
         font-weight: 900;
         white-space: nowrap;
-        box-shadow: 0 6px 14px rgba(102, 0, 148, .18);
-    }}
-    .eusee-feedback-topbar-button:hover {{
-        filter: brightness(1.04);
-        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(102,0,148,.18);
         transition: all .16s ease;
     }}
-    @media (max-width: 700px) {{
-        .eusee-feedback-topbar {{
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 0;
+
+    .eusee-floating-feedback-button:hover {{
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+    }}
+
+    /* Give the fixed overlay enough breathing room above the dashboard title. */
+    .main .block-container {{
+        padding-top: 5.5rem !important;
+    }}
+
+    @media (max-width: 900px) {{
+        .eusee-floating-feedback {{
+            top: 64px;
+            width: calc(100vw - 22px);
+            padding: 10px 12px;
         }}
-        .eusee-feedback-topbar-button {{
+    }}
+
+    @media (max-width: 700px) {{
+        .eusee-floating-feedback {{
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }}
+
+        .eusee-floating-feedback-button {{
             width: 100%;
+        }}
+
+        .main .block-container {{
+            padding-top: 8rem !important;
         }}
     }}
     </style>
 
-    <div class="eusee-feedback-topbar">
-        <div class="eusee-feedback-topbar-left">
-            <div class="eusee-feedback-topbar-icon">💬</div>
-            <div class="eusee-feedback-topbar-text">
-                <strong>Share your feedback</strong> on usability, insights, and dashboard improvements using the feedback form.
+    <div class="eusee-floating-feedback">
+        <div class="eusee-floating-feedback-left">
+            <div class="eusee-floating-feedback-icon">💬</div>
+            <div class="eusee-floating-feedback-copy">
+                <strong>Share your feedback</strong> on usability, insights, and dashboard improvements.
             </div>
         </div>
-        <a class="eusee-feedback-topbar-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
+
+        <a class="eusee-floating-feedback-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
             Formular ausfüllen
         </a>
     </div>
     """, unsafe_allow_html=True)
 
-render_top_feedback_bar()  # Top-center dashboard feedback panel.
+render_top_feedback_bar()  # Floating dashboard feedback overlay.
 
 
 # ---------------- LOAD DATA ----------------
@@ -11306,11 +11349,11 @@ def render_feedback_callout():
     """, height=0, width=0)
 
 # ---------------- FLOATING FEEDBACK CALLOUT ----------------
-# Disabled: feedback is now rendered as a top-center dashboard panel.
+# Disabled: feedback now uses the lightweight floating overlay rendered near the dashboard header.
 # render_feedback_callout()
 
 # ---------------- FOOTER ----------------
-# Feedback is rendered near the dashboard header and does not use a floating overlay.
+# Feedback is rendered as a lightweight floating overlay near the dashboard header.
 # Footer image
 
 # OpenAI test UI is now integrated inside the AI Copilot drawer.
