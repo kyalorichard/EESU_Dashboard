@@ -6103,55 +6103,17 @@ with tab_map:
                 <div class="map-intel-hero">
                     <div class="map-hero-top">
                         <div>
-                            <div class="map-intel-eyebrow">Geospatial intelligence workspace</div>
-                            <div class="map-intel-title">Visualization Map: Spatial Alert Intelligence</div>
+                            <div class="map-intel-eyebrow">Geographic Overview</div>
+                            <div class="map-intel-title">Visualization Map: Alerts by Country</div>
                             <div class="map-intel-subtitle">
-                                This panel translates the active filters into a country-level spatial view. Use it to identify where alerts concentrate, how negative/positive/context signals are distributed, which countries require closer review, and how much of the filtered dataset is represented on the map.
+                                This map shows where alerts are concentrated across countries based on the filters selected. Use it to identify countries that may require closer review. Darker countries indicate a higher filtered alert volume..
                             </div>
                         </div>
                         <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
                     </div>
-                    <div class="map-chip-row">
-                        <span class="map-chip">🟫 Color intensity = alert volume</span>
-                        <span class="map-chip">⚠️ Priority = negative volume + negative share</span>
-                        <span class="map-chip">🖱️ Hover countries for details</span>
-                        <span class="map-chip">📊 Rankings support deeper review</span>
-                        <span class="map-chip">🧭 Interpret with reporting coverage</span>
-                    </div>
+                  
                 </div>
-                """, unsafe_allow_html=True)
-
-                k1, k2, k3, k4, k5 = st.columns(5)
-                with k1:
-                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped alerts</div><div class="map-intel-card-value">{total_mapped:,}</div><div class="map-intel-card-note">Filtered records linked to ISO3 country geometry.</div></div>""", unsafe_allow_html=True)
-                with k2:
-                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Map coverage</div><div class="map-intel-card-value">{mapping_coverage}%</div><div class="map-intel-card-note">{unmapped_alerts:,} filtered alerts are not currently mapped.</div></div>""", unsafe_allow_html=True)
-                with k3:
-                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Mapped countries</div><div class="map-intel-card-value">{mapped_countries:,}</div><div class="map-intel-card-note">Countries represented in the spatial view.</div></div>""", unsafe_allow_html=True)
-                with k4:
-                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Highest volume</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_country}</div><div class="map-intel-card-note">Largest filtered alert count.</div></div>""", unsafe_allow_html=True)
-                with k5:
-                    st.markdown(f"""<div class="map-intel-card"><div class="map-intel-card-label">Priority focus</div><div class="map-intel-card-value" style="font-size:18px;letter-spacing:-.02em;">{top_priority_country}</div><div class="map-intel-card-note">Highest combined negative-alert priority score.</div></div>""", unsafe_allow_html=True)
-
-                st.markdown(f"""
-                <div class="map-insight-grid">
-                    <div class="map-insight-card">
-                        <div class="map-insight-title">Executive spatial signal</div>
-                        <div class="map-insight-text"><b>{dominant_signal}</b>. Highest alert volume is <b>{top_country}</b>, while the highest priority score is <b>{top_priority_country}</b>. For interpretation, {dominant_next_step}</div>
-                    </div>
-                    <div class="map-insight-card">
-                        <div class="map-insight-title">Priority watchlist</div>
-                        <div class="map-insight-text"><b>{very_high_count}</b> very-high and <b>{high_count}</b> high-priority mapped countries are flagged. This equals <b>{priority_share}%</b> of mapped countries under the current filters.</div>
-                    </div>
-                    <div class="map-insight-card">
-                        <div class="map-insight-title">Mapped composition</div>
-                        <div class="map-insight-text">Negative <b>{mapped_negative:,}</b> · Positive <b>{mapped_positive:,}</b> · Context <b>{mapped_context:,}</b>. Average country-level negative share is <b>{avg_negative_share}%</b>.</div>
-                    </div>
-                </div>
-                <div class="map-method-note">
-                    <b>Interpretation note:</b> the spatial priority score combines negative-alert volume and negative-alert share. It is a triage indicator for analytical review, not a standalone country ranking. High counts may reflect incident frequency, monitoring intensity, reporting coverage, or a combination of these factors.
-                </div>
-                """, unsafe_allow_html=True)
+              
 
                 if unmapped_meta or unmapped_geo:
                     issue_bits = []
