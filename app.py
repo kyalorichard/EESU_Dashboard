@@ -505,8 +505,11 @@ def inject_final_responsive_overrides():
         height: 190px !important;
         min-height: 190px !important;
         overflow: visible !important;
-        background: #FFFFFF !important;
-        border-color: #E6E8EF !important;
+        background:
+            radial-gradient(circle at 100% 0%, rgba(102, 0, 148, 0.055), transparent 34%),
+            linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important;
+        border: 1px solid rgba(102, 0, 148, 0.115) !important;
+        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95) !important;
     }
     .eusee-kpi-card::before {
         display: none !important;
@@ -1086,11 +1089,14 @@ def render_top_feedback_bar():
         const root = doc.createElement("div");
         root.id = rootId;
         root.innerHTML = `
-            <button class="eusee-feedback-mini-tab" id="eusee-feedback-mini-tab" type="button" aria-label="Open feedback panel" title="Open feedback panel">
-                <span class="eusee-feedback-mini-icon">💬</span>
-                <span>Feedback</span>
-                <span class="eusee-feedback-plus">+</span>
-            </button>
+            <div class="eusee-feedback-mini-shell" id="eusee-feedback-mini-shell">
+                <button class="eusee-feedback-mini-tab" id="eusee-feedback-mini-tab" type="button" aria-label="Open feedback panel" title="Open feedback panel">
+                    <span class="eusee-feedback-mini-icon">💬</span>
+                    <span>Feedback</span>
+                    <span class="eusee-feedback-plus">+</span>
+                </button>
+                <button class="eusee-feedback-dismiss-mini" id="eusee-feedback-dismiss-mini" type="button" aria-label="Close feedback widget" title="Close feedback widget">×</button>
+            </div>
 
             <div class="eusee-feedback-panel" id="eusee-feedback-panel" role="dialog" aria-label="Feedback panel">
                 <div class="eusee-feedback-panel-left">
@@ -1110,27 +1116,39 @@ def render_top_feedback_bar():
         `;
         doc.body.appendChild(root);
 
+        const shell = doc.getElementById("eusee-feedback-mini-shell");
         const tab = doc.getElementById("eusee-feedback-mini-tab");
         const panel = doc.getElementById("eusee-feedback-panel");
         const close = doc.getElementById("eusee-feedback-close");
+        const dismissMini = doc.getElementById("eusee-feedback-dismiss-mini");
+        const storageKey = "eusee_feedback_widget_closed";
+
+        function closeFeedbackWidget() {{
+            try {{ window.localStorage.setItem(storageKey, "1"); }} catch (e) {{}}
+            root.style.display = "none";
+        }}
 
         function collapseFeedback() {{
             panel.style.display = "none";
-            tab.style.display = "inline-flex";
+            shell.style.display = "inline-flex";
             tab.setAttribute("aria-expanded", "false");
         }}
 
         function expandFeedback() {{
-            tab.style.display = "none";
+            shell.style.display = "none";
             panel.style.display = "flex";
             tab.setAttribute("aria-expanded", "true");
         }}
 
-        // Always load collapsed to avoid blocking the dashboard header on desktop or mobile.
-        collapseFeedback();
+        if (window.localStorage && window.localStorage.getItem(storageKey) === "1") {{
+            root.style.display = "none";
+        }} else {{
+            collapseFeedback();
+        }}
 
         tab.addEventListener("click", expandFeedback);
-        close.addEventListener("click", collapseFeedback);
+        close.addEventListener("click", closeFeedbackWidget);
+        dismissMini.addEventListener("click", closeFeedbackWidget);
 
         doc.addEventListener("keydown", function(event) {{
             if (event.key === "Escape") collapseFeedback();
@@ -6026,6 +6044,82 @@ Alert counts are monitoring signals. They may reflect event frequency, reporting
 """
 
 
+def inject_chart_skeleton_css():
+    st.markdown("""
+    <style>
+    .eusee-chart-skeleton {
+        position: relative;
+        min-height: 320px;
+        border-radius: 18px;
+        border: 1px solid #E6E8EF;
+        background: linear-gradient(135deg, #FFFFFF 0%, #FCFAFF 100%);
+        box-shadow: 0 10px 24px rgba(16,24,40,.055);
+        overflow: hidden;
+        margin: 2px 0 10px 0;
+    }
+    .eusee-chart-skeleton::before {
+        content: "";
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, transparent 0%, rgba(102,0,148,.055) 45%, transparent 90%);
+        animation: euseeSkeletonSweep 1.15s ease-in-out infinite;
+    }
+    .eusee-chart-skeleton-inner {
+        position: absolute; inset: 18px;
+        display: grid; gap: 12px;
+    }
+    .eusee-skel-line, .eusee-skel-bar, .eusee-skel-axis {
+        border-radius: 999px;
+        background: #EEF0F4;
+    }
+    .eusee-skel-line { width: 38%; height: 13px; }
+    .eusee-skel-axis { width: 100%; height: 9px; align-self: end; }
+    .eusee-skel-bars {
+        height: 230px;
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        align-items: end; gap: 10px;
+    }
+    .eusee-skel-bar:nth-child(1) { height: 42%; }
+    .eusee-skel-bar:nth-child(2) { height: 68%; }
+    .eusee-skel-bar:nth-child(3) { height: 54%; }
+    .eusee-skel-bar:nth-child(4) { height: 78%; }
+    .eusee-skel-bar:nth-child(5) { height: 47%; }
+    .eusee-skel-bar:nth-child(6) { height: 63%; }
+    .eusee-skel-bar:nth-child(7) { height: 72%; }
+    @keyframes euseeSkeletonSweep {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    @media (max-width: 700px) { .eusee-chart-skeleton { min-height: 260px; } .eusee-skel-bars { height: 180px; } }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def render_chart_skeleton(container=None, key="chart", height=320):
+    target = container if container is not None else st
+    safe_key = re.sub(r"[^A-Za-z0-9_-]", "_", str(key or "chart"))
+    target.markdown(f"""
+    <div class="eusee-chart-skeleton" id="eusee-chart-skeleton-{safe_key}" style="min-height:{height}px" aria-label="Loading chart preview">
+        <div class="eusee-chart-skeleton-inner">
+            <div class="eusee-skel-line"></div>
+            <div class="eusee-skel-bars">
+                <div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div>
+                <div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div><div class="eusee-skel-bar"></div>
+            </div>
+            <div class="eusee-skel-axis"></div>
+        </div>
+    </div>
+    <script>
+    setTimeout(function() {{
+        const el = window.parent.document.getElementById("eusee-chart-skeleton-{safe_key}");
+        if (el) el.style.display = "none";
+    }}, 650);
+    </script>
+    """, unsafe_allow_html=True)
+
+
+inject_chart_skeleton_css()
+
+
 def render_dashboard_plotly_chart(
     fig,
     *,
@@ -6049,6 +6143,7 @@ def render_dashboard_plotly_chart(
     """
     target = container if container is not None else st
     fig = apply_responsive_plotly_layout(fig)
+    render_chart_skeleton(target, key=key or visual_type, height=340)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
 
@@ -7416,29 +7511,34 @@ with tab_manual:
                 .manual-kpi-grid {
                     display: grid;
                     grid-template-columns: repeat(4, minmax(0, 1fr));
-                    gap: 12px;
-                    margin: 14px 0 18px 0;
+                    gap: 9px;
+                    margin: 10px 0 14px 0;
                 }
                 .manual-mini-card {
+                    display: grid;
+                    grid-template-columns: 30px minmax(0, 1fr);
+                    column-gap: 9px;
+                    align-items: start;
                     background: #FFFFFF;
                     border: 1px solid #ECE5F3;
-                    border-radius: 15px;
-                    padding: 13px 14px;
-                    box-shadow: 0 8px 20px rgba(54, 26, 83, 0.07);
-                    min-height: 92px;
+                    border-radius: 14px;
+                    padding: 10px 11px;
+                    box-shadow: 0 6px 16px rgba(54, 26, 83, 0.055);
+                    min-height: 66px;
                     font-family: Arial, sans-serif;
                 }
                 .manual-mini-icon {
-                    width: 30px;
-                    height: 30px;
+                    width: 28px;
+                    height: 28px;
                     border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     background: #F8F3FB;
                     color: #660094;
-                    font-size: 16px;
-                    margin-bottom: 8px;
+                    font-size: 15px;
+                    margin-bottom: 0;
+                    grid-row: span 2;
                 }
                 .manual-mini-title {
                     color: #2D0055;
@@ -7448,8 +7548,15 @@ with tab_manual:
                 }
                 .manual-mini-text {
                     color: #64748B;
-                    font-size: 11px;
-                    line-height: 1.35;
+                    font-size: 10.6px;
+                    line-height: 1.28;
+                }
+                @media (max-width: 1050px) {
+                    .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                }
+                @media (max-width: 560px) {
+                    .manual-kpi-grid { grid-template-columns: 1fr; }
+                    .manual-mini-card { min-height: auto; }
                 }
                 .manual-section-card {
                     background: #FFFFFF;
@@ -11751,6 +11858,7 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
+                render_chart_skeleton(st, key="v2_pop_smart_plot", height=340)
                 st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
