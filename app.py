@@ -1161,15 +1161,15 @@ def render_top_feedback_bar():
         collapseFeedback();
 
         toggle.onclick = toggleFeedback;
-        panelToggle.onclick = function(event) {
+        panelToggle.onclick = function(event) {{
             if (event) event.preventDefault();
             collapseFeedback();
-        };
+        }};
         toggle.addEventListener("click", toggleFeedback);
-        panelToggle.addEventListener("click", function(event) {
+        panelToggle.addEventListener("click", function(event) {{
             if (event) event.preventDefault();
             collapseFeedback();
-        });
+        }});
 
         doc.addEventListener("keydown", function(event) {{
             if (event.key === "Escape") collapseFeedback();
