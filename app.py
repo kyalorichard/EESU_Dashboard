@@ -6491,10 +6491,11 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-kpi-grid">
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand EU SEE monitoring outputs and interpret alert patterns.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Use Overview, Negative Alerts, Map, and Manual tabs as guided workflows.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Apply filters, inspect charts, explore flows, and review summary records.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download briefs, manuals, filtered tables, and export-ready evidence.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand what the dashboard shows and how each section can support EU SEE monitoring.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">: Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
+                    Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -6507,12 +6508,12 @@ with tab_manual:
                     """
                     <div class="manual-section-card">
                         <div class="manual-section-title">Quick-start workflow</div>
-                        <div class="manual-section-note">Recommended path for first-time users and stakeholder demonstrations.</div>
-                        <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">Set the analytical scope</div><div class="manual-step-text">Use the Global Filters to select region, country, alert impact, alert type, enabling principle, year, and month.</div></div></div>
-                        <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Read the KPI cards first</div><div class="manual-step-text">Start with monitored countries, total alerts, and the Alerts Breakdown donut to understand the filtered context.</div></div></div>
-                        <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Move from overview to diagnosis</div><div class="manual-step-text">Use Overview charts for distribution patterns, then open Negative Alerts for restrictive actor, mechanism, and affected group analysis.</div></div></div>
-                        <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use maps for spatial interpretation</div><div class="manual-step-text">Inspect geographic concentration and country-level patterns, while interpreting counts alongside reporting coverage.</div></div></div>
-                        <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Export or document evidence</div><div class="manual-step-text">Use the Summary Data Preview export and downloadable PDF resources for reporting, validation, and follow-up.</div></div></div>
+                        <div class="manual-section-note">Recommended path for first-time users.</div>
+                        <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">The scope</div><div class="manual-step-text">Use the global filters to select the region, country, alert impact, nature of alert, enabling principle, year, and month.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Start with the overview</div><div class="manual-step-text">Review the main figures and charts to understand the filtered data.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Explore alert patterns</div><div class="manual-step-text">Use the Overview and Negative Alerts Analysis sections to examine distributions, trends, affected civil society actors, restrictive actors, and mechanisms.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use the map for country-level patterns</div><div class="manual-step-text">See where alerts are concentrated and hover over countries for more detail.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Review the data, if available</div><div class="manual-step-text">Privileged users can use the data summary preview to search, review, and export filtered records.</div></div></div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -6521,11 +6522,12 @@ with tab_manual:
                 st.markdown(
                     """
                     <div class="manual-section-card">
-                        <div class="manual-section-title">Interpretation standards</div>
-                        <div class="manual-section-note">Use these principles when presenting dashboard outputs.</div>
-                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect incident volume, reporting intensity, network coverage, or a combination of these factors.</div></div></div>
-                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">Always state the selected region, period, alert impact, and alert type when sharing charts or tables.</div></div></div>
-                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Triangulate charts</div><div class="manual-step-text">Combine KPI cards, distribution charts, heatmaps, Sankey flow, map, and table records before drawing conclusions.</div></div></div>
+                        <div class="manual-section-title">How to interpret dashboard findings</div>
+                        <div class="manual-section-note">: Keep these principles in mind when using or presenting findings from the dashboard.</div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect more incidents, stronger reporting, better monitoring coverage, or a combination of these factors.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">When sharing charts or tables, mention the selected region, period, alert impact, alert type, and other relevant filters.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Compare different views</div><div class="manual-step-text">Use figures, charts, maps, and available data records together before drawing conclusions.</div></div></div>
+                        <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Cite the dashboard</div><div class="manual-step-text">When using data, charts, or findings from this dashboard, always cite the EU SEE Dashboard as follows: EU SEE Dashboard. Name of the graph/data visualization (as provided on the Dashboard website). Date of last update/consultation.</div></div></div>
                     </div>
                     """,
                     unsafe_allow_html=True,
