@@ -6299,7 +6299,7 @@ with tab_manual:
                 }
                 .manual-lead {
                     color: #475569;
-                    font-size: 13px;
+                    font-size: 12px;
                     line-height: 1.55;
                     max-width: 980px;
                     margin: 0;
@@ -6476,7 +6476,7 @@ with tab_manual:
                 """
                 <div class="manual-kpi-grid">
                     <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand what the dashboard shows and how each section can support EU SEE monitoring.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">: Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
+                    <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
                     Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
                     <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
                     <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
