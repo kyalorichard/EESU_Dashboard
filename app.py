@@ -6654,12 +6654,7 @@ with tab_negative:
                             restrictive actors and mechanisms, negative event types, and alert distribution across types and enabling principles. 
                             Use the filters to focus on specific restrictive actors, affected civil society actors, mechanisms, and negative event types.
                         </div>
-                        <div class="negative-filter-chip-row">
-                            <span class="negative-filter-chip">Actor</span>
-                            <span class="negative-filter-chip">Subject</span>
-                            <span class="negative-filter-chip">Mechanism</span>
-                            <span class="negative-filter-chip">Event type</span>
-                        </div>
+                      
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -7816,42 +7811,68 @@ with tab_manual:
                 """
                 <style>
                 .manual-hero {
-                    background: linear-gradient(135deg, #FFFFFF 0%, #F8F3FB 56%, #FFF9DC 100%);
-                    border: 1px solid #E8DFF0;
+                    background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+                    border: 1px solid #E6E8EF;
+                    border-left: 5px solid #660094;
                     border-radius: 18px;
-                    padding: 16px 18px;
-                    box-shadow: 0 8px 22px rgba(54, 26, 83, 0.075);
-                    margin-bottom: 12px;
+                    padding: 18px 20px;
+                    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
+                    margin: 0 0 18px 0;
                     font-family: Arial, sans-serif;
                 }
                 .manual-eyebrow {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    background: #F1E8F8;
+                    display: block;
                     color: #660094;
-                    border: 1px solid #E2D2EC;
-                    border-radius: 999px;
-                    padding: 4px 8px;
-                    font-size: 9.8px;
-                    font-weight: 900;
-                    letter-spacing: .04em;
+                    background: transparent;
+                    border: 0;
+                    border-radius: 0;
+                    padding: 0;
+                    font-size: 10px;
+                    font-weight: 950;
+                    letter-spacing: .14em;
                     text-transform: uppercase;
-                    margin-bottom: 7px;
+                    margin: 0 0 6px 0;
+                    line-height: 1.2;
                 }
                 .manual-title {
-                    color: #2D0055;
-                    font-size: 22px;
-                    font-weight: 900;
-                    margin: 0 0 5px 0;
-                    line-height: 1.15;
+                    color: #23152F;
+                    font-size: 25px;
+                    font-weight: 950;
+                    margin: 0 0 10px 0;
+                    line-height: 1.12;
+                }
+                .manual-title-divider {
+                    width: 74px;
+                    height: 4px;
+                    border-radius: 999px;
+                    background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
+                    margin: 0 0 14px 0;
                 }
                 .manual-lead {
-                    color: #475569;
-                    font-size: 11.2px;
-                    line-height: 1.38;
-                    max-width: 980px;
+                    color: #475467;
+                    font-size: 13px;
+                    line-height: 1.72;
+                    max-width: 1150px;
                     margin: 0;
+                    font-weight: 500;
+                }
+                .manual-access-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 5px 11px;
+                    border-radius: 999px;
+                    background: #F4EAF8;
+                    border: 1px solid #E7D4F1;
+                    color: #660094;
+                    font-size: 11px;
+                    font-weight: 900;
+                    margin: 12px 8px 0 0;
+                    line-height: 1.1;
+                }
+                .manual-access-note {
+                    color: #667085;
+                    font-size: 12px;
+                    line-height: 1.5;
                 }
                 .manual-kpi-grid {
                     display: grid;
@@ -8011,8 +8032,9 @@ with tab_manual:
                 }
                 @media (max-width: 760px) {
                     .manual-hero { padding: 13px 14px; }
-                    .manual-title { font-size: 19px; }
-                    .manual-lead { font-size: 10.8px; }
+                    .manual-title { font-size: 21px; }
+                    .manual-lead { font-size: 12px; }
+                    .manual-access-note { display: block; margin-top: 7px; }
                     .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                     .manual-mini-card { min-height: auto; }
                     .manual-section-card { padding: 11px; }
@@ -8076,13 +8098,21 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-hero">
-                    <div class="manual-eyebrow">📘 Quick guide</div>
+                    <div class="manual-eyebrow">Dashboard navigation guide</div>
                     <div class="manual-title">Dashboard User Guide</div>
+                    <div class="manual-title-divider"></div>
                     <p class="manual-lead">
-                        A quick guide to help you navigate the dashboard, use filters, read charts and maps, 
-                        explore alert analysis, search the data preview, export results, and use the AI assistant for additional exploration. 
-                        Some features are only available to users with privileged access (EUSEE stakeholders), including the AI assistant and the data summary preview.
+                        A quick guide to help you navigate the dashboard, apply filters, interpret charts and maps,
+                        explore alert analysis, search the data preview, export filtered results, and use the AI assistant
+                        for additional analytical exploration.
                     </p>
+                    <div>
+                        <span class="manual-access-pill">Privileged access only</span>
+                        <span class="manual-access-note">
+                            Some advanced features, including the AI assistant and the data summary preview,
+                            are available only to authorized EUSEE stakeholders.
+                        </span>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
