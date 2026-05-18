@@ -234,316 +234,6 @@ def inject_classic_dashboard_css():
     """, unsafe_allow_html=True)
 
 
-
-
-# ---------------- GLOBAL TYPOGRAPHY SYSTEM ----------------
-def inject_global_typography_system():
-    """Standardize font family, font sizes, line-heights, and text hierarchy across the dashboard."""
-    st.markdown("""
-    <style>
-    :root {
-        --font-main: Arial, Helvetica, sans-serif;
-        --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-
-        --fs-page-title: clamp(30px, 4vw, 46px);
-        --fs-section-title: 22px;
-        --fs-subsection-title: 18px;
-        --fs-card-title: 15px;
-        --fs-card-subtitle: 13px;
-        --fs-body: 12px;
-        --fs-body-sm: 11px;
-        --fs-label: 11px;
-        --fs-caption: 10px;
-        --fs-kpi-value: 32px;
-        --fs-mini-kpi-value: 15px;
-
-        --lh-tight: 1.12;
-        --lh-title: 1.18;
-        --lh-body: 1.42;
-        --lh-caption: 1.32;
-    }
-
-    html,
-    body,
-    .stApp,
-    [data-testid="stAppViewContainer"],
-    [data-testid="stSidebar"],
-    .main,
-    .main .block-container {
-        font-family: var(--font-main) !important;
-        color: #232633 !important;
-        text-rendering: optimizeLegibility !important;
-        -webkit-font-smoothing: antialiased !important;
-        -moz-osx-font-smoothing: grayscale !important;
-    }
-
-    h1,
-    .animated-title {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-page-title) !important;
-        font-weight: 850 !important;
-        line-height: var(--lh-tight) !important;
-        letter-spacing: -0.025em !important;
-    }
-
-    h2,
-    .section-title,
-    .page-section-title,
-    .manual-section-title,
-    .negative-section-title,
-    .map-section-title {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-section-title) !important;
-        font-weight: 850 !important;
-        line-height: var(--lh-title) !important;
-        letter-spacing: -0.015em !important;
-        color: #23152F !important;
-    }
-
-    h3,
-    h4,
-    .section-subtitle-title,
-    .chart-title,
-    .map-guide-title,
-    .executive-table-title,
-    .classic-filter-title,
-    .negative-filter-title,
-    .sidebar-filter-footer-title,
-    .sidebar-access-title,
-    .sidebar-last-updated-date,
-    .data-preview-title {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-card-title) !important;
-        font-weight: 850 !important;
-        line-height: var(--lh-title) !important;
-        letter-spacing: -0.005em !important;
-        color: #23152F !important;
-    }
-
-    .animated-subtitle,
-    .section-subtitle,
-    .page-section-subtitle,
-    .manual-section-subtitle,
-    .executive-table-subtitle,
-    .map-guide-sub,
-    .data-preview-subtitle {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-card-subtitle) !important;
-        font-weight: 500 !important;
-        line-height: var(--lh-body) !important;
-        color: #667085 !important;
-    }
-
-    p,
-    li,
-    div,
-    span,
-    small,
-    .stMarkdown,
-    .stMarkdown p,
-    .stCaptionContainer,
-    .stText,
-    .stAlert,
-    .streamlit-expanderContent {
-        font-family: var(--font-main) !important;
-    }
-
-    p,
-    li,
-    .stMarkdown p,
-    .stAlert,
-    .streamlit-expanderContent,
-    .sidebar-filter-section,
-    .sidebar-filter-footer-note,
-    .classic-filter-note,
-    .negative-filter-note,
-    .sidebar-access-note,
-    .sidebar-access-help,
-    .sidebar-last-updated-note,
-    .data-preview-footnote,
-    .eusee-data-preview-note,
-    .eusee-feedback-panel-copy {
-        font-size: var(--fs-body) !important;
-        line-height: var(--lh-body) !important;
-        color: #667085 !important;
-    }
-
-    label,
-    section[data-testid="stSidebar"] label,
-    .stMultiSelect label,
-    .stSelectbox label,
-    .stTextInput label,
-    .stTextArea label,
-    .stDateInput label,
-    .stNumberInput label,
-    .stRadio label,
-    .stCheckbox label,
-    .stSlider label {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-label) !important;
-        font-weight: 800 !important;
-        line-height: 1.25 !important;
-        letter-spacing: .005em !important;
-        color: #344054 !important;
-    }
-
-    input,
-    textarea,
-    select,
-    [data-baseweb="select"],
-    [data-baseweb="input"],
-    [data-baseweb="textarea"],
-    div[role="option"],
-    div[role="listbox"] {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-body) !important;
-        line-height: var(--lh-body) !important;
-    }
-
-    .stButton > button,
-    .stDownloadButton > button,
-    button,
-    .sidebar-access-pill,
-    .data-preview-pill,
-    .executive-table-badge,
-    .eusee-kpi-badge {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-body) !important;
-        font-weight: 800 !important;
-        line-height: 1.2 !important;
-        letter-spacing: .005em !important;
-    }
-
-    .classic-filter-eyebrow,
-    .negative-filter-eyebrow,
-    .sidebar-access-eyebrow,
-    .sidebar-last-updated-label,
-    .executive-table-eyebrow,
-    .eusee-kpi-title,
-    .map-guide-eyebrow,
-    .card-eyebrow,
-    .eyebrow {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-caption) !important;
-        font-weight: 900 !important;
-        line-height: var(--lh-caption) !important;
-        letter-spacing: .09em !important;
-        text-transform: uppercase !important;
-    }
-
-    .eusee-kpi-value,
-    .kpi-value,
-    .metric-value {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-kpi-value) !important;
-        font-weight: 950 !important;
-        line-height: 1 !important;
-        letter-spacing: -0.035em !important;
-        color: #23152F !important;
-    }
-
-    .eusee-kpi-note,
-    .kpi-note,
-    .metric-note {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-body-sm) !important;
-        line-height: var(--lh-body) !important;
-        color: #667085 !important;
-    }
-
-    .executive-mini-kpi span,
-    .classic-filter-status .status-row,
-    .sidebar-profile-row,
-    .eusee-breakdown-row,
-    .eusee-breakdown-label,
-    .eusee-breakdown-value,
-    .eusee-breakdown-share {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-body-sm) !important;
-        line-height: var(--lh-caption) !important;
-    }
-
-    .executive-mini-kpi strong,
-    .classic-filter-status .status-value,
-    .sidebar-profile-row strong {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-mini-kpi-value) !important;
-        font-weight: 900 !important;
-        line-height: 1.15 !important;
-    }
-
-    div[data-testid="stExpander"] summary {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-card-subtitle) !important;
-        font-weight: 850 !important;
-        line-height: var(--lh-title) !important;
-    }
-
-    div[data-testid="stDataFrame"] [role="columnheader"],
-    div[data-testid="stDataFrame"] [role="columnheader"] * {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-label) !important;
-        font-weight: 900 !important;
-        line-height: 1.25 !important;
-    }
-
-    div[data-testid="stDataFrame"] [role="gridcell"],
-    div[data-testid="stDataFrame"] [role="gridcell"] * {
-        font-family: var(--font-main) !important;
-        font-size: var(--fs-body) !important;
-        line-height: 1.32 !important;
-    }
-
-    .js-plotly-plot,
-    .js-plotly-plot text,
-    .plot-container,
-    .plotly,
-    svg text {
-        font-family: var(--font-main) !important;
-    }
-
-    code,
-    pre,
-    .stCode,
-    .stCode * {
-        font-family: var(--font-mono) !important;
-        font-size: var(--fs-body-sm) !important;
-    }
-
-    @media (max-width: 900px) {
-        :root {
-            --fs-page-title: clamp(28px, 7vw, 38px);
-            --fs-section-title: 20px;
-            --fs-subsection-title: 17px;
-            --fs-card-title: 14px;
-            --fs-card-subtitle: 12.5px;
-            --fs-body: 11.5px;
-            --fs-body-sm: 10.8px;
-            --fs-label: 10.5px;
-            --fs-caption: 9.5px;
-            --fs-kpi-value: 29px;
-            --fs-mini-kpi-value: 14px;
-        }
-    }
-
-    @media (max-width: 520px) {
-        :root {
-            --fs-page-title: 29px;
-            --fs-section-title: 18px;
-            --fs-subsection-title: 16px;
-            --fs-card-title: 13.5px;
-            --fs-card-subtitle: 12px;
-            --fs-body: 11px;
-            --fs-body-sm: 10.5px;
-            --fs-label: 10px;
-            --fs-caption: 9px;
-            --fs-kpi-value: 27px;
-            --fs-mini-kpi-value: 13.5px;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 def render_classic_filter_header():
     st.sidebar.markdown("""
     <div class="classic-filter-header">
@@ -736,7 +426,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
-inject_global_typography_system()
 
 # ---------------- LIGHTWEIGHT LOADING FEEDBACK FOR FILTER / UI RERUNS ----------------
 def inject_blocking_filter_loader():
@@ -816,6 +505,8 @@ def inject_final_responsive_overrides():
         height: 190px !important;
         min-height: 190px !important;
         overflow: visible !important;
+        background: #FFFFFF !important;
+        border-color: #E6E8EF !important;
     }
     .eusee-kpi-card::before {
         display: none !important;
@@ -992,8 +683,8 @@ st.markdown(f"""
     margin: 0 0 4px 0 !important;
     line-height: 1.05;
     color: #660094;
-    font-size: var(--fs-page-title, 48px);
-    font-family: var(--font-main, Arial, sans-serif);
+    font-size: 48px;
+    font-family: Arial, sans-serif;
     font-weight: 700;
     opacity: 0;
     transform: translateY(-20px);
@@ -1028,8 +719,8 @@ st.markdown(f"""
 
 /* ---------------- Subtitle ---------------- */
 .animated-subtitle {{
-    font-size: var(--fs-card-subtitle, 14px);
-    font-family: var(--font-main, Arial, sans-serif);
+    font-size: 14px;
+    font-family: Arial, sans-serif;
     color: #333333;
     margin-bottom: 12px !important;
     max-width: 980px;
