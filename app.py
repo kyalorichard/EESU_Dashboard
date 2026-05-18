@@ -1094,7 +1094,7 @@ def render_top_feedback_bar():
 
                 <div class="eusee-feedback-panel-actions">
                     <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
-                        Formular ausfüllen
+                        Fill in the form
                     </a>
                     <button class="eusee-feedback-close" id="eusee-feedback-close" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">×</button>
                 </div>
