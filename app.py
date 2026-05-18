@@ -7651,7 +7651,7 @@ with tab_manual:
                     <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
                     Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
                     <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
-                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Outputs</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
+                    <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Manual</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
                 </div>
                 """,
                 unsafe_allow_html=True,
