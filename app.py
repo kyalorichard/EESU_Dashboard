@@ -1246,6 +1246,24 @@ def inject_professional_sidebar_filter_css():
         font-weight: 650;
     }
 
+    .sidebar-access-center {
+        margin-bottom: 8px;
+    }
+
+    .sidebar-profile-card-merged {
+        margin-top: 10px;
+        padding: 8px 9px;
+        background: rgba(255,255,255,.92);
+        border-color: #EEF0F4;
+        box-shadow: none;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="column"] .stButton > button {
+        height: 34px !important;
+        font-size: 11px !important;
+        border-radius: 10px !important;
+    }
+
     .sidebar-profile-row {
         display: flex;
         justify-content: space-between;
@@ -1508,66 +1526,90 @@ st.sidebar.image("assets/eu-see-logo.png", width=400)
 
 
 
-# ---------------- SIDEBAR ACCESS / SETTINGS PANEL ----------------
+# ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
 def render_sidebar_access_settings_profile():
-    """Render one merged, professional sidebar panel for access, account, and feature status."""
-    role = get_current_role() if callable(get_current_role) else "guest"
-    email = get_current_email() if callable(get_current_email) else ""
+    """Render one simple, professional sidebar panel for access, account, navigation, and feature status."""
     signed_in = is_authenticated()
+    is_admin_user = bool(signed_in and admin_is_admin())
 
-    display_name = st.session_state.get("name", "User")
-    display_email = email or st.session_state.get("email", "Public user")
+    role = get_current_role() if callable(get_current_role) else "guest"
     role_label = (role or "guest").replace("_", " ").title()
-    access_status = "Signed in" if signed_in else "Public mode"
-    access_icon = "🔐" if signed_in else "🔓"
-    access_title = f"{display_name}" if signed_in else "Sign in / Register"
-    access_note = (
-        "Secure partner session with access based on your approved role."
-        if signed_in
-        else "Sign in to access advanced features and analyses available to EUSEE partners."
-    )
+
+    email = get_current_email() if callable(get_current_email) else ""
+    display_email = email or st.session_state.get("email", "Public user")
+    display_name = st.session_state.get("name", "User") if signed_in else "Public user"
+
     copilot_status = "Available" if has_permission("use_ai_copilot") else "Limited"
     export_status = "Enabled" if has_permission("download_data") else "Restricted"
+    admin_status = "Enabled" if is_admin_user else "Not available"
+
+    access_status = "Signed in" if signed_in else "Public mode"
+    access_icon = "🔐" if signed_in else "🔓"
+    access_title = display_name if signed_in else "Guest access"
+    access_note = (
+        "Your dashboard permissions are controlled by your approved EUSEE role."
+        if signed_in
+        else "Sign in or register to request access to partner-only dashboard features."
+    )
+
+    st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
+    if not is_admin_user:
+        st.session_state["eusee_sidebar_workspace"] = "Dashboard"
 
     st.sidebar.markdown(f"""
-    <div class="sidebar-access-shell">
+    <div class="sidebar-access-shell sidebar-access-center">
         <div class="sidebar-access-top">
             <div class="sidebar-access-icon">{access_icon}</div>
             <div class="sidebar-access-copy">
-                <div class="sidebar-access-eyebrow">Privileged access</div>
+                <div class="sidebar-access-eyebrow">User privilege center</div>
                 <div class="sidebar-access-title">{access_title}</div>
                 <div class="sidebar-access-note">{access_note}</div>
             </div>
         </div>
+
         <div class="sidebar-access-pill-row">
             <span class="sidebar-access-pill">{access_status}</span>
             <span class="sidebar-access-pill secondary">{role_label}</span>
         </div>
-        <div class="sidebar-access-help">
-            Partner access unlocks role-based analytics, exports, and AI-assisted dashboard tools where enabled.
+
+        <div class="sidebar-profile-card sidebar-profile-card-merged">
+            <div class="sidebar-profile-row"><span>Account</span><strong>{display_email}</strong></div>
+            <div class="sidebar-profile-row"><span>AI Copilot</span><strong>{copilot_status}</strong></div>
+            <div class="sidebar-profile-row"><span>Exports</span><strong>{export_status}</strong></div>
+            <div class="sidebar-profile-row"><span>Admin tools</span><strong>{admin_status}</strong></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
+    if is_admin_user:
+        nav_left, nav_right = st.sidebar.columns(2)
+        with nav_left:
+            if st.button(
+                "Dashboard",
+                use_container_width=True,
+                key="privilege_center_dashboard_btn",
+                type="primary" if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else "secondary",
+            ):
+                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
+                st.rerun()
+        with nav_right:
+            if st.button(
+                "Admin",
+                use_container_width=True,
+                key="privilege_center_admin_btn",
+                type="primary" if st.session_state.get("eusee_sidebar_workspace") == "Admin" else "secondary",
+            ):
+                st.session_state["eusee_sidebar_workspace"] = "Admin"
+                st.rerun()
+
     if signed_in:
-        if st.sidebar.button("Logout", use_container_width=True, key="sidebar_access_logout_btn"):
+        if st.sidebar.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
             from auth import logout
             logout()
     else:
-        if st.sidebar.button("🔐 Sign in / Register", use_container_width=True, key="sidebar_access_login_btn"):
+        if st.sidebar.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_login_btn"):
             st.session_state.auth_view = True
             st.rerun()
-
-    with st.sidebar.expander("⚙️ Settings / Profile", expanded=False):
-        st.markdown(f"""
-        <div class="sidebar-profile-card">
-            <div class="sidebar-profile-row"><span>Access</span><strong>{access_status}</strong></div>
-            <div class="sidebar-profile-row"><span>Role</span><strong>{role_label}</strong></div>
-            <div class="sidebar-profile-row"><span>Account</span><strong>{display_email}</strong></div>
-            <div class="sidebar-profile-row"><span>AI Copilot</span><strong>{copilot_status}</strong></div>
-            <div class="sidebar-profile-row"><span>Exports</span><strong>{export_status}</strong></div>
-        </div>
-        """, unsafe_allow_html=True)
 
 
 render_sidebar_access_settings_profile()
@@ -1751,14 +1793,11 @@ filtered_global = data[
 
 
 
-# ---------------- ADMIN NAVIGATION AFTER LOGIN ----------------
-# Admin users are configured in .streamlit/secrets.toml under [auth].admin_emails.
-# This is placed after the login/access card so Firebase session_state["email"] exists.
-if is_authenticated() and admin_is_admin():
-    admin_nav_choice = render_admin_sidebar_navigation()
-    if admin_nav_choice == "Admin":
-        render_admin_page(data=data)
-        st.stop()
+# ---------------- ADMIN ROUTING FROM SIDEBAR PRIVILEGE CENTER ----------------
+# Admin users can switch between Dashboard and Admin inside the single User Privilege Center panel.
+if is_authenticated() and admin_is_admin() and st.session_state.get("eusee_sidebar_workspace") == "Admin":
+    render_admin_page(data=data)
+    st.stop()
 
 
 
