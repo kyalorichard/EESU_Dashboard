@@ -243,7 +243,6 @@ def _render_visibility_tab(config: dict):
             c1, c2 = st.columns(2)
 
             left_features = [
-                "view_public_summary",
                 "view_overview",
                 "view_country_counts",
                 "view_negative_alerts",
@@ -255,9 +254,7 @@ def _render_visibility_tab(config: dict):
             right_features = [
                 "view_dashboard",
                 "view_coverage_monitored_countries",
-                "view_monitored_countries_value",
                 "view_maps",
-                "view_negative_relationship_intelligence",
                 "view_data_table",
                 "use_ai_copilot",
                 "view_admin_page",
