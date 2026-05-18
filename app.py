@@ -7768,7 +7768,7 @@ with tab_manual:
                     """
                     <div class="manual-section-card">
                         <div class="manual-section-title">How to interpret dashboard findings</div>
-                        <div class="manual-section-note">: Keep these principles in mind when using or presenting findings from the dashboard.</div>
+                        <div class="manual-section-note">Keep these principles in mind when using or presenting findings from the dashboard.</div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect more incidents, stronger reporting, better monitoring coverage, or a combination of these factors.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">When sharing charts or tables, mention the selected region, period, alert impact, alert type, and other relevant filters.</div></div></div>
                         <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Compare different views</div><div class="manual-step-text">Use figures, charts, maps, and available data records together before drawing conclusions.</div></div></div>
