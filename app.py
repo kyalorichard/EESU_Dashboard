@@ -934,6 +934,22 @@ def render_top_feedback_bar():
                 -webkit-backdrop-filter: blur(14px) !important;
             }}
 
+            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {
+                display: flex !important;
+            }
+
+            #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {
+                display: none !important;
+            }
+
+            #eusee-feedback-floating-root:not(.is-open) .eusee-feedback-panel {
+                display: none !important;
+            }
+
+            #eusee-feedback-floating-root:not(.is-open) > #eusee-feedback-toggle {
+                display: inline-flex !important;
+            }
+
             .eusee-feedback-panel-left {{
                 display: flex !important;
                 align-items: center !important;
@@ -1114,8 +1130,10 @@ def render_top_feedback_bar():
         const toggleCaret = doc.getElementById("eusee-feedback-toggle-caret");
 
         function collapseFeedback() {{
-            panel.style.display = "none";
-            toggle.style.display = "inline-flex";
+            root.classList.remove("is-open");
+            root.classList.add("is-collapsed");
+            panel.style.removeProperty("display");
+            toggle.style.removeProperty("display");
             toggle.setAttribute("aria-expanded", "false");
             toggle.setAttribute("aria-label", "Open feedback panel");
             toggle.setAttribute("title", "Open feedback panel");
@@ -1124,13 +1142,16 @@ def render_top_feedback_bar():
         }}
 
         function expandFeedback() {{
-            toggle.style.display = "none";
-            panel.style.display = "flex";
+            root.classList.add("is-open");
+            root.classList.remove("is-collapsed");
+            panel.style.setProperty("display", "flex", "important");
+            toggle.style.setProperty("display", "none", "important");
             toggle.setAttribute("aria-expanded", "true");
         }}
 
-        function toggleFeedback() {{
-            if (panel.style.display === "flex") {{
+        function toggleFeedback(event) {{
+            if (event) event.preventDefault();
+            if (root.classList.contains("is-open")) {{
                 collapseFeedback();
             }} else {{
                 expandFeedback();
@@ -1139,8 +1160,16 @@ def render_top_feedback_bar():
 
         collapseFeedback();
 
+        toggle.onclick = toggleFeedback;
+        panelToggle.onclick = function(event) {
+            if (event) event.preventDefault();
+            collapseFeedback();
+        };
         toggle.addEventListener("click", toggleFeedback);
-        panelToggle.addEventListener("click", collapseFeedback);
+        panelToggle.addEventListener("click", function(event) {
+            if (event) event.preventDefault();
+            collapseFeedback();
+        });
 
         doc.addEventListener("keydown", function(event) {{
             if (event.key === "Escape") collapseFeedback();
