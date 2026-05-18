@@ -2651,11 +2651,41 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; color:#B42318; }
     .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
     .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
-    .negintel-row-list { display:flex; flex-direction:column; gap:5px; margin-top:5px; }
-    .negintel-row { display:grid; grid-template-columns: minmax(74px, 1fr) 44px 36px; align-items:center; gap:6px; padding:5px 7px; border-radius:10px; background:rgba(255,255,255,.72); border:1px solid rgba(102,0,148,.055); line-height:1; }
-    .negintel-row-label { color:#344054; font-size:9.7px; font-weight:950; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .negintel-row-pct { color:#101828; font-size:10.3px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; }
-    .negintel-row-count { color:#667085; font-size:9.4px; font-weight:850; text-align:right; white-space:nowrap; }
+    .negintel-row-list { display:flex; flex-direction:column; gap:6px; margin-top:7px; }
+    .negintel-row {
+        display:grid;
+        grid-template-columns: minmax(0, 1fr) 52px 42px;
+        align-items:start;
+        gap:8px;
+        padding:7px 8px;
+        border-radius:11px;
+        background:rgba(255,255,255,.78);
+        border:1px solid rgba(102,0,148,.065);
+        line-height:1.18;
+        min-height:34px;
+    }
+    .negintel-row-label {
+        color:#344054;
+        font-size:10.2px;
+        font-weight:850;
+        overflow:visible;
+        text-overflow:unset;
+        white-space:normal;
+        overflow-wrap:anywhere;
+        word-break:normal;
+        line-height:1.22;
+    }
+    .negintel-row-label strong { color:#2D0055; font-weight:950; }
+    .negintel-row-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; white-space:nowrap; padding-top:1px; }
+    .negintel-row-count { color:#667085; font-size:9.7px; font-weight:850; text-align:right; white-space:nowrap; padding-top:2px; }
+    @media (max-width: 900px) {
+        .negintel-row { grid-template-columns: minmax(0, 1fr) 50px 42px; }
+        .negintel-row-label { font-size:10.4px; }
+    }
+    @media (max-width: 520px) {
+        .negintel-row { grid-template-columns: minmax(0, 1fr); gap:3px; }
+        .negintel-row-pct, .negintel-row-count { text-align:left; padding-top:0; }
+    }
     .negintel-compact-line { font-size:10.2px; color:#344054; line-height:1.22; font-weight:850; margin-top:5px; }
     .negintel-compact-line strong { color:#2D0055; font-weight:950; }
     </style>
@@ -2702,9 +2732,9 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div class="negintel-icon">⛓️</div>
                 </div>
                 <div class="negintel-row-list">
-                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label">Actor: {_compact_text_for_card(top_actor, 23)}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label">Mechanism: {_compact_text_for_card(top_mechanism, 19)}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label">Subject: {_compact_text_for_card(top_subject, 21)}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label"><strong>Actor:</strong> {top_actor}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
+                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label"><strong>Mechanism:</strong> {top_mechanism}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
+                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label"><strong>Subject:</strong> {top_subject}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
                 </div>
             </div>
         </div>
