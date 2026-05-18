@@ -1813,6 +1813,99 @@ def inject_sidebar_typography_standardization():
         font-weight: 800 !important;
     }
 
+    .sidebar-active-summary {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid var(--eusee-sidebar-border);
+        border-radius: 15px;
+        padding: 10px 11px;
+        margin: 8px 0 10px 0;
+        box-shadow: 0 8px 18px rgba(16,24,40,.05);
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .sidebar-active-summary-title {
+        font-size: 11.2px !important;
+        font-weight: 850 !important;
+        color: var(--eusee-sidebar-title) !important;
+        margin-bottom: 7px;
+    }
+
+    .sidebar-active-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .sidebar-active-summary-pill {
+        background: #F9FAFB;
+        border: 1px solid #EEF0F4;
+        border-radius: 11px;
+        padding: 7px 8px;
+    }
+
+    .sidebar-active-summary-pill span {
+        display: block;
+        font-size: 9px !important;
+        color: var(--eusee-sidebar-muted) !important;
+        font-weight: 760 !important;
+        text-transform: uppercase;
+        letter-spacing: .045em;
+        margin-bottom: 2px;
+    }
+
+    .sidebar-active-summary-pill strong {
+        display: block;
+        font-size: 13px !important;
+        color: var(--eusee-sidebar-title) !important;
+        font-weight: 850 !important;
+    }
+
+    .sidebar-unsaved-indicator {
+        margin: 7px 0 10px 0;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #FFFAEB;
+        border: 1px solid #FEDF89;
+        color: #93370D !important;
+        font-size: 10.6px !important;
+        font-weight: 720 !important;
+        line-height: 1.35 !important;
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .sidebar-applied-indicator {
+        margin: 7px 0 10px 0;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #ECFDF3;
+        border: 1px solid #ABEFC6;
+        color: #067647 !important;
+        font-size: 10.6px !important;
+        font-weight: 720 !important;
+        line-height: 1.35 !important;
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    .sidebar-sticky-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 99999;
+        background: linear-gradient(180deg, rgba(247,248,251,.72) 0%, #FFFFFF 42%);
+        padding: 9px 0 8px 0;
+        margin-top: 4px;
+        border-top: 1px solid rgba(230,232,239,.8);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .sidebar-footer-version {
+        color: var(--eusee-sidebar-muted) !important;
+        font-size: 9.8px !important;
+        font-weight: 560 !important;
+        line-height: 1.35 !important;
+        margin-top: 7px;
+    }
+
     div[role="listbox"] * {
         font-family: var(--eusee-sidebar-font) !important;
         font-size: 11.5px !important;
@@ -1944,6 +2037,66 @@ with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
         container=time_filter_box,
     )
 
+# ---------------- SIDEBAR FILTER SUMMARY, APPLY STATE, AND STICKY ACTIONS ----------------
+def _filter_signature(filter_dict):
+    """Create a stable comparable signature for current/applied sidebar filters."""
+    signature = {}
+    for key, values in filter_dict.items():
+        if values is None:
+            signature[key] = tuple()
+        elif isinstance(values, (list, tuple, set, pd.Series, np.ndarray)):
+            signature[key] = tuple(sorted([str(v) for v in list(values)]))
+        else:
+            signature[key] = (str(values),)
+    return signature
+
+current_sidebar_filters = {
+    "regions": selected_regions,
+    "countries": selected_countries,
+    "alert_impacts": selected_alert_impacts,
+    "alert_types": selected_alert_types,
+    "enabling_principles": selected_enabling_principle,
+    "years": selected_years,
+    "months": selected_months,
+}
+
+current_filter_signature = _filter_signature(current_sidebar_filters)
+
+if "applied_sidebar_filters" not in st.session_state:
+    st.session_state["applied_sidebar_filters"] = current_sidebar_filters.copy()
+    st.session_state["applied_filter_signature"] = current_filter_signature
+    st.session_state["filters_last_applied_at"] = "Initial view"
+
+applied_filter_signature = st.session_state.get("applied_filter_signature", current_filter_signature)
+filters_have_unsaved_changes = current_filter_signature != applied_filter_signature
+
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-active-summary">
+        <div class="sidebar-active-summary-title">Active filter summary</div>
+        <div class="sidebar-active-summary-grid">
+            <div class="sidebar-active-summary-pill"><span>Regions</span><strong>{len(selected_regions):,}</strong></div>
+            <div class="sidebar-active-summary-pill"><span>Countries</span><strong>{len(selected_countries):,}</strong></div>
+            <div class="sidebar-active-summary-pill"><span>Years</span><strong>{len(selected_years):,}</strong></div>
+            <div class="sidebar-active-summary-pill"><span>Months</span><strong>{len(selected_months):,}</strong></div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if filters_have_unsaved_changes:
+    st.sidebar.markdown(
+        '<div class="sidebar-unsaved-indicator">Unsaved filter changes. Click Apply to update the dashboard view.</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.sidebar.markdown(
+        '<div class="sidebar-applied-indicator">Filters are applied to the current dashboard view.</div>',
+        unsafe_allow_html=True,
+    )
+
+st.sidebar.markdown('<div class="sidebar-sticky-actions">', unsafe_allow_html=True)
 reset_col1, reset_col2 = st.sidebar.columns([1, 1])
 
 with reset_col1:
@@ -1951,6 +2104,7 @@ with reset_col1:
         "🔄 Reset",
         use_container_width=True,
         key="reset_sidebar_filters",
+        help="Clear all sidebar filters and return to the default full-data view.",
     )
 
 with reset_col2:
@@ -1961,10 +2115,14 @@ with reset_col2:
         type="primary",
         help="Apply the current sidebar selections to the dashboard view.",
     )
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 if apply_filters:
+    st.session_state["applied_sidebar_filters"] = current_sidebar_filters.copy()
+    st.session_state["applied_filter_signature"] = current_filter_signature
     st.session_state["filters_last_applied_at"] = datetime.now().strftime("%H:%M:%S")
     st.toast("Filters applied successfully.", icon="✅")
+    st.rerun()
 
 if reset_filters:
     for key in [
@@ -1979,18 +2137,32 @@ if reset_filters:
         "selected_subject_types",
         "selected_mechanism_types",
         "selected_event_types",
+        "applied_sidebar_filters",
+        "applied_filter_signature",
+        "filters_last_applied_at",
     ]:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
     st.rerun()
 
-last_applied_time = st.session_state.get("filters_last_applied_at", "Not applied this session")
+# Use the last applied filters for dashboard calculations. This makes Apply meaningful.
+applied_sidebar_filters = st.session_state.get("applied_sidebar_filters", current_sidebar_filters)
+selected_regions = applied_sidebar_filters.get("regions", selected_regions)
+selected_countries = applied_sidebar_filters.get("countries", selected_countries)
+selected_alert_impacts = applied_sidebar_filters.get("alert_impacts", selected_alert_impacts)
+selected_alert_types = applied_sidebar_filters.get("alert_types", selected_alert_types)
+selected_enabling_principle = applied_sidebar_filters.get("enabling_principles", selected_enabling_principle)
+selected_years = applied_sidebar_filters.get("years", selected_years)
+selected_months = applied_sidebar_filters.get("months", selected_months)
+
+last_applied_time = st.session_state.get("filters_last_applied_at", "Initial view")
 st.sidebar.markdown(
     f"""
     <div class="sidebar-filter-footer">
         <div class="sidebar-filter-footer-title">Filter behavior</div>
         <div class="sidebar-filter-footer-note">Select filter values, then click <strong>Apply</strong>. Empty selections include all available values.</div>
         <div class="sidebar-filter-footer-applied">Last applied: <strong>{last_applied_time}</strong></div>
+        <div class="sidebar-footer-version">EUSEE Dashboard · Sidebar UX v2 · Current dataset update: {latest_date_display}</div>
     </div>
     """,
     unsafe_allow_html=True,
