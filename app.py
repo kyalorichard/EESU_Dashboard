@@ -1367,11 +1367,7 @@ regions_labels = [
 ]
 
 with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_box:
-    st.markdown(
-        '<div class="sidebar-filter-section">Filter records by regional grouping and country coverage.</div>',
-        unsafe_allow_html=True,
-    )
-
+   
     selected_regions = safe_multiselect(
         "Region",
         regions_labels,
@@ -1395,11 +1391,7 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
     )
 
 with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_filter_box:
-    st.markdown(
-        '<div class="sidebar-filter-section">Refine by alert/event nature and alert impact category.</div>',
-        unsafe_allow_html=True,
-    )
-
+ 
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
         data["alert-impact"].dropna().unique()
@@ -1419,11 +1411,7 @@ with st.sidebar.expander("⚠️ Alert classification", expanded=True) as alert_
     )
 
 with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
-    st.markdown(
-        '<div class="sidebar-filter-section">Filter by enabling principle linked to the reported alert.</div>',
-        unsafe_allow_html=True,
-    )
-
+  
     principle_options = (
         data["enabling-principle"]
         .dropna()
@@ -1447,11 +1435,7 @@ with st.sidebar.expander("🧭 Enabling environment", expanded=False) as princip
     )
 
 with st.sidebar.expander("📅 Time period", expanded=True) as time_filter_box:
-    st.markdown(
-        '<div class="sidebar-filter-section">Filter records by reporting year and month.</div>',
-        unsafe_allow_html=True,
-    )
-
+  
     selected_years = safe_multiselect(
         "Year",
         sorted(data["year"].dropna().unique())
