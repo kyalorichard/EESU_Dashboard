@@ -672,11 +672,13 @@ def _render_premium_auth_page():
         unsafe_allow_html=True,
     )
 
-    _, center, _ = st.columns([0.18, 0.64, 0.18])
+    left_space, center, right_space = st.columns([0.18, 0.64, 0.18])
 
     with center:
         with st.container(border=True):
-            with st.container():
+            top_a, top_b = st.columns([1.25, 0.75])
+
+            with top_a:
                 st.markdown(
                     '<div class="auth-pill">🔐 Authorized users only</div>',
                     unsafe_allow_html=True,
