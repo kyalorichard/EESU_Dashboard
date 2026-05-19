@@ -375,53 +375,62 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             padding: 10px 12px;
             margin: 2px 0 12px 0;
             color: #667085;
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
+            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+            font-size: 11.5px;
+            line-height: 1.42;
+            font-weight: 550;
             box-shadow: 0 6px 16px rgba(16,24,40,.045);
         }
         .eusee-data-preview-note strong {
             color: #23152F;
             font-weight: 900;
         }
-        /* Data Preview table: keep only Streamlit's internal table scrollbar visible. */
+        /* Data Preview table: one clean internal horizontal scrollbar, aligned with tab typography. */
         div[data-testid="stDataFrame"] {
+            max-width: 100% !important;
             border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
-            overflow: hidden !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
             box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
             background: #FFFFFF !important;
-            font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
         }
         div[data-testid="stDataFrame"] > div {
-            overflow: hidden !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
         }
         div[data-testid="stDataFrame"] div[role="grid"] {
+            min-width: max-content !important;
             overflow-x: auto !important;
             overflow-y: auto !important;
         }
         div[data-testid="stDataFrame"] [data-testid="stTable"] {
-            overflow: hidden !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
         }
-        div[data-testid="stDataFrame"] [role="columnheader"] {
+        div[data-testid="stDataFrame"] [role="columnheader"],
+        div[data-testid="stDataFrame"] [role="columnheader"] * {
             background: #F4EAF8 !important;
             color: #23152F !important;
-            font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
             font-size: 11.5px !important;
-            font-weight: 900 !important;
+            font-weight: 850 !important;
             border-bottom: 1px solid #E7D4F1 !important;
             line-height: 1.25 !important;
         }
-        div[data-testid="stDataFrame"] [role="gridcell"] {
+        div[data-testid="stDataFrame"] [role="gridcell"],
+        div[data-testid="stDataFrame"] [role="gridcell"] * {
             color: #344054 !important;
-            font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
             font-size: 11.5px !important;
             line-height: 1.35 !important;
             font-weight: 500 !important;
         }
         div[data-testid="stDataFrame"] ::-webkit-scrollbar {
             height: 10px !important;
-            width: 0 !important;
+            width: 10px !important;
         }
         div[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb {
             background: #D6BBE5 !important;
@@ -513,9 +522,14 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                     subset=[impact_col],
                 )
 
+        # Force a single, clean horizontal scroll area for wide tables instead of
+        # compressing columns or creating confusing nested page scrollbars.
+        table_pixel_width = max(1200, min(4200, 165 * max(1, len(table_view.columns))))
+
         st.dataframe(
             table_to_render,
-            use_container_width=True,
+            use_container_width=False,
+            width=table_pixel_width,
             hide_index=True,
             height=min(560, max(320, 34 * min(len(table_view), 12) + 92)),
             key=key,
@@ -8755,6 +8769,14 @@ with tab_map:
                             font-size: 14px;
                         }}
                     }}
+                    /* Force Visualization Map hover tooltip text to stay white. */
+                    .js-plotly-plot .hoverlayer .hovertext text,
+                    .js-plotly-plot .hoverlayer .hovertext tspan {
+                        fill: #FFFFFF !important;
+                        color: #FFFFFF !important;
+                        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
+                    }
+
                     </style>
 
                     <div class="map-intel-hero">
@@ -8887,6 +8909,11 @@ with tab_map:
                     fig.update_layout(
                         margin={"r": 0, "t": 0, "l": 0, "b": 0},
                         height=720,
+                        hoverlabel=dict(
+                            bgcolor="#2D0055",
+                            bordercolor="#FFFFFF",
+                            font=dict(size=12, family=MAP_FONT, color="#FFFFFF"),
+                        ),
                         coloraxis_colorbar=dict(
                             title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
                             tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
