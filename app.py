@@ -1539,9 +1539,8 @@ def inject_professional_sidebar_filter_css():
         color: #660094;
         background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
         border: 1px solid rgba(102,0,148,.10);
-        font-size: 15px;
+        font-size: 16px;
         font-weight: 900;
-        line-height: 1;
     }
 
     .sidebar-access-copy {
@@ -1551,32 +1550,30 @@ def inject_professional_sidebar_filter_css():
 
     .sidebar-access-eyebrow {
         font-size: 9px;
-        font-weight: 900;
+        font-weight: 950;
         letter-spacing: .12em;
         text-transform: uppercase;
         color: #660094;
         line-height: 1.1;
-        margin-bottom: 2px;
     }
 
     .sidebar-access-title {
-        margin-top: 2px;
+        margin-top: 3px;
         color: #23152F;
         font-size: 13px;
-        font-weight: 900;
-        line-height: 1.2;
-        letter-spacing: -.01em;
+        font-weight: 950;
+        line-height: 1.15;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
     .sidebar-access-note {
-        margin-top: 5px;
+        margin-top: 4px;
         color: #667085;
         font-size: 10.5px;
         font-weight: 700;
-        line-height: 1.42;
+        line-height: 1.35;
     }
 
     .sidebar-access-pill-row {
@@ -1596,7 +1593,7 @@ def inject_professional_sidebar_filter_css():
         color: #008CAA;
         border: 1px solid rgba(0,140,170,.14);
         font-size: 9.5px;
-        font-weight: 900;
+        font-weight: 950;
         line-height: 1;
     }
 
@@ -1613,9 +1610,9 @@ def inject_professional_sidebar_filter_css():
         background: #F9FAFB;
         border: 1px solid #EEF0F4;
         color: #667085;
-        font-size: 10px;
-        line-height: 1.42;
-        font-weight: 700;
+        font-size: 10.2px;
+        line-height: 1.35;
+        font-weight: 650;
     }
 
     .sidebar-access-center {
@@ -1645,7 +1642,6 @@ def inject_professional_sidebar_filter_css():
         border-bottom: 1px solid #F2F4F7;
         font-size: 10.5px;
         color: #667085;
-        line-height: 1.35;
     }
 
     .sidebar-profile-row:last-child {
@@ -1661,25 +1657,6 @@ def inject_professional_sidebar_filter_css():
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-    }
-
-    @media (max-width: 700px) {
-        .sidebar-access-shell {
-            padding: 11px 11px 10px 11px;
-            border-radius: 15px;
-        }
-        .sidebar-access-title {
-            font-size: 12.5px;
-            white-space: normal;
-        }
-        .sidebar-access-note,
-        .sidebar-access-help {
-            font-size: 10px;
-        }
-        .sidebar-profile-row,
-        .sidebar-profile-row strong {
-            font-size: 10px;
-        }
     }
 
     /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
@@ -2057,17 +2034,13 @@ regions_labels = [
     "Americas and the Caribbean",
 ]
 
-# ---------------- SINGLE CONSOLIDATED SIDEBAR FILTER PANEL ----------------
-# All former sidebar filter expanders are merged into one professional panel.
-# This reduces sidebar fragmentation while preserving every existing filter,
-# session key, and downstream filtering behavior.
-with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_filter_panel:
+with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_box:
    
     selected_regions = safe_multiselect(
         "Region",
         regions_labels,
         "selected_regions",
-        container=sidebar_filter_panel,
+        container=geo_filter_box,
     )
 
     filtered_countries = (
@@ -2082,9 +2055,10 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         if not filtered_countries.empty and "alert-country" in filtered_countries.columns
         else [],
         "selected_countries",
-        container=sidebar_filter_panel,
+        container=geo_filter_box,
     )
 
+with st.sidebar.expander("⚠️ Alert classification", expanded=False) as alert_filter_box:
  
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
@@ -2092,7 +2066,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         if not data.empty and "alert-impact" in data.columns
         else [],
         "selected_alert_impacts",
-        container=sidebar_filter_panel,
+        container=alert_filter_box,
     )
 
     selected_alert_types = safe_multiselect(
@@ -2101,9 +2075,11 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         if not data.empty and "alert-type" in data.columns
         else [],
         "selected_alert_types",
-        container=sidebar_filter_panel,
+        container=alert_filter_box,
     )
 
+with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
+  
     principle_options = (
         data["enabling-principle"]
         .dropna()
@@ -2123,16 +2099,18 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         "Enabling principle",
         principle_options,
         "selected_enabling_principle",
-        container=sidebar_filter_panel,
+        container=principle_filter_box,
     )
 
+with st.sidebar.expander("📅 Time period", expanded=False) as time_filter_box:
+  
     selected_years = safe_multiselect(
         "Year",
         sorted(data["year"].dropna().unique())
         if not data.empty and "year" in data.columns
         else [],
         "selected_years",
-        container=sidebar_filter_panel,
+        container=time_filter_box,
     )
 
     if (
@@ -2158,36 +2136,24 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         "Month",
         available_months,
         "selected_months",
-        container=sidebar_filter_panel,
+        container=time_filter_box,
     )
 
-    sidebar_filter_panel.markdown('<div class="sidebar-filter-divider"></div>', unsafe_allow_html=True)
+reset_col1, reset_col2 = st.sidebar.columns([1, 1])
 
-    reset_col1, reset_col2 = sidebar_filter_panel.columns([1, 1])
+with reset_col1:
+    reset_filters = st.button(
+        "🔄 Reset",
+        use_container_width=True,
+        key="reset_sidebar_filters",
+    )
 
-    with reset_col1:
-        reset_filters = st.button(
-            "🔄 Reset",
-            use_container_width=True,
-            key="reset_sidebar_filters",
-        )
-
-    with reset_col2:
-        st.button(
-            "✅ Applied",
-            use_container_width=True,
-            disabled=True,
-            key="filters_applied_note",
-        )
-
-    sidebar_filter_panel.markdown(
-        """
-        <div class="sidebar-filter-footer">
-            <div class="sidebar-filter-footer-title">Filter behavior</div>
-            <div class="sidebar-filter-footer-note">Use the filters to narrow the data by region, country, alert type, enabling principle, and time period if needed</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+with reset_col2:
+    st.button(
+        "✅ Applied",
+        use_container_width=True,
+        disabled=True,
+        key="filters_applied_note",
     )
 
 if reset_filters:
@@ -2207,6 +2173,16 @@ if reset_filters:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
     st.rerun()
+
+st.sidebar.markdown(
+    """
+    <div class="sidebar-filter-footer">
+        <div class="sidebar-filter-footer-title">Filter behavior</div>
+        <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Keep the dataset update status as the final sidebar panel.
 render_sidebar_last_updated_panel()
@@ -2799,7 +2775,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
 
     with c3:
         st.markdown(f"""
-        <div class="negintel-card">
+        <div class="negintel-card">           
                 <div class="negintel-top">
                     <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title"></div></div>
                     <div class="negintel-icon">⛓️</div>
@@ -6483,10 +6459,6 @@ def render_dashboard_plotly_chart(
     """
     target = container if container is not None else st
 
-    if not can_view_dashboard_chart(key):
-        render_chart_access_locked(target, key)
-        return
-
     # Tooltip is disabled by default. For the two existing enabling-principle
     # charts only, keep the info badge inside the Plotly figure title band so
     # it appears together with the chart title rather than as a separate
@@ -6505,96 +6477,6 @@ def render_dashboard_plotly_chart(
 
     fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
-
-
-# ---------------- CHART-LEVEL AUTHORIZATION ----------------
-DASHBOARD_CHART_PERMISSION_MAP = {
-    "tab1_chart1": "view_chart_overview_alert_type",
-    "tab1_chart2": "view_chart_overview_enabling_principles",
-    "tab1_chart3": "view_chart_overview_regions",
-    "tab1_chart4": "view_chart_overview_countries",
-    "tab2_chart1": "view_chart_negative_restrictive_actors",
-    "tab2_chart2": "view_chart_negative_affected_actors",
-    "tab2_chart3": "view_chart_negative_restrictive_mechanisms",
-    "tab2_chart4": "view_chart_negative_event_types",
-    "tab2_chart5": "view_chart_negative_alert_types",
-    "tab2_chart6": "view_chart_negative_enabling_principles",
-    "heatmap_actor_mechanism_pro": "view_chart_heatmap_actor_mechanism",
-    "heatmap_subject_mechanism_pro": "view_chart_heatmap_subject_mechanism",
-    "heatmap_actor_subject_pro": "view_chart_heatmap_actor_subject",
-    "negative_events_analytical_flow_panel_sankey": "view_chart_sankey_flow",
-    "professional_geo_intelligence_map": "view_chart_geospatial_map",
-    "ai_trend_chart": "view_chart_ai_copilot_plots",
-    "copilot_smart_last_plot": "view_chart_ai_copilot_plots",
-    "copilot_plot_builder": "view_chart_ai_copilot_plots",
-}
-
-DASHBOARD_CHART_PERMISSION_LABELS = {
-    "view_chart_overview_alert_type": "Overview alert type distribution chart",
-    "view_chart_overview_enabling_principles": "Overview enabling-principle distribution chart",
-    "view_chart_overview_regions": "Overview regional distribution chart",
-    "view_chart_overview_countries": "Overview country distribution chart",
-    "view_chart_negative_restrictive_actors": "Restrictive actors chart",
-    "view_chart_negative_affected_actors": "Civil society actors affected chart",
-    "view_chart_negative_restrictive_mechanisms": "Restrictive mechanisms chart",
-    "view_chart_negative_event_types": "Negative event types chart",
-    "view_chart_negative_alert_types": "Negative alert types chart",
-    "view_chart_negative_enabling_principles": "Negative enabling-principle chart",
-    "view_chart_heatmap_actor_mechanism": "Actor × mechanism heatmap",
-    "view_chart_heatmap_subject_mechanism": "Affected actor × mechanism heatmap",
-    "view_chart_heatmap_actor_subject": "Actor × affected actor heatmap",
-    "view_chart_sankey_flow": "Analytical Sankey flow chart",
-    "view_chart_geospatial_map": "Geospatial intelligence map",
-    "view_chart_ai_copilot_plots": "AI Copilot generated charts",
-}
-
-
-def get_dashboard_chart_permission(chart_key=None):
-    """Return the admin-controlled permission key for a dashboard chart."""
-    return DASHBOARD_CHART_PERMISSION_MAP.get(str(chart_key or "").strip())
-
-
-def can_view_dashboard_chart(chart_key=None):
-    """Check chart-level authorization. Charts without a mapped key remain visible."""
-    permission = get_dashboard_chart_permission(chart_key)
-    if not permission:
-        return True
-    try:
-        return bool(has_permission(permission))
-    except Exception:
-        return False
-
-
-def render_chart_access_locked(target, chart_key=None):
-    """Render a compact locked-card placeholder for chart-level authorization."""
-    permission = get_dashboard_chart_permission(chart_key)
-    label = DASHBOARD_CHART_PERMISSION_LABELS.get(permission, "This chart")
-    target.markdown(f"""
-    <div style="
-        min-height: 260px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px dashed #D0D5DD;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #F9FAFB 100%);
-        box-shadow: 0 8px 20px rgba(16,24,40,.04);
-        font-family: Arial, sans-serif;
-        padding: 18px;
-        margin-bottom: 12px;
-    ">
-        <div style="max-width: 420px; text-align: center;">
-            <div style="font-size: 22px; margin-bottom: 8px;">🔐</div>
-            <div style="font-size: 13px; font-weight: 950; color: #23152F; line-height: 1.25;">
-                {label} requires authorization
-            </div>
-            <div style="font-size: 10.8px; color: #667085; line-height: 1.4; margin-top: 6px;">
-                Ask an administrator to enable this chart from the User Privilege Center.
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
@@ -12405,10 +12287,7 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                if has_permission("view_chart_ai_copilot_plots"):
-                    st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
-                else:
-                    render_chart_access_locked(st, "copilot_plot_builder")
+                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
                     title="AI graph interpretation",
