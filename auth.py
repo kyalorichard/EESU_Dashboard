@@ -675,9 +675,11 @@ def _render_premium_auth_page():
                 )
 
             with top_b:
-               if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
+                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
                     _back_to_dashboard()
 
+            st.markdown(f'<div class="form-title">{mode_title}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="form-subtitle">{mode_subtitle}</div>', unsafe_allow_html=True)
 
             if mode == "Login":
                 st.markdown(
