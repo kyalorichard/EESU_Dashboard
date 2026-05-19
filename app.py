@@ -13395,8 +13395,14 @@ def _pb_config_json(config):
 
 
 def render_ai_assistant_panel(df):
-    """Final lightweight AI Copilot: simple ChatGPT-style assistant with compact tools."""
-    st.session_state.setdefault("copilot_open", True)
+    """Final lightweight AI Copilot: simple ChatGPT-style assistant with compact tools.
+
+    Performance fix:
+    - The Copilot hide/open control is client-side only.
+    - Clicking Hide/Open no longer triggers st.rerun(), so the dashboard does not
+      rebuild charts, maps, tables, permissions, and AI state just to hide the panel.
+    - Python/OpenAI work still only runs when the user submits a prompt or uses a tool.
+    """
     _v4_init_chat_memory_state()
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
@@ -13405,6 +13411,81 @@ def render_ai_assistant_panel(df):
     })
     st.session_state.setdefault("ai_last_plot", None)
     st.session_state.setdefault("ai_last_streamed_answer", "")
+
+    components.html("""
+    <script>
+    (function() {
+        const doc = window.parent.document;
+        const styleId = "eusee-ai-client-toggle-style";
+        const btnId = "eusee-ai-open-btn";
+
+        if (!doc.getElementById(styleId)) {
+            const style = doc.createElement("style");
+            style.id = styleId;
+            style.innerHTML = `
+                body.eusee-ai-hidden .st-key-eusee_ai_right_sidebar {
+                    display: none !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                }
+                #eusee-ai-open-btn {
+                    position: fixed !important;
+                    right: 18px !important;
+                    bottom: 92px !important;
+                    z-index: 2147482500 !important;
+                    display: none !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 8px !important;
+                    min-height: 40px !important;
+                    padding: 10px 15px !important;
+                    border: 0 !important;
+                    border-radius: 999px !important;
+                    background: #660094 !important;
+                    color: #FFFFFF !important;
+                    font-family: Inter, Segoe UI, Arial, sans-serif !important;
+                    font-size: 12px !important;
+                    font-weight: 900 !important;
+                    cursor: pointer !important;
+                    box-shadow: 0 14px 34px rgba(16,24,40,.22) !important;
+                }
+                body.eusee-ai-hidden #eusee-ai-open-btn {
+                    display: inline-flex !important;
+                }
+                #eusee-ai-open-btn:hover {
+                    transform: translateY(-1px) !important;
+                    box-shadow: 0 18px 40px rgba(16,24,40,.26) !important;
+                }
+            `;
+            doc.head.appendChild(style);
+        }
+
+        let openBtn = doc.getElementById(btnId);
+        if (!openBtn) {
+            openBtn = doc.createElement("button");
+            openBtn.id = btnId;
+            openBtn.type = "button";
+            openBtn.innerHTML = "AI Copilot";
+            openBtn.onclick = function(event) {
+                event.preventDefault();
+                doc.body.classList.remove("eusee-ai-hidden");
+            };
+            doc.body.appendChild(openBtn);
+        }
+
+        if (!window.__euseeAiClientToggleBound) {
+            window.__euseeAiClientToggleBound = true;
+            doc.addEventListener("click", function(event) {
+                const target = event.target;
+                if (target && target.closest && target.closest("[data-eusee-ai-hide='true']")) {
+                    event.preventDefault();
+                    doc.body.classList.add("eusee-ai-hidden");
+                }
+            }, true);
+        }
+    })();
+    </script>
+    """, height=0)
 
     st.markdown("""
     <style>
@@ -13507,6 +13588,24 @@ def render_ai_assistant_panel(df):
         font-weight: 850 !important;
         min-height: 36px !important;
     }
+    .ai-lite-hide-button {
+        width: 100%;
+        min-height: 36px;
+        border-radius: 12px;
+        border: 1px solid #E6E8EF;
+        background: #FFFFFF;
+        color: #344054;
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+        font-size: 11.5px;
+        font-weight: 850;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05);
+    }
+    .ai-lite-hide-button:hover {
+        background: #F4EAF8;
+        color: #660094;
+        border-color: #E7D4F1;
+    }
     .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] {
         border-radius: 15px !important;
         box-shadow: none !important;
@@ -13529,14 +13628,6 @@ def render_ai_assistant_panel(df):
     </style>
     """, unsafe_allow_html=True)
 
-    if not st.session_state.copilot_open:
-        with st.container(key="eusee_ai_right_sidebar_collapsed"):
-            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:12px;line-height:1.15;'>🤖<br>AI</div>", unsafe_allow_html=True)
-            if st.button("Open", key="ai_lite_open", use_container_width=True):
-                st.session_state.copilot_open = True
-                st.rerun()
-        return
-
     status = _ai_openai_status()
     mode = "OpenAI" if status.get("configured") and status.get("package_ready") else "Local"
     records = len(df) if df is not None else 0
@@ -13557,9 +13648,10 @@ def render_ai_assistant_panel(df):
             </div>
             """, unsafe_allow_html=True)
         with h2:
-            if st.button("Hide", key="ai_lite_hide", use_container_width=True):
-                st.session_state.copilot_open = False
-                st.rerun()
+            st.markdown(
+                "<button type='button' class='ai-lite-hide-button' data-eusee-ai-hide='true'>Hide</button>",
+                unsafe_allow_html=True,
+            )
 
         st.markdown(
             f"<div class='ai-lite-status'><span>{mode} mode</span><span>{records:,} records</span><span>{countries:,} countries</span></div>",
