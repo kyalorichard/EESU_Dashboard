@@ -10723,7 +10723,7 @@ def _copilot_queue_answer(question, df):
             "plot_data": plot_df,
             "config": session_config,
         }
-        _ai_append_message("assistant", f"Generated and interpreted {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}. Open Smart output to review the graph interpretation.")
+        _ai_append_message("assistant", f"Generated and interpreted {config.get('chart_type')} for {config.get('x_col')} with Top {config.get('top_n')}. The chart and interpretation are shown below in this chat.")
         return
 
     answer = ai_try_llm_response(q, df)
@@ -12547,19 +12547,28 @@ def render_ai_assistant_panel(df):
             _copilot_queue_answer(user_q, df)
             st.rerun()
 
+        # ChatGPT-style merged output: generated charts, interpretations, briefs, and selected-chart insights
+        # appear directly inside the conversation area instead of a separate Smart Output panel.
         smart_output = st.session_state.get("ai_smart_output", {}) or {}
         if smart_output and smart_output.get("type") not in [None, "welcome", "note"]:
-            with st.expander("Latest output", expanded=False):
-                if smart_output.get("type") == "plot_v2" and smart_output.get("fig") is not None:
-                    st.plotly_chart(apply_responsive_plotly_layout(smart_output["fig"]), use_container_width=True, key="ai_chatgpt_latest_plot")
-                    render_eusee_chart_interpretation_card(
-                        smart_output.get("interpretation") or smart_output.get("content", ""),
-                        title="AI graph interpretation",
-                        expanded=True,
-                    )
-                    plot_data = smart_output.get("plot_data")
-                    cfg = smart_output.get("config", {}) or {}
-                    if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
+            st.markdown("<div class='ai-chatgpt-msg-row assistant'><div class='ai-chatgpt-bubble' style='max-width:96%;width:96%;'>", unsafe_allow_html=True)
+            out_title = str(smart_output.get("title") or "Latest output")
+            st.markdown(f"<b>{_render_chat_content_html(out_title)}</b>", unsafe_allow_html=True)
+            if smart_output.get("type") == "plot_v2" and smart_output.get("fig") is not None:
+                st.plotly_chart(
+                    apply_responsive_plotly_layout(smart_output["fig"]),
+                    use_container_width=True,
+                    key="ai_chatgpt_inline_plot",
+                )
+                render_eusee_chart_interpretation_card(
+                    smart_output.get("interpretation") or smart_output.get("content", ""),
+                    title="AI graph interpretation",
+                    expanded=True,
+                )
+                plot_data = smart_output.get("plot_data")
+                cfg = smart_output.get("config", {}) or {}
+                if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
+                    with st.expander("Plot quality and export", expanded=False):
                         checks = _v3_plot_quality_checks(
                             plot_data,
                             chart_type=cfg.get("chart_type"),
@@ -12573,11 +12582,12 @@ def render_ai_assistant_panel(df):
                             caption_text=str(smart_output.get("content", "")),
                             base_name="eusee_ai_copilot_plot",
                         )
-                else:
-                    st.markdown(
-                        f"<div class='ai-chatgpt-output'>{_render_chat_content_html(str(smart_output.get('content', ''))[:5000])}</div>",
-                        unsafe_allow_html=True,
-                    )
+            else:
+                st.markdown(
+                    f"<div class='ai-chatgpt-output'>{_render_chat_content_html(str(smart_output.get('content', ''))[:7000])}</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div></div>", unsafe_allow_html=True)
 
         with st.expander("Advanced tools", expanded=False):
             st.caption("These tools preserve the full chatbot functionality while keeping the default interface simple.")
@@ -12592,6 +12602,153 @@ def render_ai_assistant_panel(df):
                     st.session_state.ai_smart_output = {"type": "brief", "title": "Policy brief", "content": brief}
                     _ai_append_message("assistant", brief)
                     st.rerun()
+
+            with st.expander("Advanced plot builder", expanded=False):
+                st.caption("Build a custom chart from the active filtered data without leaving the ChatGPT-like Copilot view.")
+                dims = _v2_safe_get_dims(df)
+                if not dims:
+                    st.info("No suitable plotting dimensions are available under the current filters.")
+                else:
+                    label_to_col = {label: col for label, col in dims}
+                    labels = list(label_to_col.keys())
+
+                    pb1, pb2 = st.columns(2)
+                    with pb1:
+                        quick_preset = st.selectbox(
+                            "Quick preset",
+                            ["None", "Top countries", "Actor analysis", "Mechanism breakdown", "Trend analysis", "Actor × mechanism", "Country × impact"],
+                            key="ai_chatgpt_plot_quick_preset",
+                        )
+                    with pb2:
+                        mode = st.radio(
+                            "Mode",
+                            ["Single variable", "Compare variables"],
+                            horizontal=True,
+                            key="ai_chatgpt_plot_mode",
+                        )
+
+                    preset_cfg = _v3_apply_quick_preset(quick_preset, labels, label_to_col)
+
+                    if mode == "Compare variables":
+                        cx1, cx2 = st.columns(2)
+                        with cx1:
+                            preset_x_col = preset_cfg.get("x_col")
+                            preset_x_label = next((lab for lab, col in label_to_col.items() if col == preset_x_col), labels[0])
+                            x_label = st.selectbox("Primary variable", labels, index=labels.index(preset_x_label), key="ai_chatgpt_plot_x")
+                        with cx2:
+                            default_y_idx = 1 if len(labels) > 1 else 0
+                            preset_y_col = preset_cfg.get("y_col")
+                            preset_y_label = next((lab for lab, col in label_to_col.items() if col == preset_y_col), labels[default_y_idx])
+                            y_label = st.selectbox("Compare with", labels, index=labels.index(preset_y_label), key="ai_chatgpt_plot_y")
+
+                        compare_chart_types = ["Heatmap", "Grouped bar", "Stacked bar", "Horizontal bar", "Treemap", "Sunburst", "Bubble", "Scatter"]
+                        recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[x_label], label_to_col[y_label], compare_mode=True)
+                        default_chart = preset_cfg.get("chart_type") if preset_cfg.get("chart_type") in compare_chart_types else recommended_chart
+                        chart_type = st.selectbox(
+                            "Chart type",
+                            compare_chart_types,
+                            index=compare_chart_types.index(default_chart) if default_chart in compare_chart_types else 0,
+                            key="ai_chatgpt_plot_compare_chart",
+                        )
+                        normalize = st.selectbox("Metric", ["Count", "Share %", "Row %", "Column %"], key="ai_chatgpt_plot_normalize")
+                        top_n = st.slider("Top primary categories", 5, 30, int(preset_cfg.get("top_n", 10)), key="ai_chatgpt_plot_top_n_compare")
+                        top_y = st.slider("Top comparison categories", 3, 20, 8, key="ai_chatgpt_plot_top_y_compare")
+                        st.caption(f"Recommended: {recommended_chart}. {recommended_note}")
+
+                        if st.button("Build plot", key="ai_chatgpt_build_compare_plot", use_container_width=True):
+                            if label_to_col[x_label] == label_to_col[y_label]:
+                                st.warning("Choose two different variables for comparison mode.")
+                            else:
+                                title = f"{x_label} by {y_label}"
+                                config = {
+                                    "filtered_df": df,
+                                    "x_col": label_to_col[x_label],
+                                    "group_col": label_to_col[y_label],
+                                    "chart_type": chart_type,
+                                    "top_n": top_n,
+                                    "top_y": top_y,
+                                    "normalize": normalize,
+                                    "title": title,
+                                    "compare_mode": True,
+                                }
+                                fig, plot_df = _v3_make_compare_plot(
+                                    df,
+                                    x_col=config["x_col"],
+                                    y_col=config["group_col"],
+                                    chart_type=chart_type,
+                                    top_n=top_n,
+                                    top_y=top_y,
+                                    normalize=normalize,
+                                    title=title,
+                                )
+                                insight = _v3_plot_insight(plot_df, config["x_col"], config["group_col"], metric_label=normalize, comparison_mode="Compare variables")
+                                session_config = {k: v for k, v in config.items() if k != "filtered_df"}
+                                st.session_state.ai_smart_output = {
+                                    "type": "plot_v2",
+                                    "title": title,
+                                    "content": insight,
+                                    "interpretation": insight,
+                                    "fig": fig,
+                                    "plot_data": plot_df,
+                                    "config": session_config,
+                                }
+                                _ai_append_message("assistant", f"Built a {chart_type} for {x_label} by {y_label}. The plot is shown below in this chat.")
+                                st.rerun()
+                    else:
+                        pbx1, pbx2 = st.columns(2)
+                        with pbx1:
+                            preset_x_col = preset_cfg.get("x_col")
+                            preset_x_label = next((lab for lab, col in label_to_col.items() if col == preset_x_col), labels[0])
+                            x_label = st.selectbox("Dimension", labels, index=labels.index(preset_x_label), key="ai_chatgpt_plot_single_x")
+                        with pbx2:
+                            group_options = ["None"] + [lab for lab in labels if lab != x_label]
+                            group_label = st.selectbox("Group / color by", group_options, key="ai_chatgpt_plot_single_group")
+
+                        group_col = None if group_label == "None" else label_to_col[group_label]
+                        recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[x_label], None, compare_mode=False, group_col=group_col)
+                        chart_types = AI_COPILOT_V2_CHART_TYPES
+                        chart_type = st.selectbox(
+                            "Chart type",
+                            chart_types,
+                            index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0,
+                            key="ai_chatgpt_plot_single_chart",
+                        )
+                        top_n = st.slider("Top categories", 5, 30, int(preset_cfg.get("top_n", 10)), key="ai_chatgpt_plot_top_n_single")
+                        metric_mode = st.selectbox("Metric", ["Count", "Share %", "Cumulative %"], key="ai_chatgpt_plot_metric_single")
+                        title = st.text_input("Chart title", value=f"{x_label} distribution", key="ai_chatgpt_plot_title_single")
+                        st.caption(f"Recommended: {recommended_chart}. {recommended_note}")
+
+                        if st.button("Build plot", key="ai_chatgpt_build_single_plot", use_container_width=True):
+                            fig, plot_df = _v3_make_single_plot(
+                                df,
+                                x_col=label_to_col[x_label],
+                                chart_type=chart_type,
+                                group_col=group_col,
+                                top_n=top_n,
+                                title=title,
+                                metric_mode=metric_mode,
+                            )
+                            insight = _v3_plot_insight(plot_df, label_to_col[x_label], group_col, metric_label=metric_mode, comparison_mode="Single variable")
+                            config = {
+                                "x_col": label_to_col[x_label],
+                                "group_col": group_col,
+                                "chart_type": chart_type,
+                                "top_n": top_n,
+                                "metric_mode": metric_mode,
+                                "title": title,
+                                "compare_mode": False,
+                            }
+                            st.session_state.ai_smart_output = {
+                                "type": "plot_v2",
+                                "title": title,
+                                "content": insight,
+                                "interpretation": insight,
+                                "fig": fig,
+                                "plot_data": plot_df,
+                                "config": config,
+                            }
+                            _ai_append_message("assistant", f"Built a {chart_type} for {x_label}. The plot is shown below in this chat.")
+                            st.rerun()
 
             with st.expander("Explain a dashboard chart or map", expanded=False):
                 render_chatbot_dashboard_chart_explainer(df)
