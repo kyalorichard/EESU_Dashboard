@@ -237,7 +237,7 @@ def render_classic_filter_header():
     <div class="classic-filter-header">
         <div class="classic-filter-eyebrow">Dashboard controls</div>
         <div class="classic-filter-title">🌍 Global Filters</div>
-        <div class="classic-filter-note">Refine the analytical view by geography, alert characteristics, enabling principle, and time period.</div>
+        <div class="classic-filter-note">Use the filters to narrow the data by region, country, alert type, enabling principle, and time period if needed.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1992,7 +1992,7 @@ def render_sidebar_access_settings_profile():
         st.caption(
             "Your dashboard permissions are controlled by your approved EUSEE role."
             if signed_in
-            else "Sign in or register to request partner access."
+            else "“Sign in to access advanced features and analyses available to EUSEE partners."
         )
 
            
@@ -2565,7 +2565,6 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                 </div>
                 <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
             </div>
-            <div class="eusee-kpi-note">Filtered records after selected region, country, year and alert filters</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2600,14 +2599,13 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                     </div>
                     <div class="eusee-breakdown-row" title="Context to watch alerts: {context:,} records, {context_pct}% of filtered alerts">
                         <span class="eusee-dot" style="background:#008CAA;"></span>
-                        <span class="eusee-breakdown-label">Context</span>
+                        <span class="eusee-breakdown-label">Context to watch</span>
                         <span class="eusee-breakdown-pct">{context_pct}%</span>
                         <span class="eusee-breakdown-count">{context:,}</span>
                         <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{context_pct}%; --bar-color:#008CAA;"></div></div>
                     </div>
                 </div>
             </div>
-            <div class="eusee-kpi-note">Filtered composition by alert impact</div>
         </div>
 
         """, unsafe_allow_html=True)
@@ -2784,9 +2782,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div class="negintel-icon">⛓️</div>
                 </div>
                 <div class="negintel-row-list">
-                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label"><strong> Restrictive Actor:</strong> {top_actor}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label"><strong>Restrictive Mechanism:</strong> {top_mechanism}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label"><strong>Civil society actor affected:</strong> {top_subject}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+                    
                 </div>
             </div>
         </div>
@@ -3379,7 +3375,7 @@ def render_heatmaps(df, top_n=5):
         render_dashboard_plotly_chart(fig2, plot_df=subject_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Subject of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro")
         st.markdown('<div class="chart-card-caption">Shows which mechanisms most frequently affect specific affected civil society groups.</div>', unsafe_allow_html=True)
     with c3:
-        fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting<br>civil society?", x_label="Affected group", y_label="Actor")
+        fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting<br>civil society?", x_label="Affected civil society group", y_label="Restrictive actor")
         fig3.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig3, plot_df=actor_subject_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Subject of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_subject_pro")
         st.markdown('<div class="chart-card-caption">Shows which actors are most frequently linked to affected civil society groups.</div>', unsafe_allow_html=True)
@@ -3519,7 +3515,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
 
     fig.update_layout(
         title=dict(
-            text="Flow of Negative Events: Actor → Mechanism → Affected Group",
+            text="Pathway: Restrictive actors → Restrective mechanism → Affected civil society group",
             x=0.02,
             xanchor="left",
             font=dict(size=15, family=CHART_FONT, color=CHART_TITLE_COLOR)
@@ -3625,8 +3621,8 @@ def render_analytical_flow_panel(df):
     render_heatmaps(df, top_n=top_n)
 
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-label">Integrated flow diagram</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Follow the reported pathway from restrictive actors to mechanisms and then to affected civil society groups. Wider flows represent more linked alerts under the current filters.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-label">Flow diagram</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-note">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups. Wider lines show where more alerts connect restrictive actors, restrictive mechanisms, and affected civil society groups under the selected filters.</div>', unsafe_allow_html=True)
     render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
 
 # ---------------- TOP-N BAR HELPER ----------------
