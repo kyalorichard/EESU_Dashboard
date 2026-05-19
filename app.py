@@ -688,7 +688,58 @@ inject_final_responsive_overrides()
 
 
 # ---------------- ALL-TABS PROFESSIONAL TYPOGRAPHY OVERRIDES ----------------
-def inject_all_tabs_typography_css():
+def inject_all_tabs_typography_css()
+
+
+# ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
+@st.cache_data(show_spinner=False, ttl=120)
+def build_compact_chatbot_context(df):
+    """Create a compact reusable context for the AI assistant."""
+    if df is None or len(df) == 0:
+        return {}
+
+    context = {
+        "rows": int(len(df)),
+        "countries": sorted(df['alert-country'].dropna().astype(str).unique().tolist())[:25]
+            if 'alert-country' in df.columns else [],
+        "alert_types": (
+            df['alert-impact'].value_counts().head(10).to_dict()
+            if 'alert-impact' in df.columns else {}
+        ),
+        "top_mechanisms": (
+            df['restrictive mechanism'].value_counts().head(10).to_dict()
+            if 'restrictive mechanism' in df.columns else {}
+        ),
+        "top_actors": (
+            df['restrictive actor'].value_counts().head(10).to_dict()
+            if 'restrictive actor' in df.columns else {}
+        ),
+        "columns": list(df.columns)[:50]
+    }
+    return context
+
+def detect_chat_intent(prompt: str):
+    p = str(prompt).lower()
+
+    if any(k in p for k in ["plot", "chart", "graph", "visualize"]):
+        return "plot"
+
+    if any(k in p for k in ["country", "countries", "region", "map"]):
+        return "country"
+
+    if any(k in p for k in ["trend", "increase", "decrease", "pattern"]):
+        return "trend"
+
+    if any(k in p for k in ["summary", "overview", "summarize"]):
+        return "summary"
+
+    return "general"
+
+# Keep the chatbot memory lightweight.
+st.session_state.setdefault("chat_messages", [])
+if len(st.session_state["chat_messages"]) > 6:
+    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
+:
     """Central typography/color harmonization across every dashboard tab.
 
     Scope: Overview, Negative Alert Analysis, Visualization Map, User Manual,
@@ -1099,6 +1150,57 @@ def inject_all_tabs_typography_css():
 
 
 inject_all_tabs_typography_css()
+
+
+# ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
+@st.cache_data(show_spinner=False, ttl=120)
+def build_compact_chatbot_context(df):
+    """Create a compact reusable context for the AI assistant."""
+    if df is None or len(df) == 0:
+        return {}
+
+    context = {
+        "rows": int(len(df)),
+        "countries": sorted(df['alert-country'].dropna().astype(str).unique().tolist())[:25]
+            if 'alert-country' in df.columns else [],
+        "alert_types": (
+            df['alert-impact'].value_counts().head(10).to_dict()
+            if 'alert-impact' in df.columns else {}
+        ),
+        "top_mechanisms": (
+            df['restrictive mechanism'].value_counts().head(10).to_dict()
+            if 'restrictive mechanism' in df.columns else {}
+        ),
+        "top_actors": (
+            df['restrictive actor'].value_counts().head(10).to_dict()
+            if 'restrictive actor' in df.columns else {}
+        ),
+        "columns": list(df.columns)[:50]
+    }
+    return context
+
+def detect_chat_intent(prompt: str):
+    p = str(prompt).lower()
+
+    if any(k in p for k in ["plot", "chart", "graph", "visualize"]):
+        return "plot"
+
+    if any(k in p for k in ["country", "countries", "region", "map"]):
+        return "country"
+
+    if any(k in p for k in ["trend", "increase", "decrease", "pattern"]):
+        return "trend"
+
+    if any(k in p for k in ["summary", "overview", "summarize"]):
+        return "summary"
+
+    return "general"
+
+# Keep the chatbot memory lightweight.
+st.session_state.setdefault("chat_messages", [])
+if len(st.session_state["chat_messages"]) > 6:
+    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
+
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
 def can_view_monitored_countries_value() -> bool:
@@ -13035,7 +13137,6 @@ def render_ai_assistant_panel(df):
             st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
             tool = st.radio(
                 "Tool",
-                ["Quick plot", "Explain existing chart", "Exports / settings"],
                 horizontal=True,
                 key="ai_lite_tool_choice",
             )
@@ -13060,7 +13161,6 @@ def render_ai_assistant_panel(df):
                         _copilot_queue_answer(plot_prompt, df)
                         st.rerun()
 
-            elif tool == "Explain existing chart":
                 render_chatbot_dashboard_chart_explainer(df)
 
             else:
@@ -13087,7 +13187,6 @@ def render_ai_assistant_panel(df):
                 )
                 if df is not None and not df.empty and has_permission("download_data"):
                     st.download_button(
-                        "Download filtered data",
                         data=df.to_csv(index=False).encode("utf-8"),
                         file_name="eusee_filtered_dashboard_data.csv",
                         mime="text/csv",
@@ -13128,3 +13227,17 @@ components.html(f"""
 </div>
 """, height=200)
 st.markdown("<div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
+
+
+# Suggested prompts for better UX
+SUGGESTED_PROMPTS = [
+    "Summarize the current filtered alerts",
+    "Which countries need the most attention?",
+    "What are the top restrictive mechanisms?",
+    "Show trends across regions",
+    "Create a chart by alert type"
+]
+
+
+# Chatbot should render only after explicit user expansion/opening
+# to reduce dashboard initial render load.
