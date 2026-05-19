@@ -674,9 +674,9 @@ def _render_premium_auth_page():
                     unsafe_allow_html=True,
                 )
 
-            with top_b:
-                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
-                    _back_to_dashboard()
+            # with top_b:
+               # if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
+                   # _back_to_dashboard()
 
 
             if mode == "Login":
