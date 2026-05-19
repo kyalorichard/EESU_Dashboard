@@ -2895,7 +2895,82 @@ def inject_sidebar_professional_typography_overrides():
     </style>
     """, unsafe_allow_html=True)
 
+
+
+# ---------------- PRESERVE COLLAPSIBLE / EXPANDER ICON RENDERING ----------------
+def inject_preserve_collapsible_icons_css():
+    """Final visual safeguard for Streamlit collapse/expander icons.
+
+    Keeps the global typography system active while preventing text/font rules
+    from replacing native Material/Streamlit icons inside collapsible panels.
+    This is presentation-only and does not change widget keys, callbacks,
+    permissions, filters, chart logic, or tab content.
+    """
+    st.markdown("""
+    <style>
+    /* Do not let dashboard typography rules turn native expander icons into text. */
+    div[data-testid="stExpander"] summary svg,
+    div[data-testid="stExpander"] summary svg *,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg * {
+        font-family: initial !important;
+        color: currentColor !important;
+        fill: currentColor !important;
+        stroke: currentColor !important;
+        width: 1em !important;
+        height: 1em !important;
+        min-width: 1em !important;
+        flex-shrink: 0 !important;
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    /* Streamlit Material icon spans must keep the Material font, not the dashboard text font. */
+    [data-testid="stIconMaterial"],
+    [data-testid="stIconMaterial"] span,
+    [data-testid="stIconMaterial"] div,
+    span[data-testid="stIconMaterial"],
+    section[data-testid="stSidebar"] [data-testid="stIconMaterial"],
+    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] span,
+    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] div {
+        font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons" !important;
+        font-weight: normal !important;
+        font-style: normal !important;
+        font-size: 20px !important;
+        line-height: 1 !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+        white-space: nowrap !important;
+        word-wrap: normal !important;
+        direction: ltr !important;
+        -webkit-font-feature-settings: "liga" !important;
+        -webkit-font-smoothing: antialiased !important;
+        font-feature-settings: "liga" !important;
+        color: inherit !important;
+    }
+
+    /* Keep only the expander label text styled; leave the icon container untouched. */
+    div[data-testid="stExpander"] summary p,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
+        font-size: 13px !important;
+        font-weight: 850 !important;
+        color: #23152F !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+        font-size: 12.5px !important;
+        font-weight: 750 !important;
+        color: #1D2939 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 inject_sidebar_professional_typography_overrides()
+inject_preserve_collapsible_icons_css()
 
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
