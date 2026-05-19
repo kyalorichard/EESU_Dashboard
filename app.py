@@ -31,6 +31,8 @@ except Exception:
     def get_current_email():
         return ""
     def has_permission(permission):
+        # Fallback used only when authz.py/admin_page.py are unavailable.
+        # Keep it permissive for local debugging, while deployed authz.py remains source of truth.
         return permission in [
             "view_dashboard",
             "view_overview",
@@ -40,7 +42,25 @@ except Exception:
             "view_negative_alerts",
             "view_analytical_flow_panel",
             "view_data_table",
+            "download_data",
+            "use_ai_copilot",
             "view_user_manual",
+            "view_chart_overview_alert_type",
+            "view_chart_overview_enabling_principles",
+            "view_chart_overview_regions",
+            "view_chart_overview_countries",
+            "view_chart_negative_restrictive_actors",
+            "view_chart_negative_affected_actors",
+            "view_chart_negative_restrictive_mechanisms",
+            "view_chart_negative_event_types",
+            "view_chart_negative_alert_types",
+            "view_chart_negative_enabling_principles",
+            "view_chart_heatmap_actor_mechanism",
+            "view_chart_heatmap_subject_mechanism",
+            "view_chart_heatmap_actor_subject",
+            "view_chart_sankey_flow",
+            "view_chart_geospatial_map",
+            "view_chart_ai_copilot_plots",
         ]
     def apply_data_scope(df):
         return df
@@ -2578,6 +2598,9 @@ if is_authenticated() and admin_is_admin() and st.session_state.get("eusee_sideb
     render_admin_page(data=data)
     st.stop()
 
+if not has_permission("view_dashboard"):
+    render_access_locked("Dashboard", "view_dashboard permission")
+    st.stop()
 
 
 # ---------------- TAB 2: Negative Events ----------------
@@ -3734,17 +3757,17 @@ def render_heatmaps(df, top_n=5):
     with c1:
         fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used<br>by restrictive actors?", x_label="Restrictive Mechanism", y_label="Restrictive Actor")
         fig1.update_traces(zmin=0, zmax=zmax)
-        render_dashboard_plotly_chart(fig1, plot_df=actor_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro")
+        render_dashboard_plotly_chart(fig1, plot_df=actor_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro", permission_key="view_chart_heatmap_actor_mechanism", permission_label="Actor × mechanism heatmap")
         st.markdown('<div class="chart-card-caption">Shows which restrictive actors are most associated with each restrictive mechanism.</div>', unsafe_allow_html=True)
     with c2:
         fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms<br>affecting civil society actors?", x_label="Restrictive Mechanism", y_label="Affected civil society group")
         fig2.update_traces(zmin=0, zmax=zmax)
-        render_dashboard_plotly_chart(fig2, plot_df=subject_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Subject of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro")
+        render_dashboard_plotly_chart(fig2, plot_df=subject_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Subject of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro", permission_key="view_chart_heatmap_subject_mechanism", permission_label="Affected actor × mechanism heatmap")
         st.markdown('<div class="chart-card-caption">Shows which mechanisms most frequently affect specific affected civil society groups.</div>', unsafe_allow_html=True)
     with c3:
         fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting<br>civil society?", x_label="Affected civil society group", y_label="Restrictive actor")
         fig3.update_traces(zmin=0, zmax=zmax)
-        render_dashboard_plotly_chart(fig3, plot_df=actor_subject_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Subject of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_subject_pro")
+        render_dashboard_plotly_chart(fig3, plot_df=actor_subject_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Subject of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_subject_pro", permission_key="view_chart_heatmap_actor_subject", permission_label="Actor × affected actor heatmap")
         st.markdown('<div class="chart-card-caption">Shows which actors are most frequently linked to affected civil society groups.</div>', unsafe_allow_html=True)
 
 
@@ -3990,7 +4013,7 @@ def render_analytical_flow_panel(df):
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="flow-section-label">Flow diagram</div>', unsafe_allow_html=True)
     st.markdown('<div class="flow-section-note">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups. <br> Wider lines show where more alerts connect restrictive actors, restrictive mechanisms, and affected civil society groups under the selected filters.</div>', unsafe_allow_html=True)
-    render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
+    render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey", permission_key="view_chart_sankey_flow", permission_label="Analytical Sankey flow")
 
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
@@ -4444,7 +4467,7 @@ def render_ai_trend_chart(df):
         font=dict(size=10),
         legend=dict(orientation="h", y=-0.2),
     )
-    render_dashboard_plotly_chart(fig, plot_df=trend, visual_type="trend line chart", x_col="month", group_col=None, dashboard_df=df, key="ai_trend_chart", expanded=False)
+    render_dashboard_plotly_chart(fig, plot_df=trend, visual_type="trend line chart", x_col="month", group_col=None, dashboard_df=df, key="ai_trend_chart", expanded=False, permission_key="view_chart_ai_copilot_plots", permission_label="AI Copilot trend chart")
 
 
 
@@ -5474,6 +5497,45 @@ def render_access_locked(section_title: str, required_level: str = "logged-in us
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+
+def can_render_feature(permission_key: str) -> bool:
+    """Safe wrapper around admin-configured permissions. Admins are allowed by authz.has_permission."""
+    try:
+        return bool(has_permission(permission_key))
+    except Exception:
+        return False
+
+
+def render_permission_locked_card(section_title: str, permission_key: str, container=None):
+    """Compact locked-state card used inside chart containers and feature panels."""
+    target = container if container is not None else st
+    current_role = get_current_role()
+    target.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+        border: 1px dashed rgba(102,0,148,.24);
+        border-radius: 16px;
+        padding: 16px 18px;
+        margin: 6px 0 14px 0;
+        font-family: Arial, sans-serif;
+        box-shadow: 0 8px 18px rgba(16,24,40,.045);
+    ">
+        <div style="font-size:10px;font-weight:950;color:#660094;letter-spacing:.12em;text-transform:uppercase;">Restricted feature</div>
+        <div style="font-size:15px;font-weight:950;color:#23152F;margin-top:5px;">🔐 {section_title}</div>
+        <div style="font-size:11px;color:#667085;line-height:1.4;margin-top:5px;">
+            Current role: <strong>{current_role}</strong>. Required permission: <code>{permission_key}</code>.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
+    """Render any chart/widget only when its admin-configured permission is enabled."""
+    if can_render_feature(permission_key):
+        return render_fn()
+    render_permission_locked_card(section_title, permission_key, container=container)
+    return None
 
 # ---------------- TABS ----------------
 tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
@@ -6816,6 +6878,8 @@ def render_dashboard_plotly_chart(
     chart_info=None,
     show_title_tooltip=False,
     chart_width_px=620,
+    permission_key=None,
+    permission_label=None,
 ):
     """Render dashboard Plotly visuals without adding automatic tooltips.
 
@@ -6824,6 +6888,10 @@ def render_dashboard_plotly_chart(
     where only the two enabling-principle charts carry explanatory notes.
     """
     target = container if container is not None else st
+
+    if permission_key and not can_render_feature(permission_key):
+        render_permission_locked_card(permission_label or title or visual_type.title(), permission_key, container=target)
+        return None
 
     # Tooltip is disabled by default. For the two existing enabling-principle
     # charts only, keep the info badge inside the Plotly figure title band so
@@ -6862,7 +6930,7 @@ with tab_overview:
         r2c1,r2c2 = st.columns(2)
 
 
-        render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1)
+        render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1, permission_key="view_chart_overview_alert_type", permission_label="Overview alert type distribution")
 
         fig12 = create_h_stacked_bar(
             a2,
@@ -6894,13 +6962,15 @@ with tab_overview:
             container=r1c2,
             chart_info=enabling_principle_note,
             show_title_tooltip=True,
+            permission_key="view_chart_overview_enabling_principles",
+            permission_label="Overview enabling-principle distribution",
         )
   
         #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
         #if is_privileged():
-        render_dashboard_plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False), plot_df=a3, visual_type="stacked bar chart", x_col="region", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart3", container=r2c1)
-        render_dashboard_plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False), plot_df=a4, visual_type="stacked bar chart", x_col="alert-country", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart4", container=r2c2)
+        render_dashboard_plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False), plot_df=a3, visual_type="stacked bar chart", x_col="region", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart3", container=r2c1, permission_key="view_chart_overview_regions", permission_label="Overview regional distribution")
+        render_dashboard_plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False), plot_df=a4, visual_type="stacked bar chart", x_col="alert-country", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart4", container=r2c2, permission_key="view_chart_overview_countries", permission_label="Overview country distribution")
 
     
         cols_rename_map  = {
@@ -7117,11 +7187,11 @@ with tab_negative:
             r2c1, r2c2, r2c3 = st.columns(3)
 
     
-            render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1)
-            render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2)
-            render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3)
-            render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1)
-            render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2)
+            render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
+            render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
+            render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
+            render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
+            render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
           
             fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
@@ -7146,6 +7216,8 @@ with tab_negative:
                 container=r2c3,
                 chart_info=negative_enabling_principle_note,
                 show_title_tooltip=True,
+                permission_key="view_chart_negative_enabling_principles",
+                permission_label="Negative enabling-principle distribution",
             )
 
             #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
@@ -8127,6 +8199,8 @@ with tab_map:
                         dashboard_df=filtered_global,
                         config={"displayModeBar": False, "responsive": True},
                         key="professional_geo_intelligence_map",
+                        permission_key="view_chart_geospatial_map",
+                        permission_label="Geospatial intelligence map",
                     )
                     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -9932,6 +10006,8 @@ def render_ai_assistant_panel(df):
                     group_col=lp.get("group_col"),
                     dashboard_df=df,
                     key="copilot_smart_last_plot",
+                    permission_key="view_chart_ai_copilot_plots",
+                    permission_label="AI Copilot generated plot",
                 )
             except Exception:
                 pass
@@ -9991,6 +10067,8 @@ def render_ai_assistant_panel(df):
                         group_col=group_col,
                         dashboard_df=df,
                         key="copilot_plot_builder",
+                        permission_key="view_chart_ai_copilot_plots",
+                        permission_label="AI Copilot plot builder",
                     )
                     p1, p2 = st.columns(2)
                     with p1:
@@ -12653,16 +12731,20 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
-                render_eusee_chart_interpretation_card(
-                    out.get("interpretation") or out.get("content", ""),
-                    title="AI graph interpretation",
-                    expanded=True,
-                )
+                if has_permission("view_chart_ai_copilot_plots"):
+                    st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
+                else:
+                    render_permission_locked_card("AI Copilot generated plots", "view_chart_ai_copilot_plots")
+                if has_permission("view_chart_ai_copilot_plots"):
+                    render_eusee_chart_interpretation_card(
+                        out.get("interpretation") or out.get("content", ""),
+                        title="AI graph interpretation",
+                        expanded=True,
+                    )
 
                 plot_data = out.get("plot_data")
                 cfg = out.get("config", {}) or {}
-                if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
+                if has_permission("view_chart_ai_copilot_plots") and isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
                     checks = _v3_plot_quality_checks(
                         plot_data,
                         chart_type=cfg.get("chart_type"),
