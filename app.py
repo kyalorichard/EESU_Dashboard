@@ -384,22 +384,53 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             color: #23152F;
             font-weight: 900;
         }
+        /* Data Preview table: one clean horizontal scroll surface, aligned with tab typography. */
         div[data-testid="stDataFrame"] {
             border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
-            overflow: hidden !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
             box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
             background: #FFFFFF !important;
+            font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+        }
+        div[data-testid="stDataFrame"] > div {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+        }
+        div[data-testid="stDataFrame"] div[role="grid"],
+        div[data-testid="stDataFrame"] [data-testid="stTable"] {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
         }
         div[data-testid="stDataFrame"] [role="columnheader"] {
             background: #F4EAF8 !important;
             color: #23152F !important;
+            font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+            font-size: 11.5px !important;
             font-weight: 900 !important;
             border-bottom: 1px solid #E7D4F1 !important;
+            line-height: 1.25 !important;
         }
         div[data-testid="stDataFrame"] [role="gridcell"] {
             color: #344054 !important;
-            font-size: 12px !important;
+            font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+            font-size: 11.5px !important;
+            line-height: 1.35 !important;
+            font-weight: 500 !important;
+        }
+        div[data-testid="stDataFrame"] ::-webkit-scrollbar {
+            height: 10px !important;
+            width: 0 !important;
+        }
+        div[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb {
+            background: #D6BBE5 !important;
+            border-radius: 999px !important;
+            border: 2px solid #FFFFFF !important;
+        }
+        div[data-testid="stDataFrame"] ::-webkit-scrollbar-track {
+            background: #F8FAFC !important;
+            border-radius: 999px !important;
         }
         </style>
         <div class="eusee-data-preview-note">
@@ -3469,15 +3500,88 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     }
 
     .eusee-tooltip {
-        color: #008CAA;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 17px;
+        height: 17px;
+        margin-left: 5px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #F4EAF8 0%, #EFFBFE 100%);
+        border: 1px solid rgba(102,0,148,.20);
+        color: #660094;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         font-size: 10px;
         font-weight: 950;
+        line-height: 1;
         cursor: help;
-        margin-left: 3px;
-        border: 1px solid rgba(0,140,170,.25);
-        border-radius: 50%;
-        padding: 0 4px;
-        background: rgba(0,140,170,.06);
+        box-shadow: 0 2px 7px rgba(16,24,40,.08);
+        vertical-align: middle;
+    }
+
+    .eusee-tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 10px);
+        transform: translateX(-50%) translateY(4px);
+        width: min(320px, 72vw);
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #23152F;
+        border: 1px solid rgba(255,255,255,.14);
+        color: #FFFFFF;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-size: 11px;
+        font-weight: 650;
+        line-height: 1.42;
+        letter-spacing: -0.005em;
+        text-align: left;
+        white-space: normal;
+        box-shadow: 0 16px 34px rgba(16,24,40,.22);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        z-index: 999999;
+        transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+    }
+
+    .eusee-tooltip::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 4px);
+        transform: translateX(-50%);
+        border-width: 6px 6px 0 6px;
+        border-style: solid;
+        border-color: #23152F transparent transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 999999;
+        transition: opacity .16s ease, visibility .16s ease;
+    }
+
+    .eusee-tooltip:hover::after,
+    .eusee-tooltip:focus::after,
+    .eusee-tooltip:hover::before,
+    .eusee-tooltip:focus::before {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 700px) {
+        .eusee-tooltip::after {
+            left: auto;
+            right: -12px;
+            transform: translateY(4px);
+            width: min(280px, 82vw);
+        }
+        .eusee-tooltip:hover::after,
+        .eusee-tooltip:focus::after {
+            transform: translateY(0);
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -3505,7 +3609,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-eyebrow">Monitoring volume</div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" title="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
+                    <div><div class="eusee-kpi-eyebrow">Monitoring volume</div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" tabindex="0" aria-label="Total alerts interpretation note" data-tooltip="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
                     <div class="eusee-kpi-icon">⚠️</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
