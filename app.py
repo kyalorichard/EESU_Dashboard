@@ -688,7 +688,78 @@ inject_final_responsive_overrides()
 
 
 # ---------------- ALL-TABS PROFESSIONAL TYPOGRAPHY OVERRIDES ----------------
+
 def inject_all_tabs_typography_css():
+    """Central typography harmonization across all dashboard tabs."""
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-font: "Inter", "Segoe UI", Arial, sans-serif;
+    }
+
+    html, body, .stApp {
+        font-family: var(--eusee-font) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_all_tabs_typography_css()
+
+
+# ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
+@st.cache_data(show_spinner=False, ttl=120)
+def build_compact_chatbot_context(df):
+    """Create compact reusable AI context."""
+    if df is None or len(df) == 0:
+        return {}
+
+    context = {
+        "rows": int(len(df)),
+        "columns": list(df.columns)[:50]
+    }
+
+    if 'alert-country' in df.columns:
+        context["countries"] = (
+            df['alert-country']
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()[:25]
+        )
+
+    if 'alert-impact' in df.columns:
+        context["alert_types"] = (
+            df['alert-impact']
+            .value_counts()
+            .head(10)
+            .to_dict()
+        )
+
+    return context
+
+
+def detect_chat_intent(prompt: str):
+    p = str(prompt).lower()
+
+    if any(k in p for k in ["plot", "chart", "graph", "visualize"]):
+        return "plot"
+
+    if any(k in p for k in ["country", "countries", "region", "map"]):
+        return "country"
+
+    if any(k in p for k in ["trend", "increase", "decrease", "pattern"]):
+        return "trend"
+
+    if any(k in p for k in ["summary", "overview", "summarize"]):
+        return "summary"
+
+    return "general"
+
+
+st.session_state.setdefault("chat_messages", [])
+
+if len(st.session_state["chat_messages"]) > 6:
+    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
 
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
@@ -739,7 +810,6 @@ def detect_chat_intent(prompt: str):
 st.session_state.setdefault("chat_messages", [])
 if len(st.session_state["chat_messages"]) > 6:
     st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
-:
     """Central typography/color harmonization across every dashboard tab.
 
     Scope: Overview, Negative Alert Analysis, Visualization Map, User Manual,
