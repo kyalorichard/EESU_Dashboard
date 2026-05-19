@@ -4457,14 +4457,21 @@ def render_analytics_module_header(title, subtitle, badges=None):
         font-weight: 800;
     }}
     .chart-card-caption {{
-        font-family: "Inter", "Segoe UI", Arial, sans-serif;
-        font-size: 10.8px;
-        font-weight: 600;
-        color: #667085;
-        line-height: 1.35;
-        letter-spacing: -0.01em;
-        margin-top: -6px;
-        margin-bottom: 8px;
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+        font-size: 11.5px;
+        font-weight: 550;
+        color: var(--eusee-text-muted, #667085);
+        line-height: 1.42;
+        letter-spacing: -0.005em;
+        margin-top: -4px;
+        margin-bottom: 10px;
+        max-width: 980px;
+    }}
+    @media (max-width: 900px) {{
+        .chart-card-caption {{
+            font-size: 11.2px;
+            line-height: 1.4;
+        }}
     }}
     </style>
     <div class="analytics-panel">
@@ -8502,25 +8509,30 @@ with tab_map:
                 flex-wrap:wrap;
             }
             .map-intel-eyebrow {
-                font-size: 10px;
-                font-weight: 950;
-                letter-spacing: .13em;
+                font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+                font-size: 9.5px;
+                font-weight: 850;
+                letter-spacing: .105em;
                 text-transform: uppercase;
                 color: #660094;
                 margin-bottom: 5px;
+                line-height: 1.15;
             }
             .map-intel-title {
-                font-size: 14px;
-                font-weight: 750;
-                color: #2D0055;
-                margin-bottom: 4px;
-                letter-spacing: -0.3px;
-                line-height:1.15;
+                font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+                font-size: clamp(17px, 1.7vw, 21px);
+                font-weight: 850;
+                color: #101828;
+                margin-bottom: 5px;
+                letter-spacing: -0.025em;
+                line-height: 1.15;
             }
             .map-intel-subtitle {
-                font-size: 12px;
-                color: #52616B;
-                line-height: 1.38;
+                font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+                font-size: 11.5px;
+                font-weight: 550;
+                color: #667085;
+                line-height: 1.45;
                 max-width: 1100px;
             }
             .map-legend-chip {
