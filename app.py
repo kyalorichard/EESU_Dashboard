@@ -6680,9 +6680,6 @@ with tab_negative:
 
             # ---------------- NEGATIVE ALERTS FILTERS: PROFESSIONAL GROUPED PANEL ----------------
 
-    return append_eusee_redirect("\n".join(lines))
-
-
 def _ai_clean_secret_value(value):
     """Normalize secret/env values without exposing them."""
     if value is None:
