@@ -2048,6 +2048,320 @@ render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
 
+# ---------------- PRODUCTION SIDEBAR UX STANDARDIZATION ----------------
+def inject_production_sidebar_ux_css():
+    """Production-ready sidebar UX polish: standardized typography, spacing, inputs, expanders, and buttons."""
+    st.markdown("""
+    <style>
+    /* ===== EUSEE PRODUCTION SIDEBAR DESIGN TOKENS ===== */
+    :root {
+        --eusee-sidebar-font: "Inter", "Segoe UI", Arial, sans-serif;
+        --eusee-sidebar-title: 13px;
+        --eusee-sidebar-body: 11px;
+        --eusee-sidebar-label: 10.5px;
+        --eusee-sidebar-control: 11.5px;
+        --eusee-sidebar-radius: 12px;
+        --eusee-sidebar-border: #E6E8EF;
+        --eusee-sidebar-muted: #667085;
+        --eusee-sidebar-text: #23152F;
+        --eusee-sidebar-purple: #660094;
+        --eusee-sidebar-teal: #008CAA;
+        --eusee-sidebar-focus: rgba(102,0,148,.14);
+    }
+
+    /* ===== SIDEBAR SHELL ===== */
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 100% 0%, rgba(102,0,148,.055), transparent 34%),
+            linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+        border-right: 1px solid var(--eusee-sidebar-border) !important;
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    section[data-testid="stSidebar"] > div {
+        padding: 0.85rem 0.82rem 1.2rem 0.82rem !important;
+    }
+
+    section[data-testid="stSidebar"] * {
+        font-family: var(--eusee-sidebar-font) !important;
+    }
+
+    /* ===== SIDEBAR TEXT HIERARCHY ===== */
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: var(--eusee-sidebar-text) !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.01em !important;
+        line-height: 1.2 !important;
+        margin: 0.15rem 0 0.35rem 0 !important;
+    }
+
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div {
+        font-size: var(--eusee-sidebar-body);
+    }
+
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stTextInput label,
+    section[data-testid="stSidebar"] .stDateInput label,
+    section[data-testid="stSidebar"] .stNumberInput label,
+    section[data-testid="stSidebar"] .stSlider label {
+        color: #344054 !important;
+        font-size: var(--eusee-sidebar-label) !important;
+        font-weight: 800 !important;
+        letter-spacing: .015em !important;
+        line-height: 1.25 !important;
+        margin-bottom: 4px !important;
+    }
+
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] caption,
+    section[data-testid="stSidebar"] small {
+        color: var(--eusee-sidebar-muted) !important;
+        font-size: 10px !important;
+        line-height: 1.35 !important;
+    }
+
+    /* ===== STANDARDIZED CONTROL SPACING ===== */
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.45rem !important;
+    }
+
+    section[data-testid="stSidebar"] .element-container {
+        margin-bottom: 0.18rem !important;
+    }
+
+    section[data-testid="stSidebar"] hr {
+        margin: 0.65rem 0 !important;
+        border-color: #EEF0F4 !important;
+    }
+
+    /* ===== INPUTS / SELECTS / MULTISELECTS ===== */
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"],
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea {
+        min-height: 38px !important;
+        border-radius: var(--eusee-sidebar-radius) !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        color: var(--eusee-sidebar-text) !important;
+        font-size: var(--eusee-sidebar-control) !important;
+        font-weight: 650 !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+        transition: border-color .16s ease, box-shadow .16s ease, background .16s ease !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover,
+    section[data-testid="stSidebar"] [data-baseweb="input"]:hover,
+    section[data-testid="stSidebar"] input:hover,
+    section[data-testid="stSidebar"] textarea:hover {
+        border-color: #B692C8 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.065) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within,
+    section[data-testid="stSidebar"] [data-baseweb="input"]:focus-within,
+    section[data-testid="stSidebar"] input:focus,
+    section[data-testid="stSidebar"] textarea:focus {
+        border-color: var(--eusee-sidebar-purple) !important;
+        box-shadow: 0 0 0 3px var(--eusee-sidebar-focus) !important;
+        outline: none !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        min-height: 22px !important;
+        border-radius: 999px !important;
+        background: #F4EAF8 !important;
+        border: 1px solid #E7D4F1 !important;
+        color: var(--eusee-sidebar-purple) !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        line-height: 1 !important;
+        margin: 2px 3px 2px 0 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] span {
+        font-size: 10px !important;
+        font-weight: 800 !important;
+    }
+
+    /* ===== BUTTON SYSTEM ===== */
+    section[data-testid="stSidebar"] .stButton > button,
+    section[data-testid="stSidebar"] .stDownloadButton > button,
+    section[data-testid="stSidebar"] button[kind="secondary"],
+    section[data-testid="stSidebar"] button[kind="primary"] {
+        width: 100% !important;
+        min-height: 38px !important;
+        border-radius: 12px !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        color: #344054 !important;
+        font-size: 11.5px !important;
+        font-weight: 850 !important;
+        letter-spacing: .005em !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
+        transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:hover,
+    section[data-testid="stSidebar"] .stDownloadButton > button:hover,
+    section[data-testid="stSidebar"] button[kind="secondary"]:hover {
+        transform: translateY(-1px) !important;
+        border-color: var(--eusee-sidebar-purple) !important;
+        color: var(--eusee-sidebar-purple) !important;
+        background: #FBF7FD !important;
+        box-shadow: 0 7px 16px rgba(102,0,148,.10) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:active,
+    section[data-testid="stSidebar"] .stDownloadButton > button:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+    }
+
+    section[data-testid="stSidebar"] button[kind="primary"] {
+        background: linear-gradient(90deg, var(--eusee-sidebar-purple) 0%, var(--eusee-sidebar-teal) 100%) !important;
+        color: #FFFFFF !important;
+        border-color: transparent !important;
+        box-shadow: 0 8px 18px rgba(102,0,148,.16) !important;
+    }
+
+    section[data-testid="stSidebar"] button[kind="primary"]:hover {
+        filter: brightness(1.04) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 10px 22px rgba(102,0,148,.20) !important;
+    }
+
+    /* ===== EXPANDERS / COLLAPSIBLE PANELS ===== */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        margin: 0.42rem 0 !important;
+        border: 1px solid var(--eusee-sidebar-border) !important;
+        border-radius: 16px !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 7px 18px rgba(16,24,40,.055) !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        min-height: 42px !important;
+        padding: 10px 13px !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+        color: var(--eusee-sidebar-text) !important;
+        font-size: 12.5px !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.005em !important;
+        line-height: 1.2 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+        color: var(--eusee-sidebar-purple) !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details > div {
+        padding: 0.55rem 0.68rem 0.75rem 0.68rem !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] svg {
+        color: var(--eusee-sidebar-purple) !important;
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* ===== SIDEBAR CARDS ALIGNED TO SAME TYPOGRAPHY ===== */
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .sidebar-last-updated {
+        font-family: var(--eusee-sidebar-font) !important;
+        border-radius: 16px !important;
+    }
+
+    .classic-filter-eyebrow,
+    .sidebar-access-eyebrow,
+    .sidebar-last-updated-label {
+        font-size: 9px !important;
+        font-weight: 950 !important;
+        letter-spacing: .12em !important;
+    }
+
+    .classic-filter-title,
+    .sidebar-access-title,
+    .sidebar-last-updated-date {
+        font-size: 13px !important;
+        font-weight: 950 !important;
+        line-height: 1.18 !important;
+    }
+
+    .classic-filter-note,
+    .sidebar-access-note,
+    .sidebar-access-help,
+    .sidebar-last-updated-note,
+    .classic-filter-status .status-row,
+    .sidebar-profile-row {
+        font-size: 10.5px !important;
+        line-height: 1.38 !important;
+    }
+
+    .classic-filter-status .status-value,
+    .sidebar-profile-row strong {
+        font-size: 10.5px !important;
+        font-weight: 900 !important;
+    }
+
+    /* ===== CHECKBOX / RADIO ALIGNMENT ===== */
+    section[data-testid="stSidebar"] .stCheckbox label,
+    section[data-testid="stSidebar"] .stRadio label {
+        font-size: 11px !important;
+        color: #344054 !important;
+        font-weight: 750 !important;
+        line-height: 1.3 !important;
+    }
+
+    section[data-testid="stSidebar"] .stCheckbox,
+    section[data-testid="stSidebar"] .stRadio {
+        margin: 0.15rem 0 !important;
+    }
+
+    /* ===== MOBILE / SMALL SCREEN SIDEBAR ===== */
+    @media (max-width: 700px) {
+        section[data-testid="stSidebar"] {
+            width: min(92vw, 360px) !important;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            padding: 0.75rem 0.72rem 1rem 0.72rem !important;
+        }
+
+        section[data-testid="stSidebar"] label {
+            font-size: 10px !important;
+        }
+
+        section[data-testid="stSidebar"] .stButton > button,
+        section[data-testid="stSidebar"] .stDownloadButton > button {
+            min-height: 36px !important;
+            font-size: 11px !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+            min-height: 40px !important;
+            font-size: 12px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_production_sidebar_ux_css()
+
+
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
 
 regions_labels = [
