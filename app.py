@@ -1472,7 +1472,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
         options_with_all,
         key=widget_key,
         placeholder="All selected",
-        help="Leave empty or choose Select all to include all available options.",
+        help=None,
     )
 
     if "Select all" in selected or len(selected) == 0:
@@ -2360,6 +2360,160 @@ def inject_production_sidebar_ux_css():
 
 
 inject_production_sidebar_ux_css()
+
+
+def inject_sidebar_filter_alignment_fix_css():
+    """Final sidebar correction: align the Dashboard filters expander and hide multiselect typing/search field."""
+    st.markdown("""
+    <style>
+    /* ===== FINAL SIDEBAR FILTER ALIGNMENT FIX ===== */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        width: 100% !important;
+        margin: 0.55rem 0 0.75rem 0 !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details {
+        width: 100% !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        min-height: 42px !important;
+        padding: 10px 12px !important;
+        line-height: 1.15 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p,
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary span {
+        display: inline-flex !important;
+        align-items: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        color: #23152F !important;
+        font-size: 12.5px !important;
+        font-weight: 950 !important;
+        line-height: 1.15 !important;
+        letter-spacing: -0.005em !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
+        flex: 0 0 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+        margin: 0 !important;
+        color: #660094 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] details > div {
+        padding: 0.65rem 0.68rem 0.80rem 0.68rem !important;
+    }
+
+    /* Keep each filter row aligned and compact inside the Dashboard filters panel. */
+    section[data-testid="stSidebar"] .stMultiSelect,
+    section[data-testid="stSidebar"] .stSelectbox,
+    section[data-testid="stSidebar"] .stTextInput,
+    section[data-testid="stSidebar"] .stDateInput,
+    section[data-testid="stSidebar"] .stNumberInput {
+        width: 100% !important;
+        margin: 0 0 0.28rem 0 !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stTextInput label {
+        display: block !important;
+        margin: 0 0 4px 1px !important;
+        padding: 0 !important;
+        color: #344054 !important;
+        font-size: 10.5px !important;
+        font-weight: 900 !important;
+        line-height: 1.2 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] {
+        width: 100% !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+        min-height: 38px !important;
+        align-items: center !important;
+        padding: 2px 8px !important;
+        border-radius: 12px !important;
+        box-sizing: border-box !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] {
+        min-height: 32px !important;
+        align-items: center !important;
+    }
+
+    /* Remove the visible typing/search field from multiselect controls.
+       The dropdown still opens normally, but the sidebar no longer shows a typing/search area. */
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input,
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input::placeholder {
+        color: transparent !important;
+        caret-color: transparent !important;
+        text-shadow: none !important;
+        opacity: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input {
+        width: 1px !important;
+        min-width: 1px !important;
+        max-width: 1px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        pointer-events: none !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] div[class*="Input"] {
+        width: 1px !important;
+        min-width: 1px !important;
+        max-width: 1px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        margin: 2px 4px 2px 0 !important;
+        min-height: 22px !important;
+        max-width: 100% !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] span {
+        max-width: 135px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    /* Reset/Apply button row inside the filter expander. */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] div[data-testid="column"] {
+        padding: 0 !important;
+        min-width: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] div[data-testid="column"] .stButton > button {
+        min-height: 36px !important;
+        height: 36px !important;
+        padding: 0 10px !important;
+        font-size: 11px !important;
+        border-radius: 11px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_sidebar_filter_alignment_fix_css()
 
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
