@@ -60,6 +60,14 @@ try:
 except Exception:
     OpenAI = None
 
+# Premium AI workspace UX wrapper.
+# Keeps the existing render_ai_assistant_panel engine intact while standardizing layout,
+# typography, spacing, and the ChatGPT-style shell.
+try:
+    from ai_chat_ui import render_ai_workspace
+except Exception:
+    render_ai_workspace = None
+
 # OPENAI PACKAGE NOTE:
 #   Add openai>=1.0.0 to requirements.txt.
 #   Preferred Streamlit Cloud secrets format now uses a nested section:
@@ -12739,7 +12747,16 @@ def render_ai_assistant_panel(df):
         st.markdown("</div>", unsafe_allow_html=True)
 
 if has_permission("use_ai_copilot"):
-    render_ai_assistant_panel(filtered_global)
+    if render_ai_workspace is not None:
+        render_ai_workspace(
+            df=filtered_global,
+            legacy_renderer=render_ai_assistant_panel,
+            current_role=get_current_role(),
+            current_email=get_current_email(),
+        )
+    else:
+        # Safe fallback: preserve the original chatbot if the UX module is not deployed.
+        render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
 
 
