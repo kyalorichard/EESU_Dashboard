@@ -12327,16 +12327,15 @@ def _render_ai_assistant_panel_advanced(df):
 
 
 def render_ai_assistant_panel(df):
-    """ChatGPT-like AI Copilot shell.
+    """Premium ChatGPT-style AI Copilot.
 
-    The visible interface is intentionally simple: header, conversation,
-    quick prompt chips, and one input box. Existing functionality remains
-    available through the same backend functions and a collapsed Advanced tools
-    section.
+    Design goal: one impressive conversation workspace with the answer, charts,
+    and generated outputs appearing inside the same chat flow. The dashboard
+    intelligence, OpenAI/local fallback logic, permissions, downloads, and
+    advanced tools are preserved.
     """
     st.session_state.setdefault("copilot_open", True)
     st.session_state.setdefault("ai_show_full_console", False)
-    st.session_state.setdefault("ai_chat_prompt_text", "")
     _v4_init_chat_memory_state()
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
@@ -12347,85 +12346,104 @@ def render_ai_assistant_panel(df):
 
     st.markdown("""
     <style>
-    .st-key-eusee_ai_chatgpt_drawer {
+    /* ---------------- PREMIUM CHATGPT-STYLE EUSEE COPILOT ---------------- */
+    .st-key-eusee_ai_premium_copilot {
         position: fixed !important;
-        top: 72px !important;
-        right: 16px !important;
-        width: 420px !important;
-        max-width: calc(100vw - 32px) !important;
-        max-height: calc(100vh - 92px) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
+        top: 68px !important;
+        right: 18px !important;
+        width: min(560px, calc(100vw - 36px)) !important;
+        height: min(820px, calc(100vh - 88px)) !important;
         z-index: 999999 !important;
-        background: #FFFFFF !important;
-        border: 1px solid rgba(102,0,148,.14) !important;
-        border-radius: 22px !important;
-        box-shadow: 0 28px 72px rgba(45,0,85,.24) !important;
+        background:
+            radial-gradient(circle at top right, rgba(0,140,170,.10), transparent 32%),
+            linear-gradient(180deg, #FFFFFF 0%, #FBFCFE 100%) !important;
+        border: 1px solid rgba(102,0,148,.16) !important;
+        border-radius: 26px !important;
+        box-shadow: 0 30px 80px rgba(45,0,85,.28), 0 10px 24px rgba(16,24,40,.10) !important;
+        overflow: hidden !important;
         padding: 0 !important;
         font-family: Arial, sans-serif !important;
     }
-    .st-key-eusee_ai_chatgpt_collapsed {
+    .st-key-eusee_ai_premium_collapsed {
         position: fixed !important;
-        top: 46% !important;
-        right: 0 !important;
-        width: 78px !important;
+        right: 18px !important;
+        bottom: 24px !important;
+        width: 190px !important;
         z-index: 999999 !important;
-        background: linear-gradient(180deg,#2D0055,#660094) !important;
-        color: #FFFFFF !important;
-        border-radius: 18px 0 0 18px !important;
-        box-shadow: 0 18px 45px rgba(45,0,85,.30) !important;
-        padding: 10px 8px !important;
+        border-radius: 999px !important;
+        background: linear-gradient(135deg,#2D0055 0%,#660094 62%,#008CAA 100%) !important;
+        box-shadow: 0 22px 52px rgba(45,0,85,.32) !important;
+        padding: 8px !important;
         font-family: Arial, sans-serif !important;
     }
-    .st-key-eusee_ai_chatgpt_drawer div[data-testid="stButton"] button,
-    .st-key-eusee_ai_chatgpt_collapsed div[data-testid="stButton"] button {
+    .st-key-eusee_ai_premium_copilot div[data-testid="stButton"] button,
+    .st-key-eusee_ai_premium_collapsed div[data-testid="stButton"] button {
         border-radius: 999px !important;
+        min-height: 34px !important;
         font-size: 11px !important;
-        font-weight: 850 !important;
-        min-height: 32px !important;
+        font-weight: 900 !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 4px 12px rgba(16,24,40,.05) !important;
     }
-    .ai-chatgpt-header {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 12px 13px;
-        background: linear-gradient(135deg,#2D0055,#660094 58%,#008CAA);
-        color: #FFFFFF;
-        border-radius: 22px 22px 0 0;
-        box-shadow: 0 8px 18px rgba(45,0,85,.14);
+    .ai-premium-shell {height:100%;display:flex;flex-direction:column;background:transparent;}
+    .ai-premium-header {
+        display:flex;align-items:center;justify-content:space-between;gap:12px;
+        padding:14px 15px 12px 15px;
+        background:linear-gradient(135deg,#2D0055 0%,#660094 58%,#008CAA 100%);
+        color:#fff;border-bottom:1px solid rgba(255,255,255,.16);
     }
-    .ai-chatgpt-title-wrap {display:flex;align-items:center;gap:9px;min-width:0;}
-    .ai-chatgpt-avatar {width:32px;height:32px;min-width:32px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.26);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:950;}
-    .ai-chatgpt-title {font-size:14px;font-weight:950;line-height:1.1;margin:0;}
-    .ai-chatgpt-sub {font-size:10.4px;opacity:.90;line-height:1.2;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:235px;}
-    .ai-chatgpt-body {padding: 12px 13px 10px 13px;background:#FFFFFF;}
-    .ai-chatgpt-scope {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px 0;}
-    .ai-chatgpt-scope div {background:#F9FAFB;border:1px solid #EEF0F4;border-radius:13px;padding:7px 6px;text-align:center;}
-    .ai-chatgpt-scope b {display:block;color:#2D0055;font-size:13px;font-weight:950;line-height:1.05;}
-    .ai-chatgpt-scope span {display:block;color:#667085;font-size:8.8px;font-weight:800;margin-top:3px;}
-    .ai-chatgpt-thread {display:flex;flex-direction:column;gap:8px;padding:4px 0 8px 0;}
-    .ai-chatgpt-msg-row {display:flex;width:100%;}
-    .ai-chatgpt-msg-row.user {justify-content:flex-end;}
-    .ai-chatgpt-msg-row.assistant {justify-content:flex-start;}
-    .ai-chatgpt-bubble {max-width:88%;padding:9px 11px;border-radius:16px;font-size:12px;line-height:1.48;overflow-wrap:anywhere;box-shadow:0 4px 12px rgba(16,24,40,.045);}
-    .ai-chatgpt-msg-row.user .ai-chatgpt-bubble {background:#660094;color:#FFFFFF;border-bottom-right-radius:5px;}
-    .ai-chatgpt-msg-row.assistant .ai-chatgpt-bubble {background:#F6F2FF;color:#344054;border:1px solid #E7D4F1;border-bottom-left-radius:5px;}
-    .ai-chatgpt-empty {background:#F9FAFB;border:1px dashed #D0D5DD;border-radius:16px;padding:13px 12px;color:#667085;font-size:11.5px;line-height:1.45;margin:6px 0 10px 0;}
-    .ai-chatgpt-empty b {color:#2D0055;}
-    .ai-chatgpt-chip-title {font-size:10px;font-weight:950;color:#660094;text-transform:uppercase;letter-spacing:.08em;margin:7px 0 6px 0;}
-    .ai-chatgpt-input-card {position:sticky;bottom:0;background:#FFFFFF;border-top:1px solid #EEF0F4;padding:10px 13px 12px 13px;border-radius:0 0 22px 22px;}
-    .ai-chatgpt-input-card textarea {border-radius:16px!important;font-size:12px!important;line-height:1.35!important;}
-    .ai-chatgpt-advanced {margin-top:9px;background:#FBFCFE;border:1px solid #EEF0F4;border-radius:16px;padding:8px;}
-    .ai-chatgpt-output {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:14px;padding:10px;color:#344054;font-size:11.5px;line-height:1.45;}
-    .ai-chatgpt-status-pill {display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.26);padding:5px 8px;font-size:9.5px;font-weight:900;white-space:nowrap;}
+    .ai-premium-brand {display:flex;align-items:center;gap:11px;min-width:0;}
+    .ai-premium-logo {
+        width:40px;height:40px;min-width:40px;border-radius:15px;display:flex;align-items:center;justify-content:center;
+        background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);font-size:16px;font-weight:950;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+    }
+    .ai-premium-title {font-size:16px;font-weight:950;line-height:1.08;margin:0;letter-spacing:-.01em;}
+    .ai-premium-sub {font-size:10.6px;font-weight:750;opacity:.92;line-height:1.25;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:345px;}
+    .ai-premium-status {display:flex;align-items:center;gap:6px;flex-shrink:0;}
+    .ai-premium-pill {display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:6px 8px;font-size:9.5px;font-weight:950;white-space:nowrap;}
+    .ai-premium-dot {width:7px;height:7px;border-radius:999px;background:#34D399;box-shadow:0 0 0 4px rgba(52,211,153,.16);}
+    .ai-premium-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 13px;background:#FFFFFF;border-bottom:1px solid #EEF0F4;}
+    .ai-premium-metric {border:1px solid #EEF0F4;background:linear-gradient(180deg,#FFFFFF,#F9FAFB);border-radius:15px;padding:8px 9px;text-align:left;box-shadow:0 5px 14px rgba(16,24,40,.035);}
+    .ai-premium-metric b {display:block;color:#2D0055;font-size:15px;font-weight:950;line-height:1.05;}
+    .ai-premium-metric span {display:block;color:#667085;font-size:9.2px;font-weight:850;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ai-premium-scroll {flex:1;overflow-y:auto;overflow-x:hidden;padding:13px 15px 8px 15px;background:linear-gradient(180deg,#FCFCFD 0%,#FFFFFF 100%);}
+    .ai-premium-scroll::-webkit-scrollbar {width:8px;}
+    .ai-premium-scroll::-webkit-scrollbar-thumb {background:#D6BBE5;border-radius:999px;}
+    .ai-premium-empty {border:1px solid #E7D4F1;background:linear-gradient(135deg,#FFFFFF,#F7ECFB);border-radius:20px;padding:14px;margin:2px 0 12px 0;box-shadow:0 10px 24px rgba(45,0,85,.06);}
+    .ai-premium-empty-title {font-size:14px;font-weight:950;color:#2D0055;margin-bottom:5px;}
+    .ai-premium-empty-text {font-size:11.5px;line-height:1.45;color:#667085;font-weight:700;}
+    .ai-premium-thread {display:flex;flex-direction:column;gap:11px;padding-bottom:8px;}
+    .ai-premium-msg {display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px;align-items:flex-start;}
+    .ai-premium-msg.user {grid-template-columns:minmax(0,1fr) 30px;}
+    .ai-premium-avatar {width:30px;height:30px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:950;box-shadow:0 5px 12px rgba(16,24,40,.08);}
+    .ai-premium-msg.assistant .ai-premium-avatar {background:linear-gradient(135deg,#2D0055,#660094);color:#fff;}
+    .ai-premium-msg.user .ai-premium-avatar {background:#F4EAF8;color:#660094;border:1px solid #E7D4F1;grid-column:2;grid-row:1;}
+    .ai-premium-bubble {max-width:100%;border-radius:18px;padding:11px 12px;font-size:12.4px;line-height:1.53;overflow-wrap:anywhere;box-shadow:0 7px 18px rgba(16,24,40,.055);}
+    .ai-premium-msg.assistant .ai-premium-bubble {background:#FFFFFF;border:1px solid #E6E8EF;color:#344054;border-top-left-radius:7px;}
+    .ai-premium-msg.user .ai-premium-bubble {background:linear-gradient(135deg,#660094,#2D0055);color:#FFFFFF;border-top-right-radius:7px;grid-column:1;grid-row:1;}
+    .ai-premium-bubble b,.ai-premium-output-title {color:inherit;font-weight:950;}
+    .ai-premium-output-card {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:20px;padding:12px;margin-top:8px;box-shadow:0 10px 24px rgba(16,24,40,.07);}
+    .ai-premium-output-head {display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #EEF0F4;padding-bottom:8px;margin-bottom:9px;}
+    .ai-premium-output-title {font-size:13px;color:#2D0055;}
+    .ai-premium-output-badge {font-size:9px;font-weight:950;letter-spacing:.06em;text-transform:uppercase;color:#660094;background:#F4EAF8;border:1px solid #E7D4F1;border-radius:999px;padding:5px 7px;white-space:nowrap;}
+    .ai-premium-output-text {font-size:12px;line-height:1.5;color:#344054;background:#F9FAFB;border:1px solid #EEF0F4;border-radius:15px;padding:10px;}
+    .ai-premium-suggestions {padding:0 15px 8px 15px;background:#FFFFFF;}
+    .ai-premium-suggestion-title {font-size:9.5px;font-weight:950;letter-spacing:.10em;text-transform:uppercase;color:#660094;margin:2px 0 6px 0;}
+    .ai-premium-composer {padding:10px 13px 13px 13px;background:#FFFFFF;border-top:1px solid #EEF0F4;box-shadow:0 -10px 24px rgba(16,24,40,.035);}
+    .ai-premium-composer textarea {border-radius:18px!important;border:1px solid #D0D5DD!important;font-size:12.5px!important;line-height:1.42!important;box-shadow:0 3px 10px rgba(16,24,40,.035)!important;}
+    .ai-premium-composer textarea:focus {border-color:#660094!important;box-shadow:0 0 0 3px rgba(102,0,148,.12)!important;}
+    .ai-premium-footnote {font-size:9.8px;color:#667085;text-align:center;margin-top:5px;font-weight:700;}
+    .ai-premium-advanced-card {background:#FBFCFE;border:1px solid #E6E8EF;border-radius:18px;padding:11px;margin:6px 0;}
     @media (max-width: 760px) {
-        .st-key-eusee_ai_chatgpt_drawer {left:8px!important;right:8px!important;width:auto!important;top:62px!important;max-height:calc(100vh - 78px)!important;}
-        .ai-chatgpt-sub {max-width:180px;}
-        .ai-chatgpt-scope {grid-template-columns:repeat(3,minmax(0,1fr));}
+        .st-key-eusee_ai_premium_copilot {left:8px!important;right:8px!important;top:58px!important;width:auto!important;height:calc(100vh - 72px)!important;border-radius:20px!important;}
+        .ai-premium-header {padding:12px;}
+        .ai-premium-sub {max-width:210px;}
+        .ai-premium-status {display:none;}
+        .ai-premium-metrics {grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px;}
+        .ai-premium-scroll {padding:10px;}
+        .ai-premium-suggestions {padding:0 10px 7px 10px;}
+        .ai-premium-composer {padding:9px 10px 11px 10px;}
     }
     </style>
     """, unsafe_allow_html=True)
@@ -12435,134 +12453,114 @@ def render_ai_assistant_panel(df):
         return
 
     if not st.session_state.copilot_open:
-        with st.container(key="eusee_ai_chatgpt_collapsed"):
-            st.markdown("<div style='text-align:center;font-size:21px;font-weight:950;'>🤖</div><div style='text-align:center;font-size:10px;font-weight:900;line-height:1.2;'>AI<br>Copilot</div>", unsafe_allow_html=True)
-            if st.button("Open", key="ai_chatgpt_open", use_container_width=True):
+        with st.container(key="eusee_ai_premium_collapsed"):
+            if st.button("🤖  Open AI Copilot", key="ai_premium_open", use_container_width=True):
                 st.session_state.copilot_open = True
                 st.rerun()
         return
 
-    s = summarize_for_ai(df)
+    try:
+        s = summarize_for_ai(df)
+    except Exception:
+        s = {}
     status = _ai_openai_status()
     ai_mode = "OpenAI" if status.get("configured") and status.get("package_ready") else "Local"
     messages = st.session_state.get("ai_messages", [])
 
-    with st.container(key="eusee_ai_chatgpt_drawer"):
+    with st.container(key="eusee_ai_premium_copilot"):
+        st.markdown("<div class='ai-premium-shell'>", unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="ai-chatgpt-header">
-            <div class="ai-chatgpt-title-wrap">
-                <div class="ai-chatgpt-avatar">AI</div>
+        <div class="ai-premium-header">
+            <div class="ai-premium-brand">
+                <div class="ai-premium-logo">AI</div>
                 <div>
-                    <div class="ai-chatgpt-title">EUSEE Copilot</div>
-                    <div class="ai-chatgpt-sub">Ask, compare, explain, chart, or brief the active view</div>
+                    <div class="ai-premium-title">EUSEE Copilot</div>
+                    <div class="ai-premium-sub">Chat with the active dashboard view. Answers, plots, and exports stay in one conversation.</div>
                 </div>
             </div>
-            <div class="ai-chatgpt-status-pill">{ai_mode}</div>
+            <div class="ai-premium-status">
+                <div class="ai-premium-pill"><span class="ai-premium-dot"></span>{ai_mode}</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("<div class='ai-chatgpt-body'>", unsafe_allow_html=True)
         st.markdown(f"""
-        <div class="ai-chatgpt-scope">
-            <div><b>{s.get('total_alerts', 0):,}</b><span>alerts</span></div>
-            <div><b>{s.get('countries_count', 0):,}</b><span>countries</span></div>
-            <div><b>{s.get('negative_pct', 0)}%</b><span>negative</span></div>
+        <div class="ai-premium-metrics">
+            <div class="ai-premium-metric"><b>{s.get('total_alerts', 0):,}</b><span>Filtered alerts</span></div>
+            <div class="ai-premium-metric"><b>{s.get('countries_count', 0):,}</b><span>Countries</span></div>
+            <div class="ai-premium-metric"><b>{s.get('negative_pct', 0)}%</b><span>Negative signal</span></div>
         </div>
         """, unsafe_allow_html=True)
 
-        top_left, top_right = st.columns([1, 1])
-        with top_left:
-            if st.button("Minimize", key="ai_chatgpt_minimize", use_container_width=True):
-                st.session_state.copilot_open = False
-                st.rerun()
-        with top_right:
-            if st.button("Clear chat", key="ai_chatgpt_clear", use_container_width=True):
-                st.session_state.ai_messages = [
-                    {"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}
-                ]
-                st.session_state.ai_smart_output = {
-                    "type": "note",
-                    "title": "Chat cleared",
-                    "content": "Ask a new question or use one of the quick prompts."
-                }
-                if is_authenticated():
-                    try:
-                        _ai_clear_current_user_history()
-                    except Exception:
-                        pass
-                st.rerun()
+        with st.container():
+            controls = st.columns([1, 1, 1])
+            with controls[0]:
+                if st.button("Minimize", key="ai_premium_minimize", use_container_width=True):
+                    st.session_state.copilot_open = False
+                    st.rerun()
+            with controls[1]:
+                if st.button("Clear", key="ai_premium_clear", use_container_width=True):
+                    _ai_clear_user_chat_history()
+                    st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask me about the currently filtered EU SEE dashboard data."}]
+                    st.session_state.ai_smart_output = {"type": "note", "title": "Chat cleared", "content": "Ask a new question or use one of the quick prompts."}
+                    st.rerun()
+            with controls[2]:
+                if st.button("Full console", key="ai_premium_full_console_top", use_container_width=True):
+                    st.session_state.ai_show_full_console = True
+                    st.rerun()
 
-        st.markdown("<div class='ai-chatgpt-thread'>", unsafe_allow_html=True)
-        visible_messages = messages[-10:] if messages else []
+        st.markdown("<div class='ai-premium-scroll'>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-premium-thread'>", unsafe_allow_html=True)
+
+        visible_messages = messages[-12:] if messages else []
         if not visible_messages:
             st.markdown("""
-            <div class="ai-chatgpt-empty">
-                <b>Start a conversation.</b><br>
-                Ask about countries, regions, alert impacts, trends, restrictive actors, mechanisms, affected groups, or request a chart.
+            <div class="ai-premium-empty">
+                <div class="ai-premium-empty-title">What should we analyse?</div>
+                <div class="ai-premium-empty-text">
+                    Ask a normal question or request a chart. The Copilot reads the active filters and responds like a dashboard analyst.
+                </div>
             </div>
             """, unsafe_allow_html=True)
+
         for msg in visible_messages:
             role = "user" if msg.get("role") == "user" else "assistant"
-            content = _render_chat_content_html(str(msg.get("content", ""))[:3000])
+            avatar = "You" if role == "user" else "AI"
+            content = _render_chat_content_html(str(msg.get("content", ""))[:4500])
             st.markdown(
-                f"<div class='ai-chatgpt-msg-row {role}'><div class='ai-chatgpt-bubble'>{content}</div></div>",
+                f"""
+                <div class="ai-premium-msg {role}">
+                    <div class="ai-premium-avatar">{avatar}</div>
+                    <div class="ai-premium-bubble">{content}</div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
-        st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='ai-chatgpt-chip-title'>Suggested prompts</div>", unsafe_allow_html=True)
-        chip_rows = [
-            [
-                ("Summarize", "Give me an executive summary of the current filtered dashboard view."),
-                ("Risks", "Which countries have the strongest negative-alert signal and why?"),
-                ("Trend", "Explain the alert trend over time under the current filters."),
-            ],
-            [
-                ("Actors", "Which restrictive actors and mechanisms dominate the negative alerts?"),
-                ("Compare", "Compare the top countries by negative alerts and explain the pattern."),
-                ("Chart", "Create a chart of negative alerts by country using the current filters."),
-            ],
-        ]
-        for row_i, row in enumerate(chip_rows):
-            cols = st.columns(len(row))
-            for col, (label, prompt) in zip(cols, row):
-                with col:
-                    if st.button(label, key=f"ai_chatgpt_chip_{row_i}_{label}", use_container_width=True):
-                        _copilot_queue_answer(prompt, df)
-                        st.rerun()
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<div class='ai-chatgpt-input-card'>", unsafe_allow_html=True)
-        with st.form("ai_chatgpt_prompt_form", clear_on_submit=True):
-            user_q = st.text_area(
-                "Message EUSEE Copilot",
-                placeholder="Message EUSEE Copilot...",
-                height=72,
-                key="ai_chatgpt_prompt_box",
-                label_visibility="collapsed",
-            )
-            send = st.form_submit_button("Send", use_container_width=True)
-        if send and str(user_q).strip():
-            _copilot_queue_answer(user_q, df)
-            st.rerun()
-
-        # ChatGPT-style merged output: generated charts, interpretations, briefs, and selected-chart insights
-        # appear directly inside the conversation area instead of a separate Smart Output panel.
+        # Latest smart output is merged into the same conversation flow, like ChatGPT.
         smart_output = st.session_state.get("ai_smart_output", {}) or {}
-        if smart_output and smart_output.get("type") not in [None, "welcome", "note"]:
-            st.markdown("<div class='ai-chatgpt-msg-row assistant'><div class='ai-chatgpt-bubble' style='max-width:96%;width:96%;'>", unsafe_allow_html=True)
+        if smart_output and smart_output.get("type") not in [None, "welcome", "note", "answer"]:
             out_title = str(smart_output.get("title") or "Latest output")
-            st.markdown(f"<b>{_render_chat_content_html(out_title)}</b>", unsafe_allow_html=True)
+            out_type = str(smart_output.get("type") or "Output").replace("_", " ").title()
+            st.markdown(f"""
+            <div class="ai-premium-msg assistant">
+                <div class="ai-premium-avatar">AI</div>
+                <div class="ai-premium-bubble">
+                    <div class="ai-premium-output-card">
+                        <div class="ai-premium-output-head">
+                            <div class="ai-premium-output-title">{_render_chat_content_html(out_title)}</div>
+                            <div class="ai-premium-output-badge">{out_type}</div>
+                        </div>
+            """, unsafe_allow_html=True)
             if smart_output.get("type") == "plot_v2" and smart_output.get("fig") is not None:
                 st.plotly_chart(
                     apply_responsive_plotly_layout(smart_output["fig"]),
                     use_container_width=True,
-                    key="ai_chatgpt_inline_plot",
+                    key="ai_premium_inline_plot",
                 )
                 render_eusee_chart_interpretation_card(
                     smart_output.get("interpretation") or smart_output.get("content", ""),
-                    title="AI graph interpretation",
+                    title="AI interpretation",
                     expanded=True,
                 )
                 plot_data = smart_output.get("plot_data")
@@ -12584,141 +12582,124 @@ def render_ai_assistant_panel(df):
                         )
             else:
                 st.markdown(
-                    f"<div class='ai-chatgpt-output'>{_render_chat_content_html(str(smart_output.get('content', ''))[:7000])}</div>",
+                    f"<div class='ai-premium-output-text'>{_render_chat_content_html(str(smart_output.get('content', ''))[:7000])}</div>",
                     unsafe_allow_html=True,
                 )
-            st.markdown("</div></div>", unsafe_allow_html=True)
+            st.markdown("</div></div></div>", unsafe_allow_html=True)
+
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='ai-premium-suggestions'><div class='ai-premium-suggestion-title'>Quick prompts</div></div>", unsafe_allow_html=True)
+        prompt_rows = [
+            [
+                ("Executive summary", "Give me an executive summary of the current filtered dashboard view."),
+                ("Top risks", "Which countries have the strongest negative-alert signal and why?"),
+                ("Trend", "Explain the alert trend over time under the current filters."),
+            ],
+            [
+                ("Actors", "Which restrictive actors and mechanisms dominate the negative alerts?"),
+                ("Compare countries", "Compare the top countries by negative alerts and explain the pattern."),
+                ("Make chart", "Create a professional chart of negative alerts by country using the current filters."),
+            ],
+        ]
+        for row_i, row in enumerate(prompt_rows):
+            cols = st.columns(len(row))
+            for col, (label, prompt) in zip(cols, row):
+                with col:
+                    if st.button(label, key=f"ai_premium_prompt_{row_i}_{label}", use_container_width=True):
+                        _copilot_queue_answer(prompt, df)
+                        st.rerun()
+
+        st.markdown("<div class='ai-premium-composer'>", unsafe_allow_html=True)
+        with st.form("ai_premium_prompt_form", clear_on_submit=True):
+            user_q = st.text_area(
+                "Message EUSEE Copilot",
+                placeholder="Message EUSEE Copilot… e.g., compare negative alerts by country and explain the pattern",
+                height=76,
+                key="ai_premium_prompt_box",
+                label_visibility="collapsed",
+            )
+            send = st.form_submit_button("Send message", use_container_width=True)
+        if send and str(user_q).strip():
+            _copilot_queue_answer(user_q, df)
+            st.rerun()
+        st.markdown("<div class='ai-premium-footnote'>Uses the active dashboard filters. Advanced analytics are below.</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("Advanced tools", expanded=False):
-            st.caption("These tools preserve the full chatbot functionality while keeping the default interface simple.")
+            st.markdown("<div class='ai-premium-advanced-card'>", unsafe_allow_html=True)
+            st.caption("Full functionality remains available here: plot builder, chart explanation, briefs, downloads, and diagnostics.")
             a1, a2 = st.columns(2)
             with a1:
-                if st.button("Open full AI console", key="ai_chatgpt_full_console", use_container_width=True):
+                if st.button("Open full AI console", key="ai_premium_full_console_advanced", use_container_width=True):
                     st.session_state.ai_show_full_console = True
                     st.rerun()
             with a2:
-                if st.button("Generate policy brief", key="ai_chatgpt_policy_brief", use_container_width=True):
-                    brief = generate_ai_policy_brief(df)
-                    st.session_state.ai_smart_output = {"type": "brief", "title": "Policy brief", "content": brief}
-                    _ai_append_message("assistant", brief)
+                if st.button("Generate executive brief", key="ai_premium_exec_brief", use_container_width=True):
+                    prompt = "Generate a concise executive brief from the current filtered dashboard view with key risks, countries, actors, and recommended next steps."
+                    _copilot_queue_answer(prompt, df)
                     st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            with st.expander("Advanced plot builder", expanded=False):
-                st.caption("Build a custom chart from the active filtered data without leaving the ChatGPT-like Copilot view.")
+            with st.expander("Plot builder", expanded=False):
                 dims = _v2_safe_get_dims(df)
-                if not dims:
-                    st.info("No suitable plotting dimensions are available under the current filters.")
-                else:
+                if dims:
                     label_to_col = {label: col for label, col in dims}
                     labels = list(label_to_col.keys())
-
-                    pb1, pb2 = st.columns(2)
-                    with pb1:
-                        quick_preset = st.selectbox(
-                            "Quick preset",
-                            ["None", "Top countries", "Actor analysis", "Mechanism breakdown", "Trend analysis", "Actor × mechanism", "Country × impact"],
-                            key="ai_chatgpt_plot_quick_preset",
-                        )
-                    with pb2:
-                        mode = st.radio(
-                            "Mode",
-                            ["Single variable", "Compare variables"],
-                            horizontal=True,
-                            key="ai_chatgpt_plot_mode",
-                        )
-
-                    preset_cfg = _v3_apply_quick_preset(quick_preset, labels, label_to_col)
-
-                    if mode == "Compare variables":
-                        cx1, cx2 = st.columns(2)
-                        with cx1:
-                            preset_x_col = preset_cfg.get("x_col")
-                            preset_x_label = next((lab for lab, col in label_to_col.items() if col == preset_x_col), labels[0])
-                            x_label = st.selectbox("Primary variable", labels, index=labels.index(preset_x_label), key="ai_chatgpt_plot_x")
-                        with cx2:
-                            default_y_idx = 1 if len(labels) > 1 else 0
-                            preset_y_col = preset_cfg.get("y_col")
-                            preset_y_label = next((lab for lab, col in label_to_col.items() if col == preset_y_col), labels[default_y_idx])
-                            y_label = st.selectbox("Compare with", labels, index=labels.index(preset_y_label), key="ai_chatgpt_plot_y")
-
-                        compare_chart_types = ["Heatmap", "Grouped bar", "Stacked bar", "Horizontal bar", "Treemap", "Sunburst", "Bubble", "Scatter"]
+                    mode = st.radio("Plot mode", ["Single variable", "Compare variables"], horizontal=True, key="ai_premium_plot_mode")
+                    if mode == "Compare variables" and len(labels) > 1:
+                        pc1, pc2 = st.columns(2)
+                        with pc1:
+                            x_label = st.selectbox("Primary variable", labels, key="ai_premium_plot_x")
+                        with pc2:
+                            y_options = [lab for lab in labels if lab != x_label]
+                            y_label = st.selectbox("Compare with", y_options, key="ai_premium_plot_y")
+                        chart_types = ["Heatmap", "Grouped bar", "Stacked bar", "Horizontal bar", "Treemap", "Sunburst", "Bubble", "Scatter"]
                         recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[x_label], label_to_col[y_label], compare_mode=True)
-                        default_chart = preset_cfg.get("chart_type") if preset_cfg.get("chart_type") in compare_chart_types else recommended_chart
-                        chart_type = st.selectbox(
-                            "Chart type",
-                            compare_chart_types,
-                            index=compare_chart_types.index(default_chart) if default_chart in compare_chart_types else 0,
-                            key="ai_chatgpt_plot_compare_chart",
-                        )
-                        normalize = st.selectbox("Metric", ["Count", "Share %", "Row %", "Column %"], key="ai_chatgpt_plot_normalize")
-                        top_n = st.slider("Top primary categories", 5, 30, int(preset_cfg.get("top_n", 10)), key="ai_chatgpt_plot_top_n_compare")
-                        top_y = st.slider("Top comparison categories", 3, 20, 8, key="ai_chatgpt_plot_top_y_compare")
+                        chart_type = st.selectbox("Chart type", chart_types, index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0, key="ai_premium_plot_compare_chart")
+                        normalize = st.selectbox("Metric", ["Count", "Share %", "Row %", "Column %"], key="ai_premium_plot_normalize")
+                        top_n = st.slider("Top primary categories", 5, 30, 10, key="ai_premium_plot_top_n_compare")
+                        top_y = st.slider("Top comparison categories", 3, 20, 8, key="ai_premium_plot_top_y_compare")
                         st.caption(f"Recommended: {recommended_chart}. {recommended_note}")
-
-                        if st.button("Build plot", key="ai_chatgpt_build_compare_plot", use_container_width=True):
-                            if label_to_col[x_label] == label_to_col[y_label]:
-                                st.warning("Choose two different variables for comparison mode.")
-                            else:
-                                title = f"{x_label} by {y_label}"
-                                config = {
-                                    "filtered_df": df,
-                                    "x_col": label_to_col[x_label],
-                                    "group_col": label_to_col[y_label],
-                                    "chart_type": chart_type,
-                                    "top_n": top_n,
-                                    "top_y": top_y,
-                                    "normalize": normalize,
-                                    "title": title,
-                                    "compare_mode": True,
-                                }
-                                fig, plot_df = _v3_make_compare_plot(
-                                    df,
-                                    x_col=config["x_col"],
-                                    y_col=config["group_col"],
-                                    chart_type=chart_type,
-                                    top_n=top_n,
-                                    top_y=top_y,
-                                    normalize=normalize,
-                                    title=title,
-                                )
-                                insight = _v3_plot_insight(plot_df, config["x_col"], config["group_col"], metric_label=normalize, comparison_mode="Compare variables")
-                                session_config = {k: v for k, v in config.items() if k != "filtered_df"}
-                                st.session_state.ai_smart_output = {
-                                    "type": "plot_v2",
-                                    "title": title,
-                                    "content": insight,
-                                    "interpretation": insight,
-                                    "fig": fig,
-                                    "plot_data": plot_df,
-                                    "config": session_config,
-                                }
-                                _ai_append_message("assistant", f"Built a {chart_type} for {x_label} by {y_label}. The plot is shown below in this chat.")
-                                st.rerun()
+                        if st.button("Build plot", key="ai_premium_build_compare_plot", use_container_width=True):
+                            title = f"{x_label} by {y_label}"
+                            fig, plot_df = _v3_make_compare_plot(
+                                df,
+                                x_col=label_to_col[x_label],
+                                y_col=label_to_col[y_label],
+                                chart_type=chart_type,
+                                top_n=top_n,
+                                top_y=top_y,
+                                normalize=normalize,
+                                title=title,
+                            )
+                            insight = _v3_plot_insight(plot_df, label_to_col[x_label], label_to_col[y_label], metric_label=normalize, comparison_mode="Compare variables")
+                            st.session_state.ai_smart_output = {
+                                "type": "plot_v2",
+                                "title": title,
+                                "content": insight,
+                                "interpretation": insight,
+                                "fig": fig,
+                                "plot_data": plot_df,
+                                "config": {"x_col": label_to_col[x_label], "group_col": label_to_col[y_label], "chart_type": chart_type, "top_n": top_n, "top_y": top_y, "normalize": normalize, "compare_mode": True},
+                            }
+                            _ai_append_message("assistant", f"Built a {chart_type} for {x_label} by {y_label}. The plot is shown in this chat.")
+                            st.rerun()
                     else:
-                        pbx1, pbx2 = st.columns(2)
-                        with pbx1:
-                            preset_x_col = preset_cfg.get("x_col")
-                            preset_x_label = next((lab for lab, col in label_to_col.items() if col == preset_x_col), labels[0])
-                            x_label = st.selectbox("Dimension", labels, index=labels.index(preset_x_label), key="ai_chatgpt_plot_single_x")
-                        with pbx2:
+                        pc1, pc2 = st.columns(2)
+                        with pc1:
+                            x_label = st.selectbox("Dimension", labels, key="ai_premium_plot_single_x")
+                        with pc2:
                             group_options = ["None"] + [lab for lab in labels if lab != x_label]
-                            group_label = st.selectbox("Group / color by", group_options, key="ai_chatgpt_plot_single_group")
-
+                            group_label = st.selectbox("Group / color by", group_options, key="ai_premium_plot_single_group")
                         group_col = None if group_label == "None" else label_to_col[group_label]
                         recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[x_label], None, compare_mode=False, group_col=group_col)
-                        chart_types = AI_COPILOT_V2_CHART_TYPES
-                        chart_type = st.selectbox(
-                            "Chart type",
-                            chart_types,
-                            index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0,
-                            key="ai_chatgpt_plot_single_chart",
-                        )
-                        top_n = st.slider("Top categories", 5, 30, int(preset_cfg.get("top_n", 10)), key="ai_chatgpt_plot_top_n_single")
-                        metric_mode = st.selectbox("Metric", ["Count", "Share %", "Cumulative %"], key="ai_chatgpt_plot_metric_single")
-                        title = st.text_input("Chart title", value=f"{x_label} distribution", key="ai_chatgpt_plot_title_single")
+                        chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, index=AI_COPILOT_V2_CHART_TYPES.index(recommended_chart) if recommended_chart in AI_COPILOT_V2_CHART_TYPES else 0, key="ai_premium_plot_single_chart")
+                        top_n = st.slider("Top categories", 5, 30, 10, key="ai_premium_plot_top_n_single")
+                        metric_mode = st.selectbox("Metric", ["Count", "Share %", "Cumulative %"], key="ai_premium_plot_metric_single")
+                        title = st.text_input("Chart title", value=f"{x_label} distribution", key="ai_premium_plot_title_single")
                         st.caption(f"Recommended: {recommended_chart}. {recommended_note}")
-
-                        if st.button("Build plot", key="ai_chatgpt_build_single_plot", use_container_width=True):
+                        if st.button("Build plot", key="ai_premium_build_single_plot", use_container_width=True):
                             fig, plot_df = _v3_make_single_plot(
                                 df,
                                 x_col=label_to_col[x_label],
@@ -12729,15 +12710,6 @@ def render_ai_assistant_panel(df):
                                 metric_mode=metric_mode,
                             )
                             insight = _v3_plot_insight(plot_df, label_to_col[x_label], group_col, metric_label=metric_mode, comparison_mode="Single variable")
-                            config = {
-                                "x_col": label_to_col[x_label],
-                                "group_col": group_col,
-                                "chart_type": chart_type,
-                                "top_n": top_n,
-                                "metric_mode": metric_mode,
-                                "title": title,
-                                "compare_mode": False,
-                            }
                             st.session_state.ai_smart_output = {
                                 "type": "plot_v2",
                                 "title": title,
@@ -12745,35 +12717,33 @@ def render_ai_assistant_panel(df):
                                 "interpretation": insight,
                                 "fig": fig,
                                 "plot_data": plot_df,
-                                "config": config,
+                                "config": {"x_col": label_to_col[x_label], "group_col": group_col, "chart_type": chart_type, "top_n": top_n, "metric_mode": metric_mode, "compare_mode": False},
                             }
-                            _ai_append_message("assistant", f"Built a {chart_type} for {x_label}. The plot is shown below in this chat.")
+                            _ai_append_message("assistant", f"Built a {chart_type} for {x_label}. The plot is shown in this chat.")
                             st.rerun()
+                else:
+                    st.info("No suitable plotting dimensions are available under the current filters.")
 
-            with st.expander("Explain a dashboard chart or map", expanded=False):
+            with st.expander("Explain dashboard chart or map", expanded=False):
                 render_chatbot_dashboard_chart_explainer(df)
-
-            with st.expander("Trend, quality, and next steps", expanded=False):
-                render_ai_trend_chart(df)
-                st.text(ai_data_quality_report(df))
-                st.text(ai_recommended_next_steps(df))
 
             with st.expander("Downloads", expanded=False):
                 summary_text = generate_ai_executive_summary(df)
                 policy_text = generate_ai_policy_brief(df)
                 chat_text = "\n\n".join([f"{m.get('role', '').upper()}: {m.get('content', '')}" for m in st.session_state.get("ai_messages", [])])
-                st.download_button("Download executive summary", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="ai_chatgpt_dl_summary")
-                st.download_button("Download policy brief", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="ai_chatgpt_dl_policy")
-                st.download_button("Download chat transcript", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_chatgpt_dl_chat")
+                st.download_button("Download executive summary", data=summary_text, file_name="eusee_ai_executive_summary.txt", mime="text/plain", use_container_width=True, key="ai_premium_dl_summary")
+                st.download_button("Download policy brief", data=policy_text, file_name="eusee_ai_policy_brief.txt", mime="text/plain", use_container_width=True, key="ai_premium_dl_policy")
+                st.download_button("Download chat transcript", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_premium_dl_chat")
                 if df is not None and not df.empty:
                     cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle", "Actor of repression", "Subject of repression", "Mechanism of repression"] if c in df.columns]
                     csv_data = df[cols].to_csv(index=False).encode("utf-8") if cols else df.to_csv(index=False).encode("utf-8")
-                    st.download_button("Download filtered records", data=csv_data, file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True, key="ai_chatgpt_dl_records")
+                    st.download_button("Download filtered records", data=csv_data, file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True, key="ai_premium_dl_records")
 
             with st.expander("OpenAI / local fallback status", expanded=False):
                 _v2_render_status_bar(df)
 
         st.markdown("</div>", unsafe_allow_html=True)
+
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
