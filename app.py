@@ -6483,6 +6483,10 @@ def render_dashboard_plotly_chart(
     """
     target = container if container is not None else st
 
+    if not can_view_dashboard_chart(key):
+        render_chart_access_locked(target, key)
+        return
+
     # Tooltip is disabled by default. For the two existing enabling-principle
     # charts only, keep the info badge inside the Plotly figure title band so
     # it appears together with the chart title rather than as a separate
@@ -6501,6 +6505,96 @@ def render_dashboard_plotly_chart(
 
     fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
+
+
+# ---------------- CHART-LEVEL AUTHORIZATION ----------------
+DASHBOARD_CHART_PERMISSION_MAP = {
+    "tab1_chart1": "view_chart_overview_alert_type",
+    "tab1_chart2": "view_chart_overview_enabling_principles",
+    "tab1_chart3": "view_chart_overview_regions",
+    "tab1_chart4": "view_chart_overview_countries",
+    "tab2_chart1": "view_chart_negative_restrictive_actors",
+    "tab2_chart2": "view_chart_negative_affected_actors",
+    "tab2_chart3": "view_chart_negative_restrictive_mechanisms",
+    "tab2_chart4": "view_chart_negative_event_types",
+    "tab2_chart5": "view_chart_negative_alert_types",
+    "tab2_chart6": "view_chart_negative_enabling_principles",
+    "heatmap_actor_mechanism_pro": "view_chart_heatmap_actor_mechanism",
+    "heatmap_subject_mechanism_pro": "view_chart_heatmap_subject_mechanism",
+    "heatmap_actor_subject_pro": "view_chart_heatmap_actor_subject",
+    "negative_events_analytical_flow_panel_sankey": "view_chart_sankey_flow",
+    "professional_geo_intelligence_map": "view_chart_geospatial_map",
+    "ai_trend_chart": "view_chart_ai_copilot_plots",
+    "copilot_smart_last_plot": "view_chart_ai_copilot_plots",
+    "copilot_plot_builder": "view_chart_ai_copilot_plots",
+}
+
+DASHBOARD_CHART_PERMISSION_LABELS = {
+    "view_chart_overview_alert_type": "Overview alert type distribution chart",
+    "view_chart_overview_enabling_principles": "Overview enabling-principle distribution chart",
+    "view_chart_overview_regions": "Overview regional distribution chart",
+    "view_chart_overview_countries": "Overview country distribution chart",
+    "view_chart_negative_restrictive_actors": "Restrictive actors chart",
+    "view_chart_negative_affected_actors": "Civil society actors affected chart",
+    "view_chart_negative_restrictive_mechanisms": "Restrictive mechanisms chart",
+    "view_chart_negative_event_types": "Negative event types chart",
+    "view_chart_negative_alert_types": "Negative alert types chart",
+    "view_chart_negative_enabling_principles": "Negative enabling-principle chart",
+    "view_chart_heatmap_actor_mechanism": "Actor × mechanism heatmap",
+    "view_chart_heatmap_subject_mechanism": "Affected actor × mechanism heatmap",
+    "view_chart_heatmap_actor_subject": "Actor × affected actor heatmap",
+    "view_chart_sankey_flow": "Analytical Sankey flow chart",
+    "view_chart_geospatial_map": "Geospatial intelligence map",
+    "view_chart_ai_copilot_plots": "AI Copilot generated charts",
+}
+
+
+def get_dashboard_chart_permission(chart_key=None):
+    """Return the admin-controlled permission key for a dashboard chart."""
+    return DASHBOARD_CHART_PERMISSION_MAP.get(str(chart_key or "").strip())
+
+
+def can_view_dashboard_chart(chart_key=None):
+    """Check chart-level authorization. Charts without a mapped key remain visible."""
+    permission = get_dashboard_chart_permission(chart_key)
+    if not permission:
+        return True
+    try:
+        return bool(has_permission(permission))
+    except Exception:
+        return False
+
+
+def render_chart_access_locked(target, chart_key=None):
+    """Render a compact locked-card placeholder for chart-level authorization."""
+    permission = get_dashboard_chart_permission(chart_key)
+    label = DASHBOARD_CHART_PERMISSION_LABELS.get(permission, "This chart")
+    target.markdown(f"""
+    <div style="
+        min-height: 260px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed #D0D5DD;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F9FAFB 100%);
+        box-shadow: 0 8px 20px rgba(16,24,40,.04);
+        font-family: Arial, sans-serif;
+        padding: 18px;
+        margin-bottom: 12px;
+    ">
+        <div style="max-width: 420px; text-align: center;">
+            <div style="font-size: 22px; margin-bottom: 8px;">🔐</div>
+            <div style="font-size: 13px; font-weight: 950; color: #23152F; line-height: 1.25;">
+                {label} requires authorization
+            </div>
+            <div style="font-size: 10.8px; color: #667085; line-height: 1.4; margin-top: 6px;">
+                Ask an administrator to enable this chart from the User Privilege Center.
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ---------------- TAB 1 ------------------------
 with tab_overview:
@@ -12311,7 +12405,10 @@ def render_ai_assistant_panel(df):
                 unsafe_allow_html=True,
             )
             if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
+                if has_permission("view_chart_ai_copilot_plots"):
+                    st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
+                else:
+                    render_chart_access_locked(st, "copilot_plot_builder")
                 render_eusee_chart_interpretation_card(
                     out.get("interpretation") or out.get("content", ""),
                     title="AI graph interpretation",
