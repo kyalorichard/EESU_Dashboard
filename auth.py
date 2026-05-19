@@ -306,27 +306,6 @@ def _auth_page_css():
             padding-bottom: 2rem !important;
         }
 
-        .auth-page-title {
-            text-align: center;
-            margin-bottom: 22px;
-            font-family: Arial, sans-serif;
-        }
-
-        .auth-page-title h1 {
-            margin: 0;
-            color: #231942;
-            font-size: 32px;
-            font-family: Arial Black, Arial, sans-serif;
-            letter-spacing: -0.6px;
-        }
-
-        .auth-page-title p {
-            margin: 9px 0 0 0;
-            color: #6f667a;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
         div[data-testid="stVerticalBlockBorderWrapper"] {
             border-radius: 28px !important;
             border: 1px solid rgba(102,0,148,0.12) !important;
@@ -352,22 +331,6 @@ def _auth_page_css():
             font-size: 11px;
             font-weight: 900;
             font-family: Arial, sans-serif;
-        }
-
-        .form-title {
-            font-family: Arial Black, Arial, sans-serif;
-            color: #231942;
-            font-size: 28px;
-            letter-spacing: -0.3px;
-            margin: 20px 0 6px 0;
-        }
-
-        .form-subtitle {
-            font-family: Arial, sans-serif;
-            color: #6f667a;
-            font-size: 13px;
-            line-height: 1.55;
-            margin-bottom: 18px;
         }
 
         .mode-card {
@@ -472,10 +435,6 @@ def _auth_page_css():
                 padding: 1.2rem 1rem !important;
             }
 
-            .auth-page-title h1 {
-                font-size: 26px;
-            }
-
             div[data-testid="stVerticalBlockBorderWrapper"] > div {
                 padding: 24px !important;
             }
@@ -498,26 +457,15 @@ def _back_to_dashboard():
 
 def _login_form():
     with st.form("eusee_login_form"):
-        email = st.text_input(
-            "Email address",
-            placeholder="name@organization.org",
-        ).strip().lower()
-
-        password = st.text_input(
-            "Password",
-            placeholder="Enter your password",
-            type="password",
-        )
+        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
+        password = st.text_input("Password", placeholder="Enter your password", type="password")
 
         remember = st.checkbox(
             "Keep me signed in on this device",
             value=st.session_state.get("auth_remember", False),
         )
 
-        submitted = st.form_submit_button(
-            "Sign in to Dashboard",
-            use_container_width=True,
-        )
+        submitted = st.form_submit_button("Sign in to Dashboard", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
@@ -567,21 +515,10 @@ def _login_form():
 
 def _register_form():
     with st.form("eusee_register_form"):
-        email = st.text_input(
-            "Email address",
-            placeholder="name@organization.org",
-        ).strip().lower()
+        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
+        password = st.text_input("Password", placeholder="Create a secure password", type="password")
 
-        password = st.text_input(
-            "Password",
-            placeholder="Create a secure password",
-            type="password",
-        )
-
-        submitted = st.form_submit_button(
-            "Create Account",
-            use_container_width=True,
-        )
+        submitted = st.form_submit_button("Create Account", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
@@ -599,27 +536,18 @@ def _register_form():
         try:
             user = firebase_auth.create_user_with_email_and_password(email, password)
             firebase_auth.send_email_verification(user["idToken"])
-
             st.success("Registration successful. Check your email to verify your account, then sign in.")
+            st.session_state.auth_mode = "Login"
 
         except Exception as e:
             st.error(parse_error(e))
 
-    if st.button("Back to Sign In", use_container_width=True, key="register_back_login"):
-        _set_auth_mode("Login")
-
 
 def _reset_form():
     with st.form("eusee_reset_form"):
-        reset_email = st.text_input(
-            "Email address",
-            placeholder="name@organization.org",
-        ).strip().lower()
+        reset_email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
 
-        submitted = st.form_submit_button(
-            "Send Password Reset Link",
-            use_container_width=True,
-        )
+        submitted = st.form_submit_button("Send Password Reset Link", use_container_width=True)
 
     if submitted:
         if not firebase_auth:
@@ -637,30 +565,16 @@ def _reset_form():
         try:
             firebase_auth.send_password_reset_email(reset_email)
             st.success("Password reset email sent.")
+            st.session_state.auth_mode = "Login"
 
         except Exception as e:
             st.error(parse_error(e))
-
-    if st.button("Back to Sign In", use_container_width=True, key="reset_back_login"):
-        _set_auth_mode("Login")
 
 
 def _render_premium_auth_page():
     _auth_page_css()
 
     mode = st.session_state.get("auth_mode", "Login")
-
-    mode_title = {
-        "Login": "Sign in or create account",
-        "Register": "Create account",
-        "Reset": "Reset password",
-    }.get(mode, "Sign in or create account")
-
-    mode_subtitle = {
-        "Login": "Use the form below to sign in or create an account.",
-        "Register": "Create an account using your organizational email. Email verification is required before privileged access.",
-        "Reset": "Enter your email address and we will send a password reset link.",
-    }.get(mode, "Access the EUSEE Dashboard.")
 
     left_space, center, right_space = st.columns([0.18, 0.64, 0.18])
 
@@ -677,9 +591,6 @@ def _render_premium_auth_page():
             with top_b:
                 if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
                     _back_to_dashboard()
-
-            st.markdown(f'<div class="form-title">{mode_title}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="form-subtitle">{mode_subtitle}</div>', unsafe_allow_html=True)
 
             if mode == "Login":
                 st.markdown(
