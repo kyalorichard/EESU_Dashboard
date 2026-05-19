@@ -384,24 +384,24 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             color: #23152F;
             font-weight: 900;
         }
-        /* Data Preview table: one clean horizontal scroll surface, aligned with tab typography. */
+        /* Data Preview table: keep only Streamlit's internal table scrollbar visible. */
         div[data-testid="stDataFrame"] {
             border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
+            overflow: hidden !important;
             box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
             background: #FFFFFF !important;
             font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
         }
         div[data-testid="stDataFrame"] > div {
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
+            overflow: hidden !important;
         }
-        div[data-testid="stDataFrame"] div[role="grid"],
-        div[data-testid="stDataFrame"] [data-testid="stTable"] {
+        div[data-testid="stDataFrame"] div[role="grid"] {
             overflow-x: auto !important;
-            overflow-y: hidden !important;
+            overflow-y: auto !important;
+        }
+        div[data-testid="stDataFrame"] [data-testid="stTable"] {
+            overflow: hidden !important;
         }
         div[data-testid="stDataFrame"] [role="columnheader"] {
             background: #F4EAF8 !important;
@@ -3524,8 +3524,9 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         content: attr(data-tooltip);
         position: absolute;
         left: 50%;
-        bottom: calc(100% + 10px);
-        transform: translateX(-50%) translateY(4px);
+        top: calc(100% + 10px);
+        bottom: auto;
+        transform: translateX(-50%) translateY(-4px);
         width: min(320px, 72vw);
         padding: 10px 12px;
         border-radius: 12px;
@@ -3551,11 +3552,12 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         content: "";
         position: absolute;
         left: 50%;
-        bottom: calc(100% + 4px);
+        top: calc(100% + 4px);
+        bottom: auto;
         transform: translateX(-50%);
-        border-width: 6px 6px 0 6px;
+        border-width: 0 6px 6px 6px;
         border-style: solid;
-        border-color: #23152F transparent transparent transparent;
+        border-color: transparent transparent #23152F transparent;
         opacity: 0;
         visibility: hidden;
         z-index: 999999;
