@@ -2407,13 +2407,7 @@ regions_labels = [
 ]
 
 with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_filter_box:
-    st.markdown(
-        """
-        <div class="sidebar-filter-section-title">Geography</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+  
     selected_regions = safe_multiselect(
         "Region",
         regions_labels,
@@ -2436,13 +2430,6 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         container=sidebar_filter_box,
     )
 
-    st.markdown(
-        """
-        <div class="sidebar-filter-section-title">Alert classification</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
         data["alert-impact"].dropna().unique()
@@ -2459,13 +2446,6 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         else [],
         "selected_alert_types",
         container=sidebar_filter_box,
-    )
-
-    st.markdown(
-        """
-        <div class="sidebar-filter-section-title">Enabling environment</div>
-        """,
-        unsafe_allow_html=True,
     )
 
     principle_options = (
@@ -2488,13 +2468,6 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         principle_options,
         "selected_enabling_principle",
         container=sidebar_filter_box,
-    )
-
-    st.markdown(
-        """
-        <div class="sidebar-filter-section-title">Time period</div>
-        """,
-        unsafe_allow_html=True,
     )
 
     selected_years = safe_multiselect(
