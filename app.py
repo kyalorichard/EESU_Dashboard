@@ -1016,7 +1016,7 @@ def inject_all_tabs_typography_css():
         font-family: var(--eusee-font) !important;
     }
 
-    .js-plotly-plot .main-svg text,
+    .js-plotly-plot .main-svg text:not(.bartext),
     .js-plotly-plot .gtitle,
     .js-plotly-plot .xtitle,
     .js-plotly-plot .ytitle,
@@ -4097,30 +4097,45 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 
 # ---------------- STACKED BAR LABEL CONTRAST HELPER ----------------
 def readable_stacked_bar_label_color(hex_color):
-    """Return readable label color for values shown inside stacked bars.
+    """Return the value-label color for stacked-bar segments.
 
-    Yellow/light fills use black text; purple/dark fills use white text.
-    This keeps existing chart layout and data unchanged while improving
-    value-label readability on the Overview stacked bar charts.
+    Requirement: values on EUSEE purple bars use white labels; values on
+    all other bar colors, including yellow/light bars and teal bars, use
+    black labels. This keeps chart layout and data unchanged while making
+    stacked-bar values readable.
     """
     try:
-        value = str(hex_color or "#FFFFFF").strip()
+        value = str(hex_color or "").strip().lower().replace(" ", "")
 
-        if value.lower().startswith("rgba") or value.lower().startswith("rgb"):
+        purple_tokens = {
+            "#660094",
+            "660094",
+            "purple",
+            "rgb(102,0,148)",
+            "rgba(102,0,148,1)",
+            "rgba(102,0,148,1.0)",
+        }
+
+        if value in purple_tokens:
+            return "#FFFFFF"
+
+        if value.startswith("rgba") or value.startswith("rgb"):
             nums = re.findall(r"[0-9.]+", value)
-            r, g, b = [float(n) for n in nums[:3]]
-        else:
-            value = value.replace("#", "")
-            if len(value) == 3:
-                value = "".join(ch * 2 for ch in value)
-            if len(value) != 6:
-                return "#FFFFFF"
-            r, g, b = [int(value[i:i + 2], 16) for i in (0, 2, 4)]
+            if len(nums) >= 3:
+                r, g, b = [int(float(n)) for n in nums[:3]]
+                if (r, g, b) == (102, 0, 148):
+                    return "#FFFFFF"
 
-        brightness = (0.299 * r) + (0.587 * g) + (0.114 * b)
-        return "#111827" if brightness > 165 else "#FFFFFF"
+        if value.startswith("#"):
+            hex_value = value.replace("#", "")
+            if len(hex_value) == 3:
+                hex_value = "".join(ch * 2 for ch in hex_value)
+            if hex_value == "660094":
+                return "#FFFFFF"
+
+        return "#111827"
     except Exception:
-        return "#FFFFFF"
+        return "#111827"
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
