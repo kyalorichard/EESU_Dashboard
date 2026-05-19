@@ -3805,7 +3805,6 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div class="negintel-icon">🌍</div>
                 </div>
                 <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
-                <div class="negintel-pill" style="background:#EFFBFE;color:#008CAA;border-color:rgba(0,140,170,.18);">Negative-alert scope</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -3819,7 +3818,6 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div class="negintel-icon">⚠️</div>
                 </div>
                 <div class="negintel-value">{negative_total:,}</div>
-                <div class="negintel-pill">{negative_share}% of filtered alerts</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -4245,10 +4243,10 @@ def render_analytics_module_header(title, subtitle, badges=None):
     }}
     .chart-card-caption {{
         font-family: "Inter", "Segoe UI", Arial, sans-serif;
-        font-size: 12px;
+        font-size: 10.8px;
         font-weight: 600;
         color: #667085;
-        line-height: 1.45;
+        line-height: 1.35;
         letter-spacing: -0.01em;
         margin-top: -6px;
         margin-bottom: 8px;
@@ -8019,12 +8017,12 @@ with tab_map:
                 margin-bottom: 5px;
             }
             .map-intel-title {
-                font-size: 18px;
+                font-size: 14px;
                 font-weight: 950;
                 color: #2D0055;
                 margin-bottom: 4px;
                 letter-spacing: -0.3px;
-                line-height:1.12;
+                line-height:1.15;
             }
             .map-intel-subtitle {
                 font-size: 12px;
