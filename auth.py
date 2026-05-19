@@ -662,16 +662,6 @@ def _render_premium_auth_page():
         "Reset": "Enter your email address and we will send a password reset link.",
     }.get(mode, "Access the EUSEE Dashboard.")
 
-    st.markdown(
-        """
-        <div class="auth-page-title">
-            <h1>EUSEE Dashboard – Privileged Access</h1>
-            <p>Sign in to access advanced features and analyses available to EUSEE partners.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     left_space, center, right_space = st.columns([0.18, 0.64, 0.18])
 
     with center:
