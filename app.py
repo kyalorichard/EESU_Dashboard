@@ -1945,8 +1945,8 @@ def render_sidebar_access_settings_profile():
     }
     .eusee-privilege-marker { display: none; }
     section[data-testid="stSidebar"] .eusee-privilege-title {
-        font-size: 12px;
-        font-weight: 900;
+        font-size: 10px;
+        font-weight: 000;
         color: #23152F;
         margin-bottom: -2px;
     }
