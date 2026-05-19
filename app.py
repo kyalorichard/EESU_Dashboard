@@ -4642,17 +4642,16 @@ def render_heatmaps(df, top_n=5):
         fig1 = create_heatmap(actor_mechanism_pivot, title="What are the mechanisms used<br>by restrictive actors?", x_label="Restrictive Mechanism", y_label="Restrictive Actor")
         fig1.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig1, plot_df=actor_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro", permission_key="view_chart_heatmap_actor_mechanism", permission_label="Actor × mechanism heatmap")
-        st.markdown('<div class="chart-card-caption">Shows which restrictive actors are most associated with each restrictive mechanism.</div>', unsafe_allow_html=True)
-    with c2:
+        
         fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms<br>affecting civil society actors?", x_label="Restrictive Mechanism", y_label="Affected civil society group")
         fig2.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig2, plot_df=subject_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Subject of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro", permission_key="view_chart_heatmap_subject_mechanism", permission_label="Affected actor × mechanism heatmap")
-        st.markdown('<div class="chart-card-caption">Shows which mechanisms most frequently affect specific affected civil society groups.</div>', unsafe_allow_html=True)
+        
     with c3:
         fig3 = create_heatmap(actor_subject_pivot, title="Who are the actors restricting<br>civil society?", x_label="Affected civil society group", y_label="Restrictive actor")
         fig3.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig3, plot_df=actor_subject_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Subject of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_subject_pro", permission_key="view_chart_heatmap_actor_subject", permission_label="Actor × affected actor heatmap")
-        st.markdown('<div class="chart-card-caption">Shows which actors are most frequently linked to affected civil society groups.</div>', unsafe_allow_html=True)
+        
 
 
 # ---------------- PROFESSIONAL SANKEY FUNCTION ----------------
