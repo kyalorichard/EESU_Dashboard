@@ -3728,10 +3728,6 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         )
 
     negative_share = round((overview_negative_total / all_total) * 100, 1) if all_total else 0
-    tab_filtered_note = ""
-    if negative_total != overview_negative_total:
-        tab_filtered_note = f'<div class="negintel-note">Tab-filtered subset: {negative_total:,}</div>'
-
     top_actor, top_actor_count = _top_split_item_for_negative_card(negative_df, "Actor of repression")
     top_mechanism, top_mechanism_count = _top_split_item_for_negative_card(negative_df, "Mechanism of repression")
     top_subject, top_subject_count = _top_split_item_for_negative_card(negative_df, "Subject of repression")
@@ -3852,7 +3848,6 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                 </div>
                 <div class="negintel-value">{overview_negative_total:,}</div>
                 <div class="negintel-note">Same dashboard-level negative count as Overview</div>
-                {tab_filtered_note}
             </div>
         </div>
         """, unsafe_allow_html=True)
