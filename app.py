@@ -12327,24 +12327,27 @@ def _render_ai_assistant_panel_advanced(df):
 
 
 def render_ai_assistant_panel(df):
-    """Premium ChatGPT-style AI Copilot with merged chat/output, insight cards,
-    command menu, session memory, source-aware answers, and chat-triggered plots.
+    """Minimal ChatGPT-style AI Copilot.
 
-    This function intentionally changes only the Copilot user experience. It keeps
-    the existing dashboard AI engines, permission checks, OpenAI/local fallback,
-    chart explainer, plot builder, downloads, and diagnostics available.
+    Visible UX is intentionally reduced to:
+    - one merged conversation/output view
+    - one chat input
+    - up to three suggestion chips
+    - one collapsed Tools drawer for plot builder, exports, reset, diagnostics, and the preserved full console
+
+    The existing OpenAI/local fallback engine, filtered-data context, permissions,
+    chart generation helpers, and advanced console remain unchanged.
     """
     st.session_state.setdefault("copilot_open", True)
-    st.session_state.setdefault("ai_show_full_console", False)
     _v4_init_chat_memory_state()
     st.session_state.setdefault("ai_last_plot", None)
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
         "title": "AI Copilot",
-        "content": "Ask about the active dashboard filters. I can summarize, compare, explain, create charts, and export the chat transcript."
+        "content": "Ask about the active dashboard filters. I can summarize, compare, explain, and create charts from your data."
     })
 
-    def _copilot_context_line(active_df):
+    def _context_line(active_df):
         if active_df is None or active_df.empty:
             return "Based on current filters: 0 records."
         total = len(active_df)
@@ -12353,7 +12356,7 @@ def render_ai_assistant_panel(df):
         impacts = active_df["alert-impact"].nunique() if "alert-impact" in active_df.columns else 0
         return f"Based on current filters: {total:,} records · {countries:,} countries · {years:,} years · {impacts:,} alert-impact classes."
 
-    def _copilot_confidence(active_df):
+    def _confidence(active_df):
         try:
             return _v4_insight_confidence(active_df)
         except Exception:
@@ -12365,17 +12368,17 @@ def render_ai_assistant_panel(df):
                 return "Medium"
             return "Low"
 
-    def _copilot_key_finding(active_df):
+    def _key_finding(active_df):
         if active_df is None or active_df.empty:
             return "No records are available under the current filters."
         if "alert-impact" in active_df.columns:
-            top = active_df["alert-impact"].astype(str).str.strip().value_counts().head(1)
-            if not top.empty:
-                pct = (top.iloc[0] / len(active_df)) * 100
-                return f"{top.index[0]} alerts are the largest visible category ({top.iloc[0]:,}; {pct:.1f}%)."
+            vc = active_df["alert-impact"].astype(str).str.strip().value_counts().head(1)
+            if not vc.empty:
+                pct = (vc.iloc[0] / max(len(active_df), 1)) * 100
+                return f"{vc.index[0]} alerts are the largest visible category ({vc.iloc[0]:,}; {pct:.1f}%)."
         return f"The current filtered view contains {len(active_df):,} records."
 
-    def _copilot_risk_signal(active_df):
+    def _risk_signal(active_df):
         if active_df is None or active_df.empty:
             return "No risk signal can be computed without filtered records."
         parts = []
@@ -12389,44 +12392,41 @@ def render_ai_assistant_panel(df):
                 parts.append(f"main actor: {top_actor.index[0]}")
         return "; ".join(parts) if parts else "No dominant risk driver is visible in the current columns."
 
-    def _copilot_recommended_action(active_df):
+    def _recommended_action(active_df):
         if active_df is None or active_df.empty:
-            return "Broaden the filters or load records before generating recommendations."
-        return "Review the top country and actor/mechanism patterns, then compare them across years or regions before follow-up action."
+            return "Broaden filters or load records before generating recommendations."
+        return "Review the top country and actor/mechanism patterns, then compare them across years or regions."
 
-    def _render_ai_insight_cards(active_df):
+    def _render_compact_insight_strip(active_df):
         st.markdown(f"""
-        <div class="ai-insight-grid">
-          <div class="ai-insight-card"><span>Key finding</span><strong>{_copilot_key_finding(active_df)}</strong></div>
-          <div class="ai-insight-card"><span>Risk signal</span><strong>{_copilot_risk_signal(active_df)}</strong></div>
-          <div class="ai-insight-card"><span>Recommended action</span><strong>{_copilot_recommended_action(active_df)}</strong></div>
-          <div class="ai-insight-card"><span>Confidence</span><strong>{_copilot_confidence(active_df)}</strong></div>
+        <div class="ai-mini-strip">
+            <div><span>Key finding</span><strong>{_key_finding(active_df)}</strong></div>
+            <div><span>Risk signal</span><strong>{_risk_signal(active_df)}</strong></div>
+            <div><span>Confidence</span><strong>{_confidence(active_df)}</strong></div>
         </div>
         """, unsafe_allow_html=True)
 
     def _normalize_command(raw_question):
         q = str(raw_question or "").strip()
-        q_lower = q.lower()
-        if q_lower.startswith("/summary"):
+        low = q.lower()
+        if low.startswith("/summary"):
             return "Summarize the current filtered dashboard view with the main alerts, countries, regions, and risk patterns."
-        if q_lower.startswith("/compare"):
+        if low.startswith("/compare"):
             rest = q[len("/compare"):].strip()
             return rest or "Compare the main patterns by region, country, year, and alert impact under the current filters."
-        if q_lower.startswith("/plot"):
+        if low.startswith("/plot"):
             rest = q[len("/plot"):].strip()
             return rest or "Plot negative alerts by region under the current filters."
-        if q_lower.startswith("/export"):
+        if low.startswith("/export"):
             return "Prepare a concise export-ready summary of the current filtered dashboard view."
         return q
 
     def _looks_like_plot_request(raw_question):
         q = str(raw_question or "").lower()
-        plot_terms = ["/plot", "plot ", "chart ", "graph ", "visualize", "visualise", "bar chart", "heatmap", "treemap", "scatter", "bubble"]
-        return any(term in q for term in plot_terms)
+        return any(t in q for t in ["/plot", "plot ", "chart ", "graph ", "visualize", "visualise", "bar chart", "heatmap", "treemap", "scatter", "bubble", "line chart"])
 
     def _guess_plot_columns(active_df, raw_question):
         q = str(raw_question or "").lower()
-        candidates = []
         try:
             dims = _v2_safe_get_dims(active_df)
             candidates = [(label, col) for label, col in dims]
@@ -12442,7 +12442,7 @@ def render_ai_assistant_panel(df):
         preferred = [
             ("region", ["region", "regional"]),
             ("alert-country", ["country", "countries"]),
-            ("year", ["year", "annual", "trend"]),
+            ("year", ["year", "annual", "trend", "time"]),
             ("alert-impact", ["impact", "negative", "positive", "context"]),
             ("alert-type", ["type", "alert type"]),
             ("Actor of repression", ["actor", "government", "repression"]),
@@ -12479,8 +12479,7 @@ def render_ai_assistant_panel(df):
                 group_col = "alert-impact"
             elif x_col != "region" and "region" in active_df.columns:
                 group_col = "region"
-        title_label = x_col.replace("-", " ").replace("_", " ").title()
-        title = f"AI plot: {title_label}"
+        title = f"AI plot: {x_col.replace('-', ' ').replace('_', ' ').title()}"
         try:
             fig, plot_df = _v3_make_single_plot(
                 active_df,
@@ -12506,217 +12505,166 @@ def render_ai_assistant_panel(df):
         except Exception as e:
             return None, f"The chart request was understood, but the plot could not be generated: {e}"
 
-    def _handle_copilot_question(raw_question):
+    def _handle_question(raw_question):
         question = _normalize_command(raw_question)
         if not question:
             return
         _ai_append_message("user", question)
-        with st.spinner("AI Copilot is analyzing the current dashboard view..."):
+        with st.spinner("Analyzing current dashboard view..."):
             answer = _v5_answer_with_prompt_engine(question, df, agent="Executive analyst")
-            answer = f"{answer}\n\n**Source context:** {_copilot_context_line(df)}"
+            answer = f"{answer}\n\n**Source context:** {_context_line(df)}"
             _ai_append_message("assistant", answer)
             st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
             if _looks_like_plot_request(raw_question):
-                fig, plot_note = _build_chat_plot(df, raw_question)
+                fig, insight = _build_chat_plot(df, raw_question)
                 if fig is not None:
-                    _ai_append_message("assistant", f"📊 I generated a chart inside this conversation.\n\n{plot_note}")
+                    _ai_append_message("assistant", f"📊 I generated the chart in this conversation view.\n\n{insight}")
                 else:
-                    _ai_append_message("assistant", f"📊 Plot request note: {plot_note}")
+                    _ai_append_message("assistant", insight)
         st.rerun()
 
     st.markdown("""
     <style>
-    /* ---------------- PREMIUM CHATGPT-LIKE COPILOT V2 ---------------- */
-    .st-key-eusee_ai_premium_copilot {
+    .st-key-eusee_ai_minimal_copilot {
         position: fixed !important;
-        top: 64px !important;
-        right: 18px !important;
-        width: min(620px, calc(100vw - 36px)) !important;
-        height: min(860px, calc(100vh - 84px)) !important;
-        z-index: 999999 !important;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FBFCFE 100%) !important;
-        border: 1px solid rgba(102,0,148,.16) !important;
-        border-radius: 28px !important;
-        box-shadow: 0 34px 90px rgba(45,0,85,.30), 0 10px 28px rgba(16,24,40,.12) !important;
+        right: 22px !important;
+        bottom: 22px !important;
+        width: min(760px, calc(100vw - 44px)) !important;
+        height: min(760px, calc(100vh - 86px)) !important;
+        z-index: 2147481800 !important;
+        background: rgba(255,255,255,.98) !important;
+        border: 1px solid rgba(102,0,148,.14) !important;
+        border-radius: 24px !important;
+        box-shadow: 0 24px 70px rgba(16,24,40,.24), 0 6px 18px rgba(102,0,148,.10) !important;
         overflow: hidden !important;
-        padding: 0 !important;
-        font-family: Arial, sans-serif !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
     }
-    .st-key-eusee_ai_premium_collapsed {
+    .st-key-eusee_ai_minimal_launcher {
         position: fixed !important;
-        right: 18px !important;
-        bottom: 24px !important;
-        width: 210px !important;
-        z-index: 999999 !important;
-        border-radius: 999px !important;
-        background: linear-gradient(135deg,#2D0055 0%,#660094 62%,#008CAA 100%) !important;
-        box-shadow: 0 22px 52px rgba(45,0,85,.32) !important;
-        padding: 8px !important;
-        font-family: Arial, sans-serif !important;
+        right: 22px !important;
+        bottom: 22px !important;
+        z-index: 2147481800 !important;
+        width: 230px !important;
     }
-    .st-key-eusee_ai_premium_copilot div[data-testid="stButton"] button,
-    .st-key-eusee_ai_premium_collapsed div[data-testid="stButton"] button {
+    .st-key-eusee_ai_minimal_launcher div[data-testid="stButton"] button,
+    .st-key-eusee_ai_minimal_copilot div[data-testid="stButton"] button {
         border-radius: 999px !important;
-        min-height: 34px !important;
-        font-size: 11px !important;
-        font-weight: 900 !important;
-        border: 1px solid #E6E8EF !important;
+        font-size: 12px !important;
+        font-weight: 850 !important;
     }
-    .ai-premium-shell {height:100%;display:flex;flex-direction:column;background:transparent;}
-    .ai-premium-header {padding:14px 16px;border-bottom:1px solid #EEF0F4;background:linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 100%);}
-    .ai-premium-top {display:flex;align-items:center;justify-content:space-between;gap:10px;}
-    .ai-premium-brand {display:flex;align-items:center;gap:10px;min-width:0;}
-    .ai-premium-avatar {width:38px;height:38px;min-width:38px;border-radius:15px;background:linear-gradient(135deg,#660094,#008CAA);display:flex;align-items:center;justify-content:center;color:#FFF;font-weight:950;box-shadow:0 10px 22px rgba(102,0,148,.20);}
-    .ai-premium-title {font-size:15px;font-weight:950;color:#23152F;line-height:1.1;}
-    .ai-premium-subtitle {font-size:10.8px;color:#667085;line-height:1.25;margin-top:3px;}
-    .ai-context-pill {margin-top:10px;display:inline-flex;width:fit-content;max-width:100%;padding:7px 10px;border-radius:999px;background:#FFFFFF;border:1px solid #E6E8EF;color:#344054;font-size:10.5px;font-weight:850;box-shadow:0 4px 10px rgba(16,24,40,.045);}
-    .ai-command-strip {display:flex;gap:7px;flex-wrap:wrap;padding:10px 14px 8px 14px;background:#FFFFFF;border-bottom:1px solid #EEF0F4;}
-    .ai-chat-scroll {height:450px;overflow-y:auto;padding:14px;background:radial-gradient(circle at top right, rgba(0,140,170,.06), transparent 32%), #FFFFFF;}
-    .ai-msg-row {display:flex;margin:9px 0;}
-    .ai-msg-row.user {justify-content:flex-end;}
-    .ai-msg-row.assistant {justify-content:flex-start;}
-    .ai-msg {max-width:88%;padding:11px 13px;border-radius:18px;font-size:12.3px;line-height:1.45;box-shadow:0 6px 16px rgba(16,24,40,.055);white-space:normal;}
-    .ai-msg.user {background:linear-gradient(135deg,#660094,#3B005F);color:#FFFFFF;border-bottom-right-radius:6px;}
-    .ai-msg.assistant {background:#F8FAFC;color:#2B3140;border:1px solid #E6E8EF;border-bottom-left-radius:6px;}
-    .ai-msg-role {font-size:9.5px;font-weight:950;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;opacity:.74;}
-    .ai-insight-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 6px 0;}
-    .ai-insight-card {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:15px;padding:10px 11px;box-shadow:0 5px 14px rgba(16,24,40,.045);}
-    .ai-insight-card span {display:block;font-size:9px;font-weight:950;letter-spacing:.10em;text-transform:uppercase;color:#660094;margin-bottom:5px;}
-    .ai-insight-card strong {display:block;font-size:11px;line-height:1.35;color:#23152F;font-weight:850;}
-    .ai-composer-shell {padding:12px 14px 14px 14px;background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFC 100%);border-top:1px solid #EEF0F4;}
-    .ai-composer-note {font-size:10.5px;color:#667085;margin-top:6px;line-height:1.35;}
-    .ai-tools-drawer {padding:0 14px 14px 14px;background:#FFFFFF;}
-    @media (max-width: 760px) {
-        .st-key-eusee_ai_premium_copilot {left:10px !important;right:10px !important;top:58px !important;width:calc(100vw - 20px) !important;height:calc(100vh - 76px) !important;border-radius:22px !important;}
-        .ai-chat-scroll {height:calc(100vh - 390px);min-height:320px;}
-        .ai-msg {max-width:94%;}
-        .ai-insight-grid {grid-template-columns:1fr;}
+    .ai-min-shell {height:100%;display:flex;flex-direction:column;background:#FFFFFF;font-family:Arial,sans-serif;}
+    .ai-min-header {padding:14px 16px;border-bottom:1px solid #EEF0F4;background:linear-gradient(135deg,#FFFFFF 0%,#F8F0FC 100%);}
+    .ai-min-top {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .ai-min-brand {display:flex;align-items:center;gap:10px;min-width:0;}
+    .ai-min-avatar {width:38px;height:38px;min-width:38px;border-radius:15px;background:linear-gradient(135deg,#660094,#008CAA);display:flex;align-items:center;justify-content:center;color:#FFF;font-weight:950;box-shadow:0 10px 22px rgba(102,0,148,.20);}
+    .ai-min-title {font-size:15px;font-weight:950;color:#23152F;line-height:1.1;}
+    .ai-min-subtitle {font-size:10.8px;color:#667085;line-height:1.25;margin-top:3px;}
+    .ai-min-status {margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;}
+    .ai-min-pill {font-size:9.5px;font-weight:900;color:#660094;background:#F4EAF8;border:1px solid #E7D4F1;border-radius:999px;padding:5px 8px;}
+    .ai-min-scroll {flex:1;overflow-y:auto;padding:16px;background:linear-gradient(180deg,#FFFFFF 0%,#FBFAFD 100%);}
+    .ai-welcome {border:1px solid #E6E8EF;border-radius:20px;background:#FFFFFF;padding:14px 15px;box-shadow:0 8px 20px rgba(16,24,40,.055);color:#344054;font-size:12.5px;line-height:1.45;margin-bottom:12px;}
+    .ai-mini-strip {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px 0;}
+    .ai-mini-strip div {background:#FFFFFF;border:1px solid #EEF0F4;border-radius:14px;padding:9px 10px;box-shadow:0 4px 12px rgba(16,24,40,.04);}
+    .ai-mini-strip span {display:block;font-size:9px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:#667085;margin-bottom:4px;}
+    .ai-mini-strip strong {font-size:10.7px;line-height:1.3;color:#23152F;font-weight:850;display:block;}
+    .ai-min-suggestions {padding:9px 14px 4px 14px;background:#FFFFFF;border-top:1px solid #F2F4F7;}
+    .ai-min-suggestions-title {font-size:10px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;color:#667085;margin-bottom:6px;}
+    .ai-min-tools {padding:0 14px 8px 14px;background:#FFFFFF;}
+    .ai-min-input {padding:0 14px 14px 14px;background:#FFFFFF;}
+    .ai-min-note {font-size:10.5px;color:#667085;line-height:1.35;margin-top:4px;text-align:center;}
+    .ai-min-tools div[data-testid="stExpander"] {box-shadow:none !important;border-radius:15px !important;}
+    @media (max-width: 820px) {
+        .st-key-eusee_ai_minimal_copilot {left:10px !important;right:10px !important;bottom:10px !important;width:calc(100vw - 20px) !important;height:calc(100vh - 72px) !important;border-radius:22px !important;}
+        .st-key-eusee_ai_minimal_launcher {right:10px !important;bottom:10px !important;width:210px !important;}
+        .ai-mini-strip {grid-template-columns:1fr !important;}
     }
     </style>
     """, unsafe_allow_html=True)
 
     if not st.session_state.get("copilot_open", True):
-        with st.container(key="eusee_ai_premium_collapsed"):
-            if st.button("🤖  Open AI Copilot", key="ai_premium_open", use_container_width=True):
+        with st.container(key="eusee_ai_minimal_launcher"):
+            if st.button("🤖 Open AI Copilot", key="ai_min_open", use_container_width=True):
                 st.session_state.copilot_open = True
                 st.rerun()
         return
 
-    with st.container(key="eusee_ai_premium_copilot"):
-        st.markdown("<div class='ai-premium-shell'>", unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="ai-premium-header">
-          <div class="ai-premium-top">
-            <div class="ai-premium-brand">
-              <div class="ai-premium-avatar">AI</div>
+    with st.container(key="eusee_ai_minimal_copilot"):
+        st.markdown("<div class='ai-min-shell'>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='ai-min-header'>
+          <div class='ai-min-top'>
+            <div class='ai-min-brand'>
+              <div class='ai-min-avatar'>AI</div>
               <div>
-                <div class="ai-premium-title">EU SEE AI Copilot</div>
-                <div class="ai-premium-subtitle">Chat, analyze, compare, plot, and export from the current dashboard view.</div>
+                <div class='ai-min-title'>EU SEE AI Copilot</div>
+                <div class='ai-min-subtitle'>Chat with the current dashboard view</div>
               </div>
             </div>
           </div>
-          <div class="ai-context-pill">{_copilot_context_line(df)}</div>
-        </div>
         """, unsafe_allow_html=True)
+        if st.button("Minimize", key="ai_min_close", use_container_width=False):
+            st.session_state.copilot_open = False
+            st.rerun()
+        st.markdown(f"<div class='ai-min-status'><span class='ai-min-pill'>{_context_line(df)}</span></div></div>", unsafe_allow_html=True)
 
-        # Header actions stay as Streamlit buttons for reliable reruns.
-        h1, h2, h3 = st.columns([1, 1, 1])
-        with h1:
-            if st.button("Clear", key="ai_premium_clear", use_container_width=True):
-                _ai_clear_user_chat_history()
-                st.session_state.ai_last_plot = None
-                st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot", "content": "Conversation cleared. Ask a new dashboard question."}
-                st.rerun()
-        with h2:
-            if st.button("Advanced", key="ai_premium_toggle_advanced", use_container_width=True):
-                st.session_state.ai_show_full_console = not st.session_state.get("ai_show_full_console", False)
-                st.rerun()
-        with h3:
-            if st.button("Collapse", key="ai_premium_close", use_container_width=True):
-                st.session_state.copilot_open = False
-                st.rerun()
-
-        st.markdown("<div class='ai-command-strip'>", unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns(5)
-        commands = [
-            (c1, "/summary", "Summary"),
-            (c2, "/compare", "Compare"),
-            (c3, "/plot negative alerts by region", "Plot"),
-            (c4, "What changed by year?", "Trend"),
-            (c5, "/export", "Export"),
-        ]
-        for col, prompt, label in commands:
-            with col:
-                if st.button(label, key=f"ai_cmd_{label.lower()}", use_container_width=True):
-                    _handle_copilot_question(prompt)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<div class='ai-chat-scroll'>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-min-scroll'>", unsafe_allow_html=True)
         messages = st.session_state.get("ai_messages", [])
         if not messages:
             st.markdown("""
-            <div class="ai-msg-row assistant">
-              <div class="ai-msg assistant">
-                <div class="ai-msg-role">Assistant</div>
-                Welcome. Ask a question about the active filters, or use commands like <b>/summary</b>, <b>/compare</b>, <b>/plot</b>, or <b>/export</b>.
-              </div>
+            <div class='ai-welcome'>
+              <b>Welcome.</b> Ask a question about the active filters. You can also type requests naturally, such as
+              “summarize this view”, “compare countries”, or “plot negative alerts by region”.
             </div>
             """, unsafe_allow_html=True)
-        for m in messages[-10:]:
+            _render_compact_insight_strip(df)
+        for m in messages[-12:]:
             role = "user" if m.get("role") == "user" else "assistant"
-            role_label = "You" if role == "user" else "Assistant"
-            content = str(m.get("content", "")).replace("\n", "<br>")
-            st.markdown(f"""
-            <div class="ai-msg-row {role}">
-              <div class="ai-msg {role}">
-                <div class="ai-msg-role">{role_label}</div>
-                {content}
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
+            with st.chat_message(role):
+                st.markdown(str(m.get("content", "")))
         if st.session_state.get("ai_last_plot") is not None:
-            st.plotly_chart(st.session_state.ai_last_plot, use_container_width=True, key="ai_premium_chat_inline_plot")
-
-        out = st.session_state.get("ai_smart_output", {}) or {}
-        if out.get("type") == "plot_v2" and out.get("fig") is not None and st.session_state.get("ai_last_plot") is None:
-            st.plotly_chart(out.get("fig"), use_container_width=True, key="ai_premium_smart_plot")
-        if out.get("content") and messages:
-            _render_ai_insight_cards(df)
+            st.plotly_chart(st.session_state.ai_last_plot, use_container_width=True, key="ai_min_inline_plot")
+        if messages:
+            _render_compact_insight_strip(df)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='ai-composer-shell'>", unsafe_allow_html=True)
-        user_question = st.chat_input("Message EU SEE AI Copilot… try /summary, /compare, /plot, /export", key="ai_premium_chat_input")
-        st.markdown("<div class='ai-composer-note'>Commands: /summary · /compare · /plot · /export. The answer and generated chart appear in the same conversation view.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-min-suggestions'><div class='ai-min-suggestions-title'>Suggested</div>", unsafe_allow_html=True)
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            if st.button("Summarize", key="ai_min_suggest_summary", use_container_width=True):
+                _handle_question("Summarize the current dashboard view")
+        with s2:
+            if st.button("Compare countries", key="ai_min_suggest_compare", use_container_width=True):
+                _handle_question("Compare countries in the current filtered dashboard view")
+        with s3:
+            if st.button("Plot trend", key="ai_min_suggest_plot", use_container_width=True):
+                _handle_question("Plot alerts by year under the current filters")
         st.markdown("</div>", unsafe_allow_html=True)
-        if user_question:
-            _handle_copilot_question(user_question)
 
-        if st.session_state.get("ai_show_full_console", False):
-            st.markdown("<div class='ai-tools-drawer'>", unsafe_allow_html=True)
-            st.caption("Advanced tools are preserved here without cluttering the main chat view.")
-
-            with st.expander("Plot builder", expanded=True):
+        st.markdown("<div class='ai-min-tools'>", unsafe_allow_html=True)
+        with st.expander("Tools", expanded=False):
+            tool_tabs = st.tabs(["Plot builder", "Export", "Reset", "Diagnostics"])
+            with tool_tabs[0]:
                 dims = _v2_safe_get_dims(df)
                 if dims:
                     label_to_col = {label: col for label, col in dims}
                     labels = list(label_to_col.keys())
-                    mode = st.radio("Plot mode", ["Single variable", "Compare variables"], horizontal=True, key="ai_premium_plot_mode_v2")
+                    mode = st.radio("Plot mode", ["Single variable", "Compare variables"], horizontal=True, key="ai_min_plot_mode")
                     if mode == "Compare variables" and len(labels) > 1:
                         pc1, pc2 = st.columns(2)
                         with pc1:
-                            x_label = st.selectbox("Primary variable", labels, key="ai_premium_plot_x_v2")
+                            x_label = st.selectbox("Primary variable", labels, key="ai_min_plot_x")
                         with pc2:
                             y_options = [lab for lab in labels if lab != x_label]
-                            y_label = st.selectbox("Compare with", y_options, key="ai_premium_plot_y_v2")
+                            y_label = st.selectbox("Compare with", y_options, key="ai_min_plot_y")
                         chart_types = ["Heatmap", "Grouped bar", "Stacked bar", "Horizontal bar", "Treemap", "Sunburst", "Bubble", "Scatter"]
                         recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[x_label], label_to_col[y_label], compare_mode=True)
-                        chart_type = st.selectbox("Chart type", chart_types, index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0, key="ai_premium_plot_compare_chart_v2")
-                        normalize = st.selectbox("Metric", ["Count", "Share %", "Row %", "Column %"], key="ai_premium_plot_normalize_v2")
-                        top_n = st.slider("Top primary categories", 5, 30, 10, key="ai_premium_plot_top_n_compare_v2")
-                        top_y = st.slider("Top comparison categories", 3, 20, 8, key="ai_premium_plot_top_y_compare_v2")
+                        chart_type = st.selectbox("Chart type", chart_types, index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0, key="ai_min_plot_compare_chart")
+                        normalize = st.selectbox("Metric", ["Count", "Share %", "Row %", "Column %"], key="ai_min_plot_normalize")
+                        top_n = st.slider("Top primary categories", 5, 30, 10, key="ai_min_plot_top_n_compare")
+                        top_y = st.slider("Top comparison categories", 3, 20, 8, key="ai_min_plot_top_y_compare")
                         st.caption(f"Recommended: {recommended_chart}. {recommended_note}")
-                        if st.button("Build plot", key="ai_premium_build_compare_plot_v2", use_container_width=True):
+                        if st.button("Build plot", key="ai_min_build_compare_plot", use_container_width=True):
                             title = f"{x_label} by {y_label}"
                             fig, plot_df = _v3_make_compare_plot(
                                 df,
@@ -12731,21 +12679,21 @@ def render_ai_assistant_panel(df):
                             insight = _v3_plot_insight(plot_df, label_to_col[x_label], label_to_col[y_label], metric_label=normalize, comparison_mode="Compare variables")
                             st.session_state.ai_last_plot = fig
                             st.session_state.ai_smart_output = {"type": "plot_v2", "title": title, "content": insight, "interpretation": insight, "fig": fig, "plot_data": plot_df}
-                            _ai_append_message("assistant", f"📊 Built a {chart_type} for {x_label} by {y_label}. The plot is shown in this chat.\n\n{insight}")
+                            _ai_append_message("assistant", f"📊 Built a {chart_type} for {x_label} by {y_label}.\n\n{insight}")
                             st.rerun()
                     else:
-                        x_label = st.selectbox("Variable", labels, key="ai_premium_plot_single_x_v2")
+                        x_label = st.selectbox("Variable", labels, key="ai_min_plot_single_x")
                         chart_types = ["Horizontal bar", "Vertical bar", "Donut", "Treemap", "Line"]
                         recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[x_label], None, compare_mode=False)
-                        chart_type = st.selectbox("Chart type", chart_types, index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0, key="ai_premium_plot_single_chart_v2")
-                        metric_mode = st.selectbox("Metric", ["Count", "Share %"], key="ai_premium_plot_metric_single_v2")
-                        top_n = st.slider("Top categories", 5, 30, 12, key="ai_premium_plot_top_n_single_v2")
+                        chart_type = st.selectbox("Chart type", chart_types, index=chart_types.index(recommended_chart) if recommended_chart in chart_types else 0, key="ai_min_plot_single_chart")
+                        metric_mode = st.selectbox("Metric", ["Count", "Share %"], key="ai_min_plot_metric_single")
+                        top_n = st.slider("Top categories", 5, 30, 12, key="ai_min_plot_top_n_single")
                         group_options = ["None"] + [lab for lab in labels if lab != x_label]
-                        group_label = st.selectbox("Optional grouping", group_options, key="ai_premium_plot_group_single_v2")
+                        group_label = st.selectbox("Optional grouping", group_options, key="ai_min_plot_group_single")
                         group_col = None if group_label == "None" else label_to_col[group_label]
-                        title = st.text_input("Plot title", value=f"{x_label} distribution", key="ai_premium_plot_title_single_v2")
+                        title = st.text_input("Plot title", value=f"{x_label} distribution", key="ai_min_plot_title_single")
                         st.caption(f"Recommended: {recommended_chart}. {recommended_note}")
-                        if st.button("Build plot", key="ai_premium_build_single_plot_v2", use_container_width=True):
+                        if st.button("Build plot", key="ai_min_build_single_plot", use_container_width=True):
                             fig, plot_df = _v3_make_single_plot(
                                 df,
                                 x_col=label_to_col[x_label],
@@ -12758,29 +12706,35 @@ def render_ai_assistant_panel(df):
                             insight = _v3_plot_insight(plot_df, label_to_col[x_label], group_col, metric_label=metric_mode, comparison_mode="Single variable")
                             st.session_state.ai_last_plot = fig
                             st.session_state.ai_smart_output = {"type": "plot_v2", "title": title, "content": insight, "interpretation": insight, "fig": fig, "plot_data": plot_df}
-                            _ai_append_message("assistant", f"📊 Built a {chart_type} for {x_label}. The plot is shown in this chat.\n\n{insight}")
+                            _ai_append_message("assistant", f"📊 Built a {chart_type} for {x_label}.\n\n{insight}")
                             st.rerun()
                 else:
                     st.info("No suitable plotting dimensions are available under the current filters.")
-
-            with st.expander("Explain dashboard chart or map", expanded=False):
-                render_chatbot_dashboard_chart_explainer(df)
-
-            with st.expander("Downloads", expanded=False):
+            with tool_tabs[1]:
                 chat_text = "\n\n".join([f"{m.get('role', '').upper()}: {m.get('content', '')}" for m in st.session_state.get("ai_messages", [])])
-                st.download_button("Download chat transcript", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_premium_dl_chat_v2")
+                st.download_button("Download chat transcript", data=chat_text, file_name="eusee_ai_chat_transcript.txt", mime="text/plain", use_container_width=True, key="ai_min_dl_chat")
                 if df is not None and not df.empty:
                     cols = [c for c in ["creation_date", "alert-country", "region", "alert-impact", "alert-type", "enabling-principle", "Actor of repression", "Subject of repression", "Mechanism of repression"] if c in df.columns]
                     csv_data = df[cols].to_csv(index=False).encode("utf-8") if cols else df.to_csv(index=False).encode("utf-8")
-                    st.download_button("Download filtered records", data=csv_data, file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True, key="ai_premium_dl_records_v2")
-
-            with st.expander("OpenAI / local fallback status", expanded=False):
+                    st.download_button("Download filtered records", data=csv_data, file_name="eusee_filtered_records.csv", mime="text/csv", use_container_width=True, key="ai_min_dl_records")
+            with tool_tabs[2]:
+                if st.button("Clear conversation", key="ai_min_clear_chat", use_container_width=True):
+                    st.session_state.ai_messages = []
+                    st.session_state.ai_last_plot = None
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot", "content": "Conversation cleared. Ask a new dashboard question."}
+                    st.rerun()
+            with tool_tabs[3]:
                 _v2_render_status_bar(df)
+                with st.expander("Advanced full console", expanded=False):
+                    _render_ai_assistant_panel_advanced(df)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            with st.expander("Advanced full console", expanded=False):
-                _render_ai_assistant_panel_advanced(df)
-
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-min-input'>", unsafe_allow_html=True)
+        user_question = st.chat_input("Message EU SEE AI Copilot…", key="ai_min_chat_input")
+        st.markdown("<div class='ai-min-note'>Type naturally. Examples: summarize this view · compare countries · plot negative alerts by region.</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        if user_question:
+            _handle_question(user_question)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
