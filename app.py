@@ -3708,26 +3708,10 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     This replaces the generic Negative/Positive/Context donut in the Negative Alerts tab,
     where all records are already negative and a composition donut adds limited value.
     """
-    # `negative_df` is the Negative Alerts Analysis working dataset and can be reduced
-    # by tab-level actor/subject/mechanism/event filters. For consistency with the
-    # Overview tab, the headline Total Negative alerts card should use the same
-    # dashboard-level filtered dataset used by the Overview cards.
     negative_total = len(negative_df) if negative_df is not None else 0
     all_total = len(all_filtered_df) if all_filtered_df is not None and not all_filtered_df.empty else negative_total
+    negative_share = round((negative_total / all_total) * 100, 1) if all_total else 0
 
-    overview_negative_total = negative_total
-    if all_filtered_df is not None and not all_filtered_df.empty and "alert-impact" in all_filtered_df.columns:
-        overview_negative_total = int(
-            all_filtered_df["alert-impact"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .str.lower()
-            .eq("negative")
-            .sum()
-        )
-
-    negative_share = round((overview_negative_total / all_total) * 100, 1) if all_total else 0
     top_actor, top_actor_count = _top_split_item_for_negative_card(negative_df, "Actor of repression")
     top_mechanism, top_mechanism_count = _top_split_item_for_negative_card(negative_df, "Mechanism of repression")
     top_subject, top_subject_count = _top_split_item_for_negative_card(negative_df, "Subject of repression")
@@ -3846,8 +3830,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div><div class="negintel-eyebrow">monitoring volume</div><div class="negintel-title">Total Negative alerts</div></div>
                     <div class="negintel-icon">⚠️</div>
                 </div>
-                <div class="negintel-value">{overview_negative_total:,}</div>
-                <div class="negintel-note">Same dashboard-level negative count as Overview</div>
+                <div class="negintel-value">{negative_total:,}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
