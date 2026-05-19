@@ -4458,7 +4458,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
     }}
     .chart-card-caption {{
         font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
-        font-size: 11.5px;
+        font-size: 9.5px;
         font-weight: 550;
         color: var(--eusee-text-muted, #667085);
         line-height: 1.42;
@@ -4469,7 +4469,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
     }}
     @media (max-width: 900px) {{
         .chart-card-caption {{
-            font-size: 11.2px;
+            font-size: 9.2px;
             line-height: 1.4;
         }}
     }}
