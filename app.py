@@ -1946,7 +1946,7 @@ def render_sidebar_access_settings_profile():
     .eusee-privilege-marker { display: none; }
     section[data-testid="stSidebar"] .eusee-privilege-title {
         font-size: 10px;
-        font-weight: 000;
+        font-weight: 700;
         color: #23152F;
         margin-bottom: -2px;
     }
@@ -1992,7 +1992,7 @@ def render_sidebar_access_settings_profile():
         st.caption(
             "Your dashboard permissions are controlled by your approved EUSEE role."
             if signed_in
-            else "“Sign in to access advanced features and analyses available to EUSEE partners."
+            else "Sign in to access advanced features and analyses available to EUSEE partners."
         )
 
            
@@ -2023,6 +2023,342 @@ render_sidebar_access_settings_profile()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
+
+
+
+def inject_sidebar_professional_typography_overrides():
+    """Final sidebar-only typography and color refinement.
+
+    Scope:
+    - Does not change callbacks, widget keys, data filtering, permissions, or icons.
+    - Only normalizes font family, font color, control text, tags, expanders, buttons,
+      captions, and hover/focus states for a more production-ready sidebar UX.
+    """
+    st.markdown("""
+    <style>
+    /* =========================
+       EUSEE SIDEBAR TYPOGRAPHY + COLOR SYSTEM
+       Final override layer: visual polish only.
+    ========================= */
+
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+        border-right: 1px solid #E7EAF0 !important;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+        color: #344054 !important;
+    }
+
+    section[data-testid="stSidebar"] * {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+    }
+
+    /* Preserve icon rendering and avoid replacing Streamlit/native SVG icons. */
+    section[data-testid="stSidebar"] svg,
+    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] {
+        font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
+    }
+
+    /* Core sidebar text hierarchy */
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] small,
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: #667085 !important;
+        font-size: 11px !important;
+        line-height: 1.42 !important;
+        font-weight: 500 !important;
+    }
+
+    section[data-testid="stSidebar"] strong,
+    section[data-testid="stSidebar"] b {
+        color: #1D2939 !important;
+        font-weight: 750 !important;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: #1D2939 !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    section[data-testid="stSidebar"] h3 {
+        font-size: 15px !important;
+        line-height: 1.2 !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    /* Widget labels */
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stSlider label,
+    section[data-testid="stSidebar"] .stRadio label,
+    section[data-testid="stSidebar"] .stTextInput label {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #344054 !important;
+        letter-spacing: 0.01em !important;
+        margin-bottom: 4px !important;
+        line-height: 1.25 !important;
+    }
+
+    /* Select, multiselect, input and text controls */
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] > div,
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 12px !important;
+        min-height: 40px !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+        color: #101828 !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        transition: border-color .16s ease, box-shadow .16s ease, background .16s ease !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover,
+    section[data-testid="stSidebar"] [data-baseweb="input"] > div:hover {
+        border-color: #B8C0CC !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.05) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within,
+    section[data-testid="stSidebar"] [data-baseweb="input"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 4px rgba(102,0,148,.10) !important;
+    }
+
+    section[data-testid="stSidebar"] input::placeholder,
+    section[data-testid="stSidebar"] textarea::placeholder {
+        color: #98A2B3 !important;
+        font-size: 11.5px !important;
+        font-weight: 500 !important;
+    }
+
+    /* Multiselect selected chips */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background: #F4F4F5 !important;
+        border: 1px solid #E4E7EC !important;
+        color: #344054 !important;
+        border-radius: 999px !important;
+        padding: 2px 8px !important;
+        font-size: 10px !important;
+        font-weight: 650 !important;
+        line-height: 1.2 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] svg {
+        color: #667085 !important;
+    }
+
+    /* Dropdown menu attached to sidebar widgets */
+    div[role="listbox"] {
+        border-radius: 14px !important;
+        border: 1px solid #E4E7EC !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 16px 32px rgba(16,24,40,.12) !important;
+        overflow: hidden !important;
+    }
+
+    div[role="option"] {
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: #344054 !important;
+        padding: 9px 12px !important;
+        transition: background .15s ease, color .15s ease !important;
+    }
+
+    div[role="option"]:hover {
+        background: #F9F5FF !important;
+        color: #23152F !important;
+    }
+
+    div[aria-selected="true"] {
+        background: #F4EBFF !important;
+        color: #660094 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Expanders: clean professional headers without touching native arrows/icons */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        border: 1px solid #E6E8EF !important;
+        border-radius: 16px !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.05) !important;
+        overflow: hidden !important;
+        margin-bottom: 10px !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        min-height: 42px !important;
+        padding: 10px 12px !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAFAFA 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+        color: #1D2939 !important;
+        font-size: 12.5px !important;
+        font-weight: 750 !important;
+        letter-spacing: -0.005em !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F9FAFB 100%) !important;
+        color: #101828 !important;
+    }
+
+    /* Buttons */
+    section[data-testid="stSidebar"] .stButton > button,
+    section[data-testid="stSidebar"] button[kind="secondary"],
+    section[data-testid="stSidebar"] button[kind="primary"] {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 12px !important;
+        min-height: 38px !important;
+        color: #344054 !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+        transition: all .16s ease !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:hover,
+    section[data-testid="stSidebar"] button[kind="secondary"]:hover,
+    section[data-testid="stSidebar"] button[kind="primary"]:hover {
+        background: #F9FAFB !important;
+        border-color: #B8C0CC !important;
+        color: #101828 !important;
+        box-shadow: 0 2px 5px rgba(16,24,40,.06) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:focus,
+    section[data-testid="stSidebar"] button:focus {
+        box-shadow: 0 0 0 4px rgba(102,0,148,.10) !important;
+        border-color: #660094 !important;
+    }
+
+    section[data-testid="stSidebar"] button[disabled] {
+        opacity: 1 !important;
+        color: #475467 !important;
+        background: #F9FAFB !important;
+        border-color: #EAECF0 !important;
+    }
+
+    /* Sidebar custom cards already used in the app */
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-last-updated,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .sidebar-filter-footer {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+        color: #344054 !important;
+        border-color: #E6E8EF !important;
+    }
+
+    .classic-filter-eyebrow,
+    .sidebar-last-updated-label,
+    .sidebar-access-eyebrow {
+        color: #660094 !important;
+        font-size: 9px !important;
+        font-weight: 800 !important;
+        letter-spacing: .12em !important;
+    }
+
+    .classic-filter-title,
+    .sidebar-last-updated-date,
+    .sidebar-access-title,
+    .sidebar-filter-footer-title {
+        color: #1D2939 !important;
+        font-weight: 800 !important;
+    }
+
+    .classic-filter-note,
+    .classic-filter-status .status-row,
+    .sidebar-last-updated-note,
+    .sidebar-access-note,
+    .sidebar-access-help,
+    .sidebar-filter-section,
+    .sidebar-filter-footer-note {
+        color: #667085 !important;
+        font-size: 10.5px !important;
+        font-weight: 500 !important;
+        line-height: 1.38 !important;
+    }
+
+    .classic-filter-status .status-value {
+        color: #660094 !important;
+        font-weight: 800 !important;
+    }
+
+    .sidebar-access-pill,
+    .sidebar-access-pill.secondary,
+    .data-preview-pill,
+    .negative-filter-chip {
+        background: #F9FAFB !important;
+        color: #475467 !important;
+        border: 1px solid #EAECF0 !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+    }
+
+    .sidebar-profile-row {
+        color: #667085 !important;
+        font-size: 10.5px !important;
+        font-weight: 500 !important;
+    }
+
+    .sidebar-profile-row strong {
+        color: #1D2939 !important;
+        font-weight: 750 !important;
+    }
+
+    /* Metrics inside sidebar */
+    section[data-testid="stSidebar"] [data-testid="stMetric"] {
+        background: #FFFFFF !important;
+        border: 1px solid #EEF0F4 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(16,24,40,.035) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+        color: #667085 !important;
+        font-size: 9px !important;
+        font-weight: 750 !important;
+        text-transform: uppercase !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        color: #1D2939 !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+    }
+
+    /* Scrollbar polish */
+    section[data-testid="stSidebar"] ::-webkit-scrollbar {
+        width: 6px !important;
+    }
+
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-track {
+        background: transparent !important;
+    }
+
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+        background: #D0D5DD !important;
+        border-radius: 999px !important;
+    }
+
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb:hover {
+        background: #98A2B3 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_sidebar_professional_typography_overrides()
 
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
