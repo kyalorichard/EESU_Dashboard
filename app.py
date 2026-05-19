@@ -688,7 +688,7 @@ inject_final_responsive_overrides()
 
 
 # ---------------- ALL-TABS PROFESSIONAL TYPOGRAPHY OVERRIDES ----------------
-def inject_all_tabs_typography_css()
+def inject_all_tabs_typography_css():
 
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
