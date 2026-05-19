@@ -2057,13 +2057,24 @@ regions_labels = [
     "Americas and the Caribbean",
 ]
 
-with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_box:
-   
+# ---------------- SINGLE CONSOLIDATED SIDEBAR FILTER PANEL ----------------
+# All former sidebar filter expanders are merged into one professional panel.
+# This reduces sidebar fragmentation while preserving every existing filter,
+# session key, and downstream filtering behavior.
+with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_filter_panel:
+    sidebar_filter_panel.markdown(
+        """
+        <div class="sidebar-filter-section-title">Geography filters</div>
+        <div class="sidebar-filter-section-note">Filter records by dashboard region and monitored country.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     selected_regions = safe_multiselect(
         "Region",
         regions_labels,
         "selected_regions",
-        container=geo_filter_box,
+        container=sidebar_filter_panel,
     )
 
     filtered_countries = (
@@ -2078,18 +2089,25 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
         if not filtered_countries.empty and "alert-country" in filtered_countries.columns
         else [],
         "selected_countries",
-        container=geo_filter_box,
+        container=sidebar_filter_panel,
     )
 
-with st.sidebar.expander("⚠️ Alert classification", expanded=False) as alert_filter_box:
- 
+    sidebar_filter_panel.markdown(
+        """
+        <div class="sidebar-filter-divider"></div>
+        <div class="sidebar-filter-section-title">Alert classification</div>
+        <div class="sidebar-filter-section-note">Filter by event nature and alert-impact category.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
         data["alert-impact"].dropna().unique()
         if not data.empty and "alert-impact" in data.columns
         else [],
         "selected_alert_impacts",
-        container=alert_filter_box,
+        container=sidebar_filter_panel,
     )
 
     selected_alert_types = safe_multiselect(
@@ -2098,11 +2116,18 @@ with st.sidebar.expander("⚠️ Alert classification", expanded=False) as alert
         if not data.empty and "alert-type" in data.columns
         else [],
         "selected_alert_types",
-        container=alert_filter_box,
+        container=sidebar_filter_panel,
     )
 
-with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
-  
+    sidebar_filter_panel.markdown(
+        """
+        <div class="sidebar-filter-divider"></div>
+        <div class="sidebar-filter-section-title">Enabling environment</div>
+        <div class="sidebar-filter-section-note">Filter records by enabling-environment principle.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     principle_options = (
         data["enabling-principle"]
         .dropna()
@@ -2122,18 +2147,25 @@ with st.sidebar.expander("🧭 Enabling environment", expanded=False) as princip
         "Enabling principle",
         principle_options,
         "selected_enabling_principle",
-        container=principle_filter_box,
+        container=sidebar_filter_panel,
     )
 
-with st.sidebar.expander("📅 Time period", expanded=False) as time_filter_box:
-  
+    sidebar_filter_panel.markdown(
+        """
+        <div class="sidebar-filter-divider"></div>
+        <div class="sidebar-filter-section-title">Time period</div>
+        <div class="sidebar-filter-section-note">Filter records by reporting year and month.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     selected_years = safe_multiselect(
         "Year",
         sorted(data["year"].dropna().unique())
         if not data.empty and "year" in data.columns
         else [],
         "selected_years",
-        container=time_filter_box,
+        container=sidebar_filter_panel,
     )
 
     if (
@@ -2159,24 +2191,36 @@ with st.sidebar.expander("📅 Time period", expanded=False) as time_filter_box:
         "Month",
         available_months,
         "selected_months",
-        container=time_filter_box,
+        container=sidebar_filter_panel,
     )
 
-reset_col1, reset_col2 = st.sidebar.columns([1, 1])
+    sidebar_filter_panel.markdown('<div class="sidebar-filter-divider"></div>', unsafe_allow_html=True)
 
-with reset_col1:
-    reset_filters = st.button(
-        "🔄 Reset",
-        use_container_width=True,
-        key="reset_sidebar_filters",
-    )
+    reset_col1, reset_col2 = sidebar_filter_panel.columns([1, 1])
 
-with reset_col2:
-    st.button(
-        "✅ Applied",
-        use_container_width=True,
-        disabled=True,
-        key="filters_applied_note",
+    with reset_col1:
+        reset_filters = st.button(
+            "🔄 Reset",
+            use_container_width=True,
+            key="reset_sidebar_filters",
+        )
+
+    with reset_col2:
+        st.button(
+            "✅ Applied",
+            use_container_width=True,
+            disabled=True,
+            key="filters_applied_note",
+        )
+
+    sidebar_filter_panel.markdown(
+        """
+        <div class="sidebar-filter-footer">
+            <div class="sidebar-filter-footer-title">Filter behavior</div>
+            <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 if reset_filters:
@@ -2196,16 +2240,6 @@ if reset_filters:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
     st.rerun()
-
-st.sidebar.markdown(
-    """
-    <div class="sidebar-filter-footer">
-        <div class="sidebar-filter-footer-title">Filter behavior</div>
-        <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
 # Keep the dataset update status as the final sidebar panel.
 render_sidebar_last_updated_panel()
