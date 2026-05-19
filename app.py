@@ -4606,6 +4606,22 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
             x=0,
             font=dict(size=10.8, family=CHART_FONT, color="#52616B")
         ),
+        # Hide Cartesian axes created by the invisible Scatter traces used only for the Sankey legend.
+        # This removes x/y axis values without affecting Sankey nodes, links, labels, or hover tooltips.
+        xaxis=dict(
+            visible=False,
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False,
+            title=""
+        ),
+        yaxis=dict(
+            visible=False,
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False,
+            title=""
+        ),
     )
     return fig
 
@@ -8771,11 +8787,11 @@ with tab_map:
                     }}
                     /* Force Visualization Map hover tooltip text to stay white. */
                     .js-plotly-plot .hoverlayer .hovertext text,
-                    .js-plotly-plot .hoverlayer .hovertext tspan {
+                    .js-plotly-plot .hoverlayer .hovertext tspan {{
                         fill: #FFFFFF !important;
                         color: #FFFFFF !important;
                         font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
-                    }
+                    }}
 
                     </style>
 
