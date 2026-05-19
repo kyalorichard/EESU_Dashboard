@@ -33,6 +33,22 @@ FEATURE_LABELS = {
     "use_ai_copilot": "AI Copilot",
     "view_user_manual": "User manual",
     "view_admin_page": "Admin page",
+    "view_chart_overview_alert_type": "Chart: Overview alert type distribution",
+    "view_chart_overview_enabling_principles": "Chart: Overview enabling-principle distribution",
+    "view_chart_overview_regions": "Chart: Overview regional distribution",
+    "view_chart_overview_countries": "Chart: Overview country distribution",
+    "view_chart_negative_restrictive_actors": "Chart: Restrictive actors",
+    "view_chart_negative_affected_actors": "Chart: Civil society actors affected",
+    "view_chart_negative_restrictive_mechanisms": "Chart: Restrictive mechanisms",
+    "view_chart_negative_event_types": "Chart: Negative event types",
+    "view_chart_negative_alert_types": "Chart: Negative alert types",
+    "view_chart_negative_enabling_principles": "Chart: Negative enabling principles",
+    "view_chart_heatmap_actor_mechanism": "Chart: Actor × mechanism heatmap",
+    "view_chart_heatmap_subject_mechanism": "Chart: Affected actor × mechanism heatmap",
+    "view_chart_heatmap_actor_subject": "Chart: Actor × affected actor heatmap",
+    "view_chart_sankey_flow": "Chart: Analytical Sankey flow",
+    "view_chart_geospatial_map": "Chart: Geospatial intelligence map",
+    "view_chart_ai_copilot_plots": "Chart: AI Copilot generated plots",
 }
 
 # Only the admin page itself is hard-locked for guests.
@@ -252,25 +268,47 @@ def _render_visibility_tab(config: dict):
             c1, c2 = st.columns(2)
 
             left_features = [
+                "view_dashboard",
                 "view_overview",
                 "view_negative_alerts",
+                "view_maps",
                 "view_analytical_flow_panel",
-                "download_data",
-                "view_user_manual",
-            ]
-
-            right_features = [
-                "view_dashboard",
                 "view_coverage_monitored_countries",
                 "view_monitored_countries_value",
-                "view_maps",
                 "view_data_table",
+                "download_data",
                 "use_ai_copilot",
+                "view_user_manual",
                 "view_admin_page",
             ]
 
+            overview_chart_features = [
+                "view_chart_overview_alert_type",
+                "view_chart_overview_enabling_principles",
+                "view_chart_overview_regions",
+                "view_chart_overview_countries",
+            ]
+
+            negative_chart_features = [
+                "view_chart_negative_restrictive_actors",
+                "view_chart_negative_affected_actors",
+                "view_chart_negative_restrictive_mechanisms",
+                "view_chart_negative_event_types",
+                "view_chart_negative_alert_types",
+                "view_chart_negative_enabling_principles",
+            ]
+
+            analytical_chart_features = [
+                "view_chart_heatmap_actor_mechanism",
+                "view_chart_heatmap_subject_mechanism",
+                "view_chart_heatmap_actor_subject",
+                "view_chart_sankey_flow",
+                "view_chart_geospatial_map",
+                "view_chart_ai_copilot_plots",
+            ]
+
             with c1:
-                with st.expander("Content visibility", expanded=True):
+                with st.expander("Core access and content visibility", expanded=True):
                     for key in left_features:
                         features[key] = st.checkbox(
                             FEATURE_LABELS[key],
@@ -279,9 +317,27 @@ def _render_visibility_tab(config: dict):
                             disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
                         )
 
+                with st.expander("Overview charts authorization", expanded=True):
+                    for key in overview_chart_features:
+                        features[key] = st.checkbox(
+                            FEATURE_LABELS[key],
+                            value=bool(features.get(key, False)),
+                            key=f"persist_feature_{role}_{key}",
+                            disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
+                        )
+
             with c2:
-                with st.expander("Additional permissions", expanded=True):
-                    for key in right_features:
+                with st.expander("Negative alerts charts authorization", expanded=True):
+                    for key in negative_chart_features:
+                        features[key] = st.checkbox(
+                            FEATURE_LABELS[key],
+                            value=bool(features.get(key, False)),
+                            key=f"persist_feature_{role}_{key}",
+                            disabled=(role == "guest" and key in GUEST_LOCKED_FEATURES),
+                        )
+
+                with st.expander("Advanced / map / AI charts authorization", expanded=True):
+                    for key in analytical_chart_features:
                         features[key] = st.checkbox(
                             FEATURE_LABELS[key],
                             value=bool(features.get(key, False)),
