@@ -4,9 +4,16 @@ Premium EUSEE AI Copilot floating workspace.
 
 This version keeps all chatbot functions visibly available inside one
 consolidated floating panel and upgrades the look-and-feel into a cleaner,
-friendlier, executive AI command-center style. It keeps the existing AI logic
-intact while improving spacing, hierarchy, launcher styling, panel header,
-section cards, buttons, expanders, chat messages, charts, and mobile behavior.
+friendlier, executive AI command-center style.
+
+Important UX fix
+----------------
+The previous version rendered the new floating panel AND the original legacy
+chatbot interface through legacy_renderer(df). That produced two chatbot
+interfaces. This version does NOT call the full legacy renderer by default.
+Instead, it provides a single native conversation area inside the floating
+panel and keeps Search, Advanced Tools, Chart Builder, Compare, Summary,
+Anomaly Scan, and Export Center in the same interface.
 
 Usage in app.py
 ---------------
@@ -414,6 +421,129 @@ def render_visible_function_overview() -> None:
     )
 
 
+
+# ---------------------------------------------------------------------
+# Single-interface conversation panel
+# ---------------------------------------------------------------------
+def _top_values_text(df: pd.DataFrame, column: str, limit: int = 5) -> str:
+    if column not in df.columns or df.empty:
+        return "not available"
+    vals = df[column].dropna().astype(str).str.strip()
+    vals = vals[~vals.str.lower().isin(["", "nan", "none"])]
+    if vals.empty:
+        return "not available"
+    counts = vals.value_counts().head(limit)
+    return ", ".join([f"{idx} ({val:,})" for idx, val in counts.items()])
+
+
+def _generate_dashboard_response(prompt: str, df: pd.DataFrame | None) -> str:
+    """Generate a lightweight dashboard-grounded response without rendering the legacy UI."""
+    prompt_l = (prompt or "").lower()
+
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return "The active filtered dataset is empty, so I cannot summarize or analyze records yet. Adjust the dashboard filters and try again."
+
+    records = len(df)
+    countries = _nunique(df, "alert-country")
+    years = _nunique(df, "year")
+    impacts = _nunique(df, "alert-impact")
+
+    if any(k in prompt_l for k in ["compare", "country", "countries"]):
+        return (
+            f"**Country comparison snapshot**\n\n"
+            f"The active view contains **{records:,} records** across **{countries:,} countries**. "
+            f"The highest-volume countries are: {_top_values_text(df, 'alert-country', 6)}.\n\n"
+            f"Use the **Country Compare** section below for a visual comparison by alert impact, alert type, actor, region, or year."
+        )
+
+    if any(k in prompt_l for k in ["actor", "repression", "mechanism", "restriction"]):
+        actor_text = _top_values_text(df, "Actor of repression", 5)
+        mechanism_text = _top_values_text(df, "Restrictive mechanism", 5)
+        return (
+            f"**Restriction pattern snapshot**\n\n"
+            f"The leading actors in the active view are: {actor_text}.\n\n"
+            f"The leading restrictive mechanisms are: {mechanism_text}.\n\n"
+            f"For deeper review, use **Search** for specific actors/mechanisms or **Anomaly Scan** to identify unusual concentrations."
+        )
+
+    if any(k in prompt_l for k in ["chart", "plot", "visual", "graph"]):
+        return (
+            "**Chart guidance**\n\n"
+            "Use the **Chart Builder** section below to create a chart from the current filtered data. "
+            "Recommended starting choices: group by `alert-country`, `alert-impact`, `alert-type`, `Actor of repression`, or `year`, with metric set to `Record count`."
+        )
+
+    if any(k in prompt_l for k in ["export", "download", "brief", "report"]):
+        return (
+            "**Export guidance**\n\n"
+            "Use the **Export Center** below to download the filtered dataset as CSV/XLSX. "
+            "Use **Executive Summary** first if you want a compact evidence summary before exporting."
+        )
+
+    return (
+        f"**Executive summary of the active filtered view**\n\n"
+        f"- Records: **{records:,}**\n"
+        f"- Countries: **{countries:,}**\n"
+        f"- Years represented: **{years:,}**\n"
+        f"- Alert-impact classes: **{impacts:,}**\n"
+        f"- Top countries: {_top_values_text(df, 'alert-country', 5)}\n"
+        f"- Top alert impacts: {_top_values_text(df, 'alert-impact', 4)}\n"
+        f"- Top actors: {_top_values_text(df, 'Actor of repression', 4)}\n\n"
+        f"Use Search for evidence lookup, Chart Builder for visualization, Country Compare for side-by-side analysis, and Anomaly Scan for concentration detection."
+    )
+
+
+def render_ai_conversation_panel(df: pd.DataFrame | None) -> None:
+    """Render the single native chatbot interface. This prevents the old duplicate UI."""
+    st.markdown(
+        '<div class="ai-section-card"><div class="ai-section-title">💬 Conversation</div><div class="ai-section-subtitle">Ask naturally. This single conversation area replaces the nested legacy chatbot UI, so only one chatbot interface is shown.</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.session_state.setdefault("eusee_ai_messages", [
+        {
+            "role": "assistant",
+            "content": "Welcome. I can summarize the active filtered view, compare countries, explain restriction patterns, guide chart building, and help prepare exports. Use the tools below for visual outputs and evidence lookup.",
+        }
+    ])
+
+    with st.container():
+        for msg in st.session_state.eusee_ai_messages[-8:]:
+            role = msg.get("role", "assistant")
+            content = msg.get("content", "")
+            with st.chat_message(role):
+                st.markdown(content)
+
+    suggested = st.columns(4)
+    suggestions = [
+        "Summarize this filtered view",
+        "Compare top countries",
+        "Show restriction patterns",
+        "What chart should I build?",
+    ]
+    for i, text in enumerate(suggestions):
+        with suggested[i]:
+            if st.button(text, key=f"ai_suggest_{i}", use_container_width=True):
+                st.session_state.eusee_ai_messages.append({"role": "user", "content": text})
+                st.session_state.eusee_ai_messages.append({"role": "assistant", "content": _generate_dashboard_response(text, df)})
+                st.rerun()
+
+    prompt = st.chat_input("Ask EUSEE AI Copilot about the active dashboard view...", key="eusee_single_ai_chat_input")
+    if prompt:
+        st.session_state.eusee_ai_messages.append({"role": "user", "content": prompt})
+        st.session_state.eusee_ai_messages.append({"role": "assistant", "content": _generate_dashboard_response(prompt, df)})
+        st.rerun()
+
+    clear_col, note_col = st.columns([1, 4])
+    with clear_col:
+        if st.button("Clear chat", key="eusee_ai_clear_chat", use_container_width=True):
+            st.session_state.eusee_ai_messages = [
+                {"role": "assistant", "content": "Chat cleared. Ask a new question about the active dashboard view."}
+            ]
+            st.rerun()
+    with note_col:
+        st.caption("Search and advanced tools remain visible below; no second legacy interface is rendered.")
+
 # ---------------------------------------------------------------------
 # Search panel
 # ---------------------------------------------------------------------
@@ -766,11 +896,7 @@ def render_ai_workspace(
 
         st.markdown('<div class="ai-section-card"><div class="ai-section-title">✨ Start here</div><div class="ai-section-subtitle">Use the chat for natural questions, the search box for evidence lookup, and the advanced tools for charts, comparisons, summaries, anomaly scans, and downloads.</div></div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="ai-section-card"><div class="ai-section-title">💬 Conversation</div><div class="ai-section-subtitle">Your existing AI Copilot engine appears below. It keeps its original logic, chat input, outputs, and internal controls.</div></div>', unsafe_allow_html=True)
-        try:
-            legacy_renderer(df)
-        except Exception as exc:
-            st.error(f"AI Copilot could not be rendered: {exc}")
+        render_ai_conversation_panel(df)
 
         render_ai_search_panel(df)
         render_advanced_tools_panel(df)
