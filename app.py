@@ -8905,9 +8905,6 @@ with tab_map:
                             "<span style='color:#FFFFFF'>●</span> Negative: %{customdata[2]}<br>"
                             "<span style='color:#FFFFFF'>●</span> Positive: %{customdata[3]}<br>"
                             "<span style='color:#FFFFFF'>●</span> Context: %{customdata[4]}<br>"
-                            "Negative share: %{customdata[5]}%<br>"
-                            "Priority score: %{customdata[8]}<br>"
-                            "Priority level: <b>%{customdata[6]}</b><extra></extra>"
                         ),
                         hoverlabel=dict(
                             bgcolor="#2D0055",
@@ -8930,8 +8927,8 @@ with tab_map:
                             font=dict(size=12, family=MAP_FONT, color="#FFFFFF"),
                         ),
                         coloraxis_colorbar=dict(
-                            title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#334155")),
-                            tickfont=dict(size=10, family=MAP_FONT, color="#334155"),
+                            title=dict(text="Alerts", font=dict(size=11, family=MAP_FONT, color="#FFFFFF")),
+                            tickfont=dict(size=10, family=MAP_FONT, color="#FFFFFF"),
                             thickness=12,
                             len=0.68,
                             x=0.985,
@@ -8942,7 +8939,7 @@ with tab_map:
                             bearing=0,
                             pitch=0,
                         ),
-                        font=dict(family=MAP_FONT, color="#334155"),
+                        font=dict(family=MAP_FONT, color="#FFFFFF"),
                     )
 
                     st.markdown('<div class="map-visual-card">', unsafe_allow_html=True)
