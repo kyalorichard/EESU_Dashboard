@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import json
 from pathlib import Path
 import streamlit.components.v1 as components
@@ -111,6 +112,72 @@ except Exception:
 #st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
+
+
+# ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
+def configure_global_plotly_typography():
+    """Apply a consistent executive font and color system to Plotly charts.
+
+    This does not change chart data, traces, permissions, filters, or dashboard logic.
+    It only sets default typography and neutral visual defaults for charts that do
+    not explicitly override their own font settings.
+    """
+    executive_template = go.layout.Template(
+        layout=go.Layout(
+            font=dict(
+                family="Inter, Segoe UI, Arial, sans-serif",
+                size=12,
+                color="#475467",
+            ),
+            title=dict(
+                font=dict(
+                    family="Inter, Segoe UI, Arial, sans-serif",
+                    size=18,
+                    color="#101828",
+                ),
+                x=0.02,
+                xanchor="left",
+            ),
+            legend=dict(
+                font=dict(
+                    family="Inter, Segoe UI, Arial, sans-serif",
+                    size=11,
+                    color="#475467",
+                ),
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=30, r=24, t=58, b=34),
+            hoverlabel=dict(
+                font=dict(
+                    family="Inter, Segoe UI, Arial, sans-serif",
+                    size=11,
+                    color="#101828",
+                ),
+                bgcolor="#FFFFFF",
+                bordercolor="#E4E7EC",
+            ),
+            xaxis=dict(
+                title_font=dict(size=12, color="#344054"),
+                tickfont=dict(size=11, color="#667085"),
+                gridcolor="#EEF0F4",
+                zerolinecolor="#E4E7EC",
+            ),
+            yaxis=dict(
+                title_font=dict(size=12, color="#344054"),
+                tickfont=dict(size=11, color="#667085"),
+                gridcolor="#EEF0F4",
+                zerolinecolor="#E4E7EC",
+            ),
+        )
+    )
+    pio.templates["eusee_executive"] = executive_template
+    pio.templates.default = "plotly_white+eusee_executive"
+    px.defaults.template = "plotly_white+eusee_executive"
+    px.defaults.labels = px.defaults.labels or {}
+
+
+configure_global_plotly_typography()
 
 # ---------------- PROFESSIONAL CLASSIC DASHBOARD UX STYLING ----------------
 def inject_classic_dashboard_css():
@@ -574,6 +641,420 @@ def inject_final_responsive_overrides():
     """, unsafe_allow_html=True)
 
 inject_final_responsive_overrides()
+
+
+# ---------------- ALL-TABS PROFESSIONAL TYPOGRAPHY OVERRIDES ----------------
+def inject_all_tabs_typography_css():
+    """Central typography/color harmonization across every dashboard tab.
+
+    Scope: Overview, Negative Alert Analysis, Visualization Map, User Manual,
+    Data Preview, Admin-related panels, and AI Copilot containers rendered by app.py.
+    The rules only affect presentation: font family, size, color, spacing, cards,
+    tabs, tables, expanders, captions, metric labels, and Plotly wrapper text.
+    """
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-font: "Inter", "Segoe UI", Arial, sans-serif;
+        --eusee-primary: #660094;
+        --eusee-primary-dark: #2D0055;
+        --eusee-teal: #008CAA;
+        --eusee-yellow: #FFDB58;
+        --eusee-text-strong: #101828;
+        --eusee-text-title: #23152F;
+        --eusee-text-body: #475467;
+        --eusee-text-muted: #667085;
+        --eusee-text-soft: #98A2B3;
+        --eusee-border-soft: #E4E7EC;
+        --eusee-border-muted: #EEF0F4;
+        --eusee-surface: #FFFFFF;
+        --eusee-surface-soft: #F8FAFC;
+        --eusee-purple-soft: #F4EAF8;
+    }
+
+    html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container,
+    section[data-testid="stSidebar"], div, p, span, label, input, textarea, button,
+    [data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel"],
+    [data-testid="stTabs"], [data-testid="stExpander"], [data-testid="stDataFrame"] {
+        font-family: var(--eusee-font) !important;
+    }
+
+    .main .block-container {
+        color: var(--eusee-text-body) !important;
+        letter-spacing: -0.005em;
+    }
+
+    h1, h2, h3, h4, h5, h6,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4 {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-strong) !important;
+        letter-spacing: -0.025em !important;
+        line-height: 1.15 !important;
+        font-weight: 850 !important;
+    }
+
+    [data-testid="stMarkdownContainer"] h1 { font-size: clamp(26px, 3vw, 38px) !important; }
+    [data-testid="stMarkdownContainer"] h2 { font-size: clamp(21px, 2.2vw, 28px) !important; }
+    [data-testid="stMarkdownContainer"] h3 { font-size: clamp(17px, 1.7vw, 21px) !important; }
+    [data-testid="stMarkdownContainer"] h4 { font-size: 15px !important; }
+
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span,
+    .stCaptionContainer,
+    .stCaptionContainer p {
+        font-size: 12px !important;
+        line-height: 1.48 !important;
+        color: var(--eusee-text-body) !important;
+        font-weight: 500 !important;
+    }
+
+    .animated-title {
+        font-family: var(--eusee-font) !important;
+        font-size: clamp(31px, 4vw, 46px) !important;
+        font-weight: 850 !important;
+        color: var(--eusee-primary) !important;
+        letter-spacing: -0.035em !important;
+    }
+
+    .animated-subtitle {
+        font-family: var(--eusee-font) !important;
+        font-size: 13px !important;
+        line-height: 1.52 !important;
+        color: var(--eusee-text-body) !important;
+        font-weight: 500 !important;
+    }
+
+    /* Tabs: consistent label size, spacing, active state, and mobile wrapping. */
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 8px !important;
+        border-bottom: 1px solid var(--eusee-border-soft) !important;
+        margin-bottom: 12px !important;
+        flex-wrap: wrap !important;
+    }
+
+    [data-testid="stTabs"] [role="tab"] {
+        min-height: 40px !important;
+        padding: 9px 14px !important;
+        border-radius: 12px 12px 0 0 !important;
+        color: var(--eusee-text-muted) !important;
+        font-family: var(--eusee-font) !important;
+        font-size: 12px !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.01em !important;
+        background: transparent !important;
+    }
+
+    [data-testid="stTabs"] [role="tab"] p {
+        font-size: 12px !important;
+        font-weight: 800 !important;
+        color: inherit !important;
+        line-height: 1.15 !important;
+        margin: 0 !important;
+    }
+
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        color: var(--eusee-primary) !important;
+        background: linear-gradient(180deg, #FFFFFF 0%, #FBF7FD 100%) !important;
+        border: 1px solid #E7D4F1 !important;
+        border-bottom: 1px solid #FFFFFF !important;
+        box-shadow: 0 6px 16px rgba(102,0,148,.07) !important;
+    }
+
+    /* Sidebar and form controls. */
+    section[data-testid="stSidebar"] label,
+    [data-testid="stWidgetLabel"] label,
+    [data-testid="stWidgetLabel"] p {
+        color: #344054 !important;
+        font-size: 11px !important;
+        font-weight: 850 !important;
+        line-height: 1.2 !important;
+        letter-spacing: .005em !important;
+    }
+
+    input, textarea,
+    [data-baseweb="select"] div,
+    [data-baseweb="popover"] div,
+    [role="option"] {
+        font-family: var(--eusee-font) !important;
+        font-size: 12px !important;
+        color: var(--eusee-text-body) !important;
+    }
+
+    [data-baseweb="tag"] {
+        font-family: var(--eusee-font) !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        color: var(--eusee-primary) !important;
+        background: var(--eusee-purple-soft) !important;
+        border: 1px solid #E7D4F1 !important;
+    }
+
+    .stButton > button,
+    .stDownloadButton > button,
+    button[kind="primary"],
+    button[kind="secondary"] {
+        font-family: var(--eusee-font) !important;
+        font-size: 12px !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.005em !important;
+        border-radius: 11px !important;
+    }
+
+    /* Expanders and section panels. */
+    div[data-testid="stExpander"] {
+        border: 1px solid var(--eusee-border-soft) !important;
+        border-radius: 16px !important;
+        background: var(--eusee-surface) !important;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stExpander"] summary,
+    div[data-testid="stExpander"] summary p {
+        font-family: var(--eusee-font) !important;
+        font-size: 13px !important;
+        font-weight: 850 !important;
+        color: var(--eusee-text-title) !important;
+        line-height: 1.2 !important;
+    }
+
+    div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+    div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] li {
+        font-size: 11.5px !important;
+        color: var(--eusee-text-body) !important;
+        line-height: 1.45 !important;
+    }
+
+    /* Streamlit metric harmonization across all tabs. */
+    [data-testid="stMetric"] {
+        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important;
+        border: 1px solid rgba(102,0,148,.10) !important;
+        border-radius: 16px !important;
+        padding: 12px 13px !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.055) !important;
+    }
+
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricLabel"] p {
+        color: var(--eusee-text-muted) !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        line-height: 1.18 !important;
+    }
+
+    [data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] div {
+        color: var(--eusee-text-strong) !important;
+        font-family: var(--eusee-font) !important;
+        font-size: clamp(22px, 2vw, 30px) !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.035em !important;
+    }
+
+    [data-testid="stMetricDelta"],
+    [data-testid="stMetricDelta"] div {
+        font-family: var(--eusee-font) !important;
+        font-size: 11px !important;
+        font-weight: 750 !important;
+    }
+
+    /* Custom card families used across Overview, Negative Alerts, Map, Manual and AI panels. */
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-table-shell,
+    .map-guide-card,
+    .map-overview-guide,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-last-updated,
+    .user-manual-card,
+    .manual-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card,
+    .data-preview-toolbar,
+    .eusee-data-preview-note,
+    .eusee-feedback-panel,
+    .eusee-feedback-toggle {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-body) !important;
+        border-color: var(--eusee-border-soft) !important;
+    }
+
+    .eusee-kpi-title,
+    .negintel-title,
+    .executive-table-title,
+    .data-preview-title,
+    .map-guide-title,
+    .sidebar-access-title,
+    .sidebar-last-updated-date,
+    .manual-title,
+    .user-manual-title,
+    .ai-title,
+    .copilot-title,
+    .chat-title {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-title) !important;
+        font-size: 14px !important;
+        font-weight: 850 !important;
+        line-height: 1.18 !important;
+        letter-spacing: -0.015em !important;
+    }
+
+    .eusee-kpi-value,
+    .negintel-value,
+    .executive-mini-kpi strong,
+    .sidebar-last-updated-date {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-strong) !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.04em !important;
+    }
+
+    .eusee-kpi-label,
+    .eusee-kpi-note,
+    .negintel-note,
+    .negintel-row-label,
+    .executive-table-subtitle,
+    .executive-table-status-note,
+    .map-guide-sub,
+    .map-guide-text,
+    .sidebar-access-note,
+    .sidebar-last-updated-note,
+    .manual-copy,
+    .user-manual-copy,
+    .ai-copy,
+    .copilot-copy,
+    .chat-copy {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-muted) !important;
+        font-size: 11.5px !important;
+        line-height: 1.42 !important;
+        font-weight: 550 !important;
+    }
+
+    .classic-filter-eyebrow,
+    .sidebar-access-eyebrow,
+    .sidebar-last-updated-label,
+    .executive-table-eyebrow,
+    .negintel-eyebrow,
+    .data-preview-pill,
+    .executive-table-badge,
+    .sidebar-access-pill {
+        font-family: var(--eusee-font) !important;
+        font-size: 9.5px !important;
+        font-weight: 850 !important;
+        letter-spacing: .105em !important;
+        text-transform: uppercase !important;
+    }
+
+    .negintel-row-pct,
+    .negintel-row-count,
+    .eusee-breakdown-value,
+    .eusee-breakdown-pct {
+        font-family: var(--eusee-font) !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    /* Plotly wrapper and SVG text normalization across all chart tabs. */
+    .stPlotlyChart,
+    div[data-testid="stPlotlyChart"],
+    .js-plotly-plot,
+    .plot-container,
+    .svg-container {
+        font-family: var(--eusee-font) !important;
+    }
+
+    .js-plotly-plot .main-svg text,
+    .js-plotly-plot .gtitle,
+    .js-plotly-plot .xtitle,
+    .js-plotly-plot .ytitle,
+    .js-plotly-plot .legendtext,
+    .js-plotly-plot .annotation-text,
+    .js-plotly-plot .sankey text,
+    .js-plotly-plot .heatmap text {
+        font-family: var(--eusee-font) !important;
+        fill: var(--eusee-text-body) !important;
+    }
+
+    .js-plotly-plot .gtitle {
+        fill: var(--eusee-text-strong) !important;
+        font-weight: 850 !important;
+    }
+
+    /* Data tables across all tabs. */
+    div[data-testid="stDataFrame"] {
+        border-radius: 16px !important;
+        border: 1px solid var(--eusee-border-soft) !important;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
+        overflow: hidden !important;
+        font-family: var(--eusee-font) !important;
+    }
+
+    div[data-testid="stDataFrame"] [role="columnheader"],
+    div[data-testid="stDataFrame"] [role="columnheader"] * {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-title) !important;
+        font-size: 11px !important;
+        font-weight: 850 !important;
+        background: var(--eusee-purple-soft) !important;
+    }
+
+    div[data-testid="stDataFrame"] [role="gridcell"],
+    div[data-testid="stDataFrame"] [role="gridcell"] * {
+        font-family: var(--eusee-font) !important;
+        color: var(--eusee-text-body) !important;
+        font-size: 11.5px !important;
+        font-weight: 500 !important;
+    }
+
+    /* Alerts, info boxes, warnings, success messages. */
+    [data-testid="stAlert"] div,
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] li {
+        font-family: var(--eusee-font) !important;
+        font-size: 12px !important;
+        line-height: 1.45 !important;
+        color: var(--eusee-text-body) !important;
+    }
+
+    code, pre {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace !important;
+        font-size: 11.5px !important;
+    }
+
+    @media (max-width: 900px) {
+        [data-testid="stTabs"] [role="tab"] {
+            font-size: 11.5px !important;
+            padding: 8px 10px !important;
+            min-height: 38px !important;
+        }
+        [data-testid="stTabs"] [role="tab"] p {
+            font-size: 11.5px !important;
+        }
+        .eusee-kpi-title,
+        .negintel-title,
+        .executive-table-title,
+        .map-guide-title {
+            font-size: 13px !important;
+        }
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] li {
+            font-size: 11.5px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_all_tabs_typography_css()
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
 def can_view_monitored_countries_value() -> bool:
@@ -2603,169 +3084,6 @@ if not has_permission("view_dashboard"):
     st.stop()
 
 
-
-
-# ---------------- NEGATIVE ALERT ANALYSIS TYPOGRAPHY STANDARDIZATION ----------------
-def inject_negative_alert_analysis_typography():
-    """Centralized UX typography layer for the Negative Alerts Analysis tab only.
-
-    This changes presentation only: font family, font size, font color, spacing,
-    card polish, and chart text consistency. It does not alter data, permissions,
-    filters, chart logic, or dashboard functionality.
-    """
-    st.markdown("""
-    <style>
-    :root {
-        --eusee-font: Inter, Segoe UI, Arial, sans-serif;
-        --eusee-text-primary: #101828;
-        --eusee-text-secondary: #475467;
-        --eusee-text-muted: #667085;
-        --eusee-purple: #660094;
-        --eusee-teal: #008CAA;
-        --eusee-yellow: #FFDB58;
-        --eusee-border-soft: #E4E7EC;
-        --eusee-panel-bg: #FFFFFF;
-    }
-
-    /* Negative Alerts tab: consistent typography and visual hierarchy. */
-    .negative-filter-shell,
-    .negintel-card,
-    .analytics-panel,
-    .relationship-flow-guide,
-    .flow-diagram-guide,
-    div[data-testid="stPlotlyChart"],
-    div[data-testid="stDataFrame"] {
-        font-family: var(--eusee-font) !important;
-    }
-
-    .negative-filter-shell {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
-        border: 1px solid var(--eusee-border-soft) !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
-    }
-    .negative-filter-eyebrow {
-        color: var(--eusee-purple) !important;
-        font-size: 10px !important;
-        font-weight: 800 !important;
-        letter-spacing: .12em !important;
-    }
-    .negative-filter-title {
-        color: var(--eusee-text-primary) !important;
-        font-size: 16px !important;
-        font-weight: 800 !important;
-        line-height: 1.25 !important;
-        letter-spacing: -0.015em !important;
-    }
-    .negative-filter-note {
-        color: var(--eusee-text-muted) !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        line-height: 1.5 !important;
-    }
-
-    .negintel-card {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
-        border: 1px solid var(--eusee-border-soft) !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
-    }
-    .negintel-eyebrow {
-        color: var(--eusee-text-muted) !important;
-        font-size: 10px !important;
-        font-weight: 800 !important;
-        letter-spacing: .11em !important;
-    }
-    .negintel-title {
-        color: var(--eusee-text-primary) !important;
-        font-size: 13px !important;
-        font-weight: 800 !important;
-        line-height: 1.22 !important;
-    }
-    .negintel-value {
-        color: #B42318 !important;
-        font-family: var(--eusee-font) !important;
-        font-size: 30px !important;
-        font-weight: 850 !important;
-        letter-spacing: -0.035em !important;
-    }
-    .negintel-note, .negintel-compact-line {
-        color: var(--eusee-text-muted) !important;
-        font-size: 11px !important;
-        font-weight: 500 !important;
-        line-height: 1.4 !important;
-    }
-    .negintel-pill {
-        font-size: 10.5px !important;
-        font-weight: 800 !important;
-    }
-    .negintel-row {
-        border: 1px solid #EAECF0 !important;
-        background: #FFFFFF !important;
-        border-radius: 12px !important;
-    }
-    .negintel-row-label {
-        color: var(--eusee-text-secondary) !important;
-        font-size: 11px !important;
-        font-weight: 500 !important;
-        line-height: 1.35 !important;
-    }
-    .negintel-row-label strong {
-        color: var(--eusee-text-primary) !important;
-        font-weight: 750 !important;
-    }
-    .negintel-row-pct {
-        color: var(--eusee-text-primary) !important;
-        font-family: var(--eusee-font) !important;
-        font-size: 11px !important;
-        font-weight: 800 !important;
-    }
-    .negintel-row-count {
-        color: var(--eusee-text-muted) !important;
-        font-size: 10.5px !important;
-        font-weight: 700 !important;
-    }
-
-    .analytics-panel {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
-        border: 1px solid var(--eusee-border-soft) !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
-    }
-    .analytics-panel-title {
-        color: var(--eusee-text-primary) !important;
-        font-size: 16px !important;
-        font-weight: 800 !important;
-        line-height: 1.25 !important;
-    }
-    .analytics-panel-subtitle, .chart-card-caption {
-        color: var(--eusee-text-muted) !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        line-height: 1.5 !important;
-    }
-    .analytics-badge {
-        color: var(--eusee-purple) !important;
-        background: #F4EAF8 !important;
-        border-color: #E7D4F1 !important;
-        font-size: 10.5px !important;
-        font-weight: 800 !important;
-    }
-
-    .stMultiSelect label, .stSelectbox label {
-        color: #344054 !important;
-        font-family: var(--eusee-font) !important;
-        font-size: 11px !important;
-        font-weight: 800 !important;
-    }
-    [data-baseweb="tag"] {
-        font-family: var(--eusee-font) !important;
-        font-size: 10.5px !important;
-        font-weight: 700 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
 reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -3379,9 +3697,9 @@ CHART_COLORS = {
     "Default": "#FFDB58",
 }
 
-CHART_FONT = "Inter, Segoe UI, Arial, sans-serif"
-CHART_TITLE_COLOR = "#101828"
-CHART_TEXT_COLOR = "#475467"
+CHART_FONT = "Inter, Arial, sans-serif"
+CHART_TITLE_COLOR = "#2D0055"
+CHART_TEXT_COLOR = "#263238"
 CHART_GRID_COLOR = "#EEF1F6"
 CHART_AXIS_COLOR = "#D8DEE9"
 
@@ -3393,14 +3711,14 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=CHART_FONT, size=12, color=CHART_TEXT_COLOR),
+        font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
         title=dict(
             text=title if title is not None else fig.layout.title.text,
             x=0.02,
             xanchor="left",
             y=0.98,
             yanchor="top",
-            font=dict(family=CHART_FONT, size=16, color=CHART_TITLE_COLOR),
+            font=dict(family=CHART_FONT, size=14, color=CHART_TITLE_COLOR),
         ),
         margin=dict(l=135 if horizontal else 46, r=28, t=58, b=58),
         hoverlabel=dict(
@@ -3417,7 +3735,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
             bgcolor="rgba(255,255,255,0.82)",
             bordercolor="rgba(230,232,239,0.65)",
             borderwidth=1,
-            font=dict(family=CHART_FONT, size=11, color="#475467"),
+            font=dict(family=CHART_FONT, size=9, color="#344054"),
             title=None,
             itemsizing="trace",
             itemwidth=30,
@@ -3435,7 +3753,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         linewidth=1,
         linecolor=CHART_AXIS_COLOR,
         ticks="",
-        tickfont=dict(family=CHART_FONT, size=11, color="#475467"),
+        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
     )
     fig.update_yaxes(
         title=None,
@@ -3447,7 +3765,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         linewidth=1,
         linecolor=CHART_AXIS_COLOR,
         ticks="",
-        tickfont=dict(family=CHART_FONT, size=11, color="#475467"),
+        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
     )
     return fig
 
@@ -3459,18 +3777,17 @@ def render_chart_shell():
         <style>
         div[data-testid="stPlotlyChart"] {
             background: #FFFFFF;
-            border: 1px solid #E4E7EC;
-            border-radius: 16px;
+            border: 1px solid #E9E2F2;
+            border-radius: 18px;
             padding: 8px 10px 4px 10px;
-            box-shadow: 0 4px 12px rgba(16, 24, 40, 0.04);
+            box-shadow: 0 10px 28px rgba(45, 0, 85, 0.055);
             margin-bottom: 18px;
             transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
-            font-family: Inter, Segoe UI, Arial, sans-serif !important;
         }
         div[data-testid="stPlotlyChart"]:hover {
             transform: translateY(-1px);
-            border-color: #D0D5DD;
-            box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07);
+            border-color: #D8C7E6;
+            box-shadow: 0 14px 34px rgba(45, 0, 85, 0.09);
         }
         div[data-testid="stPlotlyChart"] svg.main-svg {
             border-radius: 14px;
@@ -7165,8 +7482,6 @@ with tab_overview:
         render_access_locked("Overview", "public-summary or viewer")
 
 with tab_negative:
-
-    inject_negative_alert_analysis_typography()
 
     if has_permission("view_negative_alerts"):
         #st.subheader("Negative Alerts")
