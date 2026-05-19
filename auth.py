@@ -294,69 +294,68 @@ def _auth_page_css():
 
         html, body, .stApp {
             background:
-                radial-gradient(circle at 8% 12%, rgba(102, 0, 148, 0.10), transparent 28%),
-                radial-gradient(circle at 94% 18%, rgba(0, 140, 170, 0.12), transparent 28%),
-                radial-gradient(circle at 50% 100%, rgba(255, 219, 88, 0.12), transparent 30%),
-                linear-gradient(135deg, #FBF8FD 0%, #F7FBFD 45%, #FFFAF0 100%) !important;
+                radial-gradient(circle at 10% 10%, rgba(102, 0, 148, 0.14), transparent 30%),
+                radial-gradient(circle at 90% 18%, rgba(0, 140, 170, 0.14), transparent 28%),
+                radial-gradient(circle at 50% 100%, rgba(255, 219, 88, 0.16), transparent 34%),
+                linear-gradient(135deg, #faf7fc 0%, #f7fbfd 50%, #fffaf0 100%) !important;
         }
 
         .block-container {
-            max-width: 880px !important;
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
+            max-width: 920px !important;
+            padding-top: 2.4rem !important;
+            padding-bottom: 2.4rem !important;
         }
 
         div[data-testid="stVerticalBlockBorderWrapper"] {
-            border-radius: 28px !important;
-            border: 1px solid rgba(102,0,148,0.12) !important;
-            box-shadow: 0 24px 70px rgba(35,25,66,0.14) !important;
-            background: rgba(255,255,255,0.96) !important;
-            backdrop-filter: blur(14px) !important;
+            border-radius: 30px !important;
+            border: 1px solid rgba(102, 0, 148, 0.12) !important;
+            box-shadow:
+                0 26px 80px rgba(35, 25, 66, 0.16),
+                inset 0 1px 0 rgba(255,255,255,0.9) !important;
+            background: rgba(255, 255, 255, 0.94) !important;
+            backdrop-filter: blur(18px) !important;
         }
 
         div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            padding: 34px 38px 30px 38px !important;
+            padding: 36px 40px 32px 40px !important;
             box-sizing: border-box;
         }
 
         .auth-pill {
             display: inline-flex;
             align-items: center;
-            gap: 7px;
-            background: #f7f0fb;
-            color: #660094;
-            border: 1px solid #eadcf3;
+            gap: 8px;
+            background: linear-gradient(135deg, #f7f0fb, #f4fbfd);
+            color: #4b006d;
+            border: 1px solid rgba(102,0,148,0.16);
             border-radius: 999px;
-            padding: 7px 11px;
-            font-size: 11px;
+            padding: 8px 13px;
+            font-size: 11.5px;
             font-weight: 900;
             font-family: Arial, sans-serif;
+            letter-spacing: 0.15px;
+            white-space: nowrap;
         }
 
         .mode-card {
             display: flex;
             align-items: flex-end;
             gap: 24px;
-            margin-bottom: 22px;
-            border-bottom: 1px solid #e9e3f1;
+            margin: 0 0 24px 0;
+            border-bottom: 1px solid #eee7f4;
             padding-bottom: 0;
         }
 
         .mode-active {
             position: relative;
             font-family: Arial, sans-serif;
-            font-size: 13px;
-            font-weight: 800;
+            font-size: 15px;
+            font-weight: 900;
             color: #231942;
             background: transparent;
             border: none;
-            border-radius: 0;
-            padding: 0 2px 12px 2px;
-            box-shadow: none;
-            cursor: default;
-            pointer-events: none;
-            user-select: none;
-            letter-spacing: 0.1px;
+            padding: 0 2px 13px 2px;
+            letter-spacing: -0.1px;
         }
 
         .mode-active::after {
@@ -371,35 +370,37 @@ def _auth_page_css():
         }
 
         .auth-note {
-            background: #fffaf0;
-            border: 1px solid rgba(255,219,88,0.55);
+            background: linear-gradient(135deg, #fffaf0, #fffdf7);
+            border: 1px solid rgba(255,219,88,0.58);
             border-left: 4px solid #FFDB58;
-            border-radius: 14px;
-            padding: 12px 14px;
+            border-radius: 16px;
+            padding: 13px 15px;
             color: #4b3b14;
-            font-size: 11.5px;
-            line-height: 1.45;
+            font-size: 11.8px;
+            line-height: 1.5;
             font-family: Arial, sans-serif;
-            margin-top: 14px;
+            margin-top: 16px;
         }
 
         label p {
             font-size: 12px !important;
             font-weight: 900 !important;
             color: #332045 !important;
+            margin-bottom: 4px !important;
         }
 
         div[data-testid="stTextInput"] input {
-            border-radius: 12px !important;
-            min-height: 44px !important;
+            border-radius: 14px !important;
+            min-height: 46px !important;
             font-size: 13px !important;
-            border: 1px solid #e7ddec !important;
+            border: 1px solid #e5d9eb !important;
             background: #fcfbfd !important;
+            box-shadow: inset 0 1px 2px rgba(35,25,66,0.03) !important;
         }
 
         div[data-testid="stTextInput"] input:focus {
             border-color: #660094 !important;
-            box-shadow: 0 0 0 2px rgba(102,0,148,0.10) !important;
+            box-shadow: 0 0 0 3px rgba(102,0,148,0.10) !important;
         }
 
         div[data-testid="stForm"] {
@@ -409,34 +410,46 @@ def _auth_page_css():
 
         button[kind="primaryFormSubmit"],
         button[kind="formSubmit"] {
-            border-radius: 12px !important;
-            min-height: 45px !important;
+            border-radius: 14px !important;
+            min-height: 47px !important;
             font-weight: 900 !important;
             background: linear-gradient(135deg, #660094, #008CAA) !important;
             border: 0 !important;
+            box-shadow: 0 10px 24px rgba(102,0,148,0.18) !important;
         }
 
         button {
-            border-radius: 12px !important;
-            font-weight: 800 !important;
+            border-radius: 14px !important;
+            font-weight: 850 !important;
+            border-color: #e6ddec !important;
+        }
+
+        button:hover {
+            border-color: #660094 !important;
+            box-shadow: 0 8px 20px rgba(35,25,66,0.10) !important;
         }
 
         .small-footer {
             text-align: center;
             color: #91869b;
-            font-size: 10.5px;
+            font-size: 10.8px;
             font-family: Arial, sans-serif;
-            margin-top: 16px;
+            margin-top: 18px;
         }
 
         @media (max-width: 900px) {
             .block-container {
                 max-width: 100% !important;
-                padding: 1.2rem 1rem !important;
+                padding: 1rem !important;
             }
 
             div[data-testid="stVerticalBlockBorderWrapper"] > div {
                 padding: 24px !important;
+            }
+
+            .auth-pill {
+                justify-content: center;
+                width: 100%;
             }
         }
         </style>
@@ -576,11 +589,11 @@ def _render_premium_auth_page():
 
     mode = st.session_state.get("auth_mode", "Login")
 
-    left_space, center, right_space = st.columns([0.18, 0.64, 0.18])
+    left_space, center, right_space = st.columns([0.16, 0.68, 0.16])
 
     with center:
         with st.container(border=True):
-            top_a, top_b = st.columns([1.25, 0.75])
+            top_a, top_b = st.columns([1.35, 0.65])
 
             with top_a:
                 st.markdown(
