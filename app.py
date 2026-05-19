@@ -4138,12 +4138,14 @@ def render_analytics_module_header(title, subtitle, badges=None):
         font-weight: 800;
     }}
     .chart-card-caption {{
-        font-family: Inter, Arial, sans-serif;
-        font-size: 10.8px;
-        color: #6B7280;
-        line-height: 1.35;
-        margin-top: -8px;
-        margin-bottom: 6px;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        color: #667085;
+        line-height: 1.45;
+        letter-spacing: -0.01em;
+        margin-top: -6px;
+        margin-bottom: 8px;
     }}
     </style>
     <div class="analytics-panel">
@@ -4518,8 +4520,46 @@ def render_analytical_flow_panel(df):
     .flow-guide-card {background: #FFFFFF; border: 1px solid #E8EEF3; border-radius: 16px; padding: 11px 13px; min-height: 76px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.045);}
     .flow-guide-title {font-family: Inter, Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
     .flow-guide-text {font-family: Inter, Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
-    .flow-section-label {font-family: Inter, Arial, sans-serif; font-size: 13.2px; font-weight: 950; color: #2D0055; margin: 16px 0 2px 0;}
-    .flow-section-note {font-family: Inter, Arial, sans-serif; font-size: 11.2px; color: #64748B; margin-bottom: 8px;}
+    .flow-section-label {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-size: 15px;
+        font-weight: 850;
+        color: #101828;
+        line-height: 1.25;
+        letter-spacing: -0.015em;
+        margin: 16px 0 6px 0;
+    }
+    .flow-section-note {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: #667085;
+        line-height: 1.5;
+        margin-bottom: 10px;
+    }
+    .flow-info-panel {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid #E4E7EC;
+        border-left: 4px solid #660094;
+        border-radius: 16px;
+        padding: 13px 15px;
+        margin: 14px 0 12px 0;
+        box-shadow: 0 8px 20px rgba(16,24,40,.045);
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    }
+    .flow-info-panel .flow-section-label {
+        margin: 0 0 6px 0;
+        color: #101828;
+        font-size: 15px;
+        font-weight: 850;
+    }
+    .flow-info-panel .flow-section-note {
+        margin: 0;
+        color: #667085;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.55;
+    }
     .flow-divider {height: 1px; background: linear-gradient(90deg, rgba(102,0,148,.22), rgba(0,140,170,.16), rgba(255,219,88,.10)); margin: 14px 0 10px 0;}
     </style>
     <div class="flow-panel-shell">
@@ -4567,8 +4607,20 @@ def render_analytical_flow_panel(df):
     render_heatmaps(df, top_n=top_n)
 
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-label">Flow diagram</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups. <br> Wider lines show where more alerts connect restrictive actors, restrictive mechanisms, and affected civil society groups under the selected filters.</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="flow-info-panel">
+            <div class="flow-section-label">Flow diagram</div>
+            <div class="flow-section-note">
+                Use the flow diagram to see how restrictive actors are connected to specific mechanisms,
+                and how these mechanisms affect different civil society groups.<br>
+                Wider lines show where more alerts connect restrictive actors, restrictive mechanisms,
+                and affected civil society groups under the selected filters.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey", permission_key="view_chart_sankey_flow", permission_label="Analytical Sankey flow")
 
 # ---------------- TOP-N BAR HELPER ----------------
@@ -7822,7 +7874,7 @@ with tab_map:
             if has_permission("view_coverage_monitored_countries"):
                 render_summary_cards(filtered_global, card_key="map_summary")
 
-            MAP_FONT = "Arial, sans-serif"
+            MAP_FONT = "Inter, Segoe UI, Arial, sans-serif"
 
             st.markdown("""
             <style>
@@ -8441,11 +8493,12 @@ with tab_map:
                     }}
 
                     .map-intel-title {{
-                        color: #23152F;
-                        font-size: 22px;
-                        font-weight: 950;
-                        letter-spacing: -0.03em;
-                        line-height: 1.08;
+                        color: #101828;
+                        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+                        font-size: 24px;
+                        font-weight: 850;
+                        letter-spacing: -0.02em;
+                        line-height: 1.18;
                         margin-bottom: 7px;
                     }}
 
@@ -8707,20 +8760,21 @@ with tab_map:
                         hovertemplate=(
                             "<b>%{customdata[0]}</b><br>"
                             "Region: %{customdata[7]}<br>"
-                            "<span style='color:#7A3E00'>●</span> Total alerts: %{customdata[1]}<br>"
-                            "<span style='color:#FFDB58'>●</span> Negative: %{customdata[2]}<br>"
-                            "<span style='color:#660094'>●</span> Positive: %{customdata[3]}<br>"
-                            "<span style='color:#008CAA'>●</span> Context: %{customdata[4]}<br>"
+                            "<span style='color:#FFFFFF'>●</span> Total alerts: %{customdata[1]}<br>"
+                            "<span style='color:#FFFFFF'>●</span> Negative: %{customdata[2]}<br>"
+                            "<span style='color:#FFFFFF'>●</span> Positive: %{customdata[3]}<br>"
+                            "<span style='color:#FFFFFF'>●</span> Context: %{customdata[4]}<br>"
                             "Negative share: %{customdata[5]}%<br>"
                             "Priority score: %{customdata[8]}<br>"
                             "Priority level: <b>%{customdata[6]}</b><extra></extra>"
                         ),
                         hoverlabel=dict(
                             bgcolor="#2D0055",
+                            font=dict(size=12, family=MAP_FONT, color="#FFFFFF"),
                             font_size=12,
                             font_family=MAP_FONT,
-                            font_color="white",
-                            bordercolor="#ffffff"
+                            font_color="#FFFFFF",
+                            bordercolor="#FFFFFF"
                         ),
                         marker_line_width=0.55,
                         marker_line_color="rgba(45,0,85,0.50)",
