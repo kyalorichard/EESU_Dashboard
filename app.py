@@ -696,7 +696,6 @@ def inject_all_tabs_typography_css():
     :root {
         --eusee-font: "Inter", "Segoe UI", Arial, sans-serif;
     }
-
     html, body, .stApp {
         font-family: var(--eusee-font) !important;
     }
@@ -709,48 +708,81 @@ inject_all_tabs_typography_css()
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
 def build_compact_chatbot_context(df):
-    """Create compact reusable AI context."""
+    """Create a compact reusable context for the AI assistant without sending raw rows."""
     if df is None or len(df) == 0:
         return {}
 
     context = {
         "rows": int(len(df)),
-        "columns": list(df.columns)[:50]
+        "columns": list(df.columns)[:50],
     }
 
-    if 'alert-country' in df.columns:
+    if "alert-country" in df.columns:
         context["countries"] = (
-            df['alert-country']
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()[:25]
+            df["alert-country"].dropna().astype(str).value_counts().head(25).to_dict()
         )
 
-    if 'alert-impact' in df.columns:
+    if "alert-impact" in df.columns:
         context["alert_types"] = (
-            df['alert-impact']
-            .value_counts()
-            .head(10)
-            .to_dict()
+            df["alert-impact"].dropna().astype(str).value_counts().head(10).to_dict()
+        )
+
+    if "restrictive mechanism" in df.columns:
+        context["top_mechanisms"] = (
+            df["restrictive mechanism"].dropna().astype(str).value_counts().head(10).to_dict()
+        )
+
+    if "restrictive actor" in df.columns:
+        context["top_actors"] = (
+            df["restrictive actor"].dropna().astype(str).value_counts().head(10).to_dict()
+        )
+
+    if "year" in df.columns:
+        context["years"] = (
+            df["year"].dropna().astype(str).value_counts().sort_index().to_dict()
         )
 
     return context
 
 
+def detect_chat_intent(prompt: str):
+    """Route chatbot requests to the lightest suitable workflow."""
+    p = str(prompt).lower()
+
+    if any(k in p for k in ["plot", "chart", "graph", "visualize", "visualise"]):
+        return "plot"
+
+    if any(k in p for k in ["country", "countries", "region", "map"]):
+        return "country"
+
+    if any(k in p for k in ["trend", "increase", "decrease", "pattern", "over time"]):
+        return "trend"
+
+    if any(k in p for k in ["summary", "overview", "summarize", "summarise"]):
+        return "summary"
+
+    return "general"
+
+
+def trim_chat_memory(max_messages=6):
+    """Keep chat reruns and OpenAI prompts lightweight."""
+    st.session_state.setdefault("chat_messages", [])
+    if len(st.session_state["chat_messages"]) > max_messages:
+        st.session_state["chat_messages"] = st.session_state["chat_messages"][-max_messages:]
+
+
+SUGGESTED_PROMPTS = [
+    "Summarize the current filtered alerts",
+    "Which countries need the most attention?",
+    "What are the top restrictive mechanisms?",
+    "Show trends across regions",
+    "Create an advanced chart from filtered data",
+]
+
 
 # ---------------- ADVANCED AI COPILOT PLOT BUILDER ----------------
 def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
-    """Professional lightweight plot builder for the AI Copilot.
-
-    Features:
-    - Multiple chart families: bar, horizontal bar, line, area, scatter, bubble,
-      histogram, box, violin, pie, donut, treemap, sunburst, heatmap.
-    - Smart numeric/categorical/date column detection.
-    - Executive Plotly styling aligned with dashboard typography.
-    - Optional color grouping, faceting, aggregation, sorting and top-N controls.
-    - Lightweight rendering: only builds the figure after user clicks Generate chart.
-    """
+    """Professional lightweight plot builder for the AI Copilot."""
     if df is None or df.empty:
         st.info("No filtered data are available for plotting.")
         return
@@ -795,29 +827,24 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
     <div class="ai-plot-builder-shell">
         <div class="ai-plot-builder-title">Advanced Plot Builder</div>
         <div class="ai-plot-builder-subtitle">
-            Build publication-ready dashboard charts from the current filtered data without sending the full dataset to the AI model.
+            Build professional dashboard charts from the current filtered data.
         </div>
         <div class="ai-plot-builder-tip">
-            Tip: use bar, donut, treemap or sunburst for categories; line or area for time; heatmap for relationships; scatter or bubble for numeric patterns.
+            Use bar, donut, treemap or sunburst for categories; line/area for time; heatmap for relationships; scatter/bubble for numeric patterns.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Detect column types safely.
     all_cols = list(plot_df.columns)
     numeric_cols = plot_df.select_dtypes(include=["number"]).columns.tolist()
 
     date_cols = []
     for col in all_cols:
-        if "date" in str(col).lower() or str(col).lower() in ["year", "month"]:
+        col_l = str(col).lower()
+        if "date" in col_l or col_l in ["year", "month"]:
             date_cols.append(col)
 
-    categorical_cols = [
-        c for c in all_cols
-        if c not in numeric_cols and c not in date_cols
-    ]
-
-    # Add likely categorical numeric columns where appropriate.
+    categorical_cols = [c for c in all_cols if c not in numeric_cols and c not in date_cols]
     for c in numeric_cols:
         try:
             if plot_df[c].nunique(dropna=True) <= 20:
@@ -829,31 +856,15 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
     date_cols = list(dict.fromkeys(date_cols))
 
     chart_options = [
-        "Bar",
-        "Horizontal bar",
-        "Line",
-        "Area",
-        "Scatter",
-        "Bubble",
-        "Histogram",
-        "Box",
-        "Violin",
-        "Pie",
-        "Donut",
-        "Treemap",
-        "Sunburst",
-        "Heatmap",
+        "Bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble",
+        "Histogram", "Box", "Violin", "Pie", "Donut", "Treemap", "Sunburst", "Heatmap",
     ]
 
     with st.expander("📊 Advanced chart studio", expanded=True):
         c1, c2, c3 = st.columns([1.1, 1.1, 0.9])
 
         with c1:
-            chart_type = st.selectbox(
-                "Chart type",
-                chart_options,
-                key=f"{key_prefix}_chart_type",
-            )
+            chart_type = st.selectbox("Chart type", chart_options, key=f"{key_prefix}_chart_type")
 
         with c2:
             theme = st.selectbox(
@@ -872,12 +883,9 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
                 key=f"{key_prefix}_top_n",
             )
 
-        x_col = y_col = color_col = size_col = facet_col = None
-        agg_func = "Count records"
-
         needs_y = chart_type in [
             "Bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble",
-            "Box", "Violin", "Heatmap"
+            "Box", "Violin", "Heatmap",
         ]
 
         col_a, col_b, col_c = st.columns(3)
@@ -893,45 +901,33 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
         with col_b:
             if needs_y:
                 y_options = ["Count records"] + numeric_cols
-                y_col = st.selectbox(
-                    "Y / value",
-                    options=y_options,
-                    key=f"{key_prefix}_y",
-                )
+                y_col = st.selectbox("Y / value", options=y_options, key=f"{key_prefix}_y")
             else:
                 y_col = None
 
         with col_c:
             color_options = ["None"] + categorical_cols
-            color_col = st.selectbox(
-                "Color grouping",
-                options=color_options,
-                key=f"{key_prefix}_color",
-            )
+            color_col = st.selectbox("Color grouping", options=color_options, key=f"{key_prefix}_color")
             if color_col == "None":
                 color_col = None
 
         adv1, adv2, adv3 = st.columns(3)
 
+        size_col = None
         with adv1:
             if chart_type == "Bubble":
                 size_options = numeric_cols if numeric_cols else ["None"]
-                size_col = st.selectbox(
-                    "Bubble size",
-                    options=size_options,
-                    key=f"{key_prefix}_size",
-                )
+                size_col = st.selectbox("Bubble size", options=size_options, key=f"{key_prefix}_size")
+                if size_col == "None":
+                    size_col = None
 
         with adv2:
             facet_options = ["None"] + categorical_cols
-            facet_col = st.selectbox(
-                "Small multiples",
-                options=facet_options,
-                key=f"{key_prefix}_facet",
-            )
+            facet_col = st.selectbox("Small multiples", options=facet_options, key=f"{key_prefix}_facet")
             if facet_col == "None":
                 facet_col = None
 
+        agg_func = "Count records"
         with adv3:
             if y_col and y_col != "Count records":
                 agg_func = st.selectbox(
@@ -940,18 +936,9 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
                     key=f"{key_prefix}_agg",
                 )
 
-        title = st.text_input(
-            "Chart title",
-            value=f"{chart_type} chart",
-            key=f"{key_prefix}_title",
-        )
+        title = st.text_input("Chart title", value=f"{chart_type} chart", key=f"{key_prefix}_title")
 
-        generate = st.button(
-            "Generate chart",
-            use_container_width=True,
-            key=f"{key_prefix}_generate",
-        )
-
+        generate = st.button("Generate chart", use_container_width=True, key=f"{key_prefix}_generate")
         if not generate:
             st.caption("Select chart settings, then click Generate chart.")
             return
@@ -959,33 +946,21 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
         try:
             working = plot_df.copy()
 
-            # Convert date-like columns where possible.
             if x_col in date_cols and x_col in working.columns:
                 working[x_col] = pd.to_datetime(working[x_col], errors="coerce")
 
             fig = None
 
-            # Aggregate for category/time charts.
             if chart_type in ["Bar", "Horizontal bar", "Line", "Area"]:
                 group_cols = [x_col]
                 if color_col:
                     group_cols.append(color_col)
 
                 if y_col == "Count records" or y_col is None:
-                    chart_data = (
-                        working.groupby(group_cols, dropna=False)
-                        .size()
-                        .reset_index(name="Count")
-                    )
+                    chart_data = working.groupby(group_cols, dropna=False).size().reset_index(name="Count")
                     value_col = "Count"
                 else:
-                    agg_map = {
-                        "Sum": "sum",
-                        "Mean": "mean",
-                        "Median": "median",
-                        "Min": "min",
-                        "Max": "max",
-                    }
+                    agg_map = {"Sum": "sum", "Mean": "mean", "Median": "median", "Min": "min", "Max": "max"}
                     chart_data = (
                         working.groupby(group_cols, dropna=False)[y_col]
                         .agg(agg_map.get(agg_func, "sum"))
@@ -999,58 +974,34 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
 
                     if chart_type == "Horizontal bar":
                         fig = px.bar(
-                            chart_data,
-                            y=x_col,
-                            x=value_col,
-                            color=color_col,
-                            orientation="h",
-                            title=title,
-                            text=value_col,
-                            facet_col=facet_col,
+                            chart_data, y=x_col, x=value_col, color=color_col,
+                            orientation="h", title=title, text=value_col, facet_col=facet_col,
                         )
                         fig.update_yaxes(categoryorder="total ascending")
                     else:
                         fig = px.bar(
-                            chart_data,
-                            x=x_col,
-                            y=value_col,
-                            color=color_col,
-                            title=title,
-                            text=value_col,
-                            facet_col=facet_col,
+                            chart_data, x=x_col, y=value_col, color=color_col,
+                            title=title, text=value_col, facet_col=facet_col,
                         )
 
                 elif chart_type == "Line":
                     fig = px.line(
-                        chart_data.sort_values(x_col),
-                        x=x_col,
-                        y=value_col,
-                        color=color_col,
-                        title=title,
-                        markers=True,
-                        facet_col=facet_col,
+                        chart_data.sort_values(x_col), x=x_col, y=value_col,
+                        color=color_col, title=title, markers=True, facet_col=facet_col,
                     )
 
                 elif chart_type == "Area":
                     fig = px.area(
-                        chart_data.sort_values(x_col),
-                        x=x_col,
-                        y=value_col,
-                        color=color_col,
-                        title=title,
-                        facet_col=facet_col,
+                        chart_data.sort_values(x_col), x=x_col, y=value_col,
+                        color=color_col, title=title, facet_col=facet_col,
                     )
 
             elif chart_type == "Scatter":
                 if y_col == "Count records":
-                    st.warning("Scatter requires a numeric Y column. Select a numeric value for Y.")
+                    st.warning("Scatter requires a numeric Y column.")
                     return
                 fig = px.scatter(
-                    working,
-                    x=x_col,
-                    y=y_col,
-                    color=color_col,
-                    title=title,
+                    working, x=x_col, y=y_col, color=color_col, title=title,
                     facet_col=facet_col,
                     hover_data=[c for c in categorical_cols[:5] if c in working.columns],
                 )
@@ -1060,198 +1011,81 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
                     st.warning("Bubble chart requires numeric Y and bubble size columns.")
                     return
                 fig = px.scatter(
-                    working,
-                    x=x_col,
-                    y=y_col,
-                    size=size_col,
-                    color=color_col,
-                    title=title,
-                    facet_col=facet_col,
+                    working, x=x_col, y=y_col, size=size_col, color=color_col,
+                    title=title, facet_col=facet_col,
                     hover_data=[c for c in categorical_cols[:5] if c in working.columns],
                 )
 
             elif chart_type == "Histogram":
                 hist_col = x_col if x_col in numeric_cols else (numeric_cols[0] if numeric_cols else x_col)
-                fig = px.histogram(
-                    working,
-                    x=hist_col,
-                    color=color_col,
-                    title=title,
-                    nbins=30,
-                    marginal="box",
-                )
+                fig = px.histogram(working, x=hist_col, color=color_col, title=title, nbins=30, marginal="box")
 
             elif chart_type == "Box":
                 if y_col == "Count records":
                     st.warning("Box plot requires a numeric Y column.")
                     return
-                fig = px.box(
-                    working,
-                    x=x_col,
-                    y=y_col,
-                    color=color_col,
-                    title=title,
-                    points="outliers",
-                )
+                fig = px.box(working, x=x_col, y=y_col, color=color_col, title=title, points="outliers")
 
             elif chart_type == "Violin":
                 if y_col == "Count records":
                     st.warning("Violin plot requires a numeric Y column.")
                     return
-                fig = px.violin(
-                    working,
-                    x=x_col,
-                    y=y_col,
-                    color=color_col,
-                    title=title,
-                    box=True,
-                    points=False,
-                )
+                fig = px.violin(working, x=x_col, y=y_col, color=color_col, title=title, box=True, points=False)
 
             elif chart_type in ["Pie", "Donut"]:
                 pie_data = (
-                    working.groupby(x_col, dropna=False)
-                    .size()
-                    .reset_index(name="Count")
-                    .sort_values("Count", ascending=False)
-                    .head(top_n)
+                    working.groupby(x_col, dropna=False).size().reset_index(name="Count")
+                    .sort_values("Count", ascending=False).head(top_n)
                 )
-                fig = px.pie(
-                    pie_data,
-                    names=x_col,
-                    values="Count",
-                    title=title,
-                    hole=0.48 if chart_type == "Donut" else 0,
-                )
+                fig = px.pie(pie_data, names=x_col, values="Count", title=title, hole=0.48 if chart_type == "Donut" else 0)
 
             elif chart_type == "Treemap":
-                path_cols = [c for c in [color_col, x_col] if c]
-                if not path_cols:
-                    path_cols = [x_col]
+                path_cols = [c for c in [color_col, x_col] if c] or [x_col]
                 tree_data = (
-                    working.groupby(path_cols, dropna=False)
-                    .size()
-                    .reset_index(name="Count")
-                    .sort_values("Count", ascending=False)
-                    .head(top_n * 3)
+                    working.groupby(path_cols, dropna=False).size().reset_index(name="Count")
+                    .sort_values("Count", ascending=False).head(top_n * 3)
                 )
-                fig = px.treemap(
-                    tree_data,
-                    path=path_cols,
-                    values="Count",
-                    title=title,
-                )
+                fig = px.treemap(tree_data, path=path_cols, values="Count", title=title)
 
             elif chart_type == "Sunburst":
-                path_cols = [c for c in [color_col, x_col] if c]
-                if not path_cols:
-                    path_cols = [x_col]
+                path_cols = [c for c in [color_col, x_col] if c] or [x_col]
                 sun_data = (
-                    working.groupby(path_cols, dropna=False)
-                    .size()
-                    .reset_index(name="Count")
-                    .sort_values("Count", ascending=False)
-                    .head(top_n * 3)
+                    working.groupby(path_cols, dropna=False).size().reset_index(name="Count")
+                    .sort_values("Count", ascending=False).head(top_n * 3)
                 )
-                fig = px.sunburst(
-                    sun_data,
-                    path=path_cols,
-                    values="Count",
-                    title=title,
-                )
+                fig = px.sunburst(sun_data, path=path_cols, values="Count", title=title)
 
             elif chart_type == "Heatmap":
                 if not color_col:
-                    st.warning("Heatmap requires a color grouping column. Select one under Color grouping.")
+                    st.warning("Heatmap requires a color grouping column.")
                     return
-                heat_data = (
-                    working.groupby([x_col, color_col], dropna=False)
-                    .size()
-                    .reset_index(name="Count")
-                )
-                heat_pivot = heat_data.pivot_table(
-                    index=color_col,
-                    columns=x_col,
-                    values="Count",
-                    aggfunc="sum",
-                    fill_value=0,
-                )
-                fig = px.imshow(
-                    heat_pivot,
-                    text_auto=True,
-                    aspect="auto",
-                    title=title,
-                    labels=dict(color="Count"),
-                )
+                heat_data = working.groupby([x_col, color_col], dropna=False).size().reset_index(name="Count")
+                heat_pivot = heat_data.pivot_table(index=color_col, columns=x_col, values="Count", aggfunc="sum", fill_value=0)
+                fig = px.imshow(heat_pivot, text_auto=True, aspect="auto", title=title, labels=dict(color="Count"))
 
             if fig is None:
                 st.warning("Could not generate this chart with the selected settings.")
                 return
 
-            # Professional executive aesthetics.
-            height_map = {
-                "Executive clean": 520,
-                "Compact analytical": 420,
-                "Presentation": 620,
-            }
-            font_size_map = {
-                "Executive clean": 12,
-                "Compact analytical": 11,
-                "Presentation": 14,
-            }
+            height_map = {"Executive clean": 520, "Compact analytical": 420, "Presentation": 620}
+            font_size_map = {"Executive clean": 12, "Compact analytical": 11, "Presentation": 14}
 
             fig.update_layout(
                 height=height_map.get(theme, 520),
-                title=dict(
-                    text=title,
-                    x=0.02,
-                    xanchor="left",
-                    font=dict(size=18 if theme != "Presentation" else 22, color="#101828"),
-                ),
-                font=dict(
-                    family="Inter, Segoe UI, Arial, sans-serif",
-                    size=font_size_map.get(theme, 12),
-                    color="#475467",
-                ),
+                title=dict(text=title, x=0.02, xanchor="left", font=dict(size=18 if theme != "Presentation" else 22, color="#101828")),
+                font=dict(family="Inter, Segoe UI, Arial, sans-serif", size=font_size_map.get(theme, 12), color="#475467"),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=40, r=28, t=72, b=48),
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="right",
-                    x=1,
-                    font=dict(size=11),
-                ),
-                hoverlabel=dict(
-                    bgcolor="#FFFFFF",
-                    bordercolor="#E4E7EC",
-                    font=dict(color="#101828", size=12),
-                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11)),
+                hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E4E7EC", font=dict(color="#101828", size=12)),
             )
 
-            fig.update_xaxes(
-                showgrid=True,
-                gridcolor="#EEF0F4",
-                zeroline=False,
-                title_font=dict(size=12, color="#344054"),
-                tickfont=dict(size=11, color="#667085"),
-            )
-            fig.update_yaxes(
-                showgrid=True,
-                gridcolor="#EEF0F4",
-                zeroline=False,
-                title_font=dict(size=12, color="#344054"),
-                tickfont=dict(size=11, color="#667085"),
-            )
+            fig.update_xaxes(showgrid=True, gridcolor="#EEF0F4", zeroline=False, title_font=dict(size=12, color="#344054"), tickfont=dict(size=11, color="#667085"))
+            fig.update_yaxes(showgrid=True, gridcolor="#EEF0F4", zeroline=False, title_font=dict(size=12, color="#344054"), tickfont=dict(size=11, color="#667085"))
 
             if chart_type in ["Bar", "Horizontal bar"]:
-                fig.update_traces(
-                    texttemplate="%{text}",
-                    textposition="outside",
-                    cliponaxis=False,
-                )
+                fig.update_traces(texttemplate="%{text}", textposition="outside", cliponaxis=False)
 
             st.plotly_chart(fig, use_container_width=True, config={
                 "displaylogo": False,
@@ -1268,539 +1102,22 @@ def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
         except Exception as e:
             st.error(f"Chart could not be generated with the selected settings: {e}")
 
-
-def detect_chat_intent(prompt: str):
-    p = str(prompt).lower()
-
-    if any(k in p for k in ["plot", "chart", "graph", "visualize"]):
-        return "plot"
-
-    if any(k in p for k in ["country", "countries", "region", "map"]):
-        return "country"
-
-    if any(k in p for k in ["trend", "increase", "decrease", "pattern"]):
-        return "trend"
-
-    if any(k in p for k in ["summary", "overview", "summarize"]):
-        return "summary"
-
-    return "general"
-
-
-st.session_state.setdefault("chat_messages", [])
-
-if len(st.session_state["chat_messages"]) > 6:
-    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
-
-
-# ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
-@st.cache_data(show_spinner=False, ttl=120)
-def build_compact_chatbot_context(df):
-    """Create a compact reusable context for the AI assistant."""
-    if df is None or len(df) == 0:
-        return {}
-
-    context = {
-        "rows": int(len(df)),
-        "countries": sorted(df['alert-country'].dropna().astype(str).unique().tolist())[:25]
-            if 'alert-country' in df.columns else [],
-        "alert_types": (
-            df['alert-impact'].value_counts().head(10).to_dict()
-            if 'alert-impact' in df.columns else {}
-        ),
-        "top_mechanisms": (
-            df['restrictive mechanism'].value_counts().head(10).to_dict()
-            if 'restrictive mechanism' in df.columns else {}
-        ),
-        "top_actors": (
-            df['restrictive actor'].value_counts().head(10).to_dict()
-            if 'restrictive actor' in df.columns else {}
-        ),
-        "columns": list(df.columns)[:50]
-    }
-    return context
-
-def detect_chat_intent(prompt: str):
-    p = str(prompt).lower()
-
-    if any(k in p for k in ["plot", "chart", "graph", "visualize"]):
-        return "plot"
-
-    if any(k in p for k in ["country", "countries", "region", "map"]):
-        return "country"
-
-    if any(k in p for k in ["trend", "increase", "decrease", "pattern"]):
-        return "trend"
-
-    if any(k in p for k in ["summary", "overview", "summarize"]):
-        return "summary"
-
-    return "general"
-
-# Keep the chatbot memory lightweight.
-st.session_state.setdefault("chat_messages", [])
-if len(st.session_state["chat_messages"]) > 6:
-    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
-    """Central typography/color harmonization across every dashboard tab.
-
-    Scope: Overview, Negative Alert Analysis, Visualization Map, User Manual,
-    Data Preview, Admin-related panels, and AI Copilot containers rendered by app.py.
-    The rules only affect presentation: font family, size, color, spacing, cards,
-    tabs, tables, expanders, captions, metric labels, and Plotly wrapper text.
-    """
+    """Central typography harmonization across all dashboard tabs."""
     st.markdown("""
     <style>
     :root {
         --eusee-font: "Inter", "Segoe UI", Arial, sans-serif;
-        --eusee-primary: #660094;
-        --eusee-primary-dark: #2D0055;
-        --eusee-teal: #008CAA;
-        --eusee-yellow: #FFDB58;
-        --eusee-text-strong: #101828;
-        --eusee-text-title: #23152F;
-        --eusee-text-body: #475467;
-        --eusee-text-muted: #667085;
-        --eusee-text-soft: #98A2B3;
-        --eusee-border-soft: #E4E7EC;
-        --eusee-border-muted: #EEF0F4;
-        --eusee-surface: #FFFFFF;
-        --eusee-surface-soft: #F8FAFC;
-        --eusee-purple-soft: #F4EAF8;
     }
 
-    html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container,
-    section[data-testid="stSidebar"], div, p, span, label, input, textarea, button,
-    [data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel"],
-    [data-testid="stTabs"], [data-testid="stExpander"], [data-testid="stDataFrame"] {
+    html, body, .stApp {
         font-family: var(--eusee-font) !important;
-    }
-
-    .main .block-container {
-        color: var(--eusee-text-body) !important;
-        letter-spacing: -0.005em;
-    }
-
-    h1, h2, h3, h4, h5, h6,
-    [data-testid="stMarkdownContainer"] h1,
-    [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stMarkdownContainer"] h3,
-    [data-testid="stMarkdownContainer"] h4 {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-strong) !important;
-        letter-spacing: -0.025em !important;
-        line-height: 1.15 !important;
-        font-weight: 850 !important;
-    }
-
-    [data-testid="stMarkdownContainer"] h1 { font-size: clamp(26px, 3vw, 38px) !important; }
-    [data-testid="stMarkdownContainer"] h2 { font-size: clamp(21px, 2.2vw, 28px) !important; }
-    [data-testid="stMarkdownContainer"] h3 { font-size: clamp(17px, 1.7vw, 21px) !important; }
-    [data-testid="stMarkdownContainer"] h4 { font-size: 15px !important; }
-
-    [data-testid="stMarkdownContainer"] p,
-    [data-testid="stMarkdownContainer"] li,
-    [data-testid="stMarkdownContainer"] span,
-    .stCaptionContainer,
-    .stCaptionContainer p {
-        font-size: 12px !important;
-        line-height: 1.48 !important;
-        color: var(--eusee-text-body) !important;
-        font-weight: 500 !important;
-    }
-
-    .animated-title {
-        font-family: var(--eusee-font) !important;
-        font-size: clamp(31px, 4vw, 46px) !important;
-        font-weight: 850 !important;
-        color: var(--eusee-primary) !important;
-        letter-spacing: -0.035em !important;
-    }
-
-    .animated-subtitle {
-        font-family: var(--eusee-font) !important;
-        font-size: 13px !important;
-        line-height: 1.52 !important;
-        color: var(--eusee-text-body) !important;
-        font-weight: 500 !important;
-    }
-
-    /* Tabs: consistent label size, spacing, active state, and mobile wrapping. */
-    [data-testid="stTabs"] [role="tablist"] {
-        gap: 8px !important;
-        border-bottom: 1px solid var(--eusee-border-soft) !important;
-        margin-bottom: 12px !important;
-        flex-wrap: wrap !important;
-    }
-
-    [data-testid="stTabs"] [role="tab"] {
-        min-height: 40px !important;
-        padding: 9px 14px !important;
-        border-radius: 12px 12px 0 0 !important;
-        color: var(--eusee-text-muted) !important;
-        font-family: var(--eusee-font) !important;
-        font-size: 12px !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.01em !important;
-        background: transparent !important;
-    }
-
-    [data-testid="stTabs"] [role="tab"] p {
-        font-size: 12px !important;
-        font-weight: 800 !important;
-        color: inherit !important;
-        line-height: 1.15 !important;
-        margin: 0 !important;
-    }
-
-    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-        color: var(--eusee-primary) !important;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FBF7FD 100%) !important;
-        border: 1px solid #E7D4F1 !important;
-        border-bottom: 1px solid #FFFFFF !important;
-        box-shadow: 0 6px 16px rgba(102,0,148,.07) !important;
-    }
-
-    /* Sidebar and form controls. */
-    section[data-testid="stSidebar"] label,
-    [data-testid="stWidgetLabel"] label,
-    [data-testid="stWidgetLabel"] p {
-        color: #344054 !important;
-        font-size: 11px !important;
-        font-weight: 850 !important;
-        line-height: 1.2 !important;
-        letter-spacing: .005em !important;
-    }
-
-    input, textarea,
-    [data-baseweb="select"] div,
-    [data-baseweb="popover"] div,
-    [role="option"] {
-        font-family: var(--eusee-font) !important;
-        font-size: 12px !important;
-        color: var(--eusee-text-body) !important;
-    }
-
-    [data-baseweb="tag"] {
-        font-family: var(--eusee-font) !important;
-        font-size: 10px !important;
-        font-weight: 800 !important;
-        color: var(--eusee-primary) !important;
-        background: var(--eusee-purple-soft) !important;
-        border: 1px solid #E7D4F1 !important;
-    }
-
-    .stButton > button,
-    .stDownloadButton > button,
-    button[kind="primary"],
-    button[kind="secondary"] {
-        font-family: var(--eusee-font) !important;
-        font-size: 12px !important;
-        font-weight: 850 !important;
-        letter-spacing: -0.005em !important;
-        border-radius: 11px !important;
-    }
-
-    /* Expanders and section panels. */
-    div[data-testid="stExpander"] {
-        border: 1px solid var(--eusee-border-soft) !important;
-        border-radius: 16px !important;
-        background: var(--eusee-surface) !important;
-        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
-        overflow: hidden !important;
-    }
-
-    div[data-testid="stExpander"] summary,
-    div[data-testid="stExpander"] summary p {
-        font-family: var(--eusee-font) !important;
-        font-size: 13px !important;
-        font-weight: 850 !important;
-        color: var(--eusee-text-title) !important;
-        line-height: 1.2 !important;
-    }
-
-    div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
-    div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] li {
-        font-size: 11.5px !important;
-        color: var(--eusee-text-body) !important;
-        line-height: 1.45 !important;
-    }
-
-    /* Streamlit metric harmonization across all tabs. */
-    [data-testid="stMetric"] {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%) !important;
-        border: 1px solid rgba(102,0,148,.10) !important;
-        border-radius: 16px !important;
-        padding: 12px 13px !important;
-        box-shadow: 0 8px 20px rgba(16,24,40,.055) !important;
-    }
-
-    [data-testid="stMetricLabel"],
-    [data-testid="stMetricLabel"] p {
-        color: var(--eusee-text-muted) !important;
-        font-size: 11px !important;
-        font-weight: 800 !important;
-        line-height: 1.18 !important;
-    }
-
-    [data-testid="stMetricValue"],
-    [data-testid="stMetricValue"] div {
-        color: var(--eusee-text-strong) !important;
-        font-family: var(--eusee-font) !important;
-        font-size: clamp(22px, 2vw, 30px) !important;
-        font-weight: 850 !important;
-        letter-spacing: -0.035em !important;
-    }
-
-    [data-testid="stMetricDelta"],
-    [data-testid="stMetricDelta"] div {
-        font-family: var(--eusee-font) !important;
-        font-size: 11px !important;
-        font-weight: 750 !important;
-    }
-
-    /* Custom card families used across Overview, Negative Alerts, Map, Manual and AI panels. */
-    .eusee-kpi-card,
-    .negintel-card,
-    .executive-table-shell,
-    .map-guide-card,
-    .map-overview-guide,
-    .sidebar-access-shell,
-    .sidebar-profile-card,
-    .classic-filter-header,
-    .classic-filter-status,
-    .sidebar-last-updated,
-    .user-manual-card,
-    .manual-card,
-    .ai-card,
-    .copilot-card,
-    .chat-card,
-    .data-preview-toolbar,
-    .eusee-data-preview-note,
-    .eusee-feedback-panel,
-    .eusee-feedback-toggle {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-body) !important;
-        border-color: var(--eusee-border-soft) !important;
-    }
-
-    .eusee-kpi-title,
-    .negintel-title,
-    .executive-table-title,
-    .data-preview-title,
-    .map-guide-title,
-    .sidebar-access-title,
-    .sidebar-last-updated-date,
-    .manual-title,
-    .user-manual-title,
-    .ai-title,
-    .copilot-title,
-    .chat-title {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-title) !important;
-        font-size: 14px !important;
-        font-weight: 850 !important;
-        line-height: 1.18 !important;
-        letter-spacing: -0.015em !important;
-    }
-
-    .eusee-kpi-value,
-    .negintel-value,
-    .executive-mini-kpi strong,
-    .sidebar-last-updated-date {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-strong) !important;
-        font-weight: 850 !important;
-        letter-spacing: -0.04em !important;
-    }
-
-    .eusee-kpi-label,
-    .eusee-kpi-note,
-    .negintel-note,
-    .negintel-row-label,
-    .executive-table-subtitle,
-    .executive-table-status-note,
-    .map-guide-sub,
-    .map-guide-text,
-    .sidebar-access-note,
-    .sidebar-last-updated-note,
-    .manual-copy,
-    .user-manual-copy,
-    .ai-copy,
-    .copilot-copy,
-    .chat-copy {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-muted) !important;
-        font-size: 11.5px !important;
-        line-height: 1.42 !important;
-        font-weight: 550 !important;
-    }
-
-    .classic-filter-eyebrow,
-    .sidebar-access-eyebrow,
-    .sidebar-last-updated-label,
-    .executive-table-eyebrow,
-    .negintel-eyebrow,
-    .data-preview-pill,
-    .executive-table-badge,
-    .sidebar-access-pill {
-        font-family: var(--eusee-font) !important;
-        font-size: 9.5px !important;
-        font-weight: 850 !important;
-        letter-spacing: .105em !important;
-        text-transform: uppercase !important;
-    }
-
-    .negintel-row-pct,
-    .negintel-row-count,
-    .eusee-breakdown-value,
-    .eusee-breakdown-pct {
-        font-family: var(--eusee-font) !important;
-        font-weight: 850 !important;
-        letter-spacing: -0.02em !important;
-    }
-
-    /* Plotly wrapper and SVG text normalization across all chart tabs. */
-    .stPlotlyChart,
-    div[data-testid="stPlotlyChart"],
-    .js-plotly-plot,
-    .plot-container,
-    .svg-container {
-        font-family: var(--eusee-font) !important;
-    }
-
-    .js-plotly-plot .main-svg text:not(.bartext),
-    .js-plotly-plot .gtitle,
-    .js-plotly-plot .xtitle,
-    .js-plotly-plot .ytitle,
-    .js-plotly-plot .legendtext,
-    .js-plotly-plot .annotation-text,
-    .js-plotly-plot .sankey text,
-    .js-plotly-plot .heatmap text {
-        font-family: var(--eusee-font) !important;
-        fill: var(--eusee-text-body) !important;
-    }
-
-    .js-plotly-plot .gtitle {
-        fill: var(--eusee-text-strong) !important;
-        font-weight: 850 !important;
-    }
-
-    /* Data tables across all tabs. */
-    div[data-testid="stDataFrame"] {
-        border-radius: 16px !important;
-        border: 1px solid var(--eusee-border-soft) !important;
-        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
-        overflow: hidden !important;
-        font-family: var(--eusee-font) !important;
-    }
-
-    div[data-testid="stDataFrame"] [role="columnheader"],
-    div[data-testid="stDataFrame"] [role="columnheader"] * {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-title) !important;
-        font-size: 11px !important;
-        font-weight: 850 !important;
-        background: var(--eusee-purple-soft) !important;
-    }
-
-    div[data-testid="stDataFrame"] [role="gridcell"],
-    div[data-testid="stDataFrame"] [role="gridcell"] * {
-        font-family: var(--eusee-font) !important;
-        color: var(--eusee-text-body) !important;
-        font-size: 11.5px !important;
-        font-weight: 500 !important;
-    }
-
-    /* Alerts, info boxes, warnings, success messages. */
-    [data-testid="stAlert"] div,
-    [data-testid="stAlert"] p,
-    [data-testid="stAlert"] li {
-        font-family: var(--eusee-font) !important;
-        font-size: 12px !important;
-        line-height: 1.45 !important;
-        color: var(--eusee-text-body) !important;
-    }
-
-    code, pre {
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace !important;
-        font-size: 11.5px !important;
-    }
-
-    @media (max-width: 900px) {
-        [data-testid="stTabs"] [role="tab"] {
-            font-size: 11.5px !important;
-            padding: 8px 10px !important;
-            min-height: 38px !important;
-        }
-        [data-testid="stTabs"] [role="tab"] p {
-            font-size: 11.5px !important;
-        }
-        .eusee-kpi-title,
-        .negintel-title,
-        .executive-table-title,
-        .map-guide-title {
-            font-size: 13px !important;
-        }
-        [data-testid="stMarkdownContainer"] p,
-        [data-testid="stMarkdownContainer"] li {
-            font-size: 11.5px !important;
-        }
     }
     </style>
     """, unsafe_allow_html=True)
 
-
 inject_all_tabs_typography_css()
 
 
-# ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
-@st.cache_data(show_spinner=False, ttl=120)
-def build_compact_chatbot_context(df):
-    """Create a compact reusable context for the AI assistant."""
-    if df is None or len(df) == 0:
-        return {}
-
-    context = {
-        "rows": int(len(df)),
-        "countries": sorted(df['alert-country'].dropna().astype(str).unique().tolist())[:25]
-            if 'alert-country' in df.columns else [],
-        "alert_types": (
-            df['alert-impact'].value_counts().head(10).to_dict()
-            if 'alert-impact' in df.columns else {}
-        ),
-        "top_mechanisms": (
-            df['restrictive mechanism'].value_counts().head(10).to_dict()
-            if 'restrictive mechanism' in df.columns else {}
-        ),
-        "top_actors": (
-            df['restrictive actor'].value_counts().head(10).to_dict()
-            if 'restrictive actor' in df.columns else {}
-        ),
-        "columns": list(df.columns)[:50]
-    }
-    return context
-
-def detect_chat_intent(prompt: str):
-    p = str(prompt).lower()
-
-    if any(k in p for k in ["plot", "chart", "graph", "visualize"]):
-        return "plot"
-
-    if any(k in p for k in ["country", "countries", "region", "map"]):
-        return "country"
-
-    if any(k in p for k in ["trend", "increase", "decrease", "pattern"]):
-        return "trend"
-
-    if any(k in p for k in ["summary", "overview", "summarize"]):
-        return "summary"
-
-    return "general"
-
-# Keep the chatbot memory lightweight.
-st.session_state.setdefault("chat_messages", [])
-if len(st.session_state["chat_messages"]) > 6:
-    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
 
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
@@ -13779,22 +13096,8 @@ def render_ai_assistant_panel(df):
                     help="Keeps responses concise for faster conversation.",
                 )
                 chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])])
-                st.download_button(
-                    "Download chat transcript",
-                    data=chat_text,
-                    file_name="eusee_ai_chat_transcript.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                    key="ai_lite_export_chat",
-                )
                 if df is not None and not df.empty and has_permission("download_data"):
-                    st.download_button(
-                        data=df.to_csv(index=False).encode("utf-8"),
-                        file_name="eusee_filtered_dashboard_data.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="ai_lite_export_data",
-                    )
+                    pass
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
