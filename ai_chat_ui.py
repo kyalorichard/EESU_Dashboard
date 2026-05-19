@@ -114,7 +114,7 @@ def _impact_color(value: str) -> str:
 # CSS
 # ---------------------------------------------------------------------
 def inject_ai_workspace_css() -> None:
-    """Global styling layer for the AI Copilot workspace and existing ai-min classes."""
+    """Global styling for a consolidated floating EUSEE AI Copilot panel."""
     st.markdown(
         """
         <style>
@@ -131,73 +131,130 @@ def inject_ai_workspace_css() -> None:
             --ai-muted: #667085;
             --ai-radius-lg: 22px;
             --ai-radius-md: 16px;
-            --ai-shadow: 0 14px 34px rgba(16,24,40,.07);
+            --ai-shadow: 0 22px 58px rgba(16,24,40,.20);
             --ai-shadow-soft: 0 6px 16px rgba(16,24,40,.045);
             --ai-font: "Inter", "Segoe UI", Arial, sans-serif;
         }
 
-        .ai-workspace-shell {
-            margin-top: 18px;
-            margin-bottom: 18px;
-            padding: 18px;
-            border-radius: var(--ai-radius-lg);
-            background:
-                radial-gradient(circle at 100% 0%, rgba(102,0,148,.055), transparent 32%),
-                linear-gradient(180deg, #FFFFFF 0%, #FAFAFC 100%);
-            border: 1px solid var(--ai-border);
-            box-shadow: var(--ai-shadow);
+        /* Floating launcher */
+        .st-key-eusee_ai_floating_launcher {
+            position: fixed !important;
+            right: 22px !important;
+            bottom: 22px !important;
+            z-index: 2147482300 !important;
+            width: min(340px, calc(100vw - 32px)) !important;
+            font-family: var(--ai-font) !important;
+        }
+
+        .st-key-eusee_ai_floating_launcher .stButton > button {
+            width: 100% !important;
+            min-height: 52px !important;
+            border-radius: 999px !important;
+            border: 1px solid rgba(102,0,148,.22) !important;
+            background: linear-gradient(135deg, #660094 0%, #008CAA 100%) !important;
+            color: #FFFFFF !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            box-shadow: 0 18px 38px rgba(16,24,40,.24) !important;
+        }
+
+        /* Floating panel. This uses Streamlit container keys, so all Streamlit widgets stay functional. */
+        .st-key-eusee_ai_floating_panel {
+            position: fixed !important;
+            right: 22px !important;
+            bottom: 22px !important;
+            width: min(720px, calc(100vw - 36px)) !important;
+            height: min(86vh, 860px) !important;
+            max-height: calc(100vh - 36px) !important;
+            z-index: 2147482400 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            border-radius: 24px !important;
+            background: #FFFFFF !important;
+            border: 1px solid rgba(230,232,239,.98) !important;
+            box-shadow: var(--ai-shadow) !important;
+            font-family: var(--ai-font) !important;
+        }
+
+        .st-key-eusee_ai_floating_panel > div {
+            height: 100% !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding: 0 16px 16px 16px !important;
+            background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+        }
+
+        .st-key-eusee_ai_floating_panel > div::-webkit-scrollbar {
+            width: 8px !important;
+        }
+        .st-key-eusee_ai_floating_panel > div::-webkit-scrollbar-thumb {
+            background: #D0D5DD !important;
+            border-radius: 999px !important;
+        }
+        .st-key-eusee_ai_floating_panel > div::-webkit-scrollbar-track {
+            background: #F9FAFB !important;
+        }
+
+        .ai-floating-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            margin: 0 -16px 14px -16px;
+            padding: 14px 16px 12px 16px;
+            background: rgba(255,255,255,.96);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--ai-border-soft);
+            border-radius: 24px 24px 0 0;
             font-family: var(--ai-font);
         }
 
-        .ai-workspace-header {
+        .ai-floating-header-row {
             display: flex;
-            justify-content: space-between;
             align-items: flex-start;
-            gap: 16px;
-            padding-bottom: 14px;
-            border-bottom: 1px solid var(--ai-border-soft);
+            justify-content: space-between;
+            gap: 12px;
         }
 
-        .ai-workspace-eyebrow {
-            font-size: 10px;
-            font-weight: 900;
-            letter-spacing: .13em;
+        .ai-floating-eyebrow {
+            font-size: 9.5px;
+            font-weight: 950;
+            letter-spacing: .14em;
             text-transform: uppercase;
             color: var(--ai-purple);
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
-        .ai-workspace-title {
-            font-size: clamp(20px, 2.2vw, 26px);
-            font-weight: 900;
+        .ai-floating-title {
             color: #23152F;
+            font-size: 18px;
+            font-weight: 950;
             line-height: 1.12;
             letter-spacing: -0.02em;
         }
 
-        .ai-workspace-subtitle {
-            font-size: 12.5px;
+        .ai-floating-subtitle {
             color: var(--ai-muted);
-            line-height: 1.5;
-            margin-top: 6px;
-            max-width: 780px;
+            font-size: 11.5px;
+            line-height: 1.42;
+            margin-top: 4px;
+            max-width: 460px;
         }
 
         .ai-context-pills {
             display: flex;
             flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 7px;
-            max-width: 480px;
+            gap: 6px;
+            margin-top: 10px;
         }
 
         .ai-context-pill {
-            padding: 6px 10px;
+            padding: 5px 8px;
             border-radius: 999px;
             background: #F4EAF8;
             color: var(--ai-purple);
             border: 1px solid #E7D4F1;
-            font-size: 10.5px;
+            font-size: 10px;
             font-weight: 850;
             line-height: 1;
             white-space: nowrap;
@@ -215,38 +272,10 @@ def inject_ai_workspace_css() -> None:
             border-color: var(--ai-border-soft);
         }
 
-        .ai-friendly-strip {
-            display: grid;
-            grid-template-columns: 1.1fr .9fr;
-            gap: 10px;
-            margin-top: 14px;
-        }
-
-        .ai-friendly-note,
-        .ai-mode-note {
-            padding: 12px 14px;
-            border-radius: var(--ai-radius-md);
-            background: #F9FAFB;
-            border: 1px solid var(--ai-border-soft);
-            color: #475467;
-            font-size: 12.2px;
-            line-height: 1.5;
-        }
-
-        .ai-friendly-note strong,
-        .ai-mode-note strong {
-            color: #23152F;
-            font-weight: 900;
-        }
-
-        .ai-mode-note {
-            background: #FFFFFF;
-        }
-
         .ai-tool-panel {
-            margin: 14px 0 18px 0;
-            padding: 14px;
-            border-radius: 20px;
+            margin: 10px 0 12px 0;
+            padding: 13px;
+            border-radius: 18px;
             background: #FFFFFF;
             border: 1px solid var(--ai-border);
             box-shadow: var(--ai-shadow-soft);
@@ -258,35 +287,34 @@ def inject_ai_workspace_css() -> None:
             align-items: center;
             gap: 8px;
             color: #23152F;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 900;
             margin-bottom: 4px;
         }
 
         .ai-tool-panel-subtitle {
             color: var(--ai-muted);
-            font-size: 11.8px;
+            font-size: 11.5px;
             line-height: 1.45;
-            margin-bottom: 12px;
         }
 
         .ai-mini-metric-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 9px;
+            gap: 8px;
             margin: 10px 0 12px 0;
         }
 
         .ai-mini-metric {
             border: 1px solid var(--ai-border-soft);
             background: #FCFCFD;
-            border-radius: 15px;
-            padding: 10px 11px;
+            border-radius: 14px;
+            padding: 9px 10px;
         }
 
         .ai-mini-metric span {
             display: block;
-            font-size: 10px;
+            font-size: 9.5px;
             text-transform: uppercase;
             letter-spacing: .08em;
             color: var(--ai-purple);
@@ -296,43 +324,21 @@ def inject_ai_workspace_css() -> None:
 
         .ai-mini-metric strong {
             display: block;
-            font-size: 17px;
+            font-size: 16px;
             color: #23152F;
             font-weight: 900;
         }
 
-        .ai-search-result {
-            padding: 10px 12px;
-            border: 1px solid var(--ai-border-soft);
-            border-radius: 14px;
-            background: #FFFFFF;
-            margin-bottom: 8px;
-            box-shadow: 0 3px 10px rgba(16,24,40,.035);
-            font-size: 12px;
-            line-height: 1.45;
-            color: #344054;
-        }
-
-        .ai-search-result strong {
-            color: #23152F;
-        }
-
-        .ai-search-result small {
-            color: var(--ai-muted);
-            font-size: 10.5px;
-            font-weight: 700;
-        }
-
         .ai-exec-card {
-            padding: 13px 14px;
+            padding: 12px 13px;
             border: 1px solid var(--ai-border-soft);
             border-left: 4px solid var(--ai-purple);
-            border-radius: 16px;
+            border-radius: 15px;
             background: linear-gradient(135deg, #FFFFFF 0%, #F9FAFB 100%);
             box-shadow: 0 4px 12px rgba(16,24,40,.04);
             margin-bottom: 10px;
             color: #344054;
-            font-size: 12.5px;
+            font-size: 12px;
             line-height: 1.5;
         }
 
@@ -341,7 +347,101 @@ def inject_ai_workspace_css() -> None:
             font-weight: 900;
         }
 
-        /* Override and polish the existing minimal chatbot classes without changing logic. */
+        /* Tabs become the consolidated navigation for Conversation, Search, and Tools. */
+        .st-key-eusee_ai_floating_panel [data-baseweb="tab-list"] {
+            gap: 6px !important;
+            background: #F9FAFB !important;
+            border: 1px solid var(--ai-border-soft) !important;
+            border-radius: 999px !important;
+            padding: 5px !important;
+            margin-bottom: 10px !important;
+            overflow-x: auto !important;
+        }
+
+        .st-key-eusee_ai_floating_panel [data-baseweb="tab"] {
+            border-radius: 999px !important;
+            padding: 7px 11px !important;
+            font-size: 12px !important;
+            font-weight: 900 !important;
+            color: #344054 !important;
+        }
+
+        .st-key-eusee_ai_floating_panel [aria-selected="true"] {
+            background: #FFFFFF !important;
+            color: var(--ai-purple) !important;
+            box-shadow: 0 2px 8px rgba(16,24,40,.06) !important;
+        }
+
+        /* Streamlit widget polish inside floating panel */
+        .st-key-eusee_ai_floating_panel label,
+        .st-key-eusee_ai_floating_panel .stSelectbox label,
+        .st-key-eusee_ai_floating_panel .stRadio label,
+        .st-key-eusee_ai_floating_panel .stSlider label,
+        .st-key-eusee_ai_floating_panel .stTextInput label,
+        .st-key-eusee_ai_floating_panel .stMultiSelect label {
+            font-size: 11px !important;
+            font-weight: 900 !important;
+            color: #344054 !important;
+            font-family: var(--ai-font) !important;
+        }
+
+        .st-key-eusee_ai_floating_panel [data-baseweb="select"] > div,
+        .st-key-eusee_ai_floating_panel [data-baseweb="input"] {
+            border-radius: 12px !important;
+            min-height: 38px !important;
+            border: 1px solid #D0D5DD !important;
+            background: #FFFFFF !important;
+        }
+
+        .st-key-eusee_ai_floating_panel .stButton > button,
+        .st-key-eusee_ai_floating_panel .stDownloadButton > button {
+            border-radius: 999px !important;
+            border: 1px solid var(--ai-border) !important;
+            background: #FFFFFF !important;
+            color: #344054 !important;
+            font-size: 12px !important;
+            font-weight: 850 !important;
+            min-height: 36px !important;
+            box-shadow: 0 2px 8px rgba(16,24,40,.035) !important;
+            transition: all .16s ease !important;
+        }
+
+        .st-key-eusee_ai_floating_panel .stButton > button:hover,
+        .st-key-eusee_ai_floating_panel .stDownloadButton > button:hover {
+            border-color: var(--ai-purple) !important;
+            color: var(--ai-purple) !important;
+            background: #FBF7FD !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .ai-floating-close .stButton > button {
+            width: 38px !important;
+            min-width: 38px !important;
+            height: 38px !important;
+            min-height: 38px !important;
+            padding: 0 !important;
+            border-radius: 999px !important;
+            background: #F9FAFB !important;
+            color: #344054 !important;
+        }
+
+        div[data-testid="stDataFrame"] {
+            border-radius: 14px !important;
+            overflow: hidden !important;
+            border: 1px solid var(--ai-border-soft) !important;
+            box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
+        }
+
+        div[data-testid="stPlotlyChart"] {
+            border-radius: 16px !important;
+            overflow: hidden !important;
+            border: 1px solid var(--ai-border-soft) !important;
+            box-shadow: 0 6px 16px rgba(16,24,40,.045) !important;
+            background: #FFFFFF !important;
+            margin-top: 10px !important;
+        }
+
+        /* Legacy chatbot classes are now polished inside the floating Conversation tab. */
         .ai-min-shell,
         .ai-min-panel,
         .ai-min-chat,
@@ -353,10 +453,10 @@ def inject_ai_workspace_css() -> None:
 
         .ai-min-panel,
         .ai-min-shell {
-            border-radius: 22px !important;
+            border-radius: 18px !important;
             border: 1px solid var(--ai-border) !important;
             background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
-            box-shadow: 0 16px 38px rgba(16,24,40,.075) !important;
+            box-shadow: 0 8px 18px rgba(16,24,40,.06) !important;
             overflow: hidden !important;
         }
 
@@ -364,17 +464,16 @@ def inject_ai_workspace_css() -> None:
         .ai-min-topbar {
             border-bottom: 1px solid var(--ai-border-soft) !important;
             background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%) !important;
-            padding: 14px 16px !important;
+            padding: 12px 14px !important;
         }
 
         .ai-min-title,
         .ai-min-heading,
         .ai-min-header-title {
             font-family: var(--ai-font) !important;
-            font-size: 18px !important;
+            font-size: 16px !important;
             font-weight: 900 !important;
             color: #23152F !important;
-            letter-spacing: -0.01em !important;
         }
 
         .ai-min-subtitle,
@@ -382,70 +481,30 @@ def inject_ai_workspace_css() -> None:
         .ai-min-caption,
         .ai-min-meta {
             font-family: var(--ai-font) !important;
-            font-size: 11.5px !important;
+            font-size: 11px !important;
             color: var(--ai-muted) !important;
             line-height: 1.45 !important;
         }
 
-        .ai-min-body,
         .ai-min-chat {
-            background: #FFFFFF !important;
-        }
-
-        .ai-min-chat {
-            border: 1px solid var(--ai-border-soft) !important;
-            border-radius: 18px !important;
-            padding: 14px !important;
-            min-height: 360px !important;
-            max-height: min(64vh, 720px) !important;
-            overflow-y: auto !important;
-            scroll-behavior: smooth !important;
-        }
-
-        .ai-welcome {
-            background:
-                radial-gradient(circle at 100% 0%, rgba(102,0,148,.055), transparent 36%),
-                linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%) !important;
-            border: 1px solid var(--ai-border) !important;
-            border-radius: 18px !important;
-            padding: 14px 16px !important;
-            color: #344054 !important;
-            font-size: 13px !important;
-            line-height: 1.55 !important;
-            box-shadow: var(--ai-shadow-soft) !important;
-        }
-
-        .ai-mini-strip {
-            display: grid !important;
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-            gap: 10px !important;
-            margin: 12px 0 !important;
-        }
-
-        .ai-mini-strip > div {
-            background: #FFFFFF !important;
             border: 1px solid var(--ai-border-soft) !important;
             border-radius: 16px !important;
             padding: 12px !important;
-            box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
+            min-height: 280px !important;
+            max-height: 46vh !important;
+            overflow-y: auto !important;
+            scroll-behavior: smooth !important;
+            background: #FFFFFF !important;
         }
 
-        .ai-mini-strip span {
-            display: block !important;
-            font-size: 10px !important;
-            font-weight: 900 !important;
-            letter-spacing: .08em !important;
-            text-transform: uppercase !important;
-            color: var(--ai-purple) !important;
-            margin-bottom: 5px !important;
-        }
-
-        .ai-mini-strip strong {
-            display: block !important;
-            font-size: 12px !important;
-            color: #344054 !important;
-            line-height: 1.35 !important;
-            font-weight: 750 !important;
+        .ai-min-input {
+            position: sticky !important;
+            bottom: 0 !important;
+            z-index: 20 !important;
+            background: linear-gradient(180deg, rgba(255,255,255,.72) 0%, #FFFFFF 45%) !important;
+            border-top: 1px solid var(--ai-border-soft) !important;
+            padding-top: 10px !important;
+            margin-top: 10px !important;
         }
 
         div[data-testid="stChatMessage"] {
@@ -461,81 +520,9 @@ def inject_ai_workspace_css() -> None:
         div[data-testid="stChatMessage"] li,
         div[data-testid="stChatMessage"] div {
             font-family: var(--ai-font) !important;
-            font-size: 13px !important;
+            font-size: 12.8px !important;
             line-height: 1.55 !important;
             color: #344054;
-        }
-
-        .ai-min-suggestions {
-            margin-top: 12px !important;
-            padding: 12px !important;
-            border: 1px solid var(--ai-border-soft) !important;
-            border-radius: 18px !important;
-            background: #F9FAFB !important;
-        }
-
-        .ai-min-suggestions-title {
-            font-size: 10px !important;
-            font-weight: 900 !important;
-            letter-spacing: .12em !important;
-            text-transform: uppercase !important;
-            color: var(--ai-purple) !important;
-            margin-bottom: 8px !important;
-        }
-
-        .ai-min-suggestions .stButton > button,
-        .ai-min-tools .stButton > button,
-        .ai-min-input .stButton > button,
-        .ai-tool-panel .stButton > button {
-            border-radius: 999px !important;
-            border: 1px solid var(--ai-border) !important;
-            background: #FFFFFF !important;
-            color: #344054 !important;
-            font-size: 12px !important;
-            font-weight: 800 !important;
-            min-height: 38px !important;
-            box-shadow: 0 2px 8px rgba(16,24,40,.035) !important;
-            transition: all .16s ease !important;
-        }
-
-        .ai-min-suggestions .stButton > button:hover,
-        .ai-min-tools .stButton > button:hover,
-        .ai-min-input .stButton > button:hover,
-        .ai-tool-panel .stButton > button:hover {
-            border-color: var(--ai-purple) !important;
-            color: var(--ai-purple) !important;
-            background: #FBF7FD !important;
-            transform: translateY(-1px) !important;
-        }
-
-        .ai-min-tools {
-            margin-top: 12px !important;
-        }
-
-        .ai-min-tools div[data-testid="stExpander"],
-        .ai-tool-panel div[data-testid="stExpander"] {
-            border-radius: 18px !important;
-            border: 1px solid var(--ai-border-soft) !important;
-            box-shadow: none !important;
-            overflow: hidden !important;
-        }
-
-        .ai-min-tools div[data-testid="stExpander"] summary,
-        .ai-tool-panel div[data-testid="stExpander"] summary {
-            background: #FFFFFF !important;
-            font-size: 12.5px !important;
-            font-weight: 900 !important;
-            color: #23152F !important;
-        }
-
-        .ai-min-input {
-            position: sticky !important;
-            bottom: 0 !important;
-            z-index: 20 !important;
-            background: linear-gradient(180deg, rgba(255,255,255,.72) 0%, #FFFFFF 45%) !important;
-            border-top: 1px solid var(--ai-border-soft) !important;
-            padding-top: 12px !important;
-            margin-top: 12px !important;
         }
 
         div[data-testid="stChatInput"] {
@@ -552,93 +539,45 @@ def inject_ai_workspace_css() -> None:
             color: #232633 !important;
         }
 
-        div[data-testid="stPlotlyChart"] {
-            border-radius: 16px !important;
-            overflow: hidden !important;
-            border: 1px solid var(--ai-border-soft) !important;
-            box-shadow: 0 6px 16px rgba(16,24,40,.045) !important;
-            background: #FFFFFF !important;
-            margin-top: 10px !important;
-        }
+        @media (max-width: 760px) {
+            .st-key-eusee_ai_floating_panel {
+                right: 10px !important;
+                bottom: 10px !important;
+                left: 10px !important;
+                width: auto !important;
+                height: calc(100vh - 20px) !important;
+                max-height: calc(100vh - 20px) !important;
+                border-radius: 20px !important;
+            }
 
-        .ai-min-tools [data-baseweb="tab-list"],
-        .ai-tool-panel [data-baseweb="tab-list"] {
-            gap: 6px !important;
-        }
+            .st-key-eusee_ai_floating_launcher {
+                right: 12px !important;
+                bottom: 12px !important;
+                width: calc(100vw - 24px) !important;
+            }
 
-        .ai-min-tools [data-baseweb="tab"],
-        .ai-tool-panel [data-baseweb="tab"] {
-            font-size: 12px !important;
-            font-weight: 850 !important;
-            border-radius: 999px !important;
-            padding: 6px 10px !important;
-        }
+            .ai-floating-header {
+                border-radius: 20px 20px 0 0 !important;
+            }
 
-        .ai-min-tools label,
-        .ai-min-tools .stSelectbox label,
-        .ai-min-tools .stRadio label,
-        .ai-min-tools .stSlider label,
-        .ai-min-tools .stTextInput label,
-        .ai-tool-panel label {
-            font-size: 11px !important;
-            font-weight: 900 !important;
-            color: #344054 !important;
-        }
-
-        .ai-min-tools [data-baseweb="select"] > div,
-        .ai-min-tools [data-baseweb="input"],
-        .ai-tool-panel [data-baseweb="select"] > div,
-        .ai-tool-panel [data-baseweb="input"] {
-            border-radius: 12px !important;
-            min-height: 38px !important;
-            border: 1px solid #D0D5DD !important;
-        }
-
-        @media (max-width: 900px) {
-            .ai-workspace-header,
-            .ai-friendly-strip {
-                grid-template-columns: 1fr !important;
-                flex-direction: column !important;
+            .ai-floating-header-row {
                 align-items: flex-start !important;
             }
 
-            .ai-context-pills {
-                justify-content: flex-start !important;
-                max-width: 100% !important;
-            }
-
-            .ai-mini-strip,
             .ai-mini-metric-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             }
         }
 
-        @media (max-width: 560px) {
-            .ai-workspace-shell,
-            .ai-tool-panel {
-                padding: 13px !important;
-                border-radius: 18px !important;
-            }
-
-            .ai-workspace-title {
-                font-size: 20px !important;
-            }
-
-            .ai-workspace-subtitle,
-            .ai-friendly-note,
-            .ai-mode-note {
-                font-size: 11.8px !important;
-            }
-
-            .ai-min-chat {
-                min-height: 300px !important;
-                max-height: 62vh !important;
-                padding: 10px !important;
-            }
-
-            .ai-mini-strip,
+        @media (max-width: 520px) {
             .ai-mini-metric-grid {
                 grid-template-columns: 1fr !important;
+            }
+            .ai-floating-title {
+                font-size: 16px !important;
+            }
+            .ai-floating-subtitle {
+                font-size: 10.8px !important;
             }
         }
         </style>
@@ -1138,7 +1077,7 @@ def render_advanced_tools_panel(df: pd.DataFrame | None) -> None:
 
 
 # ---------------------------------------------------------------------
-# Main workspace
+# Main floating workspace
 # ---------------------------------------------------------------------
 def render_ai_workspace(
     df: pd.DataFrame | None,
@@ -1147,20 +1086,19 @@ def render_ai_workspace(
     current_email: str = "",
 ) -> None:
     """
-    Render the premium AI workspace, search, advanced tools, and then delegate to the existing chatbot.
+    Render all AI Copilot features inside one consolidated floating panel.
 
-    Parameters
-    ----------
-    df:
-        Currently filtered dashboard dataframe.
-    legacy_renderer:
-        Existing function, usually render_ai_assistant_panel(df).
-    current_role:
-        Active dashboard role from authz.py.
-    current_email:
-        Active user email from authz.py.
+    The floating panel contains:
+    - Conversation tab: existing AI Copilot / legacy renderer.
+    - Search tab: dashboard data search.
+    - Advanced Tools tab: chart builder, comparison, summary, anomaly scan, exports.
+
+    app.py integration stays the same:
+        render_ai_workspace(df=filtered_global, legacy_renderer=render_ai_assistant_panel, ...)
     """
     inject_ai_workspace_css()
+
+    st.session_state.setdefault("eusee_ai_panel_open", False)
 
     records = _record_count(df)
     countries = _nunique(df, "alert-country")
@@ -1168,20 +1106,26 @@ def render_ai_workspace(
     impacts = _nunique(df, "alert-impact")
     role_display = str(current_role or "guest").replace("_", " ").title()
 
-    email_part = ""
-    if current_email:
-        email_part = f"<div class='ai-context-pill neutral'>{current_email}</div>"
+    # Collapsed floating launcher only.
+    if not st.session_state.get("eusee_ai_panel_open", False):
+        with st.container(key="eusee_ai_floating_launcher"):
+            if st.button("💬 Open EUSEE AI Copilot", key="open_eusee_ai_panel", use_container_width=True):
+                st.session_state.eusee_ai_panel_open = True
+                st.rerun()
+        return
 
-    st.markdown(
-        f"""
-        <div class="ai-workspace-shell">
-            <div class="ai-workspace-header">
-                <div>
-                    <div class="ai-workspace-eyebrow">AI analytical workspace</div>
-                    <div class="ai-workspace-title">EUSEE AI Copilot</div>
-                    <div class="ai-workspace-subtitle">
-                        A cleaner, friendlier, professional AI workspace for search, advanced tools,
-                        filtered dashboard interpretation, chart building, and executive summaries.
+    # Open floating panel containing every chatbot feature together.
+    with st.container(key="eusee_ai_floating_panel"):
+        st.markdown(
+            f"""
+            <div class="ai-floating-header">
+                <div class="ai-floating-header-row">
+                    <div>
+                        <div class="ai-floating-eyebrow">AI analytical workspace</div>
+                        <div class="ai-floating-title">EUSEE AI Copilot</div>
+                        <div class="ai-floating-subtitle">
+                            Conversation, search, chart builder, comparison, summaries, anomaly scan, and exports are consolidated here.
+                        </div>
                     </div>
                 </div>
                 <div class="ai-context-pills">
@@ -1190,46 +1134,63 @@ def render_ai_workspace(
                     <div class="ai-context-pill neutral">{years:,} years</div>
                     <div class="ai-context-pill neutral">{impacts:,} impact classes</div>
                     <div class="ai-context-pill">{role_display}</div>
-                    {email_part}
                 </div>
             </div>
-            <div class="ai-friendly-strip">
-                <div class="ai-friendly-note">
-                    <strong>Search:</strong> quickly find countries, actors, restrictions, and keywords inside the active filtered data.
-                </div>
-                <div class="ai-mode-note">
-                    <strong>Advanced tools:</strong> build charts, compare countries, generate executive summaries,
-                    scan anomalies, and export filtered outputs.
+            """,
+            unsafe_allow_html=True,
+        )
+
+        top_cols = st.columns([1, 1, 1, 5, 1])
+        with top_cols[0]:
+            if st.button("💬 Chat", key="ai_float_focus_chat", use_container_width=True):
+                st.session_state["ai_float_default_tab"] = "chat"
+        with top_cols[1]:
+            if st.button("🔎 Search", key="ai_float_focus_search", use_container_width=True):
+                st.session_state["ai_float_default_tab"] = "search"
+        with top_cols[2]:
+            if st.button("📊 Tools", key="ai_float_focus_tools", use_container_width=True):
+                st.session_state["ai_float_default_tab"] = "tools"
+        with top_cols[4]:
+            if st.button("×", key="close_eusee_ai_panel", use_container_width=True):
+                st.session_state.eusee_ai_panel_open = False
+                st.rerun()
+
+        st.markdown(
+            """
+            <div class="ai-tool-panel">
+                <div class="ai-tool-panel-title">Unified AI workspace</div>
+                <div class="ai-tool-panel-subtitle">
+                    Use the tabs below to move between conversation, search, and advanced tools without leaving the floating panel.
                 </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-    with st.expander("🔎 Search", expanded=False):
-        render_ai_search_panel(df)
+        tabs = st.tabs(["💬 Conversation", "🔎 Search", "📊 Advanced Tools"])
 
-    with st.expander("📊 Advanced Tools", expanded=False):
-        render_advanced_tools_panel(df)
+        with tabs[0]:
+            st.markdown(
+                """
+                <div class="ai-tool-panel">
+                    <div class="ai-tool-panel-title">💬 Conversation</div>
+                    <div class="ai-tool-panel-subtitle">
+                        Ask questions naturally. The existing AI Copilot engine is preserved here, including its search prompts, outputs, and internal tools.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            try:
+                legacy_renderer(df)
+            except Exception as exc:
+                st.error(f"AI Copilot could not be rendered: {exc}")
 
-    st.markdown(
-        """
-        <div class="ai-tool-panel">
-            <div class="ai-tool-panel-title">💬 Conversation</div>
-            <div class="ai-tool-panel-subtitle">
-                Continue using the existing AI Copilot conversation engine below. Search and advanced tools above now remain visible and accessible.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        with tabs[1]:
+            render_ai_search_panel(df)
 
-    try:
-        legacy_renderer(df)
-    except Exception as exc:
-        st.error(f"AI Copilot could not be rendered: {exc}")
+        with tabs[2]:
+            render_advanced_tools_panel(df)
 
-    # Inject again after the legacy renderer so these professional overrides win
-    # if the original function also injects CSS with the same class names.
+    # Re-inject after legacy renderer so the floating panel overrides win.
     inject_ai_workspace_css()
