@@ -662,31 +662,14 @@ def _render_premium_auth_page():
         "Reset": "Enter your email address and we will send a password reset link.",
     }.get(mode, "Access the EUSEE Dashboard.")
 
-    st.markdown(
-        """
-        <div class="auth-page-title">
-            <h1>EUSEE Dashboard – Privileged Access</h1>
-            <p>Sign in to access advanced features and analyses available to EUSEE partners.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     left_space, center, right_space = st.columns([0.18, 0.64, 0.18])
 
     with center:
         with st.container(border=True):
-            top_a, top_b = st.columns([1.25, 0.75])
-
-            with top_a:
-                st.markdown(
-                    '<div class="auth-pill">🔐 Authorized users only</div>',
-                    unsafe_allow_html=True,
-                )
-
-            with top_b:
-                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
-                    _back_to_dashboard()
+            st.markdown(
+                '<div class="auth-pill">🔐 Authorized users only</div>',
+                unsafe_allow_html=True,
+            )
 
             st.markdown(f'<div class="form-title">{mode_title}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="form-subtitle">{mode_subtitle}</div>', unsafe_allow_html=True)
