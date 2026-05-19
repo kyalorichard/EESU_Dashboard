@@ -6724,6 +6724,25 @@ def apply_responsive_plotly_layout(fig, height=None):
 
     return fig
 
+
+# ---------------- RESTRICTED CARD BACKWARD-COMPATIBILITY WRAPPER ----------------
+def render_permission_locked_card(permission_label="This dashboard feature", permission_key=None, container=None, feature_type="chart or map"):
+    """Backward-compatible wrapper for older dashboard chart/map permission calls."""
+    target = container if container is not None else st
+    try:
+        with target:
+            render_feature_restricted_notice(
+                permission_label=permission_label,
+                permission_key=permission_key,
+                feature_type=feature_type,
+            )
+    except Exception:
+        render_feature_restricted_notice(
+            permission_label=permission_label,
+            permission_key=permission_key,
+            feature_type=feature_type,
+        )
+
 def render_dashboard_plotly_chart(
     fig,
     *,
