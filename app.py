@@ -13737,12 +13737,13 @@ def render_ai_assistant_panel(df):
         with st.expander("Advanced tools", expanded=False):
             st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
             tool = st.radio(
-                "Tool",
-                horizontal=True,
-                key="ai_lite_tool_choice",
-            )
+            "Tool",
+            options=["Chat", "Advanced plot builder"],
+            horizontal=True,
+            key="ai_lite_tool_choice",
+        )
 
-            if tool == "Quick plot":
+            if tool == "Advanced plot builder":
                 dims = _v2_safe_get_dims(df)
                 if not dims:
                     st.info("No suitable plotting dimensions are available under the current filters.")
