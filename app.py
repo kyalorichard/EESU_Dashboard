@@ -536,6 +536,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
 
         csv = table_df.to_csv(index=False).encode("utf-8")
         if has_permission("download_data"):
+            pass
     pass
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
