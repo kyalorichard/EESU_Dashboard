@@ -6724,17 +6724,13 @@ def render_permission_locked_card(
                 <div class="eusee-access-copy">{safe_description}</div>
             </div>
         </div>
-        <div class="eusee-access-meta-grid">
-         
-        </div>
+        <div class="eusee-access-meta-grid"></div>
         <div class="eusee-access-actions">
             <div class="{badge_class}">{safe_session}</div>
             <div class="eusee-access-action-copy">{safe_action}</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
-
-  
+   
 
 
 def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
