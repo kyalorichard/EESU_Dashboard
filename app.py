@@ -1471,7 +1471,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
         label,
         options_with_all,
         key=widget_key,
-        placeholder="All selected",
+        placeholder="",
         help=None,
     )
 
@@ -2667,6 +2667,173 @@ def inject_sidebar_multiselect_and_collapse_hardfix_css():
 
 
 inject_sidebar_multiselect_and_collapse_hardfix_css()
+
+# ---------------- ABSOLUTE SIDEBAR DOM CLEANUP: ICON TEXT + MULTISELECT SEARCH ----------------
+def inject_sidebar_dom_cleanup_hardfix():
+    """Remove Streamlit Material icon text fallbacks and suppress sidebar multiselect typing surfaces."""
+    components.html(r"""
+    <script>
+    (function() {
+        const doc = window.parent.document;
+        const STYLE_ID = "eusee-sidebar-dom-cleanup-style";
+        const ICON_TEXT_RE = /(keyboard_double_arrow_[a-z_]+|keyboard_arrow_[a-z_]+|arrow_drop_[a-z_]+|chevron_[a-z_]+|_arrow_[a-z_]+)/gi;
+
+        const oldStyle = doc.getElementById(STYLE_ID);
+        if (oldStyle) oldStyle.remove();
+
+        const style = doc.createElement("style");
+        style.id = STYLE_ID;
+        style.innerHTML = `
+            /* Hide raw Material icon fallback text that appears when icon fonts do not load. */
+            section[data-testid="stSidebar"] .material-icons,
+            section[data-testid="stSidebar"] .material-icons-outlined,
+            section[data-testid="stSidebar"] .material-symbols-outlined,
+            section[data-testid="stSidebar"] .material-symbols-rounded,
+            section[data-testid="stSidebar"] .material-symbols-sharp {
+                font-size: 0 !important;
+                line-height: 0 !important;
+                color: transparent !important;
+                width: 0 !important;
+                max-width: 0 !important;
+                overflow: hidden !important;
+            }
+
+            /* Rebuild the sidebar collapse/shrink control as a clean icon button. */
+            button[data-testid="collapsedControl"],
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapseButton"] {
+                font-size: 0 !important;
+                color: transparent !important;
+                text-indent: -9999px !important;
+                overflow: hidden !important;
+                position: fixed !important;
+                top: 10px !important;
+                left: 12px !important;
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px !important;
+                min-height: 38px !important;
+                border-radius: 12px !important;
+                border: 1px solid #E6E8EF !important;
+                background: #FFFFFF !important;
+                box-shadow: 0 8px 20px rgba(16,24,40,.12) !important;
+                z-index: 2147483000 !important;
+            }
+            button[data-testid="collapsedControl"]::after,
+            [data-testid="collapsedControl"]::after,
+            [data-testid="stSidebarCollapseButton"]::after {
+                content: "☰" !important;
+                position: absolute !important;
+                inset: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-indent: 0 !important;
+                font-size: 18px !important;
+                line-height: 1 !important;
+                color: #660094 !important;
+                font-family: Arial, sans-serif !important;
+                font-weight: 900 !important;
+            }
+            button[data-testid="collapsedControl"] *,
+            [data-testid="collapsedControl"] *,
+            [data-testid="stSidebarCollapseButton"] * {
+                opacity: 0 !important;
+                color: transparent !important;
+                font-size: 0 !important;
+            }
+
+            /* Remove the visible typed-search area from sidebar multiselects. */
+            section[data-testid="stSidebar"] .stMultiSelect input,
+            section[data-testid="stSidebar"] .stMultiSelect textarea {
+                position: absolute !important;
+                left: -10000px !important;
+                width: 0 !important;
+                min-width: 0 !important;
+                max-width: 0 !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                opacity: 0 !important;
+                color: transparent !important;
+                caret-color: transparent !important;
+                pointer-events: none !important;
+            }
+            section[data-testid="stSidebar"] .stMultiSelect input::placeholder {
+                color: transparent !important;
+                opacity: 0 !important;
+            }
+            section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] > div {
+                min-height: 36px !important;
+                padding: 3px 8px !important;
+                display: flex !important;
+                align-items: center !important;
+                cursor: pointer !important;
+            }
+
+            /* Dashboard filter expander: keep title clean and aligned. */
+            section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                min-height: 42px !important;
+                padding: 10px 12px !important;
+                overflow: hidden !important;
+            }
+            section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 12.5px !important;
+                line-height: 1.15 !important;
+                font-weight: 950 !important;
+                color: #23152F !important;
+            }
+        `;
+        doc.head.appendChild(style);
+
+        function removeIconFallbackText(root) {
+            if (!root) return;
+            const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            nodes.forEach(function(node) {
+                if (ICON_TEXT_RE.test(node.nodeValue || "")) {
+                    node.nodeValue = (node.nodeValue || "").replace(ICON_TEXT_RE, "").replace(/^\s+/, "");
+                }
+            });
+        }
+
+        function cleanSidebar() {
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+            if (!sidebar) return;
+
+            removeIconFallbackText(sidebar);
+
+            sidebar.querySelectorAll('.stMultiSelect input, .stMultiSelect textarea').forEach(function(input) {
+                input.setAttribute('readonly', 'readonly');
+                input.setAttribute('tabindex', '-1');
+                input.setAttribute('aria-hidden', 'true');
+                input.setAttribute('placeholder', '');
+                input.value = '';
+            });
+
+            doc.querySelectorAll('button[data-testid="collapsedControl"], [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"]').forEach(function(btn) {
+                btn.setAttribute('aria-label', 'Toggle sidebar');
+                btn.setAttribute('title', 'Toggle sidebar');
+                removeIconFallbackText(btn);
+            });
+        }
+
+        cleanSidebar();
+        const observer = new MutationObserver(function() { cleanSidebar(); });
+        observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
+    })();
+    </script>
+    """, height=1, width=1)
+
+
+inject_sidebar_dom_cleanup_hardfix()
 
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
