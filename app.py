@@ -4165,22 +4165,39 @@ def wrap_axis_label_for_compact_panel(value, words_per_line=2, max_lines=4):
 
 
 def format_negative_enabling_principle_axis(fig, df, label_col="enabling-principle"):
-    """Make the y-axis labels readable for the compact enabling-principles chart.
+    """Keep enabling-principle y-axis labels readable and visible.
 
-    Keeps the existing chart footprint unchanged: no height, width, row/column,
-    or dashboard layout changes. Only tick text, tick font size, and hover text
-    are adjusted for readability.
+    This is intentionally scoped to the Negative Alert Analysis chart only.
+    It does not change the data, chart height, column layout, filters, or
+    permissions. The fix prevents Plotly from clipping or hiding the y-axis
+    tick labels by using the actual rendered y-values from the figure and
+    enabling safe axis automargins.
     """
-    if fig is None or df is None or label_col not in df.columns:
+    if fig is None:
         return fig
 
-    labels = (
-        pd.Series(df[label_col])
-        .dropna()
-        .astype(str)
-        .drop_duplicates()
-        .tolist()
-    )
+    # Use the y-values already rendered inside the figure. create_bar_chart()
+    # may have wrapped labels before this formatter is called, so using df
+    # values can create tickval/ticktext mismatches and make labels disappear.
+    labels = []
+    for trace in fig.data:
+        try:
+            for value in list(trace.y):
+                label = str(value)
+                if label and label not in labels:
+                    labels.append(label)
+        except Exception:
+            pass
+
+    if not labels and df is not None and label_col in df.columns:
+        labels = (
+            pd.Series(df[label_col])
+            .dropna()
+            .astype(str)
+            .drop_duplicates()
+            .tolist()
+        )
+
     if not labels:
         return fig
 
@@ -4193,8 +4210,17 @@ def format_negative_enabling_principle_axis(fig, df, label_col="enabling-princip
         tickmode="array",
         tickvals=labels,
         ticktext=wrapped_labels,
-        tickfont=dict(family=CHART_FONT, size=9, color="#344054"),
-        automargin=False,
+        tickfont=dict(family=CHART_FONT, size=11, color="#344054"),
+        automargin=True,
+        ticklabeloverflow="allow",
+        showticklabels=True,
+        title=None,
+    )
+
+    # Add left room only for this chart so labels do not clip. Height and grid
+    # placement remain unchanged, so the dashboard layout is preserved.
+    fig.update_layout(
+        margin=dict(l=260, r=30, t=60, b=40),
     )
 
     # Keep hover details clean by showing the full, unwrapped labels.
