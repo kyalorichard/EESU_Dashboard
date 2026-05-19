@@ -13852,8 +13852,9 @@ def render_ai_assistant_panel(df):
                     use_container_width=True,
                     key="ai_lite_export_chat",
                 )
-                if df is not None and not df.empty and has_permission("download_data"):
+                if df is not None and isinstance(df, pd.DataFrame) and not df.empty and has_permission("download_data"):
                     st.download_button(
+                        "Download filtered dashboard data",
                         data=df.to_csv(index=False).encode("utf-8"),
                         file_name="eusee_filtered_dashboard_data.csv",
                         mime="text/csv",
