@@ -12306,46 +12306,8 @@ def eusee_generate_selected_dashboard_chart_insight(df, chart_key, top_n=10, ins
     return f"{base}{coverage_note}"
 
 
-def render_chatbot_dashboard_chart_explainer(df):
-    """Render a chatbot-only dropdown for explaining existing dashboard charts/maps."""
-    registry = _eusee_dashboard_chart_registry()
-    st.markdown("""
-    <div class='v2-builder-hero'>
-      <div class='v2-builder-title'>Explain an existing dashboard chart or map</div>
-      <div class='v2-builder-note'>Select the chart/map as it appears on the dashboard. The insight is generated inside the chatbot only and uses the active dashboard filters.</div>
-      <span class='v2-builder-chip'>Dropdown selector</span><span class='v2-builder-chip'>Maps</span><span class='v2-builder-chip'>Heatmaps</span><span class='v2-builder-chip'>Sankey</span><span class='v2-builder-chip'>Executive insight</span>
-    </div>
-    """, unsafe_allow_html=True)
 
-    chart_key = st.selectbox(
-        "Select dashboard chart/map to explain",
-        list(registry.keys()),
-        key="v2_dashboard_chart_explainer_select",
-        help="Choose the existing dashboard visual you want the chatbot to explain.",
-    )
-    meta = registry.get(chart_key, {})
-    st.caption(meta.get("description", "The chatbot will interpret this visual using the current filtered data."))
-
-    # Fixed defaults keep the Explain chart experience clean and conversational.
-    insight_mode = "Executive"
-    top_n = 10
-
-    if st.button("Generate insight for selected chart", use_container_width=True, key="v2_generate_selected_dashboard_chart_insight"):
-        insight = eusee_generate_selected_dashboard_chart_insight(df, chart_key, top_n=top_n, insight_mode=insight_mode)
-        st.session_state.ai_smart_output = {
-            "type": "selected_dashboard_chart_insight",
-            "title": f"Insight: {chart_key}",
-            "content": insight,
-            "selected_chart": chart_key,
-            "insight_mode": insight_mode,
-        }
-        _ai_append_message(
-            "assistant",
-            f"Generated chatbot-only insight for: {chart_key}. Open Smart output to review it.",
-        )
-        st.rerun()
-
-def _copilot_queue_answer(question, df):
+  def _copilot_queue_answer(question, df):
     """v2 queue: supports plot commands, advanced style requests, and memory."""
     q = str(question or "").strip()
     if not q:
@@ -13720,7 +13682,7 @@ def render_ai_assistant_panel(df):
             st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
             tool = st.radio(
                 "Tool",
-                options=["Quick plot", "Explain chart", "Export / settings"],
+                options=["Quick plot", "Export / settings"],
                 horizontal=True,
                 key="ai_lite_tool_choice",
             )
