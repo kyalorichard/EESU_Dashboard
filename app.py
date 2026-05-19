@@ -1539,8 +1539,9 @@ def inject_professional_sidebar_filter_css():
         color: #660094;
         background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
         border: 1px solid rgba(102,0,148,.10);
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 900;
+        line-height: 1;
     }
 
     .sidebar-access-copy {
@@ -1550,30 +1551,32 @@ def inject_professional_sidebar_filter_css():
 
     .sidebar-access-eyebrow {
         font-size: 9px;
-        font-weight: 950;
+        font-weight: 900;
         letter-spacing: .12em;
         text-transform: uppercase;
         color: #660094;
         line-height: 1.1;
+        margin-bottom: 2px;
     }
 
     .sidebar-access-title {
-        margin-top: 3px;
+        margin-top: 2px;
         color: #23152F;
         font-size: 13px;
-        font-weight: 950;
-        line-height: 1.15;
+        font-weight: 900;
+        line-height: 1.2;
+        letter-spacing: -.01em;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
     .sidebar-access-note {
-        margin-top: 4px;
+        margin-top: 5px;
         color: #667085;
         font-size: 10.5px;
         font-weight: 700;
-        line-height: 1.35;
+        line-height: 1.42;
     }
 
     .sidebar-access-pill-row {
@@ -1593,7 +1596,7 @@ def inject_professional_sidebar_filter_css():
         color: #008CAA;
         border: 1px solid rgba(0,140,170,.14);
         font-size: 9.5px;
-        font-weight: 950;
+        font-weight: 900;
         line-height: 1;
     }
 
@@ -1610,9 +1613,9 @@ def inject_professional_sidebar_filter_css():
         background: #F9FAFB;
         border: 1px solid #EEF0F4;
         color: #667085;
-        font-size: 10.2px;
-        line-height: 1.35;
-        font-weight: 650;
+        font-size: 10px;
+        line-height: 1.42;
+        font-weight: 700;
     }
 
     .sidebar-access-center {
@@ -1642,6 +1645,7 @@ def inject_professional_sidebar_filter_css():
         border-bottom: 1px solid #F2F4F7;
         font-size: 10.5px;
         color: #667085;
+        line-height: 1.35;
     }
 
     .sidebar-profile-row:last-child {
@@ -1657,6 +1661,25 @@ def inject_professional_sidebar_filter_css():
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    @media (max-width: 700px) {
+        .sidebar-access-shell {
+            padding: 11px 11px 10px 11px;
+            border-radius: 15px;
+        }
+        .sidebar-access-title {
+            font-size: 12.5px;
+            white-space: normal;
+        }
+        .sidebar-access-note,
+        .sidebar-access-help {
+            font-size: 10px;
+        }
+        .sidebar-profile-row,
+        .sidebar-profile-row strong {
+            font-size: 10px;
+        }
     }
 
     /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
