@@ -12306,8 +12306,7 @@ def eusee_generate_selected_dashboard_chart_insight(df, chart_key, top_n=10, ins
     return f"{base}{coverage_note}"
 
 
-
-  def _copilot_queue_answer(question, df):
+def _copilot_queue_answer(question, df):
     """v2 queue: supports plot commands, advanced style requests, and memory."""
     q = str(question or "").strip()
     if not q:
@@ -13682,7 +13681,7 @@ def render_ai_assistant_panel(df):
             st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
             tool = st.radio(
                 "Tool",
-                options=["Quick plot", "Export / settings"],
+                options=["Quick plot", "Explain chart", "Export / settings"],
                 horizontal=True,
                 key="ai_lite_tool_choice",
             )
