@@ -6724,7 +6724,20 @@ def render_permission_locked_card(
                 <div class="eusee-access-copy">{safe_description}</div>
             </div>
         </div>
-        <div class="eusee-access-meta-grid"></div>
+        <div class="eusee-access-meta-grid">
+            <div class="eusee-access-meta-card">
+                <span class="eusee-access-meta-label">Current role</span>
+                <strong class="eusee-access-meta-value">{safe_role}</strong>
+            </div>
+            <div class="eusee-access-meta-card">
+                <span class="eusee-access-meta-label">Required permission</span>
+                <strong class="eusee-access-meta-value">{safe_permission}</strong>
+            </div>
+            <div class="eusee-access-meta-card">
+                <span class="eusee-access-meta-label">Recommended access</span>
+                <strong class="eusee-access-meta-value">{safe_required}</strong>
+            </div>
+        </div>
         <div class="eusee-access-actions">
             <div class="{badge_class}">{safe_session}</div>
             <div class="eusee-access-action-copy">{safe_action}</div>
