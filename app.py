@@ -6515,6 +6515,13 @@ def render_dashboard_plotly_chart(
     fig = apply_responsive_plotly_layout(fig)
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
+
+# ---------------- DASHBOARD TABS ------------------------
+tab_overview, tab_negative = st.tabs([
+    "📊 Overview",
+    "🚨 Negative Alert Analysis"
+])
+
 # ---------------- TAB 1 ------------------------
 with tab_overview:
 
