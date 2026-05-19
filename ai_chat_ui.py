@@ -4,25 +4,47 @@ Premium EUSEE AI Copilot workspace wrapper.
 Purpose
 -------
 This module gives the existing EUSEE AI Copilot a friendlier, cleaner,
-ChatGPT-style professional UX without changing the underlying AI logic.
+ChatGPT-style professional UX while keeping the existing AI logic intact.
 
-How it works
-------------
-- app.py still owns data loading, permissions, filters, charts, and the original
-  render_ai_assistant_panel(df) function.
-- This module wraps that legacy renderer with a standardized AI workspace shell,
-  context metrics, typography, spacing, and responsive CSS overrides.
-- If anything fails, the wrapper safely falls back to the legacy renderer.
+What this version adds
+----------------------
+- Premium AI workspace header with context metrics.
+- Visible Search panel for dashboard intelligence.
+- Visible Advanced Tools panel:
+  - Chart Builder
+  - Country Compare
+  - Executive Summary
+  - Anomaly Scan
+  - Export Center
+- Professional CSS overrides for the existing legacy chatbot classes.
+- Safe fallback to the original `render_ai_assistant_panel(df)` function.
+
+Usage in app.py
+---------------
+from ai_chat_ui import render_ai_workspace
+
+if has_permission("use_ai_copilot"):
+    render_ai_workspace(
+        df=filtered_global,
+        legacy_renderer=render_ai_assistant_panel,
+        current_role=get_current_role(),
+        current_email=get_current_email(),
+    )
 """
 
 from __future__ import annotations
 
+from io import BytesIO
 from typing import Any, Callable
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 
+# ---------------------------------------------------------------------
+# Safe helpers
+# ---------------------------------------------------------------------
 def _nunique(df: pd.DataFrame | None, column: str) -> int:
     """Return safe unique count for a dataframe column."""
     if df is None or not isinstance(df, pd.DataFrame) or df.empty or column not in df.columns:
@@ -37,6 +59,60 @@ def _record_count(df: pd.DataFrame | None) -> int:
     return int(len(df))
 
 
+def _safe_columns(df: pd.DataFrame | None) -> list[str]:
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+    return list(df.columns)
+
+
+def _categorical_columns(df: pd.DataFrame | None) -> list[str]:
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+    cols: list[str] = []
+    for col in df.columns:
+        if pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
+            cols.append(col)
+    preferred = [
+        "alert-country",
+        "region",
+        "continent",
+        "alert-impact",
+        "alert-type",
+        "Actor of repression",
+        "year",
+        "month_name",
+    ]
+    ordered = [c for c in preferred if c in cols] + [c for c in cols if c not in preferred]
+    return ordered
+
+
+def _numeric_columns(df: pd.DataFrame | None) -> list[str]:
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+    return [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+
+
+def _download_excel_bytes(df: pd.DataFrame) -> bytes:
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Filtered data")
+    return buffer.getvalue()
+
+
+def _impact_color(value: str) -> str:
+    value_clean = str(value).strip().lower()
+    if value_clean == "negative":
+        return "#FEE4E2"
+    if value_clean == "positive":
+        return "#DCFAE6"
+    if value_clean == "context to watch":
+        return "#FEF0C7"
+    return "#F9FAFB"
+
+
+# ---------------------------------------------------------------------
+# CSS
+# ---------------------------------------------------------------------
 def inject_ai_workspace_css() -> None:
     """Global styling layer for the AI Copilot workspace and existing ai-min classes."""
     st.markdown(
@@ -60,10 +136,9 @@ def inject_ai_workspace_css() -> None:
             --ai-font: "Inter", "Segoe UI", Arial, sans-serif;
         }
 
-        /* Workspace header shell */
         .ai-workspace-shell {
             margin-top: 18px;
-            margin-bottom: 22px;
+            margin-bottom: 18px;
             padding: 18px;
             border-radius: var(--ai-radius-lg);
             background:
@@ -113,7 +188,7 @@ def inject_ai_workspace_css() -> None:
             flex-wrap: wrap;
             justify-content: flex-end;
             gap: 7px;
-            max-width: 420px;
+            max-width: 480px;
         }
 
         .ai-context-pill {
@@ -166,6 +241,104 @@ def inject_ai_workspace_css() -> None:
 
         .ai-mode-note {
             background: #FFFFFF;
+        }
+
+        .ai-tool-panel {
+            margin: 14px 0 18px 0;
+            padding: 14px;
+            border-radius: 20px;
+            background: #FFFFFF;
+            border: 1px solid var(--ai-border);
+            box-shadow: var(--ai-shadow-soft);
+            font-family: var(--ai-font);
+        }
+
+        .ai-tool-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #23152F;
+            font-size: 15px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .ai-tool-panel-subtitle {
+            color: var(--ai-muted);
+            font-size: 11.8px;
+            line-height: 1.45;
+            margin-bottom: 12px;
+        }
+
+        .ai-mini-metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 9px;
+            margin: 10px 0 12px 0;
+        }
+
+        .ai-mini-metric {
+            border: 1px solid var(--ai-border-soft);
+            background: #FCFCFD;
+            border-radius: 15px;
+            padding: 10px 11px;
+        }
+
+        .ai-mini-metric span {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--ai-purple);
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .ai-mini-metric strong {
+            display: block;
+            font-size: 17px;
+            color: #23152F;
+            font-weight: 900;
+        }
+
+        .ai-search-result {
+            padding: 10px 12px;
+            border: 1px solid var(--ai-border-soft);
+            border-radius: 14px;
+            background: #FFFFFF;
+            margin-bottom: 8px;
+            box-shadow: 0 3px 10px rgba(16,24,40,.035);
+            font-size: 12px;
+            line-height: 1.45;
+            color: #344054;
+        }
+
+        .ai-search-result strong {
+            color: #23152F;
+        }
+
+        .ai-search-result small {
+            color: var(--ai-muted);
+            font-size: 10.5px;
+            font-weight: 700;
+        }
+
+        .ai-exec-card {
+            padding: 13px 14px;
+            border: 1px solid var(--ai-border-soft);
+            border-left: 4px solid var(--ai-purple);
+            border-radius: 16px;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F9FAFB 100%);
+            box-shadow: 0 4px 12px rgba(16,24,40,.04);
+            margin-bottom: 10px;
+            color: #344054;
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .ai-exec-card strong {
+            color: #23152F;
+            font-weight: 900;
         }
 
         /* Override and polish the existing minimal chatbot classes without changing logic. */
@@ -229,17 +402,6 @@ def inject_ai_workspace_css() -> None:
             scroll-behavior: smooth !important;
         }
 
-        .ai-min-chat::-webkit-scrollbar {
-            width: 8px;
-        }
-        .ai-min-chat::-webkit-scrollbar-thumb {
-            background: #D0D5DD;
-            border-radius: 999px;
-        }
-        .ai-min-chat::-webkit-scrollbar-track {
-            background: #F9FAFB;
-        }
-
         .ai-welcome {
             background:
                 radial-gradient(circle at 100% 0%, rgba(102,0,148,.055), transparent 36%),
@@ -286,7 +448,6 @@ def inject_ai_workspace_css() -> None:
             font-weight: 750 !important;
         }
 
-        /* Streamlit chat message polish */
         div[data-testid="stChatMessage"] {
             border-radius: 18px !important;
             border: 1px solid var(--ai-border-soft) !important;
@@ -303,11 +464,6 @@ def inject_ai_workspace_css() -> None:
             font-size: 13px !important;
             line-height: 1.55 !important;
             color: #344054;
-        }
-
-        div[data-testid="stChatMessage"] code {
-            font-size: 12px !important;
-            border-radius: 6px !important;
         }
 
         .ai-min-suggestions {
@@ -329,7 +485,8 @@ def inject_ai_workspace_css() -> None:
 
         .ai-min-suggestions .stButton > button,
         .ai-min-tools .stButton > button,
-        .ai-min-input .stButton > button {
+        .ai-min-input .stButton > button,
+        .ai-tool-panel .stButton > button {
             border-radius: 999px !important;
             border: 1px solid var(--ai-border) !important;
             background: #FFFFFF !important;
@@ -343,7 +500,8 @@ def inject_ai_workspace_css() -> None:
 
         .ai-min-suggestions .stButton > button:hover,
         .ai-min-tools .stButton > button:hover,
-        .ai-min-input .stButton > button:hover {
+        .ai-min-input .stButton > button:hover,
+        .ai-tool-panel .stButton > button:hover {
             border-color: var(--ai-purple) !important;
             color: var(--ai-purple) !important;
             background: #FBF7FD !important;
@@ -354,14 +512,16 @@ def inject_ai_workspace_css() -> None:
             margin-top: 12px !important;
         }
 
-        .ai-min-tools div[data-testid="stExpander"] {
+        .ai-min-tools div[data-testid="stExpander"],
+        .ai-tool-panel div[data-testid="stExpander"] {
             border-radius: 18px !important;
             border: 1px solid var(--ai-border-soft) !important;
             box-shadow: none !important;
             overflow: hidden !important;
         }
 
-        .ai-min-tools div[data-testid="stExpander"] summary {
+        .ai-min-tools div[data-testid="stExpander"] summary,
+        .ai-tool-panel div[data-testid="stExpander"] summary {
             background: #FFFFFF !important;
             font-size: 12.5px !important;
             font-weight: 900 !important;
@@ -401,12 +561,13 @@ def inject_ai_workspace_css() -> None:
             margin-top: 10px !important;
         }
 
-        /* Make tabs, radios, selects inside the Copilot compact and consistent. */
-        .ai-min-tools [data-baseweb="tab-list"] {
+        .ai-min-tools [data-baseweb="tab-list"],
+        .ai-tool-panel [data-baseweb="tab-list"] {
             gap: 6px !important;
         }
 
-        .ai-min-tools [data-baseweb="tab"] {
+        .ai-min-tools [data-baseweb="tab"],
+        .ai-tool-panel [data-baseweb="tab"] {
             font-size: 12px !important;
             font-weight: 850 !important;
             border-radius: 999px !important;
@@ -417,14 +578,17 @@ def inject_ai_workspace_css() -> None:
         .ai-min-tools .stSelectbox label,
         .ai-min-tools .stRadio label,
         .ai-min-tools .stSlider label,
-        .ai-min-tools .stTextInput label {
+        .ai-min-tools .stTextInput label,
+        .ai-tool-panel label {
             font-size: 11px !important;
             font-weight: 900 !important;
             color: #344054 !important;
         }
 
         .ai-min-tools [data-baseweb="select"] > div,
-        .ai-min-tools [data-baseweb="input"] {
+        .ai-min-tools [data-baseweb="input"],
+        .ai-tool-panel [data-baseweb="select"] > div,
+        .ai-tool-panel [data-baseweb="input"] {
             border-radius: 12px !important;
             min-height: 38px !important;
             border: 1px solid #D0D5DD !important;
@@ -443,13 +607,15 @@ def inject_ai_workspace_css() -> None:
                 max-width: 100% !important;
             }
 
-            .ai-mini-strip {
-                grid-template-columns: 1fr !important;
+            .ai-mini-strip,
+            .ai-mini-metric-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             }
         }
 
         @media (max-width: 560px) {
-            .ai-workspace-shell {
+            .ai-workspace-shell,
+            .ai-tool-panel {
                 padding: 13px !important;
                 border-radius: 18px !important;
             }
@@ -469,6 +635,11 @@ def inject_ai_workspace_css() -> None:
                 max-height: 62vh !important;
                 padding: 10px !important;
             }
+
+            .ai-mini-strip,
+            .ai-mini-metric-grid {
+                grid-template-columns: 1fr !important;
+            }
         }
         </style>
         """,
@@ -476,6 +647,499 @@ def inject_ai_workspace_css() -> None:
     )
 
 
+# ---------------------------------------------------------------------
+# Search panel
+# ---------------------------------------------------------------------
+def render_ai_search_panel(df: pd.DataFrame | None) -> None:
+    """Render dashboard search inside the premium AI workspace."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        st.info("Search is unavailable because the filtered dataset is empty.")
+        return
+
+    st.markdown(
+        """
+        <div class="ai-tool-panel">
+            <div class="ai-tool-panel-title">🔎 Search dashboard intelligence</div>
+            <div class="ai-tool-panel-subtitle">
+                Search the currently filtered dataset by country, actor, restriction, alert impact, year, or any keyword.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    search_cols = _safe_columns(df)
+    default_scope = [
+        c for c in [
+            "alert-country",
+            "region",
+            "alert-impact",
+            "alert-type",
+            "Actor of repression",
+            "Civil society actor affected",
+            "Restrictive mechanism",
+            "year",
+            "month_name",
+        ] if c in search_cols
+    ]
+    if not default_scope:
+        default_scope = search_cols[: min(6, len(search_cols))]
+
+    q_col, s_col, n_col = st.columns([2.2, 1.6, 0.8])
+    with q_col:
+        query = st.text_input(
+            "Search",
+            placeholder="Example: Kenya, incarceration, civic rights, negative alerts...",
+            key="ai_search_query",
+        )
+    with s_col:
+        scope = st.multiselect(
+            "Search scope",
+            options=search_cols,
+            default=default_scope,
+            key="ai_search_scope",
+        )
+    with n_col:
+        max_results = st.selectbox(
+            "Results",
+            options=[10, 25, 50, 100],
+            index=1,
+            key="ai_search_max_results",
+        )
+
+    if not query.strip():
+        st.caption("Enter a keyword to search within the active filtered dashboard data.")
+        return
+
+    if not scope:
+        st.warning("Select at least one search scope column.")
+        return
+
+    query_clean = query.strip().lower()
+    search_df = df.copy()
+    available_scope = [c for c in scope if c in search_df.columns]
+    mask = search_df[available_scope].astype(str).apply(
+        lambda row: row.str.lower().str.contains(query_clean, na=False).any(),
+        axis=1,
+    )
+    results = search_df.loc[mask].head(int(max_results)).copy()
+
+    st.markdown(
+        f"""
+        <div class="ai-mini-metric-grid">
+            <div class="ai-mini-metric"><span>Matches</span><strong>{int(mask.sum()):,}</strong></div>
+            <div class="ai-mini-metric"><span>Shown</span><strong>{len(results):,}</strong></div>
+            <div class="ai-mini-metric"><span>Countries</span><strong>{_nunique(results, "alert-country"):,}</strong></div>
+            <div class="ai-mini-metric"><span>Impact classes</span><strong>{_nunique(results, "alert-impact"):,}</strong></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if results.empty:
+        st.info("No records matched the current search term.")
+        return
+
+    preview_cols = [
+        c for c in [
+            "alert-country",
+            "region",
+            "alert-impact",
+            "alert-type",
+            "Actor of repression",
+            "Civil society actor affected",
+            "Restrictive mechanism",
+            "year",
+            "creation_date",
+        ] if c in results.columns
+    ]
+    if not preview_cols:
+        preview_cols = available_scope[: min(6, len(available_scope))]
+
+    st.dataframe(
+        results[preview_cols],
+        use_container_width=True,
+        hide_index=True,
+        height=min(420, max(220, 34 * len(results) + 42)),
+    )
+
+    csv = results.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "⬇️ Download search results as CSV",
+        data=csv,
+        file_name="eusee_ai_search_results.csv",
+        mime="text/csv",
+        use_container_width=True,
+        key="ai_search_download_csv",
+    )
+
+
+# ---------------------------------------------------------------------
+# Advanced tools
+# ---------------------------------------------------------------------
+def _render_chart_builder(df: pd.DataFrame) -> None:
+    st.markdown(
+        """
+        <div class="ai-exec-card">
+            <strong>Chart Builder:</strong> create quick dashboard-grounded visualizations from the active filtered data.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cat_cols = _categorical_columns(df)
+    num_cols = _numeric_columns(df)
+
+    if not cat_cols:
+        st.info("No categorical columns are available for chart building.")
+        return
+
+    c1, c2, c3 = st.columns([1.3, 1.2, 1.1])
+    with c1:
+        group_col = st.selectbox("Group by", cat_cols, index=0, key="ai_chart_group")
+    with c2:
+        metric_mode = st.selectbox(
+            "Metric",
+            ["Record count"] + num_cols,
+            index=0,
+            key="ai_chart_metric",
+        )
+    with c3:
+        chart_type = st.selectbox(
+            "Chart type",
+            ["Bar", "Horizontal bar", "Line", "Area", "Treemap"],
+            index=0,
+            key="ai_chart_type",
+        )
+
+    top_n = st.slider("Top groups", min_value=5, max_value=30, value=12, step=1, key="ai_chart_top_n")
+
+    if metric_mode == "Record count":
+        plot_df = (
+            df.groupby(group_col, dropna=False)
+            .size()
+            .reset_index(name="value")
+            .sort_values("value", ascending=False)
+            .head(top_n)
+        )
+        y_label = "Records"
+    else:
+        plot_df = (
+            df.groupby(group_col, dropna=False)[metric_mode]
+            .sum(numeric_only=True)
+            .reset_index(name="value")
+            .sort_values("value", ascending=False)
+            .head(top_n)
+        )
+        y_label = metric_mode
+
+    plot_df[group_col] = plot_df[group_col].astype(str)
+
+    if plot_df.empty:
+        st.info("No data available for the selected chart.")
+        return
+
+    if chart_type == "Bar":
+        fig = px.bar(plot_df, x=group_col, y="value", labels={"value": y_label})
+    elif chart_type == "Horizontal bar":
+        fig = px.bar(plot_df.sort_values("value"), x="value", y=group_col, orientation="h", labels={"value": y_label})
+    elif chart_type == "Line":
+        fig = px.line(plot_df, x=group_col, y="value", markers=True, labels={"value": y_label})
+    elif chart_type == "Area":
+        fig = px.area(plot_df, x=group_col, y="value", labels={"value": y_label})
+    else:
+        fig = px.treemap(plot_df, path=[group_col], values="value")
+
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=40, b=30),
+        height=420,
+        font=dict(family="Inter, Segoe UI, Arial", size=12),
+        title=f"{y_label} by {group_col}",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.download_button(
+        "⬇️ Download chart data as CSV",
+        data=plot_df.to_csv(index=False).encode("utf-8"),
+        file_name="eusee_ai_chart_data.csv",
+        mime="text/csv",
+        use_container_width=True,
+        key="ai_chart_download",
+    )
+
+
+def _render_country_compare(df: pd.DataFrame) -> None:
+    st.markdown(
+        """
+        <div class="ai-exec-card">
+            <strong>Country Compare:</strong> compare selected countries across alert impacts, alert types, and key dashboard categories.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if "alert-country" not in df.columns:
+        st.info("Country comparison requires an 'alert-country' column.")
+        return
+
+    countries = sorted(df["alert-country"].dropna().astype(str).unique().tolist())
+    default = countries[: min(3, len(countries))]
+    selected = st.multiselect(
+        "Countries to compare",
+        options=countries,
+        default=default,
+        key="ai_compare_countries",
+    )
+
+    compare_by_options = [c for c in ["alert-impact", "alert-type", "region", "Actor of repression", "year"] if c in df.columns]
+    if not compare_by_options:
+        st.info("No comparison category columns are available.")
+        return
+
+    compare_by = st.selectbox("Compare by", compare_by_options, index=0, key="ai_compare_by")
+
+    if not selected:
+        st.warning("Select at least one country.")
+        return
+
+    subset = df[df["alert-country"].astype(str).isin(selected)].copy()
+    if subset.empty:
+        st.info("No records found for the selected countries.")
+        return
+
+    comp = (
+        subset.groupby(["alert-country", compare_by], dropna=False)
+        .size()
+        .reset_index(name="records")
+    )
+    comp[compare_by] = comp[compare_by].astype(str)
+
+    fig = px.bar(
+        comp,
+        x="alert-country",
+        y="records",
+        color=compare_by,
+        barmode="group",
+        title=f"Country comparison by {compare_by}",
+    )
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=42, b=30),
+        height=430,
+        font=dict(family="Inter, Segoe UI, Arial", size=12),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    summary = (
+        subset.groupby("alert-country", dropna=False)
+        .size()
+        .reset_index(name="total_records")
+        .sort_values("total_records", ascending=False)
+    )
+    st.dataframe(summary, use_container_width=True, hide_index=True)
+
+
+def _render_executive_summary(df: pd.DataFrame) -> None:
+    st.markdown(
+        """
+        <div class="ai-exec-card">
+            <strong>Executive Summary:</strong> generate a compact, evidence-based summary from the active filtered data.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    records = len(df)
+    countries = _nunique(df, "alert-country")
+    years = _nunique(df, "year")
+    impacts = _nunique(df, "alert-impact")
+
+    style = st.radio(
+        "Summary style",
+        ["Executive", "Policy", "Donor", "Technical"],
+        horizontal=True,
+        key="ai_summary_style",
+    )
+
+    bullets = []
+    bullets.append(f"The current filtered view contains {records:,} records across {countries:,} countries and {years:,} year(s).")
+    if "alert-impact" in df.columns:
+        impact_counts = df["alert-impact"].astype(str).value_counts().head(3)
+        impact_text = ", ".join([f"{idx}: {val:,}" for idx, val in impact_counts.items()])
+        bullets.append(f"The leading alert-impact categories are {impact_text}.")
+    if "alert-country" in df.columns:
+        top_countries = df["alert-country"].astype(str).value_counts().head(5)
+        country_text = ", ".join([f"{idx} ({val:,})" for idx, val in top_countries.items()])
+        bullets.append(f"The highest-volume countries in this filtered view are {country_text}.")
+    if "Actor of repression" in df.columns:
+        actors = df["Actor of repression"].astype(str).value_counts().head(3)
+        actor_text = ", ".join([f"{idx} ({val:,})" for idx, val in actors.items()])
+        bullets.append(f"The most frequently recorded actors are {actor_text}.")
+    if "year" in df.columns:
+        year_counts = df["year"].dropna().astype(str).value_counts().head(3)
+        year_text = ", ".join([f"{idx}: {val:,}" for idx, val in year_counts.items()])
+        bullets.append(f"The strongest year-level concentrations are {year_text}.")
+
+    st.markdown(f"#### {style} summary")
+    for item in bullets:
+        st.markdown(f"- {item}")
+
+    summary_text = f"{style} summary\n\n" + "\n".join([f"- {b}" for b in bullets])
+    st.download_button(
+        "⬇️ Download summary as TXT",
+        data=summary_text.encode("utf-8"),
+        file_name="eusee_ai_executive_summary.txt",
+        mime="text/plain",
+        use_container_width=True,
+        key="ai_summary_download",
+    )
+
+
+def _render_anomaly_scan(df: pd.DataFrame) -> None:
+    st.markdown(
+        """
+        <div class="ai-exec-card">
+            <strong>Anomaly Scan:</strong> identify unusually high concentrations in the selected category using z-score style outlier detection.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cat_cols = _categorical_columns(df)
+    if not cat_cols:
+        st.info("No categorical columns are available for anomaly scanning.")
+        return
+
+    c1, c2 = st.columns([1.3, 1])
+    with c1:
+        scan_col = st.selectbox("Scan category", cat_cols, index=0, key="ai_anomaly_scan_col")
+    with c2:
+        sensitivity = st.slider("Sensitivity", 1.0, 3.0, 1.5, 0.1, key="ai_anomaly_sensitivity")
+
+    counts = (
+        df[scan_col]
+        .astype(str)
+        .value_counts()
+        .rename_axis(scan_col)
+        .reset_index(name="records")
+    )
+
+    if counts.empty or counts["records"].std(ddof=0) == 0:
+        st.info("No statistical anomalies detected for the selected category.")
+        st.dataframe(counts.head(20), use_container_width=True, hide_index=True)
+        return
+
+    mean = counts["records"].mean()
+    std = counts["records"].std(ddof=0)
+    counts["z_score"] = (counts["records"] - mean) / std
+    anomalies = counts[counts["z_score"] >= sensitivity].sort_values("z_score", ascending=False)
+
+    st.markdown(
+        f"""
+        <div class="ai-mini-metric-grid">
+            <div class="ai-mini-metric"><span>Groups scanned</span><strong>{len(counts):,}</strong></div>
+            <div class="ai-mini-metric"><span>Anomalies</span><strong>{len(anomalies):,}</strong></div>
+            <div class="ai-mini-metric"><span>Mean records</span><strong>{mean:.1f}</strong></div>
+            <div class="ai-mini-metric"><span>Threshold</span><strong>{sensitivity:.1f}σ</strong></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    fig = px.bar(
+        counts.head(20),
+        x=scan_col,
+        y="records",
+        title=f"Top concentrations by {scan_col}",
+    )
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=42, b=30),
+        height=420,
+        font=dict(family="Inter, Segoe UI, Arial", size=12),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    if anomalies.empty:
+        st.success("No high-concentration anomalies exceed the selected threshold.")
+    else:
+        st.dataframe(anomalies, use_container_width=True, hide_index=True)
+
+
+def _render_export_center(df: pd.DataFrame) -> None:
+    st.markdown(
+        """
+        <div class="ai-exec-card">
+            <strong>Export Center:</strong> download the currently filtered AI workspace data and summaries.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button(
+            "⬇️ Download filtered data as CSV",
+            data=df.to_csv(index=False).encode("utf-8"),
+            file_name="eusee_ai_filtered_data.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="ai_export_csv",
+        )
+    with c2:
+        try:
+            xlsx_bytes = _download_excel_bytes(df)
+            st.download_button(
+                "⬇️ Download filtered data as XLSX",
+                data=xlsx_bytes,
+                file_name="eusee_ai_filtered_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="ai_export_xlsx",
+            )
+        except Exception:
+            st.caption("XLSX export requires xlsxwriter. CSV export is available.")
+
+
+def render_advanced_tools_panel(df: pd.DataFrame | None) -> None:
+    """Render the advanced tools panel directly in the premium AI workspace."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        st.info("Advanced tools are unavailable because the filtered dataset is empty.")
+        return
+
+    st.markdown(
+        """
+        <div class="ai-tool-panel">
+            <div class="ai-tool-panel-title">📊 Advanced AI tools</div>
+            <div class="ai-tool-panel-subtitle">
+                Use these tools to explore, compare, summarize, detect patterns, and export outputs from the active filtered view.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    tabs = st.tabs([
+        "Chart Builder",
+        "Compare",
+        "Executive Summary",
+        "Anomaly Scan",
+        "Export Center",
+    ])
+
+    with tabs[0]:
+        _render_chart_builder(df)
+    with tabs[1]:
+        _render_country_compare(df)
+    with tabs[2]:
+        _render_executive_summary(df)
+    with tabs[3]:
+        _render_anomaly_scan(df)
+    with tabs[4]:
+        _render_export_center(df)
+
+
+# ---------------------------------------------------------------------
+# Main workspace
+# ---------------------------------------------------------------------
 def render_ai_workspace(
     df: pd.DataFrame | None,
     legacy_renderer: Callable[[pd.DataFrame | None], Any],
@@ -483,7 +1147,7 @@ def render_ai_workspace(
     current_email: str = "",
 ) -> None:
     """
-    Render the premium AI workspace and then delegate to the existing chatbot.
+    Render the premium AI workspace, search, advanced tools, and then delegate to the existing chatbot.
 
     Parameters
     ----------
@@ -516,8 +1180,8 @@ def render_ai_workspace(
                     <div class="ai-workspace-eyebrow">AI analytical workspace</div>
                     <div class="ai-workspace-title">EUSEE AI Copilot</div>
                     <div class="ai-workspace-subtitle">
-                        A cleaner, friendlier, professional AI workspace for summarizing the active dashboard view,
-                        comparing countries, generating filtered insights, and building analytical charts.
+                        A cleaner, friendlier, professional AI workspace for search, advanced tools,
+                        filtered dashboard interpretation, chart building, and executive summaries.
                     </div>
                 </div>
                 <div class="ai-context-pills">
@@ -531,13 +1195,30 @@ def render_ai_workspace(
             </div>
             <div class="ai-friendly-strip">
                 <div class="ai-friendly-note">
-                    <strong>How to use it:</strong> ask naturally — for example, “summarize this filtered view”,
-                    “compare countries with the highest restrictions”, or “plot negative alerts by year”.
+                    <strong>Search:</strong> quickly find countries, actors, restrictions, and keywords inside the active filtered data.
                 </div>
                 <div class="ai-mode-note">
-                    <strong>Professional mode:</strong> outputs are optimized for executive summaries, compact evidence,
-                    clean charts, and dashboard-grounded interpretation.
+                    <strong>Advanced tools:</strong> build charts, compare countries, generate executive summaries,
+                    scan anomalies, and export filtered outputs.
                 </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("🔎 Search", expanded=False):
+        render_ai_search_panel(df)
+
+    with st.expander("📊 Advanced Tools", expanded=False):
+        render_advanced_tools_panel(df)
+
+    st.markdown(
+        """
+        <div class="ai-tool-panel">
+            <div class="ai-tool-panel-title">💬 Conversation</div>
+            <div class="ai-tool-panel-subtitle">
+                Continue using the existing AI Copilot conversation engine below. Search and advanced tools above now remain visible and accessible.
             </div>
         </div>
         """,
