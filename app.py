@@ -4095,17 +4095,17 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     )  
     return fig
 
+# ---------------- STACKED BAR LABEL CONTRAST HELPER ----------------
+def readable_stacked_bar_label_color(hex_color):
+    """Return readable label color for values shown inside stacked bars.
 
-
-def readable_label_color(hex_color):
-    """Return a readable text color for labels placed inside colored bars.
-
-    Black text is used on yellow/light fills; white text is used on
-    darker fills such as purple and teal. This improves stacked-bar label
-    visibility without changing the underlying data or chart layout.
+    Yellow/light fills use black text; purple/dark fills use white text.
+    This keeps existing chart layout and data unchanged while improving
+    value-label readability on the Overview stacked bar charts.
     """
     try:
         value = str(hex_color or "#FFFFFF").strip()
+
         if value.lower().startswith("rgba") or value.lower().startswith("rgb"):
             nums = re.findall(r"[0-9.]+", value)
             r, g, b = [float(n) for n in nums[:3]]
@@ -4113,9 +4113,12 @@ def readable_label_color(hex_color):
             value = value.replace("#", "")
             if len(value) == 3:
                 value = "".join(ch * 2 for ch in value)
+            if len(value) != 6:
+                return "#FFFFFF"
             r, g, b = [int(value[i:i + 2], 16) for i in (0, 2, 4)]
-        luminance = (0.299 * r) + (0.587 * g) + (0.114 * b)
-        return "#111827" if luminance > 165 else "#FFFFFF"
+
+        brightness = (0.299 * r) + (0.587 * g) + (0.114 * b)
+        return "#111827" if brightness > 165 else "#FFFFFF"
     except Exception:
         return "#FFFFFF"
 
@@ -4141,7 +4144,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
             )                  
         
         bar_color = category_colors.get(cat, "#660094")  # fallback color if category missing
-        label_color = readable_label_color(bar_color)
+        label_color = readable_stacked_bar_label_color(bar_color)
 
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else df_cat[x],
