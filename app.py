@@ -8899,12 +8899,12 @@ with tab_map:
                             "regions", "priority_score"
                         ]].values,
                         hovertemplate=(
-                            "<b>%{customdata[0]}</b><br>"
-                            "Region: %{customdata[7]}<br>"
-                            "<span style='color:#FFFFFF'>●</span> Total alerts: %{customdata[1]}<br>"
-                            "<span style='color:#FFFFFF'>●</span> Negative: %{customdata[2]}<br>"
-                            "<span style='color:#FFFFFF'>●</span> Positive: %{customdata[3]}<br>"
-                            "<span style='color:#FFFFFF'>●</span> Context: %{customdata[4]}<br>"
+                            "<span style='color:#FFFFFF'><b>%{customdata[0]}</b></span><br>"
+                            "<span style='color:#FFFFFF'>Region: %{customdata[7]}</span><br>"
+                            "<span style='color:#FFFFFF'>● Total alerts: %{customdata[1]}</span><br>"
+                            "<span style='color:#FFFFFF'>● Negative: %{customdata[2]}</span><br>"
+                            "<span style='color:#FFFFFF'>● Positive: %{customdata[3]}</span><br>"
+                            "<span style='color:#FFFFFF'>● Context: %{customdata[4]}</span><br>"
                         ),
                         hoverlabel=dict(
                             bgcolor="#2D0055",
