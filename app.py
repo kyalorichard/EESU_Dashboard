@@ -387,6 +387,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         }
         /* Data Preview table: one clean internal horizontal scrollbar, aligned with tab typography. */
         div[data-testid="stDataFrame"] {
+            width: 100% !important;
             max-width: 100% !important;
             border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
@@ -397,6 +398,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
         }
         div[data-testid="stDataFrame"] > div {
+            width: 100% !important;
             max-width: 100% !important;
             overflow-x: auto !important;
             overflow-y: hidden !important;
@@ -522,14 +524,11 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                     subset=[impact_col],
                 )
 
-        # Force a single, clean horizontal scroll area for wide tables instead of
-        # compressing columns or creating confusing nested page scrollbars.
-        table_pixel_width = max(1200, min(4200, 165 * max(1, len(table_view.columns))))
-
+        # Span the full expander/panel width. Wide tables keep a single
+        # internal horizontal scrollbar instead of shrinking the panel layout.
         st.dataframe(
             table_to_render,
-            use_container_width=False,
-            width=table_pixel_width,
+            use_container_width=True,
             hide_index=True,
             height=min(560, max(320, 34 * min(len(table_view), 12) + 92)),
             key=key,
