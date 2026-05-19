@@ -4643,6 +4643,7 @@ def render_heatmaps(df, top_n=5):
         fig1.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig1, plot_df=actor_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_mechanism_pro", permission_key="view_chart_heatmap_actor_mechanism", permission_label="Actor × mechanism heatmap")
         
+    with c2:
         fig2 = create_heatmap(subject_mechanism_pivot, title="What are the restrictive mechanisms<br>affecting civil society actors?", x_label="Restrictive Mechanism", y_label="Affected civil society group")
         fig2.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig2, plot_df=subject_mechanism_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Subject of repression", group_col="Mechanism of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_subject_mechanism_pro", permission_key="view_chart_heatmap_subject_mechanism", permission_label="Affected actor × mechanism heatmap")
