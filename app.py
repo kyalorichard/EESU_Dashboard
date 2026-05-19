@@ -2062,14 +2062,7 @@ regions_labels = [
 # This reduces sidebar fragmentation while preserving every existing filter,
 # session key, and downstream filtering behavior.
 with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_filter_panel:
-    sidebar_filter_panel.markdown(
-        """
-        <div class="sidebar-filter-section-title">Geography filters</div>
-        <div class="sidebar-filter-section-note">Filter records by dashboard region and monitored country.</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+   
     selected_regions = safe_multiselect(
         "Region",
         regions_labels,
@@ -2092,15 +2085,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         container=sidebar_filter_panel,
     )
 
-    sidebar_filter_panel.markdown(
-        """
-        <div class="sidebar-filter-divider"></div>
-        <div class="sidebar-filter-section-title">Alert classification</div>
-        <div class="sidebar-filter-section-note">Filter by event nature and alert-impact category.</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+ 
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
         data["alert-impact"].dropna().unique()
@@ -2117,15 +2102,6 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         else [],
         "selected_alert_types",
         container=sidebar_filter_panel,
-    )
-
-    sidebar_filter_panel.markdown(
-        """
-        <div class="sidebar-filter-divider"></div>
-        <div class="sidebar-filter-section-title">Enabling environment</div>
-        <div class="sidebar-filter-section-note">Filter records by enabling-environment principle.</div>
-        """,
-        unsafe_allow_html=True,
     )
 
     principle_options = (
@@ -2148,15 +2124,6 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         principle_options,
         "selected_enabling_principle",
         container=sidebar_filter_panel,
-    )
-
-    sidebar_filter_panel.markdown(
-        """
-        <div class="sidebar-filter-divider"></div>
-        <div class="sidebar-filter-section-title">Time period</div>
-        <div class="sidebar-filter-section-note">Filter records by reporting year and month.</div>
-        """,
-        unsafe_allow_html=True,
     )
 
     selected_years = safe_multiselect(
@@ -2217,7 +2184,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         """
         <div class="sidebar-filter-footer">
             <div class="sidebar-filter-footer-title">Filter behavior</div>
-            <div class="sidebar-filter-footer-note">Filters update the dashboard automatically. Empty selections mean all available values are included.</div>
+            <div class="sidebar-filter-footer-note">Use the filters to narrow the data by region, country, alert type, enabling principle, and time period if needed</div>
         </div>
         """,
         unsafe_allow_html=True,
