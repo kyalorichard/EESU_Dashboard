@@ -8805,7 +8805,6 @@ with tab_map:
                                     filtered alert volume.
                                 </div>
                             </div>
-                            <div class="map-legend-chip">Coverage: {mapping_coverage}% mapped</div>
                         </div>
 
                         <div class="map-overview-guide">
