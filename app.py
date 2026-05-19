@@ -2603,6 +2603,169 @@ if not has_permission("view_dashboard"):
     st.stop()
 
 
+
+
+# ---------------- NEGATIVE ALERT ANALYSIS TYPOGRAPHY STANDARDIZATION ----------------
+def inject_negative_alert_analysis_typography():
+    """Centralized UX typography layer for the Negative Alerts Analysis tab only.
+
+    This changes presentation only: font family, font size, font color, spacing,
+    card polish, and chart text consistency. It does not alter data, permissions,
+    filters, chart logic, or dashboard functionality.
+    """
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-font: Inter, Segoe UI, Arial, sans-serif;
+        --eusee-text-primary: #101828;
+        --eusee-text-secondary: #475467;
+        --eusee-text-muted: #667085;
+        --eusee-purple: #660094;
+        --eusee-teal: #008CAA;
+        --eusee-yellow: #FFDB58;
+        --eusee-border-soft: #E4E7EC;
+        --eusee-panel-bg: #FFFFFF;
+    }
+
+    /* Negative Alerts tab: consistent typography and visual hierarchy. */
+    .negative-filter-shell,
+    .negintel-card,
+    .analytics-panel,
+    .relationship-flow-guide,
+    .flow-diagram-guide,
+    div[data-testid="stPlotlyChart"],
+    div[data-testid="stDataFrame"] {
+        font-family: var(--eusee-font) !important;
+    }
+
+    .negative-filter-shell {
+        background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
+        border: 1px solid var(--eusee-border-soft) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
+    }
+    .negative-filter-eyebrow {
+        color: var(--eusee-purple) !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        letter-spacing: .12em !important;
+    }
+    .negative-filter-title {
+        color: var(--eusee-text-primary) !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        line-height: 1.25 !important;
+        letter-spacing: -0.015em !important;
+    }
+    .negative-filter-note {
+        color: var(--eusee-text-muted) !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        line-height: 1.5 !important;
+    }
+
+    .negintel-card {
+        background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
+        border: 1px solid var(--eusee-border-soft) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
+    }
+    .negintel-eyebrow {
+        color: var(--eusee-text-muted) !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        letter-spacing: .11em !important;
+    }
+    .negintel-title {
+        color: var(--eusee-text-primary) !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        line-height: 1.22 !important;
+    }
+    .negintel-value {
+        color: #B42318 !important;
+        font-family: var(--eusee-font) !important;
+        font-size: 30px !important;
+        font-weight: 850 !important;
+        letter-spacing: -0.035em !important;
+    }
+    .negintel-note, .negintel-compact-line {
+        color: var(--eusee-text-muted) !important;
+        font-size: 11px !important;
+        font-weight: 500 !important;
+        line-height: 1.4 !important;
+    }
+    .negintel-pill {
+        font-size: 10.5px !important;
+        font-weight: 800 !important;
+    }
+    .negintel-row {
+        border: 1px solid #EAECF0 !important;
+        background: #FFFFFF !important;
+        border-radius: 12px !important;
+    }
+    .negintel-row-label {
+        color: var(--eusee-text-secondary) !important;
+        font-size: 11px !important;
+        font-weight: 500 !important;
+        line-height: 1.35 !important;
+    }
+    .negintel-row-label strong {
+        color: var(--eusee-text-primary) !important;
+        font-weight: 750 !important;
+    }
+    .negintel-row-pct {
+        color: var(--eusee-text-primary) !important;
+        font-family: var(--eusee-font) !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+    }
+    .negintel-row-count {
+        color: var(--eusee-text-muted) !important;
+        font-size: 10.5px !important;
+        font-weight: 700 !important;
+    }
+
+    .analytics-panel {
+        background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFD 100%) !important;
+        border: 1px solid var(--eusee-border-soft) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 12px rgba(16,24,40,.04) !important;
+    }
+    .analytics-panel-title {
+        color: var(--eusee-text-primary) !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        line-height: 1.25 !important;
+    }
+    .analytics-panel-subtitle, .chart-card-caption {
+        color: var(--eusee-text-muted) !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        line-height: 1.5 !important;
+    }
+    .analytics-badge {
+        color: var(--eusee-purple) !important;
+        background: #F4EAF8 !important;
+        border-color: #E7D4F1 !important;
+        font-size: 10.5px !important;
+        font-weight: 800 !important;
+    }
+
+    .stMultiSelect label, .stSelectbox label {
+        color: #344054 !important;
+        font-family: var(--eusee-font) !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+    }
+    [data-baseweb="tag"] {
+        font-family: var(--eusee-font) !important;
+        font-size: 10.5px !important;
+        font-weight: 700 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
 reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -3216,9 +3379,9 @@ CHART_COLORS = {
     "Default": "#FFDB58",
 }
 
-CHART_FONT = "Inter, Arial, sans-serif"
-CHART_TITLE_COLOR = "#2D0055"
-CHART_TEXT_COLOR = "#263238"
+CHART_FONT = "Inter, Segoe UI, Arial, sans-serif"
+CHART_TITLE_COLOR = "#101828"
+CHART_TEXT_COLOR = "#475467"
 CHART_GRID_COLOR = "#EEF1F6"
 CHART_AXIS_COLOR = "#D8DEE9"
 
@@ -3230,14 +3393,14 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
+        font=dict(family=CHART_FONT, size=12, color=CHART_TEXT_COLOR),
         title=dict(
             text=title if title is not None else fig.layout.title.text,
             x=0.02,
             xanchor="left",
             y=0.98,
             yanchor="top",
-            font=dict(family=CHART_FONT, size=14, color=CHART_TITLE_COLOR),
+            font=dict(family=CHART_FONT, size=16, color=CHART_TITLE_COLOR),
         ),
         margin=dict(l=135 if horizontal else 46, r=28, t=58, b=58),
         hoverlabel=dict(
@@ -3254,7 +3417,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
             bgcolor="rgba(255,255,255,0.82)",
             bordercolor="rgba(230,232,239,0.65)",
             borderwidth=1,
-            font=dict(family=CHART_FONT, size=9, color="#344054"),
+            font=dict(family=CHART_FONT, size=11, color="#475467"),
             title=None,
             itemsizing="trace",
             itemwidth=30,
@@ -3272,7 +3435,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         linewidth=1,
         linecolor=CHART_AXIS_COLOR,
         ticks="",
-        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
+        tickfont=dict(family=CHART_FONT, size=11, color="#475467"),
     )
     fig.update_yaxes(
         title=None,
@@ -3284,7 +3447,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         linewidth=1,
         linecolor=CHART_AXIS_COLOR,
         ticks="",
-        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
+        tickfont=dict(family=CHART_FONT, size=11, color="#475467"),
     )
     return fig
 
@@ -3296,17 +3459,18 @@ def render_chart_shell():
         <style>
         div[data-testid="stPlotlyChart"] {
             background: #FFFFFF;
-            border: 1px solid #E9E2F2;
-            border-radius: 18px;
+            border: 1px solid #E4E7EC;
+            border-radius: 16px;
             padding: 8px 10px 4px 10px;
-            box-shadow: 0 10px 28px rgba(45, 0, 85, 0.055);
+            box-shadow: 0 4px 12px rgba(16, 24, 40, 0.04);
             margin-bottom: 18px;
             transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+            font-family: Inter, Segoe UI, Arial, sans-serif !important;
         }
         div[data-testid="stPlotlyChart"]:hover {
             transform: translateY(-1px);
-            border-color: #D8C7E6;
-            box-shadow: 0 14px 34px rgba(45, 0, 85, 0.09);
+            border-color: #D0D5DD;
+            box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07);
         }
         div[data-testid="stPlotlyChart"] svg.main-svg {
             border-radius: 14px;
@@ -7001,6 +7165,8 @@ with tab_overview:
         render_access_locked("Overview", "public-summary or viewer")
 
 with tab_negative:
+
+    inject_negative_alert_analysis_typography()
 
     if has_permission("view_negative_alerts"):
         #st.subheader("Negative Alerts")
