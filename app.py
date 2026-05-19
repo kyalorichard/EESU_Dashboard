@@ -4137,6 +4137,77 @@ def readable_stacked_bar_label_color(hex_color):
     except Exception:
         return "#111827"
 
+
+def wrap_axis_label_for_compact_panel(value, words_per_line=2, max_lines=4):
+    """Wrap long categorical axis labels for compact chart panels.
+
+    This is intentionally used for the Negative Alert Analysis enabling-principles
+    chart only. It improves y-axis readability without changing chart height,
+    column layout, margins, filters, data, or permissions.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    # Preserve existing line breaks if already wrapped elsewhere.
+    text = text.replace("<br>", " ").replace("\n", " ")
+    words = [w for w in text.split() if w]
+    if not words:
+        return text
+
+    lines = [" ".join(words[i:i + words_per_line]) for i in range(0, len(words), words_per_line)]
+    if len(lines) > max_lines:
+        kept = lines[:max_lines]
+        kept[-1] = kept[-1].rstrip(".,;:") + "…"
+        lines = kept
+
+    return "<br>".join(lines)
+
+
+def format_negative_enabling_principle_axis(fig, df, label_col="enabling-principle"):
+    """Make the y-axis labels readable for the compact enabling-principles chart.
+
+    Keeps the existing chart footprint unchanged: no height, width, row/column,
+    or dashboard layout changes. Only tick text, tick font size, and hover text
+    are adjusted for readability.
+    """
+    if fig is None or df is None or label_col not in df.columns:
+        return fig
+
+    labels = (
+        pd.Series(df[label_col])
+        .dropna()
+        .astype(str)
+        .drop_duplicates()
+        .tolist()
+    )
+    if not labels:
+        return fig
+
+    wrapped_labels = [
+        wrap_axis_label_for_compact_panel(label, words_per_line=2, max_lines=4)
+        for label in labels
+    ]
+
+    fig.update_yaxes(
+        tickmode="array",
+        tickvals=labels,
+        ticktext=wrapped_labels,
+        tickfont=dict(family=CHART_FONT, size=9, color="#344054"),
+        automargin=False,
+    )
+
+    # Keep hover details clean by showing the full, unwrapped labels.
+    for trace in fig.data:
+        try:
+            full_y = [str(v).replace("<br>", " ") for v in list(trace.y)]
+            trace.customdata = full_y
+            trace.hovertemplate = "<b>%{customdata}</b><br>Count: %{x}<extra></extra>"
+        except Exception:
+            pass
+
+    return fig
+
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
@@ -7979,7 +8050,19 @@ with tab_negative:
             render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
             render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
           
-            fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
+            fig23 = create_bar_chart(
+                m6,
+                "enabling-principle",
+                "count",
+                title="Negative alert distribution across enabling principles",
+                horizontal=True,
+                normalize_labels=False,
+            )
+            fig23 = format_negative_enabling_principle_axis(
+                fig23,
+                m6,
+                label_col="enabling-principle",
+            )
 
           
             negative_enabling_principle_note = (
