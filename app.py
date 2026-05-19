@@ -1471,7 +1471,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
         label,
         options_with_all,
         key=widget_key,
-        placeholder="All selected",
+        placeholder="",
         help="Leave empty or choose Select all to include all available options.",
     )
 
@@ -2248,6 +2248,22 @@ def inject_sidebar_professional_typography_overrides():
         border-color: #EAECF0 !important;
     }
 
+
+
+    .sidebar-filter-section-title {
+        margin: 12px 0 6px 0 !important;
+        padding: 7px 9px !important;
+        border-radius: 10px !important;
+        background: #F9FAFB !important;
+        border: 1px solid #EEF0F4 !important;
+        color: #475467 !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        letter-spacing: .08em !important;
+        text-transform: uppercase !important;
+        line-height: 1.1 !important;
+    }
+
     /* Sidebar custom cards already used in the app */
     .classic-filter-header,
     .classic-filter-status,
@@ -2338,6 +2354,26 @@ def inject_sidebar_professional_typography_overrides():
         font-weight: 800 !important;
     }
 
+
+
+    /* Hide typed-search text inside sidebar multiselect controls while preserving selected chips, dropdown options and all filter behavior. */
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input,
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input::placeholder {
+        color: transparent !important;
+        caret-color: transparent !important;
+        text-shadow: none !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input {
+        width: 1px !important;
+        min-width: 1px !important;
+        opacity: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+        color: #667085 !important;
+    }
+
     /* Scrollbar polish */
     section[data-testid="stSidebar"] ::-webkit-scrollbar {
         width: 6px !important;
@@ -2370,13 +2406,19 @@ regions_labels = [
     "Americas and the Caribbean",
 ]
 
-with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_box:
-   
+with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_filter_box:
+    st.markdown(
+        """
+        <div class="sidebar-filter-section-title">Geography</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     selected_regions = safe_multiselect(
         "Region",
         regions_labels,
         "selected_regions",
-        container=geo_filter_box,
+        container=sidebar_filter_box,
     )
 
     filtered_countries = (
@@ -2391,18 +2433,23 @@ with st.sidebar.expander("🌍 Geography filters", expanded=True) as geo_filter_
         if not filtered_countries.empty and "alert-country" in filtered_countries.columns
         else [],
         "selected_countries",
-        container=geo_filter_box,
+        container=sidebar_filter_box,
     )
 
-with st.sidebar.expander("⚠️ Alert classification", expanded=False) as alert_filter_box:
- 
+    st.markdown(
+        """
+        <div class="sidebar-filter-section-title">Alert classification</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     selected_alert_impacts = safe_multiselect(
         "Nature of event / alert",
         data["alert-impact"].dropna().unique()
         if not data.empty and "alert-impact" in data.columns
         else [],
         "selected_alert_impacts",
-        container=alert_filter_box,
+        container=sidebar_filter_box,
     )
 
     selected_alert_types = safe_multiselect(
@@ -2411,11 +2458,16 @@ with st.sidebar.expander("⚠️ Alert classification", expanded=False) as alert
         if not data.empty and "alert-type" in data.columns
         else [],
         "selected_alert_types",
-        container=alert_filter_box,
+        container=sidebar_filter_box,
     )
 
-with st.sidebar.expander("🧭 Enabling environment", expanded=False) as principle_filter_box:
-  
+    st.markdown(
+        """
+        <div class="sidebar-filter-section-title">Enabling environment</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     principle_options = (
         data["enabling-principle"]
         .dropna()
@@ -2435,18 +2487,23 @@ with st.sidebar.expander("🧭 Enabling environment", expanded=False) as princip
         "Enabling principle",
         principle_options,
         "selected_enabling_principle",
-        container=principle_filter_box,
+        container=sidebar_filter_box,
     )
 
-with st.sidebar.expander("📅 Time period", expanded=False) as time_filter_box:
-  
+    st.markdown(
+        """
+        <div class="sidebar-filter-section-title">Time period</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     selected_years = safe_multiselect(
         "Year",
         sorted(data["year"].dropna().unique())
         if not data.empty and "year" in data.columns
         else [],
         "selected_years",
-        container=time_filter_box,
+        container=sidebar_filter_box,
     )
 
     if (
@@ -2472,25 +2529,25 @@ with st.sidebar.expander("📅 Time period", expanded=False) as time_filter_box:
         "Month",
         available_months,
         "selected_months",
-        container=time_filter_box,
+        container=sidebar_filter_box,
     )
 
-reset_col1, reset_col2 = st.sidebar.columns([1, 1])
+    reset_col1, reset_col2 = st.columns([1, 1])
 
-with reset_col1:
-    reset_filters = st.button(
-        "🔄 Reset",
-        use_container_width=True,
-        key="reset_sidebar_filters",
-    )
+    with reset_col1:
+        reset_filters = st.button(
+            "🔄 Reset",
+            use_container_width=True,
+            key="reset_sidebar_filters",
+        )
 
-with reset_col2:
-    st.button(
-        "✅ Applied",
-        use_container_width=True,
-        disabled=True,
-        key="filters_applied_note",
-    )
+    with reset_col2:
+        st.button(
+            "✅ Applied",
+            use_container_width=True,
+            disabled=True,
+            key="filters_applied_note",
+        )
 
 if reset_filters:
     for key in [
