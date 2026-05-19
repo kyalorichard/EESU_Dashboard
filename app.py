@@ -4100,7 +4100,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 def readable_label_color(hex_color):
     """Return a readable text color for labels placed inside colored bars.
 
-    Dark text is used on light fills such as yellow; white text is used on
+    Black text is used on yellow/light fills; white text is used on
     darker fills such as purple and teal. This improves stacked-bar label
     visibility without changing the underlying data or chart layout.
     """
@@ -4115,7 +4115,7 @@ def readable_label_color(hex_color):
                 value = "".join(ch * 2 for ch in value)
             r, g, b = [int(value[i:i + 2], 16) for i in (0, 2, 4)]
         luminance = (0.299 * r) + (0.587 * g) + (0.114 * b)
-        return "#1F2937" if luminance > 165 else "#FFFFFF"
+        return "#111827" if luminance > 165 else "#FFFFFF"
     except Exception:
         return "#FFFFFF"
 
