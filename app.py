@@ -12762,810 +12762,338 @@ def _v2_render_status_bar(df):
 
 
 def render_ai_assistant_panel(df):
-    """AI Copilot v4 repaired: fixed right-side pop-out drawer with advanced plotting."""
+    """Final lightweight AI Copilot: simple ChatGPT-style assistant with compact tools."""
     st.session_state.setdefault("copilot_open", True)
     _v4_init_chat_memory_state()
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
-        "title": "AI Copilot v4",
-        "content": "Ask for insights or request a chart, e.g. 'Make a grouped bar chart of actors by alert impact in purple, top 15, font 14'."
+        "title": "Smart output",
+        "content": "Ask a dashboard question, request a chart, or use the quick actions below."
     })
     st.session_state.setdefault("ai_last_plot", None)
     st.session_state.setdefault("ai_last_streamed_answer", "")
 
     st.markdown("""
     <style>
+    /* ---------------- FINAL LIGHT AI COPILOT UX ---------------- */
     .st-key-eusee_ai_right_sidebar {
         position: fixed !important;
-        top: 74px !important;
+        top: 72px !important;
         right: 16px !important;
-        width: 455px !important;
-        max-width: calc(100vw - 32px) !important;
-        max-height: calc(100vh - 94px) !important;
+        width: 430px !important;
+        max-width: calc(100vw - 28px) !important;
+        max-height: calc(100vh - 92px) !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         z-index: 999999 !important;
-        background: linear-gradient(180deg,#ffffff 0%,#fbf7fd 100%) !important;
-        border: 1px solid rgba(102,0,148,.18) !important;
-        border-radius: 22px !important;
-        box-shadow: 0 28px 70px rgba(45,0,85,.24) !important;
-        padding: 13px !important;
-        font-family: Arial, sans-serif !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        border-radius: 20px !important;
+        box-shadow: 0 18px 45px rgba(16,24,40,.16) !important;
+        padding: 12px !important;
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
     }
     .st-key-eusee_ai_right_sidebar_collapsed {
         position: fixed !important;
-        top: 44% !important;
+        top: 46% !important;
         right: 0 !important;
-        width: 78px !important;
+        width: 72px !important;
         z-index: 999999 !important;
-        background: linear-gradient(180deg,#2d0055,#660094) !important;
-        color: white !important;
-        border-radius: 16px 0 0 16px !important;
-        box-shadow: 0 18px 45px rgba(45,0,85,.28) !important;
-        padding: 10px 8px !important;
-        font-family: Arial, sans-serif !important;
+        background: #660094 !important;
+        color: #FFFFFF !important;
+        border-radius: 15px 0 0 15px !important;
+        box-shadow: 0 14px 35px rgba(45,0,85,.25) !important;
+        padding: 9px 7px !important;
+    }
+    .ai-lite-header {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding: 10px 11px;
+        margin-bottom: 9px;
+        border-radius: 17px;
+        background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+        border: 1px solid #EEF0F4;
+    }
+    .ai-lite-brand {display:flex;align-items:center;gap:9px;min-width:0;}
+    .ai-lite-icon {
+        width:34px;height:34px;min-width:34px;border-radius:13px;
+        display:flex;align-items:center;justify-content:center;
+        background:#F4EAF8;color:#660094;font-size:16px;font-weight:900;
+        border:1px solid #E7D4F1;
+    }
+    .ai-lite-title {font-size:15px;font-weight:900;color:#23152F;line-height:1.12;letter-spacing:-.015em;}
+    .ai-lite-sub {font-size:10.7px;color:#667085;line-height:1.25;margin-top:2px;font-weight:600;}
+    .ai-lite-status {
+        display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px 0;
+    }
+    .ai-lite-status span {
+        background:#F9FAFB;border:1px solid #EEF0F4;border-radius:999px;
+        padding:5px 8px;font-size:10px;color:#475467;font-weight:750;
+    }
+    .ai-lite-prompt-box {
+        background:#FFFFFF;border:1px solid #E6E8EF;border-radius:17px;
+        padding:10px;margin:8px 0;box-shadow:0 6px 16px rgba(16,24,40,.045);
+    }
+    .ai-lite-section-title {font-size:11.5px;color:#23152F;font-weight:900;margin:8px 0 5px 0;}
+    .ai-lite-hint {font-size:10.7px;color:#667085;line-height:1.35;margin:4px 0 8px 0;}
+    .ai-lite-chip-row {display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px 0;}
+    .ai-lite-chip {
+        display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;
+        background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;
+        font-size:10px;font-weight:850;line-height:1.1;
+    }
+    .ai-lite-output {
+        background:#FBFCFE;border:1px solid #EEF0F4;border-radius:16px;
+        padding:11px 12px;margin:9px 0;color:#344054;font-size:12px;line-height:1.5;
+    }
+    .ai-lite-output-title {
+        display:flex;align-items:center;justify-content:space-between;gap:8px;
+        font-size:12.5px;color:#23152F;font-weight:900;margin-bottom:7px;
+    }
+    .ai-lite-badge {
+        display:inline-flex;border-radius:999px;background:#F4EAF8;color:#660094;
+        border:1px solid #E7D4F1;padding:4px 7px;font-size:9px;font-weight:900;text-transform:uppercase;
+        white-space:nowrap;
+    }
+    .ai-lite-footer-note {
+        background:#FFFCED;border:1px solid #F8E9A1;border-radius:13px;
+        padding:8px 9px;color:#55420A;font-size:10.5px;line-height:1.35;font-weight:650;margin-top:8px;
+    }
+    .st-key-eusee_ai_right_sidebar textarea {
+        min-height: 74px !important;
+        font-size: 12px !important;
+        border-radius: 14px !important;
     }
     .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button,
+    .st-key-eusee_ai_right_sidebar div[data-testid="stFormSubmitButton"] button,
     .st-key-eusee_ai_right_sidebar_collapsed div[data-testid="stButton"] button {
-        font-size: 11px !important;
+        border-radius: 12px !important;
+        font-size: 11.5px !important;
+        font-weight: 850 !important;
+        min-height: 36px !important;
+    }
+    .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] {
+        border-radius: 15px !important;
+        box-shadow: none !important;
+        border: 1px solid #E6E8EF !important;
+        margin-top: 8px !important;
+    }
+    .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] summary,
+    .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] summary p {
+        font-size: 12px !important;
         font-weight: 900 !important;
-        border-radius: 11px !important;
+        color: #23152F !important;
     }
-    .v2-pop-brand {
-        background: linear-gradient(135deg,#2d0055,#660094 58%,#008CAA);
-        color: #fff;
-        border-radius: 18px;
-        padding: 13px;
-        margin-bottom: 8px;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
-    }
-    .v2-pop-title {font-size:17px;font-weight:950;line-height:1.15;margin:0;}
-    .v2-pop-sub {font-size:11px;opacity:.93;line-height:1.35;margin-top:4px;}
-    .v2-pop-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
-    .v2-pop-chip{font-size:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);padding:4px 7px;border-radius:20px;font-weight:850;}
-    .v2-statusbar {display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 9px 0;}
-    .v2-statusbar span {background:#fff;border:1px solid #E6E8EF;border-radius:999px;padding:5px 8px;font-size:10px;color:#344054;box-shadow:0 3px 10px rgba(16,24,40,.04);}
-    .v2-help-chip {display:inline-flex;margin:3px 3px 3px 0;padding:5px 8px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:10px;font-weight:900;}
-    .v2-smart-box {
-        background: #FFFFFF;
-        border: 1px solid #E6E8EF;
-        border-radius: 18px;
-        padding: 14px;
-        margin-top: 10px;
-        box-shadow: 0 12px 30px rgba(16,24,40,.075);
-        font-family: Arial, sans-serif;
-    }
-    .v2-smart-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-        padding-bottom: 10px;
-        margin-bottom: 12px;
-        border-bottom: 1px solid #EEF0F4;
-    }
-    .v2-smart-title {
-        font-size: 15px;
-        line-height: 1.2;
-        font-weight: 950;
-        color: #2D0055;
-        letter-spacing: -0.01em;
-    }
-    .v2-smart-subtitle {
-        font-size: 11.5px;
-        line-height: 1.35;
-        color: #667085;
-        margin-top: 3px;
-        font-weight: 650;
-    }
-    .v2-smart-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        padding: 5px 9px;
-        background: #F4EAF8;
-        color: #660094;
-        border: 1px solid #E7D4F1;
-        font-size: 10px;
-        font-weight: 900;
-        white-space: nowrap;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
-    .v2-smart-content {
-        background: #FBFCFE;
-        border: 1px solid #EEF0F4;
-        border-radius: 15px;
-        padding: 12px 13px;
-        color: #344054;
-        font-size: 12.5px;
-        line-height: 1.55;
-        font-weight: 500;
-        overflow-wrap: anywhere;
-    }
-    .v2-smart-content p,
-    .v2-smart-content li {
-        font-size: 12.5px !important;
-        line-height: 1.55 !important;
-        color: #344054 !important;
-    }
-    .v2-smart-content h1,
-    .v2-smart-content h2,
-    .v2-smart-content h3 {
-        color: #2D0055 !important;
-        font-weight: 950 !important;
-        margin: 8px 0 5px 0 !important;
-    }
-    .v2-smart-footer {
-        margin-top: 10px;
-        padding: 9px 10px;
-        border-radius: 13px;
-        background: #FFFCED;
-        border: 1px solid #F8E9A1;
-        color: #55420A;
-        font-size: 10.8px;
-        line-height: 1.4;
-        font-weight: 650;
-    }
-    .v2-memory-note {font-size:10.8px;color:#667085;line-height:1.4;margin-top:8px;}
-    .v2-chat-card {background:#fff;border:1px solid #E6E8EF;border-radius:16px;padding:10px;margin:8px 0;}
-    .v4-empty-state{background:linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 100%);border:1px solid #E7D4F1;border-radius:18px;padding:14px;margin:8px 0 10px 0;box-shadow:0 10px 24px rgba(45,0,85,.08);}
-    .v4-empty-eyebrow{font-size:9.5px;font-weight:950;color:#660094;text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px;}
-    .v4-empty-title{font-size:15px;font-weight:950;color:#2D0055;line-height:1.18;margin-bottom:5px;}
-    .v4-empty-text{font-size:11.5px;color:#667085;line-height:1.42;margin-bottom:10px;}
-    .v4-empty-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0;}
-    .v4-empty-grid div{background:#fff;border:1px solid #EEF0F4;border-radius:12px;padding:8px 5px;text-align:center;}
-    .v4-empty-grid b{display:block;font-size:10.8px;color:#2D0055;font-weight:950;}
-    .v4-empty-grid span{display:block;font-size:8.8px;color:#667085;font-weight:800;margin-top:2px;}
-    .v4-empty-prompt{background:#FFFCED;border:1px solid #F8E9A1;border-radius:12px;padding:8px 9px;color:#55420A;font-size:10.8px;line-height:1.35;}
-    .v2-user-msg {background:#2d0055;color:#fff;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:12px;line-height:1.45;}
-    .v2-ai-msg {background:#f6f2ff;border-left:4px solid #660094;border-radius:13px;padding:9px 10px;margin:6px 0;font-size:12px;line-height:1.45;color:#344054;}
-    .v2-section-title {font-size:12.5px;color:#2D0055;font-weight:950;margin:8px 0 5px 0;}
-    .st-key-eusee_ai_right_sidebar div[data-testid="stTabs"] button {font-size:11px!important;font-weight:900!important;}
     @media (max-width: 760px) {
-        .st-key-eusee_ai_right_sidebar {left:8px!important;right:8px!important;width:auto!important;top:64px!important;max-height:calc(100vh - 80px)!important;}
+        .st-key-eusee_ai_right_sidebar {
+            left: 8px !important; right: 8px !important; width: auto !important;
+            top: 62px !important; max-height: calc(100vh - 76px) !important;
+            border-radius: 18px !important;
+        }
     }
-    
-    .v2-palette-preview {
-        margin: 8px 0 12px 0; padding: 10px 11px; border-radius: 14px;
-        background: #FFFFFF; border: 1px solid #E6E8EF; box-shadow: 0 4px 14px rgba(16,24,40,.055);
-    }
-    .v2-palette-preview-label { font-size: 10px; font-weight: 900; color: #667085; margin-bottom: 7px; text-transform: uppercase; letter-spacing: .08em; }
-    .v2-palette-dot-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
-    .v2-palette-dot { width: 22px; height: 22px; border-radius: 999px; display: inline-block; border: 2px solid #FFFFFF; box-shadow: 0 1px 4px rgba(16,24,40,.22); }
-    .st-key-eusee_ai_right_sidebar [data-baseweb="select"] > div { min-height: 43px !important; border-radius: 13px !important; font-size: 12.5px !important; font-weight: 750 !important; }
-    .st-key-eusee_ai_right_sidebar .stSelectbox label,
-    .st-key-eusee_ai_right_sidebar .stMultiSelect label,
-    .st-key-eusee_ai_right_sidebar .stTextInput label,
-    .st-key-eusee_ai_right_sidebar .stRadio label { font-size: 12px !important; font-weight: 900 !important; color: #344054 !important; }
-    div[role="option"] { font-size: 12.5px !important; font-weight: 750 !important; padding: 9px 12px !important; }
-</style>
+    </style>
     """, unsafe_allow_html=True)
 
     if not st.session_state.copilot_open:
         with st.container(key="eusee_ai_right_sidebar_collapsed"):
-            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:13px;line-height:1.15;'>🤖<br>AI<br>Copilot</div>", unsafe_allow_html=True)
-            if st.button("Open", key="v2_pop_open", use_container_width=True):
+            st.markdown("<div style='text-align:center;font-weight:900;color:white;font-size:12px;line-height:1.15;'>🤖<br>AI</div>", unsafe_allow_html=True)
+            if st.button("Open", key="ai_lite_open", use_container_width=True):
                 st.session_state.copilot_open = True
                 st.rerun()
         return
 
+    status = _ai_openai_status()
+    mode = "OpenAI" if status.get("configured") and status.get("package_ready") else "Local"
+    records = len(df) if df is not None else 0
+    countries = df["alert-country"].nunique() if df is not None and not df.empty and "alert-country" in df.columns else 0
+
     with st.container(key="eusee_ai_right_sidebar"):
-        head_l, head_r = st.columns([0.74, 0.26], vertical_alignment="center")
-        with head_l:
+        h1, h2 = st.columns([0.78, 0.22], vertical_alignment="center")
+        with h1:
             st.markdown("""
-            <div class="v2-pop-brand">
-              <div class="v2-pop-title">🤖 EU SEE AI Copilot v4</div>
-              <div class="v2-pop-sub">Pop-out assistant grounded in active filters, cleaned data, and dashboard analytics.</div>
-              <div class="v2-pop-chip-row"><span class="v2-pop-chip">Chat</span><span class="v2-pop-chip">Plot builder</span><span class="v2-pop-chip">Explain chart</span><span class="v2-pop-chip">Smart output</span></div>
+            <div class="ai-lite-header">
+              <div class="ai-lite-brand">
+                <div class="ai-lite-icon">AI</div>
+                <div>
+                  <div class="ai-lite-title">EU SEE Copilot</div>
+                  <div class="ai-lite-sub">Simple dashboard assistant using the active filters.</div>
+                </div>
+              </div>
             </div>
             """, unsafe_allow_html=True)
-        with head_r:
-            if st.button("Collapse", key="v2_pop_collapse", use_container_width=True):
+        with h2:
+            if st.button("Hide", key="ai_lite_hide", use_container_width=True):
                 st.session_state.copilot_open = False
                 st.rerun()
 
-        _v2_render_status_bar(df)
+        st.markdown(
+            f"<div class='ai-lite-status'><span>{mode} mode</span><span>{records:,} records</span><span>{countries:,} countries</span></div>",
+            unsafe_allow_html=True,
+        )
 
-        examples = [
-            "summarize the current filtered dashboard view",
-            "create a summary table of alert changes using the latest available years",
-            "which countries have the highest alert volume?",
-            "bar chart of negative alerts by country top 10 purple font 14",
-        ]
-        st.markdown("".join([f"<span class='v2-help-chip'>{e}</span>" for e in examples]), unsafe_allow_html=True)
+        # Main ChatGPT-style interaction area.
+        st.markdown("<div class='ai-lite-prompt-box'>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-lite-section-title'>Ask the dashboard</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-lite-hint'>Ask a question, request a summary, or describe the chart you want. Keep it natural.</div>", unsafe_allow_html=True)
 
-        tab_chat, tab_plot, tab_explain, tab_output = st.tabs(["Chat", "Plot builder", "Explain chart", "Smart output"])
+        for msg in st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]:
+            role = msg.get("role", "assistant")
+            content = str(msg.get("content", ""))[:AI_CHAT_MAX_RENDER_CHARS]
+            with st.chat_message(role):
+                st.markdown(content)
 
-        with tab_chat:
-            st.markdown("""
-            <style>
-            .qa-copilot-shell{
-                background:#FFFFFF;
-                border:1px solid #E6E8EF;
-                border-radius:16px;
-                padding:10px;
-                margin:8px 0;
-                box-shadow:0 7px 18px rgba(16,24,40,.045);
-            }
-            .qa-copilot-toolbar{
-                display:flex;
-                gap:8px;
-                align-items:center;
-                justify-content:space-between;
-                margin:6px 0 8px 0;
-            }
-            .qa-copilot-note{
-                background:#F9FAFB;
-                border:1px solid #EEF0F4;
-                border-radius:13px;
-                padding:8px 10px;
-                color:#667085;
-                font-size:10.8px;
-                line-height:1.35;
-                margin:7px 0;
-            }
-            .qa-followup-chip{
-                display:inline-flex;
-                margin:3px 3px 3px 0;
-                padding:5px 8px;
-                border-radius:999px;
-                background:#F4EAF8;
-                border:1px solid #E7D4F1;
-                color:#660094;
-                font-size:10px;
-                font-weight:900;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+        if not st.session_state.ai_messages:
+            st.markdown(
+                "<div class='ai-lite-chip-row'>"
+                "<span class='ai-lite-chip'>Summarize current view</span>"
+                "<span class='ai-lite-chip'>Compare latest years</span>"
+                "<span class='ai-lite-chip'>Top countries</span>"
+                "<span class='ai-lite-chip'>Make a chart</span>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
-            chat_tools = st.columns([1, 1])
-            with chat_tools[0]:
+        with st.form("ai_lite_chat_form", clear_on_submit=True):
+            prompt = st.text_area(
+                "Message",
+                placeholder="Example: Summarize the current filtered view, or make a bar chart of negative alerts by country top 10.",
+                height=76,
+                key="ai_lite_prompt",
+                label_visibility="collapsed",
+            )
+            send = st.form_submit_button("Send message", use_container_width=True)
+
+        if send and prompt.strip():
+            clean_prompt = prompt.strip()
+            _ai_append_message("user", clean_prompt)
+            if _v2_is_plot_request(clean_prompt):
+                _copilot_queue_answer(clean_prompt, df)
+            else:
+                answer = _v4_answer_with_agent(clean_prompt, df, "Executive analyst")
+                _ai_append_message("assistant", answer)
+                st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
+            st.rerun()
+
+        q1, q2, q3 = st.columns(3)
+        with q1:
+            if st.button("Summary", key="ai_lite_summary", use_container_width=True):
+                _copilot_queue_answer("Give a concise executive summary of the current filtered dashboard view", df)
+                st.rerun()
+        with q2:
+            if st.button("Compare", key="ai_lite_compare", use_container_width=True):
+                _copilot_queue_answer("Create a concise comparison table using the latest available years in the current filtered dashboard view", df)
+                st.rerun()
+        with q3:
+            if st.button("Clear", key="ai_lite_clear", use_container_width=True):
+                _ai_clear_user_chat_history()
+                st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Conversation cleared. Ask a new dashboard question."}
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Smart output appears directly below chat, not hidden in a separate tab.
+        out = st.session_state.get("ai_smart_output", {}) or {}
+        out_type = str(out.get("type", "output")).replace("_", " ").title()
+        out_title = str(out.get("title", "Smart output"))
+        st.markdown(
+            f"<div class='ai-lite-output'><div class='ai-lite-output-title'><span>{out_title}</span><span class='ai-lite-badge'>{out_type}</span></div>",
+            unsafe_allow_html=True,
+        )
+        if out.get("type") == "plot_v2" and out.get("fig") is not None:
+            if has_permission("view_chart_ai_copilot_plots"):
+                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="ai_lite_smart_plot")
+                interp = out.get("interpretation") or out.get("content", "")
+                if interp:
+                    st.markdown(_render_chat_content_html(str(interp)[:3500]), unsafe_allow_html=True)
+                plot_data = out.get("plot_data")
+                if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
+                    with st.expander("Plot data and export", expanded=False):
+                        st.dataframe(plot_data, use_container_width=True, hide_index=True, height=220, key="ai_lite_plot_data")
+                        cfg = out.get("config", {}) or {}
+                        checks = _v3_plot_quality_checks(
+                            plot_data,
+                            chart_type=cfg.get("chart_type"),
+                            x_col=cfg.get("x_col"),
+                            group_col=cfg.get("group_col"),
+                        )
+                        _v3_render_plot_quality_panel(checks)
+                        _v3_export_plot_downloads(
+                            out["fig"],
+                            plot_data,
+                            caption_text=str(interp or out.get("content", "")),
+                            base_name="eusee_ai_copilot_plot",
+                        )
+            else:
+                render_permission_locked_card("AI Copilot generated plots", "view_chart_ai_copilot_plots")
+        else:
+            st.markdown(_render_chat_content_html(str(out.get("content", ""))[:5000]), unsafe_allow_html=True)
+        st.markdown("<div class='ai-lite-footer-note'>Answers use the current dashboard filters. Counts may reflect both event frequency and reporting coverage.</div></div>", unsafe_allow_html=True)
+
+        # Light advanced tools: collapsed by default so the chatbot stays simple.
+        with st.expander("Advanced tools", expanded=False):
+            st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
+            tool = st.radio(
+                "Tool",
+                ["Quick plot", "Explain existing chart", "Exports / settings"],
+                horizontal=True,
+                key="ai_lite_tool_choice",
+            )
+
+            if tool == "Quick plot":
+                dims = _v2_safe_get_dims(df)
+                if not dims:
+                    st.info("No suitable plotting dimensions are available under the current filters.")
+                else:
+                    label_to_col = {label: col for label, col in dims}
+                    labels = list(label_to_col.keys())
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        dim_label = st.selectbox("Variable", labels, key="ai_lite_plot_dim")
+                        chart_type = st.selectbox("Chart", ["Horizontal bar", "Vertical bar", "Line", "Donut", "Heatmap", "Treemap"], key="ai_lite_plot_type")
+                    with c2:
+                        top_n = st.slider("Top N", 5, 30, 10, key="ai_lite_top_n")
+                        group_label = st.selectbox("Group by", ["None"] + [x for x in labels if x != dim_label], key="ai_lite_group_by")
+                    if st.button("Generate chart", key="ai_lite_generate_chart", use_container_width=True):
+                        group_txt = "" if group_label == "None" else f" grouped by {label_to_col[group_label]}"
+                        plot_prompt = f"Create a {chart_type} chart of {label_to_col[dim_label]}{group_txt} top {top_n}. Use a clean professional dashboard style."
+                        _copilot_queue_answer(plot_prompt, df)
+                        st.rerun()
+
+            elif tool == "Explain existing chart":
+                render_chatbot_dashboard_chart_explainer(df)
+
+            else:
                 st.toggle(
                     "Conversation memory",
                     key="ai_memory_enabled",
                     value=st.session_state.get("ai_memory_enabled", True),
-                    help="Keeps recent Q&A turns so follow-up questions like 'what about Kenya?' are understood.",
+                    help="Keeps recent Q&A turns so follow-up questions are understood.",
                 )
-            with chat_tools[1]:
                 st.toggle(
                     "Fast mode",
                     key="ai_fast_mode",
                     value=st.session_state.get("ai_fast_mode", True),
                     help="Keeps responses concise for faster conversation.",
                 )
-
-            if not st.session_state.ai_messages:
-                _v4_render_chat_empty_state(df)
-                st.markdown(
-                    "<span class='qa-followup-chip'>Ask a direct question</span>"
-                    "<span class='qa-followup-chip'>Then ask a follow-up</span>"
-                    "<span class='qa-followup-chip'>Request a table</span>"
-                    "<span class='qa-followup-chip'>Ask for interpretation</span>",
-                    unsafe_allow_html=True,
+                chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])])
+                st.download_button(
+                    "Download chat transcript",
+                    data=chat_text,
+                    file_name="eusee_ai_chat_transcript.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                    key="ai_lite_export_chat",
                 )
-
-            st.markdown("<div class='qa-copilot-note'><b>Q&A mode:</b> Ask naturally. The Copilot will use the current filters and recent conversation history, while staying within the dashboard data.</div>", unsafe_allow_html=True)
-
-            for msg in st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]:
-                role = msg.get("role", "assistant")
-                content = str(msg.get("content", ""))[:AI_CHAT_MAX_RENDER_CHARS]
-                with st.chat_message(role):
-                    st.markdown(content)
-
-            with st.form("v2_pop_chat_form", clear_on_submit=True):
-                prompt = st.text_area(
-                    "Your question",
-                    placeholder="Example: Compare alert changes using the latest available years. Then ask: what about Hong Kong?",
-                    height=74,
-                    key="v2_pop_prompt",
-                )
-                submitted = st.form_submit_button("Send", use_container_width=True)
-
-            if submitted and prompt.strip():
-                clean_prompt = prompt.strip()
-                _ai_append_message("user", clean_prompt)
-
-                if _v2_is_plot_request(clean_prompt):
-                    _copilot_queue_answer(clean_prompt, df)
-                    st.rerun()
-                else:
-                    answer = _v4_answer_with_agent(clean_prompt, df, "Executive analyst")
-                    _ai_append_message("assistant", answer)
-                    st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
-                    st.rerun()
-
-            b1, b2, b3 = st.columns(3)
-            with b1:
-                if st.button("Summary", use_container_width=True, key="v2_pop_summary"):
-                    _copilot_queue_answer("Give a concise conversational summary of the current filtered dashboard view", df)
-                    st.rerun()
-            with b2:
-                if st.button("Compare", use_container_width=True, key="v2_pop_compare"):
-                    _copilot_queue_answer("Create a concise comparison table using the latest available years in the current filtered dashboard view", df)
-                    st.rerun()
-            with b3:
-                if st.button("Clear", use_container_width=True, key="v2_pop_clear"):
-                    _ai_clear_user_chat_history()
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "AI Copilot", "content": "Conversation history cleared for this user. Ask a new dashboard question."}
-                    st.rerun()
-
-
-        with tab_plot:
-            st.markdown("""
-            <style>
-            .v2-builder-hero{background:linear-gradient(135deg,#fff,#fbf7fd);border:1px solid #E7D4F1;border-radius:16px;padding:10px 11px;margin:2px 0 9px 0;box-shadow:0 7px 18px rgba(45,0,85,.055);}
-            .v2-builder-title{font-size:13px;font-weight:950;color:#2D0055;margin-bottom:3px;}
-            .v2-builder-note{font-size:10.5px;color:#667085;line-height:1.35;}
-            .v2-builder-chip{display:inline-flex;margin:3px 3px 0 0;padding:4px 7px;border-radius:999px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:9.5px;font-weight:900;}
-            .v2-builder-card{background:#fff;border:1px solid #E6E8EF;border-radius:15px;padding:10px;margin:8px 0;box-shadow:0 7px 18px rgba(16,24,40,.04);}
-            .v2-builder-subtitle{font-size:11.5px;font-weight:950;color:#2D0055;margin-bottom:6px;}
-            .v2-rec-box{background:#F9FAFB;border:1px dashed #D0D5DD;border-radius:13px;padding:8px;font-size:10.5px;color:#344054;line-height:1.35;margin:7px 0;}
-            </style>
-            <div class='v2-builder-hero'>
-              <div class='v2-builder-title'>Advanced Plot Builder</div>
-              <div class='v2-builder-note'>Build single-variable charts or compare two dashboard variables with smart chart recommendations, quick presets, conditional highlighting, transformation options, dual-axis views, and export-ready captions.</div>
-              <span class='v2-builder-chip'>Single variable</span><span class='v2-builder-chip'>Compare variables</span><span class='v2-builder-chip'>Heatmap</span><span class='v2-builder-chip'>Grouped/stacked</span><span class='v2-builder-chip'>Smart recommendations</span><span class='v2-builder-chip'>Quick presets</span><span class='v2-builder-chip'>Excel-style output</span>
-            </div>
-            """, unsafe_allow_html=True)
-            dims = _v2_safe_get_dims(df)
-            if dims:
-                label_to_col = {label: col for label, col in dims}
-                labels = list(label_to_col.keys())
-
-                st.markdown("<div class='v2-builder-card'><div class='v2-builder-subtitle'>Quick presets and smart mode</div>", unsafe_allow_html=True)
-                p1, p2 = st.columns(2)
-                with p1:
-                    quick_preset = st.selectbox(
-                        "Quick preset",
-                        ["None", "Top countries", "Actor analysis", "Mechanism breakdown", "Trend analysis", "Actor × mechanism", "Country × impact"],
-                        key="v3_quick_preset",
-                        help="Fast analytical templates for common dashboard questions.",
+                if df is not None and not df.empty and has_permission("download_data"):
+                    st.download_button(
+                        "Download filtered data",
+                        data=df.to_csv(index=False).encode("utf-8"),
+                        file_name="eusee_filtered_dashboard_data.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="ai_lite_export_data",
                     )
-                with p2:
-                    chart_mode = st.selectbox(
-                        "Chart mode",
-                        ["Manual", "Smart recommended"],
-                        index=1,
-                        key="v3_chart_mode",
-                        help="Smart mode selects a chart type based on variable structure and comparison mode.",
-                    )
-                preset_cfg = _v3_apply_quick_preset(quick_preset, labels, label_to_col)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                mode = st.radio(
-                    "Analysis mode",
-                    ["Single variable", "Compare variables"],
-                    index=1 if preset_cfg.get("mode") == "Compare variables" else 0,
-                    horizontal=True,
-                    key="v2_pop_plot_mode",
-                    help="Single variable shows distributions. Compare variables builds a relationship matrix or segmented chart between two fields.",
-                )
-
-                st.markdown("<div class='v2-builder-card'><div class='v2-builder-subtitle'>1. Select variables and chart type</div>", unsafe_allow_html=True)
-                if mode == "Compare variables":
-                    cx1, cx2 = st.columns(2)
-                    with cx1:
-                        preset_x_col = preset_cfg.get("x_col")
-                        preset_x_label = next((lab for lab, col in label_to_col.items() if col == preset_x_col), labels[0])
-                        dim_label = st.selectbox("Primary variable", labels, index=labels.index(preset_x_label), key="v2_pop_compare_x")
-                    with cx2:
-                        preset_y_col = preset_cfg.get("y_col")
-                        default_y_idx = 1 if len(labels) > 1 else 0
-                        preset_y_label = next((lab for lab, col in label_to_col.items() if col == preset_y_col), labels[default_y_idx])
-                        y_label = st.selectbox("Compare with", labels, index=labels.index(preset_y_label), key="v2_pop_compare_y")
-                    if label_to_col[dim_label] == label_to_col[y_label]:
-                        st.warning("Choose two different variables for comparison mode.")
-                    compare_chart_types = ["Heatmap", "Grouped bar", "Stacked bar", "Horizontal bar", "Treemap", "Sunburst", "Bubble", "Scatter"]
-                    recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[dim_label], label_to_col[y_label], compare_mode=True)
-                    preset_chart = preset_cfg.get("chart_type")
-                    default_compare_idx = compare_chart_types.index(preset_chart) if preset_chart in compare_chart_types else (compare_chart_types.index(recommended_chart) if recommended_chart in compare_chart_types else 0)
-                    chart_type = st.selectbox("Comparison chart type", compare_chart_types, index=default_compare_idx, key="v2_pop_compare_chart_type")
-                    if chart_mode == "Smart recommended":
-                        chart_type = recommended_chart
-                        st.markdown(f"<div class='v2-rec-box'><b>Smart chart:</b> {recommended_chart}. {recommended_note}</div>", unsafe_allow_html=True)
-                    normalize = st.selectbox(
-                        "Metric / normalization",
-                        ["Count", "Share %", "Row %", "Column %"],
-                        index=0,
-                        key="v2_pop_compare_normalize",
-                        help="Count shows raw records. Share % shows total share. Row % normalizes within the primary variable. Column % normalizes within the comparison variable.",
-                    )
-                    group_col = label_to_col[y_label]
-                    st.markdown("<div class='v2-rec-box'><b>Recommended:</b> Heatmap for dense relationships, grouped bar for side-by-side comparison, stacked bar for composition, sunburst/treemap for hierarchy.</div>", unsafe_allow_html=True)
-                else:
-                    preset_x_col = preset_cfg.get("x_col")
-                    preset_x_label = next((lab for lab, col in label_to_col.items() if col == preset_x_col), labels[0])
-                    dim_label = st.selectbox("Dimension", labels, index=labels.index(preset_x_label), key="v2_pop_plot_dim")
-                    group_label_options = ["None"] + [label for label, col in dims if col != label_to_col[dim_label]]
-                    preset_group_col = preset_cfg.get("group_col")
-                    preset_group_label = next((lab for lab, col in label_to_col.items() if col == preset_group_col), "None")
-                    group_label = st.selectbox("Group / color by", group_label_options, index=group_label_options.index(preset_group_label) if preset_group_label in group_label_options else 0, key="v2_pop_plot_group")
-                    group_col = None if group_label == "None" else label_to_col[group_label]
-                    recommended_chart, recommended_note = _v3_recommend_chart(df, label_to_col[dim_label], None, compare_mode=False, group_col=group_col)
-                    preset_chart = preset_cfg.get("chart_type")
-                    default_chart_idx = AI_COPILOT_V2_CHART_TYPES.index(preset_chart) if preset_chart in AI_COPILOT_V2_CHART_TYPES else (AI_COPILOT_V2_CHART_TYPES.index(recommended_chart) if recommended_chart in AI_COPILOT_V2_CHART_TYPES else 0)
-                    chart_type = st.selectbox("Chart type", AI_COPILOT_V2_CHART_TYPES, index=default_chart_idx, key="v2_pop_plot_type")
-                    if chart_mode == "Smart recommended":
-                        chart_type = recommended_chart
-                        st.markdown(f"<div class='v2-rec-box'><b>Smart chart:</b> {recommended_chart}. {recommended_note}</div>", unsafe_allow_html=True)
-                    group_label_options = group_label_options
-                    normalize = "Count"
-                    st.markdown("<div class='v2-rec-box'><b>Recommended:</b> horizontal bar for rankings, line/area for year or month, donut for composition, heatmap/sunburst when grouping is selected.</div>", unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                st.markdown("<div class='v2-builder-card'><div class='v2-builder-subtitle'>2. Ranking, style and readability</div>", unsafe_allow_html=True)
-
-                # Excel-like dropdown controls: no sliders or free-form color boxes.
-                ranking_options = {
-                    "Top 5 — executive snapshot": 5,
-                    "Top 10 — recommended": 10,
-                    "Top 15 — balanced detail": 15,
-                    "Top 20 — extended ranking": 20,
-                    "Top 30 — deep review": 30,
-                    "Top 50 — full diagnostic": 50,
-                }
-                comparison_options = {
-                    "Top 3 comparison groups": 3,
-                    "Top 5 comparison groups": 5,
-                    "Top 8 comparison groups — recommended": 8,
-                    "Top 10 comparison groups": 10,
-                    "Top 15 comparison groups": 15,
-                    "Top 20 comparison groups": 20,
-                    "Top 30 comparison groups": 30,
-                }
-                font_options = {
-                    "Compact — 10 pt": 10,
-                    "Standard — 12 pt": 12,
-                    "Presentation — 14 pt": 14,
-                    "Large — 16 pt": 16,
-                    "Very large — 18 pt": 18,
-                    "Poster — 22 pt": 22,
-                }
-                height_options = {
-                    "Compact — 360 px": 360,
-                    "Standard — 430 px": 430,
-                    "Comparison — 470 px": 470,
-                    "Detailed — 560 px": 560,
-                    "Tall — 680 px": 680,
-                    "Full review — 820 px": 820,
-                }
-                label_options = {
-                    "Show values / labels": True,
-                    "Hide values / labels": False,
-                }
-
-                c1, c2 = st.columns(2)
-                with c1:
-                    top_choice = st.selectbox(
-                        "Ranking depth",
-                        list(ranking_options.keys()),
-                        index=1,
-                        key="v2_pop_top_n_dropdown",
-                        help="Controls how many primary categories are displayed. Use Top 10 for most executive views.",
-                    )
-                    font_choice = st.selectbox(
-                        "Font size",
-                        list(font_options.keys()),
-                        index=1,
-                        key="v2_pop_font_size_dropdown",
-                    )
-                with c2:
-                    top_y_choice = st.selectbox(
-                        "Comparison group depth",
-                        list(comparison_options.keys()),
-                        index=2,
-                        key="v2_pop_top_y_dropdown",
-                        disabled=(mode != "Compare variables"),
-                        help="Controls the number of secondary groups shown in comparison charts.",
-                    )
-                    default_height_index = 2 if mode == "Compare variables" else 1
-                    height_choice = st.selectbox(
-                        "Chart height",
-                        list(height_options.keys()),
-                        index=default_height_index,
-                        key="v2_pop_height_dropdown",
-                    )
-                label_choice = st.selectbox(
-                    "Data label display",
-                    list(label_options.keys()),
-                    index=0,
-                    key="v2_pop_show_values_dropdown",
-                )
-
-                top_n = ranking_options[top_choice]
-                top_y = comparison_options[top_y_choice]
-                font_size = font_options[font_choice]
-                height = height_options[height_choice]
-                show_values = label_options[label_choice]
-
-                st.markdown("<div class='v2-builder-subtitle'>Analytical options</div>", unsafe_allow_html=True)
-                a1, a2 = st.columns(2)
-                with a1:
-                    metric_mode = st.selectbox(
-                        "Y-axis metric",
-                        ["Count", "Share %", "Cumulative", "Rolling average"],
-                        key="v3_metric_mode",
-                        disabled=(mode == "Compare variables"),
-                        help="Use Share % for composition, cumulative for ranked accumulation, and rolling average for trend-style summaries.",
-                    )
-                    comparison_math = st.selectbox(
-                        "Comparison calculation",
-                        ["Absolute", "Difference", "Ratio", "% Change"],
-                        key="v3_comparison_math",
-                        disabled=(mode != "Compare variables"),
-                        help="Difference, Ratio and % Change are calculated relative to the row average within each primary category.",
-                    )
-                with a2:
-                    transform_mode = st.selectbox(
-                        "Transformation",
-                        ["None", "Log scale", "Square root", "Z-score"],
-                        key="v3_transform_mode",
-                        help="Use transformations only when distributions are highly skewed or when comparing relative patterns.",
-                    )
-                    highlight_mode = st.selectbox(
-                        "Conditional highlight",
-                        ["None", "Top 3", "Bottom 3", "Above average", "Below average"],
-                        key="v3_highlight_mode",
-                        help="Excel-style conditional emphasis for quickly identifying outliers and high-priority categories.",
-                    )
-                dual_axis_mode = st.selectbox(
-                    "Dual-axis overlay",
-                    ["Off", "Count + Share % line"],
-                    key="v3_dual_axis_mode",
-                    disabled=(mode == "Compare variables"),
-                    help="Adds a secondary share-percentage line over count bars for executive interpretation.",
-                )
-
-                st.markdown("<div class='v2-rec-box'><b>Readability rule:</b> Top 10 + 12 pt font is recommended for executive dashboards. Use larger fonts and taller charts for presentation screenshots.</div>", unsafe_allow_html=True)
-
-                st.markdown("<div class='v2-builder-subtitle'>3. Excel-style color selection</div>", unsafe_allow_html=True)
-                excel_palettes = {
-                    "EU SEE corporate — Purple / Teal": ("#660094", "#008CAA"),
-                    "Office default — Blue / Orange": ("#4472C4", "#ED7D31"),
-                    "Excel green — Green / Blue": ("#70AD47", "#5B9BD5"),
-                    "Excel warm — Orange / Gold": ("#ED7D31", "#FFC000"),
-                    "Excel purple — Purple / Gray": ("#7030A0", "#A5A5A5"),
-                    "High contrast — Navy / Red": ("#264478", "#C00000"),
-                    "Neutral report — Dark gray / Light gray": ("#595959", "#BFBFBF"),
-                }
-                excel_colors = {
-                    "EU SEE Purple": "#660094",
-                    "EU SEE Teal": "#008CAA",
-                    "EU SEE Yellow": "#FFDB58",
-                    "Office Blue": "#4472C4",
-                    "Office Orange": "#ED7D31",
-                    "Office Gray": "#A5A5A5",
-                    "Office Gold": "#FFC000",
-                    "Office Green": "#70AD47",
-                    "Office Navy": "#264478",
-                    "Office Red": "#C00000",
-                    "Office Purple": "#7030A0",
-                    "Dark Gray": "#595959",
-                }
-                palette_choice = st.selectbox(
-                    "Color palette",
-                    list(excel_palettes.keys()),
-                    index=0,
-                    key="v2_pop_excel_palette",
-                    help="Excel-style presets similar to Microsoft Office chart palettes.",
-                )
-                default_primary, default_secondary = excel_palettes[palette_choice]
-                color_labels = list(excel_colors.keys())
-                default_primary_label = next((k for k, v in excel_colors.items() if v == default_primary), "EU SEE Purple")
-                default_secondary_label = next((k for k, v in excel_colors.items() if v == default_secondary), "EU SEE Teal")
-                cc1, cc2 = st.columns(2)
-                with cc1:
-                    primary_label = st.selectbox(
-                        "Primary series color",
-                        color_labels,
-                        index=color_labels.index(default_primary_label),
-                        key="v2_pop_primary_color_excel",
-                    )
-                with cc2:
-                    secondary_label = st.selectbox(
-                        "Secondary series color",
-                        color_labels,
-                        index=color_labels.index(default_secondary_label),
-                        key="v2_pop_secondary_color_excel",
-                    )
-                px_color = excel_colors[primary_label]
-                sx_color = excel_colors[secondary_label]
-
-                st.markdown("<div class='v2-builder-subtitle'>Palette selector map and plot finish</div>", unsafe_allow_html=True)
-                palette_col1, palette_col2 = st.columns(2)
-                with palette_col1:
-                    professional_palette_choice = st.selectbox(
-                        "Professional palette map",
-                        list(AI_PLOT_PALETTES.keys()),
-                        index=0,
-                        key="v3_professional_palette_map",
-                        help="Applies a complete colorway across grouped charts, legends, pies, treemaps and series colors.",
-                    )
-                    heatmap_scale_choice = st.selectbox(
-                        "Heatmap color scale",
-                        list(AI_HEATMAP_SCALES.keys()),
-                        index=0,
-                        key="v3_heatmap_scale_choice",
-                    )
-                with palette_col2:
-                    plot_theme_choice = st.selectbox(
-                        "Plot theme",
-                        ["Clean white", "Minimal executive"],
-                        index=0,
-                        key="v3_professional_plot_theme",
-                    )
-                    legend_position_choice = st.selectbox(
-                        "Legend position",
-                        ["Top", "Right", "Bottom", "Hidden"],
-                        index=0,
-                        key="v3_legend_position_choice",
-                    )
-
-                gridline_choice = st.selectbox(
-                    "Gridline display",
-                    ["Show gridlines", "Hide gridlines"],
-                    index=0,
-                    key="v3_gridline_display_choice",
-                    help="Hide gridlines for cleaner presentation exports; show them for analytical reading.",
-                )
-                selected_palette = _ai_palette_colors(professional_palette_choice)
-                selected_heatmap_scale = _ai_heatmap_scale(heatmap_scale_choice)
-                # Keep manually selected primary/secondary colors synchronized with the selected palette for bar/line fallback.
-                px_color = selected_palette[0] if selected_palette else px_color
-                sx_color = selected_palette[1] if len(selected_palette) > 1 else sx_color
-                st.markdown(_ai_palette_preview_html(selected_palette, professional_palette_choice), unsafe_allow_html=True)
-
-                if mode == "Compare variables":
-                    default_title = preset_cfg.get("title") or _v3_auto_plot_title(
-                        mode, label_to_col[dim_label], label_to_col[y_label], chart_type=chart_type, metric_label=normalize
-                    )
-                else:
-                    default_title = preset_cfg.get("title") or _v3_auto_plot_title(
-                        mode, label_to_col[dim_label], group_col, chart_type=chart_type, metric_label=metric_mode
-                    )
-                title = st.text_input("Chart title", default_title, key="v2_pop_chart_title")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                generate = st.button("Generate professional plot", use_container_width=True, key="v2_pop_generate_plot")
-                if generate:
-                    if mode == "Compare variables":
-                        x_col = label_to_col[dim_label]
-                        y_col = label_to_col[y_label]
-                        if x_col == y_col:
-                            st.session_state.ai_smart_output = {"type": "warning", "title": "Invalid comparison", "content": "Please choose two different variables for comparison mode."}
-                            st.rerun()
-                        fig, plot_df = _v2_make_comparison_plot(
-                            df, x_col=x_col, y_col=y_col, chart_type=chart_type,
-                            top_x=top_n, top_y=top_y, normalize=normalize, title=title,
-                            color=px_color, secondary_color=sx_color, font_size=font_size,
-                            title_size=max(font_size + 4, 15), height=height, show_values=show_values,
-                            comparison_mode=comparison_math, transform=transform_mode, highlight=highlight_mode,
-                            palette=selected_palette, heatmap_scale=selected_heatmap_scale,
-                            legend_position=legend_position_choice, show_grid=(gridline_choice == "Show gridlines"),
-                            theme=plot_theme_choice,
-                        )
-                        insight = _v3_plot_insight(plot_df, x_col, y_col, metric_label=normalize, comparison_mode=comparison_math)
-                        config = {
-                            "compare_mode": True, "x_col": x_col, "group_col": y_col,
-                            "chart_type": chart_type, "top_n": top_n, "top_y": top_y,
-                            "normalize": normalize, "primary_color": px_color, "secondary_color": sx_color,
-                            "font_size": font_size, "title_size": max(font_size + 4, 15),
-                            "height": height, "show_values": show_values, "title": title,
-                            "comparison_math": comparison_math, "transform": transform_mode, "highlight": highlight_mode,
-                            "palette_name": professional_palette_choice, "heatmap_scale": heatmap_scale_choice,
-                            "legend_position": legend_position_choice, "show_grid": (gridline_choice == "Show gridlines"),
-                            "plot_theme": plot_theme_choice,
-                        }
-                        _ai_append_message("assistant", f"Generated comparison plot: {x_col} × {y_col}.")
-                    else:
-                        x_col = label_to_col[dim_label]
-                        config = {
-                            "filtered_df": df, "x_col": x_col, "group_col": group_col,
-                            "compare_mode": False, "chart_type": chart_type,
-                            "top_n": top_n, "top_y": top_y, "normalize": normalize,
-                            "primary_color": px_color, "secondary_color": sx_color,
-                            "font_size": font_size, "title_size": max(font_size + 4, 15),
-                            "height": height, "show_values": show_values, "title": title,
-                            "metric_mode": metric_mode, "transform": transform_mode, "highlight": highlight_mode,
-                            "dual_axis": dual_axis_mode,
-                            "palette_name": professional_palette_choice, "heatmap_scale": heatmap_scale_choice,
-                            "legend_position": legend_position_choice, "show_grid": (gridline_choice == "Show gridlines"),
-                            "plot_theme": plot_theme_choice,
-                        }
-                        fig, plot_df = _v3_make_single_plot(
-                            df, x_col=x_col, chart_type=chart_type, group_col=group_col,
-                            top_n=top_n, title=title, color=px_color, secondary_color=sx_color,
-                            font_size=font_size, title_size=max(font_size + 4, 15), height=height,
-                            show_values=show_values, metric_mode=metric_mode, transform=transform_mode,
-                            highlight=highlight_mode, dual_axis=(dual_axis_mode != "Off"),
-                            palette=selected_palette, heatmap_scale=selected_heatmap_scale,
-                            legend_position=legend_position_choice, show_grid=(gridline_choice == "Show gridlines"),
-                            theme=plot_theme_choice,
-                        )
-                        insight = _v3_plot_insight(plot_df, x_col, group_col, metric_label=metric_mode, comparison_mode="Absolute")
-                        config.pop("filtered_df", None)
-                        _ai_append_message("assistant", f"Generated {chart_type} for {x_col}.")
-
-                    plot_quality_checks = _v3_plot_quality_checks(
-                        plot_df,
-                        chart_type=config.get("chart_type"),
-                        x_col=config.get("x_col"),
-                        group_col=config.get("group_col"),
-                    )
-                    st.session_state.ai_smart_output = {
-                        "type": "plot_v2",
-                        "title": title,
-                        "content": insight,
-                        "fig": fig,
-                        "plot_data": plot_df,
-                        "config": config,
-                        "quality_checks": plot_quality_checks,
-                    }
-                    st.rerun()
-            else:
-                st.info("No suitable plotting dimensions are available under the current filters.")
-
-        with tab_explain:
-            render_chatbot_dashboard_chart_explainer(df)
-
-        with tab_output:
-            out = st.session_state.ai_smart_output
-            out_type = str(out.get("type", "output")).replace("_", " ").title()
-            out_title = str(out.get("title", "Smart output"))
-            st.markdown("<div class='v2-smart-box'>", unsafe_allow_html=True)
-            st.markdown(
-                f"""
-                <div class='v2-smart-header'>
-                    <div>
-                        <div class='v2-smart-title'>{out_title}</div>
-                        <div class='v2-smart-subtitle'>Clean, dashboard-aware output generated from the active filters and selected analytical action.</div>
-                    </div>
-                    <div class='v2-smart-badge'>{out_type}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            if out.get("type") == "plot_v2" and out.get("fig") is not None:
-                if has_permission("view_chart_ai_copilot_plots"):
-                    st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="v2_pop_smart_plot")
-                else:
-                    render_permission_locked_card("AI Copilot generated plots", "view_chart_ai_copilot_plots")
-                if has_permission("view_chart_ai_copilot_plots"):
-                    render_eusee_chart_interpretation_card(
-                        out.get("interpretation") or out.get("content", ""),
-                        title="AI graph interpretation",
-                        expanded=True,
-                    )
-
-                plot_data = out.get("plot_data")
-                cfg = out.get("config", {}) or {}
-                if has_permission("view_chart_ai_copilot_plots") and isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
-                    checks = _v3_plot_quality_checks(
-                        plot_data,
-                        chart_type=cfg.get("chart_type"),
-                        x_col=cfg.get("x_col"),
-                        group_col=cfg.get("group_col"),
-                    )
-                    _v3_render_plot_quality_panel(checks)
-
-                    export_caption = str(out.get("content", "")) + "\n\nPlot quality check:\n" + "\n".join([f"- {c}" for c in checks])
-                    _v3_export_plot_downloads(
-                        out["fig"],
-                        plot_data,
-                        caption_text=export_caption,
-                        base_name="eusee_ai_copilot_v3_plot",
-                    )
-            else:
-                smart_html = _render_chat_content_html(str(out.get("content", ""))[:5000])
-                st.markdown(f"<div class='v2-smart-content'>{smart_html}</div>", unsafe_allow_html=True)
-            st.markdown(
-                "<div class='v2-smart-footer'>Smart Output uses the active dashboard filters. Chart requests can include chart type, variable, grouping, color, font size, title, Top N, and country/year filters.</div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
