@@ -8520,7 +8520,7 @@ with tab_map:
             }
             .map-intel-title {
                 font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
-                font-size: clamp(17px, 1.7vw, 21px);
+                font-size: 14px;
                 font-weight: 850;
                 color: #101828;
                 margin-bottom: 5px;
