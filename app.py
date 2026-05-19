@@ -738,6 +738,537 @@ def build_compact_chatbot_context(df):
     return context
 
 
+
+# ---------------- ADVANCED AI COPILOT PLOT BUILDER ----------------
+def render_advanced_plot_builder(df, key_prefix="ai_plot_builder"):
+    """Professional lightweight plot builder for the AI Copilot.
+
+    Features:
+    - Multiple chart families: bar, horizontal bar, line, area, scatter, bubble,
+      histogram, box, violin, pie, donut, treemap, sunburst, heatmap.
+    - Smart numeric/categorical/date column detection.
+    - Executive Plotly styling aligned with dashboard typography.
+    - Optional color grouping, faceting, aggregation, sorting and top-N controls.
+    - Lightweight rendering: only builds the figure after user clicks Generate chart.
+    """
+    if df is None or df.empty:
+        st.info("No filtered data are available for plotting.")
+        return
+
+    plot_df = df.copy()
+
+    st.markdown("""
+    <style>
+    .ai-plot-builder-shell {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid #E6E8EF;
+        border-radius: 18px;
+        padding: 14px 15px;
+        margin: 8px 0 12px 0;
+        box-shadow: 0 10px 24px rgba(16,24,40,.055);
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+    }
+    .ai-plot-builder-title {
+        font-size: 15px;
+        font-weight: 900;
+        color: #23152F;
+        margin-bottom: 4px;
+        letter-spacing: -0.015em;
+    }
+    .ai-plot-builder-subtitle {
+        font-size: 11.5px;
+        color: #667085;
+        line-height: 1.45;
+        margin-bottom: 10px;
+    }
+    .ai-plot-builder-tip {
+        background: #F4EAF8;
+        border: 1px solid #E7D4F1;
+        color: #660094;
+        border-radius: 12px;
+        padding: 8px 10px;
+        font-size: 11px;
+        font-weight: 750;
+        margin: 6px 0 10px 0;
+    }
+    </style>
+    <div class="ai-plot-builder-shell">
+        <div class="ai-plot-builder-title">Advanced Plot Builder</div>
+        <div class="ai-plot-builder-subtitle">
+            Build publication-ready dashboard charts from the current filtered data without sending the full dataset to the AI model.
+        </div>
+        <div class="ai-plot-builder-tip">
+            Tip: use bar, donut, treemap or sunburst for categories; line or area for time; heatmap for relationships; scatter or bubble for numeric patterns.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Detect column types safely.
+    all_cols = list(plot_df.columns)
+    numeric_cols = plot_df.select_dtypes(include=["number"]).columns.tolist()
+
+    date_cols = []
+    for col in all_cols:
+        if "date" in str(col).lower() or str(col).lower() in ["year", "month"]:
+            date_cols.append(col)
+
+    categorical_cols = [
+        c for c in all_cols
+        if c not in numeric_cols and c not in date_cols
+    ]
+
+    # Add likely categorical numeric columns where appropriate.
+    for c in numeric_cols:
+        try:
+            if plot_df[c].nunique(dropna=True) <= 20:
+                categorical_cols.append(c)
+        except Exception:
+            pass
+
+    categorical_cols = list(dict.fromkeys(categorical_cols))
+    date_cols = list(dict.fromkeys(date_cols))
+
+    chart_options = [
+        "Bar",
+        "Horizontal bar",
+        "Line",
+        "Area",
+        "Scatter",
+        "Bubble",
+        "Histogram",
+        "Box",
+        "Violin",
+        "Pie",
+        "Donut",
+        "Treemap",
+        "Sunburst",
+        "Heatmap",
+    ]
+
+    with st.expander("📊 Advanced chart studio", expanded=True):
+        c1, c2, c3 = st.columns([1.1, 1.1, 0.9])
+
+        with c1:
+            chart_type = st.selectbox(
+                "Chart type",
+                chart_options,
+                key=f"{key_prefix}_chart_type",
+            )
+
+        with c2:
+            theme = st.selectbox(
+                "Aesthetic style",
+                ["Executive clean", "Compact analytical", "Presentation"],
+                key=f"{key_prefix}_theme",
+            )
+
+        with c3:
+            top_n = st.slider(
+                "Top N categories",
+                min_value=5,
+                max_value=50,
+                value=15,
+                step=5,
+                key=f"{key_prefix}_top_n",
+            )
+
+        x_col = y_col = color_col = size_col = facet_col = None
+        agg_func = "Count records"
+
+        needs_y = chart_type in [
+            "Bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble",
+            "Box", "Violin", "Heatmap"
+        ]
+
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            x_source = date_cols + categorical_cols + numeric_cols
+            x_col = st.selectbox(
+                "X / category / time",
+                options=x_source if x_source else all_cols,
+                key=f"{key_prefix}_x",
+            )
+
+        with col_b:
+            if needs_y:
+                y_options = ["Count records"] + numeric_cols
+                y_col = st.selectbox(
+                    "Y / value",
+                    options=y_options,
+                    key=f"{key_prefix}_y",
+                )
+            else:
+                y_col = None
+
+        with col_c:
+            color_options = ["None"] + categorical_cols
+            color_col = st.selectbox(
+                "Color grouping",
+                options=color_options,
+                key=f"{key_prefix}_color",
+            )
+            if color_col == "None":
+                color_col = None
+
+        adv1, adv2, adv3 = st.columns(3)
+
+        with adv1:
+            if chart_type == "Bubble":
+                size_options = numeric_cols if numeric_cols else ["None"]
+                size_col = st.selectbox(
+                    "Bubble size",
+                    options=size_options,
+                    key=f"{key_prefix}_size",
+                )
+
+        with adv2:
+            facet_options = ["None"] + categorical_cols
+            facet_col = st.selectbox(
+                "Small multiples",
+                options=facet_options,
+                key=f"{key_prefix}_facet",
+            )
+            if facet_col == "None":
+                facet_col = None
+
+        with adv3:
+            if y_col and y_col != "Count records":
+                agg_func = st.selectbox(
+                    "Aggregation",
+                    ["Sum", "Mean", "Median", "Min", "Max"],
+                    key=f"{key_prefix}_agg",
+                )
+
+        title = st.text_input(
+            "Chart title",
+            value=f"{chart_type} chart",
+            key=f"{key_prefix}_title",
+        )
+
+        generate = st.button(
+            "Generate chart",
+            use_container_width=True,
+            key=f"{key_prefix}_generate",
+        )
+
+        if not generate:
+            st.caption("Select chart settings, then click Generate chart.")
+            return
+
+        try:
+            working = plot_df.copy()
+
+            # Convert date-like columns where possible.
+            if x_col in date_cols and x_col in working.columns:
+                working[x_col] = pd.to_datetime(working[x_col], errors="coerce")
+
+            fig = None
+
+            # Aggregate for category/time charts.
+            if chart_type in ["Bar", "Horizontal bar", "Line", "Area"]:
+                group_cols = [x_col]
+                if color_col:
+                    group_cols.append(color_col)
+
+                if y_col == "Count records" or y_col is None:
+                    chart_data = (
+                        working.groupby(group_cols, dropna=False)
+                        .size()
+                        .reset_index(name="Count")
+                    )
+                    value_col = "Count"
+                else:
+                    agg_map = {
+                        "Sum": "sum",
+                        "Mean": "mean",
+                        "Median": "median",
+                        "Min": "min",
+                        "Max": "max",
+                    }
+                    chart_data = (
+                        working.groupby(group_cols, dropna=False)[y_col]
+                        .agg(agg_map.get(agg_func, "sum"))
+                        .reset_index(name=y_col)
+                    )
+                    value_col = y_col
+
+                if chart_type in ["Bar", "Horizontal bar"]:
+                    if not pd.api.types.is_datetime64_any_dtype(chart_data[x_col]):
+                        chart_data = chart_data.sort_values(value_col, ascending=False).head(top_n)
+
+                    if chart_type == "Horizontal bar":
+                        fig = px.bar(
+                            chart_data,
+                            y=x_col,
+                            x=value_col,
+                            color=color_col,
+                            orientation="h",
+                            title=title,
+                            text=value_col,
+                            facet_col=facet_col,
+                        )
+                        fig.update_yaxes(categoryorder="total ascending")
+                    else:
+                        fig = px.bar(
+                            chart_data,
+                            x=x_col,
+                            y=value_col,
+                            color=color_col,
+                            title=title,
+                            text=value_col,
+                            facet_col=facet_col,
+                        )
+
+                elif chart_type == "Line":
+                    fig = px.line(
+                        chart_data.sort_values(x_col),
+                        x=x_col,
+                        y=value_col,
+                        color=color_col,
+                        title=title,
+                        markers=True,
+                        facet_col=facet_col,
+                    )
+
+                elif chart_type == "Area":
+                    fig = px.area(
+                        chart_data.sort_values(x_col),
+                        x=x_col,
+                        y=value_col,
+                        color=color_col,
+                        title=title,
+                        facet_col=facet_col,
+                    )
+
+            elif chart_type == "Scatter":
+                if y_col == "Count records":
+                    st.warning("Scatter requires a numeric Y column. Select a numeric value for Y.")
+                    return
+                fig = px.scatter(
+                    working,
+                    x=x_col,
+                    y=y_col,
+                    color=color_col,
+                    title=title,
+                    facet_col=facet_col,
+                    hover_data=[c for c in categorical_cols[:5] if c in working.columns],
+                )
+
+            elif chart_type == "Bubble":
+                if y_col == "Count records" or not size_col:
+                    st.warning("Bubble chart requires numeric Y and bubble size columns.")
+                    return
+                fig = px.scatter(
+                    working,
+                    x=x_col,
+                    y=y_col,
+                    size=size_col,
+                    color=color_col,
+                    title=title,
+                    facet_col=facet_col,
+                    hover_data=[c for c in categorical_cols[:5] if c in working.columns],
+                )
+
+            elif chart_type == "Histogram":
+                hist_col = x_col if x_col in numeric_cols else (numeric_cols[0] if numeric_cols else x_col)
+                fig = px.histogram(
+                    working,
+                    x=hist_col,
+                    color=color_col,
+                    title=title,
+                    nbins=30,
+                    marginal="box",
+                )
+
+            elif chart_type == "Box":
+                if y_col == "Count records":
+                    st.warning("Box plot requires a numeric Y column.")
+                    return
+                fig = px.box(
+                    working,
+                    x=x_col,
+                    y=y_col,
+                    color=color_col,
+                    title=title,
+                    points="outliers",
+                )
+
+            elif chart_type == "Violin":
+                if y_col == "Count records":
+                    st.warning("Violin plot requires a numeric Y column.")
+                    return
+                fig = px.violin(
+                    working,
+                    x=x_col,
+                    y=y_col,
+                    color=color_col,
+                    title=title,
+                    box=True,
+                    points=False,
+                )
+
+            elif chart_type in ["Pie", "Donut"]:
+                pie_data = (
+                    working.groupby(x_col, dropna=False)
+                    .size()
+                    .reset_index(name="Count")
+                    .sort_values("Count", ascending=False)
+                    .head(top_n)
+                )
+                fig = px.pie(
+                    pie_data,
+                    names=x_col,
+                    values="Count",
+                    title=title,
+                    hole=0.48 if chart_type == "Donut" else 0,
+                )
+
+            elif chart_type == "Treemap":
+                path_cols = [c for c in [color_col, x_col] if c]
+                if not path_cols:
+                    path_cols = [x_col]
+                tree_data = (
+                    working.groupby(path_cols, dropna=False)
+                    .size()
+                    .reset_index(name="Count")
+                    .sort_values("Count", ascending=False)
+                    .head(top_n * 3)
+                )
+                fig = px.treemap(
+                    tree_data,
+                    path=path_cols,
+                    values="Count",
+                    title=title,
+                )
+
+            elif chart_type == "Sunburst":
+                path_cols = [c for c in [color_col, x_col] if c]
+                if not path_cols:
+                    path_cols = [x_col]
+                sun_data = (
+                    working.groupby(path_cols, dropna=False)
+                    .size()
+                    .reset_index(name="Count")
+                    .sort_values("Count", ascending=False)
+                    .head(top_n * 3)
+                )
+                fig = px.sunburst(
+                    sun_data,
+                    path=path_cols,
+                    values="Count",
+                    title=title,
+                )
+
+            elif chart_type == "Heatmap":
+                if not color_col:
+                    st.warning("Heatmap requires a color grouping column. Select one under Color grouping.")
+                    return
+                heat_data = (
+                    working.groupby([x_col, color_col], dropna=False)
+                    .size()
+                    .reset_index(name="Count")
+                )
+                heat_pivot = heat_data.pivot_table(
+                    index=color_col,
+                    columns=x_col,
+                    values="Count",
+                    aggfunc="sum",
+                    fill_value=0,
+                )
+                fig = px.imshow(
+                    heat_pivot,
+                    text_auto=True,
+                    aspect="auto",
+                    title=title,
+                    labels=dict(color="Count"),
+                )
+
+            if fig is None:
+                st.warning("Could not generate this chart with the selected settings.")
+                return
+
+            # Professional executive aesthetics.
+            height_map = {
+                "Executive clean": 520,
+                "Compact analytical": 420,
+                "Presentation": 620,
+            }
+            font_size_map = {
+                "Executive clean": 12,
+                "Compact analytical": 11,
+                "Presentation": 14,
+            }
+
+            fig.update_layout(
+                height=height_map.get(theme, 520),
+                title=dict(
+                    text=title,
+                    x=0.02,
+                    xanchor="left",
+                    font=dict(size=18 if theme != "Presentation" else 22, color="#101828"),
+                ),
+                font=dict(
+                    family="Inter, Segoe UI, Arial, sans-serif",
+                    size=font_size_map.get(theme, 12),
+                    color="#475467",
+                ),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=40, r=28, t=72, b=48),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(size=11),
+                ),
+                hoverlabel=dict(
+                    bgcolor="#FFFFFF",
+                    bordercolor="#E4E7EC",
+                    font=dict(color="#101828", size=12),
+                ),
+            )
+
+            fig.update_xaxes(
+                showgrid=True,
+                gridcolor="#EEF0F4",
+                zeroline=False,
+                title_font=dict(size=12, color="#344054"),
+                tickfont=dict(size=11, color="#667085"),
+            )
+            fig.update_yaxes(
+                showgrid=True,
+                gridcolor="#EEF0F4",
+                zeroline=False,
+                title_font=dict(size=12, color="#344054"),
+                tickfont=dict(size=11, color="#667085"),
+            )
+
+            if chart_type in ["Bar", "Horizontal bar"]:
+                fig.update_traces(
+                    texttemplate="%{text}",
+                    textposition="outside",
+                    cliponaxis=False,
+                )
+
+            st.plotly_chart(fig, use_container_width=True, config={
+                "displaylogo": False,
+                "toImageButtonOptions": {
+                    "format": "png",
+                    "filename": "eusee_ai_plot_builder_chart",
+                    "height": 900,
+                    "width": 1400,
+                    "scale": 2,
+                },
+                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+            })
+
+        except Exception as e:
+            st.error(f"Chart could not be generated with the selected settings: {e}")
+
+
 def detect_chat_intent(prompt: str):
     p = str(prompt).lower()
 
@@ -13305,7 +13836,7 @@ SUGGESTED_PROMPTS = [
     "Which countries need the most attention?",
     "What are the top restrictive mechanisms?",
     "Show trends across regions",
-    "Create a chart by alert type"
+    "Create an advanced chart from filtered data"
 ]
 
 
