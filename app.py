@@ -4095,6 +4095,30 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
     )  
     return fig
 
+
+
+def readable_label_color(hex_color):
+    """Return a readable text color for labels placed inside colored bars.
+
+    Dark text is used on light fills such as yellow; white text is used on
+    darker fills such as purple and teal. This improves stacked-bar label
+    visibility without changing the underlying data or chart layout.
+    """
+    try:
+        value = str(hex_color or "#FFFFFF").strip()
+        if value.lower().startswith("rgba") or value.lower().startswith("rgb"):
+            nums = re.findall(r"[0-9.]+", value)
+            r, g, b = [float(n) for n in nums[:3]]
+        else:
+            value = value.replace("#", "")
+            if len(value) == 3:
+                value = "".join(ch * 2 for ch in value)
+            r, g, b = [int(value[i:i + 2], 16) for i in (0, 2, 4)]
+        luminance = (0.299 * r) + (0.587 * g) + (0.114 * b)
+        return "#1F2937" if luminance > 165 else "#FFFFFF"
+    except Exception:
+        return "#FFFFFF"
+
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
     categories = sorted(df[color_col].unique())
@@ -4116,16 +4140,19 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
                 lambda l: wrap_label_by_words(l, words_per_line=4)
             )                  
         
+        bar_color = category_colors.get(cat, "#660094")  # fallback color if category missing
+        label_color = readable_label_color(bar_color)
+
         fig.add_trace(go.Bar(
             x=df_cat[y] if not horizontal else df_cat[x],
             y=df_cat[x] if not horizontal else df_cat[y],
             name=cat,
             orientation='h' if horizontal else 'v',
-            marker_color=category_colors.get(cat, "#660094"),  # fallback color if category missing
+            marker_color=bar_color,
             text=df_cat[x],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='#1F2937' if category_colors.get(cat)==CHART_COLORS['Negative'] else 'white', size=11, family=CHART_FONT),
+            textfont=dict(color=label_color, size=11, family=CHART_FONT),
             marker_line=dict(color="rgba(255,255,255,0.72)", width=0.8),
             hovertemplate=f"<b>%{{y}}</b><br>{cat}: %{{x}} alerts<extra></extra>"
         ))
