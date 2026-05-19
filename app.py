@@ -6664,6 +6664,66 @@ def render_feature_restricted_notice(permission_label="This dashboard feature", 
     """, unsafe_allow_html=True)
 
 
+
+# ---------------- RESPONSIVE PLOTLY LAYOUT HELPER ----------------
+def apply_responsive_plotly_layout(fig, height=None):
+    """Apply safe responsive Plotly layout defaults without changing chart data."""
+    if fig is None:
+        return fig
+
+    try:
+        fig.update_layout(
+            autosize=True,
+            height=height or getattr(fig.layout, "height", None) or 480,
+            margin=dict(l=40, r=24, t=64, b=44),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(
+                family="Inter, Segoe UI, Arial, sans-serif",
+                size=12,
+                color="#475467",
+            ),
+            title=dict(
+                x=0.02,
+                xanchor="left",
+                font=dict(size=17, color="#101828"),
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=11, color="#475467"),
+            ),
+            hoverlabel=dict(
+                bgcolor="#FFFFFF",
+                bordercolor="#E4E7EC",
+                font=dict(color="#101828", size=12),
+            ),
+        )
+
+        fig.update_xaxes(
+            automargin=True,
+            showgrid=True,
+            gridcolor="#EEF0F4",
+            zeroline=False,
+            title_font=dict(size=12, color="#344054"),
+            tickfont=dict(size=11, color="#667085"),
+        )
+        fig.update_yaxes(
+            automargin=True,
+            showgrid=True,
+            gridcolor="#EEF0F4",
+            zeroline=False,
+            title_font=dict(size=12, color="#344054"),
+            tickfont=dict(size=11, color="#667085"),
+        )
+    except Exception:
+        pass
+
+    return fig
+
 def render_dashboard_plotly_chart(
     fig,
     *,
