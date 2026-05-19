@@ -3515,7 +3515,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
 
     fig.update_layout(
         title=dict(
-            text="Pathway: Restrictive actors → Restrective mechanism → Affected civil society group",
+            text="Pathway: Restrictive actors → Restrictive mechanism → Affected civil society group",
             x=0.02,
             xanchor="left",
             font=dict(size=15, family=CHART_FONT, color=CHART_TITLE_COLOR)
@@ -3622,7 +3622,7 @@ def render_analytical_flow_panel(df):
 
     st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="flow-section-label">Flow diagram</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups. Wider lines show where more alerts connect restrictive actors, restrictive mechanisms, and affected civil society groups under the selected filters.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="flow-section-note">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups. <br> Wider lines show where more alerts connect restrictive actors, restrictive mechanisms, and affected civil society groups under the selected filters.</div>', unsafe_allow_html=True)
     render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey")
 
 # ---------------- TOP-N BAR HELPER ----------------
