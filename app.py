@@ -8018,7 +8018,7 @@ with tab_map:
             }
             .map-intel-title {
                 font-size: 14px;
-                font-weight: 950;
+                font-weight: 750;
                 color: #2D0055;
                 margin-bottom: 4px;
                 letter-spacing: -0.3px;
@@ -8752,7 +8752,7 @@ with tab_map:
                             grid-template-columns: 1fr;
                         }}
                         .map-intel-title {{
-                            font-size: 19px;
+                            font-size: 14px;
                         }}
                     }}
                     </style>
