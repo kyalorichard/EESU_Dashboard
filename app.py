@@ -9104,7 +9104,7 @@ with tab_map:
                     .map-intel-title {{
                         color: #101828;
                         font-family: "Inter", "Segoe UI", Arial, sans-serif;
-                        font-size: 24px;
+                        font-size: 14px;
                         font-weight: 850;
                         letter-spacing: -0.02em;
                         line-height: 1.18;
