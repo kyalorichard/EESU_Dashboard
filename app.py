@@ -12933,6 +12933,247 @@ def _v2_render_status_bar(df):
     """, unsafe_allow_html=True)
 
 
+
+
+# ---------------- EXECUTIVE PLOT BUILDER HELPERS ----------------
+def _pb_is_date_series(series, min_valid_ratio=0.55):
+    """Return True when a column can be safely treated as a date/time field."""
+    try:
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return True
+        sample = series.dropna().astype(str).head(200)
+        if sample.empty:
+            return False
+        parsed = pd.to_datetime(sample, errors="coerce", infer_datetime_format=True)
+        return (parsed.notna().mean() >= float(min_valid_ratio))
+    except Exception:
+        return False
+
+
+def _pb_detect_fields(df):
+    """Detect numeric, categorical and date fields for the AI Copilot plot builder."""
+    fields = {"numeric": [], "categorical": [], "date": [], "all": []}
+    if df is None or df.empty:
+        return fields
+    for col in df.columns:
+        fields["all"].append(col)
+        s = df[col]
+        if pd.api.types.is_numeric_dtype(s):
+            fields["numeric"].append(col)
+        elif _pb_is_date_series(s):
+            fields["date"].append(col)
+        else:
+            nunique = s.dropna().astype(str).nunique()
+            if nunique <= max(200, int(len(df) * 0.45)):
+                fields["categorical"].append(col)
+            else:
+                fields["categorical"].append(col)
+    # Year/month fields are analytically useful as dates/categories even when numeric.
+    for special in ["year", "month", "month_name", "creation_date", "Date of submission"]:
+        if special in getattr(df, "columns", []) and special not in fields["categorical"]:
+            fields["categorical"].append(special)
+    fields["numeric"] = list(dict.fromkeys(fields["numeric"]))
+    fields["categorical"] = list(dict.fromkeys(fields["categorical"]))
+    fields["date"] = list(dict.fromkeys(fields["date"]))
+    return fields
+
+
+def _pb_clean_dimension_frame(df, cols):
+    """Clean and explode comma-separated dashboard fields used in plot builder charts."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+    out = df.copy()
+    multi_cols = [
+        "Actor of repression", "Subject of repression", "Mechanism of repression",
+        "Type of event", "enabling-principle", "alert-type"
+    ]
+    protected = {"Journalists, media and influencers": "Journalists__MEDIA__and__influencers"}
+    for col in [c for c in cols if c and c in out.columns]:
+        if col in multi_cols:
+            out[col] = out[col].fillna("").astype(str)
+            for label, placeholder in protected.items():
+                out[col] = out[col].str.replace(label, placeholder, regex=False)
+            out[col] = out[col].str.replace(r"VNSAs", "Violent non-state actors", regex=True)
+            out = out.assign(**{col: out[col].str.split(",")}).explode(col)
+            for label, placeholder in protected.items():
+                out[col] = out[col].astype(str).str.replace(placeholder, label, regex=False)
+        if not pd.api.types.is_numeric_dtype(out[col]) and not pd.api.types.is_datetime64_any_dtype(out[col]):
+            out[col] = out[col].fillna("").astype(str).str.strip()
+            out = out[(out[col] != "") & (~out[col].str.lower().isin(["nan", "none", "null"]))]
+    return out
+
+
+def _pb_prepare_plot_data(df, x_col, y_col=None, color_col=None, facet_col=None, agg="Count", top_n=10, date_grain="Year"):
+    """Prepare export-ready aggregated data for all plot-builder chart families."""
+    if df is None or df.empty or not x_col or x_col not in df.columns:
+        return pd.DataFrame(), x_col, "value"
+    group_cols = [x_col] + [c for c in [color_col, facet_col] if c and c != "None" and c in df.columns and c != x_col]
+    work = _pb_clean_dimension_frame(df, group_cols)
+    x_plot = x_col
+
+    if x_col in work.columns and _pb_is_date_series(work[x_col]):
+        dt = pd.to_datetime(work[x_col], errors="coerce")
+        grain = str(date_grain or "Year")
+        if grain == "Month":
+            work["__plot_period"] = dt.dt.to_period("M").astype(str)
+        elif grain == "Quarter":
+            work["__plot_period"] = dt.dt.to_period("Q").astype(str)
+        else:
+            work["__plot_period"] = dt.dt.year.astype("Int64").astype(str)
+        work = work[work["__plot_period"].notna() & (work["__plot_period"] != "<NA>")]
+        group_cols = ["__plot_period" if c == x_col else c for c in group_cols]
+        x_plot = "__plot_period"
+
+    agg = str(agg or "Count")
+    needs_y = agg != "Count"
+    if needs_y and (not y_col or y_col not in work.columns):
+        agg = "Count"
+        needs_y = False
+
+    if needs_y:
+        work["__y_numeric"] = pd.to_numeric(work[y_col], errors="coerce")
+        work = work[work["__y_numeric"].notna()]
+        agg_map = {"Sum": "sum", "Mean": "mean", "Median": "median", "Min": "min", "Max": "max"}
+        out = work.groupby(group_cols, dropna=False)["__y_numeric"].agg(agg_map.get(agg, "sum")).reset_index(name="value")
+    else:
+        out = work.groupby(group_cols, dropna=False).size().reset_index(name="value")
+
+    if out.empty:
+        return out, x_plot, "value"
+
+    # Top-N applies to the primary dimension only and preserves selected color/facet groups.
+    totals = out.groupby(x_plot, dropna=False)["value"].sum().sort_values(ascending=False)
+    keep = totals.head(int(top_n or 10)).index.tolist()
+    out = out[out[x_plot].isin(keep)].copy()
+    return out, x_plot, "value"
+
+
+def _pb_make_executive_plot(df, chart_type, x_col=None, y_col=None, color_col=None, facet_col=None, agg="Count", top_n=10,
+                            title=None, palette_name="EU SEE brand — Purple / Teal / Gold", primary_color="#660094",
+                            font_size=12, height=460, show_values=True, date_grain="Year"):
+    """Create the full executive Plotly figure and return figure, plot data and config."""
+    chart_type = _ai_normalize_chart_type(chart_type)
+    palette = _ai_palette_colors(palette_name)
+    title = title or f"{chart_type}: {x_col or 'selected field'}"
+    color_arg = None if not color_col or color_col == "None" else color_col
+    facet_arg = None if not facet_col or facet_col == "None" else facet_col
+
+    if df is None or df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available under the current filters.", x=0.5, y=0.5, showarrow=False)
+        return _ai_apply_plot_theme(fig, title, font_size, None, primary_color, height, showlegend=False), pd.DataFrame(), {}
+
+    plot_data, x_plot, value_col = _pb_prepare_plot_data(df, x_col, y_col, color_arg, facet_arg, agg, top_n, date_grain)
+    config = {
+        "chart_type": chart_type, "x_col": x_col, "y_col": y_col, "color_col": color_arg, "facet_col": facet_arg,
+        "aggregation": agg, "top_n": int(top_n or 10), "date_grain": date_grain, "title": title,
+        "palette": palette_name, "primary_color": primary_color, "font_size": int(font_size), "height": int(height),
+        "export_note": "This configuration can be reused with the current filtered EUSEE dashboard data."
+    }
+
+    try:
+        if chart_type in ["Histogram", "Box", "Violin"]:
+            raw = df.copy()
+            numeric_col = y_col if y_col and y_col in raw.columns else x_col
+            if not numeric_col or numeric_col not in raw.columns:
+                numeric_cols = _pb_detect_fields(raw).get("numeric", [])
+                numeric_col = numeric_cols[0] if numeric_cols else None
+            if not numeric_col:
+                raise ValueError("Select a numeric field for histogram, box, or violin charts.")
+            raw[numeric_col] = pd.to_numeric(raw[numeric_col], errors="coerce")
+            raw = raw[raw[numeric_col].notna()]
+            if chart_type == "Histogram":
+                fig = px.histogram(raw, x=numeric_col, color=color_arg if color_arg in raw.columns else None, facet_col=facet_arg if facet_arg in raw.columns else None, nbins=25, title=title, color_discrete_sequence=palette)
+            elif chart_type == "Box":
+                fig = px.box(raw, x=color_arg if color_arg in raw.columns else None, y=numeric_col, color=color_arg if color_arg in raw.columns else None, facet_col=facet_arg if facet_arg in raw.columns else None, points="outliers", title=title, color_discrete_sequence=palette)
+            else:
+                fig = px.violin(raw, x=color_arg if color_arg in raw.columns else None, y=numeric_col, color=color_arg if color_arg in raw.columns else None, facet_col=facet_arg if facet_arg in raw.columns else None, box=True, points="outliers", title=title, color_discrete_sequence=palette)
+            plot_data = raw[[c for c in [numeric_col, color_arg, facet_arg] if c and c in raw.columns]].copy()
+
+        elif chart_type == "Horizontal bar":
+            d = plot_data.sort_values(value_col, ascending=True)
+            fig = px.bar(d, x=value_col, y=x_plot, color=color_arg if color_arg in d.columns else None, facet_col=facet_arg if facet_arg in d.columns else None, orientation="h", text=value_col if show_values else None, title=title, color_discrete_sequence=palette)
+            if not color_arg:
+                fig.update_traces(marker_color=primary_color)
+
+        elif chart_type == "Vertical bar":
+            fig = px.bar(plot_data, x=x_plot, y=value_col, color=color_arg if color_arg in plot_data.columns else None, facet_col=facet_arg if facet_arg in plot_data.columns else None, text=value_col if show_values else None, title=title, color_discrete_sequence=palette)
+            if not color_arg:
+                fig.update_traces(marker_color=primary_color)
+            fig.update_xaxes(tickangle=-35)
+
+        elif chart_type in ["Grouped bar", "Stacked bar"]:
+            fig = px.bar(plot_data, x=x_plot, y=value_col, color=color_arg if color_arg in plot_data.columns else None, facet_col=facet_arg if facet_arg in plot_data.columns else None, barmode="group" if chart_type == "Grouped bar" else "stack", text=value_col if show_values else None, title=title, color_discrete_sequence=palette)
+            fig.update_xaxes(tickangle=-35)
+
+        elif chart_type == "Line":
+            fig = px.line(plot_data.sort_values(x_plot), x=x_plot, y=value_col, color=color_arg if color_arg in plot_data.columns else None, facet_col=facet_arg if facet_arg in plot_data.columns else None, markers=True, title=title, color_discrete_sequence=palette)
+            if not color_arg:
+                fig.update_traces(line=dict(color=primary_color, width=3), marker=dict(size=7))
+
+        elif chart_type == "Area":
+            fig = px.area(plot_data.sort_values(x_plot), x=x_plot, y=value_col, color=color_arg if color_arg in plot_data.columns else None, facet_col=facet_arg if facet_arg in plot_data.columns else None, title=title, color_discrete_sequence=palette)
+
+        elif chart_type == "Scatter":
+            d = plot_data.reset_index(drop=True)
+            d["rank"] = range(1, len(d) + 1)
+            fig = px.scatter(d, x="rank", y=value_col, color=color_arg if color_arg in d.columns else None, facet_col=facet_arg if facet_arg in d.columns else None, hover_name=x_plot, text=x_plot if show_values else None, title=title, color_discrete_sequence=palette)
+            fig.update_xaxes(title="Rank")
+
+        elif chart_type == "Bubble":
+            d = plot_data.reset_index(drop=True)
+            d["rank"] = range(1, len(d) + 1)
+            fig = px.scatter(d, x="rank", y=value_col, size=value_col, color=color_arg if color_arg in d.columns else x_plot, facet_col=facet_arg if facet_arg in d.columns else None, hover_name=x_plot, size_max=44, title=title, color_discrete_sequence=palette)
+            fig.update_xaxes(title="Rank")
+
+        elif chart_type == "Pie":
+            fig = px.pie(plot_data.groupby(x_plot, as_index=False)[value_col].sum(), names=x_plot, values=value_col, hole=0, title=title, color_discrete_sequence=palette)
+            fig.update_traces(textposition="inside", textinfo="percent+label")
+
+        elif chart_type == "Donut":
+            fig = px.pie(plot_data.groupby(x_plot, as_index=False)[value_col].sum(), names=x_plot, values=value_col, hole=0.55, title=title, color_discrete_sequence=palette)
+            fig.update_traces(textposition="inside", textinfo="percent+label")
+
+        elif chart_type == "Treemap":
+            path = [c for c in [facet_arg, color_arg, x_plot] if c and c in plot_data.columns]
+            fig = px.treemap(plot_data, path=path or [x_plot], values=value_col, title=title, color_discrete_sequence=palette)
+
+        elif chart_type == "Sunburst":
+            path = [c for c in [facet_arg, color_arg, x_plot] if c and c in plot_data.columns]
+            fig = px.sunburst(plot_data, path=path or [x_plot], values=value_col, title=title, color_discrete_sequence=palette)
+
+        elif chart_type == "Heatmap":
+            y_heat = color_arg if color_arg and color_arg in plot_data.columns else facet_arg if facet_arg and facet_arg in plot_data.columns else None
+            if y_heat:
+                matrix = plot_data.pivot_table(index=x_plot, columns=y_heat, values=value_col, aggfunc="sum", fill_value=0)
+            else:
+                matrix = plot_data[[x_plot, value_col]].set_index(x_plot)
+            fig = px.imshow(matrix, text_auto=True if show_values else False, aspect="auto", title=title, color_continuous_scale=_ai_heatmap_scale())
+
+        else:
+            fig = px.bar(plot_data, x=x_plot, y=value_col, color=color_arg if color_arg in plot_data.columns else None, text=value_col if show_values else None, title=title, color_discrete_sequence=palette)
+            if not color_arg:
+                fig.update_traces(marker_color=primary_color)
+
+        fig = _ai_apply_plot_theme(fig, title, font_size, None, primary_color, height, showlegend=bool(color_arg), palette=palette, legend_position="Top", show_grid=True, theme="Clean white")
+        try:
+            fig.update_traces(texttemplate="%{text}", textposition="outside", selector=dict(type="bar"))
+        except Exception:
+            pass
+        return fig, plot_data, config
+    except Exception as e:
+        fig = go.Figure()
+        fig.add_annotation(text=f"Plot could not be generated: {e}", x=0.5, y=0.5, showarrow=False)
+        return _ai_apply_plot_theme(fig, title, font_size, None, primary_color, height, showlegend=False), plot_data, config
+
+
+def _pb_config_json(config):
+    try:
+        return json.dumps(config or {}, indent=2, ensure_ascii=False, default=str)
+    except Exception:
+        return "{}"
+
+
 def render_ai_assistant_panel(df):
     """Final lightweight AI Copilot: simple ChatGPT-style assistant with compact tools."""
     st.session_state.setdefault("copilot_open", True)
@@ -13207,30 +13448,140 @@ def render_ai_assistant_panel(df):
             st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
             tool = st.radio(
                 "Tool",
+                options=["Quick plot", "Explain chart", "Export / settings"],
                 horizontal=True,
                 key="ai_lite_tool_choice",
             )
 
             if tool == "Quick plot":
-                dims = _v2_safe_get_dims(df)
-                if not dims:
-                    st.info("No suitable plotting dimensions are available under the current filters.")
+                fields = _pb_detect_fields(df)
+                all_fields = fields.get("all", [])
+                numeric_fields = fields.get("numeric", [])
+                categorical_fields = fields.get("categorical", [])
+                date_fields = fields.get("date", [])
+
+                if not all_fields:
+                    st.info("No suitable plotting fields are available under the current filters.")
                 else:
-                    label_to_col = {label: col for label, col in dims}
-                    labels = list(label_to_col.keys())
+                    st.markdown(
+                        "<div class='ai-lite-hint'><b>Plot builder included:</b> bar, horizontal bar, line, area, scatter, bubble, histogram, box, violin, pie, donut, treemap, sunburst, heatmap, smart field detection, Top-N, aggregation, color grouping, faceting, executive Plotly styling and export-ready chart config.</div>",
+                        unsafe_allow_html=True,
+                    )
+                    chart_options = [
+                        "Vertical bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble",
+                        "Histogram", "Box", "Violin", "Pie", "Donut", "Treemap", "Sunburst", "Heatmap",
+                    ]
                     c1, c2 = st.columns(2)
                     with c1:
-                        dim_label = st.selectbox("Variable", labels, key="ai_lite_plot_dim")
-                        chart_type = st.selectbox("Chart", ["Horizontal bar", "Vertical bar", "Line", "Donut", "Heatmap", "Treemap"], key="ai_lite_plot_type")
+                        chart_type = st.selectbox("Chart type", chart_options, key="ai_lite_plot_type_full")
+                        x_options = date_fields + [c for c in categorical_fields if c not in date_fields] + [c for c in numeric_fields if c not in categorical_fields]
+                        x_col = st.selectbox("X / category / date field", x_options or all_fields, key="ai_lite_plot_x")
+                        agg = st.selectbox("Aggregation", ["Count", "Sum", "Mean", "Median", "Min", "Max"], key="ai_lite_plot_agg")
                     with c2:
-                        top_n = st.slider("Top N", 5, 30, 10, key="ai_lite_top_n")
-                        group_label = st.selectbox("Group by", ["None"] + [x for x in labels if x != dim_label], key="ai_lite_group_by")
-                    if st.button("Generate chart", key="ai_lite_generate_chart", use_container_width=True):
-                        group_txt = "" if group_label == "None" else f" grouped by {label_to_col[group_label]}"
-                        plot_prompt = f"Create a {chart_type} chart of {label_to_col[dim_label]}{group_txt} top {top_n}. Use a clean professional dashboard style."
-                        _copilot_queue_answer(plot_prompt, df)
-                        st.rerun()
+                        y_col = st.selectbox("Numeric value field", ["None"] + numeric_fields, key="ai_lite_plot_y")
+                        y_col = None if y_col == "None" else y_col
+                        color_col = st.selectbox("Color grouping", ["None"] + [c for c in all_fields if c != x_col], key="ai_lite_plot_color_group")
+                        facet_col = st.selectbox("Small multiples / facet", ["None"] + [c for c in all_fields if c not in [x_col, color_col]], key="ai_lite_plot_facet")
 
+                    c3, c4, c5 = st.columns(3)
+                    with c3:
+                        top_n = st.slider("Top N", 3, 50, 10, key="ai_lite_plot_top_n_full")
+                    with c4:
+                        date_grain = st.selectbox("Date grouping", ["Year", "Quarter", "Month"], key="ai_lite_plot_date_grain")
+                    with c5:
+                        show_values = st.toggle("Show value labels", value=True, key="ai_lite_plot_show_values_full")
+
+                    s1, s2 = st.columns(2)
+                    with s1:
+                        palette_name = st.selectbox("Executive palette", list(AI_PLOT_PALETTES.keys()), index=0, key="ai_lite_plot_palette")
+                        primary_color = st.text_input("Primary HEX color", value="#660094", key="ai_lite_plot_primary_hex")
+                    with s2:
+                        font_size = st.slider("Font size", 9, 22, 12, key="ai_lite_plot_font_size_full")
+                        height = st.slider("Chart height", 320, 760, 460, step=20, key="ai_lite_plot_height_full")
+
+                    default_title = f"{chart_type}: {x_col}" if agg == "Count" else f"{chart_type}: {agg} of {y_col or 'value'} by {x_col}"
+                    plot_title = st.text_input("Chart title", value=default_title, key="ai_lite_plot_title_full")
+
+                    # Some chart types require numeric variables. Use safe defaults rather than failing silently.
+                    if chart_type in ["Histogram", "Box", "Violin"] and not y_col:
+                        y_col = numeric_fields[0] if numeric_fields else x_col
+                    if agg != "Count" and not y_col:
+                        st.warning("Select a numeric value field for Sum, Mean, Median, Min or Max. The plot will use Count until a numeric field is selected.")
+
+                    final_color = primary_color.strip() if re.match(r"^#[0-9a-fA-F]{6}$", str(primary_color).strip()) else "#660094"
+                    fig, plot_data, export_config = _pb_make_executive_plot(
+                        df=df,
+                        chart_type=chart_type,
+                        x_col=x_col,
+                        y_col=y_col,
+                        color_col=color_col,
+                        facet_col=facet_col,
+                        agg=agg,
+                        top_n=top_n,
+                        title=plot_title,
+                        palette_name=palette_name,
+                        primary_color=final_color,
+                        font_size=font_size,
+                        height=height,
+                        show_values=show_values,
+                        date_grain=date_grain,
+                    )
+
+                    if has_permission("view_chart_ai_copilot_plots"):
+                        st.plotly_chart(apply_responsive_plotly_layout(fig), use_container_width=True, key="ai_lite_plot_builder_full_preview")
+                    else:
+                        render_permission_locked_card("AI Copilot plot builder", "view_chart_ai_copilot_plots")
+
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button("Explain generated chart", key="ai_lite_explain_full_plot", use_container_width=True):
+                            explanation = eusee_local_chart_interpretation(
+                                plot_data if isinstance(plot_data, pd.DataFrame) else pd.DataFrame(),
+                                chart_type=chart_type,
+                                x_col="__plot_period" if "__plot_period" in getattr(plot_data, "columns", []) else x_col,
+                                group_col=None if color_col == "None" else color_col,
+                                dashboard_df=df,
+                                title=plot_title,
+                            )
+                            st.session_state.ai_smart_output = {"type": "plot explanation", "title": plot_title, "content": explanation}
+                            _ai_append_message("assistant", explanation)
+                            st.rerun()
+                    with b2:
+                        if st.button("Save to smart output", key="ai_lite_save_full_plot", use_container_width=True):
+                            st.session_state.ai_smart_output = {
+                                "type": "plot_v2",
+                                "title": plot_title,
+                                "content": "Saved from the executive plot builder.",
+                                "fig": fig,
+                                "plot_data": plot_data,
+                                "config": export_config,
+                                "interpretation": "Saved chart. Use the export panel below to download the chart data or configuration.",
+                            }
+                            st.rerun()
+
+                    with st.expander("Export-ready chart assets", expanded=False):
+                        st.dataframe(plot_data, use_container_width=True, hide_index=True, height=220, key="ai_lite_plot_builder_full_data")
+                        d1, d2 = st.columns(2)
+                        with d1:
+                            st.download_button(
+                                "Download chart data (.csv)",
+                                data=plot_data.to_csv(index=False).encode("utf-8") if isinstance(plot_data, pd.DataFrame) else b"",
+                                file_name="eusee_plot_builder_data.csv",
+                                mime="text/csv",
+                                use_container_width=True,
+                                key="ai_lite_download_plot_builder_data",
+                            )
+                        with d2:
+                            st.download_button(
+                                "Download chart config (.json)",
+                                data=_pb_config_json(export_config).encode("utf-8"),
+                                file_name="eusee_plot_builder_config.json",
+                                mime="application/json",
+                                use_container_width=True,
+                                key="ai_lite_download_plot_builder_config",
+                            )
+
+            elif tool == "Explain chart":
                 render_chatbot_dashboard_chart_explainer(df)
 
             else:
