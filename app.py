@@ -1297,96 +1297,11 @@ def monitored_countries_display_value(value) -> str:
         return "0"
 
 
-# ---------------- AUTH ROUTING STATE ----------------
-# Dashboard opens normally. When the user clicks Sign in / Access,
-# this flag routes to the premium sign-in view.
-st.session_state.setdefault("auth_view", False)
+# ---------------- AUTH STATE NOTES ----------------
+# Authentication is handled by the existing sidebar/auth components.
+# Restricted feature cards intentionally do not route users to a separate auth view.
 st.session_state.setdefault("auth_mode", "Login")
 st.session_state.setdefault("auth_reset_open", False)
-
-# If a valid session exists, never keep the login route open.
-if is_authenticated():
-    st.session_state.auth_view = False
-
-# Dedicated sign-in route. Render authentication as a normal page route, not as a modal overlay.
-# This prevents the dashboard from becoming blurred, dimmed, or unreachable during login.
-if st.session_state.get("auth_view", False) and not is_authenticated():
-    st.markdown("""
-    <style>
-    /* Force the login route to stay usable even if auth_ui or cached CSS tries to behave like a modal. */
-    html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container {
-        filter: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        pointer-events: auto !important;
-        opacity: 1 !important;
-    }
-
-    /* Neutralize Streamlit dialog / modal backdrops that can blur and block the dashboard. */
-    div[data-testid="stDialog"],
-    div[role="dialog"],
-    .stDialog,
-    [data-testid="stModal"],
-    .modal-backdrop,
-    .modal-overlay,
-    .overlay,
-    [class*="backdrop"],
-    [class*="modal"] {
-        filter: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        pointer-events: auto !important;
-    }
-
-    /* Login page shell: clean, centered, and independent from the dashboard behind it. */
-    .eusee-login-route-shell {
-        max-width: 760px;
-        margin: 24px auto 18px auto;
-        padding: 18px 20px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
-        border: 1px solid rgba(102,0,148,.14);
-        box-shadow: 0 14px 34px rgba(16,24,40,.08);
-        font-family: Arial, sans-serif;
-    }
-    .eusee-login-route-eyebrow {
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-        color: #660094;
-        margin-bottom: 5px;
-    }
-    .eusee-login-route-title {
-        font-size: 24px;
-        font-weight: 950;
-        color: #23152F;
-        line-height: 1.15;
-        margin-bottom: 6px;
-    }
-    .eusee-login-route-note {
-        font-size: 12.5px;
-        color: #667085;
-        line-height: 1.45;
-    }
-    </style>
-
-    <div class="eusee-login-route-shell">
-        <div class="eusee-login-route-eyebrow">Privileged access</div>
-        <div class="eusee-login-route-title">EUSEE Dashboard Sign in / Register</div>
-        <div class="eusee-login-route-note">
-            Sign in to access advanced features and analyses available to EUSEE partners.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    auth_ui()
-
-    if st.button("← Back to dashboard", use_container_width=True, key="back_to_dashboard_from_login"):
-        st.session_state.auth_view = False
-        st.rerun()
-
-    st.stop()
 
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
@@ -2731,9 +2646,7 @@ def render_sidebar_access_settings_profile():
                 from auth import logout
                 logout()
         else:
-            if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_login_btn"):
-                st.session_state.auth_view = True
-                st.rerun()
+            st.caption("Sign-in routing has been disabled. Contact the dashboard administrator for access or enable the preferred authentication entry point in auth.py.")
 
 
 render_sidebar_access_settings_profile()
@@ -6667,7 +6580,7 @@ def render_access_locked(section_title: str, required_level: str = "logged-in us
         permission_key=str(required_level),
         required_role=str(required_level).title(),
         feature_icon="🔐",
-        feature_description="This section is not available for your current access level. Sign in with an approved account or contact an administrator if you need access.",
+        feature_description="This section is not available for your current access level. Use the sidebar access controls or contact an administrator if this feature should be enabled for your account.",
         compact=False,
     )
 
@@ -6679,6 +6592,30 @@ def can_render_feature(permission_key: str) -> bool:
     except Exception:
         return False
 
+
+
+
+# Central chart/map privilege catalogue. Every visual listed here is rendered
+# through render_dashboard_plotly_chart() or render_permission_locked_card() so
+# restricted users see the same polished locked-state card instead of a plain message.
+RESTRICTED_VISUAL_PERMISSION_LABELS = {
+    "view_chart_overview_alert_type": "Overview alert type distribution",
+    "view_chart_overview_enabling_principles": "Overview enabling-principle distribution",
+    "view_chart_overview_regions": "Overview regional distribution",
+    "view_chart_overview_countries": "Overview country distribution",
+    "view_chart_negative_restrictive_actors": "Restrictive actors chart",
+    "view_chart_negative_affected_actors": "Civil society actors affected chart",
+    "view_chart_negative_restrictive_mechanisms": "Restrictive mechanisms chart",
+    "view_chart_negative_event_types": "Negative event types chart",
+    "view_chart_negative_alert_types": "Negative alert types chart",
+    "view_chart_negative_enabling_principles": "Negative enabling-principles chart",
+    "view_chart_heatmap_actor_mechanism": "Actor × mechanism heatmap",
+    "view_chart_heatmap_subject_mechanism": "Affected actor × mechanism heatmap",
+    "view_chart_heatmap_actor_subject": "Actor × affected actor heatmap",
+    "view_chart_sankey_flow": "Analytical Sankey flow",
+    "view_chart_geospatial_map": "Geospatial intelligence map",
+    "view_chart_ai_copilot_plots": "AI Copilot plots",
+}
 
 def render_permission_locked_card(
     section_title: str,
@@ -6692,23 +6629,16 @@ def render_permission_locked_card(
 ):
     """Polished access-state card for restricted tabs, charts, maps, tools and downloads."""
     target = container if container is not None else st
-    current_role = _safe_current_role()
-    required_role = required_role or _required_role_for_permission(permission_key)
     feature_icon = feature_icon or _access_icon_for_permission(permission_key)
-    session_label = "Authenticated session" if is_authenticated() else "Guest session"
-    badge_class = "eusee-access-badge success" if is_authenticated() else "eusee-access-badge"
+    session_label = "Restricted access"
+    badge_class = "eusee-access-badge"
     action_copy = (
-        "Contact an administrator to request this permission for your account."
-        if is_authenticated()
-        else "Sign in with an approved EUSEE account to request or unlock this capability."
+        "Use the User Privilege Center or contact an administrator if this feature should be enabled for your account."
     )
-    description = feature_description or "This dashboard component is restricted by the active role and permission settings."
+    description = feature_description or "This dashboard component is restricted by the active permission settings."
     card_class = "eusee-access-card compact" if compact else "eusee-access-card"
 
     safe_title = _html_escape(section_title)
-    safe_permission = _html_escape(permission_key)
-    safe_role = _html_escape(current_role)
-    safe_required = _html_escape(required_role)
     safe_description = _html_escape(description)
     safe_session = _html_escape(session_label)
     safe_action = _html_escape(action_copy)
@@ -6724,20 +6654,6 @@ def render_permission_locked_card(
                 <div class="eusee-access-copy">{safe_description}</div>
             </div>
         </div>
-        <div class="eusee-access-meta-grid">
-            <div class="eusee-access-meta-card">
-                <span class="eusee-access-meta-label">Current role</span>
-                <strong class="eusee-access-meta-value">{safe_role}</strong>
-            </div>
-            <div class="eusee-access-meta-card">
-                <span class="eusee-access-meta-label">Required permission</span>
-                <strong class="eusee-access-meta-value">{safe_permission}</strong>
-            </div>
-            <div class="eusee-access-meta-card">
-                <span class="eusee-access-meta-label">Recommended access</span>
-                <strong class="eusee-access-meta-value">{safe_required}</strong>
-            </div>
-        </div>
         <div class="eusee-access-actions">
             <div class="{badge_class}">{safe_session}</div>
             <div class="eusee-access-action-copy">{safe_action}</div>
@@ -6745,18 +6661,6 @@ def render_permission_locked_card(
     </div>
     """, unsafe_allow_html=True)
 
-    if not is_authenticated():
-        cols = target.columns([1, 1.2, 1])
-        with cols[1]:
-            if st.button(
-                f"🔐 Sign in to access {section_title}",
-                key=f"signin_{permission_key}_{abs(hash(section_title))}",
-                use_container_width=True,
-            ):
-                st.session_state.auth_view = True
-                st.rerun()
-    else:
-        target.caption("Access is managed from the administrator privilege center.")
 
 
 def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
@@ -13685,8 +13589,16 @@ def render_ai_assistant_panel(df):
             unsafe_allow_html=True,
         )
         if out.get("type") == "plot_v2" and out.get("fig") is not None:
-            if has_permission("view_chart_ai_copilot_plots"):
-                st.plotly_chart(apply_responsive_plotly_layout(out["fig"]), use_container_width=True, key="ai_lite_smart_plot")
+            if can_render_feature("view_chart_ai_copilot_plots"):
+                render_dashboard_plotly_chart(
+                    out["fig"],
+                    plot_df=out.get("plot_data") if isinstance(out.get("plot_data"), pd.DataFrame) else None,
+                    visual_type="AI Copilot generated plot",
+                    dashboard_df=df,
+                    key="ai_lite_smart_plot",
+                    permission_key="view_chart_ai_copilot_plots",
+                    permission_label="AI Copilot generated plot",
+                )
                 interp = out.get("interpretation") or out.get("content", "")
                 if interp:
                     st.markdown(_render_chat_content_html(str(interp)[:3500]), unsafe_allow_html=True)
@@ -13709,7 +13621,12 @@ def render_ai_assistant_panel(df):
                             base_name="eusee_ai_copilot_plot",
                         )
             else:
-                render_permission_locked_card("AI Copilot generated plots", "view_chart_ai_copilot_plots")
+                render_permission_locked_card(
+                    "AI Copilot generated plot",
+                    "view_chart_ai_copilot_plots",
+                    feature_icon="📊",
+                    feature_description="Generated AI Copilot plots are restricted by the active dashboard permission settings.",
+                )
         else:
             st.markdown(_render_chat_content_html(str(out.get("content", ""))[:5000]), unsafe_allow_html=True)
         st.markdown("<div class='ai-lite-footer-note'>Answers use the current dashboard filters. Counts may reflect both event frequency and reporting coverage.</div></div>", unsafe_allow_html=True)
@@ -13798,10 +13715,25 @@ def render_ai_assistant_panel(df):
                         date_grain=date_grain,
                     )
 
-                    if has_permission("view_chart_ai_copilot_plots"):
-                        st.plotly_chart(apply_responsive_plotly_layout(fig), use_container_width=True, key="ai_lite_plot_builder_full_preview")
+                    if can_render_feature("view_chart_ai_copilot_plots"):
+                        render_dashboard_plotly_chart(
+                            fig,
+                            plot_df=plot_data if isinstance(plot_data, pd.DataFrame) else None,
+                            visual_type="AI Copilot plot builder preview",
+                            x_col=x_col,
+                            group_col=None if color_col == "None" else color_col,
+                            dashboard_df=df,
+                            key="ai_lite_plot_builder_full_preview",
+                            permission_key="view_chart_ai_copilot_plots",
+                            permission_label="AI Copilot plot builder preview",
+                        )
                     else:
-                        render_permission_locked_card("AI Copilot plot builder", "view_chart_ai_copilot_plots")
+                        render_permission_locked_card(
+                            "AI Copilot plot builder preview",
+                            "view_chart_ai_copilot_plots",
+                            feature_icon="📊",
+                            feature_description="Custom AI-generated plot previews are restricted by the active dashboard permission settings.",
+                        )
 
                     b1, b2 = st.columns(2)
                     with b1:
