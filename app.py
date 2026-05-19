@@ -6429,32 +6429,247 @@ def extract_country_from_plotly_click(clicked_events):
     return None
 
 
-# ---------------- ACCESS LOCKED CARD ----------------
-def render_access_locked(section_title: str, required_level: str = "logged-in user"):
-    """Render a premium locked-state card for guest/viewer restrictions."""
-    current_role = get_current_role()
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg,#FFFFFF 0%,#F7ECFB 70%,#EFFBFE 100%);
-        border: 1px solid rgba(102,0,148,.16);
-        border-radius: 20px;
-        padding: 22px 24px;
-        box-shadow: 0 14px 34px rgba(16,24,40,.08);
-        font-family: Arial, sans-serif;
+# ---------------- EXECUTIVE ACCESS STATE CARDS ----------------
+def inject_access_state_card_css():
+    """Central polished access-state styling for restricted tabs, charts, maps and tools."""
+    st.markdown("""
+    <style>
+    .eusee-access-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 22px;
+        border: 1px solid rgba(102,0,148,.14);
+        background:
+            radial-gradient(circle at top right, rgba(102,0,148,.07), transparent 30%),
+            linear-gradient(135deg, #FFFFFF 0%, #FCFAFF 100%);
+        padding: 22px;
         margin: 10px 0 18px 0;
-    ">
-        <div style="font-size:10px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
-            Restricted section
-        </div>
-        <div style="font-size:24px;font-weight:950;color:#23152F;margin-top:6px;font-family:Arial Black,Arial,sans-serif;">
-            🔐 {section_title} is not available for your current access level
-        </div>
-        <div style="font-size:12px;color:#667085;line-height:1.45;margin-top:8px;max-width:820px;">
-            Your current role is <strong>{current_role}</strong>. This section requires {required_level} access.
-            Sign in with an approved account or contact an administrator if you need access.
-        </div>
-    </div>
+        box-shadow: 0 16px 40px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.95);
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+    }
+    .eusee-access-card.compact {
+        border-radius: 18px;
+        padding: 17px 18px;
+        margin: 6px 0 14px 0;
+        box-shadow: 0 10px 24px rgba(16,24,40,.06), inset 0 1px 0 rgba(255,255,255,.95);
+    }
+    .eusee-access-topbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(90deg, #660094 0%, #8E24AA 50%, #008CAA 100%);
+    }
+    .eusee-access-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+    .eusee-access-card.compact .eusee-access-header {
+        gap: 12px;
+        margin-bottom: 13px;
+    }
+    .eusee-access-icon {
+        width: 62px;
+        height: 62px;
+        min-width: 62px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+        border: 1px solid rgba(102,0,148,.10);
+    }
+    .eusee-access-card.compact .eusee-access-icon {
+        width: 46px;
+        height: 46px;
+        min-width: 46px;
+        border-radius: 15px;
+        font-size: 21px;
+    }
+    .eusee-access-eyebrow {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        color: #660094;
+        margin-bottom: 5px;
+    }
+    .eusee-access-title {
+        font-size: 21px;
+        font-weight: 950;
+        line-height: 1.12;
+        color: #23152F;
+        margin-bottom: 7px;
+    }
+    .eusee-access-card.compact .eusee-access-title {
+        font-size: 16px;
+        margin-bottom: 5px;
+    }
+    .eusee-access-copy {
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: #667085;
+        max-width: 820px;
+        font-weight: 550;
+    }
+    .eusee-access-card.compact .eusee-access-copy {
+        font-size: 11.5px;
+        line-height: 1.42;
+    }
+    .eusee-access-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .eusee-access-card.compact .eusee-access-meta-grid {
+        gap: 8px;
+        margin-bottom: 13px;
+    }
+    .eusee-access-meta-card {
+        border-radius: 16px;
+        border: 1px solid #E7D4F1;
+        background: rgba(255,255,255,.84);
+        padding: 14px;
+    }
+    .eusee-access-card.compact .eusee-access-meta-card {
+        border-radius: 13px;
+        padding: 10px 11px;
+    }
+    .eusee-access-meta-label {
+        display: block;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #6941C6;
+        margin-bottom: 6px;
+    }
+    .eusee-access-meta-value {
+        font-size: 13px;
+        font-weight: 850;
+        color: #23152F;
+        word-break: break-word;
+    }
+    .eusee-access-card.compact .eusee-access-meta-label {
+        font-size: 9px;
+        margin-bottom: 4px;
+    }
+    .eusee-access-card.compact .eusee-access-meta-value {
+        font-size: 11.5px;
+    }
+    .eusee-access-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding-top: 14px;
+        border-top: 1px solid #EEF0F4;
+    }
+    .eusee-access-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #F4EAF8;
+        border: 1px solid #E7D4F1;
+        color: #660094;
+        font-size: 11px;
+        font-weight: 850;
+        white-space: nowrap;
+    }
+    .eusee-access-badge.success {
+        background: #ECFDF3;
+        border-color: #ABEFC6;
+        color: #067647;
+    }
+    .eusee-access-action-copy {
+        font-size: 11.5px;
+        color: #667085;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+    @media (max-width: 900px) {
+        .eusee-access-header { flex-direction: column; }
+        .eusee-access-meta-grid { grid-template-columns: 1fr; }
+        .eusee-access-title { font-size: 18px; }
+        .eusee-access-card { padding: 18px; }
+    }
+    </style>
     """, unsafe_allow_html=True)
+
+
+inject_access_state_card_css()
+
+
+def _safe_current_role() -> str:
+    try:
+        role = str(get_current_role() or "guest").replace("_", " ").strip()
+        return role.title() if role else "Guest"
+    except Exception:
+        return "Guest"
+
+
+def _access_icon_for_permission(permission_key: str) -> str:
+    key = str(permission_key or "").lower()
+    if "ai" in key or "copilot" in key:
+        return "🤖"
+    if "map" in key or "geo" in key:
+        return "🗺️"
+    if "sankey" in key or "flow" in key:
+        return "🔄"
+    if "heatmap" in key:
+        return "🔥"
+    if "download" in key or "export" in key:
+        return "⬇️"
+    if "country" in key or "countries" in key:
+        return "🌍"
+    if "admin" in key:
+        return "🛡️"
+    if "chart" in key or "plot" in key:
+        return "📊"
+    return "🔒"
+
+
+def _required_role_for_permission(permission_key: str, fallback: str = "Privileged User") -> str:
+    key = str(permission_key or "").lower()
+    if "admin" in key:
+        return "Administrator"
+    if "download" in key:
+        return "Approved Export User"
+    if "ai" in key or "copilot" in key:
+        return "Privileged AI User"
+    if "map" in key or "geo" in key or "chart" in key or "plot" in key or "heatmap" in key or "sankey" in key:
+        return "Privileged Analyst"
+    return fallback
+
+
+def _html_escape(value) -> str:
+    return (
+        str(value)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#x27;")
+    )
+
+
+def render_access_locked(section_title: str, required_level: str = "logged-in user"):
+    """Render a premium restricted-section card for full tabs or major panels."""
+    render_permission_locked_card(
+        section_title=section_title,
+        permission_key=str(required_level),
+        required_role=str(required_level).title(),
+        feature_icon="🔐",
+        feature_description="This section is not available for your current access level. Sign in with an approved account or contact an administrator if you need access.",
+        compact=False,
+    )
 
 
 def can_render_feature(permission_key: str) -> bool:
@@ -6465,27 +6680,83 @@ def can_render_feature(permission_key: str) -> bool:
         return False
 
 
-def render_permission_locked_card(section_title: str, permission_key: str, container=None):
-    """Compact locked-state card used inside chart containers and feature panels."""
+def render_permission_locked_card(
+    section_title: str,
+    permission_key: str,
+    container=None,
+    *,
+    required_role: str | None = None,
+    feature_icon: str | None = None,
+    feature_description: str | None = None,
+    compact: bool = True,
+):
+    """Polished access-state card for restricted tabs, charts, maps, tools and downloads."""
     target = container if container is not None else st
-    current_role = get_current_role()
+    current_role = _safe_current_role()
+    required_role = required_role or _required_role_for_permission(permission_key)
+    feature_icon = feature_icon or _access_icon_for_permission(permission_key)
+    session_label = "Authenticated session" if is_authenticated() else "Guest session"
+    badge_class = "eusee-access-badge success" if is_authenticated() else "eusee-access-badge"
+    action_copy = (
+        "Contact an administrator to request this permission for your account."
+        if is_authenticated()
+        else "Sign in with an approved EUSEE account to request or unlock this capability."
+    )
+    description = feature_description or "This dashboard component is restricted by the active role and permission settings."
+    card_class = "eusee-access-card compact" if compact else "eusee-access-card"
+
+    safe_title = _html_escape(section_title)
+    safe_permission = _html_escape(permission_key)
+    safe_role = _html_escape(current_role)
+    safe_required = _html_escape(required_role)
+    safe_description = _html_escape(description)
+    safe_session = _html_escape(session_label)
+    safe_action = _html_escape(action_copy)
+
     target.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
-        border: 1px dashed rgba(102,0,148,.24);
-        border-radius: 16px;
-        padding: 16px 18px;
-        margin: 6px 0 14px 0;
-        font-family: Arial, sans-serif;
-        box-shadow: 0 8px 18px rgba(16,24,40,.045);
-    ">
-        <div style="font-size:10px;font-weight:950;color:#660094;letter-spacing:.12em;text-transform:uppercase;">Restricted feature</div>
-        <div style="font-size:15px;font-weight:950;color:#23152F;margin-top:5px;">🔐 {section_title}</div>
-        <div style="font-size:11px;color:#667085;line-height:1.4;margin-top:5px;">
-            Current role: <strong>{current_role}</strong>. Required permission: <code>{permission_key}</code>.
+    <div class="{card_class}">
+        <div class="eusee-access-topbar"></div>
+        <div class="eusee-access-header">
+            <div class="eusee-access-icon">{feature_icon}</div>
+            <div class="eusee-access-heading-block">
+                <div class="eusee-access-eyebrow">Restricted feature</div>
+                <div class="eusee-access-title">{safe_title}</div>
+                <div class="eusee-access-copy">{safe_description}</div>
+            </div>
+        </div>
+        <div class="eusee-access-meta-grid">
+            <div class="eusee-access-meta-card">
+                <span class="eusee-access-meta-label">Current role</span>
+                <strong class="eusee-access-meta-value">{safe_role}</strong>
+            </div>
+            <div class="eusee-access-meta-card">
+                <span class="eusee-access-meta-label">Required permission</span>
+                <strong class="eusee-access-meta-value">{safe_permission}</strong>
+            </div>
+            <div class="eusee-access-meta-card">
+                <span class="eusee-access-meta-label">Recommended access</span>
+                <strong class="eusee-access-meta-value">{safe_required}</strong>
+            </div>
+        </div>
+        <div class="eusee-access-actions">
+            <div class="{badge_class}">{safe_session}</div>
+            <div class="eusee-access-action-copy">{safe_action}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    if not is_authenticated():
+        cols = target.columns([1, 1.2, 1])
+        with cols[1]:
+            if st.button(
+                f"🔐 Sign in to access {section_title}",
+                key=f"signin_{permission_key}_{abs(hash(section_title))}",
+                use_container_width=True,
+            ):
+                st.session_state.auth_view = True
+                st.rerun()
+    else:
+        target.caption("Access is managed from the administrator privilege center.")
 
 
 def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
