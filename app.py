@@ -6743,7 +6743,20 @@ def render_permission_locked_card(
             <div class="eusee-access-action-copy">{safe_action}</div>
         </div>
     </div>
-   
+    """, unsafe_allow_html=True)
+
+    if not is_authenticated():
+        cols = target.columns([1, 1.2, 1])
+        with cols[1]:
+            if st.button(
+                f"🔐 Sign in to access {section_title}",
+                key=f"signin_{permission_key}_{abs(hash(section_title))}",
+                use_container_width=True,
+            ):
+                st.session_state.auth_view = True
+                st.rerun()
+    else:
+        target.caption("Access is managed from the administrator privilege center.")
 
 
 def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
