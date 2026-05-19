@@ -2516,182 +2516,24 @@ def inject_sidebar_filter_alignment_fix_css():
 inject_sidebar_filter_alignment_fix_css()
 
 
-# ---------------- STABLE SIDEBAR ICON + MULTISELECT FIX ----------------
-def inject_sidebar_icon_and_multiselect_stability_css():
-    """Stabilize Streamlit sidebar icons and keep multiselect controls visually compact.
-
-    This version avoids global icon/font overrides. It targets only:
-    - the sidebar collapse/shrink control,
-    - sidebar expander arrows,
-    - BaseWeb select/multiselect arrows and clear icons,
-    - the visual typed-search slot inside sidebar multiselects.
-
-    The internal multiselect input is visually hidden, not removed, so Streamlit/BaseWeb
-    selection behavior remains stable.
-    """
+# ---------------- HARD FIX: MULTISELECT SEARCH INPUT + SIDEBAR COLLAPSE ICON ----------------
+def inject_sidebar_multiselect_and_collapse_hardfix_css():
+    """Hide BaseWeb multiselect typed-search artifacts and restore visible sidebar collapse/shrink controls."""
     st.markdown("""
     <style>
-    /* ================================================================
-       1) Sidebar collapse / shrink button: stable sizing without breaking icons
-       ================================================================ */
-    button[data-testid="collapsedControl"],
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapseButton"] {
-        position: fixed !important;
-        top: 10px !important;
-        left: 12px !important;
-        z-index: 2147483000 !important;
-        width: 38px !important;
-        height: 38px !important;
-        min-width: 38px !important;
-        min-height: 38px !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border-radius: 12px !important;
-        border: 1px solid #E6E8EF !important;
-        background: #FFFFFF !important;
-        color: #660094 !important;
-        box-shadow: 0 8px 20px rgba(16,24,40,.12) !important;
-        overflow: visible !important;
-        text-indent: 0 !important;
-        line-height: 1 !important;
-        font-size: 0 !important;
-    }
-
-    button[data-testid="collapsedControl"] svg,
-    [data-testid="collapsedControl"] svg,
-    [data-testid="stSidebarCollapseButton"] svg {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        width: 18px !important;
-        height: 18px !important;
-        min-width: 18px !important;
-        min-height: 18px !important;
-        max-width: 18px !important;
-        max-height: 18px !important;
-        flex: 0 0 18px !important;
-        color: #660094 !important;
-        fill: currentColor !important;
-        stroke: currentColor !important;
-        transform: none !important;
-    }
-
-    /* Hide raw Material-symbol text only inside the collapse control. */
-    button[data-testid="collapsedControl"] span,
-    [data-testid="collapsedControl"] span,
-    [data-testid="stSidebarCollapseButton"] span {
-        font-size: 0 !important;
-        line-height: 0 !important;
-        color: transparent !important;
-        max-width: 0 !important;
-        overflow: hidden !important;
-    }
-
-    /* Fallback icon appears only if Streamlit renders text instead of an SVG. */
-    button[data-testid="collapsedControl"]:not(:has(svg))::after,
-    [data-testid="collapsedControl"]:not(:has(svg))::after,
-    [data-testid="stSidebarCollapseButton"]:not(:has(svg))::after {
-        content: "≡" !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 18px !important;
-        height: 18px !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 20px !important;
-        line-height: 1 !important;
-        font-weight: 900 !important;
-        color: #660094 !important;
-    }
-
-    /* ================================================================
-       2) Sidebar expander arrows: protect SVG size and alignment
-       ================================================================ */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 8px !important;
-        min-height: 42px !important;
-        padding: 10px 12px !important;
-        line-height: 1.15 !important;
-        overflow: hidden !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
-        margin: 0 !important;
-        padding: 0 !important;
-        font-size: 12.5px !important;
-        line-height: 1.15 !important;
-        font-weight: 950 !important;
-        color: #23152F !important;
-        min-width: 0 !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg {
-        display: block !important;
-        width: 16px !important;
-        height: 16px !important;
-        min-width: 16px !important;
-        min-height: 16px !important;
-        max-width: 16px !important;
-        max-height: 16px !important;
-        flex: 0 0 16px !important;
-        margin: 0 !important;
-        color: #660094 !important;
-        fill: currentColor !important;
-        stroke: currentColor !important;
-    }
-
-    /* ================================================================
-       3) BaseWeb select/multiselect icons: never inherit large/small text sizes
-       ================================================================ */
-    section[data-testid="stSidebar"] [data-baseweb="select"] svg {
-        display: block !important;
-        width: 16px !important;
-        height: 16px !important;
-        min-width: 16px !important;
-        min-height: 16px !important;
-        max-width: 16px !important;
-        max-height: 16px !important;
-        flex: 0 0 16px !important;
-        color: #667085 !important;
-        fill: currentColor !important;
-        stroke: currentColor !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
-        min-height: 38px !important;
-        padding: 3px 8px !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 4px !important;
-        box-sizing: border-box !important;
-    }
-
-    /* ================================================================
-       4) Multiselect typed-search surface: visually hidden, behavior preserved
-       ================================================================ */
+    /* ===== HARD FIX 1: REMOVE MULTISELECT TYPED-SEARCH VISUAL ARTIFACTS =====
+       Streamlit/BaseWeb keeps an internal input inside multiselect for keyboard filtering.
+       We hide the visible typing surface in the sidebar while preserving dropdown selection behavior. */
     section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input,
     section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] textarea {
         position: absolute !important;
-        left: -10000px !important;
+        left: -9999px !important;
         top: auto !important;
-        width: 1px !important;
-        min-width: 1px !important;
-        max-width: 1px !important;
-        height: 1px !important;
-        min-height: 1px !important;
-        max-height: 1px !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
         padding: 0 !important;
         margin: 0 !important;
         border: 0 !important;
@@ -2703,106 +2545,295 @@ def inject_sidebar_icon_and_multiselect_stability_css():
         pointer-events: none !important;
     }
 
-    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input::placeholder,
-    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] textarea::placeholder {
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input::placeholder {
         color: transparent !important;
         opacity: 0 !important;
     }
 
+    /* Hide the BaseWeb input container that creates the blank typing/search slot. */
     section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] div[class*="InputContainer"],
     section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] div[class*="InputWrapper"],
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] div[class*="Input"],
     section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] div[data-baseweb="base-input"] {
-        width: 1px !important;
-        min-width: 1px !important;
-        max-width: 1px !important;
-        flex: 0 0 1px !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        flex: 0 0 0 !important;
         padding: 0 !important;
         margin: 0 !important;
         overflow: hidden !important;
         opacity: 0 !important;
+        visibility: hidden !important;
     }
 
-    section[data-testid="stSidebar"] [data-baseweb="tag"] {
-        min-height: 22px !important;
-        margin: 2px 4px 2px 0 !important;
+    /* Keep selected chips and dropdown arrow aligned after hiding the internal input. */
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] > div {
+        display: flex !important;
+        align-items: center !important;
+        min-height: 38px !important;
+        padding: 4px 8px !important;
+        gap: 4px !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] {
+        flex: 0 1 auto !important;
+    }
+
+    /* If no chips are selected, keep a professional compact empty state without a search box. */
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] > div:has(input) {
+        min-height: 38px !important;
+    }
+
+    /* ===== HARD FIX 2: MAKE SIDEBAR SHRINK/COLLAPSE ICON VISIBLE ===== */
+    button[data-testid="collapsedControl"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"],
+    button[aria-label*="sidebar" i],
+    button[title*="sidebar" i] {
         display: inline-flex !important;
         align-items: center !important;
-        max-width: 100% !important;
+        justify-content: center !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+        border-radius: 12px !important;
+        border: 1px solid #E6E8EF !important;
+        background: #FFFFFF !important;
+        color: #660094 !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.12) !important;
+        z-index: 2147482000 !important;
+        overflow: visible !important;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
     }
 
-    section[data-testid="stSidebar"] [data-baseweb="tag"] span {
-        max-width: 135px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
+    button[data-testid="collapsedControl"] svg,
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapseButton"] svg,
+    button[aria-label*="sidebar" i] svg,
+    button[title*="sidebar" i] svg {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 18px !important;
+        height: 18px !important;
+        color: #660094 !important;
+        fill: currentColor !important;
+        stroke: currentColor !important;
+    }
+
+    /* Prevent Material icon text fallbacks from leaking as raw words in the sidebar control. */
+    button[data-testid="collapsedControl"] span,
+    [data-testid="collapsedControl"] span,
+    [data-testid="stSidebarCollapseButton"] span {
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+
+    button[data-testid="collapsedControl"] span::before,
+    [data-testid="collapsedControl"] span::before,
+    [data-testid="stSidebarCollapseButton"] span::before {
+        content: "☰" !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 18px !important;
+        height: 18px !important;
+        font-size: 16px !important;
+        line-height: 1 !important;
+        color: #660094 !important;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+        font-weight: 900 !important;
     }
 
     @media (max-width: 700px) {
         button[data-testid="collapsedControl"],
         [data-testid="collapsedControl"],
         [data-testid="stSidebarCollapseButton"] {
-            top: 9px !important;
-            left: 10px !important;
             width: 36px !important;
             height: 36px !important;
             min-width: 36px !important;
             min-height: 36px !important;
+            top: 9px !important;
+            left: 10px !important;
         }
     }
     </style>
     """, unsafe_allow_html=True)
 
 
-inject_sidebar_icon_and_multiselect_stability_css()
+inject_sidebar_multiselect_and_collapse_hardfix_css()
 
-
-# ---------------- TARGETED SIDEBAR DOM CLEANUP: RAW ICON TEXT ONLY ----------------
-def inject_sidebar_icon_text_cleanup():
-    """Remove raw Material icon fallback text without suppressing legitimate sidebar icons."""
+# ---------------- ABSOLUTE SIDEBAR DOM CLEANUP: ICON TEXT + MULTISELECT SEARCH ----------------
+def inject_sidebar_dom_cleanup_hardfix():
+    """Remove Streamlit Material icon text fallbacks and suppress sidebar multiselect typing surfaces."""
     components.html(r"""
     <script>
     (function() {
         const doc = window.parent.document;
+        const STYLE_ID = "eusee-sidebar-dom-cleanup-style";
         const ICON_TEXT_RE = /(keyboard_double_arrow_[a-z_]+|keyboard_arrow_[a-z_]+|arrow_drop_[a-z_]+|chevron_[a-z_]+|_arrow_[a-z_]+)/gi;
 
-        function cleanIconText(root) {
+        const oldStyle = doc.getElementById(STYLE_ID);
+        if (oldStyle) oldStyle.remove();
+
+        const style = doc.createElement("style");
+        style.id = STYLE_ID;
+        style.innerHTML = `
+            /* Hide raw Material icon fallback text that appears when icon fonts do not load. */
+            section[data-testid="stSidebar"] .material-icons,
+            section[data-testid="stSidebar"] .material-icons-outlined,
+            section[data-testid="stSidebar"] .material-symbols-outlined,
+            section[data-testid="stSidebar"] .material-symbols-rounded,
+            section[data-testid="stSidebar"] .material-symbols-sharp {
+                font-size: 0 !important;
+                line-height: 0 !important;
+                color: transparent !important;
+                width: 0 !important;
+                max-width: 0 !important;
+                overflow: hidden !important;
+            }
+
+            /* Rebuild the sidebar collapse/shrink control as a clean icon button. */
+            button[data-testid="collapsedControl"],
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapseButton"] {
+                font-size: 0 !important;
+                color: transparent !important;
+                text-indent: -9999px !important;
+                overflow: hidden !important;
+                position: fixed !important;
+                top: 10px !important;
+                left: 12px !important;
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px !important;
+                min-height: 38px !important;
+                border-radius: 12px !important;
+                border: 1px solid #E6E8EF !important;
+                background: #FFFFFF !important;
+                box-shadow: 0 8px 20px rgba(16,24,40,.12) !important;
+                z-index: 2147483000 !important;
+            }
+            button[data-testid="collapsedControl"]::after,
+            [data-testid="collapsedControl"]::after,
+            [data-testid="stSidebarCollapseButton"]::after {
+                content: "☰" !important;
+                position: absolute !important;
+                inset: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-indent: 0 !important;
+                font-size: 18px !important;
+                line-height: 1 !important;
+                color: #660094 !important;
+                font-family: Arial, sans-serif !important;
+                font-weight: 900 !important;
+            }
+            button[data-testid="collapsedControl"] *,
+            [data-testid="collapsedControl"] *,
+            [data-testid="stSidebarCollapseButton"] * {
+                opacity: 0 !important;
+                color: transparent !important;
+                font-size: 0 !important;
+            }
+
+            /* Remove the visible typed-search area from sidebar multiselects. */
+            section[data-testid="stSidebar"] .stMultiSelect input,
+            section[data-testid="stSidebar"] .stMultiSelect textarea {
+                position: absolute !important;
+                left: -10000px !important;
+                width: 0 !important;
+                min-width: 0 !important;
+                max-width: 0 !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                opacity: 0 !important;
+                color: transparent !important;
+                caret-color: transparent !important;
+                pointer-events: none !important;
+            }
+            section[data-testid="stSidebar"] .stMultiSelect input::placeholder {
+                color: transparent !important;
+                opacity: 0 !important;
+            }
+            section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] > div {
+                min-height: 36px !important;
+                padding: 3px 8px !important;
+                display: flex !important;
+                align-items: center !important;
+                cursor: pointer !important;
+            }
+
+            /* Dashboard filter expander: keep title clean and aligned. */
+            section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                min-height: 42px !important;
+                padding: 10px 12px !important;
+                overflow: hidden !important;
+            }
+            section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 12.5px !important;
+                line-height: 1.15 !important;
+                font-weight: 950 !important;
+                color: #23152F !important;
+            }
+        `;
+        doc.head.appendChild(style);
+
+        function removeIconFallbackText(root) {
             if (!root) return;
             const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
             const nodes = [];
             while (walker.nextNode()) nodes.push(walker.currentNode);
             nodes.forEach(function(node) {
-                const value = node.nodeValue || "";
-                if (ICON_TEXT_RE.test(value)) {
-                    node.nodeValue = value.replace(ICON_TEXT_RE, "").trimStart();
+                if (ICON_TEXT_RE.test(node.nodeValue || "")) {
+                    node.nodeValue = (node.nodeValue || "").replace(ICON_TEXT_RE, "").replace(/^\s+/, "");
                 }
             });
         }
 
-        function cleanSidebarControls() {
+        function cleanSidebar() {
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (sidebar) cleanIconText(sidebar);
+            if (!sidebar) return;
+
+            removeIconFallbackText(sidebar);
+
+            sidebar.querySelectorAll('.stMultiSelect input, .stMultiSelect textarea').forEach(function(input) {
+                input.setAttribute('readonly', 'readonly');
+                input.setAttribute('tabindex', '-1');
+                input.setAttribute('aria-hidden', 'true');
+                input.setAttribute('placeholder', '');
+                input.value = '';
+            });
 
             doc.querySelectorAll('button[data-testid="collapsedControl"], [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"]').forEach(function(btn) {
                 btn.setAttribute('aria-label', 'Toggle sidebar');
                 btn.setAttribute('title', 'Toggle sidebar');
-                cleanIconText(btn);
-            });
-
-            doc.querySelectorAll('section[data-testid="stSidebar"] .stMultiSelect input, section[data-testid="stSidebar"] .stMultiSelect textarea').forEach(function(input) {
-                input.setAttribute('placeholder', '');
-                input.setAttribute('aria-label', 'Select filter values');
+                removeIconFallbackText(btn);
             });
         }
 
-        cleanSidebarControls();
-        const observer = new MutationObserver(cleanSidebarControls);
+        cleanSidebar();
+        const observer = new MutationObserver(function() { cleanSidebar(); });
         observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
     })();
     </script>
     """, height=1, width=1)
 
 
-inject_sidebar_icon_text_cleanup()
+inject_sidebar_dom_cleanup_hardfix()
 
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
