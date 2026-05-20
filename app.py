@@ -707,84 +707,52 @@ inject_all_tabs_typography_css()
 
 # ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
 def inject_compact_dashboard_spacing_css():
-    """Force-remove vertical gaps around the dashboard title/subtitle only."""
+    """Remove excess vertical gaps around the intro block, tabs, and footer."""
     st.markdown("""
     <style>
-    /* Keep page top tight. Later CSS blocks cannot reintroduce title whitespace. */
-    .main .block-container,
-    section.main .block-container,
-    [data-testid="stAppViewContainer"] .main .block-container {
-        padding-top: 0rem !important;
+    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
+    .main .block-container {
+        padding-top: 0.25rem !important;
+        padding-bottom: 3.25rem !important;
     }
 
-    /* Target only the custom dashboard title markdown block. */
-    #eusee-dashboard-title-root,
-    #eusee-dashboard-title-root * {
-        box-sizing: border-box !important;
-    }
-
-    #eusee-dashboard-title-root {
-        display: block !important;
-        overflow: hidden !important;
-        margin: 0rem 0rem 0rem 0rem !important;
-        padding: 0rem !important;
-        line-height: 1 !important;
-    }
-
-    #eusee-dashboard-title-root .animated-title {
-        display: block !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 0.98 !important;
-    }
-
-    #eusee-dashboard-title-root .animated-divider {
-        display: block !important;
+    /* Compact dashboard title and intro block. */
+    .animated-title {
         margin-top: 0rem !important;
-        margin-bottom: 0.10rem !important;
-        padding: 0rem !important;
-        line-height: 1 !important;
+        margin-bottom: 0.20rem !important;
     }
-
-    #eusee-dashboard-title-root .animated-subtitle {
-        display: block !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1.34 !important;
-    }
-
-    /* Remove spacing from Streamlit wrappers only when they contain the title root. */
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root),
-    div[data-testid="stElementContainer"]:has(#eusee-dashboard-title-root),
-    div[data-testid="stVerticalBlock"] > div:has(#eusee-dashboard-title-root) {
+    .animated-divider {
         margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
+        margin-bottom: 0.30rem !important;
+    }
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0.45rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
 
-    /* Remove default h1 top/bottom spacing only for this dashboard title. */
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) h1,
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) p {
-        margin-block-start: 0rem !important;
-        margin-block-end: 0rem !important;
-        padding-block-start: 0rem !important;
-        padding-block-end: 0rem !important;
-    }
-
-    /* Keep tabs close to the intro without changing tab content spacing. */
+    /* Remove excess gap between the intro text and the tab bar / tab content. */
     [data-testid="stTabs"] {
-        margin-top: 0.08rem !important;
+        margin-top: 0rem !important;
         padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
     }
-
     [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
+        margin-top: 0rem !important;
+        margin-bottom: 0.35rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    [data-testid="stTabs"] [role="tabpanel"],
+    div[data-testid="stTabs"] div[role="tabpanel"] {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
 
-    /* Keep footer compact as in the previous script. */
+    /* Remove Streamlit-generated vertical spacing before the footer image. */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
@@ -793,6 +761,11 @@ def inject_compact_dashboard_spacing_css():
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
+    .main .block-container > div:last-child,
+    div[data-testid="stVerticalBlock"] > div:last-child {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
     div[data-testid="stVerticalBlock"] > div:empty {
         display: none !important;
     }
@@ -800,7 +773,6 @@ def inject_compact_dashboard_spacing_css():
     """, unsafe_allow_html=True)
 
 inject_compact_dashboard_spacing_css()
-
 
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
@@ -1489,82 +1461,83 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
-<div id="eusee-dashboard-title-root" style="overflow:hidden;margin:0;padding:0;line-height:1;">
-    <h1 class="animated-title">EU SEE Dashboard</h1>
-    <div class="animated-divider"></div>
-    <div class="animated-subtitle">
-        This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-        It aggregates information reported by Network Members across 86 countries to document trends
-        in the enabling environment for civil society.
-    </div>
+<!-- Container for animations -->
+<div style="overflow: hidden;">
+
+<h1 class="animated-title">
+    EU SEE Dashboard
+</h1>
+
+<!-- Animated divider -->
+<div class="animated-divider"></div>
+
+<div class="animated-subtitle">
+    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
+    It aggregates information reported by Network Members across 86 countries to document trends 
+    in the enabling environment for civil society.
+</div>
+
+
 </div>
 
 <style>
 /* ---------------- Title ---------------- */
-#eusee-dashboard-title-root {{
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    line-height: 1 !important;
-}}
-
-#eusee-dashboard-title-root .animated-title {{
-    margin: 0 !important;
-    padding: 0 !important;
-    line-height: 0.98 !important;
+.animated-title {{
+    margin: 0 0 4px 0 !important;
+    line-height: 1.05;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
     font-weight: 700;
     opacity: 0;
-    transform: none;
-    animation: titleFadeSlide 0.55s ease-out forwards;
-    animation-delay: 0.05s;
+    transform: translateY(-20px);
+    animation: titleFadeSlide 0.8s ease-out forwards;
+    animation-delay: 0.2s;
 }}
 
+/* Title animation */
 @keyframes titleFadeSlide {{
-    from {{ opacity: 0; transform: none; }}
-    to   {{ opacity: 1; transform: none; }}
+    from {{ opacity: 0; transform: translateY(-20px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
 }}
 
 /* ---------------- Divider ---------------- */
-#eusee-dashboard-title-root .animated-divider {{
+.animated-divider {{
     width: 15%;
     max-width: 120px;
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin: 0rem 0rem 0.10rem 0rem !important;
-    padding: 0 !important;
+    margin-bottom: 10px !important;
     opacity: 0;
-    transform: translateX(-80%);
-    animation: dividerSlide 0.65s ease-out forwards;
-    animation-delay: 0.25s;
+    transform: translateX(-120%);
+    animation: dividerSlide 1s ease-out forwards;
+    animation-delay: 0.6s;
 }}
 
 @keyframes dividerSlide {{
-    from {{ transform: translateX(-80%); opacity: 0; }}
+    from {{ transform: translateX(-120%); opacity: 0; }}
     to   {{ transform: translateX(0); opacity: 1; }}
 }}
 
 /* ---------------- Subtitle ---------------- */
-#eusee-dashboard-title-root .animated-subtitle {{
+.animated-subtitle {{
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin: 0 !important;
-    padding: 0 !important;
+    margin-bottom: 12px !important;
     max-width: 980px;
-    line-height: 1.34 !important;
+    line-height: 1.5;
     opacity: 0;
-    animation: subtitleFade 0.55s ease-out forwards;
-    animation-delay: 0.45s;
+    animation: subtitleFade 0.8s ease-out forwards;
+    animation-delay: 1.0s;
 }}
 
 @keyframes subtitleFade {{
     from {{ opacity: 0; }}
     to   {{ opacity: 1; }}
 }}
+
 
 /* ---------------- Last updated badge ---------------- */
 .last-updated-badge {{
@@ -1622,200 +1595,9 @@ st.markdown(f"""
     font-size: 10.5px;
     font-weight: 700;
 }}
+
 </style>
 """, unsafe_allow_html=True)
-
-
-
-# ---------------- HARD ZERO GAP FIX: TITLE WRAPPER + MAIN TAB LAYOUT ----------------
-def inject_hard_zero_title_tab_gap_fix():
-    """Final hard override for the visible gap above the dashboard title and below subtitle.
-
-    This targets only:
-    - Streamlit header/top spacer above the main page body
-    - the Streamlit wrappers that contain the custom dashboard title
-    - the first/main tab container that appears immediately after the title block
-
-    It does not change chart cards, KPI cards, sidebar controls, chatbot components,
-    map/plot internals, or tab content spacing inside individual tabs.
-    """
-    st.markdown("""
-    <style>
-    /* 1) Remove Streamlit's fixed top header space above the title. */
-    header[data-testid="stHeader"] {
-        height: 0rem !important;
-        min-height: 0rem !important;
-        max-height: 0rem !important;
-        padding: 0rem !important;
-        margin: 0rem !important;
-        border: 0rem !important;
-        background: transparent !important;
-        overflow: hidden !important;
-    }
-
-    div[data-testid="stToolbar"],
-    div[data-testid="stDecoration"],
-    div[data-testid="stStatusWidget"] {
-        margin-top: 0rem !important;
-    }
-
-    /* 2) Force the main page body to start at the top. */
-    .main,
-    section.main,
-    [data-testid="stAppViewContainer"] .main,
-    .main .block-container,
-    section.main .block-container,
-    [data-testid="stAppViewContainer"] .main .block-container {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    .main .block-container > div:first-child,
-    .main .block-container div[data-testid="stVerticalBlock"]:first-child,
-    .main .block-container div[data-testid="stVerticalBlock"] > div:first-child {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    /* 3) The title block itself: no top or bottom whitespace. */
-    #eusee-dashboard-title-root,
-    #eusee-dashboard-title-root * {
-        box-sizing: border-box !important;
-    }
-
-    #eusee-dashboard-title-root {
-        display: block !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1 !important;
-        overflow: hidden !important;
-    }
-
-    #eusee-dashboard-title-root .animated-title {
-        display: block !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 0.92 !important;
-        transform: none !important;
-    }
-
-    #eusee-dashboard-title-root .animated-divider {
-        display: block !important;
-        margin: 0rem 0rem 0.06rem 0rem !important;
-        padding: 0rem !important;
-        line-height: 1 !important;
-    }
-
-    #eusee-dashboard-title-root .animated-subtitle {
-        display: block !important;
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1.25 !important;
-    }
-
-    /* 4) Remove margins/padding from Streamlit wrappers containing only the title. */
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root),
-    div[data-testid="stElementContainer"]:has(#eusee-dashboard-title-root),
-    div[data-testid="stVerticalBlock"] > div:has(#eusee-dashboard-title-root) {
-        margin: 0rem !important;
-        padding: 0rem !important;
-        min-height: 0rem !important;
-    }
-
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) h1,
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) p,
-    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) div {
-        margin-block-start: 0rem !important;
-        margin-block-end: 0rem !important;
-        padding-block-start: 0rem !important;
-        padding-block-end: 0rem !important;
-    }
-
-    /* 5) Main tab container close to subtitle. Applied conservatively to wrapper spacing. */
-    div[data-testid="stTabs"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    div[data-testid="stTabs"] > div:first-child,
-    div[data-testid="stTabs"] div[role="tablist"],
-    div[data-testid="stTabs"] [role="tablist"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    components.html("""
-    <script>
-    (function() {
-        const doc = window.parent.document;
-
-        function zeroBox(el) {
-            if (!el) return;
-            el.style.setProperty('margin-top', '0px', 'important');
-            el.style.setProperty('margin-bottom', '0px', 'important');
-            el.style.setProperty('padding-top', '0px', 'important');
-            el.style.setProperty('padding-bottom', '0px', 'important');
-            el.style.setProperty('min-height', '0px', 'important');
-        }
-
-        function applyZeroGapFix() {
-            const title = doc.getElementById('eusee-dashboard-title-root');
-            if (!title) return;
-
-            // Remove spacing from title and its closest Streamlit containers.
-            zeroBox(title);
-            let node = title.parentElement;
-            for (let i = 0; i < 8 && node; i++) {
-                zeroBox(node);
-                node = node.parentElement;
-            }
-
-            // Remove top gap from page body containers.
-            doc.querySelectorAll('.main, .main .block-container, section.main .block-container').forEach(zeroBox);
-
-            // Collapse Streamlit's top header height.
-            const header = doc.querySelector('header[data-testid="stHeader"]');
-            if (header) {
-                header.style.setProperty('height', '0px', 'important');
-                header.style.setProperty('min-height', '0px', 'important');
-                header.style.setProperty('max-height', '0px', 'important');
-                header.style.setProperty('border', '0px', 'important');
-                header.style.setProperty('overflow', 'hidden', 'important');
-            }
-
-            // Find the first tabs block after the title in document order and remove only its top gap.
-            const tabs = Array.from(doc.querySelectorAll('div[data-testid="stTabs"]'))
-                .find(el => title.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
-
-            if (tabs) {
-                zeroBox(tabs);
-                const tabList = tabs.querySelector('[role="tablist"]');
-                if (tabList) {
-                    tabList.style.setProperty('margin-top', '0px', 'important');
-                    tabList.style.setProperty('padding-top', '0px', 'important');
-                }
-
-                // Remove gap from the Streamlit wrappers between title and the first tabs block.
-                let parent = tabs.parentElement;
-                for (let i = 0; i < 6 && parent; i++) {
-                    parent.style.setProperty('margin-top', '0px', 'important');
-                    parent.style.setProperty('padding-top', '0px', 'important');
-                    parent = parent.parentElement;
-                }
-            }
-        }
-
-        applyZeroGapFix();
-        setTimeout(applyZeroGapFix, 100);
-        setTimeout(applyZeroGapFix, 500);
-        setTimeout(applyZeroGapFix, 1200);
-    })();
-    </script>
-    """, height=0, width=0)
-
-inject_hard_zero_title_tab_gap_fix()
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
@@ -7916,7 +7698,7 @@ def inject_final_responsive_tab_text_ux():
         gap: 8px !important;
         width: 100% !important;
         max-width: 100% !important;
-        padding: 0px 0 4px 0 !important;
+        padding: 5px 0 9px 0 !important;
         margin: 0 0 4px 0 !important;
         overflow-x: hidden !important;
         overflow-y: visible !important;
@@ -8005,7 +7787,7 @@ def inject_final_responsive_tab_text_ux():
         width: 100% !important;
         max-width: 100% !important;
         overflow-x: hidden !important;
-        padding-top: 0px !important;
+        padding-top: 10px !important;
     }
 
     /* Tablet: two-column tab grid with readable wrapped labels. */
