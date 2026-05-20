@@ -705,83 +705,47 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- ULTRA-COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
-def inject_ultra_compact_spacing_css():
-    """Remove excessive vertical spacing before the primary tabs and footer.
-
-    Keep this as the final spacing override after the dashboard title markup,
-    because Streamlit and the title CSS both inject their own margins.
-    """
+# ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
+def inject_compact_dashboard_spacing_css():
+    """Remove excess vertical gaps around the intro block, tabs, and footer."""
     st.markdown("""
     <style>
-    /* Main page container: compact top area and footer area. */
+    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
     .main .block-container {
-        padding-top: 0.15rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 3.25rem !important;
     }
 
-    /* Reduce Streamlit's generated vertical gaps without affecting widgets. */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0rem !important;
-    }
-    div[data-testid="stVerticalBlock"] > div:empty {
-        display: none !important;
-    }
-
-    /* Dashboard title/introduction: remove accumulated title-to-tabs space. */
+    /* Compact dashboard title and intro block. */
     .animated-title {
         margin-top: 0rem !important;
-        margin-bottom: 0.08rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.0 !important;
+        margin-bottom: 0.20rem !important;
     }
     .animated-divider {
         margin-top: 0rem !important;
-        margin-bottom: 0.14rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
+        margin-bottom: 0.30rem !important;
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
+        margin-bottom: 0.35rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
-        line-height: 1.32 !important;
     }
 
-    /* Tighten the Markdown element that contains the title/subtitle block. */
-    .element-container:has(.animated-title),
-    .element-container:has(.animated-subtitle) {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    /* Remove excess gap before the tab bar. */
-    [data-testid="stTabs"],
-    div[data-testid="stTabs"] {
-        margin-top: -0.55rem !important;
+    /* Remove excess gap between the intro text and the tab bar / tab content. */
+    [data-testid="stTabs"] {
+        margin-top: 0rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
-
     [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
-        margin-bottom: 0.15rem !important;
+        margin-bottom: 0.35rem !important;
         padding-top: 0rem !important;
-        padding-bottom: 0.25rem !important;
-        min-height: auto !important;
+        padding-bottom: 0rem !important;
     }
-
-    [data-testid="stTabs"] [role="tab"],
-    div[data-testid="stTabs"] button[role="tab"] {
-        padding-top: 0.42rem !important;
-        padding-bottom: 0.42rem !important;
-        min-height: 38px !important;
-    }
-
     [data-testid="stTabs"] [role="tabpanel"],
     div[data-testid="stTabs"] div[role="tabpanel"] {
         margin-top: 0rem !important;
@@ -802,8 +766,13 @@ def inject_ultra_compact_spacing_css():
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
+    div[data-testid="stVerticalBlock"] > div:empty {
+        display: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+
+inject_compact_dashboard_spacing_css()
 
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
@@ -1629,10 +1598,6 @@ st.markdown(f"""
 
 </style>
 """, unsafe_allow_html=True)
-
-
-# Apply this after the title markup so it wins over title-level CSS margins.
-inject_ultra_compact_spacing_css()
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
@@ -6867,20 +6832,13 @@ st.markdown(
     <style>
     /* Stable tab styling: target only the tab bar, not the full tab component.
        This prevents tab changes from causing continuous page scrolling/layout jumps. */
-    div[data-testid="stTabs"] {
-        margin-top: -0.55rem !important;
-        padding-top: 0rem !important;
-    }
-
     div[data-testid="stTabs"] [role="tablist"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 8px;
+        gap: 10px;
         background: #ffffff;
         border-bottom: 1px solid #E8E2EF;
-        margin-top: 0 !important;
-        margin-bottom: 0.15rem !important;
-        padding: 0 0 4px 0 !important;
+        padding: 0 0 8px 0;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -6888,8 +6846,8 @@ st.markdown(
 
     div[data-testid="stTabs"] [role="tab"] {
         width: 100% !important;
-        min-height: 38px !important;
-        padding: 7px 12px !important;
+        min-height: 44px !important;
+        padding: 10px 12px !important;
         margin: 0 !important;
         border-radius: 12px 12px 8px 8px !important;
         background: #F8F7FB !important;
@@ -6918,8 +6876,7 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
+        padding-top: 8px !important;
     }
     </style>
     """,
