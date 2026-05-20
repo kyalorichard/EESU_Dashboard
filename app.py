@@ -1601,19 +1601,17 @@ st.markdown(f"""
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
-
-
-# ---------------- CLEAN COMPACT TITLE / TAB SPACING ----------------
+# ---------------- COMPACT TITLE / TAB SPACING FIX ----------------
 st.markdown("""
 <style>
 
-/* Remove top whitespace */
+/* Remove excess top page spacing */
 .main .block-container {
     padding-top: 0rem !important;
     margin-top: 0rem !important;
 }
 
-/* Remove iframe spacing from floating feedback widget */
+/* Remove reserved iframe space from floating feedback component */
 iframe[title="streamlit.components.v1.html"] {
     height: 0px !important;
     min-height: 0px !important;
@@ -1627,11 +1625,12 @@ div[data-testid="stIFrame"] {
     height: 0px !important;
     min-height: 0px !important;
     max-height: 0px !important;
+    border: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
 }
 
-/* Tight title spacing */
+/* Tight dashboard title */
 .animated-title {
     margin-top: -0.45rem !important;
     margin-bottom: 0rem !important;
@@ -1643,16 +1642,16 @@ div[data-testid="stIFrame"] {
 /* Tight divider */
 .animated-divider {
     margin-top: 0rem !important;
-    margin-bottom: 0.12rem !important;
+    margin-bottom: 0.1rem !important;
 }
 
 /* Tight subtitle */
 .animated-subtitle {
     margin-top: 0rem !important;
-    margin-bottom: -0.65rem !important;
+    margin-bottom: -0.7rem !important;
     padding-top: 0rem !important;
     padding-bottom: 0rem !important;
-    line-height: 1.2 !important;
+    line-height: 1.18 !important;
 }
 
 /* Pull tabs upward */
