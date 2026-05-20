@@ -113,6 +113,48 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
+st.markdown("""
+<style>
+
+/* FORCE REMOVE TOP PAGE SPACE */
+.main .block-container,
+section.main .block-container,
+[data-testid="stAppViewContainer"] .main .block-container {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* REMOVE STREAMLIT TOP WRAPPER GAP */
+div[data-testid="stVerticalBlock"] > div:first-child {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}
+
+/* REMOVE SPACE ABOVE TITLE */
+.animated-title{
+    margin-top: -1.15rem !important;
+    padding-top: 0rem !important;
+}
+
+/* REMOVE HEADER BOTTOM GAP */
+header[data-testid="stHeader"]{
+    height: 48px !important;
+    min-height: 48px !important;
+    margin-bottom: 0rem !important;
+    padding-bottom: 0rem !important;
+}
+
+/* REMOVE EXTRA EMPTY ELEMENTS */
+div[data-testid="stElementContainer"]:empty,
+div[data-testid="stMarkdownContainer"]:empty {
+    display: none !important;
+    height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
 def configure_global_plotly_typography():
