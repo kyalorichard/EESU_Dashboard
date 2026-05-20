@@ -1683,20 +1683,29 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     ]
 )
 
+# ---------------- MAIN TABS COMPACT UX + OVERVIEW SCROLL FIX ----------------
+# Scope:
+# - Keeps the tabs directly under the dashboard subtitle.
+# - Removes nested/internal scrolling from the Overview tab only.
+# - Does not alter the Negative Alerts, Visualization Map, or User Manual tab content.
 st.markdown(
     """
     <style>
-    /* Force the main tabs to sit directly under the subtitle. */
+    /* =========================================================
+       MAIN TAB BAR: COMPACT, STICKY, CONSISTENT
+    ========================================================= */
     div[data-testid="stTabs"]:first-of-type {
-        margin-top:  0.95rem !important;
+        margin-top: 0.95rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
+        overflow: visible !important;
     }
 
     div[data-testid="stTabs"]:first-of-type > div {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
+        overflow: visible !important;
     }
 
     div[data-testid="stTabs"]:first-of-type [role="tablist"] {
@@ -1711,6 +1720,7 @@ st.markdown(
         position: sticky !important;
         top: 0 !important;
         z-index: 20 !important;
+        overflow: visible !important;
     }
 
     div[data-testid="stTabs"]:first-of-type [role="tab"] {
@@ -1744,15 +1754,104 @@ st.markdown(
         box-shadow: inset 0 -3px 0 #FFDB58 !important;
     }
 
+    div[data-testid="stTabs"]:first-of-type [role="tab"] p {
+        margin: 0rem !important;
+        padding: 0rem !important;
+        line-height: 1.1 !important;
+    }
+
     div[data-testid="stTabs"]:first-of-type [role="tabpanel"] {
         padding-top: 0rem !important;
         margin-top: 0rem !important;
     }
 
-    div[data-testid="stTabs"]:first-of-type [role="tab"] p {
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1.1 !important;
+    /* =========================================================
+       OVERVIEW TAB ONLY: REMOVE NESTED / INTERNAL SCROLLING
+       First tab panel = Overview
+    ========================================================= */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        contain: none !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type > div,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="column"] {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+    }
+
+    /* Plotly and chart wrappers inside Overview should not create nested scrollbars. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .stPlotlyChart,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .js-plotly-plot,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .plot-container,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .svg-container {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        max-height: none !important;
+    }
+
+    /* Keep tables usable: remove vertical scrollbar, keep horizontal scrollbar only if columns are wider than the panel. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] {
+        overflow-y: visible !important;
+        overflow-x: auto !important;
+        max-height: none !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
+        overflow-y: visible !important;
+        overflow-x: auto !important;
+        max-height: none !important;
+    }
+
+    /* Expanders and cards inside Overview should grow naturally. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stExpander"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .eusee-kpi-card,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .executive-table-shell {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    /* If a cached browser version created iframe/component scrollbars in Overview, neutralize them here. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type iframe {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    /* =========================================================
+       MOBILE STABILITY
+    ========================================================= */
+    @media (max-width: 768px) {
+        div[data-testid="stTabs"]:first-of-type {
+            margin-top: 0.55rem !important;
+        }
+
+        div[data-testid="stTabs"]:first-of-type [role="tablist"] {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            position: sticky !important;
+            top: 0 !important;
+        }
+
+        div[data-testid="stTabs"]:first-of-type [role="tab"] {
+            flex: 1 1 calc(50% - 6px) !important;
+            min-height: 40px !important;
+            padding: 8px 10px !important;
+            font-size: 12px !important;
+        }
     }
     </style>
     """,
