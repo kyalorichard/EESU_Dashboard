@@ -1275,6 +1275,26 @@ if len(st.session_state["chat_messages"]) > 6:
         letter-spacing: -0.02em !important;
     }
 
+    
+
+    /* Chart tooltip help block: title above, icon immediately below. */
+    .eusee-chart-title-tooltip-shell {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+        margin: 0 0 8px 0 !important;
+        padding: 0 2px !important;
+    }
+    .eusee-chart-title-tooltip-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        margin: 0 0 2px 0 !important;
+        padding: 0 !important;
+    }
+
     /* Plotly wrapper and SVG text normalization across all chart tabs. */
     .stPlotlyChart,
     div[data-testid="stPlotlyChart"],
@@ -8403,11 +8423,10 @@ def _escape_chart_header_html(value):
 
 
 def render_chart_title_with_tooltip(target, title_text, tooltip_text):
-    """Render a compact title row with an info tooltip directly beside the chart title.
+    """Render a chart title with the tooltip icon directly below the title.
 
-    This is used only for the two enabling-principle charts. The title and
-    tooltip are rendered together in Streamlit HTML instead of relying on
-    Plotly annotation positioning, which can shift across screen sizes.
+    The title/help block is rendered outside Plotly so the tooltip position is
+    consistent across Streamlit columns, tabs, screen sizes, and Plotly reruns.
     """
     title_html = _escape_chart_header_html(_strip_plotly_html(title_text))
     tooltip_html = _escape_chart_header_html(_strip_plotly_html(tooltip_text))
@@ -8417,24 +8436,38 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
 
     target.markdown(f"""
     <style>
+    .eusee-chart-title-tooltip-shell {{
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 4px;
+        margin: 0 0 8px 0;
+        padding: 0 2px;
+        position: relative;
+        z-index: 20;
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+    }}
+    .eusee-chart-title-tooltip-text {{
+        color: #23152F;
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+        font-size: 14px;
+        font-weight: 850;
+        line-height: 1.18;
+        letter-spacing: -0.015em;
+        margin: 0;
+        padding: 0;
+    }}
     .eusee-chart-title-tooltip-row {{
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        gap: 7px;
-        margin: 0 0 -10px 0;
-        padding: 0 2px;
-        min-height: 24px;
+        width: 100%;
+        min-height: 20px;
+        margin: 0 0 2px 0;
+        padding: 0;
         position: relative;
-        z-index: 5;
-        font-family: Arial, sans-serif;
-    }}
-    .eusee-chart-title-tooltip-text {{
-        color: #2D0055;
-        font-size: 13.5px;
-        font-weight: 900;
-        line-height: 1.18;
-        letter-spacing: -0.01em;
     }}
     .eusee-chart-title-tooltip-wrap {{
         position: relative;
@@ -8444,8 +8477,9 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
         flex: 0 0 auto;
     }}
     .eusee-chart-title-tooltip-icon {{
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
@@ -8458,20 +8492,28 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
         line-height: 1;
         cursor: help;
         box-shadow: 0 2px 7px rgba(102,0,148,.08);
+        transition: all .16s ease;
+    }}
+    .eusee-chart-title-tooltip-icon:hover {{
+        background: #660094;
+        border-color: #660094;
+        color: #FFFFFF;
+        transform: translateY(-1px);
     }}
     .eusee-chart-title-tooltip-box {{
         position: absolute;
-        top: 24px;
+        top: 27px;
         left: 0;
-        width: min(310px, 72vw);
+        width: min(320px, 72vw);
         padding: 10px 12px;
         border-radius: 12px;
         background: #23152F;
         border: 1px solid rgba(102,0,148,.35);
         color: #FFFFFF;
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
         font-size: 11px;
-        font-weight: 700;
-        line-height: 1.4;
+        font-weight: 650;
+        line-height: 1.42;
         box-shadow: 0 14px 32px rgba(16,24,40,.18);
         opacity: 0;
         visibility: hidden;
@@ -8487,28 +8529,26 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
         transform: translateY(0);
     }}
     @media (max-width: 700px) {{
-        .eusee-chart-title-tooltip-row {{
-            flex-wrap: nowrap;
-            align-items: flex-start;
-            gap: 6px;
-            margin-bottom: -6px;
+        .eusee-chart-title-tooltip-shell {{
+            gap: 3px;
+            margin-bottom: 7px;
         }}
         .eusee-chart-title-tooltip-text {{
             font-size: 12.5px;
         }}
         .eusee-chart-title-tooltip-box {{
-            left: auto;
-            right: 0;
             width: min(280px, 78vw);
         }}
     }}
     </style>
-    <div class="eusee-chart-title-tooltip-row">
+    <div class="eusee-chart-title-tooltip-shell">
         <div class="eusee-chart-title-tooltip-text">{title_html}</div>
-        <span class="eusee-chart-title-tooltip-wrap" tabindex="0" aria-label="Chart information">
-            <span class="eusee-chart-title-tooltip-icon">i</span>
-            <span class="eusee-chart-title-tooltip-box">{tooltip_html}</span>
-        </span>
+        <div class="eusee-chart-title-tooltip-row">
+            <span class="eusee-chart-title-tooltip-wrap" tabindex="0" aria-label="Chart information">
+                <span class="eusee-chart-title-tooltip-icon">i</span>
+                <span class="eusee-chart-title-tooltip-box">{tooltip_html}</span>
+            </span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -8544,23 +8584,37 @@ def render_dashboard_plotly_chart(
         render_permission_locked_card(permission_label or title or visual_type.title(), permission_key, container=target)
         return None
 
-    # Tooltip is disabled by default. For the two existing enabling-principle
-    # charts only, keep the info badge inside the Plotly figure title band so
-    # it appears together with the chart title rather than as a separate
-    # Streamlit header above the chart.
+    # Optional chart information is rendered as a stable Streamlit header:
+    # title first, then the tooltip icon immediately below the title. The Plotly
+    # title is removed afterward to avoid duplicate titles and inconsistent
+    # in-chart badge placement across tabs/columns.
     if show_title_tooltip and chart_info:
         try:
-            fig = add_chart_info_badge(
-                fig,
-                chart_info,
-                y=1.065,
-                chart_width_px=chart_width_px,
-            )
+            title_for_header = title or _dashboard_plain_title(fig, fallback=permission_label or visual_type.title())
+            render_chart_title_with_tooltip(target, title_for_header, chart_info)
+            try:
+                fig.update_layout(title=dict(text=None), margin=dict(t=28))
+            except Exception:
+                pass
         except Exception:
-            # Never allow the optional info badge to break chart rendering.
+            # Never allow the optional information header to break chart rendering.
             pass
 
     fig = apply_responsive_plotly_layout(fig)
+    if show_title_tooltip and chart_info:
+        try:
+            current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+            fig.update_layout(
+                title=dict(text=None),
+                margin=dict(
+                    l=current_margin.get("l", 30),
+                    r=current_margin.get("r", 24),
+                    t=min(int(current_margin.get("t", 58) or 58), 34),
+                    b=current_margin.get("b", 34),
+                ),
+            )
+        except Exception:
+            pass
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
 # ---------------- TAB 1 ------------------------
