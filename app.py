@@ -997,6 +997,211 @@ def inject_compact_dashboard_spacing_css():
 inject_compact_dashboard_spacing_css()
 
 
+
+
+# ---------------- FINAL HARD OVERFLOW LOCK: OVERVIEW CARDS / PANELS / PAGE ----------------
+def inject_final_hard_overview_overflow_lock():
+    """Remove page-level and card/panel horizontal scrolling while preserving vertical scrolling."""
+    st.markdown("""
+    <style>
+    /* =========================
+       REMOVE OVERVIEW PAGE HORIZONTAL SCROLL COMPLETELY
+       ========================= */
+
+    html, body, .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stAppViewContainer"] > .main,
+    .main,
+    section.main,
+    .block-container,
+    .main .block-container,
+    section.main .block-container {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Streamlit vertical blocks can create overflow through wide children. */
+    [data-testid="stVerticalBlock"],
+    [data-testid="stVerticalBlock"] > div,
+    [data-testid="stElementContainer"],
+    [data-testid="stMarkdownContainer"] {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* All tab wrappers and panels. */
+    div[data-testid="stTabs"],
+    div[data-testid="stTabs"] > div,
+    div[data-testid="stTabs"] div[role="tabpanel"],
+    div[role="tabpanel"] {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Streamlit columns: prevent fixed-width child overflow. */
+    div[data-testid="column"],
+    div[data-testid="column"] > div,
+    div[data-testid="column"] [data-testid="stVerticalBlock"] {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Overview summary cards, mini panels, KPI panels, and custom wrappers. */
+    .eusee-kpi-card,
+    .eusee-kpi-card *,
+    .negintel-card,
+    .executive-mini-kpi,
+    .executive-table-shell,
+    .data-preview-toolbar,
+    .classic-filter-status,
+    .classic-filter-header,
+    .map-guide-card,
+    .map-overview-guide,
+    .user-manual-card,
+    .manual-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .sidebar-last-updated,
+    .eusee-feedback-panel,
+    .eusee-feedback-toggle {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Keep parent cards fitting naturally; do not force child text/buttons wider than card. */
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-mini-kpi,
+    .executive-table-shell,
+    .data-preview-toolbar,
+    .classic-filter-status,
+    .classic-filter-header,
+    .map-guide-card,
+    .map-overview-guide,
+    .user-manual-card,
+    .manual-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card {
+        width: 100% !important;
+    }
+
+    /* KPI/card grids and internal layouts. */
+    .executive-metric-grid,
+    .eusee-donut-layout,
+    .eusee-breakdown-list,
+    .eusee-breakdown-row,
+    .data-preview-pill-row,
+    .last-updated-badge,
+    .last-updated-copy {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Prevent long labels/pills/card text from forcing a horizontal scrollbar. */
+    .eusee-kpi-card span,
+    .eusee-kpi-card div,
+    .negintel-card span,
+    .negintel-card div,
+    .executive-mini-kpi span,
+    .executive-mini-kpi strong,
+    .data-preview-pill,
+    .last-updated-copy,
+    .last-updated-copy strong,
+    .last-updated-copy small,
+    .executive-table-title,
+    .executive-table-subtitle,
+    .eusee-kpi-title,
+    .eusee-kpi-note,
+    .negintel-title,
+    .negintel-note {
+        max-width: 100% !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+        white-space: normal !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Plotly/chart wrappers: stop page-level horizontal overflow. */
+    .js-plotly-plot,
+    .plot-container,
+    .svg-container,
+    .stPlotlyChart,
+    div[data-testid="stPlotlyChart"],
+    div[data-testid="stPlotlyChart"] > div {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .main-svg,
+    svg {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    iframe,
+    iframe[title="streamlit.components.v1.html"] {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Expanders/panels: no horizontal container scroll. */
+    div[data-testid="stExpander"],
+    div[data-testid="stExpander"] > div,
+    div[data-testid="stExpander"] details,
+    div[data-testid="stExpander"] div[role="region"] {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Buttons and form controls should never exceed panel width. */
+    .stButton,
+    .stButton > button,
+    .stDownloadButton,
+    .stDownloadButton > button,
+    [data-baseweb="select"],
+    [data-baseweb="input"],
+    input,
+    textarea {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Remove global horizontal scrollbar while keeping vertical scrolling usable. */
+    ::-webkit-scrollbar:horizontal {
+        display: none !important;
+        height: 0px !important;
+    }
+
+    * {
+        box-sizing: border-box !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_final_hard_overview_overflow_lock()
+
+
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
 def build_compact_chatbot_context(df):
