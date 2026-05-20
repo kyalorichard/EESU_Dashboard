@@ -712,8 +712,8 @@ def inject_compact_dashboard_spacing_css():
     <style>
     /* Reduce Streamlit's default page padding without changing dashboard functionality. */
     .main .block-container {
-        padding-top: 0.15rem !important;
-        padding-bottom: 1.25rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 3.25rem !important;
     }
 
     /* Compact dashboard title and intro block. */
@@ -727,7 +727,7 @@ def inject_compact_dashboard_spacing_css():
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0.15rem !important;
+        margin-bottom: 0.35rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
@@ -1601,75 +1601,6 @@ st.markdown(f"""
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
-# ---------------- COMPACT TITLE / TAB SPACING FIX ----------------
-st.markdown("""
-<style>
-
-/* Remove excess top page spacing */
-.main .block-container {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
-
-/* Remove reserved iframe space from floating feedback component */
-iframe[title="streamlit.components.v1.html"] {
-    height: 0px !important;
-    min-height: 0px !important;
-    max-height: 0px !important;
-    border: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-div[data-testid="stIFrame"] {
-    height: 0px !important;
-    min-height: 0px !important;
-    max-height: 0px !important;
-    border: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-/* Tight dashboard title */
-.animated-title {
-    margin-top: -0.45rem !important;
-    margin-bottom: 0rem !important;
-    padding-top: 0rem !important;
-    padding-bottom: 0rem !important;
-    line-height: 1.0 !important;
-}
-
-/* Tight divider */
-.animated-divider {
-    margin-top: 0rem !important;
-    margin-bottom: 0.1rem !important;
-}
-
-/* Tight subtitle */
-.animated-subtitle {
-    margin-top: 0rem !important;
-    margin-bottom: -0.7rem !important;
-    padding-top: 0rem !important;
-    padding-bottom: 0rem !important;
-    line-height: 1.18 !important;
-}
-
-/* Pull tabs upward */
-[data-testid="stTabs"] {
-    margin-top: -1.1rem !important;
-    padding-top: 0rem !important;
-}
-
-[data-testid="stTabs"] [role="tablist"] {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-    margin-bottom: 0.15rem !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-:
     """
     Inject a reliable single-control floating feedback widget.
 
