@@ -1607,764 +1607,6 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
     st.stop()
 
 
-# ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
-st.markdown(f"""
-<!-- Container for animations -->
-<div style="overflow: hidden;">
-
-<h1 class="animated-title">
-    EU SEE Dashboard
-</h1>
-
-<!-- Animated divider -->
-<div class="animated-divider"></div>
-
-<div class="animated-subtitle">
-    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
-    in the enabling environment for civil society.
-</div>
-
-
-</div>
-
-<style>
-/* ---------------- Title ---------------- */
-.animated-title {{
-    margin: 0 0 0px 0 !important;
-    line-height: 1.02;
-    color: #660094;
-    font-size: 48px;
-    font-family: Arial, sans-serif;
-    font-weight: 700;
-    opacity: 0;
-    transform: translateY(-20px);
-    animation: titleFadeSlide 0.8s ease-out forwards;
-    animation-delay: 0.2s;
-}}
-
-/* Title animation */
-@keyframes titleFadeSlide {{
-    from {{ opacity: 0; transform: translateY(-20px); }}
-    to   {{ opacity: 1; transform: translateY(0); }}
-}}
-
-/* ---------------- Divider ---------------- */
-.animated-divider {{
-    width: 15%;
-    max-width: 120px;
-    height: 4px;
-    background: linear-gradient(to right, #FFDB58, #660094);
-    border-radius: 2px;
-    margin-bottom: 2px !important;
-    opacity: 0;
-    transform: translateX(-120%);
-    animation: dividerSlide 1s ease-out forwards;
-    animation-delay: 0.6s;
-}}
-
-@keyframes dividerSlide {{
-    from {{ transform: translateX(-120%); opacity: 0; }}
-    to   {{ transform: translateX(0); opacity: 1; }}
-}}
-
-/* ---------------- Subtitle ---------------- */
-.animated-subtitle {{
-    font-size: 14px;
-    font-family: Arial, sans-serif;
-    color: #333333;
-    margin-bottom: 3px !important;
-    padding-bottom: 0px !important;
-    max-width: 980px;
-    line-height: 1.25;
-    opacity: 0;
-    animation: subtitleFade 0.8s ease-out forwards;
-    animation-delay: 1.0s;
-}}
-
-@keyframes subtitleFade {{
-    from {{ opacity: 0; }}
-    to   {{ opacity: 1; }}
-}}
-
-
-/* ---------------- Last updated badge ---------------- */
-.last-updated-badge {{
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    width: fit-content;
-    max-width: 100%;
-    margin: 2px 0 14px 0;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%);
-    border: 1px solid rgba(102, 0, 148, 0.14);
-    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255,255,255,0.95);
-    font-family: Arial, sans-serif;
-    opacity: 0;
-    animation: subtitleFade 0.8s ease-out forwards;
-    animation-delay: 1.15s;
-}}
-.last-updated-icon {{
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
-    color: #660094;
-    border: 1px solid rgba(102,0,148,.10);
-    font-size: 14px;
-    font-weight: 900;
-}}
-.last-updated-copy {{
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
-    color: #344054;
-}}
-.last-updated-label {{
-    color: #660094;
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-}}
-.last-updated-copy strong {{
-    color: #23152F;
-    font-size: 12.5px;
-    font-weight: 950;
-}}
-.last-updated-copy small {{
-    color: #667085;
-    font-size: 10.5px;
-    font-weight: 700;
-}}
-
-</style>
-""", unsafe_allow_html=True)
-
-
-# ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
-# This removes the visible blank space between the dashboard subtitle and the tabs.
-tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
-    [
-        "📊 Overview",
-        "⚠️ Negative Alerts Analysis",
-        "🗺️ Visualization Map",
-        "📘 User Manual",
-    ]
-)
-
-# ---------------- MAIN TABS COMPACT UX + OVERVIEW SCROLL FIX ----------------
-# Scope:
-# - Keeps the tabs directly under the dashboard subtitle.
-# - Removes nested/internal scrolling from the Overview tab only.
-# - Does not alter the Negative Alerts, Visualization Map, or User Manual tab content.
-st.markdown(
-    """
-    <style>
-    /* =========================================================
-       MAIN TAB BAR: COMPACT, STICKY, CONSISTENT
-    ========================================================= */
-    div[data-testid="stTabs"]:first-of-type {
-        margin-top: 0.95rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-        overflow: visible !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type > div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-        overflow: visible !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tablist"] {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px !important;
-        background: #ffffff !important;
-        border-bottom: 1px solid #E8E2EF !important;
-        margin-top: 0rem !important;
-        margin-bottom: 4px !important;
-        padding: 0rem 0rem 4px 0rem !important;
-        position: sticky !important;
-        top: 0 !important;
-        z-index: 20 !important;
-        overflow: visible !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tab"] {
-        width: 100% !important;
-        min-height: 44px !important;
-        padding: 10px 12px !important;
-        margin: 0rem !important;
-        border-radius: 12px 12px 8px 8px !important;
-        background: #F8F7FB !important;
-        color: #3E2B4F !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 14px !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        border: 1px solid #EEE7F4 !important;
-        border-bottom: 3px solid transparent !important;
-        box-shadow: none !important;
-        transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tab"]:hover {
-        background: #F1E8F8 !important;
-        color: #660094 !important;
-        box-shadow: inset 0 -3px 0 #660094 !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tab"][aria-selected="true"] {
-        background: linear-gradient(90deg, #660094, #7A1FA2) !important;
-        color: #FFFFFF !important;
-        border-color: #660094 !important;
-        box-shadow: inset 0 -3px 0 #FFDB58 !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tab"] p {
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1.1 !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"] {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    /* =========================================================
-       OVERVIEW TAB ONLY: REMOVE NESTED / INTERNAL SCROLLING
-       First tab panel = Overview
-    ========================================================= */
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type {
-        overflow: visible !important;
-        overflow-y: visible !important;
-        overflow-x: visible !important;
-        height: auto !important;
-        max-height: none !important;
-        min-height: 0 !important;
-        contain: none !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type > div,
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="column"] {
-        overflow: visible !important;
-        overflow-y: visible !important;
-        overflow-x: visible !important;
-        height: auto !important;
-        max-height: none !important;
-        min-height: 0 !important;
-    }
-
-    /* Plotly and chart wrappers inside Overview should not create nested scrollbars. */
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .stPlotlyChart,
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .js-plotly-plot,
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .plot-container,
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .svg-container {
-        overflow: visible !important;
-        overflow-y: visible !important;
-        overflow-x: visible !important;
-        max-height: none !important;
-    }
-
-    /* Keep tables usable: remove vertical scrollbar, keep horizontal scrollbar only if columns are wider than the panel. */
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] {
-        overflow-y: visible !important;
-        overflow-x: auto !important;
-        max-height: none !important;
-    }
-
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
-        overflow-y: visible !important;
-        overflow-x: auto !important;
-        max-height: none !important;
-    }
-
-    /* Expanders and cards inside Overview should grow naturally. */
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stExpander"],
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .eusee-kpi-card,
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .executive-table-shell {
-        overflow: visible !important;
-        max-height: none !important;
-    }
-
-    /* If a cached browser version created iframe/component scrollbars in Overview, neutralize them here. */
-    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type iframe {
-        overflow: visible !important;
-        max-height: none !important;
-    }
-
-    /* =========================================================
-       MOBILE STABILITY
-    ========================================================= */
-    @media (max-width: 768px) {
-        div[data-testid="stTabs"]:first-of-type {
-            margin-top: 0.55rem !important;
-        }
-
-        div[data-testid="stTabs"]:first-of-type [role="tablist"] {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 6px !important;
-            position: sticky !important;
-            top: 0 !important;
-        }
-
-        div[data-testid="stTabs"]:first-of-type [role="tab"] {
-            flex: 1 1 calc(50% - 6px) !important;
-            min-height: 40px !important;
-            padding: 8px 10px !important;
-            font-size: 12px !important;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ---------------- HARD FIX: REMOVE OVERVIEW TAB INTERNAL SCROLLBARS ----------------
-def inject_overview_no_scroll_hard_fix():
-    """Remove nested scrollbars created inside the Overview tab only.
-
-    Streamlit can create extra scroll containers inside tab panels and dataframes.
-    CSS alone can miss those wrappers because their DOM structure changes between
-    Streamlit versions. This lightweight JS marks the first tab panel as Overview
-    and neutralizes vertical overflow only within that panel. Other tabs remain
-    unchanged.
-    """
-    st.markdown("""
-    <style>
-    /* The first tab panel is the Overview tab. Remove vertical scroll wrappers there only. */
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type > div,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="column"] {
-        overflow-y: visible !important;
-        max-height: none !important;
-        height: auto !important;
-    }
-
-    /* Overview charts must not introduce internal scrollbars. */
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .stPlotlyChart,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .js-plotly-plot,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .plot-container {
-        overflow-y: visible !important;
-        max-height: none !important;
-    }
-
-    /* Overview dataframe: no vertical scrollbar; keep horizontal scrollbar only when columns are wide. */
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
-        overflow-y: visible !important;
-        overflow-x: auto !important;
-        max-height: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    components.html("""
-    <script>
-    (function() {
-        const doc = window.parent.document;
-
-        function removeOverviewScrollbars() {
-            const tabs = doc.querySelector('div[data-testid="stTabs"]');
-            if (!tabs) return;
-
-            const panels = tabs.querySelectorAll('div[role="tabpanel"]');
-            const overview = panels && panels.length ? panels[0] : null;
-            if (!overview) return;
-
-            overview.setAttribute('data-overview-no-scroll', 'true');
-            overview.style.overflowY = 'visible';
-            overview.style.maxHeight = 'none';
-            overview.style.height = 'auto';
-
-            overview.querySelectorAll('div, section, article').forEach(function(el) {
-                const testid = el.getAttribute('data-testid') || '';
-
-                // Keep horizontal scrolling for wide tables, but remove vertical scrolling.
-                if (testid === 'stDataFrame') {
-                    el.style.overflowX = 'auto';
-                    el.style.overflowY = 'visible';
-                    el.style.maxHeight = 'none';
-                    return;
-                }
-
-                el.style.overflowY = 'visible';
-                el.style.maxHeight = 'none';
-            });
-        }
-
-        removeOverviewScrollbars();
-        setTimeout(removeOverviewScrollbars, 250);
-        setTimeout(removeOverviewScrollbars, 1000);
-    })();
-    </script>
-    """, height=0, width=0)
-
-
-inject_overview_no_scroll_hard_fix()
-
-
-# ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
-def render_top_feedback_bar():
-    """
-    Inject a reliable single-control floating feedback widget.
-
-    Fix applied:
-    - Uses one click listener per button only.
-    - Avoids duplicate onclick + addEventListener bindings, which caused the widget
-      to open and immediately close again.
-    - Uses CSS class toggling only; no competing inline display overrides.
-    """
-    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
-
-    components.html(f"""
-    <script>
-    (function() {{
-        const doc = window.parent.document;
-        const rootId = "eusee-feedback-floating-root";
-        const styleId = "eusee-feedback-floating-style";
-
-        // Remove previous/cached feedback widgets and styles.
-        [
-            "eusee-feedback-floating-root",
-            "eusee-feedback-callout",
-            "eusee-feedback-tab"
-        ].forEach(function(id) {{
-            const el = doc.getElementById(id);
-            if (el) el.remove();
-        }});
-
-        [
-            "eusee-feedback-floating-style",
-            "eusee-feedback-style"
-        ].forEach(function(id) {{
-            const el = doc.getElementById(id);
-            if (el) el.remove();
-        }});
-
-        try {{
-            window.localStorage.removeItem("eusee_feedback_widget_closed");
-            window.localStorage.removeItem("eusee_feedback_widget_dismissed");
-            window.localStorage.removeItem("eusee_feedback_widget_hidden");
-        }} catch (e) {{}}
-
-        const style = doc.createElement("style");
-        style.id = styleId;
-        style.innerHTML = `
-            #eusee-feedback-floating-root {{
-                position: fixed !important;
-                top: clamp(58px, 7vh, 78px) !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                z-index: 2147482500 !important;
-                font-family: Arial, sans-serif !important;
-                pointer-events: auto !important;
-                width: auto !important;
-                max-width: calc(100vw - 24px) !important;
-            }}
-
-            #eusee-feedback-floating-root * {{
-                box-sizing: border-box !important;
-            }}
-
-            .eusee-feedback-toggle {{
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 8px !important;
-                min-height: 38px !important;
-                padding: 8px 14px !important;
-                border-radius: 999px !important;
-                border: 1px solid rgba(102,0,148,.16) !important;
-                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98)) !important;
-                color: #2D0055 !important;
-                box-shadow: 0 12px 28px rgba(17,24,39,.13), 0 2px 8px rgba(102,0,148,.08) !important;
-                font-size: 12px !important;
-                font-weight: 950 !important;
-                cursor: pointer !important;
-                user-select: none !important;
-                white-space: nowrap !important;
-                backdrop-filter: blur(14px) !important;
-                -webkit-backdrop-filter: blur(14px) !important;
-                transition: transform .16s ease, box-shadow .16s ease, background .16s ease !important;
-                appearance: none !important;
-                -webkit-appearance: none !important;
-            }}
-
-            .eusee-feedback-toggle:hover {{
-                transform: translateY(-1px) !important;
-                background: linear-gradient(135deg, #FFFFFF, #F4EAF8) !important;
-                box-shadow: 0 16px 34px rgba(17,24,39,.16), 0 3px 10px rgba(102,0,148,.10) !important;
-            }}
-
-            .eusee-feedback-toggle-icon {{
-                width: 24px !important;
-                height: 24px !important;
-                min-width: 24px !important;
-                border-radius: 9px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10)) !important;
-                border: 1px solid rgba(102,0,148,.10) !important;
-                color: #660094 !important;
-                font-size: 13px !important;
-                font-weight: 900 !important;
-            }}
-
-            .eusee-feedback-toggle-caret {{
-                color: #667085 !important;
-                font-size: 13px !important;
-                font-weight: 950 !important;
-                line-height: 1 !important;
-            }}
-
-            .eusee-feedback-panel {{
-                display: none !important;
-                width: min(760px, calc(100vw - 28px)) !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                gap: 12px !important;
-                padding: 12px 12px 12px 14px !important;
-                border-radius: 18px !important;
-                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98)) !important;
-                border: 1px solid rgba(102,0,148,.14) !important;
-                box-shadow: 0 16px 38px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08) !important;
-                backdrop-filter: blur(14px) !important;
-                -webkit-backdrop-filter: blur(14px) !important;
-            }}
-
-            #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {{
-                display: none !important;
-            }}
-
-            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {{
-                display: flex !important;
-            }}
-
-            .eusee-feedback-panel-left {{
-                display: flex !important;
-                align-items: center !important;
-                gap: 10px !important;
-                min-width: 0 !important;
-                flex: 1 !important;
-            }}
-
-            .eusee-feedback-panel-icon {{
-                width: 34px !important;
-                height: 34px !important;
-                min-width: 34px !important;
-                border-radius: 12px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10)) !important;
-                border: 1px solid rgba(102,0,148,.10) !important;
-                color: #660094 !important;
-                font-size: 15px !important;
-                font-weight: 900 !important;
-            }}
-
-            .eusee-feedback-panel-copy {{
-                color: #344054 !important;
-                font-size: 12px !important;
-                line-height: 1.32 !important;
-                font-weight: 750 !important;
-                white-space: normal !important;
-                min-width: 0 !important;
-            }}
-
-            .eusee-feedback-panel-copy strong {{
-                color: #2D0055 !important;
-                font-weight: 950 !important;
-            }}
-
-            .eusee-feedback-panel-actions {{
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: flex-end !important;
-                gap: 8px !important;
-                flex-shrink: 0 !important;
-                align-self: center !important;
-            }}
-
-            .eusee-feedback-panel-button {{
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                min-height: 34px !important;
-                padding: 8px 14px !important;
-                border-radius: 999px !important;
-                background: linear-gradient(90deg, #660094 0%, #008CAA 100%) !important;
-                color: #FFFFFF !important;
-                text-decoration: none !important;
-                font-size: 11px !important;
-                font-weight: 900 !important;
-                white-space: nowrap !important;
-                box-shadow: 0 8px 18px rgba(102,0,148,.18) !important;
-                transition: all .16s ease !important;
-            }}
-
-            .eusee-feedback-panel-button:hover {{
-                transform: translateY(-1px) !important;
-                filter: brightness(1.04) !important;
-            }}
-
-            .eusee-feedback-panel-toggle {{
-                min-height: 34px !important;
-                padding: 8px 12px !important;
-                gap: 6px !important;
-                box-shadow: none !important;
-                background: rgba(255,255,255,.92) !important;
-            }}
-
-            @media (max-width: 900px) {{
-                #eusee-feedback-floating-root {{
-                    top: 62px !important;
-                    max-width: calc(100vw - 20px) !important;
-                }}
-
-                .eusee-feedback-panel {{
-                    width: min(640px, calc(100vw - 20px)) !important;
-                    padding: 11px 12px !important;
-                }}
-            }}
-
-            @media (max-width: 700px) {{
-                #eusee-feedback-floating-root {{
-                    top: 58px !important;
-                    left: 50% !important;
-                    width: calc(100vw - 18px) !important;
-                    max-width: calc(100vw - 18px) !important;
-                }}
-
-                .eusee-feedback-toggle {{
-                    width: fit-content !important;
-                    max-width: 92vw !important;
-                    margin: 0 auto !important;
-                    min-height: 36px !important;
-                    padding: 7px 12px !important;
-                    font-size: 11.5px !important;
-                }}
-
-                .eusee-feedback-panel {{
-                    width: 100% !important;
-                    max-height: calc(100vh - 88px) !important;
-                    overflow-y: auto !important;
-                    flex-direction: column !important;
-                    align-items: stretch !important;
-                    gap: 10px !important;
-                    padding: 11px !important;
-                    border-radius: 16px !important;
-                }}
-
-                .eusee-feedback-panel-left {{
-                    align-items: flex-start !important;
-                }}
-
-                .eusee-feedback-panel-copy {{
-                    font-size: 11.5px !important;
-                    line-height: 1.35 !important;
-                }}
-
-                .eusee-feedback-panel-actions {{
-                    width: 100% !important;
-                    gap: 8px !important;
-                    align-items: center !important;
-                    justify-content: space-between !important;
-                }}
-
-                .eusee-feedback-panel-button {{
-                    flex: 1 !important;
-                    width: auto !important;
-                }}
-            }}
-        `;
-        doc.head.appendChild(style);
-
-        const root = doc.createElement("div");
-        root.id = rootId;
-        root.className = "is-collapsed";
-        root.innerHTML = `
-            <button class="eusee-feedback-toggle" id="eusee-feedback-toggle" type="button" aria-label="Open feedback panel" aria-expanded="false" title="Open feedback panel">
-                <span class="eusee-feedback-toggle-icon">💬</span>
-                <span id="eusee-feedback-toggle-label">Feedback</span>
-                <span class="eusee-feedback-toggle-caret" id="eusee-feedback-toggle-caret">+</span>
-            </button>
-
-            <div class="eusee-feedback-panel" id="eusee-feedback-panel" role="dialog" aria-label="Feedback panel">
-                <div class="eusee-feedback-panel-left">
-                    <div class="eusee-feedback-panel-icon">💬</div>
-                    <div class="eusee-feedback-panel-copy">
-                        <strong>Share your feedback</strong> on usability, insights, and dashboard improvements.
-                    </div>
-                </div>
-
-                <div class="eusee-feedback-panel-actions">
-                    <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
-                        Fill in the form
-                    </a>
-                    <button class="eusee-feedback-toggle eusee-feedback-panel-toggle" id="eusee-feedback-panel-toggle" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">
-                        <span>Collapse</span>
-                        <span class="eusee-feedback-toggle-caret">−</span>
-                    </button>
-                </div>
-            </div>
-        `;
-        doc.body.appendChild(root);
-
-        const openButton = doc.getElementById("eusee-feedback-toggle");
-        const closeButton = doc.getElementById("eusee-feedback-panel-toggle");
-
-        function setFeedbackOpen(isOpen) {{
-            root.classList.toggle("is-open", isOpen);
-            root.classList.toggle("is-collapsed", !isOpen);
-            openButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
-        }}
-
-        openButton.addEventListener("click", function(event) {{
-            event.preventDefault();
-            event.stopPropagation();
-            setFeedbackOpen(true);
-        }});
-
-        closeButton.addEventListener("click", function(event) {{
-            event.preventDefault();
-            event.stopPropagation();
-            setFeedbackOpen(false);
-        }});
-
-        doc.addEventListener("keydown", function(event) {{
-            if (event.key === "Escape") setFeedbackOpen(false);
-        }});
-
-        setFeedbackOpen(false);
-    }})();
-    </script>
-    """, height=0, width=0)
-
-render_top_feedback_bar()  # Single-button floating dashboard feedback overlay.
-
-
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
@@ -3881,6 +3123,8 @@ filtered_global = data[
 
 # ---------------- ADMIN ROUTING FROM SIDEBAR PRIVILEGE CENTER ----------------
 # Admin users can switch between Dashboard and Admin inside the single User Privilege Center panel.
+# IMPORTANT: this block must run BEFORE the dashboard title and st.tabs() are created.
+# Otherwise Streamlit will keep showing the dashboard tab bar above the Admin page.
 if is_authenticated() and admin_is_admin() and st.session_state.get("eusee_sidebar_workspace") == "Admin":
     render_admin_page(data=data)
     st.stop()
@@ -3888,6 +3132,765 @@ if is_authenticated() and admin_is_admin() and st.session_state.get("eusee_sideb
 if not has_permission("view_dashboard"):
     render_access_locked("Dashboard", "view_dashboard permission")
     st.stop()
+
+
+# ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
+st.markdown(f"""
+<!-- Container for animations -->
+<div style="overflow: hidden;">
+
+<h1 class="animated-title">
+    EU SEE Dashboard
+</h1>
+
+<!-- Animated divider -->
+<div class="animated-divider"></div>
+
+<div class="animated-subtitle">
+    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
+    It aggregates information reported by Network Members across 86 countries to document trends 
+    in the enabling environment for civil society.
+</div>
+
+
+</div>
+
+<style>
+/* ---------------- Title ---------------- */
+.animated-title {{
+    margin: 0 0 0px 0 !important;
+    line-height: 1.02;
+    color: #660094;
+    font-size: 48px;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(-20px);
+    animation: titleFadeSlide 0.8s ease-out forwards;
+    animation-delay: 0.2s;
+}}
+
+/* Title animation */
+@keyframes titleFadeSlide {{
+    from {{ opacity: 0; transform: translateY(-20px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
+}}
+
+/* ---------------- Divider ---------------- */
+.animated-divider {{
+    width: 15%;
+    max-width: 120px;
+    height: 4px;
+    background: linear-gradient(to right, #FFDB58, #660094);
+    border-radius: 2px;
+    margin-bottom: 2px !important;
+    opacity: 0;
+    transform: translateX(-120%);
+    animation: dividerSlide 1s ease-out forwards;
+    animation-delay: 0.6s;
+}}
+
+@keyframes dividerSlide {{
+    from {{ transform: translateX(-120%); opacity: 0; }}
+    to   {{ transform: translateX(0); opacity: 1; }}
+}}
+
+/* ---------------- Subtitle ---------------- */
+.animated-subtitle {{
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    color: #333333;
+    margin-bottom: 3px !important;
+    padding-bottom: 0px !important;
+    max-width: 980px;
+    line-height: 1.25;
+    opacity: 0;
+    animation: subtitleFade 0.8s ease-out forwards;
+    animation-delay: 1.0s;
+}}
+
+@keyframes subtitleFade {{
+    from {{ opacity: 0; }}
+    to   {{ opacity: 1; }}
+}}
+
+
+/* ---------------- Last updated badge ---------------- */
+.last-updated-badge {{
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 2px 0 14px 0;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%);
+    border: 1px solid rgba(102, 0, 148, 0.14);
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255,255,255,0.95);
+    font-family: Arial, sans-serif;
+    opacity: 0;
+    animation: subtitleFade 0.8s ease-out forwards;
+    animation-delay: 1.15s;
+}}
+.last-updated-icon {{
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+    color: #660094;
+    border: 1px solid rgba(102,0,148,.10);
+    font-size: 14px;
+    font-weight: 900;
+}}
+.last-updated-copy {{
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    color: #344054;
+}}
+.last-updated-label {{
+    color: #660094;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}}
+.last-updated-copy strong {{
+    color: #23152F;
+    font-size: 12.5px;
+    font-weight: 950;
+}}
+.last-updated-copy small {{
+    color: #667085;
+    font-size: 10.5px;
+    font-weight: 700;
+}}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
+# This removes the visible blank space between the dashboard subtitle and the tabs.
+tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
+    [
+        "📊 Overview",
+        "⚠️ Negative Alerts Analysis",
+        "🗺️ Visualization Map",
+        "📘 User Manual",
+    ]
+)
+
+# ---------------- MAIN TABS COMPACT UX + OVERVIEW SCROLL FIX ----------------
+# Scope:
+# - Keeps the tabs directly under the dashboard subtitle.
+# - Removes nested/internal scrolling from the Overview tab only.
+# - Does not alter the Negative Alerts, Visualization Map, or User Manual tab content.
+st.markdown(
+    """
+    <style>
+    /* =========================================================
+       MAIN TAB BAR: COMPACT, STICKY, CONSISTENT
+    ========================================================= */
+    div[data-testid="stTabs"]:first-of-type {
+        margin-top: 0.95rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+        overflow: visible !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type > div {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+        overflow: visible !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tablist"] {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid #E8E2EF !important;
+        margin-top: 0rem !important;
+        margin-bottom: 4px !important;
+        padding: 0rem 0rem 4px 0rem !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 20 !important;
+        overflow: visible !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"] {
+        width: 100% !important;
+        min-height: 44px !important;
+        padding: 10px 12px !important;
+        margin: 0rem !important;
+        border-radius: 12px 12px 8px 8px !important;
+        background: #F8F7FB !important;
+        color: #3E2B4F !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+        border: 1px solid #EEE7F4 !important;
+        border-bottom: 3px solid transparent !important;
+        box-shadow: none !important;
+        transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"]:hover {
+        background: #F1E8F8 !important;
+        color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #660094 !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, #660094, #7A1FA2) !important;
+        color: #FFFFFF !important;
+        border-color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #FFDB58 !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"] p {
+        margin: 0rem !important;
+        padding: 0rem !important;
+        line-height: 1.1 !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"] {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    /* =========================================================
+       OVERVIEW TAB ONLY: REMOVE NESTED / INTERNAL SCROLLING
+       First tab panel = Overview
+    ========================================================= */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        contain: none !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type > div,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="column"] {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+    }
+
+    /* Plotly and chart wrappers inside Overview should not create nested scrollbars. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .stPlotlyChart,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .js-plotly-plot,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .plot-container,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .svg-container {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        max-height: none !important;
+    }
+
+    /* Keep tables usable: remove vertical scrollbar, keep horizontal scrollbar only if columns are wider than the panel. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] {
+        overflow-y: visible !important;
+        overflow-x: auto !important;
+        max-height: none !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
+        overflow-y: visible !important;
+        overflow-x: auto !important;
+        max-height: none !important;
+    }
+
+    /* Expanders and cards inside Overview should grow naturally. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type div[data-testid="stExpander"],
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .eusee-kpi-card,
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type .executive-table-shell {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    /* If a cached browser version created iframe/component scrollbars in Overview, neutralize them here. */
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"]:first-of-type iframe {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    /* =========================================================
+       MOBILE STABILITY
+    ========================================================= */
+    @media (max-width: 768px) {
+        div[data-testid="stTabs"]:first-of-type {
+            margin-top: 0.55rem !important;
+        }
+
+        div[data-testid="stTabs"]:first-of-type [role="tablist"] {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            position: sticky !important;
+            top: 0 !important;
+        }
+
+        div[data-testid="stTabs"]:first-of-type [role="tab"] {
+            flex: 1 1 calc(50% - 6px) !important;
+            min-height: 40px !important;
+            padding: 8px 10px !important;
+            font-size: 12px !important;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ---------------- HARD FIX: REMOVE OVERVIEW TAB INTERNAL SCROLLBARS ----------------
+def inject_overview_no_scroll_hard_fix():
+    """Remove nested scrollbars created inside the Overview tab only.
+
+    Streamlit can create extra scroll containers inside tab panels and dataframes.
+    CSS alone can miss those wrappers because their DOM structure changes between
+    Streamlit versions. This lightweight JS marks the first tab panel as Overview
+    and neutralizes vertical overflow only within that panel. Other tabs remain
+    unchanged.
+    """
+    st.markdown("""
+    <style>
+    /* The first tab panel is the Overview tab. Remove vertical scroll wrappers there only. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type > div,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="column"] {
+        overflow-y: visible !important;
+        max-height: none !important;
+        height: auto !important;
+    }
+
+    /* Overview charts must not introduce internal scrollbars. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .stPlotlyChart,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .js-plotly-plot,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .plot-container {
+        overflow-y: visible !important;
+        max-height: none !important;
+    }
+
+    /* Overview dataframe: no vertical scrollbar; keep horizontal scrollbar only when columns are wide. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
+        overflow-y: visible !important;
+        overflow-x: auto !important;
+        max-height: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    components.html("""
+    <script>
+    (function() {
+        const doc = window.parent.document;
+
+        function removeOverviewScrollbars() {
+            const tabs = doc.querySelector('div[data-testid="stTabs"]');
+            if (!tabs) return;
+
+            const panels = tabs.querySelectorAll('div[role="tabpanel"]');
+            const overview = panels && panels.length ? panels[0] : null;
+            if (!overview) return;
+
+            overview.setAttribute('data-overview-no-scroll', 'true');
+            overview.style.overflowY = 'visible';
+            overview.style.maxHeight = 'none';
+            overview.style.height = 'auto';
+
+            overview.querySelectorAll('div, section, article').forEach(function(el) {
+                const testid = el.getAttribute('data-testid') || '';
+
+                // Keep horizontal scrolling for wide tables, but remove vertical scrolling.
+                if (testid === 'stDataFrame') {
+                    el.style.overflowX = 'auto';
+                    el.style.overflowY = 'visible';
+                    el.style.maxHeight = 'none';
+                    return;
+                }
+
+                el.style.overflowY = 'visible';
+                el.style.maxHeight = 'none';
+            });
+        }
+
+        removeOverviewScrollbars();
+        setTimeout(removeOverviewScrollbars, 250);
+        setTimeout(removeOverviewScrollbars, 1000);
+    })();
+    </script>
+    """, height=0, width=0)
+
+
+inject_overview_no_scroll_hard_fix()
+
+
+# ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
+def render_top_feedback_bar():
+    """
+    Inject a reliable single-control floating feedback widget.
+
+    Fix applied:
+    - Uses one click listener per button only.
+    - Avoids duplicate onclick + addEventListener bindings, which caused the widget
+      to open and immediately close again.
+    - Uses CSS class toggling only; no competing inline display overrides.
+    """
+    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
+
+    components.html(f"""
+    <script>
+    (function() {{
+        const doc = window.parent.document;
+        const rootId = "eusee-feedback-floating-root";
+        const styleId = "eusee-feedback-floating-style";
+
+        // Remove previous/cached feedback widgets and styles.
+        [
+            "eusee-feedback-floating-root",
+            "eusee-feedback-callout",
+            "eusee-feedback-tab"
+        ].forEach(function(id) {{
+            const el = doc.getElementById(id);
+            if (el) el.remove();
+        }});
+
+        [
+            "eusee-feedback-floating-style",
+            "eusee-feedback-style"
+        ].forEach(function(id) {{
+            const el = doc.getElementById(id);
+            if (el) el.remove();
+        }});
+
+        try {{
+            window.localStorage.removeItem("eusee_feedback_widget_closed");
+            window.localStorage.removeItem("eusee_feedback_widget_dismissed");
+            window.localStorage.removeItem("eusee_feedback_widget_hidden");
+        }} catch (e) {{}}
+
+        const style = doc.createElement("style");
+        style.id = styleId;
+        style.innerHTML = `
+            #eusee-feedback-floating-root {{
+                position: fixed !important;
+                top: clamp(58px, 7vh, 78px) !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                z-index: 2147482500 !important;
+                font-family: Arial, sans-serif !important;
+                pointer-events: auto !important;
+                width: auto !important;
+                max-width: calc(100vw - 24px) !important;
+            }}
+
+            #eusee-feedback-floating-root * {{
+                box-sizing: border-box !important;
+            }}
+
+            .eusee-feedback-toggle {{
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                min-height: 38px !important;
+                padding: 8px 14px !important;
+                border-radius: 999px !important;
+                border: 1px solid rgba(102,0,148,.16) !important;
+                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98)) !important;
+                color: #2D0055 !important;
+                box-shadow: 0 12px 28px rgba(17,24,39,.13), 0 2px 8px rgba(102,0,148,.08) !important;
+                font-size: 12px !important;
+                font-weight: 950 !important;
+                cursor: pointer !important;
+                user-select: none !important;
+                white-space: nowrap !important;
+                backdrop-filter: blur(14px) !important;
+                -webkit-backdrop-filter: blur(14px) !important;
+                transition: transform .16s ease, box-shadow .16s ease, background .16s ease !important;
+                appearance: none !important;
+                -webkit-appearance: none !important;
+            }}
+
+            .eusee-feedback-toggle:hover {{
+                transform: translateY(-1px) !important;
+                background: linear-gradient(135deg, #FFFFFF, #F4EAF8) !important;
+                box-shadow: 0 16px 34px rgba(17,24,39,.16), 0 3px 10px rgba(102,0,148,.10) !important;
+            }}
+
+            .eusee-feedback-toggle-icon {{
+                width: 24px !important;
+                height: 24px !important;
+                min-width: 24px !important;
+                border-radius: 9px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10)) !important;
+                border: 1px solid rgba(102,0,148,.10) !important;
+                color: #660094 !important;
+                font-size: 13px !important;
+                font-weight: 900 !important;
+            }}
+
+            .eusee-feedback-toggle-caret {{
+                color: #667085 !important;
+                font-size: 13px !important;
+                font-weight: 950 !important;
+                line-height: 1 !important;
+            }}
+
+            .eusee-feedback-panel {{
+                display: none !important;
+                width: min(760px, calc(100vw - 28px)) !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 12px !important;
+                padding: 12px 12px 12px 14px !important;
+                border-radius: 18px !important;
+                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98)) !important;
+                border: 1px solid rgba(102,0,148,.14) !important;
+                box-shadow: 0 16px 38px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08) !important;
+                backdrop-filter: blur(14px) !important;
+                -webkit-backdrop-filter: blur(14px) !important;
+            }}
+
+            #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {{
+                display: none !important;
+            }}
+
+            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {{
+                display: flex !important;
+            }}
+
+            .eusee-feedback-panel-left {{
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                min-width: 0 !important;
+                flex: 1 !important;
+            }}
+
+            .eusee-feedback-panel-icon {{
+                width: 34px !important;
+                height: 34px !important;
+                min-width: 34px !important;
+                border-radius: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10)) !important;
+                border: 1px solid rgba(102,0,148,.10) !important;
+                color: #660094 !important;
+                font-size: 15px !important;
+                font-weight: 900 !important;
+            }}
+
+            .eusee-feedback-panel-copy {{
+                color: #344054 !important;
+                font-size: 12px !important;
+                line-height: 1.32 !important;
+                font-weight: 750 !important;
+                white-space: normal !important;
+                min-width: 0 !important;
+            }}
+
+            .eusee-feedback-panel-copy strong {{
+                color: #2D0055 !important;
+                font-weight: 950 !important;
+            }}
+
+            .eusee-feedback-panel-actions {{
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+                gap: 8px !important;
+                flex-shrink: 0 !important;
+                align-self: center !important;
+            }}
+
+            .eusee-feedback-panel-button {{
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                min-height: 34px !important;
+                padding: 8px 14px !important;
+                border-radius: 999px !important;
+                background: linear-gradient(90deg, #660094 0%, #008CAA 100%) !important;
+                color: #FFFFFF !important;
+                text-decoration: none !important;
+                font-size: 11px !important;
+                font-weight: 900 !important;
+                white-space: nowrap !important;
+                box-shadow: 0 8px 18px rgba(102,0,148,.18) !important;
+                transition: all .16s ease !important;
+            }}
+
+            .eusee-feedback-panel-button:hover {{
+                transform: translateY(-1px) !important;
+                filter: brightness(1.04) !important;
+            }}
+
+            .eusee-feedback-panel-toggle {{
+                min-height: 34px !important;
+                padding: 8px 12px !important;
+                gap: 6px !important;
+                box-shadow: none !important;
+                background: rgba(255,255,255,.92) !important;
+            }}
+
+            @media (max-width: 900px) {{
+                #eusee-feedback-floating-root {{
+                    top: 62px !important;
+                    max-width: calc(100vw - 20px) !important;
+                }}
+
+                .eusee-feedback-panel {{
+                    width: min(640px, calc(100vw - 20px)) !important;
+                    padding: 11px 12px !important;
+                }}
+            }}
+
+            @media (max-width: 700px) {{
+                #eusee-feedback-floating-root {{
+                    top: 58px !important;
+                    left: 50% !important;
+                    width: calc(100vw - 18px) !important;
+                    max-width: calc(100vw - 18px) !important;
+                }}
+
+                .eusee-feedback-toggle {{
+                    width: fit-content !important;
+                    max-width: 92vw !important;
+                    margin: 0 auto !important;
+                    min-height: 36px !important;
+                    padding: 7px 12px !important;
+                    font-size: 11.5px !important;
+                }}
+
+                .eusee-feedback-panel {{
+                    width: 100% !important;
+                    max-height: calc(100vh - 88px) !important;
+                    overflow-y: auto !important;
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 10px !important;
+                    padding: 11px !important;
+                    border-radius: 16px !important;
+                }}
+
+                .eusee-feedback-panel-left {{
+                    align-items: flex-start !important;
+                }}
+
+                .eusee-feedback-panel-copy {{
+                    font-size: 11.5px !important;
+                    line-height: 1.35 !important;
+                }}
+
+                .eusee-feedback-panel-actions {{
+                    width: 100% !important;
+                    gap: 8px !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                }}
+
+                .eusee-feedback-panel-button {{
+                    flex: 1 !important;
+                    width: auto !important;
+                }}
+            }}
+        `;
+        doc.head.appendChild(style);
+
+        const root = doc.createElement("div");
+        root.id = rootId;
+        root.className = "is-collapsed";
+        root.innerHTML = `
+            <button class="eusee-feedback-toggle" id="eusee-feedback-toggle" type="button" aria-label="Open feedback panel" aria-expanded="false" title="Open feedback panel">
+                <span class="eusee-feedback-toggle-icon">💬</span>
+                <span id="eusee-feedback-toggle-label">Feedback</span>
+                <span class="eusee-feedback-toggle-caret" id="eusee-feedback-toggle-caret">+</span>
+            </button>
+
+            <div class="eusee-feedback-panel" id="eusee-feedback-panel" role="dialog" aria-label="Feedback panel">
+                <div class="eusee-feedback-panel-left">
+                    <div class="eusee-feedback-panel-icon">💬</div>
+                    <div class="eusee-feedback-panel-copy">
+                        <strong>Share your feedback</strong> on usability, insights, and dashboard improvements.
+                    </div>
+                </div>
+
+                <div class="eusee-feedback-panel-actions">
+                    <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
+                        Fill in the form
+                    </a>
+                    <button class="eusee-feedback-toggle eusee-feedback-panel-toggle" id="eusee-feedback-panel-toggle" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">
+                        <span>Collapse</span>
+                        <span class="eusee-feedback-toggle-caret">−</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        doc.body.appendChild(root);
+
+        const openButton = doc.getElementById("eusee-feedback-toggle");
+        const closeButton = doc.getElementById("eusee-feedback-panel-toggle");
+
+        function setFeedbackOpen(isOpen) {{
+            root.classList.toggle("is-open", isOpen);
+            root.classList.toggle("is-collapsed", !isOpen);
+            openButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        }}
+
+        openButton.addEventListener("click", function(event) {{
+            event.preventDefault();
+            event.stopPropagation();
+            setFeedbackOpen(true);
+        }});
+
+        closeButton.addEventListener("click", function(event) {{
+            event.preventDefault();
+            event.stopPropagation();
+            setFeedbackOpen(false);
+        }});
+
+        doc.addEventListener("keydown", function(event) {{
+            if (event.key === "Escape") setFeedbackOpen(false);
+        }});
+
+        setFeedbackOpen(false);
+    }})();
+    </script>
+    """, height=0, width=0)
+
+render_top_feedback_bar()  # Single-button floating dashboard feedback overlay.
+
 
 
 # ---------------- TAB 2: Negative Events ----------------
