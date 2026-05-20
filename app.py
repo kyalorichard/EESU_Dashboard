@@ -1596,8 +1596,9 @@ st.markdown(f"""
     font-family: Arial, sans-serif;
     color: #333333;
     margin-bottom: 0px !important;
+    padding-bottom: 0px !important;
     max-width: 980px;
-    line-height: 1.5;
+    line-height: 1.25;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.0s;
@@ -1668,6 +1669,95 @@ st.markdown(f"""
 
 </style>
 """, unsafe_allow_html=True)
+
+
+# ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
+# This removes the visible blank space between the dashboard subtitle and the tabs.
+tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
+    [
+        "📊 Overview",
+        "⚠️ Negative Alerts Analysis",
+        "🗺️ Visualization Map",
+        "📘 User Manual",
+    ]
+)
+
+st.markdown(
+    """
+    <style>
+    /* Force the main tabs to sit directly under the subtitle. */
+    div[data-testid="stTabs"]:first-of-type {
+        margin-top: -0.65rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type > div {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tablist"] {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px !important;
+        background: #ffffff !important;
+        border-bottom: 1px solid #E8E2EF !important;
+        margin-top: 0rem !important;
+        margin-bottom: 4px !important;
+        padding: 0rem 0rem 4px 0rem !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 20 !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"] {
+        width: 100% !important;
+        min-height: 44px !important;
+        padding: 10px 12px !important;
+        margin: 0rem !important;
+        border-radius: 12px 12px 8px 8px !important;
+        background: #F8F7FB !important;
+        color: #3E2B4F !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+        border: 1px solid #EEE7F4 !important;
+        border-bottom: 3px solid transparent !important;
+        box-shadow: none !important;
+        transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"]:hover {
+        background: #F1E8F8 !important;
+        color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #660094 !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, #660094, #7A1FA2) !important;
+        color: #FFFFFF !important;
+        border-color: #660094 !important;
+        box-shadow: inset 0 -3px 0 #FFDB58 !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tabpanel"] {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type [role="tab"] p {
+        margin: 0rem !important;
+        padding: 0rem !important;
+        line-height: 1.1 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
@@ -6888,78 +6978,7 @@ def render_if_permitted(permission_key: str, section_title: str, render_fn, cont
     render_permission_locked_card(section_title, permission_key, container=container)
     return None
 
-# ---------------- TABS ----------------
-tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
-    [
-        "📊 Overview",
-        "⚠️ Negative Alerts Analysis",
-        "🗺️ Visualization Map",
-        "📘 User Manual",
-    ]
-)
-st.markdown(
-    """
-    <style>
-    /* Stable tab styling: target only the tab bar, not the full tab component.
-       This prevents tab changes from causing continuous page scrolling/layout jumps. */
-    div[data-testid="stTabs"] {
-        margin-top: -1.35rem !important;
-        padding-top: 0rem !important;
-    }
-
-    div[data-testid="stTabs"] [role="tablist"] {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-        background: #ffffff;
-        border-bottom: 1px solid #E8E2EF;
-        margin-top: 0 !important;
-        margin-bottom: 4px !important;
-        padding: 0 0 4px 0 !important;
-        position: sticky;
-        top: 0;
-        z-index: 20;
-    }
-
-    div[data-testid="stTabs"] [role="tab"] {
-        width: 100% !important;
-        min-height: 44px !important;
-        padding: 10px 12px !important;
-        margin: 0 !important;
-        border-radius: 12px 12px 8px 8px !important;
-        background: #F8F7FB !important;
-        color: #3E2B4F !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 14px !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        border: 1px solid #EEE7F4 !important;
-        border-bottom: 3px solid transparent !important;
-        box-shadow: none !important;
-        transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
-    }
-
-    div[data-testid="stTabs"] [role="tab"]:hover {
-        background: #F1E8F8 !important;
-        color: #660094 !important;
-        box-shadow: inset 0 -3px 0 #660094 !important;
-    }
-
-    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-        background: linear-gradient(90deg, #660094, #7A1FA2) !important;
-        color: #FFFFFF !important;
-        border-color: #660094 !important;
-        box-shadow: inset 0 -3px 0 #FFDB58 !important;
-    }
-
-    div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 0px !important;
-        margin-top: 0px !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# ---------------- TABS ALREADY RENDERED DIRECTLY BELOW SUBTITLE ----------------
 
 SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
 def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
