@@ -948,6 +948,221 @@ def inject_professional_tab_chart_spacing_css():
 inject_professional_tab_chart_spacing_css()
 
 
+# ---------------- STANDARDIZED DASHBOARD PADDING SYSTEM ----------------
+def inject_standardized_dashboard_padding_css():
+    """Standardize padding and spacing across dashboard UI items for a polished UX.
+
+    This layer is intentionally presentation-only. It does not change dashboard
+    logic, filters, permissions, datasets, chart traces, or tab content.
+    It also avoids changing the top title/header compression already applied.
+    """
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-space-xxs: 0.25rem;
+        --eusee-space-xs: 0.50rem;
+        --eusee-space-sm: 0.75rem;
+        --eusee-space-md: 1.00rem;
+        --eusee-space-lg: 1.25rem;
+        --eusee-card-pad-sm: 0.85rem;
+        --eusee-card-pad: 1.00rem;
+        --eusee-card-pad-lg: 1.15rem;
+    }
+
+    /* Keep page top compact, but make left/right page padding consistent. */
+    .main .block-container {
+        padding-left: 1.35rem !important;
+        padding-right: 1.35rem !important;
+    }
+
+    /* Restore professional breathing room inside tabs only. */
+    [data-testid="stTabs"] [role="tabpanel"],
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        padding-top: 0.65rem !important;
+        padding-bottom: 1.10rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tabpanel"] > div[data-testid="stVerticalBlock"],
+    div[data-testid="stTabs"] div[role="tabpanel"] > div[data-testid="stVerticalBlock"] {
+        gap: var(--eusee-space-md) !important;
+    }
+
+    /* Standard row spacing for cards/charts/tables inside tabs. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"],
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"] {
+        gap: var(--eusee-space-md) !important;
+        margin-top: 0.10rem !important;
+        margin-bottom: 0.95rem !important;
+        align-items: stretch !important;
+    }
+
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="column"],
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="column"] {
+        padding-left: 0.15rem !important;
+        padding-right: 0.15rem !important;
+        min-width: 0 !important;
+    }
+
+    /* Undo the earlier global zero-margin behavior inside tab content only. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"],
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"] {
+        margin-top: 0rem !important;
+        margin-bottom: 0.80rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Chart containers: clean separation, no excessive whitespace. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]),
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]) {
+        margin-bottom: 1.00rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stPlotlyChart"] {
+        padding: 0.35rem 0.20rem 0.45rem 0.20rem !important;
+        margin: 0rem !important;
+    }
+
+    /* KPI, metric and custom cards: consistent inner padding and rhythm. */
+    [data-testid="stMetric"],
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-table-shell,
+    .map-guide-card,
+    .map-overview-guide,
+    .user-manual-card,
+    .manual-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .sidebar-last-updated,
+    .classic-filter-header,
+    .classic-filter-status,
+    .data-preview-toolbar,
+    .eusee-data-preview-note {
+        padding: var(--eusee-card-pad) !important;
+        margin-bottom: 0.90rem !important;
+        box-sizing: border-box !important;
+    }
+
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-table-shell,
+    .map-guide-card,
+    .map-overview-guide,
+    .user-manual-card,
+    .manual-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card {
+        border-radius: 16px !important;
+    }
+
+    /* Expander panels: aligned header/content padding. */
+    div[data-testid="stExpander"] {
+        margin-top: 0.20rem !important;
+        margin-bottom: 1.00rem !important;
+    }
+
+    div[data-testid="stExpander"] summary {
+        padding: 0.80rem 1.00rem !important;
+    }
+
+    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] {
+        gap: 0.75rem !important;
+    }
+
+    /* Text blocks: professional reading rhythm without large gaps. */
+    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] p,
+    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] p {
+        margin-top: 0rem !important;
+        margin-bottom: 0.55rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] h4,
+    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] h2,
+    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] h3,
+    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] h4 {
+        margin-top: 0.35rem !important;
+        margin-bottom: 0.50rem !important;
+    }
+
+    /* Tables and alerts align with cards/charts. */
+    div[data-testid="stDataFrame"],
+    [data-testid="stAlert"] {
+        margin-top: 0.15rem !important;
+        margin-bottom: 0.95rem !important;
+    }
+
+    /* Form controls inside tabs get consistent vertical rhythm. */
+    [data-testid="stTabs"] [role="tabpanel"] .stTextInput,
+    [data-testid="stTabs"] [role="tabpanel"] .stSelectbox,
+    [data-testid="stTabs"] [role="tabpanel"] .stMultiSelect,
+    [data-testid="stTabs"] [role="tabpanel"] .stDateInput,
+    [data-testid="stTabs"] [role="tabpanel"] .stSlider,
+    [data-testid="stTabs"] [role="tabpanel"] .stButton,
+    div[data-testid="stTabs"] div[role="tabpanel"] .stTextInput,
+    div[data-testid="stTabs"] div[role="tabpanel"] .stSelectbox,
+    div[data-testid="stTabs"] div[role="tabpanel"] .stMultiSelect,
+    div[data-testid="stTabs"] div[role="tabpanel"] .stDateInput,
+    div[data-testid="stTabs"] div[role="tabpanel"] .stSlider,
+    div[data-testid="stTabs"] div[role="tabpanel"] .stButton {
+        margin-bottom: 0.70rem !important;
+    }
+
+    /* Sidebar keeps a compact but readable system. */
+    section[data-testid="stSidebar"] > div {
+        padding: 1.00rem 0.85rem 1.25rem 0.85rem !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 0.70rem !important;
+    }
+
+    /* Mobile/tablet: reduce padding while keeping separation. */
+    @media (max-width: 900px) {
+        .main .block-container {
+            padding-left: 0.85rem !important;
+            padding-right: 0.85rem !important;
+        }
+
+        [data-testid="stTabs"] [role="tabpanel"],
+        div[data-testid="stTabs"] div[role="tabpanel"] {
+            padding-top: 0.55rem !important;
+        }
+
+        [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"],
+        div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"] {
+            gap: 0.75rem !important;
+            margin-bottom: 0.80rem !important;
+        }
+
+        [data-testid="stMetric"],
+        .eusee-kpi-card,
+        .negintel-card,
+        .executive-table-shell,
+        .map-guide-card,
+        .map-overview-guide,
+        .user-manual-card,
+        .manual-card,
+        .ai-card,
+        .copilot-card,
+        .chat-card {
+            padding: var(--eusee-card-pad-sm) !important;
+            margin-bottom: 0.75rem !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_standardized_dashboard_padding_css()
+
+
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
 def build_compact_chatbot_context(df):
