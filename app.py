@@ -319,7 +319,7 @@ def inject_classic_dashboard_css():
 /* REMOVE SPACE BELOW SUBTITLE */
 .animated-subtitle{
     margin-top: 0rem !important;
-    margin-bottom: 2.0rem !important;
+    margin-bottom: 2.0px !important;
     padding-top: 0rem !important;
     padding-bottom: 0rem !important;
     line-height: 1.25 !important;
@@ -327,7 +327,7 @@ def inject_classic_dashboard_css():
 
 /* REMOVE GAP BEFORE TABS */
 div[data-testid="stTabs"]{
-    margin-top: 2.0rem !important;
+    margin-top: 2.0px !important;
     padding-top: 0rem !important;
     margin-bottom: 0rem !important;
     padding-bottom: 0rem !important;
