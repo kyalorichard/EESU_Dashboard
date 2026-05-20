@@ -710,49 +710,66 @@ def inject_compact_dashboard_spacing_css():
     """Remove excess vertical gaps around the intro block, tabs, and footer."""
     st.markdown("""
     <style>
-    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
+
+    /* Main dashboard container: keep the page compact without affecting functionality. */
     .main .block-container {
-        padding-top: 0.15rem !important;
-        padding-bottom: 1.25rem !important;
+        padding-top: 0.08rem !important;
+        padding-bottom: 1rem !important;
     }
 
-    /* Compact dashboard title and intro block. */
+    /* Dashboard title: reduce bottom spacing above the divider. */
     .animated-title {
         margin-top: 0rem !important;
-        margin-bottom: 0.20rem !important;
-    }
-    .animated-divider {
-        margin-top: 0rem !important;
-        margin-bottom: 0.30rem !important;
-    }
-    .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 0.15rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
+        margin-bottom: 0.08rem !important;
+        line-height: 1.02 !important;
     }
 
-    /* Remove excess gap between the intro text and the tab bar / tab content. */
-    [data-testid="stTabs"] {
+    /* Divider: keep only a small gap before the subtitle. */
+    .animated-divider {
         margin-top: 0rem !important;
+        margin-bottom: 0.18rem !important;
+    }
+
+    /* Dashboard intro/description text: remove the large gap above the tabs. */
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0.05rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.35 !important;
+    }
+
+    /* Pull the Streamlit tabs closer to the intro text. */
+    [data-testid="stTabs"] {
+        margin-top: -0.35rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
+
+    /* Compact the actual tab bar. */
     [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
-        margin-bottom: 0.35rem !important;
         padding-top: 0rem !important;
+        margin-bottom: 0.20rem !important;
         padding-bottom: 0rem !important;
+        min-height: 42px !important;
     }
+
+    /* Compact tab content start. */
     [data-testid="stTabs"] [role="tabpanel"],
     div[data-testid="stTabs"] div[role="tabpanel"] {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
 
-    /* Remove Streamlit-generated vertical spacing before the footer image. */
+    /* Remove Streamlit-generated blank spacing blocks that can appear between sections. */
+    div[data-testid="stVerticalBlock"] > div:empty {
+        display: none !important;
+    }
+
+    /* Remove extra spacing before footer image. */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
@@ -766,9 +783,7 @@ def inject_compact_dashboard_spacing_css():
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
-    div[data-testid="stVerticalBlock"] > div:empty {
-        display: none !important;
-    }
+
     </style>
     """, unsafe_allow_html=True)
 
