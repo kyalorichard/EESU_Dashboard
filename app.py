@@ -780,7 +780,7 @@ def inject_compact_dashboard_spacing_css():
 
     /* Force tabs to start immediately after the dashboard subtitle. */
     div[data-testid="stTabs"] {
-        margin-top: -0.15rem !important;
+        margin-top: -1.35rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -791,9 +791,9 @@ def inject_compact_dashboard_spacing_css():
     }
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
-        margin-bottom: 0.25rem !important;
+        margin-bottom: 0.05rem !important;
         padding-top: 0rem !important;
-        padding-bottom: 0.25rem !important;
+        padding-bottom: 0rem !important;
     }
     div[data-testid="stTabs"] div[role="tabpanel"] {
         margin-top: 0rem !important;
@@ -1535,8 +1535,8 @@ st.markdown(f"""
 <style>
 /* ---------------- Title ---------------- */
 .animated-title {{
-    margin: 0 0 4px 0 !important;
-    line-height: 1.05;
+    margin: 0 0 0px 0 !important;
+    line-height: 1.02;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
@@ -1560,7 +1560,7 @@ st.markdown(f"""
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 10px !important;
+    margin-bottom: 2px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
@@ -1577,7 +1577,7 @@ st.markdown(f"""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 12px !important;
+    margin-bottom: 0px !important;
     max-width: 980px;
     line-height: 1.5;
     opacity: 0;
@@ -6885,7 +6885,7 @@ st.markdown(
     /* Stable tab styling: target only the tab bar, not the full tab component.
        This prevents tab changes from causing continuous page scrolling/layout jumps. */
     div[data-testid="stTabs"] {
-        margin-top: -0.15rem !important;
+        margin-top: -1.35rem !important;
         padding-top: 0rem !important;
     }
 
@@ -7900,6 +7900,85 @@ def inject_final_responsive_tab_text_ux():
     """, unsafe_allow_html=True)
 
 inject_final_responsive_tab_text_ux()
+
+
+# ---------------- FINAL TOP TAB SPACING OVERRIDE ----------------
+def inject_final_top_tab_spacing_override():
+    """Final override to remove dead space above the main dashboard tabs.
+
+    This is intentionally loaded after all tab styling functions because earlier
+    responsive tab CSS reintroduces padding/margins around the Streamlit tab bar.
+    It only changes vertical spacing around the tabs, not tab behavior, filters,
+    charts, maps, permissions, or chatbot logic.
+    """
+    st.markdown("""
+    <style>
+    /* Keep the title/subtitle block compact before the tabs. */
+    .animated-title {
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.02 !important;
+    }
+
+    .animated-divider {
+        margin-top: 0rem !important;
+        margin-bottom: 0.08rem !important;
+    }
+
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.25 !important;
+    }
+
+    /* Pull Streamlit tabs directly upward under the subtitle. */
+    div[data-testid="stTabs"] {
+        margin-top: -1.35rem !important;
+        padding-top: 0rem !important;
+    }
+
+    div[data-testid="stTabs"] > div {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Put tab buttons at the top edge of the tabs container. */
+    div[data-testid="stTabs"] div[role="tablist"],
+    div[data-testid="stTabs"] [role="tablist"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0.12rem !important;
+        padding-bottom: 0.12rem !important;
+    }
+
+    /* Remove the default gap between tab buttons and tab panel content. */
+    div[data-testid="stTabs"] div[role="tabpanel"],
+    div[data-testid="stTabs"] [role="tabpanel"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Remove empty iframe/component wrappers that can create invisible gaps. */
+    .main .block-container iframe[width="0"],
+    .main .block-container iframe[height="0"],
+    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="0"]),
+    .main .block-container div[data-testid="stElementContainer"]:has(iframe[width="0"]) {
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        overflow: hidden !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_final_top_tab_spacing_override()
 
 
 # ---------------- FINAL LEGEND COLOR + SPACING FIX ----------------
