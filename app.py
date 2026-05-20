@@ -114,6 +114,86 @@ except Exception:
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 
+# ---------------- ULTRA COMPACT HERO / TAB SPACING FIX ----------------
+st.markdown("""
+<style>
+
+/* Main page container */
+.main .block-container{
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* Remove top spacing from all wrapper blocks */
+div[data-testid="stVerticalBlock"]{
+    gap: 0rem !important;
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* Dashboard title */
+.animated-title{
+    margin-top: 0rem !important;
+    margin-bottom: 0.15rem !important;
+    padding-top: 0rem !important;
+    line-height: 1.0 !important;
+}
+
+/* Divider */
+.animated-divider{
+    margin-top: 0rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+/* Subtitle */
+.animated-subtitle{
+    margin-top: 0rem !important;
+    margin-bottom: 0.25rem !important;
+    padding-bottom: 0rem !important;
+    line-height: 1.35 !important;
+}
+
+/* Tabs container */
+div[data-testid="stTabs"]{
+    margin-top: -0.65rem !important;
+    padding-top: 0rem !important;
+}
+
+/* Tab list */
+div[data-testid="stTabs"] [role="tablist"]{
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0.25rem !important;
+    min-height: auto !important;
+}
+
+/* Individual tabs */
+div[data-testid="stTabs"] [role="tab"]{
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+}
+
+/* Remove hidden iframe spacing from components.html */
+iframe{
+    height: 0px !important;
+    min-height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+    border: none !important;
+}
+
+/* Remove extra empty element spacing */
+.element-container:empty{
+    display:none !important;
+    margin:0 !important;
+    padding:0 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+
 # ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
 def configure_global_plotly_typography():
     """Apply a consistent executive font and color system to Plotly charts.
@@ -705,8 +785,7 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
-def inject_compact_dashboard_spacing_css():
+:
     """Remove excess vertical gaps around the intro block, tabs, and footer."""
     st.markdown("""
     <style>
