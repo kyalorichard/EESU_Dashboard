@@ -1711,7 +1711,71 @@ inject_zero_space_tabs_override()
 
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
-def render_top_feedback_bar():
+def render_top_feedback_bar()
+
+
+# ---------------- REMOVE RESERVED SPACE FROM FLOATING FEEDBACK COMPONENT ----------------
+def inject_feedback_iframe_zero_height_fix():
+    """Prevent the floating feedback HTML component from reserving page space."""
+    st.markdown("""
+    <style>
+    /* Streamlit components iframe used only to inject the floating feedback widget.
+       Keep the actual floating widget visible, but remove the page-space reserved by the iframe. */
+    iframe[title="streamlit.components.v1.html"] {
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        border: 0px !important;
+        display: block !important;
+    }
+
+    div[data-testid="stIFrame"],
+    div[data-testid="stIFrame"] > div,
+    div[data-testid="stIFrame"] iframe {
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        border: 0px !important;
+        overflow: hidden !important;
+    }
+
+    /* Keep title, subtitle, and tabs tightly stacked. */
+    .animated-title {
+        margin-top: -0.25rem !important;
+        margin-bottom: 0rem !important;
+        line-height: 0.98 !important;
+    }
+
+    .animated-divider {
+        margin-top: 0rem !important;
+        margin-bottom: 0.08rem !important;
+    }
+
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        line-height: 1.18 !important;
+    }
+
+    [data-testid="stTabs"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tablist"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_feedback_iframe_zero_height_fix()
+
+:
     """
     Inject a reliable single-control floating feedback widget.
 
