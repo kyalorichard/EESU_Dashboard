@@ -783,6 +783,80 @@ def inject_final_responsive_overrides():
 inject_final_responsive_overrides()
 
 
+# ---------------- PAGE-WIDE HORIZONTAL OVERFLOW FIX ----------------
+def inject_no_page_horizontal_scroll_css():
+    """Remove horizontal scrolling from the main dashboard/tab canvas."""
+    st.markdown("""
+    <style>
+    html, body, .stApp {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    [data-testid="stAppViewContainer"],
+    section.main,
+    .main,
+    .main .block-container {
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    [data-testid="stVerticalBlock"],
+    [data-testid="stHorizontalBlock"],
+    [data-testid="stElementContainer"],
+    [data-testid="stMarkdownContainer"],
+    [data-testid="stTabs"],
+    [role="tabpanel"] {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    div[data-testid="column"] {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .stPlotlyChart,
+    div[data-testid="stPlotlyChart"],
+    .js-plotly-plot,
+    .plot-container,
+    .svg-container,
+    iframe,
+    canvas,
+    svg {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-table-shell,
+    .data-preview-toolbar,
+    .last-updated-badge,
+    .map-guide-card,
+    .map-overview-guide {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .main .block-container p,
+    .main .block-container span,
+    .main .block-container div {
+        overflow-wrap: anywhere;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_no_page_horizontal_scroll_css()
+
+
 # ---------------- ALL-TABS PROFESSIONAL TYPOGRAPHY OVERRIDES ----------------
 
 def inject_all_tabs_typography_css():
