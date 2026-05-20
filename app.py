@@ -705,106 +705,6 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- ULTRA-COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
-def inject_ultra_compact_spacing_css():
-    """Remove excessive vertical spacing before the primary tabs and footer.
-
-    Keep this as the final spacing override after the dashboard title markup,
-    because Streamlit and the title CSS both inject their own margins.
-    """
-    st.markdown("""
-    <style>
-    /* Main page container: compact top area and footer area. */
-    .main .block-container {
-        padding-top: 0.15rem !important;
-        padding-bottom: 1rem !important;
-    }
-
-    /* Reduce Streamlit's generated vertical gaps without affecting widgets. */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0rem !important;
-    }
-    div[data-testid="stVerticalBlock"] > div:empty {
-        display: none !important;
-    }
-
-    /* Dashboard title/introduction: remove accumulated title-to-tabs space. */
-    .animated-title {
-        margin-top: 0rem !important;
-        margin-bottom: 0.08rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.0 !important;
-    }
-    .animated-divider {
-        margin-top: 0rem !important;
-        margin-bottom: 0.14rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.32 !important;
-    }
-
-    /* Tighten the Markdown element that contains the title/subtitle block. */
-    .element-container:has(.animated-title),
-    .element-container:has(.animated-subtitle) {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    /* Remove excess gap before the tab bar. */
-    [data-testid="stTabs"],
-    div[data-testid="stTabs"] {
-        margin-top: -0.55rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    [data-testid="stTabs"] [role="tablist"],
-    div[data-testid="stTabs"] div[role="tablist"] {
-        margin-top: 0rem !important;
-        margin-bottom: 0.15rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0.25rem !important;
-        min-height: auto !important;
-    }
-
-    [data-testid="stTabs"] [role="tab"],
-    div[data-testid="stTabs"] button[role="tab"] {
-        padding-top: 0.42rem !important;
-        padding-bottom: 0.42rem !important;
-        min-height: 38px !important;
-    }
-
-    [data-testid="stTabs"] [role="tabpanel"],
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Remove Streamlit-generated vertical spacing before the footer image. */
-    .eusee-fixed-footer,
-    .eusee-fixed-footer * {
-        box-sizing: border-box !important;
-    }
-    .eusee-fixed-footer {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-    .main .block-container > div:last-child,
-    div[data-testid="stVerticalBlock"] > div:last-child {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
@@ -1629,10 +1529,6 @@ st.markdown(f"""
 
 </style>
 """, unsafe_allow_html=True)
-
-
-# Apply this after the title markup so it wins over title-level CSS margins.
-inject_ultra_compact_spacing_css()
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
@@ -6867,20 +6763,13 @@ st.markdown(
     <style>
     /* Stable tab styling: target only the tab bar, not the full tab component.
        This prevents tab changes from causing continuous page scrolling/layout jumps. */
-    div[data-testid="stTabs"] {
-        margin-top: -0.55rem !important;
-        padding-top: 0rem !important;
-    }
-
     div[data-testid="stTabs"] [role="tablist"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 8px;
+        gap: 10px;
         background: #ffffff;
         border-bottom: 1px solid #E8E2EF;
-        margin-top: 0 !important;
-        margin-bottom: 0.15rem !important;
-        padding: 0 0 4px 0 !important;
+        padding: 0 0 8px 0;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -6888,8 +6777,8 @@ st.markdown(
 
     div[data-testid="stTabs"] [role="tab"] {
         width: 100% !important;
-        min-height: 38px !important;
-        padding: 7px 12px !important;
+        min-height: 44px !important;
+        padding: 10px 12px !important;
         margin: 0 !important;
         border-radius: 12px 12px 8px 8px !important;
         background: #F8F7FB !important;
@@ -6918,8 +6807,7 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
+        padding-top: 8px !important;
     }
     </style>
     """,
@@ -14084,46 +13972,21 @@ with open(footer_image_path, "rb") as f:
     data = f.read()
 b64 = base64.b64encode(data).decode()
 
-# --- Render fixed footer without reserving an extra Streamlit iframe spacer ---
-st.markdown(f"""
-<style>
-.eusee-fixed-footer {{
+# --- Render fixed footer using components.html ---
+components.html(f"""
+<div style="
     position: fixed;
-    left: 0;
-    right: 0;
     bottom: 0;
     width: 100%;
     text-align: center;
-    padding: 4px 0 3px 0;
-    margin: 0 !important;
-    background: #FFFFFF;
-    border-top: 1px solid rgba(230,232,239,.85);
-    box-shadow: 0 -6px 18px rgba(16,24,40,.045);
-    z-index: 9999;
-}}
-.eusee-fixed-footer img {{
-    display: block;
-    width: min(900px, 92vw);
-    max-width: 92vw;
-    height: auto;
-    margin: 0 auto !important;
-    padding: 0 !important;
-}}
-.eusee-fixed-footer-copy {{
-    margin: 1px 0 0 0 !important;
-    padding: 0 !important;
-    color: #667085;
-    font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
-    font-size: 10px;
-    line-height: 1.1;
-    font-weight: 600;
-}}
-</style>
-<div class="eusee-fixed-footer">
-    <img src="data:image/png;base64,{b64}" alt="EU SEE footer logo">
-    <div class="eusee-fixed-footer-copy">© 2025 EU SEE Dashboard. All rights reserved.</div>
+    padding: 10px 0;
+    background-color:'white';
+    z-index: 9999;    
+">    
+    <img src="data:image/png;base64,{b64}" width="900">
 </div>
-""", unsafe_allow_html=True)
+""", height=200)
+st.markdown("<div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
 
 
 # Suggested prompts for better UX
