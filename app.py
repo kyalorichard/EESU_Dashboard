@@ -786,7 +786,7 @@ def inject_compact_dashboard_spacing_css():
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 1.2rem !important;
+        margin-bottom: 2.5rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
@@ -1595,7 +1595,7 @@ st.markdown(f"""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 2px !important;
+    margin-bottom: 3px !important;
     padding-bottom: 0px !important;
     max-width: 980px;
     line-height: 1.25;
@@ -7966,7 +7966,7 @@ def inject_final_top_tab_spacing_override():
 
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 1.2rem !important;
+        margin-bottom: 2.5rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
