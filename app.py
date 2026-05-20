@@ -194,7 +194,7 @@ def inject_classic_dashboard_css():
         --eusee-text: #232633;
         --eusee-muted: #667085;
     }
-    .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
+    .main .block-container { padding-top: 0rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
     header[data-testid="stHeader"] {
         height: 48px !important;
         min-height: 48px !important;
@@ -287,7 +287,7 @@ def inject_classic_dashboard_css():
 
     /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
     html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
-    .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
+    .main .block-container { padding-top: 0rem !important; padding-bottom: 7rem !important; }
     [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
     div[data-testid="column"] { min-width: 0 !important; }
     .stPlotlyChart, div[data-testid="stPlotlyChart"], .js-plotly-plot, .plot-container {
@@ -705,69 +705,166 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
+# ---------------- ULTRA-COMPACT HEADER / TITLE / TAB / FOOTER SPACING FIX ----------------
 def inject_compact_dashboard_spacing_css():
-    """Remove excess vertical gaps around the intro block, tabs, and footer."""
+    """Force-remove excess vertical spacing above the dashboard title and around tabs/footer."""
     st.markdown("""
     <style>
-    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
-    .main .block-container {
-        padding-top: 0.25rem !important;
-        padding-bottom: 3.25rem !important;
+    /* =========================================================
+       GLOBAL PAGE RESET
+    ========================================================= */
+    html,
+    body,
+    .stApp,
+    [data-testid="stAppViewContainer"] {
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* Compact dashboard title and intro block. */
-    .animated-title {
-        margin-top: 0rem !important;
-        margin-bottom: 0.20rem !important;
+    /* =========================================================
+       MAIN PAGE CONTAINER
+       The negative margin intentionally pulls the first rendered dashboard
+       block closer to the Streamlit header.
+    ========================================================= */
+    .main .block-container {
+        padding-top: 0rem !important;
+        margin-top: -2.4rem !important;
+        padding-bottom: 3.25rem !important;
+        max-width: 1500px !important;
     }
+
+    section.main > div,
+    .main .block-container > div:first-child,
+    .main .block-container > div:first-child > div,
+    .main .block-container > div:first-child > div > div {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Kill Streamlit spacer containers that create the large blank area. */
+    div[data-testid="stVerticalBlock"] {
+        gap: 0rem !important;
+    }
+
+    div[data-testid="element-container"] {
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+    }
+
+    div[data-testid="stVerticalBlock"] > div:empty,
+    div[data-testid="element-container"]:empty,
+    div[data-testid="stMarkdownContainer"]:empty {
+        display: none !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+    }
+
+    /* =========================================================
+       STREAMLIT HEADER
+    ========================================================= */
+    header[data-testid="stHeader"] {
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+        background: rgba(247,248,251,0.94) !important;
+        border-bottom: 1px solid rgba(230,232,239,0.80) !important;
+        z-index: 999999 !important;
+    }
+
+    div[data-testid="stToolbar"] {
+        top: 0px !important;
+        right: 0.75rem !important;
+    }
+
+    /* =========================================================
+       DASHBOARD INTRO BLOCK
+    ========================================================= */
+    .eusee-dashboard-intro {
+        overflow: hidden !important;
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0.25rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    .animated-title {
+        margin-top: -0.55rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.0 !important;
+    }
+
     .animated-divider {
         margin-top: 0rem !important;
-        margin-bottom: 0.30rem !important;
-    }
-    .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 0.35rem !important;
+        margin-bottom: 0.18rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
 
-    /* Remove excess gap between the intro text and the tab bar / tab content. */
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0.28rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.35 !important;
+    }
+
+    /* =========================================================
+       TABS
+    ========================================================= */
     [data-testid="stTabs"] {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
+
     [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
-        margin-bottom: 0.35rem !important;
         padding-top: 0rem !important;
+        margin-bottom: 0.20rem !important;
         padding-bottom: 0rem !important;
+        min-height: 40px !important;
+        align-items: center !important;
     }
+
     [data-testid="stTabs"] [role="tabpanel"],
     div[data-testid="stTabs"] div[role="tabpanel"] {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
 
-    /* Remove Streamlit-generated vertical spacing before the footer image. */
+    /* =========================================================
+       FOOTER GAP REMOVAL
+    ========================================================= */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
-    }
-    .eusee-fixed-footer {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
+
     .main .block-container > div:last-child,
     div[data-testid="stVerticalBlock"] > div:last-child {
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
-    div[data-testid="stVerticalBlock"] > div:empty {
-        display: none !important;
+
+    /* =========================================================
+       MOBILE
+    ========================================================= */
+    @media (max-width: 768px) {
+        .main .block-container {
+            margin-top: -1.6rem !important;
+        }
+
+        .animated-title {
+            margin-top: -0.2rem !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1460,31 +1557,29 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
-st.markdown(f"""
-<!-- Container for animations -->
-<div style="overflow: hidden;">
+st.markdown("""
+<div class="eusee-dashboard-intro">
 
 <h1 class="animated-title">
     EU SEE Dashboard
 </h1>
 
-<!-- Animated divider -->
 <div class="animated-divider"></div>
 
 <div class="animated-subtitle">
     This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
+    It aggregates information reported by Network Members across 86 countries to document trends
     in the enabling environment for civil society.
 </div>
-
 
 </div>
 
 <style>
 /* ---------------- Title ---------------- */
-.animated-title {{
-    margin: 0 0 4px 0 !important;
-    line-height: 1.05;
+.animated-title {
+    margin: -0.55rem 0 0 0 !important;
+    padding: 0 !important;
+    line-height: 1.0 !important;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
@@ -1493,54 +1588,57 @@ st.markdown(f"""
     transform: translateY(-20px);
     animation: titleFadeSlide 0.8s ease-out forwards;
     animation-delay: 0.2s;
-}}
+}
 
 /* Title animation */
-@keyframes titleFadeSlide {{
-    from {{ opacity: 0; transform: translateY(-20px); }}
-    to   {{ opacity: 1; transform: translateY(0); }}
-}}
+@keyframes titleFadeSlide {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 
 /* ---------------- Divider ---------------- */
-.animated-divider {{
+.animated-divider {
     width: 15%;
     max-width: 120px;
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 10px !important;
+    margin-top: 0rem !important;
+    margin-bottom: 0.18rem !important;
+    padding: 0 !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
     animation-delay: 0.6s;
-}}
+}
 
-@keyframes dividerSlide {{
-    from {{ transform: translateX(-120%); opacity: 0; }}
-    to   {{ transform: translateX(0); opacity: 1; }}
-}}
+@keyframes dividerSlide {
+    from { transform: translateX(-120%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
 
 /* ---------------- Subtitle ---------------- */
-.animated-subtitle {{
+.animated-subtitle {
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 12px !important;
+    margin-top: 0rem !important;
+    margin-bottom: 0.28rem !important;
+    padding: 0 !important;
     max-width: 980px;
-    line-height: 1.5;
+    line-height: 1.35;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.0s;
-}}
+}
 
-@keyframes subtitleFade {{
-    from {{ opacity: 0; }}
-    to   {{ opacity: 1; }}
-}}
-
+@keyframes subtitleFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
 
 /* ---------------- Last updated badge ---------------- */
-.last-updated-badge {{
+.last-updated-badge {
     display: inline-flex;
     align-items: center;
     gap: 10px;
@@ -1556,8 +1654,8 @@ st.markdown(f"""
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.15s;
-}}
-.last-updated-icon {{
+}
+.last-updated-icon {
     width: 30px;
     height: 30px;
     min-width: 30px;
@@ -1570,34 +1668,34 @@ st.markdown(f"""
     border: 1px solid rgba(102,0,148,.10);
     font-size: 14px;
     font-weight: 900;
-}}
-.last-updated-copy {{
+}
+.last-updated-copy {
     display: flex;
     align-items: baseline;
     gap: 6px;
     flex-wrap: wrap;
     color: #344054;
-}}
-.last-updated-label {{
+}
+.last-updated-label {
     color: #660094;
     font-size: 10px;
     font-weight: 900;
     letter-spacing: .08em;
     text-transform: uppercase;
-}}
-.last-updated-copy strong {{
+}
+.last-updated-copy strong {
     color: #23152F;
     font-size: 12.5px;
     font-weight: 950;
-}}
-.last-updated-copy small {{
+}
+.last-updated-copy small {
     color: #667085;
     font-size: 10.5px;
     font-weight: 700;
-}}
-
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
