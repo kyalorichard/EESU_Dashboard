@@ -113,48 +113,7 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-st.markdown("""
-<style>
 
-/* FORCE REMOVE TOP PAGE SPACE */
-.main .block-container,
-section.main .block-container,
-[data-testid="stAppViewContainer"] .main .block-container {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
-
-/* REMOVE STREAMLIT TOP WRAPPER GAP */
-div[data-testid="stVerticalBlock"] > div:first-child {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-}
-
-/* REMOVE SPACE ABOVE TITLE */
-.animated-title{
-    margin-top: -1.15rem !important;
-    padding-top: 0rem !important;
-}
-
-/* REMOVE HEADER BOTTOM GAP */
-header[data-testid="stHeader"]{
-    height: 48px !important;
-    min-height: 48px !important;
-    margin-bottom: 0rem !important;
-    padding-bottom: 0rem !important;
-}
-
-/* REMOVE EXTRA EMPTY ELEMENTS */
-div[data-testid="stElementContainer"]:empty,
-div[data-testid="stMarkdownContainer"]:empty {
-    display: none !important;
-    height: 0px !important;
-    margin: 0px !important;
-    padding: 0px !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
 
 # ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
 def configure_global_plotly_typography():
@@ -1574,7 +1533,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
 <!-- Container for animations -->
-<div style="overflow: hidden;">
+<div class="eusee-title-shell" style="overflow: hidden;">
 
 <h1 class="animated-title">
     EU SEE Dashboard
@@ -1594,6 +1553,11 @@ st.markdown(f"""
 
 <style>
 /* ---------------- Title ---------------- */
+/* Scoped title-only spacing: avoids changing global Streamlit wrappers, charts, tabs, cards, sidebar, or chatbot. */
+.eusee-title-shell {{
+    margin-top: -1.15rem !important;
+    padding-top: 0rem !important;
+}}
 .animated-title {{
     margin: 0 0 0px 0 !important;
     line-height: 1.02;
