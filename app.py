@@ -705,65 +705,29 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- ULTRA-COMPACT HEADER / TITLE / TAB / FOOTER SPACING FIX ----------------
+# ---------------- TITLE-ONLY TOP SPACING FIX ----------------
 def inject_compact_dashboard_spacing_css():
-    """Force-remove excess vertical spacing above the dashboard title and around tabs/footer."""
+    """Remove only the excess space above the dashboard title and before the tab list.
+
+    Important: this CSS intentionally does NOT reset global Streamlit vertical gaps,
+    element-container margins, tab panel padding, chart spacing, card spacing, or
+    footer/panel spacing. Internal layout inside tabs remains controlled by the
+    existing dashboard styling.
+    """
     st.markdown("""
     <style>
     /* =========================================================
-       GLOBAL PAGE RESET
-    ========================================================= */
-    html,
-    body,
-    .stApp,
-    [data-testid="stAppViewContainer"] {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* =========================================================
-       MAIN PAGE CONTAINER
-       The negative margin intentionally pulls the first rendered dashboard
-       block closer to the Streamlit header.
+       PAGE TOP ONLY
+       Pull the first dashboard block closer to the Streamlit header.
+       This affects only the outer page container, not internal tab panels.
     ========================================================= */
     .main .block-container {
         padding-top: 0rem !important;
-        margin-top: -2.4rem !important;
-        padding-bottom: 3.25rem !important;
+        margin-top: -2.1rem !important;
         max-width: 1500px !important;
     }
 
-    section.main > div,
-    .main .block-container > div:first-child,
-    .main .block-container > div:first-child > div,
-    .main .block-container > div:first-child > div > div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Kill Streamlit spacer containers that create the large blank area. */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0rem !important;
-    }
-
-    div[data-testid="element-container"] {
-        margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
-    }
-
-    div[data-testid="stVerticalBlock"] > div:empty,
-    div[data-testid="element-container"]:empty,
-    div[data-testid="stMarkdownContainer"]:empty {
-        display: none !important;
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-    }
-
-    /* =========================================================
-       STREAMLIT HEADER
-    ========================================================= */
+    /* Keep the header compact without touching charts or tab-panel contents. */
     header[data-testid="stHeader"] {
         height: 40px !important;
         min-height: 40px !important;
@@ -779,7 +743,8 @@ def inject_compact_dashboard_spacing_css():
     }
 
     /* =========================================================
-       DASHBOARD INTRO BLOCK
+       DASHBOARD INTRO ONLY
+       These rules only target the title, divider, and subtitle.
     ========================================================= */
     .eusee-dashboard-intro {
         overflow: hidden !important;
@@ -790,7 +755,7 @@ def inject_compact_dashboard_spacing_css():
     }
 
     .animated-title {
-        margin-top: -0.55rem !important;
+        margin-top: -0.45rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -813,57 +778,32 @@ def inject_compact_dashboard_spacing_css():
     }
 
     /* =========================================================
-       TABS
+       TAB BAR ONLY
+       Do not style [role="tabpanel"] here. This preserves spacing for
+       panels, charts, cards, KPIs, maps, tables, and all tab contents.
     ========================================================= */
-    [data-testid="stTabs"] {
+    [data-testid="stTabs"] > div:first-child {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
     }
 
     [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
-        margin-bottom: 0.20rem !important;
-        padding-bottom: 0rem !important;
+        margin-bottom: 0.35rem !important;
         min-height: 40px !important;
         align-items: center !important;
     }
 
-    [data-testid="stTabs"] [role="tabpanel"],
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* =========================================================
-       FOOTER GAP REMOVAL
-    ========================================================= */
-    .eusee-fixed-footer,
-    .eusee-fixed-footer * {
-        box-sizing: border-box !important;
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    .main .block-container > div:last-child,
-    div[data-testid="stVerticalBlock"] > div:last-child {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    /* =========================================================
-       MOBILE
-    ========================================================= */
+    /* Mobile: reduce the pull-up so the header controls do not overlap. */
     @media (max-width: 768px) {
         .main .block-container {
-            margin-top: -1.6rem !important;
+            margin-top: -1.4rem !important;
         }
 
         .animated-title {
-            margin-top: -0.2rem !important;
+            margin-top: -0.15rem !important;
         }
     }
     </style>
