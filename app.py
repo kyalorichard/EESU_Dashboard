@@ -1614,6 +1614,75 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- FINAL HEADER-TO-TABS GAP OVERRIDE ----------------
+def inject_final_header_tabs_gap_override():
+    """Force-remove the remaining Streamlit wrapper gap between intro text and tabs."""
+    st.markdown("""
+    <style>
+    /* Final override loaded after the title CSS, so it wins over earlier duplicated rules. */
+    .animated-title {
+        margin-top: 0rem !important;
+        margin-bottom: 0.05rem !important;
+        line-height: 1.02 !important;
+    }
+
+    .animated-divider {
+        margin-top: 0rem !important;
+        margin-bottom: 0.12rem !important;
+    }
+
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.32 !important;
+    }
+
+    /* Remove margin from the markdown element that contains the title/subtitle block. */
+    div[data-testid="stMarkdownContainer"]:has(.animated-subtitle),
+    div[data-testid="stMarkdownContainer"]:has(.animated-title) {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Remove the Streamlit vertical wrapper gap after the subtitle block. */
+    div[data-testid="stVerticalBlock"] > div:has(.animated-subtitle),
+    div[data-testid="stVerticalBlock"] > div:has(.animated-title) {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Pull the first dashboard tab set tightly under the intro description. */
+    div[data-testid="stVerticalBlock"] > div:has([data-testid="stTabs"]) {
+        margin-top: -0.65rem !important;
+        padding-top: 0rem !important;
+    }
+
+    [data-testid="stTabs"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tablist"],
+    div[data-testid="stTabs"] div[role="tablist"] {
+        margin-top: 0rem !important;
+        margin-bottom: 0.18rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tabpanel"],
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_final_header_tabs_gap_override()
+
+
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
     """
