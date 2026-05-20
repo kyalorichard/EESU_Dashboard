@@ -315,6 +315,24 @@ def inject_classic_dashboard_css():
         .stButton > button { width: 100% !important; }
         div[data-testid="stDataFrame"] { max-height: 70vh !important; overflow: auto !important; }
     }
+
+/* REMOVE SPACE BELOW SUBTITLE */
+.animated-subtitle{
+    margin-top: 0rem !important;
+    margin-bottom: -1.05rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0rem !important;
+    line-height: 1.25 !important;
+}
+
+/* REMOVE GAP BEFORE TABS */
+div[data-testid="stTabs"]{
+    margin-top: -1.55rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0rem !important;
+    padding-bottom: 0rem !important;
+}
+
 </style>
     """, unsafe_allow_html=True)
 
