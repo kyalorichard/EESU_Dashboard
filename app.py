@@ -114,6 +114,86 @@ except Exception:
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 
+# ---------------- ULTRA COMPACT HERO / TAB SPACING FIX ----------------
+st.markdown("""
+<style>
+
+/* Main page container */
+.main .block-container{
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* Remove top spacing from all wrapper blocks */
+div[data-testid="stVerticalBlock"]{
+    gap: 0rem !important;
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+/* Dashboard title */
+.animated-title{
+    margin-top: 0rem !important;
+    margin-bottom: 0.15rem !important;
+    padding-top: 0rem !important;
+    line-height: 1.0 !important;
+}
+
+/* Divider */
+.animated-divider{
+    margin-top: 0rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+/* Subtitle */
+.animated-subtitle{
+    margin-top: 0rem !important;
+    margin-bottom: 0.25rem !important;
+    padding-bottom: 0rem !important;
+    line-height: 1.35 !important;
+}
+
+/* Tabs container */
+div[data-testid="stTabs"]{
+    margin-top: -0.65rem !important;
+    padding-top: 0rem !important;
+}
+
+/* Tab list */
+div[data-testid="stTabs"] [role="tablist"]{
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0.25rem !important;
+    min-height: auto !important;
+}
+
+/* Individual tabs */
+div[data-testid="stTabs"] [role="tab"]{
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+}
+
+/* Remove hidden iframe spacing from components.html */
+iframe{
+    height: 0px !important;
+    min-height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+    border: none !important;
+}
+
+/* Remove extra empty element spacing */
+.element-container:empty{
+    display:none !important;
+    margin:0 !important;
+    padding:0 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+
 # ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
 def configure_global_plotly_typography():
     """Apply a consistent executive font and color system to Plotly charts.
@@ -705,102 +785,53 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- HARD COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
-def inject_compact_dashboard_spacing_css():
-    """Force-remove Streamlit wrapper gaps around title, tabs, and footer only."""
+:
+    """Remove excess vertical gaps around the intro block, tabs, and footer."""
     st.markdown("""
     <style>
-    /* Page shell: keep the dashboard close to the browser header. */
-    .main .block-container,
-    section.main .block-container,
-    [data-testid="stAppViewContainer"] .main .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 1.6rem !important;
+    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
+    .main .block-container {
+        padding-top: 0.25rem !important;
+        padding-bottom: 3.25rem !important;
     }
 
-    /* Remove vertical rhythm added by Streamlit around injected CSS/HTML blocks. */
-    .main .block-container > div,
-    .main .block-container [data-testid="stVerticalBlock"] > div {
-        gap: 0rem !important;
-        row-gap: 0rem !important;
-    }
-
-    /* Hide blank wrappers created by CSS-only markdown blocks and tiny components. */
-    .main .block-container div[data-testid="stElementContainer"]:has(style),
-    .main .block-container div[data-testid="stMarkdownContainer"]:has(style),
-    .main .block-container div[data-testid="element-container"]:has(style) {
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        overflow: hidden !important;
-    }
-    .main .block-container iframe[width="1"],
-    .main .block-container iframe[height="1"],
-    .main .block-container iframe[height="0"] {
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        display: block !important;
-    }
-    .main .block-container div[data-testid="stElementContainer"]:has(iframe[width="1"]),
-    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="1"]),
-    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="0"]) {
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        overflow: hidden !important;
-    }
-
-    /* Dashboard intro block: compact but still readable. */
+    /* Compact dashboard title and intro block. */
     .animated-title {
         margin-top: 0rem !important;
-        margin-bottom: 0.05rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.02 !important;
+        margin-bottom: 0.20rem !important;
     }
     .animated-divider {
         margin-top: 0rem !important;
-        margin-bottom: 0.12rem !important;
+        margin-bottom: 0.30rem !important;
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0.05rem !important;
+        margin-bottom: 0.45rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
-        line-height: 1.25 !important;
-    }
-    .animated-title + .animated-divider,
-    .animated-divider + .animated-subtitle {
-        margin-top: 0rem !important;
     }
 
-    /* Force tabs to start immediately after the dashboard subtitle. */
-    div[data-testid="stTabs"] {
-        margin-top: -0.15rem !important;
+    /* Remove excess gap between the intro text and the tab bar / tab content. */
+    [data-testid="stTabs"] {
+        margin-top: 0rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
-    div[data-testid="stTabs"] > div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
+    [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
-        margin-bottom: 0.25rem !important;
+        margin-bottom: 0.35rem !important;
         padding-top: 0rem !important;
-        padding-bottom: 0.25rem !important;
+        padding-bottom: 0rem !important;
     }
+    [data-testid="stTabs"] [role="tabpanel"],
     div[data-testid="stTabs"] div[role="tabpanel"] {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
 
-    /* Remove empty footer/pre-footer spacing while keeping fixed footer visible. */
+    /* Remove Streamlit-generated vertical spacing before the footer image. */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
@@ -814,12 +845,8 @@ def inject_compact_dashboard_spacing_css():
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
-    div[data-testid="stVerticalBlock"] > div:empty,
-    div[data-testid="stElementContainer"]:empty {
+    div[data-testid="stVerticalBlock"] > div:empty {
         display: none !important;
-        height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1513,9 +1540,8 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
-<!-- Container for animations -->
-<div style="overflow: hidden;">
-
+<!-- Compact dashboard hero: keep title/subtitle tight against the tabs -->
+<div class="eusee-hero-compact">
 <h1 class="animated-title">
     EU SEE Dashboard
 </h1>
@@ -1528,11 +1554,17 @@ st.markdown(f"""
     It aggregates information reported by Network Members across 86 countries to document trends 
     in the enabling environment for civil society.
 </div>
-
-
 </div>
-
 <style>
+/* ---------------- Compact hero shell ---------------- */
+.eusee-hero-compact {{
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}}
+.eusee-hero-compact * {{ box-sizing: border-box !important; }}
+
 /* ---------------- Title ---------------- */
 .animated-title {{
     margin: 0 0 4px 0 !important;
@@ -1560,7 +1592,8 @@ st.markdown(f"""
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 10px !important;
+    margin-top: 0 !important;
+    margin-bottom: 2px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
@@ -1577,7 +1610,8 @@ st.markdown(f"""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 12px !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
     max-width: 980px;
     line-height: 1.5;
     opacity: 0;
@@ -6884,20 +6918,13 @@ st.markdown(
     <style>
     /* Stable tab styling: target only the tab bar, not the full tab component.
        This prevents tab changes from causing continuous page scrolling/layout jumps. */
-    div[data-testid="stTabs"] {
-        margin-top: -0.15rem !important;
-        padding-top: 0rem !important;
-    }
-
     div[data-testid="stTabs"] [role="tablist"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 10px;
         background: #ffffff;
         border-bottom: 1px solid #E8E2EF;
-        margin-top: 0 !important;
-        margin-bottom: 4px !important;
-        padding: 0 0 4px 0 !important;
+        padding: 0 0 8px 0;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -6935,13 +6962,148 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 0px !important;
-        margin-top: 0px !important;
+        padding-top: 8px !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
+# ---------------- FORCE HERO-TO-TABS GAP REMOVAL ----------------
+def inject_force_hero_tabs_gap_removal():
+    """Final override for the exact gap between dashboard intro text and top tabs.
+
+    Scope is intentionally narrow: title/subtitle hero, zero-height feedback iframe,
+    and top dashboard tabs only. Internal chart and panel spacing is unchanged.
+    """
+    st.markdown("""
+    <style>
+    .main .block-container {
+        padding-top: 0rem !important;
+    }
+
+    .eusee-hero-compact {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+    }
+
+    .eusee-hero-compact .animated-title {
+        margin: 0 0 2px 0 !important;
+        padding: 0 !important;
+        line-height: 1.02 !important;
+    }
+
+    .eusee-hero-compact .animated-divider {
+        margin: 0 0 2px 0 !important;
+        padding: 0 !important;
+    }
+
+    .eusee-hero-compact .animated-subtitle {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.28 !important;
+    }
+
+    iframe[height="0"], iframe[width="0"] {
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stTabs"],
+    div[data-testid="stTabs"] > div,
+    div[data-testid="stTabs"] div[role="tablist"] {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tablist"] {
+        margin-bottom: 6px !important;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"] {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        padding-top: 4px !important;
+        margin-top: 0 !important;
+    }
+
+    .main .block-container div[data-testid="stVerticalBlock"] > div:empty {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    components.html("""
+    <script>
+    (function() {
+        const doc = window.parent.document;
+
+        function compactHeroTabs() {
+            const hero = doc.querySelector('.eusee-hero-compact');
+            const tabs = doc.querySelector('div[data-testid="stTabs"]');
+            if (!hero || !tabs) return;
+
+            const heroBlock = hero.closest('[data-testid="stMarkdownContainer"]')?.parentElement?.parentElement;
+            if (heroBlock) {
+                heroBlock.style.marginBottom = '0px';
+                heroBlock.style.paddingBottom = '0px';
+            }
+
+            let node = tabs;
+            for (let i = 0; i < 4 && node; i++) {
+                node.style.marginTop = '0px';
+                node.style.paddingTop = '0px';
+                node = node.parentElement;
+            }
+
+            Array.from(doc.querySelectorAll('iframe')).forEach(function(frame) {
+                const rect = frame.getBoundingClientRect();
+                if (rect.height <= 2 || frame.height === '0') {
+                    frame.style.height = '0px';
+                    frame.style.minHeight = '0px';
+                    frame.style.margin = '0px';
+                    frame.style.padding = '0px';
+                    let parent = frame.parentElement;
+                    for (let i = 0; i < 4 && parent; i++) {
+                        parent.style.minHeight = '0px';
+                        parent.style.marginTop = '0px';
+                        parent.style.marginBottom = '0px';
+                        parent.style.paddingTop = '0px';
+                        parent.style.paddingBottom = '0px';
+                        if (parent.getBoundingClientRect().height <= 8) parent.style.height = '0px';
+                        parent = parent.parentElement;
+                    }
+                }
+            });
+        }
+
+        compactHeroTabs();
+        setTimeout(compactHeroTabs, 100);
+        setTimeout(compactHeroTabs, 500);
+        setTimeout(compactHeroTabs, 1200);
+    })();
+    </script>
+    """, height=0, width=0)
+
+inject_force_hero_tabs_gap_removal()
 
 SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
 def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
@@ -7668,8 +7830,9 @@ def inject_compact_tabs_and_legend_ux():
         display: grid !important;
         grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
         gap: 5px !important;
+        margin-top: 0 !important;
         overflow-x: hidden !important;
-        padding: 3px 0 6px 0 !important;
+        padding: 0 0 6px 0 !important;
     }
     div[data-testid="stTabs"] button[role="tab"] {
         width: 100% !important;
