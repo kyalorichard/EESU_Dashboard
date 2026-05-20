@@ -2097,6 +2097,124 @@ def inject_overview_no_scroll_hard_fix():
 inject_overview_no_scroll_hard_fix()
 
 
+# ---------------- FINAL HARD FIX: REMOVE SUMMARY CARD / PANEL SCROLLBARS ----------------
+def inject_overview_cards_panels_no_scroll_css():
+    """Remove horizontal/internal scrollbars from Overview summary cards and panel shells."""
+    st.markdown("""
+    <style>
+    /* Page and first tab panel must never create a horizontal scrollbar. */
+    html, body, .stApp,
+    [data-testid="stAppViewContainer"],
+    section.main, .main, .main .block-container {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Overview tab only: clamp all layout wrappers to the available width. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type > div,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stHorizontalBlock"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="column"] {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Overview summary cards: no internal scrollbars. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-kpi-card,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-kpi-card *,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .executive-mini-kpi,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .executive-mini-kpi *,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .last-updated-badge,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .last-updated-badge * {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Overview panels / expanders / custom shells: remove inner horizontal scroll. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stExpander"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stExpander"] > div,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .executive-table-shell,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .executive-table-shell *,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .data-preview-toolbar,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .data-preview-toolbar *,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .data-preview-footnote,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-data-preview-note,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .map-guide-card,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .map-overview-guide,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .negintel-card {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* KPI internals that commonly force overflow. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-donut-layout {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        grid-template-columns: minmax(62px, 76px) minmax(0, 1fr) !important;
+        box-sizing: border-box !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-breakdown-list,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-breakdown-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-breakdown-row {
+        grid-template-columns: 9px minmax(0, 1fr) minmax(32px, 42px) minmax(32px, 42px) !important;
+    }
+
+    /* Long text and badges should wrap instead of widening cards. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type p,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type span,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type strong,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type small {
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+    }
+
+    /* Chart wrappers inside Overview: clip accidental horizontal overflow from SVG/canvas wrappers. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .stPlotlyChart,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .js-plotly-plot,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .plot-container,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .svg-container,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type svg,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type canvas,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type iframe {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Hide any accidental horizontal scrollbar track inside Overview cards/panels. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .eusee-kpi-card::-webkit-scrollbar:horizontal,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .executive-table-shell::-webkit-scrollbar:horizontal,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stExpander"]::-webkit-scrollbar:horizontal {
+        display: none !important;
+        height: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_overview_cards_panels_no_scroll_css()
+
+
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
     """
