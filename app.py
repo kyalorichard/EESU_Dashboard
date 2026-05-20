@@ -707,57 +707,74 @@ inject_all_tabs_typography_css()
 
 # ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
 def inject_compact_dashboard_spacing_css():
-    """Force-remove excess vertical gaps around dashboard title/subtitle and keep other components unchanged."""
+    """Force-remove vertical gaps around the dashboard title/subtitle only."""
     st.markdown("""
     <style>
-    /*
-      Scope: dashboard intro only.
-      This intentionally avoids changing chart panels, KPI cards, chatbot blocks,
-      tab-panel content spacing, sidebar controls, and data tables.
-    */
-
-    /* Remove page-level top gap above the dashboard title. */
-    .main .block-container {
+    /* Keep page top tight. Later CSS blocks cannot reintroduce title whitespace. */
+    .main .block-container,
+    section.main .block-container,
+    [data-testid="stAppViewContainer"] .main .block-container {
         padding-top: 0rem !important;
-        padding-bottom: 3.25rem !important;
     }
 
-    /* Remove Streamlit markdown wrapper space only for the intro markdown block. */
-    div[data-testid="stMarkdownContainer"]:has(.eusee-dashboard-intro-shell) {
+    /* Target only the custom dashboard title markdown block. */
+    #eusee-dashboard-title-root,
+    #eusee-dashboard-title-root * {
+        box-sizing: border-box !important;
+    }
+
+    #eusee-dashboard-title-root {
+        display: block !important;
+        overflow: hidden !important;
+        margin: 0rem 0rem 0rem 0rem !important;
+        padding: 0rem !important;
+        line-height: 1 !important;
+    }
+
+    #eusee-dashboard-title-root .animated-title {
+        display: block !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
+        line-height: 0.98 !important;
+    }
+
+    #eusee-dashboard-title-root .animated-divider {
+        display: block !important;
+        margin-top: 0rem !important;
+        margin-bottom: 0.10rem !important;
+        padding: 0rem !important;
+        line-height: 1 !important;
+    }
+
+    #eusee-dashboard-title-root .animated-subtitle {
+        display: block !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
+        line-height: 1.34 !important;
+    }
+
+    /* Remove spacing from Streamlit wrappers only when they contain the title root. */
+    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root),
+    div[data-testid="stElementContainer"]:has(#eusee-dashboard-title-root),
+    div[data-testid="stVerticalBlock"] > div:has(#eusee-dashboard-title-root) {
         margin-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
 
-    .eusee-dashboard-intro-shell {
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1 !important;
-        overflow: hidden !important;
+    /* Remove default h1 top/bottom spacing only for this dashboard title. */
+    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) h1,
+    div[data-testid="stMarkdownContainer"]:has(#eusee-dashboard-title-root) p {
+        margin-block-start: 0rem !important;
+        margin-block-end: 0rem !important;
+        padding-block-start: 0rem !important;
+        padding-block-end: 0rem !important;
     }
 
-    .eusee-dashboard-intro-shell .animated-title {
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1.02 !important;
-    }
-
-    .eusee-dashboard-intro-shell .animated-divider {
-        margin-top: 0rem !important;
-        margin-bottom: 0.18rem !important;
-        padding: 0rem !important;
-    }
-
-    .eusee-dashboard-intro-shell .animated-subtitle {
-        margin: 0rem !important;
-        padding: 0rem !important;
-        line-height: 1.38 !important;
-    }
-
-    /* Keep tab bar close to the intro without changing spacing inside tabs. */
+    /* Keep tabs close to the intro without changing tab content spacing. */
     [data-testid="stTabs"] {
-        margin-top: 0.15rem !important;
+        margin-top: 0.08rem !important;
         padding-top: 0rem !important;
     }
 
@@ -767,17 +784,15 @@ def inject_compact_dashboard_spacing_css():
         padding-top: 0rem !important;
     }
 
-    /* Footer spacing remains compact, but does not affect chart/panel internals. */
+    /* Keep footer compact as in the previous script. */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
     }
-
     .eusee-fixed-footer {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
-
     div[data-testid="stVerticalBlock"] > div:empty {
         display: none !important;
     }
@@ -1474,83 +1489,82 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
-<div class="eusee-dashboard-intro-shell" style="overflow:hidden; margin:0; padding:0; line-height:1;">
-
-<h1 class="animated-title">
-    EU SEE Dashboard
-</h1>
-
-<div class="animated-divider"></div>
-
-<div class="animated-subtitle" style="margin:0;padding:0;">
-    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
-    in the enabling environment for civil society.
-</div>
-
+<div id="eusee-dashboard-title-root" style="overflow:hidden;margin:0;padding:0;line-height:1;">
+    <h1 class="animated-title">EU SEE Dashboard</h1>
+    <div class="animated-divider"></div>
+    <div class="animated-subtitle">
+        This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
+        It aggregates information reported by Network Members across 86 countries to document trends
+        in the enabling environment for civil society.
+    </div>
 </div>
 
 <style>
 /* ---------------- Title ---------------- */
-.eusee-dashboard-intro-shell .animated-title {{
-    margin: 0rem !important;
-    padding: 0rem !important;
-    line-height: 1.02 !important;
+#eusee-dashboard-title-root {{
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}}
+
+#eusee-dashboard-title-root .animated-title {{
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0.98 !important;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
     font-weight: 700;
     opacity: 0;
-    transform: translateY(-10px);
-    animation: titleFadeSlide 0.65s ease-out forwards;
-    animation-delay: 0.10s;
+    transform: translateY(-6px);
+    animation: titleFadeSlide 0.55s ease-out forwards;
+    animation-delay: 0.05s;
 }}
 
 @keyframes titleFadeSlide {{
-    from {{ opacity: 0; transform: translateY(-10px); }}
+    from {{ opacity: 0; transform: translateY(-6px); }}
     to   {{ opacity: 1; transform: translateY(0); }}
 }}
 
 /* ---------------- Divider ---------------- */
-.eusee-dashboard-intro-shell .animated-divider {{
+#eusee-dashboard-title-root .animated-divider {{
     width: 15%;
     max-width: 120px;
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-top: 0rem !important;
-    margin-bottom: 0.18rem !important;
-    padding: 0rem !important;
+    margin: 0rem 0rem 0.10rem 0rem !important;
+    padding: 0 !important;
     opacity: 0;
-    transform: translateX(-120%);
-    animation: dividerSlide 0.85s ease-out forwards;
-    animation-delay: 0.35s;
+    transform: translateX(-80%);
+    animation: dividerSlide 0.65s ease-out forwards;
+    animation-delay: 0.25s;
 }}
 
 @keyframes dividerSlide {{
-    from {{ transform: translateX(-120%); opacity: 0; }}
+    from {{ transform: translateX(-80%); opacity: 0; }}
     to   {{ transform: translateX(0); opacity: 1; }}
 }}
 
 /* ---------------- Subtitle ---------------- */
-.eusee-dashboard-intro-shell .animated-subtitle {{
+#eusee-dashboard-title-root .animated-subtitle {{
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin: 0rem !important;
-    padding: 0rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
     max-width: 980px;
-    line-height: 1.38 !important;
+    line-height: 1.34 !important;
     opacity: 0;
-    animation: subtitleFade 0.65s ease-out forwards;
-    animation-delay: 0.65s;
+    animation: subtitleFade 0.55s ease-out forwards;
+    animation-delay: 0.45s;
 }}
 
 @keyframes subtitleFade {{
     from {{ opacity: 0; }}
     to   {{ opacity: 1; }}
 }}
-
 
 /* ---------------- Last updated badge ---------------- */
 .last-updated-badge {{
@@ -1608,10 +1622,8 @@ st.markdown(f"""
     font-size: 10.5px;
     font-weight: 700;
 }}
-
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
