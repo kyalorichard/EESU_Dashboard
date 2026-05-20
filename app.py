@@ -317,21 +317,21 @@ def inject_classic_dashboard_css():
     }
 
 /* REMOVE SPACE BELOW SUBTITLE */
-.animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 0.45rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.32 !important;
-    }
+.animated-subtitle{
+    margin-top: 0rem !important;
+    margin-bottom: 0.85rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0rem !important;
+    line-height: 1.25 !important;
+}
 
 /* REMOVE GAP BEFORE TABS */
-div[data-testid="stTabs"] {
-        margin-top: 0.35rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
+div[data-testid="stTabs"]{
+    margin-top: 0.95rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0rem !important;
+    padding-bottom: 0rem !important;
+}
 
 </style>
     """, unsafe_allow_html=True)
@@ -786,7 +786,7 @@ def inject_compact_dashboard_spacing_css():
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0.05rem !important;
+        margin-bottom: 0.85rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
@@ -798,7 +798,7 @@ def inject_compact_dashboard_spacing_css():
 
     /* Force tabs to start immediately after the dashboard subtitle. */
     div[data-testid="stTabs"] {
-        margin-top: 0.35rem !important;
+        margin-top: -1.35rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -1595,10 +1595,10 @@ st.markdown(f"""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 0.45rem !important;
+    margin-bottom: 1px !important;
     padding-bottom: 0px !important;
     max-width: 980px;
-    line-height: 1.32;
+    line-height: 1.25;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.0s;
@@ -1687,7 +1687,7 @@ st.markdown(
     <style>
     /* Force the main tabs to sit directly under the subtitle. */
     div[data-testid="stTabs"]:first-of-type {
-        margin-top: 0.55rem !important;
+        margin-top:  0.95rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -7966,7 +7966,7 @@ def inject_final_top_tab_spacing_override():
 
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
+        margin-bottom: 0.85rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
