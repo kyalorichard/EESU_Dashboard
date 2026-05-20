@@ -194,7 +194,7 @@ def inject_classic_dashboard_css():
         --eusee-text: #232633;
         --eusee-muted: #667085;
     }
-    .main .block-container { padding-top: 0rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
+    .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
     header[data-testid="stHeader"] {
         height: 48px !important;
         min-height: 48px !important;
@@ -287,7 +287,7 @@ def inject_classic_dashboard_css():
 
     /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
     html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
-    .main .block-container { padding-top: 0rem !important; padding-bottom: 7rem !important; }
+    .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
     [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
     div[data-testid="column"] { min-width: 0 !important; }
     .stPlotlyChart, div[data-testid="stPlotlyChart"], .js-plotly-plot, .plot-container {
@@ -705,118 +705,62 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- ULTRA-COMPACT HEADER / TITLE / TAB / FOOTER SPACING FIX ----------------
-def inject_compact_dashboard_spacing_css():
-    """Force-remove excess vertical spacing above the dashboard title and around tabs/footer."""
+# ---------------- ULTRA-COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
+def inject_ultra_compact_spacing_css():
+    """Remove excessive vertical spacing before the primary tabs and footer.
+
+    Keep this as the final spacing override after the dashboard title markup,
+    because Streamlit and the title CSS both inject their own margins.
+    """
     st.markdown("""
     <style>
-    /* =========================================================
-       GLOBAL PAGE RESET
-    ========================================================= */
-    html,
-    body,
-    .stApp,
-    [data-testid="stAppViewContainer"] {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* =========================================================
-       MAIN PAGE CONTAINER
-       The negative margin intentionally pulls the first rendered dashboard
-       block closer to the Streamlit header.
-    ========================================================= */
+    /* Main page container: compact top area and footer area. */
     .main .block-container {
-        padding-top: 0rem !important;
-        margin-top: -2.4rem !important;
-        padding-bottom: 3.25rem !important;
-        max-width: 1500px !important;
+        padding-top: 0.15rem !important;
+        padding-bottom: 1rem !important;
     }
 
-    section.main > div,
-    .main .block-container > div:first-child,
-    .main .block-container > div:first-child > div,
-    .main .block-container > div:first-child > div > div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Kill Streamlit spacer containers that create the large blank area. */
+    /* Reduce Streamlit's generated vertical gaps without affecting widgets. */
     div[data-testid="stVerticalBlock"] {
         gap: 0rem !important;
     }
-
-    div[data-testid="element-container"] {
-        margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
-    }
-
-    div[data-testid="stVerticalBlock"] > div:empty,
-    div[data-testid="element-container"]:empty,
-    div[data-testid="stMarkdownContainer"]:empty {
+    div[data-testid="stVerticalBlock"] > div:empty {
         display: none !important;
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
     }
 
-    /* =========================================================
-       STREAMLIT HEADER
-    ========================================================= */
-    header[data-testid="stHeader"] {
-        height: 40px !important;
-        min-height: 40px !important;
-        max-height: 40px !important;
-        background: rgba(247,248,251,0.94) !important;
-        border-bottom: 1px solid rgba(230,232,239,0.80) !important;
-        z-index: 999999 !important;
-    }
-
-    div[data-testid="stToolbar"] {
-        top: 0px !important;
-        right: 0.75rem !important;
-    }
-
-    /* =========================================================
-       DASHBOARD INTRO BLOCK
-    ========================================================= */
-    .eusee-dashboard-intro {
-        overflow: hidden !important;
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0.25rem !important;
-        padding-bottom: 0rem !important;
-    }
-
+    /* Dashboard title/introduction: remove accumulated title-to-tabs space. */
     .animated-title {
-        margin-top: -0.55rem !important;
+        margin-top: 0rem !important;
+        margin-bottom: 0.08rem !important;
         padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.0 !important;
     }
-
     .animated-divider {
         margin-top: 0rem !important;
-        margin-bottom: 0.18rem !important;
+        margin-bottom: 0.14rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
-
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0.28rem !important;
+        margin-bottom: 0rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
-        line-height: 1.35 !important;
+        line-height: 1.32 !important;
     }
 
-    /* =========================================================
-       TABS
-    ========================================================= */
-    [data-testid="stTabs"] {
-        margin-top: 0rem !important;
+    /* Tighten the Markdown element that contains the title/subtitle block. */
+    .element-container:has(.animated-title),
+    .element-container:has(.animated-subtitle) {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Remove excess gap before the tab bar. */
+    [data-testid="stTabs"],
+    div[data-testid="stTabs"] {
+        margin-top: -0.55rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -825,11 +769,17 @@ def inject_compact_dashboard_spacing_css():
     [data-testid="stTabs"] [role="tablist"],
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
+        margin-bottom: 0.15rem !important;
         padding-top: 0rem !important;
-        margin-bottom: 0.20rem !important;
-        padding-bottom: 0rem !important;
-        min-height: 40px !important;
-        align-items: center !important;
+        padding-bottom: 0.25rem !important;
+        min-height: auto !important;
+    }
+
+    [data-testid="stTabs"] [role="tab"],
+    div[data-testid="stTabs"] button[role="tab"] {
+        padding-top: 0.42rem !important;
+        padding-bottom: 0.42rem !important;
+        min-height: 38px !important;
     }
 
     [data-testid="stTabs"] [role="tabpanel"],
@@ -838,38 +788,22 @@ def inject_compact_dashboard_spacing_css():
         padding-top: 0rem !important;
     }
 
-    /* =========================================================
-       FOOTER GAP REMOVAL
-    ========================================================= */
+    /* Remove Streamlit-generated vertical spacing before the footer image. */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
+    }
+    .eusee-fixed-footer {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
-
     .main .block-container > div:last-child,
     div[data-testid="stVerticalBlock"] > div:last-child {
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
     }
-
-    /* =========================================================
-       MOBILE
-    ========================================================= */
-    @media (max-width: 768px) {
-        .main .block-container {
-            margin-top: -1.6rem !important;
-        }
-
-        .animated-title {
-            margin-top: -0.2rem !important;
-        }
-    }
     </style>
     """, unsafe_allow_html=True)
-
-inject_compact_dashboard_spacing_css()
 
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
@@ -1557,29 +1491,31 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
-st.markdown("""
-<div class="eusee-dashboard-intro">
+st.markdown(f"""
+<!-- Container for animations -->
+<div style="overflow: hidden;">
 
 <h1 class="animated-title">
     EU SEE Dashboard
 </h1>
 
+<!-- Animated divider -->
 <div class="animated-divider"></div>
 
 <div class="animated-subtitle">
     This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends
+    It aggregates information reported by Network Members across 86 countries to document trends 
     in the enabling environment for civil society.
 </div>
+
 
 </div>
 
 <style>
 /* ---------------- Title ---------------- */
-.animated-title {
-    margin: -0.55rem 0 0 0 !important;
-    padding: 0 !important;
-    line-height: 1.0 !important;
+.animated-title {{
+    margin: 0 0 4px 0 !important;
+    line-height: 1.05;
     color: #660094;
     font-size: 48px;
     font-family: Arial, sans-serif;
@@ -1588,57 +1524,54 @@ st.markdown("""
     transform: translateY(-20px);
     animation: titleFadeSlide 0.8s ease-out forwards;
     animation-delay: 0.2s;
-}
+}}
 
 /* Title animation */
-@keyframes titleFadeSlide {
-    from { opacity: 0; transform: translateY(-20px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
+@keyframes titleFadeSlide {{
+    from {{ opacity: 0; transform: translateY(-20px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
+}}
 
 /* ---------------- Divider ---------------- */
-.animated-divider {
+.animated-divider {{
     width: 15%;
     max-width: 120px;
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-top: 0rem !important;
-    margin-bottom: 0.18rem !important;
-    padding: 0 !important;
+    margin-bottom: 10px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
     animation-delay: 0.6s;
-}
+}}
 
-@keyframes dividerSlide {
-    from { transform: translateX(-120%); opacity: 0; }
-    to   { transform: translateX(0); opacity: 1; }
-}
+@keyframes dividerSlide {{
+    from {{ transform: translateX(-120%); opacity: 0; }}
+    to   {{ transform: translateX(0); opacity: 1; }}
+}}
 
 /* ---------------- Subtitle ---------------- */
-.animated-subtitle {
+.animated-subtitle {{
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-top: 0rem !important;
-    margin-bottom: 0.28rem !important;
-    padding: 0 !important;
+    margin-bottom: 12px !important;
     max-width: 980px;
-    line-height: 1.35;
+    line-height: 1.5;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.0s;
-}
+}}
 
-@keyframes subtitleFade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
+@keyframes subtitleFade {{
+    from {{ opacity: 0; }}
+    to   {{ opacity: 1; }}
+}}
+
 
 /* ---------------- Last updated badge ---------------- */
-.last-updated-badge {
+.last-updated-badge {{
     display: inline-flex;
     align-items: center;
     gap: 10px;
@@ -1654,8 +1587,8 @@ st.markdown("""
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.15s;
-}
-.last-updated-icon {
+}}
+.last-updated-icon {{
     width: 30px;
     height: 30px;
     min-width: 30px;
@@ -1668,34 +1601,38 @@ st.markdown("""
     border: 1px solid rgba(102,0,148,.10);
     font-size: 14px;
     font-weight: 900;
-}
-.last-updated-copy {
+}}
+.last-updated-copy {{
     display: flex;
     align-items: baseline;
     gap: 6px;
     flex-wrap: wrap;
     color: #344054;
-}
-.last-updated-label {
+}}
+.last-updated-label {{
     color: #660094;
     font-size: 10px;
     font-weight: 900;
     letter-spacing: .08em;
     text-transform: uppercase;
-}
-.last-updated-copy strong {
+}}
+.last-updated-copy strong {{
     color: #23152F;
     font-size: 12.5px;
     font-weight: 950;
-}
-.last-updated-copy small {
+}}
+.last-updated-copy small {{
     color: #667085;
     font-size: 10.5px;
     font-weight: 700;
-}
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
+
+# Apply this after the title markup so it wins over title-level CSS margins.
+inject_ultra_compact_spacing_css()
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
@@ -6930,13 +6867,20 @@ st.markdown(
     <style>
     /* Stable tab styling: target only the tab bar, not the full tab component.
        This prevents tab changes from causing continuous page scrolling/layout jumps. */
+    div[data-testid="stTabs"] {
+        margin-top: -0.55rem !important;
+        padding-top: 0rem !important;
+    }
+
     div[data-testid="stTabs"] [role="tablist"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
+        gap: 8px;
         background: #ffffff;
         border-bottom: 1px solid #E8E2EF;
-        padding: 0 0 8px 0;
+        margin-top: 0 !important;
+        margin-bottom: 0.15rem !important;
+        padding: 0 0 4px 0 !important;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -6944,8 +6888,8 @@ st.markdown(
 
     div[data-testid="stTabs"] [role="tab"] {
         width: 100% !important;
-        min-height: 44px !important;
-        padding: 10px 12px !important;
+        min-height: 38px !important;
+        padding: 7px 12px !important;
         margin: 0 !important;
         border-radius: 12px 12px 8px 8px !important;
         background: #F8F7FB !important;
@@ -6974,7 +6918,8 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 8px !important;
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
     }
     </style>
     """,
@@ -9924,209 +9869,6 @@ with tab_manual:
                 """,
                 unsafe_allow_html=True,
             )
-
-
-
-            # ---------------- USER MANUAL TAB PROFESSIONAL PADDING PATCH ----------------
-            # Scoped to the User Manual tab only. It improves section rhythm, card padding,
-            # document cards, quick-start steps, and mobile spacing without affecting charts
-            # or panels in the other dashboard tabs.
-            st.markdown("""
-            <style>
-            .user-manual-shell {
-                padding-top: 0.35rem !important;
-                padding-bottom: 0.5rem !important;
-            }
-
-            .user-manual-shell .manual-hero {
-                padding: 20px 22px !important;
-                margin: 0 0 16px 0 !important;
-                border-radius: 20px !important;
-            }
-
-            .user-manual-shell .manual-eyebrow {
-                margin-bottom: 7px !important;
-            }
-
-            .user-manual-shell .manual-title {
-                margin: 0 0 9px 0 !important;
-                line-height: 1.12 !important;
-            }
-
-            .user-manual-shell .manual-title-divider {
-                margin: 0 0 13px 0 !important;
-            }
-
-            .user-manual-shell .manual-lead {
-                margin: 0 !important;
-                line-height: 1.58 !important;
-            }
-
-            .user-manual-shell .manual-access-pill {
-                margin-top: 12px !important;
-                margin-right: 8px !important;
-            }
-
-            .user-manual-shell .manual-kpi-grid {
-                gap: 12px !important;
-                margin: 0 0 18px 0 !important;
-            }
-
-            .user-manual-shell .manual-mini-card {
-                padding: 12px 13px !important;
-                min-height: 86px !important;
-                border-radius: 15px !important;
-                column-gap: 10px !important;
-                align-items: start !important;
-            }
-
-            .user-manual-shell .manual-mini-icon {
-                width: 28px !important;
-                height: 28px !important;
-                min-width: 28px !important;
-                border-radius: 10px !important;
-                font-size: 14px !important;
-            }
-
-            .user-manual-shell .manual-mini-title {
-                font-size: 10.5px !important;
-                line-height: 1.2 !important;
-                margin: 1px 0 4px 0 !important;
-            }
-
-            .user-manual-shell .manual-mini-text {
-                font-size: 10.7px !important;
-                line-height: 1.42 !important;
-                margin: 0 !important;
-            }
-
-            .user-manual-shell .manual-section-card {
-                padding: 18px 20px !important;
-                margin: 0 0 16px 0 !important;
-                border-radius: 18px !important;
-            }
-
-            .user-manual-shell .manual-section-title {
-                margin: 0 0 5px 0 !important;
-                line-height: 1.2 !important;
-            }
-
-            .user-manual-shell .manual-section-note {
-                margin: 0 0 14px 0 !important;
-                line-height: 1.45 !important;
-            }
-
-            .user-manual-shell .manual-step {
-                gap: 11px !important;
-                padding: 10px 0 !important;
-                margin: 0 !important;
-                border-bottom: 1px solid #EEF0F4 !important;
-            }
-
-            .user-manual-shell .manual-step:last-child {
-                border-bottom: 0 !important;
-                padding-bottom: 0 !important;
-            }
-
-            .user-manual-shell .manual-step-num {
-                width: 28px !important;
-                height: 28px !important;
-                min-width: 28px !important;
-                border-radius: 10px !important;
-                font-size: 11px !important;
-            }
-
-            .user-manual-shell .manual-step-title {
-                margin: 0 0 3px 0 !important;
-                line-height: 1.25 !important;
-            }
-
-            .user-manual-shell .manual-step-text {
-                margin: 0 !important;
-                line-height: 1.48 !important;
-            }
-
-            .user-manual-shell .manual-doc-card {
-                padding: 14px 15px !important;
-                margin: 0 0 10px 0 !important;
-                border-radius: 16px !important;
-                gap: 12px !important;
-                align-items: flex-start !important;
-            }
-
-            .user-manual-shell .manual-doc-icon {
-                width: 34px !important;
-                height: 34px !important;
-                min-width: 34px !important;
-                border-radius: 12px !important;
-            }
-
-            .user-manual-shell .manual-doc-title {
-                margin: 0 0 3px 0 !important;
-                line-height: 1.22 !important;
-            }
-
-            .user-manual-shell .manual-doc-subtitle,
-            .user-manual-shell .manual-doc-audience {
-                margin: 0 !important;
-                line-height: 1.42 !important;
-            }
-
-            .user-manual-shell .stDownloadButton {
-                margin: 0 0 14px 0 !important;
-            }
-
-            .user-manual-shell .stDownloadButton > button {
-                min-height: 42px !important;
-                border-radius: 12px !important;
-                padding: 0.55rem 1rem !important;
-            }
-
-            .user-manual-shell .manual-tip {
-                padding: 14px 15px !important;
-                margin: 2px 0 0 0 !important;
-                border-radius: 16px !important;
-                line-height: 1.48 !important;
-            }
-
-            .user-manual-shell div[data-testid="stHorizontalBlock"] {
-                gap: 1.25rem !important;
-                align-items: stretch !important;
-            }
-
-            .user-manual-shell div[data-testid="column"] {
-                min-width: 0 !important;
-            }
-
-            @media (max-width: 1050px) {
-                .user-manual-shell .manual-kpi-grid {
-                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                }
-            }
-
-            @media (max-width: 768px) {
-                .user-manual-shell .manual-hero,
-                .user-manual-shell .manual-section-card {
-                    padding: 16px 15px !important;
-                    border-radius: 16px !important;
-                }
-
-                .user-manual-shell .manual-kpi-grid {
-                    grid-template-columns: 1fr !important;
-                    gap: 10px !important;
-                }
-
-                .user-manual-shell .manual-mini-card {
-                    min-height: auto !important;
-                    padding: 12px !important;
-                }
-
-                .user-manual-shell div[data-testid="stHorizontalBlock"] {
-                    gap: 0.9rem !important;
-                }
-            }
-            </style>
-            """, unsafe_allow_html=True)
 
             st.markdown('<div class="user-manual-shell">', unsafe_allow_html=True)
 
@@ -14323,311 +14065,6 @@ def render_ai_assistant_panel(df):
                         use_container_width=True,
                         key="ai_lite_export_data",
                     )
-
-
-# ---------------- GLOBAL DASHBOARD + CHATBOT PADDING STANDARDIZATION ----------------
-def inject_dashboard_padding_standardization():
-    """Final UX spacing layer for all dashboard surfaces.
-
-    This is intentionally loaded near the end of the script so it can normalize
-    earlier ad-hoc CSS rules without changing dashboard data, permissions,
-    filters, charts, or chatbot functionality.
-    """
-    st.markdown("""
-    <style>
-    :root {
-        --eusee-space-xxs: 4px;
-        --eusee-space-xs: 8px;
-        --eusee-space-sm: 12px;
-        --eusee-space-md: 16px;
-        --eusee-space-lg: 20px;
-        --eusee-space-xl: 28px;
-        --eusee-radius-sm: 10px;
-        --eusee-radius-md: 14px;
-        --eusee-radius-lg: 18px;
-        --eusee-panel-pad: 16px;
-        --eusee-card-pad: 16px;
-        --eusee-section-gap: 16px;
-        --eusee-chart-pad: 12px;
-    }
-
-    /* Page canvas: compact but not cramped. */
-    .main .block-container {
-        padding-left: 1.1rem !important;
-        padding-right: 1.1rem !important;
-        padding-bottom: 4.6rem !important;
-        max-width: 1500px !important;
-    }
-
-    /* Keep global vertical rhythm professional. */
-    div[data-testid="stVerticalBlock"] {
-        gap: var(--eusee-section-gap) !important;
-    }
-    div[data-testid="element-container"] {
-        margin-top: 0 !important;
-        margin-bottom: 0.35rem !important;
-    }
-
-    /* Tabs: small breathing space below the tab rail only. */
-    [data-testid="stTabs"] [role="tablist"] {
-        gap: 8px !important;
-        margin-top: 0 !important;
-        margin-bottom: 0.45rem !important;
-        padding-bottom: 0 !important;
-    }
-    [data-testid="stTabs"] [role="tab"] {
-        padding: 9px 14px !important;
-        min-height: 40px !important;
-    }
-    [data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 0.45rem !important;
-    }
-
-    /* Expanders and inner panel content. */
-    div[data-testid="stExpander"] {
-        border-radius: var(--eusee-radius-lg) !important;
-        overflow: hidden !important;
-        margin-bottom: 0.7rem !important;
-    }
-    div[data-testid="stExpander"] summary {
-        padding: 14px 18px !important;
-    }
-    div[data-testid="stExpanderDetails"] {
-        padding: 16px 18px 14px 18px !important;
-    }
-
-    /* Standard cards across overview, negative alerts, maps, manual, profile and tables. */
-    .eusee-kpi-card,
-    .negintel-card,
-    .executive-table-shell,
-    .executive-mini-kpi,
-    .classic-filter-header,
-    .classic-filter-status,
-    .data-preview-toolbar,
-    .user-manual-card,
-    .manual-card,
-    .map-guide-card,
-    .map-overview-guide,
-    .sidebar-access-shell,
-    .sidebar-profile-card,
-    .sidebar-last-updated,
-    .eusee-feedback-panel,
-    .eusee-ai-card,
-    .ai-card,
-    .copilot-card,
-    .chat-card {
-        padding: var(--eusee-card-pad) !important;
-        border-radius: var(--eusee-radius-lg) !important;
-        box-sizing: border-box !important;
-    }
-
-    .eusee-kpi-card,
-    .negintel-card {
-        min-height: 198px !important;
-    }
-    .eusee-kpi-title,
-    .negintel-title,
-    .executive-table-title,
-    .manual-title,
-    .user-manual-title,
-    .map-guide-title,
-    .chat-title,
-    .copilot-title,
-    .ai-title {
-        margin-top: 0 !important;
-        margin-bottom: 10px !important;
-    }
-    .eusee-kpi-note,
-    .negintel-note,
-    .manual-copy,
-    .user-manual-copy,
-    .map-guide-text,
-    .chat-copy,
-    .copilot-copy,
-    .ai-copy {
-        margin-top: 8px !important;
-        margin-bottom: 0 !important;
-        line-height: 1.5 !important;
-    }
-
-    /* Chart areas: enough padding for titles/legends without wasting space. */
-    .stPlotlyChart,
-    div[data-testid="stPlotlyChart"] {
-        padding: var(--eusee-chart-pad) var(--eusee-chart-pad) 8px var(--eusee-chart-pad) !important;
-        border-radius: var(--eusee-radius-md) !important;
-        box-sizing: border-box !important;
-    }
-    .js-plotly-plot,
-    .plot-container,
-    .svg-container {
-        margin-top: 0 !important;
-    }
-
-    /* Tables and preview controls. */
-    div[data-testid="stDataFrame"] {
-        margin-top: 10px !important;
-        margin-bottom: 10px !important;
-        padding: 0 !important;
-    }
-    .executive-table-header {
-        margin-bottom: 14px !important;
-    }
-    .executive-table-status {
-        padding: 12px 14px !important;
-        margin: 12px 0 !important;
-    }
-    .data-preview-footnote {
-        padding: 10px 12px !important;
-        margin-top: 10px !important;
-    }
-
-    /* Forms, filters and buttons. */
-    [data-testid="stWidgetLabel"] {
-        margin-bottom: 4px !important;
-    }
-    .stTextInput,
-    .stTextArea,
-    .stSelectbox,
-    .stMultiSelect,
-    .stSlider,
-    .stDateInput,
-    .stNumberInput {
-        margin-bottom: 8px !important;
-    }
-    input,
-    textarea,
-    [data-baseweb="select"] > div,
-    [data-baseweb="input"] {
-        border-radius: 12px !important;
-        min-height: 38px !important;
-    }
-    .stButton > button,
-    .stDownloadButton > button,
-    button[kind="primary"],
-    button[kind="secondary"] {
-        padding: 0.58rem 0.95rem !important;
-        border-radius: 12px !important;
-        min-height: 38px !important;
-    }
-
-    /* Sidebar: aligned controls and compact professional density. */
-    section[data-testid="stSidebar"] > div {
-        padding-top: 0.7rem !important;
-        padding-left: 0.75rem !important;
-        padding-right: 0.75rem !important;
-        padding-bottom: 1.5rem !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        gap: 10px !important;
-    }
-    section[data-testid="stSidebar"] .classic-filter-header,
-    section[data-testid="stSidebar"] .classic-filter-status,
-    section[data-testid="stSidebar"] .sidebar-access-shell,
-    section[data-testid="stSidebar"] .sidebar-profile-card {
-        margin: 6px 0 10px 0 !important;
-    }
-
-    /* Chatbot / AI Copilot spacing: ChatGPT-like breathing room. */
-    .eusee-ai-card,
-    .ai-card,
-    .copilot-card,
-    .chat-card {
-        margin-bottom: 12px !important;
-        line-height: 1.5 !important;
-    }
-    .eusee-ai-card b,
-    .ai-card b,
-    .copilot-card b,
-    .chat-card b {
-        display: inline-block !important;
-        margin-bottom: 6px !important;
-    }
-    .stChatMessage,
-    div[data-testid="stChatMessage"] {
-        padding: 12px 14px !important;
-        margin-bottom: 10px !important;
-        border-radius: 16px !important;
-    }
-    div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
-        margin-bottom: 0.45rem !important;
-        line-height: 1.55 !important;
-    }
-    [data-testid="stChatInput"] {
-        padding-top: 8px !important;
-    }
-    [data-testid="stChatInput"] textarea,
-    .stChatInput textarea,
-    textarea {
-        padding: 12px 14px !important;
-        border-radius: 14px !important;
-        line-height: 1.45 !important;
-    }
-
-    /* User manual cards and explanatory blocks. */
-    .user-manual-card,
-    .manual-card {
-        margin-bottom: 14px !important;
-        line-height: 1.6 !important;
-    }
-    .user-manual-card h3,
-    .manual-card h3,
-    .user-manual-card h4,
-    .manual-card h4 {
-        margin-top: 0 !important;
-        margin-bottom: 10px !important;
-    }
-
-    /* Map / Sankey / heatmap supporting text blocks. */
-    .map-guide-card,
-    .map-overview-guide,
-    .negintel-card {
-        margin-bottom: 14px !important;
-    }
-    .map-guide-title,
-    .negintel-title {
-        margin-bottom: 8px !important;
-    }
-
-    /* Footer remains tight and does not create extra visual space. */
-    .eusee-fixed-footer {
-        padding: 4px 0 3px 0 !important;
-    }
-    .eusee-fixed-footer img {
-        margin: 0 auto !important;
-        padding: 0 !important;
-    }
-
-    @media (max-width: 900px) {
-        :root {
-            --eusee-panel-pad: 14px;
-            --eusee-card-pad: 14px;
-            --eusee-section-gap: 14px;
-            --eusee-chart-pad: 8px;
-        }
-        .main .block-container {
-            padding-left: 0.75rem !important;
-            padding-right: 0.75rem !important;
-        }
-        .eusee-kpi-card,
-        .negintel-card {
-            min-height: auto !important;
-        }
-        [data-testid="stTabs"] [role="tab"] {
-            padding: 8px 10px !important;
-            min-height: 38px !important;
-        }
-        div[data-testid="stExpander"] summary,
-        div[data-testid="stExpanderDetails"] {
-            padding-left: 14px !important;
-            padding-right: 14px !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-inject_dashboard_padding_standardization()
-
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
