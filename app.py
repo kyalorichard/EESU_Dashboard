@@ -194,7 +194,7 @@ def inject_classic_dashboard_css():
         --eusee-text: #232633;
         --eusee-muted: #667085;
     }
-    .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
+    .main .block-container { padding-top: 0.35rem !important; padding-bottom: 0rem !important; max-width: 1500px; }
     header[data-testid="stHeader"] {
         height: 48px !important;
         min-height: 48px !important;
@@ -287,7 +287,7 @@ def inject_classic_dashboard_css():
 
     /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
     html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
-    .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
+    .main .block-container { padding-top: 0.35rem !important; padding-bottom: 0rem !important; }
     [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
     div[data-testid="column"] { min-width: 0 !important; }
     .stPlotlyChart, div[data-testid="stPlotlyChart"], .js-plotly-plot, .plot-container {
@@ -7808,6 +7808,146 @@ def inject_plotly_legend_color_spacing_fix():
     """, unsafe_allow_html=True)
 
 inject_plotly_legend_color_spacing_fix()
+
+
+# ---------------- FINAL ALL-TABS VERTICAL SPACING STANDARDIZATION ----------------
+def inject_final_all_tabs_spacing_standardization():
+    """Final spacing override for consistent tab/header/footer vertical rhythm.
+
+    Scope:
+    - Removes the extra gap between the dashboard description and tabs.
+    - Reduces the gap between tab buttons and tab content.
+    - Removes excess whitespace before the footer across all tabs.
+    - Keeps horizontal spacing, chart/table behavior, and functionality unchanged.
+    """
+    st.markdown("""
+    <style>
+    /* Page shell: override earlier duplicated block-container padding rules. */
+    .main .block-container,
+    section.main > div,
+    [data-testid="stAppViewContainer"] .main .block-container {
+        padding-top: 0.35rem !important;
+        padding-bottom: 0rem !important;
+        margin-bottom: 0rem !important;
+    }
+
+    /* Header/title area: compact spacing before the tabs. */
+    .animated-title {
+        margin-bottom: 0.20rem !important;
+    }
+
+    .animated-divider {
+        margin-bottom: 0.35rem !important;
+    }
+
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0.30rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Last updated badge and any immediate header badges should not push tabs down. */
+    .last-updated-badge,
+    .sidebar-last-updated {
+        margin-bottom: 0.35rem !important;
+    }
+
+    /* Tabs: remove extra vertical space above tabs and between tabs/content. */
+    div[data-testid="stTabs"],
+    [data-testid="stTabs"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tablist"],
+    div[data-testid="stTabs"] [role="tablist"],
+    [data-testid="stTabs"] [role="tablist"] {
+        margin-top: 0rem !important;
+        margin-bottom: 0.25rem !important;
+        padding-top: 0.15rem !important;
+        padding-bottom: 0.30rem !important;
+    }
+
+    div[data-testid="stTabs"] div[role="tabpanel"],
+    div[data-testid="stTabs"] [role="tabpanel"],
+    [data-testid="stTabs"] [role="tabpanel"] {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0rem !important;
+        margin-bottom: 0rem !important;
+    }
+
+    /* Streamlit vertical blocks/elements: compact but not cramped. */
+    .element-container {
+        margin-bottom: 0.35rem !important;
+    }
+
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.35rem !important;
+    }
+
+    div[data-testid="stHorizontalBlock"] {
+        margin-bottom: 0.35rem !important;
+    }
+
+    /* Common tab components: remove excess bottom whitespace before footer. */
+    .stPlotlyChart,
+    div[data-testid="stPlotlyChart"],
+    div[data-testid="stDataFrame"],
+    div[data-testid="stExpander"],
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-table-shell,
+    .map-guide-card,
+    .map-overview-guide,
+    .manual-card,
+    .user-manual-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card {
+        margin-bottom: 0.45rem !important;
+    }
+
+    /* Markdown text should not create large blank blocks. */
+    [data-testid="stMarkdownContainer"] p {
+        margin-top: 0rem !important;
+        margin-bottom: 0.40rem !important;
+    }
+
+    [data-testid="stMarkdownContainer"] > :last-child,
+    .block-container > div:last-child,
+    .main .block-container > div:last-child {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Footer: hide Streamlit footer and remove its reserved vertical space. */
+    footer,
+    footer[data-testid="stFooter"] {
+        visibility: hidden !important;
+        display: none !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        margin: 0rem !important;
+        padding: 0rem !important;
+    }
+
+    /* Safety: prevent hidden bottom spacer from reappearing on mobile. */
+    @media (max-width: 900px) {
+        .main .block-container,
+        [data-testid="stAppViewContainer"] .main .block-container {
+            padding-bottom: 0rem !important;
+        }
+
+        div[data-testid="stTabs"] div[role="tabpanel"],
+        div[data-testid="stTabs"] [role="tabpanel"] {
+            padding-bottom: 0rem !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_final_all_tabs_spacing_standardization()
 
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
