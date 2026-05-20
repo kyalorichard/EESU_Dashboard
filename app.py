@@ -361,7 +361,7 @@ def render_filter_status_card(df):
     """, unsafe_allow_html=True)
 
 
-def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview"):
+def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
     """Render a clean searchable table with alert-impact conditional formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
@@ -544,12 +544,19 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                 )
 
         # Span the full expander/panel width. Wide tables keep a single
-        # internal horizontal scrollbar instead of shrinking the panel layout.
+        # horizontal scrollbar when needed. For the Overview tab, remove the
+        # internal vertical dataframe scrollbar by allowing the table height to
+        # expand to the displayed row count.
+        if remove_vertical_scroll:
+            dataframe_height = min(1800, max(320, 36 * len(table_view) + 96))
+        else:
+            dataframe_height = min(560, max(320, 34 * min(len(table_view), 12) + 92))
+
         st.dataframe(
             table_to_render,
             use_container_width=True,
             hide_index=True,
-            height=min(560, max(320, 34 * min(len(table_view), 12) + 92)),
+            height=dataframe_height,
             key=key,
         )
 
@@ -1857,6 +1864,93 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+
+# ---------------- HARD FIX: REMOVE OVERVIEW TAB INTERNAL SCROLLBARS ----------------
+def inject_overview_no_scroll_hard_fix():
+    """Remove nested scrollbars created inside the Overview tab only.
+
+    Streamlit can create extra scroll containers inside tab panels and dataframes.
+    CSS alone can miss those wrappers because their DOM structure changes between
+    Streamlit versions. This lightweight JS marks the first tab panel as Overview
+    and neutralizes vertical overflow only within that panel. Other tabs remain
+    unchanged.
+    """
+    st.markdown("""
+    <style>
+    /* The first tab panel is the Overview tab. Remove vertical scroll wrappers there only. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type > div,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="column"] {
+        overflow-y: visible !important;
+        max-height: none !important;
+        height: auto !important;
+    }
+
+    /* Overview charts must not introduce internal scrollbars. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .stPlotlyChart,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .js-plotly-plot,
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .plot-container {
+        overflow-y: visible !important;
+        max-height: none !important;
+    }
+
+    /* Overview dataframe: no vertical scrollbar; keep horizontal scrollbar only when columns are wide. */
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"],
+    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
+        overflow-y: visible !important;
+        overflow-x: auto !important;
+        max-height: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    components.html("""
+    <script>
+    (function() {
+        const doc = window.parent.document;
+
+        function removeOverviewScrollbars() {
+            const tabs = doc.querySelector('div[data-testid="stTabs"]');
+            if (!tabs) return;
+
+            const panels = tabs.querySelectorAll('div[role="tabpanel"]');
+            const overview = panels && panels.length ? panels[0] : null;
+            if (!overview) return;
+
+            overview.setAttribute('data-overview-no-scroll', 'true');
+            overview.style.overflowY = 'visible';
+            overview.style.maxHeight = 'none';
+            overview.style.height = 'auto';
+
+            overview.querySelectorAll('div, section, article').forEach(function(el) {
+                const testid = el.getAttribute('data-testid') || '';
+
+                // Keep horizontal scrolling for wide tables, but remove vertical scrolling.
+                if (testid === 'stDataFrame') {
+                    el.style.overflowX = 'auto';
+                    el.style.overflowY = 'visible';
+                    el.style.maxHeight = 'none';
+                    return;
+                }
+
+                el.style.overflowY = 'visible';
+                el.style.maxHeight = 'none';
+            });
+        }
+
+        removeOverviewScrollbars();
+        setTimeout(removeOverviewScrollbars, 250);
+        setTimeout(removeOverviewScrollbars, 1000);
+    })();
+    </script>
+    """, height=0, width=0)
+
+
+inject_overview_no_scroll_hard_fix()
 
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
@@ -8549,7 +8643,7 @@ with tab_overview:
             # ---------------- Tab two data preview ------------------
 
         if has_permission("view_data_table"):
-            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview")  
+            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview", remove_vertical_scroll=True)  
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
