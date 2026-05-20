@@ -872,6 +872,82 @@ def inject_compact_dashboard_spacing_css():
 inject_compact_dashboard_spacing_css()
 
 
+# ---------------- PROFESSIONAL IN-TAB CHART SPACING ----------------
+def inject_professional_tab_chart_spacing_css():
+    """Improve spacing between charts inside tabs without changing header/title spacing.
+
+    Scope is intentionally limited to tab panel interiors and Plotly chart containers.
+    It does not change the dashboard title, subtitle, tab bar, sidebar, footer,
+    chart data, permissions, filters, or Plotly figure logic.
+    """
+    st.markdown("""
+    <style>
+    /* Add a small breathing space immediately after the tab row only. */
+    [data-testid="stTabs"] [role="tabpanel"],
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        padding-top: 0.45rem !important;
+    }
+
+    /* Professional horizontal spacing between side-by-side chart columns. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]),
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]) {
+        gap: 1.15rem !important;
+        margin-top: 0.15rem !important;
+        margin-bottom: 1.05rem !important;
+        align-items: stretch !important;
+    }
+
+    /* Give chart columns subtle inner breathing room without changing card/panel design. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="column"]:has(div[data-testid="stPlotlyChart"]),
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="column"]:has(div[data-testid="stPlotlyChart"]) {
+        padding-left: 0.15rem !important;
+        padding-right: 0.15rem !important;
+        min-width: 0 !important;
+    }
+
+    /* Space only chart-bearing element containers; do not affect KPI cards, text panels, or filters. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]),
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]) {
+        margin-top: 0.20rem !important;
+        margin-bottom: 0.75rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Keep each chart visually separated but not floating too far from its title. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stPlotlyChart"],
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stPlotlyChart"] {
+        margin-top: 0.15rem !important;
+        margin-bottom: 0.35rem !important;
+        padding-top: 0.10rem !important;
+        padding-bottom: 0.20rem !important;
+    }
+
+    /* Preserve a compact, readable flow for stacked chart rows. */
+    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stVerticalBlock"]:has(div[data-testid="stPlotlyChart"]),
+    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stVerticalBlock"]:has(div[data-testid="stPlotlyChart"]) {
+        row-gap: 0.65rem !important;
+    }
+
+    /* Responsive: prevent cramped two/three-column charts on narrow screens. */
+    @media (max-width: 900px) {
+        [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]),
+        div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]) {
+            gap: 0.85rem !important;
+            margin-bottom: 0.85rem !important;
+        }
+
+        [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]),
+        div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]) {
+            margin-bottom: 0.65rem !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_professional_tab_chart_spacing_css()
+
+
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
 def build_compact_chatbot_context(df):
