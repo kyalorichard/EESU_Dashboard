@@ -705,6 +705,75 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
+# ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
+def inject_compact_dashboard_spacing_css():
+    """Remove excess vertical gaps around the intro block, tabs, and footer."""
+    st.markdown("""
+    <style>
+    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
+    .main .block-container {
+        padding-top: 0.25rem !important;
+        padding-bottom: 3.25rem !important;
+    }
+
+    /* Compact dashboard title and intro block. */
+    .animated-title {
+        margin-top: 0rem !important;
+        margin-bottom: 0.20rem !important;
+    }
+    .animated-divider {
+        margin-top: 0rem !important;
+        margin-bottom: 0.30rem !important;
+    }
+    .animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0.45rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* Remove excess gap between the intro text and the tab bar / tab content. */
+    [data-testid="stTabs"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    [data-testid="stTabs"] [role="tablist"],
+    div[data-testid="stTabs"] div[role="tablist"] {
+        margin-top: 0rem !important;
+        margin-bottom: 0.35rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    [data-testid="stTabs"] [role="tabpanel"],
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Remove Streamlit-generated vertical spacing before the footer image. */
+    .eusee-fixed-footer,
+    .eusee-fixed-footer * {
+        box-sizing: border-box !important;
+    }
+    .eusee-fixed-footer {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+    .main .block-container > div:last-child,
+    div[data-testid="stVerticalBlock"] > div:last-child {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    div[data-testid="stVerticalBlock"] > div:empty {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_compact_dashboard_spacing_css()
+
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
@@ -13972,21 +14041,46 @@ with open(footer_image_path, "rb") as f:
     data = f.read()
 b64 = base64.b64encode(data).decode()
 
-# --- Render fixed footer using components.html ---
-components.html(f"""
-<div style="
+# --- Render fixed footer without reserving an extra Streamlit iframe spacer ---
+st.markdown(f"""
+<style>
+.eusee-fixed-footer {{
     position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
     width: 100%;
     text-align: center;
-    padding: 10px 0;
-    background-color:'white';
-    z-index: 9999;    
-">    
-    <img src="data:image/png;base64,{b64}" width="900">
+    padding: 4px 0 3px 0;
+    margin: 0 !important;
+    background: #FFFFFF;
+    border-top: 1px solid rgba(230,232,239,.85);
+    box-shadow: 0 -6px 18px rgba(16,24,40,.045);
+    z-index: 9999;
+}}
+.eusee-fixed-footer img {{
+    display: block;
+    width: min(900px, 92vw);
+    max-width: 92vw;
+    height: auto;
+    margin: 0 auto !important;
+    padding: 0 !important;
+}}
+.eusee-fixed-footer-copy {{
+    margin: 1px 0 0 0 !important;
+    padding: 0 !important;
+    color: #667085;
+    font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+    font-size: 10px;
+    line-height: 1.1;
+    font-weight: 600;
+}}
+</style>
+<div class="eusee-fixed-footer">
+    <img src="data:image/png;base64,{b64}" alt="EU SEE footer logo">
+    <div class="eusee-fixed-footer-copy">© 2025 EU SEE Dashboard. All rights reserved.</div>
 </div>
-""", height=200)
-st.markdown("<div style='text-align:center;color:gray;'>© 2025 EU SEE Dashboard. All rights reserved.</div>", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 
 # Suggested prompts for better UX
