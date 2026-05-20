@@ -1599,181 +1599,76 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-
-# ---------------- FINAL TITLE / SUBTITLE / TAB SPACING OVERRIDE ----------------
-def inject_final_title_spacing_override():
-    """Final narrow spacing override for the title, subtitle, and tabs.
-
-    This is intentionally injected after the dashboard title markup so it overrides
-    the earlier title CSS without touching sidebar, filters, auth, or chart logic.
-    """
-    st.markdown("""
-    <style>
-    /* Keep page top compact */
-    .main .block-container {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    /* Target only the dashboard title container and avoid changing all Streamlit blocks globally. */
-    .animated-title {
-        margin-top: -0.35rem !important;
-        margin-bottom: 0rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.0 !important;
-    }
-
-    .animated-divider {
-        margin-top: 0rem !important;
-        margin-bottom: 0.12rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: -0.55rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.25 !important;
-    }
-
-    /* Pull tabs closer to the intro paragraph. */
-    [data-testid="stTabs"] {
-        margin-top: -1.05rem !important;
-        padding-top: 0rem !important;
-    }
-
-    [data-testid="stTabs"] [role="tablist"],
-    div[data-testid="stTabs"] div[role="tablist"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0.15rem !important;
-        min-height: 39px !important;
-    }
-
-    [data-testid="stTabs"] [role="tabpanel"],
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_final_title_spacing_override()
-
-
-
-# ---------------- ZERO SPACE ABOVE TABS ----------------
-def inject_zero_space_tabs_override():
-    st.markdown("""
-    <style>
-
-    /* Remove ALL space above dashboard */
-    .main .block-container {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    /* Remove top whitespace before title */
-    .element-container:has(.animated-title) {
-        margin-top: -1.4rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Force tabs directly under subtitle */
-    [data-testid="stTabs"] {
-        margin-top: -1.45rem !important;
-        padding-top: 0rem !important;
-    }
-
-    [data-testid="stTabs"] > div {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    [data-testid="stTabs"] [role="tablist"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Remove hidden Streamlit spacing blocks */
-    div[data-testid="stVerticalBlock"] > div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_zero_space_tabs_override()
-
-
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
-def render_top_feedback_bar()
+def render_top_feedback_bar():
 
 
-# ---------------- REMOVE RESERVED SPACE FROM FLOATING FEEDBACK COMPONENT ----------------
-def inject_feedback_iframe_zero_height_fix():
-    """Prevent the floating feedback HTML component from reserving page space."""
-    st.markdown("""
-    <style>
-    /* Streamlit components iframe used only to inject the floating feedback widget.
-       Keep the actual floating widget visible, but remove the page-space reserved by the iframe. */
-    iframe[title="streamlit.components.v1.html"] {
-        height: 0px !important;
-        min-height: 0px !important;
-        max-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        border: 0px !important;
-        display: block !important;
-    }
+# ---------------- CLEAN COMPACT TITLE / TAB SPACING ----------------
+st.markdown("""
+<style>
 
-    div[data-testid="stIFrame"],
-    div[data-testid="stIFrame"] > div,
-    div[data-testid="stIFrame"] iframe {
-        height: 0px !important;
-        min-height: 0px !important;
-        max-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        border: 0px !important;
-        overflow: hidden !important;
-    }
+/* Remove top whitespace */
+.main .block-container {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
 
-    /* Keep title, subtitle, and tabs tightly stacked. */
-    .animated-title {
-        margin-top: -0.25rem !important;
-        margin-bottom: 0rem !important;
-        line-height: 0.98 !important;
-    }
+/* Remove iframe spacing from floating feedback widget */
+iframe[title="streamlit.components.v1.html"] {
+    height: 0px !important;
+    min-height: 0px !important;
+    max-height: 0px !important;
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
 
-    .animated-divider {
-        margin-top: 0rem !important;
-        margin-bottom: 0.08rem !important;
-    }
+div[data-testid="stIFrame"] {
+    height: 0px !important;
+    min-height: 0px !important;
+    max-height: 0px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
 
-    .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        line-height: 1.18 !important;
-    }
+/* Tight title spacing */
+.animated-title {
+    margin-top: -0.45rem !important;
+    margin-bottom: 0rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0rem !important;
+    line-height: 1.0 !important;
+}
 
-    [data-testid="stTabs"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
+/* Tight divider */
+.animated-divider {
+    margin-top: 0rem !important;
+    margin-bottom: 0.12rem !important;
+}
 
-    [data-testid="stTabs"] [role="tablist"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+/* Tight subtitle */
+.animated-subtitle {
+    margin-top: 0rem !important;
+    margin-bottom: -0.65rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0rem !important;
+    line-height: 1.2 !important;
+}
 
-inject_feedback_iframe_zero_height_fix()
+/* Pull tabs upward */
+[data-testid="stTabs"] {
+    margin-top: -1.1rem !important;
+    padding-top: 0rem !important;
+}
+
+[data-testid="stTabs"] [role="tablist"] {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0.15rem !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 :
     """
