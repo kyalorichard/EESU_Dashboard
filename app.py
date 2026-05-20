@@ -1533,7 +1533,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
 <!-- Container for animations -->
-<div class="eusee-dashboard-intro" style="overflow: visible;">
+<div style="overflow: hidden;">
 
 <h1 class="animated-title">
     EU SEE Dashboard
@@ -1552,29 +1552,6 @@ st.markdown(f"""
 </div>
 
 <style>
-/* ---------------- Scoped top-space fix: affects only the dashboard intro/title block ---------------- */
-.eusee-dashboard-intro {{
-    margin-top: -3.35rem !important;
-    padding-top: 0rem !important;
-    margin-bottom: 0rem !important;
-    overflow: visible !important;
-}}
-.eusee-dashboard-intro .animated-title {{
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-}}
-.eusee-dashboard-intro .animated-divider {{
-    margin-top: 0rem !important;
-}}
-.eusee-dashboard-intro .animated-subtitle {{
-    margin-top: 0rem !important;
-}}
-@media (max-width: 700px) {{
-    .eusee-dashboard-intro {{
-        margin-top: -2.65rem !important;
-    }}
-}}
-
 /* ---------------- Title ---------------- */
 .animated-title {{
     margin: 0 0 0px 0 !important;
@@ -1705,33 +1682,6 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
         "📘 User Manual",
     ]
 )
-
-# ---------------- FINAL TITLE-ONLY TOP SPACE OVERRIDE ----------------
-# Keep this after st.tabs so it wins against earlier spacing blocks, but it only
-# targets the custom intro wrapper and will not affect panels/charts/chatbot/sidebar.
-st.markdown("""
-<style>
-.eusee-dashboard-intro {
-    margin-top: -3.35rem !important;
-    padding-top: 0rem !important;
-    margin-bottom: 0rem !important;
-    overflow: visible !important;
-}
-.eusee-dashboard-intro h1.animated-title {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-    line-height: 1.02 !important;
-}
-.eusee-dashboard-intro .animated-divider {
-    margin-top: 0rem !important;
-    margin-bottom: 0.12rem !important;
-}
-.eusee-dashboard-intro .animated-subtitle {
-    margin-top: 0rem !important;
-    margin-bottom: 0.65rem !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 st.markdown(
     """
