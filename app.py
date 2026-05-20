@@ -1664,6 +1664,52 @@ def inject_final_title_spacing_override():
 inject_final_title_spacing_override()
 
 
+
+# ---------------- ZERO SPACE ABOVE TABS ----------------
+def inject_zero_space_tabs_override():
+    st.markdown("""
+    <style>
+
+    /* Remove ALL space above dashboard */
+    .main .block-container {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    /* Remove top whitespace before title */
+    .element-container:has(.animated-title) {
+        margin-top: -1.4rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Force tabs directly under subtitle */
+    [data-testid="stTabs"] {
+        margin-top: -1.45rem !important;
+        padding-top: 0rem !important;
+    }
+
+    [data-testid="stTabs"] > div {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    [data-testid="stTabs"] [role="tablist"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Remove hidden Streamlit spacing blocks */
+    div[data-testid="stVerticalBlock"] > div {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_zero_space_tabs_override()
+
+
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
     """
