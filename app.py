@@ -410,10 +410,30 @@ def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> p
 
 
 def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
-    """Render a clean, fast, searchable table with alert-impact conditional formatting."""
+    """Render a clean, fast, searchable table with controlled scrolling and row limits.
+
+
+    Notes:
+    - The dataframe passed into this component is already filtered by the
+      dashboard/sidebar/tab filters.
+    - The table search is applied on top of those filters.
+    - The Rows shown selector controls only the visible preview rows.
+    - CSV download keeps the full searched/filtered table, not just the preview.
+    - Overview and Negative Alerts Analysis use the same table dimensions,
+      bounded height, and scroll behavior for a consistent UX.
+    - remove_vertical_scroll is retained only for backward compatibility; it no
+      longer changes sizing because all Data Preview tables must match.
+    """
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
+
+    # Shared table dimensions for every Data Preview component. Keep Overview
+    # and Negative Alerts Analysis visually identical.
+    # Fixed compact height used by all Data Preview tables.
+    # This keeps the Overview panel from becoming too long and gives the
+    # table its own vertical scrollbar, matching the Negative Alerts tab.
+    DATA_PREVIEW_STANDARD_HEIGHT = 460
 
     # Work only on the globally/tab-filtered dataframe provided to this component.
     # This guarantees that the table, search result, and CSV export all respect
@@ -455,14 +475,13 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             color: #23152F;
             font-weight: 900;
         }
-        /* Data Preview table: one clean internal horizontal scrollbar, aligned with tab typography. */
+        /* Data Preview table: controlled vertical + horizontal scrolls for easy access. */
         div[data-testid="stDataFrame"] {
             width: 100% !important;
             max-width: 100% !important;
             border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
+            overflow: auto !important;
             box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
             background: #FFFFFF !important;
             font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
@@ -470,17 +489,14 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         div[data-testid="stDataFrame"] > div {
             width: 100% !important;
             max-width: 100% !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
+            overflow: auto !important;
         }
         div[data-testid="stDataFrame"] div[role="grid"] {
             min-width: max-content !important;
-            overflow-x: auto !important;
-            overflow-y: auto !important;
+            overflow: auto !important;
         }
         div[data-testid="stDataFrame"] [data-testid="stTable"] {
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
+            overflow: auto !important;
         }
         div[data-testid="stDataFrame"] [role="columnheader"],
         div[data-testid="stDataFrame"] [role="columnheader"] * {
@@ -554,9 +570,10 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         else:
             table_view = table_df.copy()
 
+        selected_row_limit_label = "All" if max_rows == "All" else f"{int(max_rows):,}"
         st.caption(
-            f"Showing {len(table_view):,} of {len(table_df):,} matching records "
-            f"from {active_filter_rows:,} active-filter records."
+            f"Rows shown: {selected_row_limit_label}. Displaying {len(table_view):,} of "
+            f"{len(table_df):,} matching records from {active_filter_rows:,} active-filter records."
         )
 
         # Style the alert impact column using professional status colors.
@@ -600,20 +617,16 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                     subset=[impact_col],
                 )
 
-        # Span the full expander/panel width. Wide tables keep a single
-        # horizontal scrollbar when needed. For the Overview tab, remove the
-        # internal vertical dataframe scrollbar by allowing the table height to
-        # expand to the displayed row count.
-        if remove_vertical_scroll:
-            dataframe_height = min(1800, max(320, 36 * len(table_view) + 96))
-        else:
-            dataframe_height = min(560, max(320, 34 * min(len(table_view), 12) + 92))
-
+        # Standard compact Data Preview height.
+        # All rows selected by the Rows shown control remain available inside
+        # the dataframe through its internal vertical scrollbar, while wide
+        # tables keep the horizontal scrollbar. This prevents the Overview
+        # Data Preview panel from becoming too long.
         st.dataframe(
             table_to_render,
             use_container_width=True,
             hide_index=True,
-            height=dataframe_height,
+            height=DATA_PREVIEW_STANDARD_HEIGHT,
             key=key,
         )
 
@@ -2610,18 +2623,15 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     """
     Professional multiselect helper with Select all behavior.
 
-    Compatible with both calling styles used in this dashboard:
-    - safe_multiselect(..., container=some_expander) for sidebar/grouped controls
-    - safe_multiselect(..., sidebar=False) for inline page filters
+    Fixes dependent-filter behavior by pruning stale selections whenever the
+    available option list changes. This is important for the Overview Data
+    Preview table because Country depends on Region, and Month depends on Year.
     """
-    # Choose rendering target. Explicit container takes priority.
-    if container is not None:
-        target = container
-    else:
-        target = st.sidebar if sidebar else st
+    target = container if container is not None else (st.sidebar if sidebar else st)
 
-    # Clean and preserve comparable values. Convert numpy scalar values safely.
+    # Clean options, remove blanks, and de-duplicate by string representation.
     clean_options = []
+    seen = set()
     for x in list(options):
         if pd.isna(x):
             continue
@@ -2630,24 +2640,40 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
             val = val.strip()
             if val == "" or val.lower() in ["nan", "none"]:
                 continue
-        clean_options.append(val)
+        sig = str(val)
+        if sig not in seen:
+            clean_options.append(val)
+            seen.add(sig)
 
     options = sorted(clean_options, key=lambda v: str(v).lower())
     options_with_all = ["Select all"] + options
     widget_key = f"{session_key}_widget"
+    options_signature_key = f"{session_key}_options_signature"
+    options_signature = "||".join(map(str, options))
+    valid_values = set(map(str, options))
 
-    # Initialize internal state: all options active by default.
-    if session_key not in st.session_state:
-        st.session_state[session_key] = options.copy()
-
+    # Prune stale internal selections when upstream filters change the options.
     current_internal = st.session_state.get(session_key, options.copy())
+    current_internal = [x for x in current_internal if str(x) in valid_values]
 
-    # Keep the visible widget compact when everything is selected.
-    if widget_key not in st.session_state:
-        if set(map(str, current_internal)) == set(map(str, options)):
+    # Empty means all currently available values are active.
+    if not current_internal:
+        current_internal = options.copy()
+
+    st.session_state[session_key] = current_internal
+
+    # Keep widget state synchronized with the current option universe. Without
+    # this, a country/month chosen under a previous Region/Year can remain in
+    # session_state and make the Overview table appear incorrectly filtered.
+    options_changed = st.session_state.get(options_signature_key) != options_signature
+    if options_changed or widget_key not in st.session_state:
+        if set(map(str, current_internal)) == valid_values:
             st.session_state[widget_key] = []
         else:
-            st.session_state[widget_key] = [x for x in current_internal if str(x) in set(map(str, options))]
+            st.session_state[widget_key] = [x for x in current_internal if str(x) in valid_values]
+        st.session_state[options_signature_key] = options_signature
+    else:
+        st.session_state[widget_key] = [x for x in st.session_state.get(widget_key, []) if x == "Select all" or str(x) in valid_values]
 
     selected = target.multiselect(
         label,
@@ -2661,7 +2687,9 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
         st.session_state[session_key] = options.copy()
         return options
 
-    cleaned = [x for x in selected if x != "Select all"]
+    cleaned = [x for x in selected if x != "Select all" and str(x) in valid_values]
+    if not cleaned:
+        cleaned = options.copy()
     st.session_state[session_key] = cleaned
     return cleaned
 
@@ -3795,6 +3823,12 @@ if reset_filters:
     ]:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
+        st.session_state.pop(f"{key}_options_signature", None)
+    # Clear table searches too, so reset returns the Overview Data Preview to
+    # the full active dataset immediately.
+    for table_key in ["overview_summary_data_preview", "negative_summary_data_preview"]:
+        st.session_state.pop(f"{table_key}_search", None)
+        st.session_state.pop(f"{table_key}_row_limit", None)
     st.rerun()
 
 st.sidebar.markdown(
@@ -3812,8 +3846,24 @@ render_sidebar_last_updated_panel()
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
-    if pd.isna(cell_value): return False
-    return any(sel in str(cell_value) for sel in selected_values)
+    """Case-insensitive matcher for comma-separated enabling principles."""
+    if selected_values is None or len(selected_values) == 0:
+        return True
+    if pd.isna(cell_value):
+        return False
+
+    selected_norm = {str(v).strip().lower() for v in selected_values if str(v).strip()}
+    cell_terms = {
+        part.strip().lower()
+        for part in str(cell_value).split(",")
+        if part.strip()
+    }
+
+    # Exact token match first; fallback substring keeps compatibility with older
+    # records that may not use comma-separated principle values consistently.
+    return bool(cell_terms & selected_norm) or any(
+        sel in str(cell_value).strip().lower() for sel in selected_norm
+    )
 
 filtered_global = data[
     (data['region'].isin(selected_regions)) &
@@ -3823,7 +3873,7 @@ filtered_global = data[
     (data['alert-impact'].isin(selected_alert_impacts)) &
     (data['month_name'].isin(selected_months)) &
     (data['year'].isin(selected_years))
-]
+].copy()
 
 #render_filter_status_card(filtered_global)
 
@@ -8700,7 +8750,7 @@ with tab_overview:
             # ---------------- Tab two data preview ------------------
 
         if has_permission("view_data_table"):
-            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview", remove_vertical_scroll=True)  
+            render_professional_data_preview(filtered_global_prev, title="Data Preview and Download", key="overview_summary_data_preview", remove_vertical_scroll=False)  
         #else:
             #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
