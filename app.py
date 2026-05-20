@@ -872,297 +872,6 @@ def inject_compact_dashboard_spacing_css():
 inject_compact_dashboard_spacing_css()
 
 
-# ---------------- PROFESSIONAL IN-TAB CHART SPACING ----------------
-def inject_professional_tab_chart_spacing_css():
-    """Improve spacing between charts inside tabs without changing header/title spacing.
-
-    Scope is intentionally limited to tab panel interiors and Plotly chart containers.
-    It does not change the dashboard title, subtitle, tab bar, sidebar, footer,
-    chart data, permissions, filters, or Plotly figure logic.
-    """
-    st.markdown("""
-    <style>
-    /* Add a small breathing space immediately after the tab row only. */
-    [data-testid="stTabs"] [role="tabpanel"],
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        padding-top: 0.45rem !important;
-    }
-
-    /* Professional horizontal spacing between side-by-side chart columns. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]),
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]) {
-        gap: 1.15rem !important;
-        margin-top: 0.15rem !important;
-        margin-bottom: 1.05rem !important;
-        align-items: stretch !important;
-    }
-
-    /* Give chart columns subtle inner breathing room without changing card/panel design. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="column"]:has(div[data-testid="stPlotlyChart"]),
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="column"]:has(div[data-testid="stPlotlyChart"]) {
-        padding-left: 0.15rem !important;
-        padding-right: 0.15rem !important;
-        min-width: 0 !important;
-    }
-
-    /* Space only chart-bearing element containers; do not affect KPI cards, text panels, or filters. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]),
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]) {
-        margin-top: 0.20rem !important;
-        margin-bottom: 0.75rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    /* Keep each chart visually separated but not floating too far from its title. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stPlotlyChart"],
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stPlotlyChart"] {
-        margin-top: 0.15rem !important;
-        margin-bottom: 0.35rem !important;
-        padding-top: 0.10rem !important;
-        padding-bottom: 0.20rem !important;
-    }
-
-    /* Preserve a compact, readable flow for stacked chart rows. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stVerticalBlock"]:has(div[data-testid="stPlotlyChart"]),
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stVerticalBlock"]:has(div[data-testid="stPlotlyChart"]) {
-        row-gap: 0.65rem !important;
-    }
-
-    /* Responsive: prevent cramped two/three-column charts on narrow screens. */
-    @media (max-width: 900px) {
-        [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]),
-        div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"]:has(div[data-testid="stPlotlyChart"]) {
-            gap: 0.85rem !important;
-            margin-bottom: 0.85rem !important;
-        }
-
-        [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]),
-        div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]) {
-            margin-bottom: 0.65rem !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_professional_tab_chart_spacing_css()
-
-
-# ---------------- STANDARDIZED DASHBOARD PADDING SYSTEM ----------------
-def inject_standardized_dashboard_padding_css():
-    """Standardize padding and spacing across dashboard UI items for a polished UX.
-
-    This layer is intentionally presentation-only. It does not change dashboard
-    logic, filters, permissions, datasets, chart traces, or tab content.
-    It also avoids changing the top title/header compression already applied.
-    """
-    st.markdown("""
-    <style>
-    :root {
-        --eusee-space-xxs: 0.25rem;
-        --eusee-space-xs: 0.50rem;
-        --eusee-space-sm: 0.75rem;
-        --eusee-space-md: 1.00rem;
-        --eusee-space-lg: 1.25rem;
-        --eusee-card-pad-sm: 0.85rem;
-        --eusee-card-pad: 1.00rem;
-        --eusee-card-pad-lg: 1.15rem;
-    }
-
-    /* Keep page top compact, but make left/right page padding consistent. */
-    .main .block-container {
-        padding-left: 1.35rem !important;
-        padding-right: 1.35rem !important;
-    }
-
-    /* Restore professional breathing room inside tabs only. */
-    [data-testid="stTabs"] [role="tabpanel"],
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        padding-top: 0.65rem !important;
-        padding-bottom: 1.10rem !important;
-    }
-
-    [data-testid="stTabs"] [role="tabpanel"] > div[data-testid="stVerticalBlock"],
-    div[data-testid="stTabs"] div[role="tabpanel"] > div[data-testid="stVerticalBlock"] {
-        gap: var(--eusee-space-md) !important;
-    }
-
-    /* Standard row spacing for cards/charts/tables inside tabs. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"],
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"] {
-        gap: var(--eusee-space-md) !important;
-        margin-top: 0.10rem !important;
-        margin-bottom: 0.95rem !important;
-        align-items: stretch !important;
-    }
-
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="column"],
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="column"] {
-        padding-left: 0.15rem !important;
-        padding-right: 0.15rem !important;
-        min-width: 0 !important;
-    }
-
-    /* Undo the earlier global zero-margin behavior inside tab content only. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"],
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"] {
-        margin-top: 0rem !important;
-        margin-bottom: 0.80rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    /* Chart containers: clean separation, no excessive whitespace. */
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]),
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="element-container"]:has(div[data-testid="stPlotlyChart"]) {
-        margin-bottom: 1.00rem !important;
-    }
-
-    [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stPlotlyChart"],
-    div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stPlotlyChart"] {
-        padding: 0.35rem 0.20rem 0.45rem 0.20rem !important;
-        margin: 0rem !important;
-    }
-
-    /* KPI, metric and custom cards: consistent inner padding and rhythm. */
-    [data-testid="stMetric"],
-    .eusee-kpi-card,
-    .negintel-card,
-    .executive-table-shell,
-    .map-guide-card,
-    .map-overview-guide,
-    .user-manual-card,
-    .manual-card,
-    .ai-card,
-    .copilot-card,
-    .chat-card,
-    .sidebar-access-shell,
-    .sidebar-profile-card,
-    .sidebar-last-updated,
-    .classic-filter-header,
-    .classic-filter-status,
-    .data-preview-toolbar,
-    .eusee-data-preview-note {
-        padding: var(--eusee-card-pad) !important;
-        margin-bottom: 0.90rem !important;
-        box-sizing: border-box !important;
-    }
-
-    .eusee-kpi-card,
-    .negintel-card,
-    .executive-table-shell,
-    .map-guide-card,
-    .map-overview-guide,
-    .user-manual-card,
-    .manual-card,
-    .ai-card,
-    .copilot-card,
-    .chat-card {
-        border-radius: 16px !important;
-    }
-
-    /* Expander panels: aligned header/content padding. */
-    div[data-testid="stExpander"] {
-        margin-top: 0.20rem !important;
-        margin-bottom: 1.00rem !important;
-    }
-
-    div[data-testid="stExpander"] summary {
-        padding: 0.80rem 1.00rem !important;
-    }
-
-    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] {
-        gap: 0.75rem !important;
-    }
-
-    /* Text blocks: professional reading rhythm without large gaps. */
-    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] p,
-    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] p {
-        margin-top: 0rem !important;
-        margin-bottom: 0.55rem !important;
-    }
-
-    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] h3,
-    [data-testid="stTabs"] [role="tabpanel"] [data-testid="stMarkdownContainer"] h4,
-    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] h2,
-    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] h3,
-    div[data-testid="stTabs"] div[role="tabpanel"] [data-testid="stMarkdownContainer"] h4 {
-        margin-top: 0.35rem !important;
-        margin-bottom: 0.50rem !important;
-    }
-
-    /* Tables and alerts align with cards/charts. */
-    div[data-testid="stDataFrame"],
-    [data-testid="stAlert"] {
-        margin-top: 0.15rem !important;
-        margin-bottom: 0.95rem !important;
-    }
-
-    /* Form controls inside tabs get consistent vertical rhythm. */
-    [data-testid="stTabs"] [role="tabpanel"] .stTextInput,
-    [data-testid="stTabs"] [role="tabpanel"] .stSelectbox,
-    [data-testid="stTabs"] [role="tabpanel"] .stMultiSelect,
-    [data-testid="stTabs"] [role="tabpanel"] .stDateInput,
-    [data-testid="stTabs"] [role="tabpanel"] .stSlider,
-    [data-testid="stTabs"] [role="tabpanel"] .stButton,
-    div[data-testid="stTabs"] div[role="tabpanel"] .stTextInput,
-    div[data-testid="stTabs"] div[role="tabpanel"] .stSelectbox,
-    div[data-testid="stTabs"] div[role="tabpanel"] .stMultiSelect,
-    div[data-testid="stTabs"] div[role="tabpanel"] .stDateInput,
-    div[data-testid="stTabs"] div[role="tabpanel"] .stSlider,
-    div[data-testid="stTabs"] div[role="tabpanel"] .stButton {
-        margin-bottom: 0.70rem !important;
-    }
-
-    /* Sidebar keeps a compact but readable system. */
-    section[data-testid="stSidebar"] > div {
-        padding: 1.00rem 0.85rem 1.25rem 0.85rem !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        gap: 0.70rem !important;
-    }
-
-    /* Mobile/tablet: reduce padding while keeping separation. */
-    @media (max-width: 900px) {
-        .main .block-container {
-            padding-left: 0.85rem !important;
-            padding-right: 0.85rem !important;
-        }
-
-        [data-testid="stTabs"] [role="tabpanel"],
-        div[data-testid="stTabs"] div[role="tabpanel"] {
-            padding-top: 0.55rem !important;
-        }
-
-        [data-testid="stTabs"] [role="tabpanel"] div[data-testid="stHorizontalBlock"],
-        div[data-testid="stTabs"] div[role="tabpanel"] div[data-testid="stHorizontalBlock"] {
-            gap: 0.75rem !important;
-            margin-bottom: 0.80rem !important;
-        }
-
-        [data-testid="stMetric"],
-        .eusee-kpi-card,
-        .negintel-card,
-        .executive-table-shell,
-        .map-guide-card,
-        .map-overview-guide,
-        .user-manual-card,
-        .manual-card,
-        .ai-card,
-        .copilot-card,
-        .chat-card {
-            padding: var(--eusee-card-pad-sm) !important;
-            margin-bottom: 0.75rem !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_standardized_dashboard_padding_css()
-
-
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
 @st.cache_data(show_spinner=False, ttl=120)
 def build_compact_chatbot_context(df):
@@ -10215,6 +9924,209 @@ with tab_manual:
                 """,
                 unsafe_allow_html=True,
             )
+
+
+
+            # ---------------- USER MANUAL TAB PROFESSIONAL PADDING PATCH ----------------
+            # Scoped to the User Manual tab only. It improves section rhythm, card padding,
+            # document cards, quick-start steps, and mobile spacing without affecting charts
+            # or panels in the other dashboard tabs.
+            st.markdown("""
+            <style>
+            .user-manual-shell {
+                padding-top: 0.35rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+
+            .user-manual-shell .manual-hero {
+                padding: 20px 22px !important;
+                margin: 0 0 16px 0 !important;
+                border-radius: 20px !important;
+            }
+
+            .user-manual-shell .manual-eyebrow {
+                margin-bottom: 7px !important;
+            }
+
+            .user-manual-shell .manual-title {
+                margin: 0 0 9px 0 !important;
+                line-height: 1.12 !important;
+            }
+
+            .user-manual-shell .manual-title-divider {
+                margin: 0 0 13px 0 !important;
+            }
+
+            .user-manual-shell .manual-lead {
+                margin: 0 !important;
+                line-height: 1.58 !important;
+            }
+
+            .user-manual-shell .manual-access-pill {
+                margin-top: 12px !important;
+                margin-right: 8px !important;
+            }
+
+            .user-manual-shell .manual-kpi-grid {
+                gap: 12px !important;
+                margin: 0 0 18px 0 !important;
+            }
+
+            .user-manual-shell .manual-mini-card {
+                padding: 12px 13px !important;
+                min-height: 86px !important;
+                border-radius: 15px !important;
+                column-gap: 10px !important;
+                align-items: start !important;
+            }
+
+            .user-manual-shell .manual-mini-icon {
+                width: 28px !important;
+                height: 28px !important;
+                min-width: 28px !important;
+                border-radius: 10px !important;
+                font-size: 14px !important;
+            }
+
+            .user-manual-shell .manual-mini-title {
+                font-size: 10.5px !important;
+                line-height: 1.2 !important;
+                margin: 1px 0 4px 0 !important;
+            }
+
+            .user-manual-shell .manual-mini-text {
+                font-size: 10.7px !important;
+                line-height: 1.42 !important;
+                margin: 0 !important;
+            }
+
+            .user-manual-shell .manual-section-card {
+                padding: 18px 20px !important;
+                margin: 0 0 16px 0 !important;
+                border-radius: 18px !important;
+            }
+
+            .user-manual-shell .manual-section-title {
+                margin: 0 0 5px 0 !important;
+                line-height: 1.2 !important;
+            }
+
+            .user-manual-shell .manual-section-note {
+                margin: 0 0 14px 0 !important;
+                line-height: 1.45 !important;
+            }
+
+            .user-manual-shell .manual-step {
+                gap: 11px !important;
+                padding: 10px 0 !important;
+                margin: 0 !important;
+                border-bottom: 1px solid #EEF0F4 !important;
+            }
+
+            .user-manual-shell .manual-step:last-child {
+                border-bottom: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            .user-manual-shell .manual-step-num {
+                width: 28px !important;
+                height: 28px !important;
+                min-width: 28px !important;
+                border-radius: 10px !important;
+                font-size: 11px !important;
+            }
+
+            .user-manual-shell .manual-step-title {
+                margin: 0 0 3px 0 !important;
+                line-height: 1.25 !important;
+            }
+
+            .user-manual-shell .manual-step-text {
+                margin: 0 !important;
+                line-height: 1.48 !important;
+            }
+
+            .user-manual-shell .manual-doc-card {
+                padding: 14px 15px !important;
+                margin: 0 0 10px 0 !important;
+                border-radius: 16px !important;
+                gap: 12px !important;
+                align-items: flex-start !important;
+            }
+
+            .user-manual-shell .manual-doc-icon {
+                width: 34px !important;
+                height: 34px !important;
+                min-width: 34px !important;
+                border-radius: 12px !important;
+            }
+
+            .user-manual-shell .manual-doc-title {
+                margin: 0 0 3px 0 !important;
+                line-height: 1.22 !important;
+            }
+
+            .user-manual-shell .manual-doc-subtitle,
+            .user-manual-shell .manual-doc-audience {
+                margin: 0 !important;
+                line-height: 1.42 !important;
+            }
+
+            .user-manual-shell .stDownloadButton {
+                margin: 0 0 14px 0 !important;
+            }
+
+            .user-manual-shell .stDownloadButton > button {
+                min-height: 42px !important;
+                border-radius: 12px !important;
+                padding: 0.55rem 1rem !important;
+            }
+
+            .user-manual-shell .manual-tip {
+                padding: 14px 15px !important;
+                margin: 2px 0 0 0 !important;
+                border-radius: 16px !important;
+                line-height: 1.48 !important;
+            }
+
+            .user-manual-shell div[data-testid="stHorizontalBlock"] {
+                gap: 1.25rem !important;
+                align-items: stretch !important;
+            }
+
+            .user-manual-shell div[data-testid="column"] {
+                min-width: 0 !important;
+            }
+
+            @media (max-width: 1050px) {
+                .user-manual-shell .manual-kpi-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                }
+            }
+
+            @media (max-width: 768px) {
+                .user-manual-shell .manual-hero,
+                .user-manual-shell .manual-section-card {
+                    padding: 16px 15px !important;
+                    border-radius: 16px !important;
+                }
+
+                .user-manual-shell .manual-kpi-grid {
+                    grid-template-columns: 1fr !important;
+                    gap: 10px !important;
+                }
+
+                .user-manual-shell .manual-mini-card {
+                    min-height: auto !important;
+                    padding: 12px !important;
+                }
+
+                .user-manual-shell div[data-testid="stHorizontalBlock"] {
+                    gap: 0.9rem !important;
+                }
+            }
+            </style>
+            """, unsafe_allow_html=True)
 
             st.markdown('<div class="user-manual-shell">', unsafe_allow_html=True)
 
