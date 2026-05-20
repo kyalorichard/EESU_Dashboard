@@ -712,8 +712,8 @@ def inject_compact_dashboard_spacing_css():
     <style>
     /* Reduce Streamlit's default page padding without changing dashboard functionality. */
     .main .block-container {
-        padding-top: 0.25rem !important;
-        padding-bottom: 3.25rem !important;
+        padding-top: 0.15rem !important;
+        padding-bottom: 1.25rem !important;
     }
 
     /* Compact dashboard title and intro block. */
@@ -727,7 +727,7 @@ def inject_compact_dashboard_spacing_css():
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0.35rem !important;
+        margin-bottom: 0.15rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
