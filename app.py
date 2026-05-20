@@ -113,48 +113,97 @@ except Exception:
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
-st.markdown("""
-<style>
 
-/* FORCE REMOVE TOP PAGE SPACE */
-.main .block-container,
-section.main .block-container,
-[data-testid="stAppViewContainer"] .main .block-container {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
+# ---------------- FORCE REMOVE SPACE ABOVE DASHBOARD TITLE ----------------
+def inject_force_remove_top_title_space_css():
+    """Remove Streamlit's top page/header spacer above the dashboard title only."""
+    st.markdown("""
+    <style>
+    /* Collapse Streamlit app shell spacing above first content block. */
+    html, body, .stApp, [data-testid="stAppViewContainer"] {
+        margin-top: 0px !important;
+        padding-top: 0px !important;
+    }
 
-/* REMOVE STREAMLIT TOP WRAPPER GAP */
-div[data-testid="stVerticalBlock"] > div:first-child {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-}
+    /* Main content area: remove top offset that creates the gap above the title. */
+    .main,
+    section.main,
+    main,
+    [data-testid="stAppViewContainer"] > .main {
+        padding-top: 0px !important;
+        margin-top: 0px !important;
+    }
 
-/* REMOVE SPACE ABOVE TITLE */
-.animated-title{
-    margin-top: -1.15rem !important;
-    padding-top: 0rem !important;
-}
+    .main .block-container,
+    section.main .block-container,
+    [data-testid="stAppViewContainer"] .main .block-container,
+    [data-testid="stAppViewContainer"] section.main .block-container {
+        padding-top: 0px !important;
+        margin-top: 0px !important;
+        transform: translateY(-26px) !important;
+    }
 
-/* REMOVE HEADER BOTTOM GAP */
-header[data-testid="stHeader"]{
-    height: 48px !important;
-    min-height: 48px !important;
-    margin-bottom: 0rem !important;
-    padding-bottom: 0rem !important;
-}
+    /* Keep the Streamlit header compact and non-space-creating. */
+    header[data-testid="stHeader"] {
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        padding: 0px !important;
+        margin: 0px !important;
+        background: transparent !important;
+        border: none !important;
+        overflow: visible !important;
+    }
 
-/* REMOVE EXTRA EMPTY ELEMENTS */
-div[data-testid="stElementContainer"]:empty,
-div[data-testid="stMarkdownContainer"]:empty {
-    display: none !important;
-    height: 0px !important;
-    margin: 0px !important;
-    padding: 0px !important;
-}
+    div[data-testid="stToolbar"] {
+        top: 4px !important;
+        right: 10px !important;
+    }
 
-</style>
-""", unsafe_allow_html=True)
+    div[data-testid="stDecoration"] {
+        display: none !important;
+        height: 0px !important;
+    }
+
+    /* Remove wrapper spacing around the first visible title markdown block. */
+    .main .block-container > div:first-child,
+    .main .block-container [data-testid="stVerticalBlock"] > div:first-child,
+    .main .block-container div[data-testid="stElementContainer"]:first-child,
+    .main .block-container div[data-testid="stMarkdown"]:first-child {
+        margin-top: 0px !important;
+        padding-top: 0px !important;
+    }
+
+    /* Pull only dashboard title upward inside its wrapper. */
+    .animated-title {
+        margin-top: -0.85rem !important;
+        padding-top: 0px !important;
+    }
+
+    /* Remove the parent custom title container top space. */
+    .animated-title,
+    .animated-title:first-child,
+    .animated-title.closest-title-fix {
+        display: block !important;
+    }
+
+    .animated-title + .animated-divider {
+        margin-top: 0px !important;
+    }
+
+    /* Keep sidebar collapsed button visible after header collapse. */
+    button[data-testid="collapsedControl"],
+    [data-testid="collapsedControl"] {
+        top: 8px !important;
+        z-index: 1000000 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_force_remove_top_title_space_css()
+
+
+
 
 # ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
 def configure_global_plotly_typography():
@@ -238,12 +287,12 @@ def inject_classic_dashboard_css():
     }
     .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
     header[data-testid="stHeader"] {
-        height: 48px !important;
-        min-height: 48px !important;
-        background: rgba(247,248,251,0.92) !important;
-        backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid rgba(230,232,239,0.75) !important;
-        z-index: 999999 !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        background: transparent !important;
+        border: none !important;
+        overflow: visible !important;
     }
     div[data-testid="stToolbar"] { right: 0.75rem !important; }
     button[data-testid="collapsedControl"],
@@ -329,7 +378,7 @@ def inject_classic_dashboard_css():
 
     /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
     html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
-    .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
+    .main .block-container { padding-top: 0rem !important; padding-bottom: 7rem !important; }
     [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
     div[data-testid="column"] { min-width: 0 !important; }
     .stPlotlyChart, div[data-testid="stPlotlyChart"], .js-plotly-plot, .plot-container {
@@ -359,21 +408,21 @@ def inject_classic_dashboard_css():
     }
 
 /* REMOVE SPACE BELOW SUBTITLE */
-.animated-subtitle{
-    margin-top: 0rem !important;
-    margin-bottom: 0.85rem !important;
-    padding-top: 0rem !important;
-    padding-bottom: 0rem !important;
-    line-height: 1.25 !important;
-}
+.animated-subtitle {
+        margin-top: 0rem !important;
+        margin-bottom: 0.45rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        line-height: 1.32 !important;
+    }
 
 /* REMOVE GAP BEFORE TABS */
-div[data-testid="stTabs"]{
-    margin-top: 0.95rem !important;
-    padding-top: 0rem !important;
-    margin-bottom: 0rem !important;
-    padding-bottom: 0rem !important;
-}
+div[data-testid="stTabs"] {
+        margin-top: 0.35rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
 
 </style>
     """, unsafe_allow_html=True)
@@ -676,12 +725,12 @@ def inject_final_responsive_overrides():
     st.markdown("""
     <style>
     header[data-testid="stHeader"] {
-        height: 48px !important;
-        min-height: 48px !important;
-        background: rgba(247,248,251,.94) !important;
-        backdrop-filter: blur(10px) !important;
-        border-bottom: 1px solid rgba(230,232,239,.8) !important;
-        z-index: 999999 !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        background: transparent !important;
+        border: none !important;
+        overflow: visible !important;
     }
     button[data-testid="collapsedControl"], [data-testid="collapsedControl"] {
         position: fixed !important;
@@ -828,7 +877,7 @@ def inject_compact_dashboard_spacing_css():
     }
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 2.5rem !important;
+        margin-bottom: 0.05rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
@@ -840,7 +889,7 @@ def inject_compact_dashboard_spacing_css():
 
     /* Force tabs to start immediately after the dashboard subtitle. */
     div[data-testid="stTabs"] {
-        margin-top: -1.35rem !important;
+        margin-top: 0.35rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -1571,6 +1620,35 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
     st.stop()
 
 
+
+# ---------------- FINAL TOP TITLE POSITION OVERRIDE ----------------
+st.markdown("""
+<style>
+/* Final override because later global CSS blocks may reintroduce top padding/header height. */
+header[data-testid="stHeader"] {
+    height: 0px !important;
+    min-height: 0px !important;
+    max-height: 0px !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.main .block-container,
+section.main .block-container,
+[data-testid="stAppViewContainer"] .main .block-container {
+    padding-top: 0px !important;
+    margin-top: 0px !important;
+    transform: translateY(-30px) !important;
+}
+
+.animated-title {
+    margin-top: -0.75rem !important;
+    padding-top: 0px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
 <!-- Container for animations -->
@@ -1637,10 +1715,10 @@ st.markdown(f"""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 3px !important;
+    margin-bottom: 0.45rem !important;
     padding-bottom: 0px !important;
     max-width: 980px;
-    line-height: 1.25;
+    line-height: 1.32;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
     animation-delay: 1.0s;
@@ -1729,7 +1807,7 @@ st.markdown(
     <style>
     /* Force the main tabs to sit directly under the subtitle. */
     div[data-testid="stTabs"]:first-of-type {
-        margin-top:  0.95rem !important;
+        margin-top: 0.55rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -8008,7 +8086,7 @@ def inject_final_top_tab_spacing_override():
 
     .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 2.5rem !important;
+        margin-bottom: 0rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
