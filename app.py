@@ -8584,37 +8584,90 @@ def render_dashboard_plotly_chart(
         render_permission_locked_card(permission_label or title or visual_type.title(), permission_key, container=target)
         return None
 
-    # Optional chart information is rendered as a stable Streamlit header:
-    # title first, then the tooltip icon immediately below the title. The Plotly
-    # title is removed afterward to avoid duplicate titles and inconsistent
-    # in-chart badge placement across tabs/columns.
+    # Keep the chart title inside the Plotly chart area.
+    # For charts with explanatory notes, render a small in-chart info badge
+    # immediately below the title using Plotly annotations, not a separate
+    # Streamlit markdown header. This preserves alignment inside the chart card.
+    tooltip_title_text = None
     if show_title_tooltip and chart_info:
         try:
-            title_for_header = title or _dashboard_plain_title(fig, fallback=permission_label or visual_type.title())
-            render_chart_title_with_tooltip(target, title_for_header, chart_info)
-            try:
-                fig.update_layout(title=dict(text=None), margin=dict(t=28))
-            except Exception:
-                pass
+            tooltip_title_text = title or _dashboard_plain_title(
+                fig,
+                fallback=permission_label or visual_type.title(),
+            )
         except Exception:
-            # Never allow the optional information header to break chart rendering.
-            pass
+            tooltip_title_text = title or permission_label or visual_type.title()
 
     fig = apply_responsive_plotly_layout(fig)
+
     if show_title_tooltip and chart_info:
         try:
             current_margin = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+            existing_annotations = []
+            try:
+                existing_annotations = list(fig.layout.annotations) if fig.layout.annotations else []
+            except Exception:
+                existing_annotations = []
+
+            title_clean = _strip_plotly_html(tooltip_title_text or _dashboard_plain_title(fig, fallback=visual_type.title()))
+            info_clean = _strip_plotly_html(chart_info)
+
             fig.update_layout(
                 title=dict(text=None),
                 margin=dict(
                     l=current_margin.get("l", 30),
                     r=current_margin.get("r", 24),
-                    t=min(int(current_margin.get("t", 58) or 58), 34),
+                    t=max(int(current_margin.get("t", 58) or 58), 92),
                     b=current_margin.get("b", 34),
                 ),
+                annotations=existing_annotations + [
+                    dict(
+                        x=0.0,
+                        y=1.185,
+                        xref="paper",
+                        yref="paper",
+                        text=f"<b>{title_clean}</b>",
+                        showarrow=False,
+                        xanchor="left",
+                        yanchor="top",
+                        align="left",
+                        font=dict(
+                            family="Inter, Segoe UI, Arial, sans-serif",
+                            size=14,
+                            color="#23152F",
+                        ),
+                    ),
+                    dict(
+                        x=0.0,
+                        y=1.085,
+                        xref="paper",
+                        yref="paper",
+                        text="ⓘ",
+                        hovertext=info_clean,
+                        hoverlabel=dict(
+                            bgcolor="#23152F",
+                            bordercolor="#660094",
+                            font=dict(
+                                family="Inter, Segoe UI, Arial, sans-serif",
+                                size=11,
+                                color="#FFFFFF",
+                            ),
+                        ),
+                        showarrow=False,
+                        xanchor="left",
+                        yanchor="middle",
+                        font=dict(
+                            family="Inter, Segoe UI, Arial, sans-serif",
+                            size=16,
+                            color="#660094",
+                        ),
+                    ),
+                ],
             )
         except Exception:
+            # Never allow optional tooltip formatting to break chart rendering.
             pass
+
     target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
 
 # ---------------- TAB 1 ------------------------
