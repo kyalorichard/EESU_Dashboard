@@ -724,62 +724,126 @@ def inject_all_tabs_typography_css():
 
 inject_all_tabs_typography_css()
 
-# ---------------- TITLE-ONLY TOP SPACE FIX ----------------
-def inject_title_only_top_spacing_css():
-    """Remove only the blank space above the dashboard title.
-
-    This avoids global Streamlit/header overrides so charts, tabs, sidebar,
-    chatbot, cards, expanders, and internal panel spacing remain unchanged.
-    """
+# ---------------- HARD COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
+def inject_compact_dashboard_spacing_css():
+    """Force-remove Streamlit wrapper gaps around title, tabs, and footer only."""
     st.markdown("""
     <style>
-    /* Keep normal dashboard spacing everywhere. Only pull the title block upward. */
-    .eusee-dashboard-title-shell {
-        margin-top: -3.35rem !important;
+    /* Page shell: keep the dashboard close to the browser header. */
+    .main .block-container,
+    section.main .block-container,
+    [data-testid="stAppViewContainer"] .main .block-container {
         padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
+        padding-bottom: 1.6rem !important;
     }
 
-    .eusee-dashboard-title-shell .animated-title {
+    /* Remove vertical rhythm added by Streamlit around injected CSS/HTML blocks. */
+    .main .block-container > div,
+    .main .block-container [data-testid="stVerticalBlock"] > div {
+        gap: 0rem !important;
+        row-gap: 0rem !important;
+    }
+
+    /* Hide blank wrappers created by CSS-only markdown blocks and tiny components. */
+    .main .block-container div[data-testid="stElementContainer"]:has(style),
+    .main .block-container div[data-testid="stMarkdownContainer"]:has(style),
+    .main .block-container div[data-testid="element-container"]:has(style) {
+        height: 0px !important;
+        min-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        overflow: hidden !important;
+    }
+    .main .block-container iframe[width="1"],
+    .main .block-container iframe[height="1"],
+    .main .block-container iframe[height="0"] {
+        height: 0px !important;
+        min-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        display: block !important;
+    }
+    .main .block-container div[data-testid="stElementContainer"]:has(iframe[width="1"]),
+    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="1"]),
+    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="0"]) {
+        height: 0px !important;
+        min-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        overflow: hidden !important;
+    }
+
+    /* Dashboard intro block: compact but still readable. */
+    .animated-title {
         margin-top: 0rem !important;
-        padding-top: 0rem !important;
         margin-bottom: 0.05rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
         line-height: 1.02 !important;
     }
-
-    .eusee-dashboard-title-shell .animated-divider {
+    .animated-divider {
         margin-top: 0rem !important;
         margin-bottom: 0.12rem !important;
     }
-
-    .eusee-dashboard-title-shell .animated-subtitle {
+    .animated-subtitle {
         margin-top: 0rem !important;
-        margin-bottom: 0.65rem !important;
+        margin-bottom: 2.5rem !important;
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         line-height: 1.25 !important;
     }
+    .animated-title + .animated-divider,
+    .animated-divider + .animated-subtitle {
+        margin-top: 0rem !important;
+    }
 
-    /* Only style the Streamlit element that contains the title shell. */
-    .main .block-container div[data-testid="stElementContainer"]:has(.eusee-dashboard-title-shell) {
+    /* Force tabs to start immediately after the dashboard subtitle. */
+    div[data-testid="stTabs"] {
+        margin-top: -1.35rem !important;
+        padding-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    div[data-testid="stTabs"] > div {
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
-
-    /* Keep tabs close to the subtitle without using negative offsets. */
-    div[data-testid="stTabs"] {
-        margin-top: 0.15rem !important;
-        padding-top: 0rem !important;
-    }
-
     div[data-testid="stTabs"] div[role="tablist"] {
         margin-top: 0rem !important;
+        margin-bottom: 0.05rem !important;
         padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    div[data-testid="stTabs"] div[role="tabpanel"] {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+
+    /* Remove empty footer/pre-footer spacing while keeping fixed footer visible. */
+    .eusee-fixed-footer,
+    .eusee-fixed-footer * {
+        box-sizing: border-box !important;
+    }
+    .eusee-fixed-footer {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
+    }
+    .main .block-container > div:last-child,
+    div[data-testid="stVerticalBlock"] > div:last-child {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+    div[data-testid="stVerticalBlock"] > div:empty,
+    div[data-testid="stElementContainer"]:empty {
+        display: none !important;
+        height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-inject_title_only_top_spacing_css()
+inject_compact_dashboard_spacing_css()
 
 
 # ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
@@ -1469,7 +1533,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
 <!-- Container for animations -->
-<div class="eusee-dashboard-title-shell" style="overflow: hidden;">
+<div class="eusee-dashboard-intro" style="overflow: visible;">
 
 <h1 class="animated-title">
     EU SEE Dashboard
@@ -1488,6 +1552,29 @@ st.markdown(f"""
 </div>
 
 <style>
+/* ---------------- Scoped top-space fix: affects only the dashboard intro/title block ---------------- */
+.eusee-dashboard-intro {{
+    margin-top: -3.35rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0rem !important;
+    overflow: visible !important;
+}}
+.eusee-dashboard-intro .animated-title {{
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}}
+.eusee-dashboard-intro .animated-divider {{
+    margin-top: 0rem !important;
+}}
+.eusee-dashboard-intro .animated-subtitle {{
+    margin-top: 0rem !important;
+}}
+@media (max-width: 700px) {{
+    .eusee-dashboard-intro {{
+        margin-top: -2.65rem !important;
+    }}
+}}
+
 /* ---------------- Title ---------------- */
 .animated-title {{
     margin: 0 0 0px 0 !important;
@@ -1619,12 +1706,39 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     ]
 )
 
+# ---------------- FINAL TITLE-ONLY TOP SPACE OVERRIDE ----------------
+# Keep this after st.tabs so it wins against earlier spacing blocks, but it only
+# targets the custom intro wrapper and will not affect panels/charts/chatbot/sidebar.
+st.markdown("""
+<style>
+.eusee-dashboard-intro {
+    margin-top: -3.35rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0rem !important;
+    overflow: visible !important;
+}
+.eusee-dashboard-intro h1.animated-title {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+    line-height: 1.02 !important;
+}
+.eusee-dashboard-intro .animated-divider {
+    margin-top: 0rem !important;
+    margin-bottom: 0.12rem !important;
+}
+.eusee-dashboard-intro .animated-subtitle {
+    margin-top: 0rem !important;
+    margin-bottom: 0.65rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown(
     """
     <style>
     /* Force the main tabs to sit directly under the subtitle. */
     div[data-testid="stTabs"]:first-of-type {
-        margin-top:  0.15rem !important;
+        margin-top:  0.95rem !important;
         padding-top: 0rem !important;
         margin-bottom: 0rem !important;
         padding-bottom: 0rem !important;
@@ -14208,22 +14322,3 @@ SUGGESTED_PROMPTS = [
 
 # Chatbot should render only after explicit user expansion/opening
 # to reduce dashboard initial render load.
-
-
-# ---------------- FINAL TITLE SPACING OVERRIDE: LOAD LAST ----------------
-st.markdown("""
-<style>
-/* Last-loaded, scoped fix for the blank space above EU SEE Dashboard title. */
-.eusee-dashboard-title-shell {
-    margin-top: -3.35rem !important;
-    padding-top: 0rem !important;
-}
-.eusee-dashboard-title-shell .animated-title {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-}
-.eusee-dashboard-title-shell .animated-subtitle {
-    margin-bottom: 0.65rem !important;
-}
-</style>
-""", unsafe_allow_html=True)
