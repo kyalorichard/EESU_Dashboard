@@ -361,12 +361,63 @@ def render_filter_status_card(df):
     """, unsafe_allow_html=True)
 
 
+def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> pd.Series:
+    """Fast, case-insensitive table search used by all Data Preview tables.
+
+    The previous implementation used ``apply(axis=1)`` over every row, which is
+    slow for large filtered datasets. This version scans columns with vectorized
+    string operations and treats multiple typed words as AND terms. It keeps
+    dashboard-level filters intact because it only searches the dataframe already
+    passed into the Data Preview component.
+    """
+    if table_df is None or table_df.empty:
+        return pd.Series(dtype=bool)
+
+    cleaned_query = " ".join(str(search_text or "").split()).strip()
+    if not cleaned_query:
+        return pd.Series(True, index=table_df.index)
+
+    searchable_cols = [
+        col for col in table_df.columns
+        if (
+            pd.api.types.is_object_dtype(table_df[col])
+            or pd.api.types.is_string_dtype(table_df[col])
+            or pd.api.types.is_categorical_dtype(table_df[col])
+            or pd.api.types.is_numeric_dtype(table_df[col])
+            or pd.api.types.is_datetime64_any_dtype(table_df[col])
+        )
+    ]
+
+    if not searchable_cols:
+        return pd.Series(False, index=table_df.index)
+
+    mask = pd.Series(True, index=table_df.index)
+    for term in cleaned_query.lower().split():
+        term_mask = pd.Series(False, index=table_df.index)
+        for col in searchable_cols:
+            term_mask |= (
+                table_df[col]
+                .fillna("")
+                .astype(str)
+                .str.lower()
+                .str.contains(term, regex=False, na=False)
+            )
+        mask &= term_mask
+        if not bool(mask.any()):
+            break
+
+    return mask
+
+
 def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
-    """Render a clean searchable table with alert-impact conditional formatting."""
+    """Render a clean, fast, searchable table with alert-impact conditional formatting."""
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
 
+    # Work only on the globally/tab-filtered dataframe provided to this component.
+    # This guarantees that the table, search result, and CSV export all respect
+    # the dashboard filters already applied upstream.
     display_df = df.copy()
 
     # Preserve content, only improve display formatting for date-like columns.
@@ -487,20 +538,26 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             )
 
         table_df = display_df.copy()
+        active_filter_rows = len(table_df)
 
-        # Search across all columns; underlying data remain unchanged.
-        if search_text.strip():
-            query = search_text.strip().lower()
-            mask = table_df.astype(str).apply(
-                lambda row: row.str.lower().str.contains(query, na=False).any(),
-                axis=1,
-            )
-            table_df = table_df.loc[mask]
+        # Fast search across all display columns. The search is applied after
+        # dashboard/sidebar filters, so the user sees and downloads only records
+        # from the active filtered subset. Multiple words are treated as AND terms.
+        search_text_clean = " ".join(str(search_text or "").split()).strip()
+        if search_text_clean:
+            table_df = table_df.loc[
+                _build_fast_table_search_mask(table_df, search_text_clean)
+            ].copy()
 
         if max_rows != "All":
             table_view = table_df.head(int(max_rows)).copy()
         else:
             table_view = table_df.copy()
+
+        st.caption(
+            f"Showing {len(table_view):,} of {len(table_df):,} matching records "
+            f"from {active_filter_rows:,} active-filter records."
+        )
 
         # Style the alert impact column using professional status colors.
         def style_alert_impact(value):
