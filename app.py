@@ -707,52 +707,56 @@ inject_all_tabs_typography_css()
 
 # ---------------- COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
 def inject_compact_dashboard_spacing_css():
-    """Remove excess vertical gaps around the intro block, tabs, and footer."""
+    """Remove excess vertical gaps around the dashboard title, primary tabs, and footer.
+
+    Scope is presentation-only: no filters, charts, permissions, tabs, chatbot,
+    data, or callbacks are changed.
+    """
     st.markdown("""
     <style>
-    /* Reduce Streamlit's default page padding without changing dashboard functionality. */
-    .main .block-container {
-        padding-top: 0.25rem !important;
-        padding-bottom: 3.25rem !important;
+    /* Main page: keep only a very small top inset and leave enough bottom room for fixed footer/chatbot. */
+    .main .block-container,
+    section.main .block-container,
+    [data-testid="stAppViewContainer"] .main .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 2.6rem !important;
+    }
+
+    /* Streamlit inserts spacer wrappers around markdown blocks. Collapse only wrappers
+       around the custom dashboard intro so chart/panel spacing inside tabs is untouched. */
+    div[data-testid="stMarkdownContainer"]:has(.eusee-dashboard-intro),
+    div[data-testid="stMarkdownContainer"]:has(.eusee-dashboard-intro) p,
+    div[data-testid="stMarkdownContainer"]:has(.animated-title),
+    div[data-testid="stMarkdownContainer"]:has(.animated-title) p {
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    .eusee-dashboard-intro {
+        margin: 0rem 0 0.18rem 0 !important;
+        padding: 0rem !important;
+        overflow: hidden !important;
     }
 
     /* Compact dashboard title and intro block. */
     .animated-title {
-        margin-top: 0rem !important;
-        margin-bottom: 0.20rem !important;
+        margin: 0rem 0 0.10rem 0 !important;
+        padding: 0rem !important;
+        line-height: 1.02 !important;
     }
     .animated-divider {
         margin-top: 0rem !important;
-        margin-bottom: 0.30rem !important;
+        margin-bottom: 0.14rem !important;
     }
     .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 0.45rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
+        margin: 0rem 0 0.18rem 0 !important;
+        padding: 0rem !important;
+        line-height: 1.36 !important;
     }
 
-    /* Remove excess gap between the intro text and the tab bar / tab content. */
-    [data-testid="stTabs"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    [data-testid="stTabs"] [role="tablist"],
-    div[data-testid="stTabs"] div[role="tablist"] {
-        margin-top: 0rem !important;
-        margin-bottom: 0.35rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    [data-testid="stTabs"] [role="tabpanel"],
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Remove Streamlit-generated vertical spacing before the footer image. */
+    /* Footer: remove accidental blank space above the footer image. */
     .eusee-fixed-footer,
     .eusee-fixed-footer * {
         box-sizing: border-box !important;
@@ -761,13 +765,13 @@ def inject_compact_dashboard_spacing_css():
         margin-top: 0rem !important;
         padding-top: 0rem !important;
     }
-    .main .block-container > div:last-child,
-    div[data-testid="stVerticalBlock"] > div:last-child {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    div[data-testid="stVerticalBlock"] > div:empty {
+    div[data-testid="stVerticalBlock"] > div:empty,
+    div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"]:empty {
         display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -966,7 +970,7 @@ if len(st.session_state["chat_messages"]) > 6:
     [data-testid="stTabs"] [role="tablist"] {
         gap: 8px !important;
         border-bottom: 1px solid var(--eusee-border-soft) !important;
-        margin-bottom: 12px !important;
+        margin-bottom: 4px !important;
         flex-wrap: wrap !important;
     }
 
@@ -1462,7 +1466,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
 <!-- Container for animations -->
-<div style="overflow: hidden;">
+<div class="eusee-dashboard-intro" style="overflow: hidden;">
 
 <h1 class="animated-title">
     EU SEE Dashboard
@@ -1483,7 +1487,7 @@ st.markdown(f"""
 <style>
 /* ---------------- Title ---------------- */
 .animated-title {{
-    margin: 0 0 4px 0 !important;
+    margin: 0 0 2px 0 !important;
     line-height: 1.05;
     color: #660094;
     font-size: 48px;
@@ -1508,7 +1512,7 @@ st.markdown(f"""
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 10px !important;
+    margin-bottom: 4px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
@@ -6838,7 +6842,9 @@ st.markdown(
         gap: 10px;
         background: #ffffff;
         border-bottom: 1px solid #E8E2EF;
-        padding: 0 0 8px 0;
+        padding: 0 0 2px 0;
+        margin-top: 0 !important;
+        margin-bottom: 4px !important;
         position: sticky;
         top: 0;
         z-index: 20;
@@ -6876,12 +6882,51 @@ st.markdown(
     }
 
     div[data-testid="stTabs"] [role="tabpanel"] {
-        padding-top: 8px !important;
+        padding-top: 0px !important;
+        margin-top: 0px !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
+# Final override loaded after the primary tab-bar CSS so it wins over earlier global rules.
+st.markdown("""
+<style>
+/* Force-remove the remaining gap between the dashboard subtitle and primary tabs.
+   This is intentionally spacing-only and does not touch panels/charts inside tabs. */
+.eusee-dashboard-intro {
+    margin-bottom: 0.12rem !important;
+}
+div[data-testid="stMarkdownContainer"]:has(.eusee-dashboard-intro) {
+    margin-bottom: 0rem !important;
+    padding-bottom: 0rem !important;
+}
+div[data-testid="stTabs"] {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}
+div[data-testid="stTabs"] > div {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}
+div[data-testid="stTabs"] [role="tablist"] {
+    margin-top: 0rem !important;
+    margin-bottom: 0.22rem !important;
+    padding-top: 0rem !important;
+    padding-bottom: 0.12rem !important;
+}
+div[data-testid="stTabs"] [role="tabpanel"] {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+.eusee-fixed-footer {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
 def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
