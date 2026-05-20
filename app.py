@@ -14323,6 +14323,311 @@ def render_ai_assistant_panel(df):
                         use_container_width=True,
                         key="ai_lite_export_data",
                     )
+
+
+# ---------------- GLOBAL DASHBOARD + CHATBOT PADDING STANDARDIZATION ----------------
+def inject_dashboard_padding_standardization():
+    """Final UX spacing layer for all dashboard surfaces.
+
+    This is intentionally loaded near the end of the script so it can normalize
+    earlier ad-hoc CSS rules without changing dashboard data, permissions,
+    filters, charts, or chatbot functionality.
+    """
+    st.markdown("""
+    <style>
+    :root {
+        --eusee-space-xxs: 4px;
+        --eusee-space-xs: 8px;
+        --eusee-space-sm: 12px;
+        --eusee-space-md: 16px;
+        --eusee-space-lg: 20px;
+        --eusee-space-xl: 28px;
+        --eusee-radius-sm: 10px;
+        --eusee-radius-md: 14px;
+        --eusee-radius-lg: 18px;
+        --eusee-panel-pad: 16px;
+        --eusee-card-pad: 16px;
+        --eusee-section-gap: 16px;
+        --eusee-chart-pad: 12px;
+    }
+
+    /* Page canvas: compact but not cramped. */
+    .main .block-container {
+        padding-left: 1.1rem !important;
+        padding-right: 1.1rem !important;
+        padding-bottom: 4.6rem !important;
+        max-width: 1500px !important;
+    }
+
+    /* Keep global vertical rhythm professional. */
+    div[data-testid="stVerticalBlock"] {
+        gap: var(--eusee-section-gap) !important;
+    }
+    div[data-testid="element-container"] {
+        margin-top: 0 !important;
+        margin-bottom: 0.35rem !important;
+    }
+
+    /* Tabs: small breathing space below the tab rail only. */
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 8px !important;
+        margin-top: 0 !important;
+        margin-bottom: 0.45rem !important;
+        padding-bottom: 0 !important;
+    }
+    [data-testid="stTabs"] [role="tab"] {
+        padding: 9px 14px !important;
+        min-height: 40px !important;
+    }
+    [data-testid="stTabs"] [role="tabpanel"] {
+        padding-top: 0.45rem !important;
+    }
+
+    /* Expanders and inner panel content. */
+    div[data-testid="stExpander"] {
+        border-radius: var(--eusee-radius-lg) !important;
+        overflow: hidden !important;
+        margin-bottom: 0.7rem !important;
+    }
+    div[data-testid="stExpander"] summary {
+        padding: 14px 18px !important;
+    }
+    div[data-testid="stExpanderDetails"] {
+        padding: 16px 18px 14px 18px !important;
+    }
+
+    /* Standard cards across overview, negative alerts, maps, manual, profile and tables. */
+    .eusee-kpi-card,
+    .negintel-card,
+    .executive-table-shell,
+    .executive-mini-kpi,
+    .classic-filter-header,
+    .classic-filter-status,
+    .data-preview-toolbar,
+    .user-manual-card,
+    .manual-card,
+    .map-guide-card,
+    .map-overview-guide,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .sidebar-last-updated,
+    .eusee-feedback-panel,
+    .eusee-ai-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card {
+        padding: var(--eusee-card-pad) !important;
+        border-radius: var(--eusee-radius-lg) !important;
+        box-sizing: border-box !important;
+    }
+
+    .eusee-kpi-card,
+    .negintel-card {
+        min-height: 198px !important;
+    }
+    .eusee-kpi-title,
+    .negintel-title,
+    .executive-table-title,
+    .manual-title,
+    .user-manual-title,
+    .map-guide-title,
+    .chat-title,
+    .copilot-title,
+    .ai-title {
+        margin-top: 0 !important;
+        margin-bottom: 10px !important;
+    }
+    .eusee-kpi-note,
+    .negintel-note,
+    .manual-copy,
+    .user-manual-copy,
+    .map-guide-text,
+    .chat-copy,
+    .copilot-copy,
+    .ai-copy {
+        margin-top: 8px !important;
+        margin-bottom: 0 !important;
+        line-height: 1.5 !important;
+    }
+
+    /* Chart areas: enough padding for titles/legends without wasting space. */
+    .stPlotlyChart,
+    div[data-testid="stPlotlyChart"] {
+        padding: var(--eusee-chart-pad) var(--eusee-chart-pad) 8px var(--eusee-chart-pad) !important;
+        border-radius: var(--eusee-radius-md) !important;
+        box-sizing: border-box !important;
+    }
+    .js-plotly-plot,
+    .plot-container,
+    .svg-container {
+        margin-top: 0 !important;
+    }
+
+    /* Tables and preview controls. */
+    div[data-testid="stDataFrame"] {
+        margin-top: 10px !important;
+        margin-bottom: 10px !important;
+        padding: 0 !important;
+    }
+    .executive-table-header {
+        margin-bottom: 14px !important;
+    }
+    .executive-table-status {
+        padding: 12px 14px !important;
+        margin: 12px 0 !important;
+    }
+    .data-preview-footnote {
+        padding: 10px 12px !important;
+        margin-top: 10px !important;
+    }
+
+    /* Forms, filters and buttons. */
+    [data-testid="stWidgetLabel"] {
+        margin-bottom: 4px !important;
+    }
+    .stTextInput,
+    .stTextArea,
+    .stSelectbox,
+    .stMultiSelect,
+    .stSlider,
+    .stDateInput,
+    .stNumberInput {
+        margin-bottom: 8px !important;
+    }
+    input,
+    textarea,
+    [data-baseweb="select"] > div,
+    [data-baseweb="input"] {
+        border-radius: 12px !important;
+        min-height: 38px !important;
+    }
+    .stButton > button,
+    .stDownloadButton > button,
+    button[kind="primary"],
+    button[kind="secondary"] {
+        padding: 0.58rem 0.95rem !important;
+        border-radius: 12px !important;
+        min-height: 38px !important;
+    }
+
+    /* Sidebar: aligned controls and compact professional density. */
+    section[data-testid="stSidebar"] > div {
+        padding-top: 0.7rem !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 10px !important;
+    }
+    section[data-testid="stSidebar"] .classic-filter-header,
+    section[data-testid="stSidebar"] .classic-filter-status,
+    section[data-testid="stSidebar"] .sidebar-access-shell,
+    section[data-testid="stSidebar"] .sidebar-profile-card {
+        margin: 6px 0 10px 0 !important;
+    }
+
+    /* Chatbot / AI Copilot spacing: ChatGPT-like breathing room. */
+    .eusee-ai-card,
+    .ai-card,
+    .copilot-card,
+    .chat-card {
+        margin-bottom: 12px !important;
+        line-height: 1.5 !important;
+    }
+    .eusee-ai-card b,
+    .ai-card b,
+    .copilot-card b,
+    .chat-card b {
+        display: inline-block !important;
+        margin-bottom: 6px !important;
+    }
+    .stChatMessage,
+    div[data-testid="stChatMessage"] {
+        padding: 12px 14px !important;
+        margin-bottom: 10px !important;
+        border-radius: 16px !important;
+    }
+    div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
+        margin-bottom: 0.45rem !important;
+        line-height: 1.55 !important;
+    }
+    [data-testid="stChatInput"] {
+        padding-top: 8px !important;
+    }
+    [data-testid="stChatInput"] textarea,
+    .stChatInput textarea,
+    textarea {
+        padding: 12px 14px !important;
+        border-radius: 14px !important;
+        line-height: 1.45 !important;
+    }
+
+    /* User manual cards and explanatory blocks. */
+    .user-manual-card,
+    .manual-card {
+        margin-bottom: 14px !important;
+        line-height: 1.6 !important;
+    }
+    .user-manual-card h3,
+    .manual-card h3,
+    .user-manual-card h4,
+    .manual-card h4 {
+        margin-top: 0 !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* Map / Sankey / heatmap supporting text blocks. */
+    .map-guide-card,
+    .map-overview-guide,
+    .negintel-card {
+        margin-bottom: 14px !important;
+    }
+    .map-guide-title,
+    .negintel-title {
+        margin-bottom: 8px !important;
+    }
+
+    /* Footer remains tight and does not create extra visual space. */
+    .eusee-fixed-footer {
+        padding: 4px 0 3px 0 !important;
+    }
+    .eusee-fixed-footer img {
+        margin: 0 auto !important;
+        padding: 0 !important;
+    }
+
+    @media (max-width: 900px) {
+        :root {
+            --eusee-panel-pad: 14px;
+            --eusee-card-pad: 14px;
+            --eusee-section-gap: 14px;
+            --eusee-chart-pad: 8px;
+        }
+        .main .block-container {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+        }
+        .eusee-kpi-card,
+        .negintel-card {
+            min-height: auto !important;
+        }
+        [data-testid="stTabs"] [role="tab"] {
+            padding: 8px 10px !important;
+            min-height: 38px !important;
+        }
+        div[data-testid="stExpander"] summary,
+        div[data-testid="stExpanderDetails"] {
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+inject_dashboard_padding_standardization()
+
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
