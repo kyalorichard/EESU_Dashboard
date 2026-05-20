@@ -1508,7 +1508,7 @@ st.markdown(f"""
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
-    margin-bottom: 10px !important;
+    margin-bottom: 5px !important;
     opacity: 0;
     transform: translateX(-120%);
     animation: dividerSlide 1s ease-out forwards;
@@ -1525,7 +1525,7 @@ st.markdown(f"""
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
-    margin-bottom: 12px !important;
+    margin-bottom: 5px !important;
     max-width: 980px;
     line-height: 1.5;
     opacity: 0;
