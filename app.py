@@ -14217,9 +14217,12 @@ def render_ai_assistant_panel(df):
     if not st.session_state.get("ai_panel_open", False):
         with st.container(key="eusee_ai_launcher"):
             if st.button("✦ EU SEE Copilot", key="ai_server_open_btn"):
+                # Do not call st.rerun() here. Button clicks already trigger one
+                # Streamlit rerun; calling st.rerun() causes a second full app rerun
+                # and makes opening the chatbot feel slow.
                 st.session_state.ai_panel_open = True
-                st.rerun()
-        return
+        if not st.session_state.get("ai_panel_open", False):
+            return
 
     snapshot = _eusee_ai_fast_summary_snapshot(df)
     has_chart = st.session_state.get("ai_active_chart_config") is not None
@@ -14241,8 +14244,11 @@ def render_ai_assistant_panel(df):
         c_close, c_clear = st.columns([1, 1])
         with c_close:
             if st.button("Hide", key="ai_server_hide_btn", use_container_width=True):
+                # Close immediately in this run and return, avoiding a forced
+                # second full-dashboard rerun.
                 st.session_state.ai_panel_open = False
-                st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+                return
         with c_clear:
             if st.button("Clear", key="ai_fast_clear_btn", use_container_width=True):
                 st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a dashboard question or request a chart."}]
@@ -14251,7 +14257,6 @@ def render_ai_assistant_panel(df):
                 st.session_state.ai_active_chart_fig = None
                 st.session_state.ai_active_chart_df = pd.DataFrame()
                 st.session_state.ai_active_plot_data = pd.DataFrame()
-                st.rerun()
 
         st.markdown(f"""
         <div class='ai-fast-kpis'>
@@ -14267,20 +14272,20 @@ def render_ai_assistant_panel(df):
         with q1:
             if st.button("Executive summary", key="ai_fast_prefill_summary", use_container_width=True):
                 st.session_state.ai_prompt_draft = "Give a concise executive summary of the current filtered dashboard view"
-                st.rerun()
+                st.session_state["ai_fast_prompt_textarea"] = st.session_state.ai_prompt_draft
         with q2:
             if st.button("Top chart", key="ai_fast_prefill_chart", use_container_width=True):
                 st.session_state.ai_prompt_draft = "Create a bar chart of top 10 countries by alert count"
-                st.rerun()
+                st.session_state["ai_fast_prompt_textarea"] = st.session_state.ai_prompt_draft
         q3, q4 = st.columns(2)
         with q3:
             if st.button("Compare regions", key="ai_fast_prefill_compare", use_container_width=True):
                 st.session_state.ai_prompt_draft = "Compare the current filtered dashboard view by region"
-                st.rerun()
+                st.session_state["ai_fast_prompt_textarea"] = st.session_state.ai_prompt_draft
         with q4:
             if st.button("Explain chart", key="ai_fast_prefill_explain", use_container_width=True):
                 st.session_state.ai_prompt_draft = "Explain this chart" if has_chart else "Explain the main patterns in the current filtered dashboard view"
-                st.rerun()
+                st.session_state["ai_fast_prompt_textarea"] = st.session_state.ai_prompt_draft
 
         with st.form("eusee_ai_fast_chat_form", clear_on_submit=False):
             prompt = st.text_area(
@@ -14296,7 +14301,6 @@ def render_ai_assistant_panel(df):
         if submitted and str(prompt or "").strip():
             st.session_state.ai_prompt_draft = ""
             _eusee_handle_submitted_prompt(prompt, df)
-            st.rerun()
 
         st.markdown("<div class='ai-fast-chat'><div class='ai-fast-section-title'>Conversation</div>", unsafe_allow_html=True)
         messages = st.session_state.get("ai_messages", [])[-8:]
