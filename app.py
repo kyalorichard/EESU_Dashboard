@@ -13322,7 +13322,7 @@ def _pb_prepare_plot_data(df, x_col, y_col=None, color_col=None, facet_col=None,
 
 def _pb_make_executive_plot(df, chart_type, x_col=None, y_col=None, color_col=None, facet_col=None, agg="Count", top_n=10,
                             title=None, palette_name="EU SEE brand — Purple / Teal / Gold", primary_color="#660094",
-                            font_size=12, height=460, show_values=True, date_grain="Year"):
+                            font_size=12, height=460, show_values=True, date_grain="Year", value_mode="count"):
     """Create the full executive Plotly figure and return figure, plot data and config."""
     chart_type = _ai_normalize_chart_type(chart_type)
     palette = _ai_palette_colors(palette_name)
@@ -13336,9 +13336,18 @@ def _pb_make_executive_plot(df, chart_type, x_col=None, y_col=None, color_col=No
         return _ai_apply_plot_theme(fig, title, font_size, None, primary_color, height, showlegend=False), pd.DataFrame(), {}
 
     plot_data, x_plot, value_col = _pb_prepare_plot_data(df, x_col, y_col, color_arg, facet_arg, agg, top_n, date_grain)
+    value_mode = str(value_mode or "count")
+    if value_mode.startswith("percent") or value_mode in ["share", "proportion"]:
+        plot_data, value_col = _eusee_apply_percentage_mode(
+            plot_data,
+            x_plot=x_plot,
+            value_col=value_col,
+            group_col=color_arg if color_arg in getattr(plot_data, "columns", []) else None,
+            mode=value_mode,
+        )
     config = {
         "chart_type": chart_type, "x_col": x_col, "y_col": y_col, "color_col": color_arg, "facet_col": facet_arg,
-        "aggregation": agg, "top_n": int(top_n or 10), "date_grain": date_grain, "title": title,
+        "aggregation": agg, "value_mode": value_mode, "top_n": int(top_n or 10), "date_grain": date_grain, "title": title,
         "palette": palette_name, "primary_color": primary_color, "font_size": int(font_size), "height": int(height),
         "export_note": "This configuration can be reused with the current filtered EUSEE dashboard data."
     }
@@ -13428,10 +13437,20 @@ def _pb_make_executive_plot(df, chart_type, x_col=None, y_col=None, color_col=No
                 fig.update_traces(marker_color=primary_color)
 
         fig = _ai_apply_plot_theme(fig, title, font_size, None, primary_color, height, showlegend=bool(color_arg), palette=palette, legend_position="Top", show_grid=True, theme="Clean white")
-        try:
-            fig.update_traces(texttemplate="%{text}", textposition="outside", selector=dict(type="bar"))
-        except Exception:
-            pass
+        if str(value_mode).startswith("percent") or str(value_mode) in ["share", "proportion"]:
+            try:
+                fig.update_yaxes(title="Percentage (%)")
+                fig.update_traces(hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>", selector=dict(type="bar"))
+                fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside", selector=dict(type="bar"))
+                fig.update_traces(hovertemplate="%{label}<br>%{percent}<extra></extra>", selector=dict(type="pie"))
+                fig.update_layout(yaxis_ticksuffix="%")
+            except Exception:
+                pass
+        else:
+            try:
+                fig.update_traces(texttemplate="%{text}", textposition="outside", selector=dict(type="bar"))
+            except Exception:
+                pass
         return fig, plot_data, config
     except Exception as e:
         fig = go.Figure()
@@ -13854,6 +13873,75 @@ def _eusee_detect_color_request(prompt):
     return None
 
 
+
+
+def _eusee_detect_percentage_request(prompt):
+    """Detect requests to convert the active chart to percentage/share distribution.
+
+    Supported language examples:
+    - change to percentage distribution chart
+    - show as percentages
+    - convert to share chart
+    - make this a percent distribution
+    - 100% stacked bar
+    - show percent of total
+    """
+    p = _eusee_norm_text(prompt)
+    percent_terms = [
+        "percentage", "percent", "per cent", "share", "proportion", "distribution chart",
+        "percentage distribution", "percent distribution", "% distribution", "%", "100%", "hundred percent"
+    ]
+    if not any(t in p for t in percent_terms):
+        return None
+
+    mode = "percent_total"
+    if any(t in p for t in ["within each", "within category", "within country", "within region", "row percent", "row percentage", "100% stacked", "hundred percent stacked"]):
+        mode = "percent_within_x"
+    elif any(t in p for t in ["within group", "column percent", "column percentage"]):
+        mode = "percent_within_group"
+
+    preferred_chart_type = None
+    if "donut" in p or "doughnut" in p:
+        preferred_chart_type = "Donut"
+    elif "pie" in p:
+        preferred_chart_type = "Pie"
+    elif "stack" in p or "100%" in p or "hundred percent" in p:
+        preferred_chart_type = "Stacked bar"
+
+    return {
+        "value_mode": mode,
+        "preferred_chart_type": preferred_chart_type,
+        "show_values": True,
+    }
+
+
+def _eusee_apply_percentage_mode(plot_data, x_plot, value_col="value", group_col=None, mode="percent_total"):
+    """Return a copy of plot_data where value is represented as percentage.
+
+    This remains dashboard-only because it only transforms already aggregated
+    Plotly input derived from the currently filtered dashboard dataframe.
+    """
+    if plot_data is None or not isinstance(plot_data, pd.DataFrame) or plot_data.empty:
+        return plot_data, value_col
+    d = plot_data.copy()
+    if value_col not in d.columns:
+        return d, value_col
+
+    d["__raw_count"] = pd.to_numeric(d[value_col], errors="coerce").fillna(0)
+    mode = str(mode or "percent_total")
+
+    if mode == "percent_within_x" and x_plot in d.columns:
+        denom = d.groupby(x_plot)["__raw_count"].transform("sum").replace(0, np.nan)
+    elif mode == "percent_within_group" and group_col and group_col in d.columns:
+        denom = d.groupby(group_col)["__raw_count"].transform("sum").replace(0, np.nan)
+    else:
+        total = float(d["__raw_count"].sum())
+        denom = total if total else np.nan
+
+    d["percent"] = (d["__raw_count"] / denom * 100).fillna(0).round(2)
+    d["value"] = d["percent"]
+    return d, "value"
+
 def _eusee_apply_chart_style_overrides(fig, config):
     """Apply prompt-driven visual edits after Plotly figure creation."""
     if fig is None or not hasattr(fig, "data"):
@@ -13986,8 +14074,8 @@ def _eusee_apply_conversation_filters(df, filters):
 
 def _eusee_classify_request(prompt, has_active_chart=False):
     p = _eusee_norm_text(prompt)
-    chart_words = ["chart", "graph", "plot", "visual", "visualize", "visualise", "bar", "line", "heatmap", "donut", "pie", "sankey", "treemap", "sunburst", "scatter", "bubble"]
-    update_words = ["now", "also", "add", "remove", "filter", "only", "change", "update", "modify", "make it", "convert", "switch", "compare", "sort", "top", "show values", "hide values", "color", "colour", "yellow", "purple", "teal", "gold", "blue", "red", "green", "orange", "bar color", "bar colour", "hide legend", "show legend"]
+    chart_words = ["chart", "graph", "plot", "visual", "visualize", "visualise", "bar", "line", "heatmap", "donut", "pie", "sankey", "treemap", "sunburst", "scatter", "bubble", "percentage", "percent", "share", "proportion", "distribution"]
+    update_words = ["now", "also", "add", "remove", "filter", "only", "change", "update", "modify", "make it", "convert", "switch", "compare", "sort", "top", "show values", "hide values", "color", "colour", "yellow", "purple", "teal", "gold", "blue", "red", "green", "orange", "bar color", "bar colour", "hide legend", "show legend", "percentage", "percent", "share", "proportion", "distribution", "100%"]
     analysis_words = ["explain", "interpret", "why", "insight", "summary", "summarize", "analyse", "analyze", "pattern", "trend", "what does", "tell me"]
 
     if has_active_chart and any(w in p for w in update_words):
@@ -14073,6 +14161,21 @@ def _eusee_build_chart_config_from_prompt(prompt, df, previous_config=None):
     if "show legend" in p:
         show_legend = True
 
+    value_mode = previous_config.get("value_mode", "count")
+    percentage_update = _eusee_detect_percentage_request(prompt)
+    if percentage_update:
+        value_mode = percentage_update.get("value_mode", "percent_total")
+        show_values = True
+        if percentage_update.get("preferred_chart_type"):
+            chart_type = percentage_update.get("preferred_chart_type")
+        # For a plain request such as "change to percentage distribution chart",
+        # keep the active dimension but ensure the title clearly indicates percentages.
+        title_bits = [chart_type, "percentage distribution"]
+        if x_col:
+            title_bits.append(f"by {x_col}")
+        if color_col:
+            title_bits.append(f"grouped by {color_col}")
+
     return {
         "chart_type": chart_type,
         "x_col": x_col,
@@ -14080,6 +14183,7 @@ def _eusee_build_chart_config_from_prompt(prompt, df, previous_config=None):
         "color_col": color_col,
         "facet_col": facet_col,
         "aggregation": previous_config.get("aggregation", "Count"),
+        "value_mode": value_mode,
         "top_n": top_n,
         "date_grain": previous_config.get("date_grain", "Year"),
         "title": " ".join(title_bits),
@@ -14118,6 +14222,7 @@ def _eusee_render_chart_from_config(df, config):
         height=config.get("height", 460),
         show_values=bool(config.get("show_values", True)),
         date_grain=config.get("date_grain", "Year"),
+        value_mode=config.get("value_mode", "count"),
     )
     fig = _eusee_apply_chart_style_overrides(fig, config)
     export_config.update(config)
@@ -14638,6 +14743,40 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
         font_size = 12
     font_size = max(9, min(font_size, 22))
 
+    # Prefer the LLM command for percentage/distribution semantics, then use local detection only as a fallback.
+    chart_variant = str(command.get("chart_variant") or style.get("chart_variant") or "standard").strip().lower()
+    raw_value_mode = str(command.get("value_mode") or style.get("value_mode") or "count").strip().lower()
+    value_aliases = {
+        "percentage": "percent_total",
+        "percent": "percent_total",
+        "share": "percent_total",
+        "proportion": "percent_total",
+        "relative": "percent_total",
+        "percentage_distribution": "percent_total",
+        "distribution": "percent_total",
+        "100%": "percent_within_x",
+        "stacked_100": "percent_within_x",
+        "within_category": "percent_within_x",
+        "within_x": "percent_within_x",
+        "within_group": "percent_within_group",
+    }
+    value_mode = value_aliases.get(raw_value_mode, raw_value_mode)
+    if chart_variant in ["percentage_distribution", "distribution"] and value_mode == "count":
+        value_mode = "percent_total"
+    if chart_variant in ["stacked_100", "100_percent", "100%"]:
+        value_mode = "percent_within_x"
+    if value_mode not in ["count", "percent_total", "percent_within_x", "percent_within_group"]:
+        value_mode = "count"
+
+    # Fallback only: if the LLM failed to set the percentage command, infer from prompt locally.
+    percentage_update = _eusee_detect_percentage_request(prompt)
+    if percentage_update and value_mode == "count":
+        value_mode = percentage_update.get("value_mode", "percent_total")
+    if value_mode != "count":
+        show_values = True
+        if percentage_update and percentage_update.get("preferred_chart_type"):
+            chart_type = percentage_update.get("preferred_chart_type")
+
     sanitized = {
         "intent": intent,
         "chart_type": chart_type,
@@ -14646,6 +14785,8 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
         "color_col": color_col,
         "facet_col": facet_col,
         "aggregation": "Count",
+        "chart_variant": chart_variant,
+        "value_mode": value_mode,
         "top_n": top_n,
         "filters": filters,
         "title": str(command.get("title") or "").strip()[:120],
@@ -14697,6 +14838,8 @@ JSON keys allowed:
   "top_n": 1-50,
   "filters": {"exact column name": ["allowed value", "allowed value"]},
   "title": "short chart/output title",
+  "chart_variant": "standard|distribution|percentage_distribution|stacked_100",
+  "value_mode": "count|percent_total|percent_within_x|percent_within_group",
   "style": {
     "primary_color": "hex color or null",
     "marker_color": "hex color or null",
@@ -14707,6 +14850,7 @@ JSON keys allowed:
     "height": 460,
     "palette": "EU SEE brand — Purple / Teal / Gold"
   },
+  "needs_chart_update": true,
   "analysis_request": "short explanation of requested analysis"
 }
 
@@ -14716,7 +14860,16 @@ Rules:
 - Never invent a value that is not present in the dashboard schema samples; when uncertain, choose the safest broad command and let Python fuzzy-match or ask for clarification in analysis_request.
 - If the user asks to modify an existing chart, use chart_update when an active chart exists.
 - If there is no active chart and the user asks for a style/chart modification, create a sensible chart instead.
-- For color changes like "make bars yellow", set style.primary_color and style.marker_color to the hex code and force_single_color true.
+- IMPORTANT: The LLM must infer the user's intended chart transformation from natural language, not only exact keywords.
+- If the user asks "change to percentage distribution chart", "percentage distribution", "distribution in percentage", "show percentage share", "convert this chart to percent", "make the chart proportional", "show relative distribution", or similar wording:
+  * set intent = "chart_update" when has_active_chart is true; otherwise set intent = "chart_create".
+  * set chart_variant = "percentage_distribution".
+  * set value_mode = "percent_total" unless the user explicitly asks within-category/100% stacked.
+  * keep chart_type, x_col, color_col, filters, and top_n from active_chart when available; do not reset them unless the user asks.
+  * set style.show_values = true.
+  * set title to mention percentage distribution.
+- If the user asks "100% stacked", "within each category", "within each country", "within each region", "row percentage", or "proportional stacked", set chart_variant = "stacked_100", value_mode = "percent_within_x", and chart_type = "Horizontal bar" or "Vertical bar".
+- If the user asks any other chart styling change, return it in JSON style fields. For color changes like "make bars yellow", set style.primary_color and style.marker_color to the correct hex code and force_single_color true.
 - For explanations like "explain this chart", use chart_analysis when an active chart exists.
 - For unsupported/out-of-scope requests, use summary or general; never invent external facts.
 """
@@ -14724,6 +14877,7 @@ Rules:
     user_payload = {
         "user_prompt": str(prompt or "")[:1200],
         "has_active_chart": bool(has_active_chart),
+        "active_chart_config": active_config or {},
         "active_chart_config": active_config,
         "dashboard_schema": schema,
     }
@@ -14758,7 +14912,7 @@ def _eusee_build_chart_config_from_command(command, prompt, df, previous_config=
     command = command or {}
     style = command.get("style") or {}
 
-    for key in ["chart_type", "x_col", "y_col", "color_col", "facet_col", "aggregation", "top_n", "filters"]:
+    for key in ["chart_type", "x_col", "y_col", "color_col", "facet_col", "aggregation", "chart_variant", "value_mode", "top_n", "filters"]:
         if command.get(key) not in [None, "", {}]:
             base[key] = command.get(key)
 
