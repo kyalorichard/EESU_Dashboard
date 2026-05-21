@@ -14104,57 +14104,76 @@ def _eusee_handle_submitted_prompt(prompt, df):
     _eusee_append_message("assistant", answer)
     st.session_state.ai_smart_output = {"type": "dashboard answer", "title": "Dashboard-only AI response", "content": answer, "plan": plan}
 
+# ---------------- SPEED-OPTIMIZED PROFESSIONAL CHATBOT UX ----------------
+@st.cache_data(ttl=300, show_spinner=False)
+def _eusee_ai_fast_summary_snapshot(df):
+    """Small cached dashboard-only summary used by the AI panel header.
+
+    This avoids recomputing expensive summaries on every Streamlit rerun and
+    prevents the chatbot from carrying the full dataframe as prompt context.
+    """
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return {"rows": 0, "countries": 0, "years": "N/A", "top_impact": "N/A"}
+    fields = _eusee_field_catalog(df)
+    out = {"rows": int(len(df)), "countries": 0, "years": "N/A", "top_impact": "N/A"}
+    country_col = fields.get("country")
+    year_col = fields.get("year")
+    impact_col = fields.get("impact")
+    if country_col and country_col in df.columns:
+        out["countries"] = int(df[country_col].nunique())
+    if year_col and year_col in df.columns:
+        years = sorted(df[year_col].dropna().astype(str).unique().tolist())
+        out["years"] = f"{years[0]}–{years[-1]}" if len(years) > 1 else (years[0] if years else "N/A")
+    if impact_col and impact_col in df.columns and not df[impact_col].dropna().empty:
+        vc = df[impact_col].fillna("Unknown").astype(str).value_counts()
+        out["top_impact"] = str(vc.index[0]) if not vc.empty else "N/A"
+    return out
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _eusee_ai_cached_group_counts(df, group_cols, top_n=50):
+    """Cached grouped counts for repeated AI chart/table requests."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return pd.DataFrame()
+    group_cols = [c for c in list(group_cols or []) if c in df.columns]
+    if not group_cols:
+        return pd.DataFrame()
+    out = (
+        df.groupby(group_cols, dropna=False)
+        .size()
+        .reset_index(name="records")
+        .sort_values("records", ascending=False)
+        .head(int(top_n or 50))
+    )
+    return out
+
+
 def render_ai_assistant_panel(df):
-    """Professional dashboard-only EU SEE Copilot with simple UX and stateful analytics."""
+    """Fast professional dashboard-only EU SEE Copilot.
+
+    Performance upgrades:
+    - server-side closed state so the full panel is not rendered when hidden;
+    - st.form submission so typing does not trigger heavy reruns;
+    - quick actions only prefill prompts instead of executing immediately;
+    - cached lightweight summary cards;
+    - bounded chat/output rendering.
+    """
     _eusee_ai_init_stateful_chat()
+    st.session_state.setdefault("ai_panel_open", False)
+    st.session_state.setdefault("ai_prompt_draft", "")
 
-    components.html("""
-    <script>
-    (function() {
-        const doc = window.parent.document;
-        const styleId = "eusee-ai-client-toggle-style-v2";
-        const btnId = "eusee-ai-open-btn";
-        if (!doc.getElementById(styleId)) {
-            const style = doc.createElement("style");
-            style.id = styleId;
-            style.innerHTML = `
-                body.eusee-ai-hidden .st-key-eusee_ai_right_sidebar {display:none!important;visibility:hidden!important;pointer-events:none!important;}
-                #eusee-ai-open-btn {
-                    position:fixed!important;right:18px!important;bottom:92px!important;z-index:2147482500!important;
-                    display:none!important;align-items:center!important;justify-content:center!important;gap:8px!important;
-                    min-height:42px!important;padding:10px 16px!important;border:0!important;border-radius:999px!important;
-                    background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#fff!important;
-                    font-family:Inter,Segoe UI,Arial,sans-serif!important;font-size:12px!important;font-weight:900!important;
-                    cursor:pointer!important;box-shadow:0 16px 36px rgba(16,24,40,.24)!important;
-                }
-                body.eusee-ai-hidden #eusee-ai-open-btn {display:inline-flex!important;}
-            `;
-            doc.head.appendChild(style);
-        }
-        let openBtn = doc.getElementById(btnId);
-        if (!openBtn) {
-            openBtn = doc.createElement("button");
-            openBtn.id = btnId;
-            openBtn.type = "button";
-            openBtn.innerHTML = "✦ EU SEE Copilot";
-            openBtn.onclick = function(event) {event.preventDefault(); doc.body.classList.remove("eusee-ai-hidden");};
-            doc.body.appendChild(openBtn);
-        }
-        if (!window.__euseeAiClientToggleBoundV2) {
-            window.__euseeAiClientToggleBoundV2 = true;
-            doc.addEventListener("click", function(event) {
-                const target = event.target;
-                if (target && target.closest && target.closest("[data-eusee-ai-hide='true']")) {
-                    event.preventDefault(); doc.body.classList.add("eusee-ai-hidden");
-                }
-            }, true);
-        }
-    })();
-    </script>
-    """, height=0)
-
+    # Shared compact CSS. Kept small to reduce DOM work on reruns.
     st.markdown("""
     <style>
+    .st-key-eusee_ai_launcher {
+        position:fixed!important;right:18px!important;bottom:92px!important;z-index:999998!important;
+        background:transparent!important;padding:0!important;margin:0!important;width:auto!important;
+    }
+    .st-key-eusee_ai_launcher button {
+        border-radius:999px!important;min-height:42px!important;padding:8px 16px!important;
+        background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#FFFFFF!important;
+        border:0!important;font-weight:950!important;font-size:12px!important;box-shadow:0 16px 36px rgba(16,24,40,.24)!important;
+    }
     .st-key-eusee_ai_right_sidebar {
         position:fixed!important;top:64px!important;right:14px!important;width:486px!important;max-width:calc(100vw - 28px)!important;
         max-height:calc(100vh - 84px)!important;overflow-y:auto!important;overflow-x:hidden!important;z-index:999999!important;
@@ -14164,169 +14183,137 @@ def render_ai_assistant_panel(df):
     }
     .st-key-eusee_ai_right_sidebar::-webkit-scrollbar {width:8px!important;}
     .st-key-eusee_ai_right_sidebar::-webkit-scrollbar-thumb {background:#D6BBE5!important;border-radius:999px!important;}
-    .ai-pro-shell {padding:12px!important;}
-    .ai-pro-header {
-        position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;
-        padding:13px 13px;margin:-12px -12px 10px -12px;border-radius:22px 22px 0 0;
-        background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 56%,#F7F8FB 100%);border-bottom:1px solid #EEF0F4;
-    }
-    .ai-pro-brand {display:flex;align-items:center;gap:10px;min-width:0;}
-    .ai-pro-icon {
-        width:38px;height:38px;min-width:38px;border-radius:15px;display:flex;align-items:center;justify-content:center;
-        background:linear-gradient(135deg,#660094 0%,#8D3AB4 100%);color:#FFFFFF;font-size:13px;font-weight:950;
-        box-shadow:0 8px 18px rgba(102,0,148,.22);
-    }
-    .ai-pro-title {font-size:15.5px;font-weight:950;color:#23152F;line-height:1.1;letter-spacing:-.02em;}
-    .ai-pro-subtitle {font-size:10.6px;color:#667085;line-height:1.25;margin-top:2px;font-weight:650;}
-    .ai-pro-hide {
-        min-width:58px;min-height:32px;border-radius:999px;border:1px solid #E6E8EF;background:#FFFFFF;color:#344054;
-        font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05);
-    }
-    .ai-pro-hide:hover {background:#F4EAF8;color:#660094;border-color:#E7D4F1;}
-    .ai-pro-kpis {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:9px 0 10px 0;}
-    .ai-pro-kpi {background:#FFFFFF;border:1px solid #EEF0F4;border-radius:15px;padding:9px 10px;box-shadow:0 5px 14px rgba(16,24,40,.045);}
-    .ai-pro-kpi span {display:block;font-size:9.3px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#667085;line-height:1.1;}
-    .ai-pro-kpi strong {display:block;margin-top:4px;font-size:14px;font-weight:950;color:#23152F;line-height:1.1;}
-    .ai-pro-status {display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 10px 0;}
-    .ai-pro-pill {display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;background:#F9FAFB;border:1px solid #EEF0F4;color:#475467;font-size:10px;font-weight:800;line-height:1;}
-    .ai-pro-pill.active {background:#F4EAF8;border-color:#E7D4F1;color:#660094;}
-    .ai-pro-compose {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:11px;margin:10px 0;box-shadow:0 8px 20px rgba(16,24,40,.055);}
-    .ai-pro-section-title {font-size:12px;color:#23152F;font-weight:950;margin:2px 0 4px 0;letter-spacing:-.01em;}
-    .ai-pro-helper {font-size:10.8px;color:#667085;line-height:1.38;margin:0 0 8px 0;font-weight:600;}
-    .ai-pro-quick-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0 4px 0;}
+    .ai-fast-shell {padding:12px!important;}
+    .ai-fast-header {position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-12px -12px 10px -12px;padding:13px;border-radius:22px 22px 0 0;background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 65%,#F7F8FB 100%);border-bottom:1px solid #EEF0F4;}
+    .ai-fast-brand {display:flex;align-items:center;gap:10px;min-width:0;}
+    .ai-fast-icon {width:38px;height:38px;min-width:38px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#660094 0%,#8D3AB4 100%);color:#FFFFFF;font-weight:950;box-shadow:0 8px 18px rgba(102,0,148,.22);}
+    .ai-fast-title {font-size:15.5px;font-weight:950;color:#23152F;line-height:1.1;}
+    .ai-fast-subtitle {font-size:10.6px;color:#667085;line-height:1.25;margin-top:2px;font-weight:650;}
+    .ai-fast-kpis {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:9px 0 10px 0;}
+    .ai-fast-kpi {background:#FFFFFF;border:1px solid #EEF0F4;border-radius:15px;padding:9px 10px;box-shadow:0 5px 14px rgba(16,24,40,.045);}
+    .ai-fast-kpi span {display:block;font-size:9.3px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#667085;line-height:1.1;}
+    .ai-fast-kpi strong {display:block;margin-top:4px;font-size:14px;font-weight:950;color:#23152F;line-height:1.1;}
+    .ai-fast-card {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:11px;margin:10px 0;box-shadow:0 8px 20px rgba(16,24,40,.055);}
+    .ai-fast-section-title {font-size:12px;color:#23152F;font-weight:950;margin:2px 0 4px 0;}
+    .ai-fast-helper {font-size:10.8px;color:#667085;line-height:1.38;margin:0 0 8px 0;font-weight:600;}
+    .ai-fast-chat {background:#FBFCFE;border:1px solid #EEF0F4;border-radius:18px;padding:9px;margin:10px 0;max-height:300px;overflow-y:auto;}
+    .ai-fast-empty {font-size:11px;color:#667085;line-height:1.4;background:#FFFFFF;border:1px dashed #D0D5DD;border-radius:14px;padding:10px;}
+    .ai-fast-output-head {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+    .ai-fast-output-title {font-size:13px;font-weight:950;color:#23152F;line-height:1.2;}
+    .ai-fast-badge {border-radius:999px;background:#F4EAF8;color:#660094;border:1px solid #E7D4F1;padding:5px 8px;font-size:9.5px;font-weight:950;white-space:nowrap;}
+    .ai-fast-scope {margin-top:9px;padding:8px 9px;border-radius:13px;background:#F9FAFB;border:1px solid #EEF0F4;color:#667085;font-size:10.3px;line-height:1.35;font-weight:650;}
     .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button,
     .st-key-eusee_ai_right_sidebar div[data-testid="stFormSubmitButton"] button {
-        border-radius:13px!important;font-size:11.3px!important;font-weight:900!important;min-height:36px!important;
-        border:1px solid #D0D5DD!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;
+        border-radius:13px!important;font-size:11.3px!important;font-weight:900!important;min-height:36px!important;border:1px solid #D0D5DD!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;
     }
-    .st-key-eusee_ai_right_sidebar div[data-testid="stFormSubmitButton"] button {
-        background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#FFFFFF!important;border-color:#660094!important;
-    }
-    .st-key-eusee_ai_right_sidebar textarea {
-        min-height:84px!important;font-size:12.2px!important;border-radius:15px!important;border-color:#D0D5DD!important;
-        box-shadow:0 1px 2px rgba(16,24,40,.04)!important;
-    }
-    .ai-pro-chat-wrap {
-        background:#FBFCFE;border:1px solid #EEF0F4;border-radius:18px;padding:9px;margin:10px 0;max-height:330px;overflow-y:auto;
-    }
-    .ai-pro-chat-empty {font-size:11px;color:#667085;line-height:1.4;background:#FFFFFF;border:1px dashed #D0D5DD;border-radius:14px;padding:10px;}
-    .ai-pro-output {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:11px 12px;margin:10px 0;box-shadow:0 8px 20px rgba(16,24,40,.055);}
-    .ai-pro-output-head {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
-    .ai-pro-output-title {font-size:12.5px;color:#23152F;font-weight:950;line-height:1.2;}
-    .ai-pro-badge {display:inline-flex;border-radius:999px;background:#F4EAF8;color:#660094;border:1px solid #E7D4F1;padding:4px 7px;font-size:8.8px;font-weight:950;text-transform:uppercase;white-space:nowrap;}
-    .ai-pro-scope {background:#FFFCED;border:1px solid #F8E9A1;border-radius:14px;padding:8px 9px;color:#55420A;font-size:10.4px;line-height:1.34;font-weight:700;margin-top:8px;}
-    .ai-pro-controls {background:#F9FAFB;border:1px solid #EEF0F4;border-radius:16px;padding:10px;margin-top:8px;}
-    .ai-pro-divider {height:1px;background:#EEF0F4;margin:9px 0;}
-    @media (max-width:760px){
-        .st-key-eusee_ai_right_sidebar{left:8px!important;right:8px!important;width:auto!important;top:58px!important;max-height:calc(100vh - 72px)!important;border-radius:18px!important;}
-        .ai-pro-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
-        .ai-pro-quick-grid{grid-template-columns:1fr;}
-    }
+    .st-key-eusee_ai_right_sidebar div[data-testid="stFormSubmitButton"] button {background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#FFFFFF!important;border-color:#660094!important;}
+    .st-key-eusee_ai_right_sidebar textarea {min-height:82px!important;font-size:12.2px!important;border-radius:15px!important;border-color:#D0D5DD!important;}
+    @media (max-width:700px){.st-key-eusee_ai_right_sidebar{top:56px!important;right:8px!important;width:calc(100vw - 16px)!important;}.ai-fast-kpis{grid-template-columns:1fr!important;}}
     </style>
     """, unsafe_allow_html=True)
 
-    records = len(df) if isinstance(df, pd.DataFrame) else 0
-    countries = df["alert-country"].nunique() if isinstance(df, pd.DataFrame) and not df.empty and "alert-country" in df.columns else 0
-    years = df["year"].nunique() if isinstance(df, pd.DataFrame) and not df.empty and "year" in df.columns else 0
+    # Server-side lazy render: when closed, do not build charts, chat transcript,
+    # output panels, dataframe previews, or download widgets.
+    if not st.session_state.get("ai_panel_open", False):
+        with st.container(key="eusee_ai_launcher"):
+            if st.button("✦ EU SEE Copilot", key="ai_server_open_btn"):
+                st.session_state.ai_panel_open = True
+                st.rerun()
+        return
+
+    snapshot = _eusee_ai_fast_summary_snapshot(df)
     has_chart = st.session_state.get("ai_active_chart_config") is not None
-    chart_label = "Active chart" if has_chart else "No chart yet"
 
     with st.container(key="eusee_ai_right_sidebar"):
-        st.markdown("<div class='ai-pro-shell'>", unsafe_allow_html=True)
-
+        st.markdown("<div class='ai-fast-shell'>", unsafe_allow_html=True)
         st.markdown("""
-        <div class="ai-pro-header">
-          <div class="ai-pro-brand">
-            <div class="ai-pro-icon">AI</div>
-            <div>
-              <div class="ai-pro-title">EU SEE Copilot</div>
-              <div class="ai-pro-subtitle">Ask, visualize, refine, and explain the current dashboard view.</div>
+        <div class='ai-fast-header'>
+            <div class='ai-fast-brand'>
+                <div class='ai-fast-icon'>AI</div>
+                <div>
+                    <div class='ai-fast-title'>EU SEE Copilot</div>
+                    <div class='ai-fast-subtitle'>Fast dashboard-only analytics assistant</div>
+                </div>
             </div>
-          </div>
-          <button type="button" class="ai-pro-hide" data-eusee-ai-hide="true">Hide</button>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown(
-            f"""
-            <div class="ai-pro-kpis">
-              <div class="ai-pro-kpi"><span>Records</span><strong>{records:,}</strong></div>
-              <div class="ai-pro-kpi"><span>Countries</span><strong>{countries:,}</strong></div>
-              <div class="ai-pro-kpi"><span>Years</span><strong>{years:,}</strong></div>
-            </div>
-            <div class="ai-pro-status">
-              <span class="ai-pro-pill active">Dashboard-only</span>
-              <span class="ai-pro-pill">Current filters applied</span>
-              <span class="ai-pro-pill">{chart_label}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        c_close, c_clear = st.columns([1, 1])
+        with c_close:
+            if st.button("Hide", key="ai_server_hide_btn", use_container_width=True):
+                st.session_state.ai_panel_open = False
+                st.rerun()
+        with c_clear:
+            if st.button("Clear", key="ai_fast_clear_btn", use_container_width=True):
+                st.session_state.ai_messages = [{"role": "assistant", "content": "Chat cleared. Ask a dashboard question or request a chart."}]
+                st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Ask a new question or request a chart."}
+                st.session_state.ai_active_chart_config = None
+                st.session_state.ai_active_chart_fig = None
+                st.session_state.ai_active_chart_df = pd.DataFrame()
+                st.session_state.ai_active_plot_data = pd.DataFrame()
+                st.rerun()
 
-        st.markdown("<div class='ai-pro-compose'>", unsafe_allow_html=True)
-        st.markdown("<div class='ai-pro-section-title'>What would you like to do?</div>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='ai-pro-helper'>Use normal language. Create a chart first, then continue with follow-ups such as <b>filter to negative alerts</b>, <b>make it a heatmap</b>, <b>compare by region</b>, or <b>explain this chart</b>.</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"""
+        <div class='ai-fast-kpis'>
+            <div class='ai-fast-kpi'><span>Records</span><strong>{snapshot.get('rows', 0):,}</strong></div>
+            <div class='ai-fast-kpi'><span>Countries</span><strong>{snapshot.get('countries', 0):,}</strong></div>
+            <div class='ai-fast-kpi'><span>Years</span><strong>{snapshot.get('years', 'N/A')}</strong></div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        with st.form("ai_pro_chat_form", clear_on_submit=True):
+        # Quick actions now prefill the prompt only; they do not run analysis until Ask is clicked.
+        st.markdown("<div class='ai-fast-card'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-fast-helper'>Typing does not rerun the dashboard. Quick actions only prefill the box; click Ask to execute.</div>", unsafe_allow_html=True)
+        q1, q2 = st.columns(2)
+        with q1:
+            if st.button("Executive summary", key="ai_fast_prefill_summary", use_container_width=True):
+                st.session_state.ai_prompt_draft = "Give a concise executive summary of the current filtered dashboard view"
+                st.rerun()
+        with q2:
+            if st.button("Top chart", key="ai_fast_prefill_chart", use_container_width=True):
+                st.session_state.ai_prompt_draft = "Create a bar chart of top 10 countries by alert count"
+                st.rerun()
+        q3, q4 = st.columns(2)
+        with q3:
+            if st.button("Compare regions", key="ai_fast_prefill_compare", use_container_width=True):
+                st.session_state.ai_prompt_draft = "Compare the current filtered dashboard view by region"
+                st.rerun()
+        with q4:
+            if st.button("Explain chart", key="ai_fast_prefill_explain", use_container_width=True):
+                st.session_state.ai_prompt_draft = "Explain this chart" if has_chart else "Explain the main patterns in the current filtered dashboard view"
+                st.rerun()
+
+        with st.form("eusee_ai_fast_chat_form", clear_on_submit=False):
             prompt = st.text_area(
-                "Message",
-                placeholder="Ask a question or request a chart. Example: Create a bar chart of negative alerts by country, top 10.",
-                height=86,
-                key="ai_pro_prompt",
+                "Question",
+                value=st.session_state.get("ai_prompt_draft", ""),
+                placeholder="Example: Create a heatmap of restrictive actors by mechanisms, then I can ask follow-up questions.",
+                key="ai_fast_prompt_textarea",
                 label_visibility="collapsed",
             )
-            send = st.form_submit_button("Send to Copilot", use_container_width=True)
+            submitted = st.form_submit_button("Ask", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        if send and prompt.strip():
+        if submitted and str(prompt or "").strip():
+            st.session_state.ai_prompt_draft = ""
             _eusee_handle_submitted_prompt(prompt, df)
             st.rerun()
 
-        qa1, qa2 = st.columns(2)
-        with qa1:
-            if st.button("Executive summary", key="ai_pro_summary", use_container_width=True):
-                _eusee_handle_submitted_prompt("Give a concise executive summary of the current filtered dashboard view", df)
-                st.rerun()
-        with qa2:
-            if st.button("Create top chart", key="ai_pro_chart", use_container_width=True):
-                _eusee_handle_submitted_prompt("Create a bar chart of top 10 countries by alert count", df)
-                st.rerun()
-        qb1, qb2 = st.columns(2)
-        with qb1:
-            if st.button("Compare regions", key="ai_pro_compare", use_container_width=True):
-                _eusee_handle_submitted_prompt("Compare the current filtered dashboard view by region", df)
-                st.rerun()
-        with qb2:
-            if st.button("Explain chart", key="ai_pro_explain", use_container_width=True):
-                if has_chart:
-                    _eusee_handle_submitted_prompt("Explain this chart", df)
-                else:
-                    _eusee_handle_submitted_prompt("Explain the main patterns in the current filtered dashboard view", df)
-                st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<div class='ai-pro-chat-wrap'>", unsafe_allow_html=True)
-        st.markdown("<div class='ai-pro-section-title'>Conversation</div>", unsafe_allow_html=True)
-        messages = st.session_state.get("ai_messages", [])[-14:]
+        st.markdown("<div class='ai-fast-chat'><div class='ai-fast-section-title'>Conversation</div>", unsafe_allow_html=True)
+        messages = st.session_state.get("ai_messages", [])[-8:]
         if not messages:
-            st.markdown("<div class='ai-pro-chat-empty'>No conversation yet. Start by asking for a summary, chart, comparison, trend, or explanation.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='ai-fast-empty'>No conversation yet. Ask for a summary, chart, comparison, trend, or explanation.</div>", unsafe_allow_html=True)
         else:
             for msg in messages:
                 role = msg.get("role", "assistant")
-                content = str(msg.get("content", ""))[:4500]
+                content = str(msg.get("content", ""))[:2800]
                 with st.chat_message(role):
                     st.markdown(content)
         st.markdown("</div>", unsafe_allow_html=True)
 
         out = st.session_state.get("ai_smart_output", {}) or {}
         out_type = str(out.get("type", "output")).replace("_", " ").title()
-        out_title = str(out.get("title", "Smart output"))
-        st.markdown(
-            f"<div class='ai-pro-output'><div class='ai-pro-output-head'><div class='ai-pro-output-title'>{out_title}</div><span class='ai-pro-badge'>{out_type}</span></div>",
-            unsafe_allow_html=True,
-        )
+        out_title = str(out.get("title", "Smart output"))[:90]
+        st.markdown(f"<div class='ai-fast-card'><div class='ai-fast-output-head'><div class='ai-fast-output-title'>{out_title}</div><span class='ai-fast-badge'>{out_type}</span></div>", unsafe_allow_html=True)
 
         if out.get("type") == "plot_v2" and st.session_state.get("ai_active_chart_fig") is not None:
             if can_render_feature("view_chart_ai_copilot_plots"):
@@ -14337,32 +14324,24 @@ def render_ai_assistant_panel(df):
                     x_col=(st.session_state.get("ai_active_chart_config") or {}).get("x_col"),
                     group_col=(st.session_state.get("ai_active_chart_config") or {}).get("color_col"),
                     dashboard_df=df,
-                    key="ai_pro_stateful_smart_plot",
+                    key="ai_fast_stateful_smart_plot",
                     permission_key="view_chart_ai_copilot_plots",
                     permission_label="AI Copilot generated plot",
                 )
-                interp = out.get("interpretation") or out.get("content", "")
+                interp = str(out.get("interpretation") or out.get("content", ""))[:3000]
                 if interp:
-                    st.markdown(str(interp)[:4500])
+                    st.markdown(interp)
                 plot_data = st.session_state.get("ai_active_plot_data")
                 if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
                     with st.expander("Chart data and export", expanded=False):
-                        st.dataframe(plot_data, use_container_width=True, hide_index=True, height=220, key="ai_pro_stateful_plot_data")
+                        st.dataframe(plot_data.head(250), use_container_width=True, hide_index=True, height=220, key="ai_fast_plot_data")
                         st.download_button(
                             "Download chart data (.csv)",
                             data=plot_data.to_csv(index=False).encode("utf-8"),
                             file_name="eusee_ai_copilot_chart_data.csv",
                             mime="text/csv",
                             use_container_width=True,
-                            key="ai_pro_stateful_download_chart_data",
-                        )
-                        st.download_button(
-                            "Download chart config (.json)",
-                            data=_pb_config_json(st.session_state.get("ai_active_chart_config") or {}).encode("utf-8"),
-                            file_name="eusee_ai_copilot_chart_config.json",
-                            mime="application/json",
-                            use_container_width=True,
-                            key="ai_pro_stateful_download_chart_config",
+                            key="ai_fast_download_chart_data",
                         )
             else:
                 render_permission_locked_card(
@@ -14372,64 +14351,25 @@ def render_ai_assistant_panel(df):
                     feature_description="Generated AI Copilot plots are restricted by the active dashboard permission settings.",
                 )
         else:
-            content = str(out.get("content", "Ask a dashboard question or create a chart to see results here."))[:4500]
-            st.markdown(content)
+            st.markdown(str(out.get("content", "Ask a dashboard question or create a chart to see results here."))[:3000])
 
-        st.markdown("<div class='ai-pro-scope'>Dashboard-only mode: answers and charts use only the currently filtered dashboard dataframe plus filters requested inside this chat.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-fast-scope'>Dashboard-only mode: answers and charts use only the currently filtered dashboard dataframe plus filters requested inside this chat.</div></div>", unsafe_allow_html=True)
 
         with st.expander("Settings and exports", expanded=False):
-            st.markdown("<div class='ai-pro-controls'>", unsafe_allow_html=True)
-            st.toggle(
-                "Conversation memory",
-                key="ai_memory_enabled",
-                value=st.session_state.get("ai_memory_enabled", True),
-                help="Keeps recent Q&A turns so follow-up questions are understood.",
-            )
-            st.toggle(
-                "Fast mode",
-                key="ai_fast_mode",
-                value=st.session_state.get("ai_fast_mode", True),
-                help="Keeps responses concise for faster conversation.",
-            )
-            st.markdown("<div class='ai-pro-divider'></div>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("Clear chat", key="ai_pro_clear_chat", use_container_width=True):
-                    st.session_state.ai_messages = [
-                        {"role": "assistant", "content": "Chat cleared. Ask a new dashboard question or request a chart."}
-                    ]
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Ask a new question or request a chart."}
-                    st.rerun()
-            with c2:
-                if st.button("Clear chart", key="ai_pro_clear_chart", use_container_width=True):
-                    st.session_state.ai_active_chart_config = None
-                    st.session_state.ai_active_chart_fig = None
-                    st.session_state.ai_active_chart_df = pd.DataFrame()
-                    st.session_state.ai_active_plot_data = pd.DataFrame()
-                    st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Active chart cleared."}
-                    st.rerun()
-
-            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])])
+            st.toggle("Conversation memory", key="ai_memory_enabled", value=st.session_state.get("ai_memory_enabled", True))
+            st.toggle("Fast mode", key="ai_fast_mode", value=st.session_state.get("ai_fast_mode", True))
+            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])[-20:]])
             st.download_button(
-                "Download chat transcript",
+                "Download recent chat transcript",
                 data=chat_text,
                 file_name="eusee_ai_chat_transcript.txt",
                 mime="text/plain",
                 use_container_width=True,
-                key="ai_pro_export_chat",
+                key="ai_fast_export_chat",
             )
-            if isinstance(df, pd.DataFrame) and not df.empty and has_permission("download_data"):
-                st.download_button(
-                    "Download filtered dashboard data",
-                    data=df.to_csv(index=False).encode("utf-8"),
-                    file_name="eusee_filtered_dashboard_data.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="ai_pro_export_data",
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
+
 
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
