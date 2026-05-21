@@ -14160,12 +14160,12 @@ def render_ai_assistant_panel(df):
 
     st.markdown("""
     <style>
-    /* Keep only the launcher fixed. Opening/closing the popover is handled client-side by Streamlit. */
+    /* Persistent launcher: the button remains visible even when the popover is open. */
     .st-key-eusee_ai_popover_launcher {
         position: fixed !important;
         right: 18px !important;
         bottom: 92px !important;
-        z-index: 999998 !important;
+        z-index: 1000002 !important;
         width: auto !important;
         max-width: calc(100vw - 28px) !important;
     }
@@ -14179,15 +14179,28 @@ def render_ai_assistant_panel(df):
         font-weight: 950 !important;
         font-size: 12px !important;
         box-shadow: 0 16px 36px rgba(16,24,40,.24) !important;
+        position: relative !important;
+        z-index: 1000003 !important;
     }
+    .st-key-eusee_ai_popover_launcher button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 18px 40px rgba(16,24,40,.28) !important;
+    }
+    /* Keep the popover panel above the launcher instead of covering the launcher button. */
     div[data-testid="stPopoverBody"] {
+        position: fixed !important;
+        right: 18px !important;
+        bottom: 148px !important;
+        top: auto !important;
+        left: auto !important;
         width: min(520px, calc(100vw - 24px)) !important;
-        max-height: calc(100vh - 110px) !important;
+        max-height: calc(100vh - 170px) !important;
         overflow-y: auto !important;
         border-radius: 22px !important;
         border: 1px solid #E6E8EF !important;
         box-shadow: 0 22px 54px rgba(16,24,40,.20) !important;
         padding: 0 !important;
+        z-index: 1000001 !important;
     }
     .ai-fast-shell {padding:12px!important;font-family:var(--eusee-font,"Inter","Segoe UI",Arial,sans-serif)!important;}
     .ai-fast-header {display:flex;align-items:center;gap:10px;margin:-12px -12px 10px -12px;padding:13px;border-radius:22px 22px 0 0;background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 65%,#F7F8FB 100%);border-bottom:1px solid #EEF0F4;}
@@ -14213,7 +14226,7 @@ def render_ai_assistant_panel(df):
     }
     div[data-testid="stPopoverBody"] div[data-testid="stFormSubmitButton"] button {background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#FFFFFF!important;border-color:#660094!important;}
     div[data-testid="stPopoverBody"] textarea {min-height:82px!important;font-size:12.2px!important;border-radius:15px!important;border-color:#D0D5DD!important;}
-    @media (max-width:700px){.st-key-eusee_ai_popover_launcher{right:10px!important;bottom:86px!important;}.ai-fast-kpis{grid-template-columns:1fr!important;}}
+    @media (max-width:700px){.st-key-eusee_ai_popover_launcher{right:10px!important;bottom:86px!important;} div[data-testid="stPopoverBody"]{right:10px!important;bottom:142px!important;width:calc(100vw - 20px)!important;max-height:calc(100vh - 164px)!important;} .ai-fast-kpis{grid-template-columns:1fr!important;}}
     </style>
     """, unsafe_allow_html=True)
 
@@ -14241,7 +14254,7 @@ def render_ai_assistant_panel(df):
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("<div class='ai-fast-card'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-fast-helper'>Open/close is instant. The dashboard only processes after you click Ask.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='ai-fast-card'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-fast-helper'>The purple Copilot button stays visible for easy access. Click it again or click outside the panel to close. The dashboard only processes after you click Ask.</div>", unsafe_allow_html=True)
             q1, q2 = st.columns(2)
             with q1:
                 if st.button("Executive summary", key="ai_fast_prefill_summary", use_container_width=True):
