@@ -13898,6 +13898,212 @@ def _eusee_handle_submitted_prompt(prompt, df):
     st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
 
 
+
+# ---------------- DASHBOARD-ONLY AGENTIC COPILOT UPGRADE ----------------
+def _eusee_dashboard_only_df(df):
+    """Return only the dashboard dataframe currently passed into the AI panel.
+
+    This guard is intentional: the copilot must not use external files, web
+    sources, RAG documents, or unfiltered raw datasets. All answers, charts,
+    explanations, and exports are derived from the dataframe currently visible
+    under the active dashboard filters plus conversational filters.
+    """
+    if isinstance(df, pd.DataFrame):
+        return df.copy()
+    return pd.DataFrame()
+
+
+def _eusee_dashboard_scope_note(df):
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    countries = dfx[fields["country"]].nunique() if fields.get("country") in dfx.columns else 0
+    years = sorted(dfx[fields["year"]].dropna().astype(str).unique().tolist()) if fields.get("year") in dfx.columns else []
+    year_text = f"{years[0]}–{years[-1]}" if len(years) > 1 else (years[0] if years else "not available")
+    return f"Dashboard-only context: {len(dfx):,} filtered records, {countries:,} countries, years {year_text}."
+
+
+def _eusee_plan_dashboard_request(prompt, df, has_active_chart=False):
+    """Small deterministic planner for dashboard-only analytical turns."""
+    p = _eusee_norm_text(prompt)
+    intent = _eusee_classify_request(prompt, has_active_chart=has_active_chart)
+    steps = []
+    if intent in ["chart_create", "chart_update"]:
+        steps = ["read current dashboard dataframe", "apply conversational filters", "build or mutate active chart", "summarize plotted result"]
+    elif intent == "chart_analysis":
+        steps = ["read active chart configuration", "inspect plotted data", "summarize dominant patterns"]
+    elif any(k in p for k in ["trend", "over time", "year", "increase", "decrease"]):
+        intent = "trend_analysis"
+        steps = ["aggregate by year", "rank changes", "summarize trend"]
+    elif any(k in p for k in ["compare", "versus", "vs", "difference between"]):
+        intent = "compare_analysis"
+        steps = ["identify comparison dimension", "aggregate counts", "rank categories"]
+    elif any(k in p for k in ["anomaly", "outlier", "spike", "unusual"]):
+        intent = "anomaly_analysis"
+        steps = ["aggregate time series", "compute z-scores", "flag unusual periods"]
+    elif any(k in p for k in ["correlation", "relationship", "associated", "association"]):
+        intent = "relationship_analysis"
+        steps = ["build cross-tabulation", "rank strongest pairwise relationships"]
+    else:
+        steps = ["summarize filtered dashboard data", "answer using dashboard fields only"]
+    return {"intent": intent, "steps": steps, "dashboard_only": True}
+
+
+def _eusee_markdown_count_table(df, col, top_n=10, title=None):
+    if df is None or df.empty or not col or col not in df.columns:
+        return "No matching dashboard field was available for this view."
+    vc = df[col].fillna("Unknown").astype(str).value_counts().head(int(top_n))
+    total = float(vc.sum()) if len(vc) else 0.0
+    lines = []
+    if title:
+        lines.append(f"**{title}**")
+    for k, v in vc.items():
+        pct = (float(v) / total * 100) if total else 0
+        lines.append(f"- **{k}**: {int(v):,} records ({pct:.1f}%)")
+    return "\n".join(lines)
+
+
+def _eusee_dashboard_summary_answer(prompt, df):
+    dfx = _eusee_dashboard_only_df(df)
+    if dfx.empty:
+        return "I cannot answer from the dashboard because the current filtered dashboard view has no records."
+    fields = _eusee_field_catalog(dfx)
+    parts = [f"### Dashboard-only answer\n\n{_eusee_dashboard_scope_note(dfx)}"]
+    for label, key in [("Alert impact", "impact"), ("Regions", "region"), ("Countries", "country"), ("Alert types", "alert_type"), ("Actors", "actor"), ("Mechanisms", "mechanism"), ("Enabling principles", "principle")]:
+        col = fields.get(key)
+        if col and col in dfx.columns:
+            parts.append(_eusee_markdown_count_table(dfx, col, top_n=5, title=label))
+    parts.append("**Scope control:** I used only the currently filtered dashboard dataframe and any filters implied by your chat request.")
+    return "\n\n".join(parts)
+
+
+def _eusee_trend_answer(prompt, df):
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    year_col = fields.get("year")
+    if dfx.empty or not year_col or year_col not in dfx.columns:
+        return _eusee_dashboard_summary_answer(prompt, dfx)
+    trend = dfx.groupby(year_col).size().reset_index(name="records").sort_values(year_col)
+    if trend.empty:
+        return "No year-based trend could be computed from the current dashboard view."
+    first = int(trend["records"].iloc[0]); last = int(trend["records"].iloc[-1])
+    change = last - first
+    pct = (change / first * 100) if first else 0
+    rows = "\n".join([f"- **{r[year_col]}**: {int(r['records']):,} records" for _, r in trend.tail(8).iterrows()])
+    return f"""### Trend analysis\n\n{_eusee_dashboard_scope_note(dfx)}\n\n**Yearly pattern**\n{rows}\n\n**Change from first to latest visible year:** {change:+,} records ({pct:+.1f}%).\n\nThis is a descriptive dashboard trend, not a causal explanation. It uses only the current dashboard-filtered dataset."""
+
+
+def _eusee_compare_answer(prompt, df):
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    col = _eusee_column_for_phrase(prompt, dfx, default=fields.get("region") or fields.get("country") or fields.get("impact"))
+    if dfx.empty or not col or col not in dfx.columns:
+        return _eusee_dashboard_summary_answer(prompt, dfx)
+    return f"### Comparative analysis\n\n{_eusee_dashboard_scope_note(dfx)}\n\n" + _eusee_markdown_count_table(dfx, col, top_n=12, title=f"Comparison by {col}")
+
+
+def _eusee_anomaly_answer(prompt, df):
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    year_col = fields.get("year")
+    if dfx.empty or not year_col or year_col not in dfx.columns:
+        return "I need a year column in the current dashboard view to detect time spikes."
+    ts = dfx.groupby(year_col).size().reset_index(name="records").sort_values(year_col)
+    if len(ts) < 3:
+        return "There are too few visible time periods in the dashboard-filtered data to flag anomalies reliably."
+    mean = ts["records"].mean(); std = ts["records"].std(ddof=0) or 1
+    ts["z_score"] = (ts["records"] - mean) / std
+    top = ts.reindex(ts["z_score"].abs().sort_values(ascending=False).index).head(5)
+    lines = "\n".join([f"- **{r[year_col]}**: {int(r['records']):,} records, z-score {r['z_score']:.2f}" for _, r in top.iterrows()])
+    return f"### Spike / anomaly scan\n\n{_eusee_dashboard_scope_note(dfx)}\n\n{lines}\n\nA large absolute z-score indicates a period that differs strongly from the visible dashboard time series."
+
+
+def _eusee_relationship_answer(prompt, df):
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    c1 = fields.get("actor") or fields.get("country") or fields.get("region")
+    c2 = fields.get("mechanism") or fields.get("impact") or fields.get("principle")
+    if dfx.empty or not c1 or not c2 or c1 not in dfx.columns or c2 not in dfx.columns or c1 == c2:
+        return _eusee_dashboard_summary_answer(prompt, dfx)
+    tab = dfx.groupby([c1, c2]).size().reset_index(name="records").sort_values("records", ascending=False).head(10)
+    lines = "\n".join([f"- **{r[c1]} × {r[c2]}**: {int(r['records']):,} records" for _, r in tab.iterrows()])
+    return f"### Relationship analysis\n\n{_eusee_dashboard_scope_note(dfx)}\n\n**Strongest visible pairings**\n{lines}\n\nThese are co-occurrence patterns in the dashboard data, not proof of causality."
+
+
+def _eusee_agentic_tool_router(prompt, df, plan):
+    """Route to deterministic tools. No web, file, RAG, or raw external dataset access."""
+    intent = (plan or {}).get("intent", "general")
+    if intent == "trend_analysis":
+        return _eusee_trend_answer(prompt, df)
+    if intent == "compare_analysis":
+        return _eusee_compare_answer(prompt, df)
+    if intent == "anomaly_analysis":
+        return _eusee_anomaly_answer(prompt, df)
+    if intent == "relationship_analysis":
+        return _eusee_relationship_answer(prompt, df)
+    return _eusee_dashboard_summary_answer(prompt, df)
+
+
+# Override the previous prompt handler with a stricter dashboard-only agent loop.
+def _eusee_handle_submitted_prompt(prompt, df):
+    """Dashboard-only agentic router for Q&A, charts, chart updates, and explanations."""
+    clean_prompt = str(prompt or "").strip()
+    if not clean_prompt:
+        return
+
+    dashboard_df = _eusee_dashboard_only_df(df)
+    _eusee_track_ai_event("submitted_prompt", clean_prompt)
+    _eusee_append_message("user", clean_prompt)
+    st.session_state.ai_last_user_prompt = clean_prompt
+
+    has_chart = st.session_state.get("ai_active_chart_config") is not None
+    plan = _eusee_plan_dashboard_request(clean_prompt, dashboard_df, has_active_chart=has_chart)
+    intent = plan.get("intent", "general")
+
+    if intent in ["chart_create", "chart_update"]:
+        previous = st.session_state.get("ai_active_chart_config") if intent == "chart_update" else None
+        config = _eusee_build_chart_config_from_prompt(clean_prompt, dashboard_df, previous_config=previous)
+        fig, plot_data, active_df = _eusee_render_chart_from_config(dashboard_df, config)
+        st.session_state.ai_active_chart_config = config
+        st.session_state.ai_active_chart_fig = fig
+        st.session_state.ai_active_chart_df = active_df
+        st.session_state.ai_active_plot_data = plot_data
+        st.session_state.ai_active_chart_title = config.get("title", "AI Copilot chart")
+        action = "updated" if intent == "chart_update" else "created"
+        answer = (
+            f"Done — I {action} the active chart using dashboard-only data. "
+            f"Current setup: **chart = {config.get('chart_type')}**, **x = {config.get('x_col')}**, "
+            f"**group = {config.get('color_col') or 'none'}**, **top N = {config.get('top_n')}**.\n\n"
+            f"{_eusee_dashboard_scope_note(active_df)}\n\n"
+            "You can now ask a follow-up such as *filter to negative alerts*, *compare by region*, "
+            "*make it a heatmap*, *show top 20*, or *explain this chart*."
+        )
+        _eusee_append_message("assistant", answer)
+        st.session_state.ai_smart_output = {
+            "type": "plot_v2",
+            "title": config.get("title", "AI Copilot chart"),
+            "content": answer,
+            "fig": fig,
+            "plot_data": plot_data,
+            "config": config,
+            "interpretation": _eusee_local_chart_interpretation(plot_data, config, active_df),
+            "plan": plan,
+        }
+        return
+
+    if intent == "chart_analysis" and has_chart:
+        config = st.session_state.get("ai_active_chart_config") or {}
+        plot_data = st.session_state.get("ai_active_plot_data")
+        active_df = st.session_state.get("ai_active_chart_df")
+        answer = _eusee_local_chart_interpretation(plot_data, config, active_df)
+        answer += "\n\n**Dashboard-only constraint:** this explanation uses only the active chart data and the filtered dashboard dataframe."
+        _eusee_append_message("assistant", answer)
+        st.session_state.ai_smart_output = {"type": "chart insight", "title": config.get("title", "Current chart explanation"), "content": answer, "plan": plan}
+        return
+
+    answer = _eusee_agentic_tool_router(clean_prompt, dashboard_df, plan)
+    _eusee_append_message("assistant", answer)
+    st.session_state.ai_smart_output = {"type": "dashboard answer", "title": "Dashboard-only AI response", "content": answer, "plan": plan}
+
 def render_ai_assistant_panel(df):
     """Stateful ChatGPT-like EU SEE Copilot with multi-turn Q&A and mutable charts."""
     _eusee_ai_init_stateful_chat()
@@ -13968,7 +14174,7 @@ def render_ai_assistant_panel(df):
     """, unsafe_allow_html=True)
 
     status = _ai_openai_status() if "_ai_openai_status" in globals() else {"configured": False, "package_ready": False}
-    mode = "OpenAI" if status.get("configured") and status.get("package_ready") else "Local"
+    mode = "Dashboard-only"
     records = len(df) if isinstance(df, pd.DataFrame) else 0
     countries = df["alert-country"].nunique() if isinstance(df, pd.DataFrame) and not df.empty and "alert-country" in df.columns else 0
     has_chart = st.session_state.get("ai_active_chart_config") is not None
@@ -13982,7 +14188,7 @@ def render_ai_assistant_panel(df):
                 <div class="ai-lite-icon">AI</div>
                 <div>
                   <div class="ai-lite-title">EU SEE Copilot</div>
-                  <div class="ai-lite-sub">Stateful Q&A, chart updates, and dashboard explanations.</div>
+                  <div class="ai-lite-sub">Dashboard-only Q&A, chart updates, and agentic explanations.</div>
                 </div>
               </div>
             </div>
@@ -14092,7 +14298,7 @@ def render_ai_assistant_panel(df):
         else:
             st.markdown(str(out.get("content", ""))[:5000])
 
-        st.markdown("<div class='ai-lite-footer-note'>Answers and charts use the current dashboard filters plus any conversational filters requested inside the chat.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-lite-footer-note'>Dashboard-only mode: answers and charts use only the current filtered dashboard dataframe plus conversational filters requested inside the chat.</div></div>", unsafe_allow_html=True)
 
         with st.expander("Conversation controls", expanded=False):
             st.toggle(
