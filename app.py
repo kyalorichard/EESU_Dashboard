@@ -4691,7 +4691,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
 
     num_bars = df.shape[0]
     height = max(330, min(520, num_bars * 24 + 120))  # Professional compact auto-height
-    font_size = max(8, min(10, 13 - int(num_bars / 8)))
+    font_size = max(10, min(12, 13 - int(num_bars / 8)))
 
     # Optional: wrap labels (assuming wrap_label_by_words exists)
     
