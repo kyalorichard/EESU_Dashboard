@@ -14160,7 +14160,9 @@ def render_ai_assistant_panel(df):
 
     st.markdown("""
     <style>
-    /* Persistent launcher: the button remains visible even when the popover is open. */
+    /* Stable launcher: keep only the button fixed. Do NOT reposition stPopoverBody.
+       Streamlit controls popover placement internally; overriding the body can make
+       the panel open behind other dashboard layers or fail to display on click. */
     .st-key-eusee_ai_popover_launcher {
         position: fixed !important;
         right: 18px !important;
@@ -14179,26 +14181,18 @@ def render_ai_assistant_panel(df):
         font-weight: 950 !important;
         font-size: 12px !important;
         box-shadow: 0 16px 36px rgba(16,24,40,.24) !important;
-        position: relative !important;
-        z-index: 1000003 !important;
     }
     .st-key-eusee_ai_popover_launcher button:hover {
         transform: translateY(-1px) !important;
         box-shadow: 0 18px 40px rgba(16,24,40,.28) !important;
     }
-    /* Keep the popover panel above the launcher instead of covering the launcher button. */
     div[data-testid="stPopoverBody"] {
-        position: fixed !important;
-        right: 18px !important;
-        bottom: 148px !important;
-        top: auto !important;
-        left: auto !important;
-        width: min(520px, calc(100vw - 24px)) !important;
-        max-height: calc(100vh - 170px) !important;
-        overflow-y: auto !important;
         border-radius: 22px !important;
         border: 1px solid #E6E8EF !important;
         box-shadow: 0 22px 54px rgba(16,24,40,.20) !important;
+        max-width: min(520px, calc(100vw - 24px)) !important;
+        max-height: calc(100vh - 120px) !important;
+        overflow-y: auto !important;
         padding: 0 !important;
         z-index: 1000001 !important;
     }
@@ -14226,7 +14220,7 @@ def render_ai_assistant_panel(df):
     }
     div[data-testid="stPopoverBody"] div[data-testid="stFormSubmitButton"] button {background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#FFFFFF!important;border-color:#660094!important;}
     div[data-testid="stPopoverBody"] textarea {min-height:82px!important;font-size:12.2px!important;border-radius:15px!important;border-color:#D0D5DD!important;}
-    @media (max-width:700px){.st-key-eusee_ai_popover_launcher{right:10px!important;bottom:86px!important;} div[data-testid="stPopoverBody"]{right:10px!important;bottom:142px!important;width:calc(100vw - 20px)!important;max-height:calc(100vh - 164px)!important;} .ai-fast-kpis{grid-template-columns:1fr!important;}}
+    @media (max-width:700px){.st-key-eusee_ai_popover_launcher{right:10px!important;bottom:86px!important;} div[data-testid="stPopoverBody"]{max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 120px)!important;} .ai-fast-kpis{grid-template-columns:1fr!important;}}
     </style>
     """, unsafe_allow_html=True)
 
@@ -14245,6 +14239,8 @@ def render_ai_assistant_panel(df):
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+            st.caption("Click outside the panel to close. The Copilot launcher remains fixed at the bottom-right.")
 
             st.markdown(f"""
             <div class='ai-fast-kpis'>
