@@ -13507,6 +13507,207 @@ def _eusee_norm_text(value):
     return re.sub(r"\s+", " ", str(value or "").strip().lower())
 
 
+# ---------------- HUMAN-LANGUAGE / FUZZY SEARCH INTENT LAYER ----------------
+def _eusee_norm_loose(value):
+    """Normalize text for forgiving human-language matching."""
+    s = _eusee_norm_text(value)
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _eusee_expand_human_language_query(prompt):
+    """Expand common user shorthand before matching dashboard values."""
+    s = _eusee_norm_loose(prompt)
+    replacements = {
+        "govt": "government",
+        "gov": "government",
+        "ngo": "civil society organization",
+        "ngos": "civil society organizations",
+        "cso": "civil society organization",
+        "csos": "civil society organizations",
+        "civic space": "civil society enabling environment",
+        "neg": "negative",
+        "negatives": "negative",
+        "pos": "positive",
+        "positives": "positive",
+        "watchlist": "context to watch",
+        "watch list": "context to watch",
+        "ctx watch": "context to watch",
+        "mech": "mechanism",
+        "mechs": "mechanisms",
+        "restrictive actors": "actor of repression",
+        "repressive actors": "actor of repression",
+        "countries": "country",
+        "geographies": "country region",
+    }
+    padded = f" {s} "
+    for old, new in replacements.items():
+        padded = padded.replace(f" {old} ", f" {new} ")
+    return re.sub(r"\s+", " ", padded).strip()
+
+
+def _eusee_similarity(a, b):
+    """Small local similarity score; avoids extra dependencies."""
+    try:
+        from difflib import SequenceMatcher
+        a = _eusee_norm_loose(a)
+        b = _eusee_norm_loose(b)
+        if not a or not b:
+            return 0.0
+        if a == b:
+            return 1.0
+        if a in b or b in a:
+            shorter = min(len(a), len(b))
+            longer = max(len(a), len(b))
+            return max(0.84, shorter / max(longer, 1))
+        return SequenceMatcher(None, a, b).ratio()
+    except Exception:
+        return 0.0
+
+
+def _eusee_best_dashboard_value_matches(query, choices, limit=5, cutoff=0.72):
+    """Return closest dashboard values for an imperfect user-entered phrase."""
+    q = _eusee_expand_human_language_query(query)
+    if not q:
+        return []
+    scored = []
+    q_tokens = set(q.split())
+    for choice in choices or []:
+        c_raw = str(choice or "").strip()
+        c = _eusee_norm_loose(c_raw)
+        if not c or c in ["nan", "none", "null"]:
+            continue
+        score = _eusee_similarity(q, c)
+        c_tokens = set(c.split())
+        if c_tokens:
+            overlap = len(q_tokens & c_tokens) / max(len(c_tokens), 1)
+            if overlap >= 0.60:
+                score = max(score, 0.78 + min(overlap, 1.0) * 0.15)
+        # Strong boost when dashboard value phrase appears inside the natural sentence.
+        if c and c in q:
+            score = max(score, 0.96)
+        if score >= cutoff:
+            scored.append((score, c_raw))
+    scored.sort(key=lambda x: (-x[0], x[1].lower()))
+    out = []
+    seen = set()
+    for score, value in scored:
+        key = _eusee_norm_loose(value)
+        if key not in seen:
+            out.append(value)
+            seen.add(key)
+        if len(out) >= int(limit or 5):
+            break
+    return out
+
+
+def _eusee_fuzzy_match_values_for_column(df, col, requested_values, limit=10):
+    """Map imperfect filter values from the user/LLM to real dashboard values."""
+    if df is None or df.empty or not col or col not in df.columns:
+        return []
+    choices = (
+        df[col].dropna().astype(str).str.strip()
+        .loc[lambda s: (s != "") & (~s.str.lower().isin(["nan", "none", "null"]))]
+        .unique().tolist()
+    )
+    exact_lookup = {_eusee_norm_loose(v): v for v in choices}
+    matched = []
+    for raw in (requested_values if isinstance(requested_values, list) else [requested_values]):
+        rv = str(raw or "").strip()
+        if not rv:
+            continue
+        norm = _eusee_norm_loose(rv)
+        if norm in exact_lookup:
+            matched.append(exact_lookup[norm])
+            continue
+        close = _eusee_best_dashboard_value_matches(rv, choices, limit=limit, cutoff=0.68)
+        matched.extend(close)
+    # De-duplicate while preserving display values.
+    out, seen = [], set()
+    for v in matched:
+        k = _eusee_norm_loose(v)
+        if k and k not in seen:
+            out.append(v)
+            seen.add(k)
+    return out[: int(limit or 10)]
+
+
+def _eusee_column_is_mentioned(prompt, field_key, col_name=""):
+    """Check if the user likely intended a particular dashboard field."""
+    p = _eusee_expand_human_language_query(prompt)
+    aliases = {
+        "country": ["country", "countries", "nation", "nations", "geography", "geographies"],
+        "region": ["region", "regions", "regional", "continent"],
+        "impact": ["impact", "negative", "positive", "context", "watch", "alert impact"],
+        "alert_type": ["alert type", "type", "types", "alert category"],
+        "actor": ["actor", "actors", "government", "state", "police", "court", "repression"],
+        "mechanism": ["mechanism", "mechanisms", "restriction", "restrictions", "law", "policy"],
+        "affected": ["affected", "civil society", "journalist", "media", "ngo", "cso", "group"],
+        "principle": ["principle", "principles", "enabling", "association", "assembly", "expression"],
+        "year": ["year", "years", "annual", "202", "201"],
+    }
+    tokens = aliases.get(field_key, []) + [_eusee_norm_loose(col_name)]
+    return any(t and t in p for t in tokens)
+
+
+def _eusee_fuzzy_detect_dashboard_filters(prompt, df, existing=None):
+    """Infer filters from imperfect human language using only current dashboard values."""
+    filters = dict(existing or {})
+    if df is None or df.empty:
+        return filters
+    p = _eusee_expand_human_language_query(prompt)
+    fields = _eusee_field_catalog(df)
+
+    # Explicit impact aliases.
+    impact_col = fields.get("impact")
+    if impact_col and impact_col in df.columns:
+        if any(x in p for x in ["negative", "restriction", "restrictive", "worsen", "bad alert"]):
+            filters[impact_col] = _eusee_fuzzy_match_values_for_column(df, impact_col, ["Negative"], limit=3) or ["Negative"]
+        elif any(x in p for x in ["positive", "improvement", "good alert"]):
+            filters[impact_col] = _eusee_fuzzy_match_values_for_column(df, impact_col, ["Positive"], limit=3) or ["Positive"]
+        elif "context to watch" in p or "watch" in p:
+            filters[impact_col] = _eusee_fuzzy_match_values_for_column(df, impact_col, ["Context to watch"], limit=3) or ["Context to watch"]
+
+    # Year extraction remains exact.
+    year_col = fields.get("year")
+    if year_col and year_col in df.columns:
+        years = sorted(set(int(y) for y in re.findall(r"\b(20\d{2}|19\d{2})\b", p)))
+        if years:
+            filters[year_col] = years
+
+    # Fuzzy categorical values. We only apply strong matches to avoid accidental filtering.
+    for key in ["region", "country", "alert_type", "actor", "mechanism", "affected", "principle"]:
+        col = fields.get(key)
+        if not col or col not in df.columns:
+            continue
+        choices = df[col].dropna().astype(str).str.strip().unique().tolist()
+        if not choices:
+            continue
+        cutoff = 0.70 if _eusee_column_is_mentioned(prompt, key, col) else 0.86
+        matches = _eusee_best_dashboard_value_matches(p, choices[:700], limit=8, cutoff=cutoff)
+        if matches:
+            # Do not overwrite explicit filters from exact parser unless fuzzy has clear field mention.
+            if col not in filters or _eusee_column_is_mentioned(prompt, key, col):
+                filters[col] = matches
+
+    # Reset filters conversationally.
+    if any(x in p for x in ["remove filters", "clear filters", "reset filters", "all data", "show everything"]):
+        filters = {}
+    return filters
+
+
+def _eusee_explain_fuzzy_matches(filters, df):
+    """Human-readable filter note for the assistant response."""
+    if not filters:
+        return ""
+    parts = []
+    for col, vals in filters.items():
+        if col in getattr(df, 'columns', []):
+            vals_list = vals if isinstance(vals, list) else [vals]
+            parts.append(f"{col}: {', '.join(map(str, vals_list[:5]))}")
+    return "; ".join(parts)
+
+
 def _eusee_find_column(df, candidates):
     """Find a dashboard column by tolerant exact/name-fragment matching."""
     if df is None or df.empty:
@@ -13702,16 +13903,22 @@ def _eusee_extract_top_n(prompt, default=10):
 
 
 def _eusee_detect_filters(prompt, df, existing=None):
-    """Extract simple conversational filters from a user prompt."""
+    """Extract conversational filters, including imperfect human-language entries.
+
+    This function remains dashboard-only: it searches only values that actually
+    exist in the currently filtered dashboard dataframe. It supports exact,
+    alias, partial, and fuzzy matching for countries, regions, actors,
+    mechanisms, affected groups, principles, impact types, and years.
+    """
     filters = dict(existing or {})
     p = _eusee_norm_text(prompt)
     fields = _eusee_field_catalog(df)
 
     impact_col = fields.get("impact")
     if impact_col:
-        if "negative" in p:
+        if "negative" in p or "neg " in f" {p} ":
             filters[impact_col] = ["Negative"]
-        elif "positive" in p:
+        elif "positive" in p or "pos " in f" {p} ":
             filters[impact_col] = ["Positive"]
         elif "context to watch" in p or "watch" in p:
             filters[impact_col] = ["Context to watch"]
@@ -13734,20 +13941,22 @@ def _eusee_detect_filters(prompt, df, existing=None):
     country_col = fields.get("country")
     if country_col and country_col in df.columns:
         matches = []
-        # Limit scan cost but keep enough recall for typical country names.
         for val in df[country_col].dropna().astype(str).unique().tolist()[:350]:
             if _eusee_norm_text(val) and _eusee_norm_text(val) in p:
                 matches.append(val)
         if matches:
             filters[country_col] = matches
 
-    # Reset filters conversationally.
-    if any(x in p for x in ["remove filters", "clear filters", "reset filters", "all data"]):
+    # Human-language / fuzzy matching layer for imperfect entries.
+    filters = _eusee_fuzzy_detect_dashboard_filters(prompt, df, existing=filters)
+
+    if any(x in p for x in ["remove filters", "clear filters", "reset filters", "all data", "show everything"]):
         filters = {}
     return filters
 
 
 def _eusee_apply_conversation_filters(df, filters):
+    """Apply exact filters, with fuzzy fallback only when exact values miss."""
     if df is None or df.empty or not filters:
         return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
     work = df.copy()
@@ -13756,7 +13965,22 @@ def _eusee_apply_conversation_filters(df, filters):
             continue
         values = values if isinstance(values, list) else [values]
         norm_values = {_eusee_norm_text(v) for v in values}
-        work = work[work[col].astype(str).map(_eusee_norm_text).isin(norm_values)]
+        exact_mask = work[col].astype(str).map(_eusee_norm_text).isin(norm_values)
+        if bool(exact_mask.any()):
+            work = work[exact_mask]
+            continue
+
+        # If a user or LLM supplied an imperfect value, map it to real values
+        # from the current dashboard data, then filter again.
+        matched_values = _eusee_fuzzy_match_values_for_column(work, col, values, limit=10)
+        if matched_values:
+            norm_matched = {_eusee_norm_text(v) for v in matched_values}
+            fuzzy_mask = work[col].astype(str).map(_eusee_norm_text).isin(norm_matched)
+            work = work[fuzzy_mask]
+        else:
+            # Preserve safety: if no dashboard value matches, return no rows
+            # rather than inventing or broadening outside dashboard context.
+            work = work.iloc[0:0]
     return work
 
 
@@ -13975,10 +14199,12 @@ def _eusee_handle_submitted_prompt(prompt, df):
 
         action = "updated" if intent == "chart_update" else "created"
         style_note = f", **color = {config.get('marker_color') or config.get('primary_color')}**" if config.get("force_single_color") else ""
+        fuzzy_filter_note = _eusee_explain_fuzzy_matches(config.get("filters", {}), df)
+        fuzzy_filter_text = f" Applied filters: {fuzzy_filter_note}." if fuzzy_filter_note else ""
         answer = (
             f"Done — I {action} the active chart as **{config.get('chart_type')}**. "
             f"Current setup: **x = {config.get('x_col')}**, **group = {config.get('color_col') or 'none'}**, "
-            f"**top N = {config.get('top_n')}**{style_note}. You can continue with another instruction, for example: "
+            f"**top N = {config.get('top_n')}**{style_note}.{fuzzy_filter_text} You can continue with another instruction, for example: "
             f"*filter to negative alerts*, *compare by region*, *make it a heatmap*, *change bar color to yellow*, or *explain this chart*."
         )
         _eusee_append_message("assistant", answer)
@@ -14213,6 +14439,17 @@ def _eusee_llm_dashboard_schema(df):
             "show_legend", "font_size", "height", "palette"
         ],
         "common_filter_values": {},
+        "human_language_search": {
+            "enabled": True,
+            "behavior": "User values may be misspelled, partial, or shorthand. Return the closest intended dashboard column/value using only schema values; Python will fuzzy-validate against current dashboard data.",
+            "examples": [
+                "neg alerts -> alert-impact Negative",
+                "govt actors -> Actor/government-related dashboard value",
+                "cote ivoire -> closest country value in alert-country",
+                "civil society groups -> affected/civil society related field",
+                "watchlist -> Context to watch"
+            ]
+        },
     }
 
     for key in ["impact", "region", "country", "year", "alert_type", "actor", "mechanism", "principle"]:
@@ -14339,7 +14576,9 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
             vals = values if isinstance(values, list) else [values]
             vals = [str(v).strip() for v in vals if str(v).strip() and str(v).strip().lower() not in ["nan", "none", "null"]]
             if vals:
-                filters[safe_col] = vals[:50]
+                # Map imperfect LLM/user filter values to real dashboard values.
+                fuzzy_vals = _eusee_fuzzy_match_values_for_column(dfx, safe_col, vals, limit=50)
+                filters[safe_col] = (fuzzy_vals or vals)[:50]
 
     # Merge deterministic filter extraction so simple phrases still work if the LLM misses them.
     filters = _eusee_detect_filters(prompt, dfx, existing=filters)
@@ -14473,6 +14712,8 @@ JSON keys allowed:
 
 Rules:
 - Use exact column names from the dashboard schema.
+- Understand imperfect human language: misspellings, partial names, shorthand, synonyms, and unclear entries should be mapped to the closest dashboard field/value from common_filter_values only.
+- Never invent a value that is not present in the dashboard schema samples; when uncertain, choose the safest broad command and let Python fuzzy-match or ask for clarification in analysis_request.
 - If the user asks to modify an existing chart, use chart_update when an active chart exists.
 - If there is no active chart and the user asks for a style/chart modification, create a sensible chart instead.
 - For color changes like "make bars yellow", set style.primary_color and style.marker_color to the hex code and force_single_color true.
