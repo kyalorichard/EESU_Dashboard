@@ -75,6 +75,7 @@ import logging
 import tempfile  
 import os
 import re
+import requests
 
 try:
     from openai import OpenAI
@@ -15236,24 +15237,191 @@ def _eusee_ai_cached_group_counts(df, group_cols, top_n=50):
     return out
 
 
-def render_ai_assistant_panel(df):
-    """Client-side popover EU SEE Copilot with ChatGPT-like message flow.
+# ---------------- LANGFLOW-BACKED AI COPILOT ----------------
+def _get_langflow_config():
+    """Read Langflow configuration from Streamlit secrets or environment variables.
 
-    Layout order:
-    1. Header and dashboard status
-    2. Conversation history
-    3. Smart output / chart result
-    4. Ask box at the bottom
+    Recommended Streamlit secrets:
+        [langflow]
+        LANGFLOW_API_URL = "https://your-langflow-service.com/api/v1/run/YOUR_FLOW_ID"
+        LANGFLOW_API_KEY = "your_langflow_api_key"  # optional
 
-    The popover still opens/closes client-side. The dashboard only performs
-    assistant processing when the user clicks Ask.
+    Flat secrets and environment variables are also supported:
+        LANGFLOW_API_URL
+        LANGFLOW_API_KEY
     """
-    _eusee_ai_init_stateful_chat()
+    langflow_secrets = {}
+    try:
+        langflow_secrets = st.secrets.get("langflow", {}) or {}
+    except Exception:
+        langflow_secrets = {}
+
+    def _read_secret(name, default=""):
+        try:
+            return st.secrets.get(name, default)
+        except Exception:
+            return default
+
+    api_url = (
+        langflow_secrets.get("LANGFLOW_API_URL")
+        or langflow_secrets.get("api_url")
+        or _read_secret("LANGFLOW_API_URL", "")
+        or os.getenv("LANGFLOW_API_URL", "")
+    )
+    api_key = (
+        langflow_secrets.get("LANGFLOW_API_KEY")
+        or langflow_secrets.get("api_key")
+        or _read_secret("LANGFLOW_API_KEY", "")
+        or os.getenv("LANGFLOW_API_KEY", "")
+    )
+    return str(api_url or "").strip(), str(api_key or "").strip()
+
+
+@st.cache_data(show_spinner=False, ttl=90)
+def _build_langflow_dashboard_context(df):
+    """Build a compact, dashboard-only context for Langflow.
+
+    The chatbot receives summaries and active-filter aggregates only. It does
+    not receive raw full datasets, which keeps the API call fast and reduces
+    leakage/hallucination risk.
+    """
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return "Dataset: EU SEE Dashboard\nFiltered records: 0\nNo records available under the current filters."
+
+    lines = [
+        "Dataset: EU SEE Dashboard",
+        "Scope: Use only the dashboard context below. Do not use external knowledge.",
+        f"Filtered records: {len(df):,}",
+        f"Available columns: {', '.join(map(str, list(df.columns)[:60]))}",
+    ]
+
+    if "alert-country" in df.columns:
+        countries = df["alert-country"].dropna().astype(str).str.strip()
+        lines.append(f"Countries in current view: {countries.nunique():,}")
+        top = countries.value_counts().head(10)
+        if not top.empty:
+            lines.append("Top countries by record count: " + "; ".join([f"{k}: {int(v):,}" for k, v in top.items()]))
+
+    if "region" in df.columns:
+        top = df["region"].dropna().astype(str).str.strip().value_counts().head(8)
+        if not top.empty:
+            lines.append("Regions: " + "; ".join([f"{k}: {int(v):,}" for k, v in top.items()]))
+
+    if "alert-impact" in df.columns:
+        top = df["alert-impact"].dropna().astype(str).str.strip().value_counts().head(8)
+        if not top.empty:
+            lines.append("Alert impact distribution: " + "; ".join([f"{k}: {int(v):,}" for k, v in top.items()]))
+
+    if "alert-type" in df.columns:
+        top = df["alert-type"].dropna().astype(str).str.strip().value_counts().head(8)
+        if not top.empty:
+            lines.append("Alert types: " + "; ".join([f"{k}: {int(v):,}" for k, v in top.items()]))
+
+    for label, candidates in {
+        "Restrictive actors": ["restrictive actor", "Actor of repression"],
+        "Restrictive mechanisms": ["restrictive mechanism", "Mechanism of repression"],
+        "Affected civil society groups": ["affected civil society group", "Subject of repression"],
+        "Enabling principles": ["enabling principle", "Enabling principle"],
+    }.items():
+        col = next((c for c in candidates if c in df.columns), None)
+        if col:
+            top = df[col].dropna().astype(str).str.strip().value_counts().head(8)
+            if not top.empty:
+                lines.append(f"{label}: " + "; ".join([f"{k}: {int(v):,}" for k, v in top.items()]))
+
+    if "year" in df.columns:
+        years = sorted([str(int(y)) for y in pd.to_numeric(df["year"], errors="coerce").dropna().unique()])
+        if years:
+            lines.append(f"Years in current view: {', '.join(years[:20])}")
+
+    active_chart = st.session_state.get("ai_active_chart_config") or {}
+    if active_chart:
+        lines.append("Current active chart configuration: " + json.dumps(active_chart, default=str)[:1200])
+
+    return "\n".join(lines)[:12000]
+
+
+def _extract_langflow_text(response_json):
+    """Extract assistant text from common Langflow /api/v1/run response shapes."""
+    if not isinstance(response_json, dict):
+        return "No valid JSON response returned from Langflow."
+
+    for key in ["text", "message", "answer", "result", "output"]:
+        value = response_json.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    try:
+        return (
+            response_json.get("outputs", [{}])[0]
+            .get("outputs", [{}])[0]
+            .get("results", {})
+            .get("message", {})
+            .get("text", "")
+            .strip()
+        ) or "No response text returned from Langflow."
+    except Exception:
+        return "No response text returned from Langflow."
+
+
+def ask_langflow(question: str, dashboard_context: str) -> str:
+    """Send one submitted user question to the deployed Langflow flow."""
+    api_url, api_key = _get_langflow_config()
+    if not api_url:
+        return (
+            "Langflow is not configured yet. Add LANGFLOW_API_URL to Streamlit secrets. "
+            "Example: https://your-langflow-service.com/api/v1/run/YOUR_FLOW_ID"
+        )
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["x-api-key"] = api_key
+
+    # Pass the user question as the main input and pass dashboard_context into
+    # the Prompt component through tweaks. If your Langflow Prompt component has
+    # a custom name, rename the key below from "Prompt" to that component name.
+    payload = {
+        "input_value": str(question or "").strip(),
+        "input_type": "chat",
+        "output_type": "chat",
+        "tweaks": {
+            "Prompt": {
+                "dashboard_context": dashboard_context
+            }
+        }
+    }
+
+    try:
+        response = requests.post(api_url, json=payload, headers=headers, timeout=75)
+        response.raise_for_status()
+        return _extract_langflow_text(response.json())
+    except Exception as e:
+        return f"Langflow connection failed: {e}"
+
+
+def _append_langflow_message(role: str, content: str):
+    st.session_state.setdefault("ai_messages", [])
+    st.session_state["ai_messages"].append({"role": role, "content": str(content or "")})
+    st.session_state["ai_messages"] = st.session_state["ai_messages"][-20:]
+
+
+def render_ai_assistant_panel(df):
+    """Floating EU SEE Copilot powered by Langflow API.
+
+    This replaces the previous built-in/OpenAI chatbot execution layer. The
+    visible Streamlit popover remains lightweight and dashboard-native, while
+    Langflow handles the LLM workflow, memory, RAG, and tool orchestration.
+    """
+    st.session_state.setdefault("ai_messages", [])
     st.session_state.setdefault("ai_prompt_draft", "")
+    st.session_state.setdefault("ai_smart_output", {
+        "type": "Langflow",
+        "title": "Langflow response",
+        "content": "Ask a dashboard question to query the Langflow assistant."
+    })
 
     st.markdown("""
     <style>
-    /* Stable launcher: keep only the launcher fixed. Streamlit controls popover placement. */
     .st-key-eusee_ai_popover_launcher {
         position: fixed !important;
         right: 18px !important;
@@ -15272,10 +15440,6 @@ def render_ai_assistant_panel(df):
         font-weight: 950 !important;
         font-size: 12px !important;
         box-shadow: 0 16px 36px rgba(16,24,40,.24) !important;
-    }
-    .st-key-eusee_ai_popover_launcher button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 18px 40px rgba(16,24,40,.28) !important;
     }
     div[data-testid="stPopoverBody"] {
         border-radius: 22px !important;
@@ -15298,7 +15462,6 @@ def render_ai_assistant_panel(df):
     .ai-fast-kpi strong {display:block;margin-top:4px;font-size:14px;font-weight:950;color:#23152F;line-height:1.1;}
     .ai-fast-card {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:11px;margin:10px 0;box-shadow:0 8px 20px rgba(16,24,40,.055);}
     .ai-fast-section-title {font-size:12px;color:#23152F;font-weight:950;margin:2px 0 4px 0;}
-    .ai-fast-helper {font-size:10.8px;color:#667085;line-height:1.38;margin:0 0 8px 0;font-weight:600;}
     .ai-fast-chat {background:#FBFCFE;border:1px solid #EEF0F4;border-radius:18px;padding:9px;margin:10px 0;max-height:330px;overflow-y:auto;}
     .ai-fast-empty {font-size:11px;color:#667085;line-height:1.4;background:#FFFFFF;border:1px dashed #D0D5DD;border-radius:14px;padding:10px;}
     .ai-fast-output-head {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
@@ -15308,9 +15471,7 @@ def render_ai_assistant_panel(df):
     .ai-input-dock {background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 100%);border:1px solid #E7D4F1;border-radius:18px;padding:11px;margin:10px 0 2px 0;box-shadow:0 10px 24px rgba(102,0,148,.08);}
     .ai-input-note {font-size:10.6px;color:#667085;line-height:1.35;margin-bottom:8px;font-weight:650;}
     div[data-testid="stPopoverBody"] div[data-testid="stButton"] button,
-    div[data-testid="stPopoverBody"] div[data-testid="stFormSubmitButton"] button {
-        border-radius:13px!important;font-size:11.3px!important;font-weight:900!important;min-height:36px!important;border:1px solid #D0D5DD!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;
-    }
+    div[data-testid="stPopoverBody"] div[data-testid="stFormSubmitButton"] button {border-radius:13px!important;font-size:11.3px!important;font-weight:900!important;min-height:36px!important;border:1px solid #D0D5DD!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;}
     div[data-testid="stPopoverBody"] div[data-testid="stFormSubmitButton"] button {background:linear-gradient(135deg,#660094 0%,#4B0078 100%)!important;color:#FFFFFF!important;border-color:#660094!important;}
     div[data-testid="stPopoverBody"] textarea {min-height:82px!important;font-size:12.2px!important;border-radius:15px!important;border-color:#D0D5DD!important;}
     @media (max-width:700px){.st-key-eusee_ai_popover_launcher{right:10px!important;bottom:86px!important;} div[data-testid="stPopoverBody"]{max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 120px)!important;} .ai-fast-kpis{grid-template-columns:1fr!important;}}
@@ -15320,15 +15481,16 @@ def render_ai_assistant_panel(df):
     with st.container(key="eusee_ai_popover_launcher"):
         with st.popover("✦ EU SEE Copilot", use_container_width=False):
             snapshot = _eusee_ai_fast_summary_snapshot(df)
-            has_chart = st.session_state.get("ai_active_chart_config") is not None
+            api_url, _api_key = _get_langflow_config()
+            connection_label = "Langflow connected" if api_url else "Langflow not configured"
 
             st.markdown("<div class='ai-fast-shell'>", unsafe_allow_html=True)
-            st.markdown("""
+            st.markdown(f"""
             <div class='ai-fast-header'>
                 <div class='ai-fast-icon'>AI</div>
                 <div>
                     <div class='ai-fast-title'>EU SEE Copilot</div>
-                    <div class='ai-fast-subtitle'>Dashboard-only conversational analytics assistant</div>
+                    <div class='ai-fast-subtitle'>Langflow-powered dashboard assistant · {connection_label}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -15341,88 +15503,45 @@ def render_ai_assistant_panel(df):
             </div>
             """, unsafe_allow_html=True)
 
-            # 1) Conversation appears above the Ask box, like ChatGPT.
             st.markdown("<div class='ai-fast-chat'><div class='ai-fast-section-title'>Conversation</div>", unsafe_allow_html=True)
             messages = st.session_state.get("ai_messages", [])[-10:]
             if not messages:
-                st.markdown("<div class='ai-fast-empty'>No conversation yet. Ask for a summary, chart, comparison, trend, or explanation.</div>", unsafe_allow_html=True)
+                st.markdown("<div class='ai-fast-empty'>No conversation yet. Ask for a summary, comparison, trend, or explanation from the current dashboard context.</div>", unsafe_allow_html=True)
             else:
                 for msg in messages:
-                    role = msg.get("role", "assistant")
-                    content = str(msg.get("content", ""))[:2800]
-                    with st.chat_message(role):
-                        st.markdown(content)
+                    with st.chat_message(msg.get("role", "assistant")):
+                        st.markdown(str(msg.get("content", ""))[:4000])
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # 2) Smart output also appears above the Ask box.
             out = st.session_state.get("ai_smart_output", {}) or {}
-            out_type = str(out.get("type", "output")).replace("_", " ").title()
-            out_title = str(out.get("title", "Smart output"))[:90]
+            out_type = str(out.get("type", "Langflow")).replace("_", " ").title()
+            out_title = str(out.get("title", "Langflow response"))[:90]
             st.markdown(f"<div class='ai-fast-card'><div class='ai-fast-output-head'><div class='ai-fast-output-title'>{out_title}</div><span class='ai-fast-badge'>{out_type}</span></div>", unsafe_allow_html=True)
+            st.markdown(str(out.get("content", "Ask a dashboard question to see the Langflow response here."))[:5000])
+            st.markdown("<div class='ai-fast-scope'>Dashboard-only mode: Streamlit sends compact filtered-data context to Langflow. Full raw data is not sent.</div></div>", unsafe_allow_html=True)
 
-            if out.get("type") == "plot_v2" and st.session_state.get("ai_active_chart_fig") is not None:
-                if can_render_feature("view_chart_ai_copilot_plots"):
-                    render_dashboard_plotly_chart(
-                        st.session_state.ai_active_chart_fig,
-                        plot_df=st.session_state.get("ai_active_plot_data") if isinstance(st.session_state.get("ai_active_plot_data"), pd.DataFrame) else None,
-                        visual_type="AI Copilot generated plot",
-                        x_col=(st.session_state.get("ai_active_chart_config") or {}).get("x_col"),
-                        group_col=(st.session_state.get("ai_active_chart_config") or {}).get("color_col"),
-                        dashboard_df=df,
-                        key="ai_fast_stateful_smart_plot",
-                        permission_key="view_chart_ai_copilot_plots",
-                        permission_label="AI Copilot generated plot",
-                    )
-                    interp = str(out.get("interpretation") or out.get("content", ""))[:3000]
-                    if interp:
-                        st.markdown(interp)
-                    plot_data = st.session_state.get("ai_active_plot_data")
-                    if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
-                        with st.expander("Chart data and export", expanded=False):
-                            st.dataframe(plot_data.head(250), use_container_width=True, hide_index=True, height=220, key="ai_fast_plot_data")
-                            st.download_button(
-                                "Download chart data (.csv)",
-                                data=plot_data.to_csv(index=False).encode("utf-8"),
-                                file_name="eusee_ai_copilot_chart_data.csv",
-                                mime="text/csv",
-                                use_container_width=True,
-                                key="ai_fast_download_chart_data",
-                            )
-                else:
-                    render_permission_locked_card(
-                        "AI Copilot generated plot",
-                        "view_chart_ai_copilot_plots",
-                        feature_icon="📊",
-                        feature_description="Generated AI Copilot plots are restricted by the active dashboard permission settings.",
-                    )
-            else:
-                st.markdown(str(out.get("content", "Ask a dashboard question or create a chart to see results here."))[:3000])
-
-            st.markdown("<div class='ai-fast-scope'>Dashboard-only mode: answers and charts use only the currently filtered dashboard dataframe plus filters requested inside this chat.</div></div>", unsafe_allow_html=True)
-
-            # 3) Quick actions and Ask box are now at the bottom of the panel.
-            st.markdown("<div class='ai-input-dock'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-input-note'>Continue the conversation below. The assistant only processes after you click Ask.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='ai-input-dock'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-input-note'>The Langflow API is called only after you click Ask.</div>", unsafe_allow_html=True)
 
             q1, q2 = st.columns(2)
             with q1:
                 if st.button("Executive summary", key="ai_fast_prefill_summary", use_container_width=True):
                     st.session_state.ai_prompt_draft = "Give a concise executive summary of the current filtered dashboard view"
             with q2:
-                if st.button("Top chart", key="ai_fast_prefill_chart", use_container_width=True):
-                    st.session_state.ai_prompt_draft = "Create a bar chart of top 10 countries by alert count"
+                if st.button("Top countries", key="ai_fast_prefill_chart", use_container_width=True):
+                    st.session_state.ai_prompt_draft = "What are the top 10 countries by alert count in the current filtered dashboard view?"
             q3, q4 = st.columns(2)
             with q3:
                 if st.button("Compare regions", key="ai_fast_prefill_compare", use_container_width=True):
                     st.session_state.ai_prompt_draft = "Compare the current filtered dashboard view by region"
             with q4:
-                if st.button("Explain chart", key="ai_fast_prefill_explain", use_container_width=True):
-                    st.session_state.ai_prompt_draft = "Explain this chart" if has_chart else "Explain the main patterns in the current filtered dashboard view"
+                if st.button("Explain patterns", key="ai_fast_prefill_explain", use_container_width=True):
+                    st.session_state.ai_prompt_draft = "Explain the main patterns in the current filtered dashboard view"
 
-            with st.form("eusee_ai_fast_chat_form", clear_on_submit=False):
+            with st.form("eusee_langflow_chat_form", clear_on_submit=False):
                 prompt = st.text_area(
                     "Question",
                     value=st.session_state.get("ai_prompt_draft", ""),
-                    placeholder="Example: Create a heatmap of restrictive actors by mechanisms, then ask a follow-up question.",
+                    placeholder="Example: Summarize negative alerts by country and region under the current filters.",
                     key="ai_fast_prompt_textarea",
                     label_visibility="collapsed",
                 )
@@ -15430,18 +15549,29 @@ def render_ai_assistant_panel(df):
             st.markdown("</div>", unsafe_allow_html=True)
 
             if submitted and str(prompt or "").strip():
+                user_question = str(prompt).strip()
                 st.session_state.ai_prompt_draft = ""
-                _eusee_handle_submitted_prompt(prompt, df)
+                _append_langflow_message("user", user_question)
+                with st.spinner("Querying Langflow assistant..."):
+                    dashboard_context = _build_langflow_dashboard_context(df)
+                    answer = ask_langflow(user_question, dashboard_context)
+                _append_langflow_message("assistant", answer)
+                st.session_state.ai_smart_output = {
+                    "type": "Langflow",
+                    "title": "Latest response",
+                    "content": answer,
+                }
                 st.rerun()
 
             with st.expander("Settings and exports", expanded=False):
-                st.toggle("Conversation memory", key="ai_memory_enabled")
-                st.toggle("Fast mode", key="ai_fast_mode")
+                api_url, api_key = _get_langflow_config()
+                st.caption("Langflow URL configured." if api_url else "Missing LANGFLOW_API_URL in Streamlit secrets.")
+                st.caption("Langflow API key configured." if api_key else "No Langflow API key configured. This is fine only if your Langflow endpoint is public or internally protected.")
                 chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])[-20:]])
                 st.download_button(
                     "Download recent chat transcript",
                     data=chat_text,
-                    file_name="eusee_ai_chat_transcript.txt",
+                    file_name="eusee_langflow_chat_transcript.txt",
                     mime="text/plain",
                     use_container_width=True,
                     key="ai_fast_export_chat",
