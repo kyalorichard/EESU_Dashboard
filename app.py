@@ -13446,23 +13446,461 @@ def _pb_config_json(config):
         return "{}"
 
 
-def render_ai_assistant_panel(df):
-    """Final lightweight AI Copilot: simple ChatGPT-style assistant with compact tools.
 
-    Performance fix:
-    - The Copilot hide/open control is client-side only.
-    - Clicking Hide/Open no longer triggers st.rerun(), so the dashboard does not
-      rebuild charts, maps, tables, permissions, and AI state just to hide the panel.
-    - Python/OpenAI work still only runs when the user submits a prompt or uses a tool.
-    """
-    _v4_init_chat_memory_state()
+# ---------------- CHATGPT-LIKE STATEFUL AI COPILOT ----------------
+def _eusee_ai_init_stateful_chat():
+    """Initialize durable multi-turn state for the dashboard AI Copilot."""
+    st.session_state.setdefault("ai_messages", [
+        {
+            "role": "assistant",
+            "content": (
+                "Hello. Ask me a dashboard question, request a chart, then continue with follow-up instructions such as "
+                "'filter to negative alerts', 'make it a heatmap', 'compare by region', or 'explain this chart'."
+            ),
+        }
+    ])
     st.session_state.setdefault("ai_smart_output", {
         "type": "welcome",
         "title": "Smart output",
-        "content": "Ask a dashboard question, request a chart, or use the quick actions below."
+        "content": "Ask a question, request a chart, or refine the current chart with a follow-up question.",
     })
-    st.session_state.setdefault("ai_last_plot", None)
-    st.session_state.setdefault("ai_last_streamed_answer", "")
+    st.session_state.setdefault("ai_active_chart_config", None)
+    st.session_state.setdefault("ai_active_chart_fig", None)
+    st.session_state.setdefault("ai_active_chart_df", pd.DataFrame())
+    st.session_state.setdefault("ai_active_plot_data", pd.DataFrame())
+    st.session_state.setdefault("ai_active_chart_title", "")
+    st.session_state.setdefault("ai_last_user_prompt", "")
+    st.session_state.setdefault("ai_memory_enabled", True)
+    st.session_state.setdefault("ai_fast_mode", True)
+    st.session_state.setdefault("ai_usage_events", [])
+
+
+def _eusee_track_ai_event(event_type, label):
+    try:
+        st.session_state.ai_usage_events.append({
+            "time": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "event": str(event_type),
+            "label": str(label)[:160],
+        })
+        st.session_state.ai_usage_events = st.session_state.ai_usage_events[-250:]
+    except Exception:
+        pass
+
+
+def _eusee_trim_chat_memory(max_pairs=10):
+    """Keep the chat useful without making Streamlit reruns heavy."""
+    try:
+        if not st.session_state.get("ai_memory_enabled", True):
+            st.session_state.ai_messages = st.session_state.ai_messages[-2:]
+            return
+        system_first = []
+        msgs = st.session_state.get("ai_messages", [])
+        if msgs and msgs[0].get("role") == "assistant":
+            system_first = [msgs[0]]
+            msgs = msgs[1:]
+        st.session_state.ai_messages = system_first + msgs[-(max_pairs * 2):]
+    except Exception:
+        pass
+
+
+def _eusee_norm_text(value):
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def _eusee_find_column(df, candidates):
+    """Find a dashboard column by tolerant exact/name-fragment matching."""
+    if df is None or df.empty:
+        return None
+    cols = list(df.columns)
+    lookup = {_eusee_norm_text(c): c for c in cols}
+    for candidate in candidates:
+        key = _eusee_norm_text(candidate)
+        if key in lookup:
+            return lookup[key]
+    for candidate in candidates:
+        key = _eusee_norm_text(candidate)
+        for col in cols:
+            if key and key in _eusee_norm_text(col):
+                return col
+    return None
+
+
+def _eusee_field_catalog(df):
+    return {
+        "country": _eusee_find_column(df, ["alert-country", "country", "alert country"]),
+        "region": _eusee_find_column(df, ["region", "continent"]),
+        "impact": _eusee_find_column(df, ["alert-impact", "impact of alert", "alert impact"]),
+        "alert_type": _eusee_find_column(df, ["alert-type", "alert type"]),
+        "actor": _eusee_find_column(df, ["Actor of repression", "restrictive actor", "actor"]),
+        "mechanism": _eusee_find_column(df, ["restrictive mechanism", "mechanism"]),
+        "affected": _eusee_find_column(df, ["affected actor", "affected civil society", "civil society actor", "subject"]),
+        "principle": _eusee_find_column(df, ["enabling principle", "principle"]),
+        "year": _eusee_find_column(df, ["year"]),
+        "date": _eusee_find_column(df, ["creation_date", "Date of submission", "date"]),
+    }
+
+
+def _eusee_column_for_phrase(prompt, df, default=None):
+    """Map common natural-language phrases to dashboard columns."""
+    p = _eusee_norm_text(prompt)
+    fields = _eusee_field_catalog(df)
+    rules = [
+        (["country", "countries", "geography", "geographic"], fields.get("country")),
+        (["region", "regional"], fields.get("region")),
+        (["year", "annual", "time", "trend", "over time"], fields.get("year") or fields.get("date")),
+        (["impact", "negative", "positive", "context to watch"], fields.get("impact")),
+        (["alert type", "type of alert"], fields.get("alert_type")),
+        (["actor", "actors", "repression"], fields.get("actor")),
+        (["mechanism", "mechanisms", "restriction", "restrictions"], fields.get("mechanism")),
+        (["affected", "civil society", "subject", "group"], fields.get("affected")),
+        (["principle", "enabling"], fields.get("principle")),
+    ]
+    for keys, col in rules:
+        if col and any(k in p for k in keys):
+            return col
+    return default
+
+
+def _eusee_detect_chart_type(prompt, fallback="Vertical bar"):
+    p = _eusee_norm_text(prompt)
+    if "heatmap" in p or "matrix" in p:
+        return "Heatmap"
+    if "horizontal" in p:
+        return "Horizontal bar"
+    if "grouped" in p:
+        return "Grouped bar"
+    if "stacked" in p:
+        return "Stacked bar"
+    if "line" in p or "trend" in p or "over time" in p:
+        return "Line"
+    if "area" in p:
+        return "Area"
+    if "scatter" in p:
+        return "Scatter"
+    if "bubble" in p:
+        return "Bubble"
+    if "donut" in p or "doughnut" in p:
+        return "Donut"
+    if "pie" in p:
+        return "Pie"
+    if "tree" in p or "treemap" in p:
+        return "Treemap"
+    if "sunburst" in p:
+        return "Sunburst"
+    if "histogram" in p:
+        return "Histogram"
+    if "box" in p:
+        return "Box"
+    if "violin" in p:
+        return "Violin"
+    if "bar" in p or "chart" in p or "graph" in p or "plot" in p:
+        return "Vertical bar"
+    return fallback
+
+
+def _eusee_extract_top_n(prompt, default=10):
+    p = _eusee_norm_text(prompt)
+    m = re.search(r"top\s+(\d+)", p)
+    if m:
+        return max(1, min(int(m.group(1)), 50))
+    m = re.search(r"first\s+(\d+)", p)
+    if m:
+        return max(1, min(int(m.group(1)), 50))
+    return int(default or 10)
+
+
+def _eusee_detect_filters(prompt, df, existing=None):
+    """Extract simple conversational filters from a user prompt."""
+    filters = dict(existing or {})
+    p = _eusee_norm_text(prompt)
+    fields = _eusee_field_catalog(df)
+
+    impact_col = fields.get("impact")
+    if impact_col:
+        if "negative" in p:
+            filters[impact_col] = ["Negative"]
+        elif "positive" in p:
+            filters[impact_col] = ["Positive"]
+        elif "context to watch" in p or "watch" in p:
+            filters[impact_col] = ["Context to watch"]
+
+    year_col = fields.get("year")
+    if year_col:
+        years = sorted(set(int(y) for y in re.findall(r"\b(20\d{2}|19\d{2})\b", p)))
+        if years:
+            filters[year_col] = years
+
+    region_col = fields.get("region")
+    if region_col and region_col in df.columns:
+        matches = []
+        for val in df[region_col].dropna().astype(str).unique().tolist():
+            if _eusee_norm_text(val) and _eusee_norm_text(val) in p:
+                matches.append(val)
+        if matches:
+            filters[region_col] = matches
+
+    country_col = fields.get("country")
+    if country_col and country_col in df.columns:
+        matches = []
+        # Limit scan cost but keep enough recall for typical country names.
+        for val in df[country_col].dropna().astype(str).unique().tolist()[:350]:
+            if _eusee_norm_text(val) and _eusee_norm_text(val) in p:
+                matches.append(val)
+        if matches:
+            filters[country_col] = matches
+
+    # Reset filters conversationally.
+    if any(x in p for x in ["remove filters", "clear filters", "reset filters", "all data"]):
+        filters = {}
+    return filters
+
+
+def _eusee_apply_conversation_filters(df, filters):
+    if df is None or df.empty or not filters:
+        return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+    work = df.copy()
+    for col, values in (filters or {}).items():
+        if col not in work.columns or values is None:
+            continue
+        values = values if isinstance(values, list) else [values]
+        norm_values = {_eusee_norm_text(v) for v in values}
+        work = work[work[col].astype(str).map(_eusee_norm_text).isin(norm_values)]
+    return work
+
+
+def _eusee_classify_request(prompt, has_active_chart=False):
+    p = _eusee_norm_text(prompt)
+    chart_words = ["chart", "graph", "plot", "visual", "visualize", "visualise", "bar", "line", "heatmap", "donut", "pie", "sankey", "treemap", "sunburst", "scatter", "bubble"]
+    update_words = ["now", "also", "add", "remove", "filter", "only", "change", "update", "modify", "make it", "convert", "switch", "compare", "sort", "top", "show values", "hide values"]
+    analysis_words = ["explain", "interpret", "why", "insight", "summary", "summarize", "analyse", "analyze", "pattern", "trend", "what does", "tell me"]
+
+    if has_active_chart and any(w in p for w in update_words):
+        return "chart_update"
+    if any(w in p for w in chart_words):
+        return "chart_create"
+    if has_active_chart and any(w in p for w in analysis_words + ["this", "current"]):
+        return "chart_analysis"
+    if any(w in p for w in analysis_words):
+        return "analysis"
+    return "general"
+
+
+def _eusee_build_chart_config_from_prompt(prompt, df, previous_config=None):
+    fields = _eusee_field_catalog(df)
+    previous_config = previous_config or {}
+    p = _eusee_norm_text(prompt)
+
+    chart_type = _eusee_detect_chart_type(prompt, previous_config.get("chart_type", "Vertical bar"))
+    x_col = previous_config.get("x_col") or fields.get("country") or fields.get("region") or (df.columns[0] if df is not None and not df.empty else None)
+    color_col = previous_config.get("color_col")
+    facet_col = previous_config.get("facet_col")
+
+    # Heatmaps need two dimensions. Choose sensible defaults from language.
+    if chart_type == "Heatmap":
+        if fields.get("actor") and fields.get("mechanism") and ("actor" in p or "mechanism" in p):
+            x_col = fields.get("actor")
+            color_col = fields.get("mechanism")
+        elif fields.get("country") and fields.get("impact"):
+            x_col = _eusee_column_for_phrase(prompt, df, fields.get("country"))
+            color_col = fields.get("impact") if x_col != fields.get("impact") else fields.get("region")
+        elif not color_col:
+            color_col = fields.get("impact") or fields.get("region")
+    else:
+        x_col = _eusee_column_for_phrase(prompt, df, default=x_col)
+        if any(x in p for x in ["compare by", "group by", "split by", "colour by", "color by", "add"]):
+            possible_color = _eusee_column_for_phrase(prompt, df, default=None)
+            if possible_color and possible_color != x_col:
+                color_col = possible_color
+        if "by impact" in p and fields.get("impact") != x_col:
+            color_col = fields.get("impact")
+        if "by region" in p and fields.get("region") != x_col:
+            color_col = fields.get("region")
+        if "by year" in p and fields.get("year") != x_col:
+            color_col = fields.get("year")
+
+    if "without group" in p or "remove group" in p or "no color" in p or "no colour" in p:
+        color_col = None
+
+    top_n = _eusee_extract_top_n(prompt, previous_config.get("top_n", 10))
+    show_values = previous_config.get("show_values", True)
+    if "hide values" in p or "remove labels" in p:
+        show_values = False
+    if "show values" in p or "add labels" in p or "show labels" in p:
+        show_values = True
+
+    filters = _eusee_detect_filters(prompt, df, previous_config.get("filters", {}))
+    title_bits = [chart_type]
+    if x_col:
+        title_bits.append(f"by {x_col}")
+    if color_col:
+        title_bits.append(f"grouped by {color_col}")
+    if filters:
+        title_bits.append("with conversational filters")
+
+    return {
+        "chart_type": chart_type,
+        "x_col": x_col,
+        "y_col": previous_config.get("y_col"),
+        "color_col": color_col,
+        "facet_col": facet_col,
+        "aggregation": previous_config.get("aggregation", "Count"),
+        "top_n": top_n,
+        "date_grain": previous_config.get("date_grain", "Year"),
+        "title": " ".join(title_bits),
+        "palette": previous_config.get("palette", "EU SEE brand — Purple / Teal / Gold"),
+        "primary_color": previous_config.get("primary_color", "#660094"),
+        "font_size": previous_config.get("font_size", 12),
+        "height": previous_config.get("height", 460),
+        "show_values": show_values,
+        "filters": filters,
+    }
+
+
+def _eusee_render_chart_from_config(df, config):
+    filtered_df = _eusee_apply_conversation_filters(df, config.get("filters", {}))
+    if filtered_df is None or filtered_df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text="No records match the requested conversational filters.", x=0.5, y=0.5, showarrow=False)
+        return fig, pd.DataFrame(), filtered_df
+
+    fig, plot_data, export_config = _pb_make_executive_plot(
+        df=filtered_df,
+        chart_type=config.get("chart_type", "Vertical bar"),
+        x_col=config.get("x_col"),
+        y_col=config.get("y_col"),
+        color_col=config.get("color_col"),
+        facet_col=config.get("facet_col"),
+        agg=config.get("aggregation", "Count"),
+        top_n=config.get("top_n", 10),
+        title=config.get("title") or "AI Copilot chart",
+        palette_name=config.get("palette", "EU SEE brand — Purple / Teal / Gold"),
+        primary_color=config.get("primary_color", "#660094"),
+        font_size=config.get("font_size", 12),
+        height=config.get("height", 460),
+        show_values=bool(config.get("show_values", True)),
+        date_grain=config.get("date_grain", "Year"),
+    )
+    export_config.update(config)
+    return fig, plot_data, filtered_df
+
+
+def _eusee_local_chart_interpretation(plot_data, config, dashboard_df):
+    """Deterministic chart-aware explanation for follow-up questions."""
+    if plot_data is None or not isinstance(plot_data, pd.DataFrame) or plot_data.empty:
+        return "I do not have chart data to interpret yet. Generate a chart first, then ask a follow-up question."
+
+    value_col = "value" if "value" in plot_data.columns else None
+    x_col = "__plot_period" if "__plot_period" in plot_data.columns else config.get("x_col")
+    if not value_col or not x_col or x_col not in plot_data.columns:
+        return "The current chart is available, but its plotted fields could not be summarized automatically."
+
+    ranked = plot_data.groupby(x_col, dropna=False)[value_col].sum().sort_values(ascending=False)
+    total = float(ranked.sum()) if len(ranked) else 0.0
+    top_lines = []
+    for label, value in ranked.head(5).items():
+        share = (float(value) / total * 100) if total else 0
+        top_lines.append(f"- **{label}**: {int(value):,} records ({share:.1f}%)")
+
+    filter_text = "No extra conversational filters are active."
+    if config.get("filters"):
+        filter_text = "; ".join([f"{k}: {', '.join(map(str, v if isinstance(v, list) else [v]))}" for k, v in config.get("filters", {}).items()])
+
+    records = len(dashboard_df) if isinstance(dashboard_df, pd.DataFrame) else 0
+    title = config.get("title", "Current AI Copilot chart")
+    chart_type = config.get("chart_type", "chart")
+    group_col = config.get("color_col") or "None"
+
+    return f"""### Chart explanation
+
+**Current chart:** {title}  
+**Chart type:** {chart_type}  
+**Data scope:** {records:,} records after dashboard and conversational filters.  
+**Grouping:** {group_col}  
+**Conversational filters:** {filter_text}
+
+**Main pattern**
+{chr(10).join(top_lines)}
+
+**Interpretation**
+The strongest signal is **{ranked.index[0]}**, which accounts for approximately **{(float(ranked.iloc[0]) / total * 100 if total else 0):.1f}%** of the plotted total. Use this as the first category for deeper review, then compare it against region, country, year, actor, mechanism, affected group, and enabling principle.
+
+**Suggested follow-up**
+You can ask: *filter to negative alerts*, *compare by region*, *make it a heatmap*, *show top 20*, or *explain the top country*.
+"""
+
+
+def _eusee_append_message(role, content):
+    st.session_state.ai_messages.append({"role": role, "content": str(content or "")})
+    _eusee_trim_chat_memory(max_pairs=10)
+
+
+def _eusee_handle_submitted_prompt(prompt, df):
+    """Route a submitted prompt through Q&A, chart creation, chart update, or chart explanation."""
+    clean_prompt = str(prompt or "").strip()
+    if not clean_prompt:
+        return
+
+    _eusee_track_ai_event("submitted_prompt", clean_prompt)
+    _eusee_append_message("user", clean_prompt)
+    st.session_state.ai_last_user_prompt = clean_prompt
+
+    has_chart = st.session_state.get("ai_active_chart_config") is not None
+    intent = _eusee_classify_request(clean_prompt, has_active_chart=has_chart)
+
+    if intent in ["chart_create", "chart_update"]:
+        previous = st.session_state.get("ai_active_chart_config") if intent == "chart_update" else None
+        config = _eusee_build_chart_config_from_prompt(clean_prompt, df, previous_config=previous)
+        fig, plot_data, active_df = _eusee_render_chart_from_config(df, config)
+        st.session_state.ai_active_chart_config = config
+        st.session_state.ai_active_chart_fig = fig
+        st.session_state.ai_active_chart_df = active_df
+        st.session_state.ai_active_plot_data = plot_data
+        st.session_state.ai_active_chart_title = config.get("title", "AI Copilot chart")
+
+        action = "updated" if intent == "chart_update" else "created"
+        answer = (
+            f"Done — I {action} the active chart as **{config.get('chart_type')}**. "
+            f"Current setup: **x = {config.get('x_col')}**, **group = {config.get('color_col') or 'none'}**, "
+            f"**top N = {config.get('top_n')}**. You can continue with another instruction, for example: "
+            f"*filter to negative alerts*, *compare by region*, *make it a heatmap*, or *explain this chart*."
+        )
+        _eusee_append_message("assistant", answer)
+        st.session_state.ai_smart_output = {
+            "type": "plot_v2",
+            "title": config.get("title", "AI Copilot chart"),
+            "content": answer,
+            "fig": fig,
+            "plot_data": plot_data,
+            "config": config,
+            "interpretation": _eusee_local_chart_interpretation(plot_data, config, active_df),
+        }
+        return
+
+    if intent == "chart_analysis" and has_chart:
+        config = st.session_state.get("ai_active_chart_config") or {}
+        plot_data = st.session_state.get("ai_active_plot_data")
+        active_df = st.session_state.get("ai_active_chart_df")
+        answer = _eusee_local_chart_interpretation(plot_data, config, active_df)
+        _eusee_append_message("assistant", answer)
+        st.session_state.ai_smart_output = {
+            "type": "chart insight",
+            "title": config.get("title", "Current chart explanation"),
+            "content": answer,
+        }
+        return
+
+    # General Q&A runs only after the explicit submit action.
+    try:
+        answer = _ai_run_submitted_request(_v4_answer_with_agent, clean_prompt, df, "Executive analyst")
+    except Exception:
+        answer = local_ai_response(clean_prompt, df) if "local_ai_response" in globals() else "I could not process that request with the current assistant engine."
+    _eusee_append_message("assistant", answer)
+    st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
+
+
+def render_ai_assistant_panel(df):
+    """Stateful ChatGPT-like EU SEE Copilot with multi-turn Q&A and mutable charts."""
+    _eusee_ai_init_stateful_chat()
 
     components.html("""
     <script>
@@ -13470,68 +13908,31 @@ def render_ai_assistant_panel(df):
         const doc = window.parent.document;
         const styleId = "eusee-ai-client-toggle-style";
         const btnId = "eusee-ai-open-btn";
-
         if (!doc.getElementById(styleId)) {
             const style = doc.createElement("style");
             style.id = styleId;
             style.innerHTML = `
-                body.eusee-ai-hidden .st-key-eusee_ai_right_sidebar {
-                    display: none !important;
-                    visibility: hidden !important;
-                    pointer-events: none !important;
-                }
-                #eusee-ai-open-btn {
-                    position: fixed !important;
-                    right: 18px !important;
-                    bottom: 92px !important;
-                    z-index: 2147482500 !important;
-                    display: none !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    gap: 8px !important;
-                    min-height: 40px !important;
-                    padding: 10px 15px !important;
-                    border: 0 !important;
-                    border-radius: 999px !important;
-                    background: #660094 !important;
-                    color: #FFFFFF !important;
-                    font-family: Inter, Segoe UI, Arial, sans-serif !important;
-                    font-size: 12px !important;
-                    font-weight: 900 !important;
-                    cursor: pointer !important;
-                    box-shadow: 0 14px 34px rgba(16,24,40,.22) !important;
-                }
-                body.eusee-ai-hidden #eusee-ai-open-btn {
-                    display: inline-flex !important;
-                }
-                #eusee-ai-open-btn:hover {
-                    transform: translateY(-1px) !important;
-                    box-shadow: 0 18px 40px rgba(16,24,40,.26) !important;
-                }
+                body.eusee-ai-hidden .st-key-eusee_ai_right_sidebar {display:none!important;visibility:hidden!important;pointer-events:none!important;}
+                #eusee-ai-open-btn {position:fixed!important;right:18px!important;bottom:92px!important;z-index:2147482500!important;display:none!important;align-items:center!important;justify-content:center!important;min-height:40px!important;padding:10px 15px!important;border:0!important;border-radius:999px!important;background:#660094!important;color:#fff!important;font-family:Inter,Segoe UI,Arial,sans-serif!important;font-size:12px!important;font-weight:900!important;cursor:pointer!important;box-shadow:0 14px 34px rgba(16,24,40,.22)!important;}
+                body.eusee-ai-hidden #eusee-ai-open-btn {display:inline-flex!important;}
             `;
             doc.head.appendChild(style);
         }
-
         let openBtn = doc.getElementById(btnId);
         if (!openBtn) {
             openBtn = doc.createElement("button");
             openBtn.id = btnId;
             openBtn.type = "button";
             openBtn.innerHTML = "AI Copilot";
-            openBtn.onclick = function(event) {
-                event.preventDefault();
-                doc.body.classList.remove("eusee-ai-hidden");
-            };
+            openBtn.onclick = function(event) {event.preventDefault(); doc.body.classList.remove("eusee-ai-hidden");};
             doc.body.appendChild(openBtn);
         }
-
         if (!window.__euseeAiClientToggleBound) {
             window.__euseeAiClientToggleBound = true;
             doc.addEventListener("click", function(event) {
                 const target = event.target;
                 if (target && target.closest && target.closest("[data-eusee-ai-hide='true']")) {
-                    event.preventDefault();
-                    doc.body.classList.add("eusee-ai-hidden");
+                    event.preventDefault(); doc.body.classList.add("eusee-ai-hidden");
                 }
             }, true);
         }
@@ -13541,149 +13942,36 @@ def render_ai_assistant_panel(df):
 
     st.markdown("""
     <style>
-    /* ---------------- FINAL LIGHT AI COPILOT UX ---------------- */
-    .st-key-eusee_ai_right_sidebar {
-        position: fixed !important;
-        top: 72px !important;
-        right: 16px !important;
-        width: 430px !important;
-        max-width: calc(100vw - 28px) !important;
-        max-height: calc(100vh - 92px) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        z-index: 999999 !important;
-        background: #FFFFFF !important;
-        border: 1px solid #E6E8EF !important;
-        border-radius: 20px !important;
-        box-shadow: 0 18px 45px rgba(16,24,40,.16) !important;
-        padding: 12px !important;
-        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
-    }
-    .st-key-eusee_ai_right_sidebar_collapsed {
-        position: fixed !important;
-        top: 46% !important;
-        right: 0 !important;
-        width: 72px !important;
-        z-index: 999999 !important;
-        background: #660094 !important;
-        color: #FFFFFF !important;
-        border-radius: 15px 0 0 15px !important;
-        box-shadow: 0 14px 35px rgba(45,0,85,.25) !important;
-        padding: 9px 7px !important;
-    }
-    .ai-lite-header {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:10px;
-        padding: 10px 11px;
-        margin-bottom: 9px;
-        border-radius: 17px;
-        background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
-        border: 1px solid #EEF0F4;
-    }
+    .st-key-eusee_ai_right_sidebar {position:fixed!important;top:72px!important;right:16px!important;width:450px!important;max-width:calc(100vw - 28px)!important;max-height:calc(100vh - 92px)!important;overflow-y:auto!important;overflow-x:hidden!important;z-index:999999!important;background:#FFFFFF!important;border:1px solid #E6E8EF!important;border-radius:20px!important;box-shadow:0 18px 45px rgba(16,24,40,.16)!important;padding:12px!important;font-family:var(--eusee-font,"Inter","Segoe UI",Arial,sans-serif)!important;}
+    .ai-lite-header {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;margin-bottom:9px;border-radius:17px;background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);border:1px solid #EEF0F4;}
     .ai-lite-brand {display:flex;align-items:center;gap:9px;min-width:0;}
-    .ai-lite-icon {
-        width:34px;height:34px;min-width:34px;border-radius:13px;
-        display:flex;align-items:center;justify-content:center;
-        background:#F4EAF8;color:#660094;font-size:16px;font-weight:900;
-        border:1px solid #E7D4F1;
-    }
+    .ai-lite-icon {width:34px;height:34px;min-width:34px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#F4EAF8;color:#660094;font-size:16px;font-weight:900;border:1px solid #E7D4F1;}
     .ai-lite-title {font-size:15px;font-weight:900;color:#23152F;line-height:1.12;letter-spacing:-.015em;}
     .ai-lite-sub {font-size:10.7px;color:#667085;line-height:1.25;margin-top:2px;font-weight:600;}
-    .ai-lite-status {
-        display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px 0;
-    }
-    .ai-lite-status span {
-        background:#F9FAFB;border:1px solid #EEF0F4;border-radius:999px;
-        padding:5px 8px;font-size:10px;color:#475467;font-weight:750;
-    }
-    .ai-lite-prompt-box {
-        background:#FFFFFF;border:1px solid #E6E8EF;border-radius:17px;
-        padding:10px;margin:8px 0;box-shadow:0 6px 16px rgba(16,24,40,.045);
-    }
+    .ai-lite-status {display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px 0;}
+    .ai-lite-status span {background:#F9FAFB;border:1px solid #EEF0F4;border-radius:999px;padding:5px 8px;font-size:10px;color:#475467;font-weight:750;}
+    .ai-lite-prompt-box {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:17px;padding:10px;margin:8px 0;box-shadow:0 6px 16px rgba(16,24,40,.045);}
     .ai-lite-section-title {font-size:11.5px;color:#23152F;font-weight:900;margin:8px 0 5px 0;}
     .ai-lite-hint {font-size:10.7px;color:#667085;line-height:1.35;margin:4px 0 8px 0;}
     .ai-lite-chip-row {display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px 0;}
-    .ai-lite-chip {
-        display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;
-        background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;
-        font-size:10px;font-weight:850;line-height:1.1;
-    }
-    .ai-lite-output {
-        background:#FBFCFE;border:1px solid #EEF0F4;border-radius:16px;
-        padding:11px 12px;margin:9px 0;color:#344054;font-size:12px;line-height:1.5;
-    }
-    .ai-lite-output-title {
-        display:flex;align-items:center;justify-content:space-between;gap:8px;
-        font-size:12.5px;color:#23152F;font-weight:900;margin-bottom:7px;
-    }
-    .ai-lite-badge {
-        display:inline-flex;border-radius:999px;background:#F4EAF8;color:#660094;
-        border:1px solid #E7D4F1;padding:4px 7px;font-size:9px;font-weight:900;text-transform:uppercase;
-        white-space:nowrap;
-    }
-    .ai-lite-footer-note {
-        background:#FFFCED;border:1px solid #F8E9A1;border-radius:13px;
-        padding:8px 9px;color:#55420A;font-size:10.5px;line-height:1.35;font-weight:650;margin-top:8px;
-    }
-    .st-key-eusee_ai_right_sidebar textarea {
-        min-height: 74px !important;
-        font-size: 12px !important;
-        border-radius: 14px !important;
-    }
-    .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button,
-    .st-key-eusee_ai_right_sidebar div[data-testid="stFormSubmitButton"] button,
-    .st-key-eusee_ai_right_sidebar_collapsed div[data-testid="stButton"] button {
-        border-radius: 12px !important;
-        font-size: 11.5px !important;
-        font-weight: 850 !important;
-        min-height: 36px !important;
-    }
-    .ai-lite-hide-button {
-        width: 100%;
-        min-height: 36px;
-        border-radius: 12px;
-        border: 1px solid #E6E8EF;
-        background: #FFFFFF;
-        color: #344054;
-        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
-        font-size: 11.5px;
-        font-weight: 850;
-        cursor: pointer;
-        box-shadow: 0 1px 2px rgba(16,24,40,.05);
-    }
-    .ai-lite-hide-button:hover {
-        background: #F4EAF8;
-        color: #660094;
-        border-color: #E7D4F1;
-    }
-    .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] {
-        border-radius: 15px !important;
-        box-shadow: none !important;
-        border: 1px solid #E6E8EF !important;
-        margin-top: 8px !important;
-    }
-    .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] summary,
-    .st-key-eusee_ai_right_sidebar div[data-testid="stExpander"] summary p {
-        font-size: 12px !important;
-        font-weight: 900 !important;
-        color: #23152F !important;
-    }
-    @media (max-width: 760px) {
-        .st-key-eusee_ai_right_sidebar {
-            left: 8px !important; right: 8px !important; width: auto !important;
-            top: 62px !important; max-height: calc(100vh - 76px) !important;
-            border-radius: 18px !important;
-        }
-    }
+    .ai-lite-chip {display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;background:#F4EAF8;border:1px solid #E7D4F1;color:#660094;font-size:10px;font-weight:850;line-height:1.1;}
+    .ai-lite-output {background:#FBFCFE;border:1px solid #EEF0F4;border-radius:16px;padding:11px 12px;margin:9px 0;color:#344054;font-size:12px;line-height:1.5;}
+    .ai-lite-output-title {display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:#23152F;font-weight:900;margin-bottom:7px;}
+    .ai-lite-badge {display:inline-flex;border-radius:999px;background:#F4EAF8;color:#660094;border:1px solid #E7D4F1;padding:4px 7px;font-size:9px;font-weight:900;text-transform:uppercase;white-space:nowrap;}
+    .ai-lite-footer-note {background:#FFFCED;border:1px solid #F8E9A1;border-radius:13px;padding:8px 9px;color:#55420A;font-size:10.5px;line-height:1.35;font-weight:650;margin-top:8px;}
+    .ai-lite-hide-button {width:100%;min-height:36px;border-radius:12px;border:1px solid #E6E8EF;background:#FFFFFF;color:#344054;font-family:var(--eusee-font,"Inter","Segoe UI",Arial,sans-serif);font-size:11.5px;font-weight:850;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05);}
+    .ai-lite-hide-button:hover {background:#F4EAF8;color:#660094;border-color:#E7D4F1;}
+    .st-key-eusee_ai_right_sidebar textarea {min-height:76px!important;font-size:12px!important;border-radius:14px!important;}
+    .st-key-eusee_ai_right_sidebar div[data-testid="stButton"] button,.st-key-eusee_ai_right_sidebar div[data-testid="stFormSubmitButton"] button {border-radius:12px!important;font-size:11.5px!important;font-weight:850!important;min-height:36px!important;}
+    @media (max-width:760px){.st-key-eusee_ai_right_sidebar{left:8px!important;right:8px!important;width:auto!important;top:62px!important;max-height:calc(100vh - 76px)!important;border-radius:18px!important;}}
     </style>
     """, unsafe_allow_html=True)
 
-    status = _ai_openai_status()
+    status = _ai_openai_status() if "_ai_openai_status" in globals() else {"configured": False, "package_ready": False}
     mode = "OpenAI" if status.get("configured") and status.get("package_ready") else "Local"
-    records = len(df) if df is not None else 0
-    countries = df["alert-country"].nunique() if df is not None and not df.empty and "alert-country" in df.columns else 0
+    records = len(df) if isinstance(df, pd.DataFrame) else 0
+    countries = df["alert-country"].nunique() if isinstance(df, pd.DataFrame) and not df.empty and "alert-country" in df.columns else 0
+    has_chart = st.session_state.get("ai_active_chart_config") is not None
 
     with st.container(key="eusee_ai_right_sidebar"):
         h1, h2 = st.columns([0.78, 0.22], vertical_alignment="center")
@@ -13694,48 +13982,34 @@ def render_ai_assistant_panel(df):
                 <div class="ai-lite-icon">AI</div>
                 <div>
                   <div class="ai-lite-title">EU SEE Copilot</div>
-                  <div class="ai-lite-sub">Simple dashboard assistant using the active filters.</div>
+                  <div class="ai-lite-sub">Stateful Q&A, chart updates, and dashboard explanations.</div>
                 </div>
               </div>
             </div>
             """, unsafe_allow_html=True)
         with h2:
-            st.markdown(
-                "<button type='button' class='ai-lite-hide-button' data-eusee-ai-hide='true'>Hide</button>",
-                unsafe_allow_html=True,
-            )
+            st.markdown("<button type='button' class='ai-lite-hide-button' data-eusee-ai-hide='true'>Hide</button>", unsafe_allow_html=True)
 
+        active_badge = "Active chart" if has_chart else "No active chart"
         st.markdown(
-            f"<div class='ai-lite-status'><span>{mode} mode</span><span>{records:,} records</span><span>{countries:,} countries</span></div>",
+            f"<div class='ai-lite-status'><span>{mode} mode</span><span>{records:,} records</span><span>{countries:,} countries</span><span>{active_badge}</span></div>",
             unsafe_allow_html=True,
         )
 
-        # Main ChatGPT-style interaction area.
         st.markdown("<div class='ai-lite-prompt-box'>", unsafe_allow_html=True)
         st.markdown("<div class='ai-lite-section-title'>Ask the dashboard</div>", unsafe_allow_html=True)
-        st.markdown("<div class='ai-lite-hint'>Ask a question, request a summary, or describe the chart you want. Keep it natural.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ai-lite-hint'>Use normal Q&A. After creating a chart, ask follow-ups like: filter to negative alerts, compare by region, make it a heatmap, show top 20, or explain this chart.</div>", unsafe_allow_html=True)
 
-        for msg in st.session_state.ai_messages[-(AI_CHAT_MEMORY_TURNS * 2):]:
+        for msg in st.session_state.ai_messages[-20:]:
             role = msg.get("role", "assistant")
-            content = str(msg.get("content", ""))[:AI_CHAT_MAX_RENDER_CHARS]
+            content = str(msg.get("content", ""))[:5000]
             with st.chat_message(role):
                 st.markdown(content)
-
-        if not st.session_state.ai_messages:
-            st.markdown(
-                "<div class='ai-lite-chip-row'>"
-                "<span class='ai-lite-chip'>Summarize current view</span>"
-                "<span class='ai-lite-chip'>Compare latest years</span>"
-                "<span class='ai-lite-chip'>Top countries</span>"
-                "<span class='ai-lite-chip'>Make a chart</span>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
 
         with st.form("ai_lite_chat_form", clear_on_submit=True):
             prompt = st.text_area(
                 "Message",
-                placeholder="Example: Summarize the current filtered view, or make a bar chart of negative alerts by country top 10.",
+                placeholder="Example: Make a bar chart of negative alerts by country top 10. Then ask: compare by region or explain this chart.",
                 height=76,
                 key="ai_lite_prompt",
                 label_visibility="collapsed",
@@ -13743,33 +14017,27 @@ def render_ai_assistant_panel(df):
             send = st.form_submit_button("Send message", use_container_width=True)
 
         if send and prompt.strip():
-            clean_prompt = prompt.strip()
-            _ai_append_message("user", clean_prompt)
-            if _v2_is_plot_request(clean_prompt):
-                _copilot_queue_answer(clean_prompt, df)
-            else:
-                answer = _ai_run_submitted_request(_v4_answer_with_agent, clean_prompt, df, "Executive analyst")
-                _ai_append_message("assistant", answer)
-                st.session_state.ai_smart_output = {"type": "answer", "title": "AI response", "content": answer}
+            _eusee_handle_submitted_prompt(prompt, df)
             st.rerun()
 
         q1, q2, q3 = st.columns(3)
         with q1:
             if st.button("Summary", key="ai_lite_summary", use_container_width=True):
-                _copilot_queue_answer("Give a concise executive summary of the current filtered dashboard view", df)
+                _eusee_handle_submitted_prompt("Give a concise executive summary of the current filtered dashboard view", df)
                 st.rerun()
         with q2:
-            if st.button("Compare", key="ai_lite_compare", use_container_width=True):
-                _copilot_queue_answer("Create a concise comparison table using the latest available years in the current filtered dashboard view", df)
+            if st.button("Chart", key="ai_lite_chart", use_container_width=True):
+                _eusee_handle_submitted_prompt("Create a bar chart of top 10 countries by alert count", df)
                 st.rerun()
         with q3:
-            if st.button("Clear", key="ai_lite_clear", use_container_width=True):
-                _ai_clear_user_chat_history()
-                st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Conversation cleared. Ask a new dashboard question."}
+            if st.button("Explain", key="ai_lite_explain", use_container_width=True):
+                if has_chart:
+                    _eusee_handle_submitted_prompt("Explain this chart", df)
+                else:
+                    _eusee_handle_submitted_prompt("Explain the main patterns in the current filtered dashboard view", df)
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Smart output appears directly below chat, not hidden in a separate tab.
         out = st.session_state.get("ai_smart_output", {}) or {}
         out_type = str(out.get("type", "output")).replace("_", " ").title()
         out_title = str(out.get("title", "Smart output"))
@@ -13777,37 +14045,42 @@ def render_ai_assistant_panel(df):
             f"<div class='ai-lite-output'><div class='ai-lite-output-title'><span>{out_title}</span><span class='ai-lite-badge'>{out_type}</span></div>",
             unsafe_allow_html=True,
         )
-        if out.get("type") == "plot_v2" and out.get("fig") is not None:
+
+        if out.get("type") == "plot_v2" and st.session_state.get("ai_active_chart_fig") is not None:
             if can_render_feature("view_chart_ai_copilot_plots"):
                 render_dashboard_plotly_chart(
-                    out["fig"],
-                    plot_df=out.get("plot_data") if isinstance(out.get("plot_data"), pd.DataFrame) else None,
+                    st.session_state.ai_active_chart_fig,
+                    plot_df=st.session_state.get("ai_active_plot_data") if isinstance(st.session_state.get("ai_active_plot_data"), pd.DataFrame) else None,
                     visual_type="AI Copilot generated plot",
+                    x_col=(st.session_state.get("ai_active_chart_config") or {}).get("x_col"),
+                    group_col=(st.session_state.get("ai_active_chart_config") or {}).get("color_col"),
                     dashboard_df=df,
-                    key="ai_lite_smart_plot",
+                    key="ai_lite_stateful_smart_plot",
                     permission_key="view_chart_ai_copilot_plots",
                     permission_label="AI Copilot generated plot",
                 )
                 interp = out.get("interpretation") or out.get("content", "")
                 if interp:
-                    st.markdown(_render_chat_content_html(str(interp)[:3500]), unsafe_allow_html=True)
-                plot_data = out.get("plot_data")
+                    st.markdown(str(interp)[:5000])
+                plot_data = st.session_state.get("ai_active_plot_data")
                 if isinstance(plot_data, pd.DataFrame) and not plot_data.empty:
                     with st.expander("Plot data and export", expanded=False):
-                        st.dataframe(plot_data, use_container_width=True, hide_index=True, height=220, key="ai_lite_plot_data")
-                        cfg = out.get("config", {}) or {}
-                        checks = _v3_plot_quality_checks(
-                            plot_data,
-                            chart_type=cfg.get("chart_type"),
-                            x_col=cfg.get("x_col"),
-                            group_col=cfg.get("group_col"),
+                        st.dataframe(plot_data, use_container_width=True, hide_index=True, height=220, key="ai_lite_stateful_plot_data")
+                        st.download_button(
+                            "Download chart data (.csv)",
+                            data=plot_data.to_csv(index=False).encode("utf-8"),
+                            file_name="eusee_ai_copilot_chart_data.csv",
+                            mime="text/csv",
+                            use_container_width=True,
+                            key="ai_lite_stateful_download_chart_data",
                         )
-                        _v3_render_plot_quality_panel(checks)
-                        _v3_export_plot_downloads(
-                            out["fig"],
-                            plot_data,
-                            caption_text=str(interp or out.get("content", "")),
-                            base_name="eusee_ai_copilot_plot",
+                        st.download_button(
+                            "Download chart config (.json)",
+                            data=_pb_config_json(st.session_state.get("ai_active_chart_config") or {}).encode("utf-8"),
+                            file_name="eusee_ai_copilot_chart_config.json",
+                            mime="application/json",
+                            use_container_width=True,
+                            key="ai_lite_stateful_download_chart_config",
                         )
             else:
                 render_permission_locked_card(
@@ -13817,194 +14090,59 @@ def render_ai_assistant_panel(df):
                     feature_description="Generated AI Copilot plots are restricted by the active dashboard permission settings.",
                 )
         else:
-            st.markdown(_render_chat_content_html(str(out.get("content", ""))[:5000]), unsafe_allow_html=True)
-        st.markdown("<div class='ai-lite-footer-note'>Answers use the current dashboard filters. Counts may reflect both event frequency and reporting coverage.</div></div>", unsafe_allow_html=True)
+            st.markdown(str(out.get("content", ""))[:5000])
 
-        # Light advanced tools: collapsed by default so the chatbot stays simple.
-        with st.expander("Advanced tools", expanded=False):
-            st.markdown("<div class='ai-lite-hint'>Use these only when you need structured chart generation, chart interpretation, or export utilities.</div>", unsafe_allow_html=True)
-            tool = st.radio(
-                "Tool",
-                options=["Quick plot", "Export / settings"],
-                horizontal=True,
-                key="ai_lite_tool_choice",
+        st.markdown("<div class='ai-lite-footer-note'>Answers and charts use the current dashboard filters plus any conversational filters requested inside the chat.</div></div>", unsafe_allow_html=True)
+
+        with st.expander("Conversation controls", expanded=False):
+            st.toggle(
+                "Conversation memory",
+                key="ai_memory_enabled",
+                value=st.session_state.get("ai_memory_enabled", True),
+                help="Keeps recent Q&A turns so follow-up questions are understood.",
             )
-
-            if tool == "Quick plot":
-                fields = _pb_detect_fields(df)
-                all_fields = fields.get("all", [])
-                numeric_fields = fields.get("numeric", [])
-                categorical_fields = fields.get("categorical", [])
-                date_fields = fields.get("date", [])
-
-                if not all_fields:
-                    st.info("No suitable plotting fields are available under the current filters.")
-                else:
-                    st.markdown(
-                        "<div class='ai-lite-hint'><b>Plot builder included:</b> bar, horizontal bar, line, area, scatter, bubble, histogram, box, violin, pie, donut, treemap, sunburst, heatmap, smart field detection, Top-N, aggregation, color grouping, faceting, executive Plotly styling and export-ready chart config.</div>",
-                        unsafe_allow_html=True,
-                    )
-                    chart_options = [
-                        "Vertical bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble",
-                        "Histogram", "Box", "Violin", "Pie", "Donut", "Treemap", "Sunburst", "Heatmap",
+            st.toggle(
+                "Fast mode",
+                key="ai_fast_mode",
+                value=st.session_state.get("ai_fast_mode", True),
+                help="Keeps responses concise for faster conversation.",
+            )
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Clear chat", key="ai_lite_clear_chat", use_container_width=True):
+                    st.session_state.ai_messages = [
+                        {"role": "assistant", "content": "Chat cleared. Ask a new dashboard question or request a chart."}
                     ]
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        chart_type = st.selectbox("Chart type", chart_options, key="ai_lite_plot_type_full")
-                        x_options = date_fields + [c for c in categorical_fields if c not in date_fields] + [c for c in numeric_fields if c not in categorical_fields]
-                        x_col = st.selectbox("X / category / date field", x_options or all_fields, key="ai_lite_plot_x")
-                        agg = st.selectbox("Aggregation", ["Count", "Sum", "Mean", "Median", "Min", "Max"], key="ai_lite_plot_agg")
-                    with c2:
-                        y_col = st.selectbox("Numeric value field", ["None"] + numeric_fields, key="ai_lite_plot_y")
-                        y_col = None if y_col == "None" else y_col
-                        color_col = st.selectbox("Color grouping", ["None"] + [c for c in all_fields if c != x_col], key="ai_lite_plot_color_group")
-                        facet_col = st.selectbox("Small multiples / facet", ["None"] + [c for c in all_fields if c not in [x_col, color_col]], key="ai_lite_plot_facet")
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Ask a new question or request a chart."}
+                    st.rerun()
+            with c2:
+                if st.button("Clear active chart", key="ai_lite_clear_chart", use_container_width=True):
+                    st.session_state.ai_active_chart_config = None
+                    st.session_state.ai_active_chart_fig = None
+                    st.session_state.ai_active_chart_df = pd.DataFrame()
+                    st.session_state.ai_active_plot_data = pd.DataFrame()
+                    st.session_state.ai_smart_output = {"type": "welcome", "title": "Smart output", "content": "Active chart cleared."}
+                    st.rerun()
 
-                    c3, c4, c5 = st.columns(3)
-                    with c3:
-                        top_n = st.slider("Top N", 3, 50, 10, key="ai_lite_plot_top_n_full")
-                    with c4:
-                        date_grain = st.selectbox("Date grouping", ["Year", "Quarter", "Month"], key="ai_lite_plot_date_grain")
-                    with c5:
-                        show_values = st.toggle("Show value labels", value=True, key="ai_lite_plot_show_values_full")
-
-                    s1, s2 = st.columns(2)
-                    with s1:
-                        palette_name = st.selectbox("Executive palette", list(AI_PLOT_PALETTES.keys()), index=0, key="ai_lite_plot_palette")
-                        primary_color = st.text_input("Primary HEX color", value="#660094", key="ai_lite_plot_primary_hex")
-                    with s2:
-                        font_size = st.slider("Font size", 9, 22, 12, key="ai_lite_plot_font_size_full")
-                        height = st.slider("Chart height", 320, 760, 460, step=20, key="ai_lite_plot_height_full")
-
-                    default_title = f"{chart_type}: {x_col}" if agg == "Count" else f"{chart_type}: {agg} of {y_col or 'value'} by {x_col}"
-                    plot_title = st.text_input("Chart title", value=default_title, key="ai_lite_plot_title_full")
-
-                    # Some chart types require numeric variables. Use safe defaults rather than failing silently.
-                    if chart_type in ["Histogram", "Box", "Violin"] and not y_col:
-                        y_col = numeric_fields[0] if numeric_fields else x_col
-                    if agg != "Count" and not y_col:
-                        st.warning("Select a numeric value field for Sum, Mean, Median, Min or Max. The plot will use Count until a numeric field is selected.")
-
-                    final_color = primary_color.strip() if re.match(r"^#[0-9a-fA-F]{6}$", str(primary_color).strip()) else "#660094"
-                    fig, plot_data, export_config = _pb_make_executive_plot(
-                        df=df,
-                        chart_type=chart_type,
-                        x_col=x_col,
-                        y_col=y_col,
-                        color_col=color_col,
-                        facet_col=facet_col,
-                        agg=agg,
-                        top_n=top_n,
-                        title=plot_title,
-                        palette_name=palette_name,
-                        primary_color=final_color,
-                        font_size=font_size,
-                        height=height,
-                        show_values=show_values,
-                        date_grain=date_grain,
-                    )
-
-                    if can_render_feature("view_chart_ai_copilot_plots"):
-                        render_dashboard_plotly_chart(
-                            fig,
-                            plot_df=plot_data if isinstance(plot_data, pd.DataFrame) else None,
-                            visual_type="AI Copilot plot builder preview",
-                            x_col=x_col,
-                            group_col=None if color_col == "None" else color_col,
-                            dashboard_df=df,
-                            key="ai_lite_plot_builder_full_preview",
-                            permission_key="view_chart_ai_copilot_plots",
-                            permission_label="AI Copilot plot builder preview",
-                        )
-                    else:
-                        render_permission_locked_card(
-                            "AI Copilot plot builder preview",
-                            "view_chart_ai_copilot_plots",
-                            feature_icon="📊",
-                            feature_description="Custom AI-generated plot previews are restricted by the active dashboard permission settings.",
-                        )
-
-                    b1, b2 = st.columns(2)
-                    with b1:
-                        if st.button("Explain generated chart", key="ai_lite_explain_full_plot", use_container_width=True):
-                            explanation = eusee_local_chart_interpretation(
-                                plot_data if isinstance(plot_data, pd.DataFrame) else pd.DataFrame(),
-                                chart_type=chart_type,
-                                x_col="__plot_period" if "__plot_period" in getattr(plot_data, "columns", []) else x_col,
-                                group_col=None if color_col == "None" else color_col,
-                                dashboard_df=df,
-                                title=plot_title,
-                            )
-                            st.session_state.ai_smart_output = {"type": "plot explanation", "title": plot_title, "content": explanation}
-                            _ai_append_message("assistant", explanation)
-                            st.rerun()
-                    with b2:
-                        if st.button("Save to smart output", key="ai_lite_save_full_plot", use_container_width=True):
-                            st.session_state.ai_smart_output = {
-                                "type": "plot_v2",
-                                "title": plot_title,
-                                "content": "Saved from the executive plot builder.",
-                                "fig": fig,
-                                "plot_data": plot_data,
-                                "config": export_config,
-                                "interpretation": "Saved chart. Use the export panel below to download the chart data or configuration.",
-                            }
-                            st.rerun()
-
-                    with st.expander("Export-ready chart assets", expanded=False):
-                        st.dataframe(plot_data, use_container_width=True, hide_index=True, height=220, key="ai_lite_plot_builder_full_data")
-                        d1, d2 = st.columns(2)
-                        with d1:
-                            st.download_button(
-                                "Download chart data (.csv)",
-                                data=plot_data.to_csv(index=False).encode("utf-8") if isinstance(plot_data, pd.DataFrame) else b"",
-                                file_name="eusee_plot_builder_data.csv",
-                                mime="text/csv",
-                                use_container_width=True,
-                                key="ai_lite_download_plot_builder_data",
-                            )
-                        with d2:
-                            st.download_button(
-                                "Download chart config (.json)",
-                                data=_pb_config_json(export_config).encode("utf-8"),
-                                file_name="eusee_plot_builder_config.json",
-                                mime="application/json",
-                                use_container_width=True,
-                                key="ai_lite_download_plot_builder_config",
-                            )
-
-            
-            else:
-                st.toggle(
-                    "Conversation memory",
-                    key="ai_memory_enabled",
-                    value=st.session_state.get("ai_memory_enabled", True),
-                    help="Keeps recent Q&A turns so follow-up questions are understood.",
-                )
-                st.toggle(
-                    "Fast mode",
-                    key="ai_fast_mode",
-                    value=st.session_state.get("ai_fast_mode", True),
-                    help="Keeps responses concise for faster conversation.",
-                )
-                chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])])
+            chat_text = "\n\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.get("ai_messages", [])])
+            st.download_button(
+                "Download chat transcript",
+                data=chat_text,
+                file_name="eusee_ai_chat_transcript.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key="ai_lite_export_chat",
+            )
+            if isinstance(df, pd.DataFrame) and not df.empty and has_permission("download_data"):
                 st.download_button(
-                    "Download chat transcript",
-                    data=chat_text,
-                    file_name="eusee_ai_chat_transcript.txt",
-                    mime="text/plain",
+                    "Download filtered dashboard data",
+                    data=df.to_csv(index=False).encode("utf-8"),
+                    file_name="eusee_filtered_dashboard_data.csv",
+                    mime="text/csv",
                     use_container_width=True,
-                    key="ai_lite_export_chat",
+                    key="ai_lite_export_data",
                 )
-                if df is not None and isinstance(df, pd.DataFrame) and not df.empty and has_permission("download_data"):
-                    st.download_button(
-                        "Download filtered dashboard data",
-                        data=df.to_csv(index=False).encode("utf-8"),
-                        file_name="eusee_filtered_dashboard_data.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="ai_lite_export_data",
-                    )
+
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
 # When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
