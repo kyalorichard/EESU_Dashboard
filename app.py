@@ -13598,6 +13598,98 @@ def _eusee_detect_chart_type(prompt, fallback="Vertical bar"):
     return fallback
 
 
+
+
+def _eusee_detect_color_request(prompt):
+    """Parse simple natural-language chart color/style requests.
+
+    Examples supported:
+    - change bar color to yellow
+    - make the bars purple
+    - use teal
+    - change chart colour to gold
+    """
+    p = _eusee_norm_text(prompt)
+    color_map = {
+        "purple": "#660094",
+        "violet": "#660094",
+        "teal": "#008CAA",
+        "cyan": "#008CAA",
+        "yellow": "#FFDB58",
+        "gold": "#FFDB58",
+        "orange": "#F79009",
+        "red": "#D92D20",
+        "green": "#12B76A",
+        "blue": "#2E90FA",
+        "navy": "#1D2939",
+        "grey": "#667085",
+        "gray": "#667085",
+        "black": "#101828",
+        "white": "#FFFFFF",
+    }
+
+    wants_color_change = any(term in p for term in [
+        "color", "colour", "bar color", "bar colour", "bars color", "bars colour",
+        "change color", "change colour", "make it", "make bars", "use color", "use colour"
+    ])
+
+    for name, hex_value in color_map.items():
+        if name in p and wants_color_change:
+            return {
+                "color_name": name,
+                "hex": hex_value,
+                "force_single_color": True,
+            }
+
+    # Support direct hex colors such as #FFDB58.
+    m = re.search(r"#[0-9a-fA-F]{6}\b", str(prompt or ""))
+    if m and wants_color_change:
+        return {
+            "color_name": m.group(0),
+            "hex": m.group(0),
+            "force_single_color": True,
+        }
+
+    return None
+
+
+def _eusee_apply_chart_style_overrides(fig, config):
+    """Apply prompt-driven visual edits after Plotly figure creation."""
+    if fig is None or not hasattr(fig, "data"):
+        return fig
+
+    color = config.get("marker_color") or config.get("primary_color")
+    force_single = bool(config.get("force_single_color", False))
+
+    if color and force_single:
+        for trace in fig.data:
+            t = getattr(trace, "type", "")
+            try:
+                if t in ["bar", "histogram"]:
+                    trace.update(marker=dict(color=color))
+                elif t in ["scatter"]:
+                    mode = str(getattr(trace, "mode", "") or "")
+                    if "lines" in mode:
+                        trace.update(line=dict(color=color), marker=dict(color=color))
+                    else:
+                        trace.update(marker=dict(color=color))
+                elif t in ["pie"]:
+                    labels = list(getattr(trace, "labels", []) or [])
+                    trace.update(marker=dict(colors=[color] * max(1, len(labels))))
+                elif t in ["treemap", "sunburst"]:
+                    labels = list(getattr(trace, "labels", []) or [])
+                    trace.update(marker=dict(colors=[color] * max(1, len(labels))))
+            except Exception:
+                pass
+
+    if config.get("show_legend") is False:
+        try:
+            fig.update_layout(showlegend=False)
+        except Exception:
+            pass
+
+    return fig
+
 def _eusee_extract_top_n(prompt, default=10):
     p = _eusee_norm_text(prompt)
     m = re.search(r"top\s+(\d+)", p)
@@ -13671,7 +13763,7 @@ def _eusee_apply_conversation_filters(df, filters):
 def _eusee_classify_request(prompt, has_active_chart=False):
     p = _eusee_norm_text(prompt)
     chart_words = ["chart", "graph", "plot", "visual", "visualize", "visualise", "bar", "line", "heatmap", "donut", "pie", "sankey", "treemap", "sunburst", "scatter", "bubble"]
-    update_words = ["now", "also", "add", "remove", "filter", "only", "change", "update", "modify", "make it", "convert", "switch", "compare", "sort", "top", "show values", "hide values"]
+    update_words = ["now", "also", "add", "remove", "filter", "only", "change", "update", "modify", "make it", "convert", "switch", "compare", "sort", "top", "show values", "hide values", "color", "colour", "yellow", "purple", "teal", "gold", "blue", "red", "green", "orange", "bar color", "bar colour", "hide legend", "show legend"]
     analysis_words = ["explain", "interpret", "why", "insight", "summary", "summarize", "analyse", "analyze", "pattern", "trend", "what does", "tell me"]
 
     if has_active_chart and any(w in p for w in update_words):
@@ -13737,6 +13829,26 @@ def _eusee_build_chart_config_from_prompt(prompt, df, previous_config=None):
     if filters:
         title_bits.append("with conversational filters")
 
+    style_update = _eusee_detect_color_request(prompt)
+    primary_color = previous_config.get("primary_color", "#660094")
+    marker_color = previous_config.get("marker_color")
+    force_single_color = previous_config.get("force_single_color", False)
+
+    if style_update:
+        primary_color = style_update["hex"]
+        marker_color = style_update["hex"]
+        force_single_color = style_update.get("force_single_color", True)
+        # For simple bar color requests, avoid palette/grouped colors overriding the requested color.
+        if any(term in p for term in ["bar color", "bar colour", "bars color", "bars colour", "change color", "change colour", "make it", "make bars"]):
+            if not any(term in p for term in ["group", "compare", "split", "by impact", "by region", "by year"]):
+                color_col = None
+
+    show_legend = previous_config.get("show_legend", True)
+    if "hide legend" in p or "remove legend" in p:
+        show_legend = False
+    if "show legend" in p:
+        show_legend = True
+
     return {
         "chart_type": chart_type,
         "x_col": x_col,
@@ -13748,7 +13860,10 @@ def _eusee_build_chart_config_from_prompt(prompt, df, previous_config=None):
         "date_grain": previous_config.get("date_grain", "Year"),
         "title": " ".join(title_bits),
         "palette": previous_config.get("palette", "EU SEE brand — Purple / Teal / Gold"),
-        "primary_color": previous_config.get("primary_color", "#660094"),
+        "primary_color": primary_color,
+        "marker_color": marker_color,
+        "force_single_color": force_single_color,
+        "show_legend": show_legend,
         "font_size": previous_config.get("font_size", 12),
         "height": previous_config.get("height", 460),
         "show_values": show_values,
@@ -13780,6 +13895,7 @@ def _eusee_render_chart_from_config(df, config):
         show_values=bool(config.get("show_values", True)),
         date_grain=config.get("date_grain", "Year"),
     )
+    fig = _eusee_apply_chart_style_overrides(fig, config)
     export_config.update(config)
     return fig, plot_data, filtered_df
 
@@ -13858,11 +13974,12 @@ def _eusee_handle_submitted_prompt(prompt, df):
         st.session_state.ai_active_chart_title = config.get("title", "AI Copilot chart")
 
         action = "updated" if intent == "chart_update" else "created"
+        style_note = f", **color = {config.get('marker_color') or config.get('primary_color')}**" if config.get("force_single_color") else ""
         answer = (
             f"Done — I {action} the active chart as **{config.get('chart_type')}**. "
             f"Current setup: **x = {config.get('x_col')}**, **group = {config.get('color_col') or 'none'}**, "
-            f"**top N = {config.get('top_n')}**. You can continue with another instruction, for example: "
-            f"*filter to negative alerts*, *compare by region*, *make it a heatmap*, or *explain this chart*."
+            f"**top N = {config.get('top_n')}**{style_note}. You can continue with another instruction, for example: "
+            f"*filter to negative alerts*, *compare by region*, *make it a heatmap*, *change bar color to yellow*, or *explain this chart*."
         )
         _eusee_append_message("assistant", answer)
         st.session_state.ai_smart_output = {
@@ -14043,9 +14160,412 @@ def _eusee_agentic_tool_router(prompt, df, plan):
     return _eusee_dashboard_summary_answer(prompt, df)
 
 
-# Override the previous prompt handler with a stricter dashboard-only agent loop.
+
+# ---------------- LLM-BASED DASHBOARD COMMAND INTERPRETER ----------------
+def _eusee_available_filter_values(df, col, limit=35):
+    """Return a compact list of available values for safe LLM command grounding."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty or col not in df.columns:
+        return []
+    try:
+        vals = (
+            df[col]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .loc[lambda s: (s != "") & (~s.str.lower().isin(["nan", "none", "null"]))]
+            .value_counts()
+            .head(int(limit or 35))
+            .index
+            .tolist()
+        )
+        return vals
+    except Exception:
+        return []
+
+
+def _eusee_llm_dashboard_schema(df):
+    """Compact dashboard-only schema supplied to the LLM command interpreter.
+
+    The LLM receives only metadata and small value samples from the current
+    dashboard-filtered dataframe. It never receives the full dataset and cannot
+    access web, files, RAG, or arbitrary code execution.
+    """
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    cols = list(dfx.columns)[:120] if isinstance(dfx, pd.DataFrame) else []
+    schema = {
+        "dashboard_scope": _eusee_dashboard_scope_note(dfx) if isinstance(dfx, pd.DataFrame) and not dfx.empty else "No records in current dashboard filter.",
+        "row_count": int(len(dfx)) if isinstance(dfx, pd.DataFrame) else 0,
+        "columns": cols,
+        "field_catalog": fields,
+        "allowed_intents": [
+            "chart_create", "chart_update", "chart_analysis", "summary",
+            "trend_analysis", "compare_analysis", "anomaly_analysis",
+            "relationship_analysis", "data_preview", "general"
+        ],
+        "allowed_chart_types": [
+            "Vertical bar", "Horizontal bar", "Line", "Area", "Scatter",
+            "Heatmap", "Donut", "Pie", "Treemap", "Sunburst", "Sankey"
+        ],
+        "allowed_aggregations": ["Count"],
+        "allowed_style_keys": [
+            "primary_color", "marker_color", "force_single_color", "show_values",
+            "show_legend", "font_size", "height", "palette"
+        ],
+        "common_filter_values": {},
+    }
+
+    for key in ["impact", "region", "country", "year", "alert_type", "actor", "mechanism", "principle"]:
+        col = fields.get(key)
+        if col and col in dfx.columns:
+            schema["common_filter_values"][col] = _eusee_available_filter_values(dfx, col, limit=35)
+
+    return schema
+
+
+def _eusee_lenient_json_loads(raw):
+    """Parse JSON returned by the LLM, tolerating code fences or surrounding text."""
+    if isinstance(raw, dict):
+        return raw
+    s = str(raw or "").strip()
+    if not s:
+        return {}
+    s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.I).strip()
+    s = re.sub(r"\s*```$", "", s).strip()
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+    match = re.search(r"\{.*\}", s, flags=re.S)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            return {}
+    return {}
+
+
+def _eusee_normalize_chart_type_from_llm(value, fallback="Vertical bar"):
+    p = _eusee_norm_text(value or "")
+    if not p:
+        return fallback
+    if "heat" in p:
+        return "Heatmap"
+    if "sankey" in p or "flow" in p:
+        return "Sankey"
+    if "donut" in p or "doughnut" in p:
+        return "Donut"
+    if p == "pie" or " pie" in p:
+        return "Pie"
+    if "tree" in p:
+        return "Treemap"
+    if "sun" in p:
+        return "Sunburst"
+    if "scatter" in p or "bubble" in p:
+        return "Scatter"
+    if "area" in p:
+        return "Area"
+    if "line" in p or "trend" in p:
+        return "Line"
+    if "horizontal" in p or "hbar" in p:
+        return "Horizontal bar"
+    if "bar" in p or "column" in p:
+        return "Vertical bar"
+    return fallback
+
+
+def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
+    """Validate LLM JSON against current dashboard-only dataframe and approved actions."""
+    dfx = _eusee_dashboard_only_df(df)
+    fields = _eusee_field_catalog(dfx)
+    allowed_cols = set(dfx.columns) if isinstance(dfx, pd.DataFrame) else set()
+    fallback_intent = _eusee_classify_request(prompt, has_active_chart=has_active_chart)
+
+    if not isinstance(command, dict):
+        command = {}
+
+    allowed_intents = {
+        "chart_create", "chart_update", "chart_analysis", "summary",
+        "trend_analysis", "compare_analysis", "anomaly_analysis",
+        "relationship_analysis", "data_preview", "general"
+    }
+    intent = str(command.get("intent") or fallback_intent).strip()
+    if intent not in allowed_intents:
+        intent = fallback_intent
+    if intent == "chart_update" and not has_active_chart:
+        intent = "chart_create"
+    if intent == "chart_analysis" and not has_active_chart:
+        intent = "summary"
+
+    chart_type = _eusee_normalize_chart_type_from_llm(command.get("chart_type"), fallback="Vertical bar")
+
+    def valid_col(value):
+        value = str(value or "").strip()
+        return value if value in allowed_cols else None
+
+    x_col = valid_col(command.get("x_col"))
+    y_col = valid_col(command.get("y_col"))
+    color_col = valid_col(command.get("color_col"))
+    facet_col = valid_col(command.get("facet_col"))
+
+    # Use semantic field names if the LLM provided them instead of exact columns.
+    semantic_to_key = {
+        "country": "country", "countries": "country", "region": "region", "regions": "region",
+        "impact": "impact", "alert impact": "impact", "alert type": "alert_type",
+        "actor": "actor", "actors": "actor", "mechanism": "mechanism", "mechanisms": "mechanism",
+        "principle": "principle", "principles": "principle", "year": "year", "years": "year",
+    }
+    for raw_key, target in [("x", "x_col"), ("dimension", "x_col"), ("group_by", "color_col"), ("compare_by", "color_col")]:
+        raw_val = _eusee_norm_text(command.get(raw_key, ""))
+        field_key = semantic_to_key.get(raw_val)
+        if field_key and fields.get(field_key) in allowed_cols:
+            if target == "x_col" and not x_col:
+                x_col = fields.get(field_key)
+            if target == "color_col" and not color_col:
+                color_col = fields.get(field_key)
+
+    # Safe filters: only existing columns; values are treated as equality filters by Python.
+    raw_filters = command.get("filters") or {}
+    filters = {}
+    if isinstance(raw_filters, dict):
+        for col, values in raw_filters.items():
+            safe_col = valid_col(col)
+            if not safe_col:
+                # Try semantic filter keys such as "country" or "impact".
+                field_key = semantic_to_key.get(_eusee_norm_text(col))
+                safe_col = fields.get(field_key) if field_key else None
+            if not safe_col or safe_col not in allowed_cols:
+                continue
+            vals = values if isinstance(values, list) else [values]
+            vals = [str(v).strip() for v in vals if str(v).strip() and str(v).strip().lower() not in ["nan", "none", "null"]]
+            if vals:
+                filters[safe_col] = vals[:50]
+
+    # Merge deterministic filter extraction so simple phrases still work if the LLM misses them.
+    filters = _eusee_detect_filters(prompt, dfx, existing=filters)
+
+    # Safe top-N.
+    try:
+        top_n = int(command.get("top_n") or _eusee_extract_top_n(prompt, 10))
+    except Exception:
+        top_n = _eusee_extract_top_n(prompt, 10)
+    top_n = max(1, min(top_n, 50))
+
+    style = command.get("style") or {}
+    if not isinstance(style, dict):
+        style = {}
+
+    # Convert color names if the LLM emits a name rather than a hex code.
+    color_req = _eusee_detect_color_request(" ".join([str(prompt), str(style.get("primary_color", "")), str(style.get("marker_color", ""))]))
+    primary_color = style.get("primary_color") or command.get("primary_color")
+    marker_color = style.get("marker_color") or command.get("marker_color")
+    if color_req:
+        primary_color = color_req["hex"]
+        marker_color = color_req["hex"]
+
+    def safe_bool(value, default):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            if value.lower().strip() in ["true", "yes", "show", "on", "1"]:
+                return True
+            if value.lower().strip() in ["false", "no", "hide", "off", "0"]:
+                return False
+        return default
+
+    show_values = safe_bool(style.get("show_values", command.get("show_values", True)), True)
+    show_legend = safe_bool(style.get("show_legend", command.get("show_legend", True)), True)
+
+    # Natural-language overrides for legend and labels.
+    p = _eusee_norm_text(prompt)
+    if "hide legend" in p or "remove legend" in p:
+        show_legend = False
+    if "show legend" in p:
+        show_legend = True
+    if "hide labels" in p or "remove labels" in p or "hide values" in p:
+        show_values = False
+    if "show labels" in p or "add labels" in p or "show values" in p:
+        show_values = True
+
+    try:
+        height = int(style.get("height") or command.get("height") or 460)
+    except Exception:
+        height = 460
+    height = max(300, min(height, 900))
+
+    try:
+        font_size = int(style.get("font_size") or command.get("font_size") or 12)
+    except Exception:
+        font_size = 12
+    font_size = max(9, min(font_size, 22))
+
+    sanitized = {
+        "intent": intent,
+        "chart_type": chart_type,
+        "x_col": x_col,
+        "y_col": y_col,
+        "color_col": color_col,
+        "facet_col": facet_col,
+        "aggregation": "Count",
+        "top_n": top_n,
+        "filters": filters,
+        "title": str(command.get("title") or "").strip()[:120],
+        "analysis_request": str(command.get("analysis_request") or command.get("explanation_request") or "").strip()[:500],
+        "style": {
+            "primary_color": primary_color if isinstance(primary_color, str) and primary_color.strip() else None,
+            "marker_color": marker_color if isinstance(marker_color, str) and marker_color.strip() else None,
+            "force_single_color": safe_bool(style.get("force_single_color", command.get("force_single_color", bool(primary_color or marker_color))), bool(primary_color or marker_color)),
+            "show_values": show_values,
+            "show_legend": show_legend,
+            "font_size": font_size,
+            "height": height,
+            "palette": str(style.get("palette") or command.get("palette") or "EU SEE brand — Purple / Teal / Gold")[:80],
+        },
+        "llm_used": bool(command.get("_llm_used")),
+        "raw_intent": command.get("intent"),
+    }
+    return sanitized
+
+
+def _eusee_interpret_prompt_with_llm(prompt, df, has_active_chart=False):
+    """Use OpenAI only as a safe natural-language-to-JSON command interpreter.
+
+    The returned command is validated before execution. If OpenAI is unavailable,
+    invalid, or slow/fails, the deterministic local router is used.
+    """
+    api_key, model, _source = _ai_get_openai_config()
+    if not api_key or OpenAI is None:
+        return None
+
+    schema = _eusee_llm_dashboard_schema(df)
+    active_config = st.session_state.get("ai_active_chart_config") if has_active_chart else None
+
+    system_prompt = """
+You are a dashboard-only command interpreter for the EU SEE Streamlit dashboard.
+Return ONLY valid JSON. Do not write prose.
+You must not use external knowledge, web data, uploaded files, hidden datasets, or assumptions outside the provided dashboard schema.
+Your job is to convert the user's natural-language request into one safe dashboard command.
+Python will execute the command using only the currently filtered dashboard dataframe.
+
+JSON keys allowed:
+{
+  "intent": "chart_create|chart_update|chart_analysis|summary|trend_analysis|compare_analysis|anomaly_analysis|relationship_analysis|data_preview|general",
+  "chart_type": "Vertical bar|Horizontal bar|Line|Area|Scatter|Heatmap|Donut|Pie|Treemap|Sunburst|Sankey",
+  "x_col": "exact column name or null",
+  "y_col": null,
+  "color_col": "exact column name or null",
+  "facet_col": "exact column name or null",
+  "top_n": 1-50,
+  "filters": {"exact column name": ["allowed value", "allowed value"]},
+  "title": "short chart/output title",
+  "style": {
+    "primary_color": "hex color or null",
+    "marker_color": "hex color or null",
+    "force_single_color": true,
+    "show_values": true,
+    "show_legend": true,
+    "font_size": 12,
+    "height": 460,
+    "palette": "EU SEE brand — Purple / Teal / Gold"
+  },
+  "analysis_request": "short explanation of requested analysis"
+}
+
+Rules:
+- Use exact column names from the dashboard schema.
+- If the user asks to modify an existing chart, use chart_update when an active chart exists.
+- If there is no active chart and the user asks for a style/chart modification, create a sensible chart instead.
+- For color changes like "make bars yellow", set style.primary_color and style.marker_color to the hex code and force_single_color true.
+- For explanations like "explain this chart", use chart_analysis when an active chart exists.
+- For unsupported/out-of-scope requests, use summary or general; never invent external facts.
+"""
+
+    user_payload = {
+        "user_prompt": str(prompt or "")[:1200],
+        "has_active_chart": bool(has_active_chart),
+        "active_chart_config": active_config,
+        "dashboard_schema": schema,
+    }
+
+    try:
+        client = _ai_get_openai_client(api_key)
+        if client is None:
+            return None
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": json.dumps(user_payload, default=str)},
+            ],
+            temperature=0,
+            max_tokens=700,
+            response_format={"type": "json_object"},
+        )
+        raw = (resp.choices[0].message.content or "").strip()
+        cmd = _eusee_lenient_json_loads(raw)
+        if isinstance(cmd, dict):
+            cmd["_llm_used"] = True
+        return cmd if isinstance(cmd, dict) and cmd else None
+    except Exception as e:
+        st.session_state["ai_last_llm_command_error"] = str(e)
+        return None
+
+
+def _eusee_build_chart_config_from_command(command, prompt, df, previous_config=None):
+    """Create a Plotly chart config from a sanitized LLM command plus existing deterministic parser."""
+    base = _eusee_build_chart_config_from_prompt(prompt, df, previous_config=previous_config)
+    command = command or {}
+    style = command.get("style") or {}
+
+    for key in ["chart_type", "x_col", "y_col", "color_col", "facet_col", "aggregation", "top_n", "filters"]:
+        if command.get(key) not in [None, "", {}]:
+            base[key] = command.get(key)
+
+    if command.get("title"):
+        base["title"] = command.get("title")
+
+    for key in ["primary_color", "marker_color", "force_single_color", "show_values", "show_legend", "font_size", "height", "palette"]:
+        if style.get(key) is not None:
+            base[key] = style.get(key)
+
+    # If a single color was requested, remove grouping unless the user also requested grouping/comparison.
+    p = _eusee_norm_text(prompt)
+    if base.get("force_single_color") and any(k in p for k in ["color", "colour", "yellow", "purple", "teal", "blue", "green", "red", "orange"]):
+        if not any(k in p for k in ["group", "compare", "split", "by impact", "by region", "by year", "stack"]):
+            base["color_col"] = None
+
+    return base
+
+
+def _eusee_plan_from_command(command, prompt, df, has_active_chart=False):
+    """Build a readable execution plan from a validated LLM command."""
+    if not command:
+        return _eusee_plan_dashboard_request(prompt, df, has_active_chart=has_active_chart)
+    intent = command.get("intent") or _eusee_classify_request(prompt, has_active_chart=has_active_chart)
+    if intent in ["chart_create", "chart_update"]:
+        steps = ["interpret prompt with LLM JSON command", "validate against dashboard schema", "apply dashboard-only filters", "render approved Plotly chart"]
+    elif intent == "chart_analysis":
+        steps = ["interpret prompt with LLM JSON command", "read active chart state", "explain plotted dashboard data"]
+    elif intent == "trend_analysis":
+        steps = ["interpret prompt with LLM JSON command", "aggregate dashboard records over time", "summarize trend"]
+    elif intent == "compare_analysis":
+        steps = ["interpret prompt with LLM JSON command", "identify comparison field", "rank dashboard categories"]
+    elif intent == "anomaly_analysis":
+        steps = ["interpret prompt with LLM JSON command", "aggregate time series", "flag visible spikes"]
+    elif intent == "relationship_analysis":
+        steps = ["interpret prompt with LLM JSON command", "build dashboard cross-tabulation", "rank co-occurrences"]
+    else:
+        steps = ["interpret prompt with LLM JSON command", "answer from dashboard-only summaries"]
+    return {"intent": intent, "steps": steps, "dashboard_only": True, "llm_command_used": bool(command.get("llm_used"))}
+
+# Override the previous prompt handler with a stricter dashboard-only LLM-command agent loop.
 def _eusee_handle_submitted_prompt(prompt, df):
-    """Dashboard-only agentic router for Q&A, charts, chart updates, and explanations."""
+    """Dashboard-only LLM-command router for Q&A, charts, updates, and explanations.
+
+    The LLM is used only to interpret natural language into a structured JSON
+    command. Python validates that command and executes approved dashboard tools
+    using only the dataframe passed into this assistant panel.
+    """
     clean_prompt = str(prompt or "").strip()
     if not clean_prompt:
         return
@@ -14056,12 +14576,17 @@ def _eusee_handle_submitted_prompt(prompt, df):
     st.session_state.ai_last_user_prompt = clean_prompt
 
     has_chart = st.session_state.get("ai_active_chart_config") is not None
-    plan = _eusee_plan_dashboard_request(clean_prompt, dashboard_df, has_active_chart=has_chart)
-    intent = plan.get("intent", "general")
+
+    # LLM command interpreter first; deterministic local planner remains the fallback.
+    raw_command = _eusee_interpret_prompt_with_llm(clean_prompt, dashboard_df, has_active_chart=has_chart)
+    command = _eusee_sanitize_llm_command(raw_command, clean_prompt, dashboard_df, has_active_chart=has_chart)
+    plan = _eusee_plan_from_command(command, clean_prompt, dashboard_df, has_active_chart=has_chart)
+    intent = command.get("intent") or plan.get("intent", "general")
+    st.session_state.ai_last_llm_command = command
 
     if intent in ["chart_create", "chart_update"]:
         previous = st.session_state.get("ai_active_chart_config") if intent == "chart_update" else None
-        config = _eusee_build_chart_config_from_prompt(clean_prompt, dashboard_df, previous_config=previous)
+        config = _eusee_build_chart_config_from_command(command, clean_prompt, dashboard_df, previous_config=previous)
         fig, plot_data, active_df = _eusee_render_chart_from_config(dashboard_df, config)
         st.session_state.ai_active_chart_config = config
         st.session_state.ai_active_chart_fig = fig
@@ -14069,13 +14594,14 @@ def _eusee_handle_submitted_prompt(prompt, df):
         st.session_state.ai_active_plot_data = plot_data
         st.session_state.ai_active_chart_title = config.get("title", "AI Copilot chart")
         action = "updated" if intent == "chart_update" else "created"
+        mode = "LLM-interpreted" if command.get("llm_used") else "local-interpreted"
         answer = (
-            f"Done — I {action} the active chart using dashboard-only data. "
+            f"Done — I {action} the active chart using a **{mode} dashboard-only command**. "
             f"Current setup: **chart = {config.get('chart_type')}**, **x = {config.get('x_col')}**, "
             f"**group = {config.get('color_col') or 'none'}**, **top N = {config.get('top_n')}**.\n\n"
             f"{_eusee_dashboard_scope_note(active_df)}\n\n"
-            "You can now ask a follow-up such as *filter to negative alerts*, *compare by region*, "
-            "*make it a heatmap*, *show top 20*, or *explain this chart*."
+            "You can continue with prompts such as *change bars to yellow*, *show labels*, "
+            "*compare by region*, *only negative alerts*, *switch to heatmap*, or *explain this chart*."
         )
         _eusee_append_message("assistant", answer)
         st.session_state.ai_smart_output = {
@@ -14087,6 +14613,7 @@ def _eusee_handle_submitted_prompt(prompt, df):
             "config": config,
             "interpretation": _eusee_local_chart_interpretation(plot_data, config, active_df),
             "plan": plan,
+            "command": command,
         }
         return
 
@@ -14097,12 +14624,28 @@ def _eusee_handle_submitted_prompt(prompt, df):
         answer = _eusee_local_chart_interpretation(plot_data, config, active_df)
         answer += "\n\n**Dashboard-only constraint:** this explanation uses only the active chart data and the filtered dashboard dataframe."
         _eusee_append_message("assistant", answer)
-        st.session_state.ai_smart_output = {"type": "chart insight", "title": config.get("title", "Current chart explanation"), "content": answer, "plan": plan}
+        st.session_state.ai_smart_output = {
+            "type": "chart insight",
+            "title": config.get("title", "Current chart explanation"),
+            "content": answer,
+            "plan": plan,
+            "command": command,
+        }
         return
 
+    # Non-chart analytical requests remain deterministic/auditable over dashboard-only data.
+    # The LLM only improves prompt understanding; Python performs the analysis.
     answer = _eusee_agentic_tool_router(clean_prompt, dashboard_df, plan)
+    if command.get("llm_used"):
+        answer += "\n\n_The request was interpreted with the LLM command parser, but the answer above was computed from dashboard-only summaries._"
     _eusee_append_message("assistant", answer)
-    st.session_state.ai_smart_output = {"type": "dashboard answer", "title": "Dashboard-only AI response", "content": answer, "plan": plan}
+    st.session_state.ai_smart_output = {
+        "type": "dashboard answer",
+        "title": "Dashboard-only AI response",
+        "content": answer,
+        "plan": plan,
+        "command": command,
+    }
 
 # ---------------- SPEED-OPTIMIZED PROFESSIONAL CHATBOT UX ----------------
 @st.cache_data(ttl=300, show_spinner=False)
