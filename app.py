@@ -14149,20 +14149,23 @@ def _eusee_ai_cached_group_counts(df, group_cols, top_n=50):
 
 
 def render_ai_assistant_panel(df):
-    """Client-side popover EU SEE Copilot.
+    """Client-side popover EU SEE Copilot with ChatGPT-like message flow.
 
-    This version fixes slow open/hide by removing server-side open/hide state.
-    The popover opens and closes in the browser; Streamlit only reruns when a
-    real widget action is submitted. The assistant remains dashboard-only.
+    Layout order:
+    1. Header and dashboard status
+    2. Conversation history
+    3. Smart output / chart result
+    4. Ask box at the bottom
+
+    The popover still opens/closes client-side. The dashboard only performs
+    assistant processing when the user clicks Ask.
     """
     _eusee_ai_init_stateful_chat()
     st.session_state.setdefault("ai_prompt_draft", "")
 
     st.markdown("""
     <style>
-    /* Stable launcher: keep only the button fixed. Do NOT reposition stPopoverBody.
-       Streamlit controls popover placement internally; overriding the body can make
-       the panel open behind other dashboard layers or fail to display on click. */
+    /* Stable launcher: keep only the launcher fixed. Streamlit controls popover placement. */
     .st-key-eusee_ai_popover_launcher {
         position: fixed !important;
         right: 18px !important;
@@ -14190,14 +14193,14 @@ def render_ai_assistant_panel(df):
         border-radius: 22px !important;
         border: 1px solid #E6E8EF !important;
         box-shadow: 0 22px 54px rgba(16,24,40,.20) !important;
-        max-width: min(520px, calc(100vw - 24px)) !important;
+        max-width: min(560px, calc(100vw - 24px)) !important;
         max-height: calc(100vh - 120px) !important;
         overflow-y: auto !important;
         padding: 0 !important;
         z-index: 1000001 !important;
     }
     .ai-fast-shell {padding:12px!important;font-family:var(--eusee-font,"Inter","Segoe UI",Arial,sans-serif)!important;}
-    .ai-fast-header {display:flex;align-items:center;gap:10px;margin:-12px -12px 10px -12px;padding:13px;border-radius:22px 22px 0 0;background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 65%,#F7F8FB 100%);border-bottom:1px solid #EEF0F4;}
+    .ai-fast-header {display:flex;align-items:center;gap:10px;margin:-12px -12px 10px -12px;padding:13px;border-radius:22px 22px 0 0;background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 65%,#F7F8FB 100%);border-bottom:1px solid #EEF0F4;position:sticky;top:0;z-index:5;}
     .ai-fast-icon {width:38px;height:38px;min-width:38px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#660094 0%,#8D3AB4 100%);color:#FFFFFF;font-weight:950;box-shadow:0 8px 18px rgba(102,0,148,.22);}
     .ai-fast-title {font-size:15.5px;font-weight:950;color:#23152F;line-height:1.1;}
     .ai-fast-subtitle {font-size:10.6px;color:#667085;line-height:1.25;margin-top:2px;font-weight:650;}
@@ -14208,12 +14211,14 @@ def render_ai_assistant_panel(df):
     .ai-fast-card {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:11px;margin:10px 0;box-shadow:0 8px 20px rgba(16,24,40,.055);}
     .ai-fast-section-title {font-size:12px;color:#23152F;font-weight:950;margin:2px 0 4px 0;}
     .ai-fast-helper {font-size:10.8px;color:#667085;line-height:1.38;margin:0 0 8px 0;font-weight:600;}
-    .ai-fast-chat {background:#FBFCFE;border:1px solid #EEF0F4;border-radius:18px;padding:9px;margin:10px 0;max-height:280px;overflow-y:auto;}
+    .ai-fast-chat {background:#FBFCFE;border:1px solid #EEF0F4;border-radius:18px;padding:9px;margin:10px 0;max-height:330px;overflow-y:auto;}
     .ai-fast-empty {font-size:11px;color:#667085;line-height:1.4;background:#FFFFFF;border:1px dashed #D0D5DD;border-radius:14px;padding:10px;}
     .ai-fast-output-head {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
     .ai-fast-output-title {font-size:13px;font-weight:950;color:#23152F;line-height:1.2;}
     .ai-fast-badge {border-radius:999px;background:#F4EAF8;color:#660094;border:1px solid #E7D4F1;padding:5px 8px;font-size:9.5px;font-weight:950;white-space:nowrap;}
     .ai-fast-scope {margin-top:9px;padding:8px 9px;border-radius:13px;background:#F9FAFB;border:1px solid #EEF0F4;color:#667085;font-size:10.3px;line-height:1.35;font-weight:650;}
+    .ai-input-dock {background:linear-gradient(135deg,#FFFFFF 0%,#FAF6FD 100%);border:1px solid #E7D4F1;border-radius:18px;padding:11px;margin:10px 0 2px 0;box-shadow:0 10px 24px rgba(102,0,148,.08);}
+    .ai-input-note {font-size:10.6px;color:#667085;line-height:1.35;margin-bottom:8px;font-weight:650;}
     div[data-testid="stPopoverBody"] div[data-testid="stButton"] button,
     div[data-testid="stPopoverBody"] div[data-testid="stFormSubmitButton"] button {
         border-radius:13px!important;font-size:11.3px!important;font-weight:900!important;min-height:36px!important;border:1px solid #D0D5DD!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;
@@ -14240,8 +14245,6 @@ def render_ai_assistant_panel(df):
             </div>
             """, unsafe_allow_html=True)
 
-            st.caption("Click outside the panel to close. The Copilot launcher remains fixed at the bottom-right.")
-
             st.markdown(f"""
             <div class='ai-fast-kpis'>
                 <div class='ai-fast-kpi'><span>Records</span><strong>{snapshot.get('rows', 0):,}</strong></div>
@@ -14250,39 +14253,9 @@ def render_ai_assistant_panel(df):
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("<div class='ai-fast-card'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-fast-helper'>The purple Copilot button stays visible for easy access. Click it again or click outside the panel to close. The dashboard only processes after you click Ask.</div>", unsafe_allow_html=True)
-            q1, q2 = st.columns(2)
-            with q1:
-                if st.button("Executive summary", key="ai_fast_prefill_summary", use_container_width=True):
-                    st.session_state.ai_prompt_draft = "Give a concise executive summary of the current filtered dashboard view"
-            with q2:
-                if st.button("Top chart", key="ai_fast_prefill_chart", use_container_width=True):
-                    st.session_state.ai_prompt_draft = "Create a bar chart of top 10 countries by alert count"
-            q3, q4 = st.columns(2)
-            with q3:
-                if st.button("Compare regions", key="ai_fast_prefill_compare", use_container_width=True):
-                    st.session_state.ai_prompt_draft = "Compare the current filtered dashboard view by region"
-            with q4:
-                if st.button("Explain chart", key="ai_fast_prefill_explain", use_container_width=True):
-                    st.session_state.ai_prompt_draft = "Explain this chart" if has_chart else "Explain the main patterns in the current filtered dashboard view"
-
-            with st.form("eusee_ai_fast_chat_form", clear_on_submit=False):
-                prompt = st.text_area(
-                    "Question",
-                    value=st.session_state.get("ai_prompt_draft", ""),
-                    placeholder="Example: Create a heatmap of restrictive actors by mechanisms, then ask a follow-up question.",
-                    key="ai_fast_prompt_textarea",
-                    label_visibility="collapsed",
-                )
-                submitted = st.form_submit_button("Ask", use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            if submitted and str(prompt or "").strip():
-                st.session_state.ai_prompt_draft = ""
-                _eusee_handle_submitted_prompt(prompt, df)
-
+            # 1) Conversation appears above the Ask box, like ChatGPT.
             st.markdown("<div class='ai-fast-chat'><div class='ai-fast-section-title'>Conversation</div>", unsafe_allow_html=True)
-            messages = st.session_state.get("ai_messages", [])[-8:]
+            messages = st.session_state.get("ai_messages", [])[-10:]
             if not messages:
                 st.markdown("<div class='ai-fast-empty'>No conversation yet. Ask for a summary, chart, comparison, trend, or explanation.</div>", unsafe_allow_html=True)
             else:
@@ -14293,6 +14266,7 @@ def render_ai_assistant_panel(df):
                         st.markdown(content)
             st.markdown("</div>", unsafe_allow_html=True)
 
+            # 2) Smart output also appears above the Ask box.
             out = st.session_state.get("ai_smart_output", {}) or {}
             out_type = str(out.get("type", "output")).replace("_", " ").title()
             out_title = str(out.get("title", "Smart output"))[:90]
@@ -14338,6 +14312,40 @@ def render_ai_assistant_panel(df):
 
             st.markdown("<div class='ai-fast-scope'>Dashboard-only mode: answers and charts use only the currently filtered dashboard dataframe plus filters requested inside this chat.</div></div>", unsafe_allow_html=True)
 
+            # 3) Quick actions and Ask box are now at the bottom of the panel.
+            st.markdown("<div class='ai-input-dock'><div class='ai-fast-section-title'>Ask or refine</div><div class='ai-input-note'>Continue the conversation below. The assistant only processes after you click Ask.</div>", unsafe_allow_html=True)
+
+            q1, q2 = st.columns(2)
+            with q1:
+                if st.button("Executive summary", key="ai_fast_prefill_summary", use_container_width=True):
+                    st.session_state.ai_prompt_draft = "Give a concise executive summary of the current filtered dashboard view"
+            with q2:
+                if st.button("Top chart", key="ai_fast_prefill_chart", use_container_width=True):
+                    st.session_state.ai_prompt_draft = "Create a bar chart of top 10 countries by alert count"
+            q3, q4 = st.columns(2)
+            with q3:
+                if st.button("Compare regions", key="ai_fast_prefill_compare", use_container_width=True):
+                    st.session_state.ai_prompt_draft = "Compare the current filtered dashboard view by region"
+            with q4:
+                if st.button("Explain chart", key="ai_fast_prefill_explain", use_container_width=True):
+                    st.session_state.ai_prompt_draft = "Explain this chart" if has_chart else "Explain the main patterns in the current filtered dashboard view"
+
+            with st.form("eusee_ai_fast_chat_form", clear_on_submit=False):
+                prompt = st.text_area(
+                    "Question",
+                    value=st.session_state.get("ai_prompt_draft", ""),
+                    placeholder="Example: Create a heatmap of restrictive actors by mechanisms, then ask a follow-up question.",
+                    key="ai_fast_prompt_textarea",
+                    label_visibility="collapsed",
+                )
+                submitted = st.form_submit_button("Ask", use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            if submitted and str(prompt or "").strip():
+                st.session_state.ai_prompt_draft = ""
+                _eusee_handle_submitted_prompt(prompt, df)
+                st.rerun()
+
             with st.expander("Settings and exports", expanded=False):
                 st.toggle("Conversation memory", key="ai_memory_enabled")
                 st.toggle("Fast mode", key="ai_fast_mode")
@@ -14352,7 +14360,6 @@ def render_ai_assistant_panel(df):
                 )
 
             st.markdown("</div>", unsafe_allow_html=True)
-
 
 if has_permission("use_ai_copilot"):
     render_ai_assistant_panel(filtered_global)
