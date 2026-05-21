@@ -14225,6 +14225,16 @@ def _eusee_render_chart_from_config(df, config):
         value_mode=config.get("value_mode", "count"),
     )
     fig = _eusee_apply_chart_style_overrides(fig, config)
+    try:
+        sort_order = str(config.get("sort_order") or "").lower()
+        value_col = "value" if isinstance(plot_data, pd.DataFrame) and "value" in plot_data.columns else None
+        x_axis_col = "__plot_period" if isinstance(plot_data, pd.DataFrame) and "__plot_period" in plot_data.columns else config.get("x_col")
+        if sort_order in ["asc", "ascending", "desc", "descending"] and value_col and x_axis_col in plot_data.columns:
+            ordered = plot_data.groupby(x_axis_col, dropna=False)[value_col].sum().sort_values(ascending=sort_order.startswith("asc")).index.astype(str).tolist()
+            fig.update_xaxes(categoryorder="array", categoryarray=ordered)
+            fig.update_yaxes(categoryorder="array", categoryarray=ordered)
+    except Exception:
+        pass
     export_config.update(config)
     return fig, plot_data, filtered_df
 
@@ -14631,7 +14641,21 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
         "trend_analysis", "compare_analysis", "anomaly_analysis",
         "relationship_analysis", "data_preview", "general"
     }
+    intent_aliases = {
+        "chart_explain": "chart_analysis",
+        "explain_chart": "chart_analysis",
+        "data_summary": "summary",
+        "executive_summary": "summary",
+        "compare": "compare_analysis",
+        "anomaly_check": "anomaly_analysis",
+        "relationship": "relationship_analysis",
+        "filter_update": "chart_update" if has_active_chart else "summary",
+        "export": "general",
+        "clarification": "general",
+        "general_answer": "general",
+    }
     intent = str(command.get("intent") or fallback_intent).strip()
+    intent = intent_aliases.get(intent, intent)
     if intent not in allowed_intents:
         intent = fallback_intent
     if intent == "chart_update" and not has_active_chart:
@@ -14645,10 +14669,10 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
         value = str(value or "").strip()
         return value if value in allowed_cols else None
 
-    x_col = valid_col(command.get("x_col"))
-    y_col = valid_col(command.get("y_col"))
-    color_col = valid_col(command.get("color_col"))
-    facet_col = valid_col(command.get("facet_col"))
+    x_col = valid_col(command.get("x_col") or command.get("x"))
+    y_col = valid_col(command.get("y_col") or command.get("y"))
+    color_col = valid_col(command.get("color_col") or command.get("color"))
+    facet_col = valid_col(command.get("facet_col") or command.get("facet"))
 
     # Use semantic field names if the LLM provided them instead of exact columns.
     semantic_to_key = {
@@ -14657,17 +14681,29 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
         "actor": "actor", "actors": "actor", "mechanism": "mechanism", "mechanisms": "mechanism",
         "principle": "principle", "principles": "principle", "year": "year", "years": "year",
     }
-    for raw_key, target in [("x", "x_col"), ("dimension", "x_col"), ("group_by", "color_col"), ("compare_by", "color_col")]:
-        raw_val = _eusee_norm_text(command.get(raw_key, ""))
-        field_key = semantic_to_key.get(raw_val)
-        if field_key and fields.get(field_key) in allowed_cols:
-            if target == "x_col" and not x_col:
-                x_col = fields.get(field_key)
-            if target == "color_col" and not color_col:
-                color_col = fields.get(field_key)
+    for raw_key, target in [("x", "x_col"), ("dimension", "x_col"), ("group_by", "color_col"), ("compare_by", "color_col"), ("color", "color_col")]:
+        raw_obj = command.get(raw_key, "")
+        raw_values = raw_obj if isinstance(raw_obj, list) else [raw_obj]
+        for raw_item in raw_values:
+            raw_val = _eusee_norm_text(raw_item)
+            field_key = semantic_to_key.get(raw_val)
+            exact_col = str(raw_item or "").strip() if str(raw_item or "").strip() in allowed_cols else None
+            resolved = exact_col or (fields.get(field_key) if field_key else None)
+            if resolved and resolved in allowed_cols:
+                if target == "x_col" and not x_col:
+                    x_col = resolved
+                if target == "color_col" and not color_col:
+                    color_col = resolved
 
     # Safe filters: only existing columns; values are treated as equality filters by Python.
     raw_filters = command.get("filters") or {}
+    raw_fuzzy_filters = command.get("fuzzy_filters") or {}
+    if isinstance(raw_filters, dict) and isinstance(raw_fuzzy_filters, dict):
+        merged_filters = dict(raw_filters)
+        for k, v in raw_fuzzy_filters.items():
+            if k not in merged_filters:
+                merged_filters[k] = v
+        raw_filters = merged_filters
     filters = {}
     if isinstance(raw_filters, dict):
         for col, values in raw_filters.items():
@@ -14700,9 +14736,9 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
         style = {}
 
     # Convert color names if the LLM emits a name rather than a hex code.
-    color_req = _eusee_detect_color_request(" ".join([str(prompt), str(style.get("primary_color", "")), str(style.get("marker_color", ""))]))
-    primary_color = style.get("primary_color") or command.get("primary_color")
-    marker_color = style.get("marker_color") or command.get("marker_color")
+    color_req = _eusee_detect_color_request(" ".join([str(prompt), str(style.get("primary_color", "")), str(style.get("marker_color", "")), str(style.get("color", "")), str(command.get("color", ""))]))
+    primary_color = style.get("primary_color") or style.get("color") or command.get("primary_color")
+    marker_color = style.get("marker_color") or style.get("color") or command.get("marker_color")
     if color_req:
         primary_color = color_req["hex"]
         marker_color = color_req["hex"]
@@ -14717,7 +14753,7 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
                 return False
         return default
 
-    show_values = safe_bool(style.get("show_values", command.get("show_values", True)), True)
+    show_values = safe_bool(style.get("show_values", style.get("show_labels", style.get("show_percent_labels", command.get("show_values", True)))), True)
     show_legend = safe_bool(style.get("show_legend", command.get("show_legend", True)), True)
 
     # Natural-language overrides for legend and labels.
@@ -14800,6 +14836,7 @@ def _eusee_sanitize_llm_command(command, prompt, df, has_active_chart=False):
             "font_size": font_size,
             "height": height,
             "palette": str(style.get("palette") or command.get("palette") or "EU SEE brand — Purple / Teal / Gold")[:80],
+            "sort_order": str(style.get("sort_order") or command.get("sort_order") or "").strip().lower()[:12] or None,
         },
         "llm_used": bool(command.get("_llm_used")),
         "raw_intent": command.get("intent"),
@@ -14821,57 +14858,170 @@ def _eusee_interpret_prompt_with_llm(prompt, df, has_active_chart=False):
     active_config = st.session_state.get("ai_active_chart_config") if has_active_chart else None
 
     system_prompt = """
-You are a dashboard-only command interpreter for the EU SEE Streamlit dashboard.
-Return ONLY valid JSON. Do not write prose.
-You must not use external knowledge, web data, uploaded files, hidden datasets, or assumptions outside the provided dashboard schema.
-Your job is to convert the user's natural-language request into one safe dashboard command.
-Python will execute the command using only the currently filtered dashboard dataframe.
+You are an AI command interpreter for the EU SEE Streamlit Dashboard.
+Return ONLY valid JSON. Do not write prose or markdown.
 
-JSON keys allowed:
+STRICT DASHBOARD-ONLY CONTEXT RULE:
+You must only use the currently filtered dashboard dataframe metadata, active filters, active chart configuration, active chart data summary, and dashboard schema supplied in the user payload. Never use external knowledge, internet data, uploaded files, hidden datasets, assumptions, or invented values. Python will validate and execute your JSON using only the dashboard dataframe.
+
+YOUR ROLE:
+Convert the user’s natural-language request into one safe structured dashboard command. You do not directly create charts, run code, browse, or answer from general knowledge. You only return JSON for approved dashboard tools.
+
+SUPPORTED FUNCTIONALITY REQUESTS:
+1. General Q&A about the dashboard data.
+2. Create charts.
+3. Update existing charts.
+4. Change chart type.
+5. Change colors and style.
+6. Add/remove labels.
+7. Hide/show legend.
+8. Sort ascending or descending.
+9. Show top N categories.
+10. Convert counts to percentages.
+11. Create percentage distribution charts.
+12. Create 100% stacked/proportional charts.
+13. Filter by country, region, year, month, alert impact, alert type, actor, mechanism, affected group, enabling principle, or any exact dashboard column.
+14. Handle misspellings, partial names, shorthand, synonyms, and informal terms by mapping only to available dashboard fields/values.
+15. Explain charts.
+16. Summarize insights.
+17. Compare groups.
+18. Identify top contributors.
+19. Detect unusual patterns from visible dashboard data only.
+20. Show trends over time.
+21. Generate executive summaries from dashboard summaries.
+22. Show raw/filtered data preview.
+23. Explain active filters/current chart state.
+24. Export chart/data when requested by returning export intent only.
+
+SUPPORTED INTENTS, using this script’s exact names:
+- chart_create
+- chart_update
+- chart_analysis
+- summary
+- trend_analysis
+- compare_analysis
+- anomaly_analysis
+- relationship_analysis
+- data_preview
+- general
+
+SUPPORTED CHART TYPES:
+- Vertical bar
+- Horizontal bar
+- Grouped bar
+- Stacked bar
+- Line
+- Area
+- Scatter
+- Heatmap
+- Donut
+- Pie
+- Treemap
+- Sunburst
+- Sankey
+
+VALUE MODES:
+- count
+- percent_total
+- percent_within_x
+- percent_within_group
+
+STYLE OPTIONS:
+- primary_color
+- marker_color
+- force_single_color
+- show_values
+- show_legend
+- font_size
+- height
+- palette
+- sort_order
+- show_percent_labels
+
+COLOR SYNONYMS:
+yellow = #FFDB58
+purple = #660094
+teal = #008CAA
+blue = #2563EB
+green = #16A34A
+red = #B42318
+orange = #EA580C
+grey = #667085
+gray = #667085
+black = #101828
+white = #FFFFFF
+
+DASHBOARD LANGUAGE SYNONYMS:
+negative alerts = alert-impact: Negative
+positive alerts = alert-impact: Positive
+watchlist / watch / context / context to watch = alert-impact: Context to watch
+govt / gov / government = actor value containing Government when available
+country / countries = alert-country
+region / regions = region
+year / years = year
+month / months = month_name
+mechanism / mechanisms = restrictive mechanism or Mechanism of repression when available
+actor / actors = restrictive actor or Actor of repression when available
+affected group / subject / civil society group = affected civil society group or Subject of repression when available
+principle / enabling principle = enabling principle when available
+alert type = alert-type
+impact = alert-impact
+
+IMPORTANT INTERPRETATION RULES:
+- Use exact column names from dashboard_schema.fields/columns whenever possible.
+- Use exact values only when present in dashboard_schema.common_filter_values. For imperfect values, put them in filters or fuzzy_filters so Python can fuzzy-match against dashboard values only.
+- If the user asks to modify an existing chart, use intent chart_update when has_active_chart is true.
+- If there is no active chart and the user asks for a chart/style modification, use chart_create and infer a sensible chart from dashboard fields.
+- “change to percentage distribution chart”, “percentage distribution”, “distribution in percentage”, “show percentage share”, “convert to percent”, “make it proportional”, “show relative distribution”, and similar mean: chart_variant percentage_distribution, value_mode percent_total, show_values true, and keep active chart fields when available.
+- “100% stacked”, “within each category”, “within each country”, “within each region”, “row percentage”, “proportional stacked” mean: chart_type Stacked bar, chart_variant stacked_100, value_mode percent_within_x, show_values true.
+- “show as percentage” means value_mode percent_total unless the user specifies within-group or stacked.
+- “compare by region/country/year/actor/mechanism/principle” means set color_col or group_by to that exact dashboard field if available.
+- “top 10”, “top five”, “largest 20”, “highest 15” means top_n.
+- “sort descending/highest first” means style.sort_order desc. “ascending/lowest first” means asc.
+- “make bars yellow”, “change color to purple”, “use teal” means set style.primary_color and style.marker_color to the matching hex and force_single_color true, unless the user explicitly asks to keep grouping colors.
+- “hide legend” means style.show_legend false. “show legend” means true.
+- “add labels/show labels/show values” means style.show_values true. “hide labels/remove labels” means false.
+- “explain this/chart/current chart” means chart_analysis when an active chart exists.
+- “trend/over time/by year/monthly/yearly” means trend_analysis or a Line chart if the user asks for visualization.
+- “relationship/association/between actor and mechanism/heatmap” means relationship_analysis or Heatmap, using two categorical fields.
+- “show data/table/preview records” means data_preview.
+- “download/export chart/csv/png” means return general intent with analysis_request noting export request unless a dedicated export tool exists in the Python layer.
+- If ambiguous but executable, choose the most likely dashboard interpretation. Ask for clarification only when no safe dashboard mapping exists.
+
+OUTPUT JSON SCHEMA, compatible with this script:
 {
   "intent": "chart_create|chart_update|chart_analysis|summary|trend_analysis|compare_analysis|anomaly_analysis|relationship_analysis|data_preview|general",
-  "chart_type": "Vertical bar|Horizontal bar|Line|Area|Scatter|Heatmap|Donut|Pie|Treemap|Sunburst|Sankey",
-  "x_col": "exact column name or null",
-  "y_col": null,
-  "color_col": "exact column name or null",
-  "facet_col": "exact column name or null",
-  "top_n": 1-50,
-  "filters": {"exact column name": ["allowed value", "allowed value"]},
+  "chart_type": "Vertical bar|Horizontal bar|Grouped bar|Stacked bar|Line|Area|Scatter|Heatmap|Donut|Pie|Treemap|Sunburst|Sankey|null",
+  "x_col": "exact dashboard column name or null",
+  "y_col": "exact dashboard column name or null",
+  "color_col": "exact dashboard column name or null",
+  "facet_col": "exact dashboard column name or null",
+  "x": "semantic field fallback or exact column name or null",
+  "y": "semantic field fallback or exact column name or null",
+  "color": "semantic field fallback or exact column name or null",
+  "group_by": [],
+  "top_n": 10,
+  "filters": {},
+  "fuzzy_filters": {},
   "title": "short chart/output title",
   "chart_variant": "standard|distribution|percentage_distribution|stacked_100",
   "value_mode": "count|percent_total|percent_within_x|percent_within_group",
   "style": {
-    "primary_color": "hex color or null",
-    "marker_color": "hex color or null",
-    "force_single_color": true,
+    "primary_color": null,
+    "marker_color": null,
+    "color": null,
+    "force_single_color": false,
     "show_values": true,
+    "show_labels": true,
+    "show_percent_labels": null,
     "show_legend": true,
     "font_size": 12,
     "height": 460,
-    "palette": "EU SEE brand — Purple / Teal / Gold"
+    "palette": "EU SEE brand — Purple / Teal / Gold",
+    "sort_order": null
   },
-  "needs_chart_update": true,
-  "analysis_request": "short explanation of requested analysis"
+  "analysis_request": "short explanation of requested dashboard analysis"
 }
-
-Rules:
-- Use exact column names from the dashboard schema.
-- Understand imperfect human language: misspellings, partial names, shorthand, synonyms, and unclear entries should be mapped to the closest dashboard field/value from common_filter_values only.
-- Never invent a value that is not present in the dashboard schema samples; when uncertain, choose the safest broad command and let Python fuzzy-match or ask for clarification in analysis_request.
-- If the user asks to modify an existing chart, use chart_update when an active chart exists.
-- If there is no active chart and the user asks for a style/chart modification, create a sensible chart instead.
-- IMPORTANT: The LLM must infer the user's intended chart transformation from natural language, not only exact keywords.
-- If the user asks "change to percentage distribution chart", "percentage distribution", "distribution in percentage", "show percentage share", "convert this chart to percent", "make the chart proportional", "show relative distribution", or similar wording:
-  * set intent = "chart_update" when has_active_chart is true; otherwise set intent = "chart_create".
-  * set chart_variant = "percentage_distribution".
-  * set value_mode = "percent_total" unless the user explicitly asks within-category/100% stacked.
-  * keep chart_type, x_col, color_col, filters, and top_n from active_chart when available; do not reset them unless the user asks.
-  * set style.show_values = true.
-  * set title to mention percentage distribution.
-- If the user asks "100% stacked", "within each category", "within each country", "within each region", "row percentage", or "proportional stacked", set chart_variant = "stacked_100", value_mode = "percent_within_x", and chart_type = "Horizontal bar" or "Vertical bar".
-- If the user asks any other chart styling change, return it in JSON style fields. For color changes like "make bars yellow", set style.primary_color and style.marker_color to the correct hex code and force_single_color true.
-- For explanations like "explain this chart", use chart_analysis when an active chart exists.
-- For unsupported/out-of-scope requests, use summary or general; never invent external facts.
 """
 
     user_payload = {
@@ -14919,7 +15069,7 @@ def _eusee_build_chart_config_from_command(command, prompt, df, previous_config=
     if command.get("title"):
         base["title"] = command.get("title")
 
-    for key in ["primary_color", "marker_color", "force_single_color", "show_values", "show_legend", "font_size", "height", "palette"]:
+    for key in ["primary_color", "marker_color", "force_single_color", "show_values", "show_legend", "font_size", "height", "palette", "sort_order"]:
         if style.get(key) is not None:
             base[key] = style.get(key)
 
