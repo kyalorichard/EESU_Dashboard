@@ -108,6 +108,7 @@
   "Mexico": {"iso_alpha3": "MEX", "continent": "North America"},
   "Mongolia": {"iso_alpha3": "MNG", "continent": "Asia"},
   "Morocco": {"iso_alpha3": "MAR", "continent": "Africa"},
+  "Mozambique": {"iso_alpha3": "MOZ", "continent": "Africa"},
   "Myanmar": {"iso_alpha3": "MMR", "continent": "Asia"},
   "Namibia": {"iso_alpha3": "NAM", "continent": "Africa"},
   "Nepal": {"iso_alpha3": "NPL", "continent": "Asia"},
@@ -141,5 +142,11 @@
   "Côte d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"},
   "Cote d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"},
   "Ivory Coast": {"iso_alpha3": "CIV", "continent": "Africa"},
-  "Papua New Guinea": {"iso_alpha3": "PNG", "continent": "Oceania"}
+  "Papua New Guinea": {"iso_alpha3": "PNG", "continent": "Oceania"},
+  "Namibia": {"iso_alpha3": "NAM", "continent": "Africa"},
+"Chad": {"iso_alpha3": "TCD", "continent": "Africa"},
+"Malawi": {"iso_alpha3": "MWI", "continent": "Africa"},
+"Burundi": {"iso_alpha3": "BDI", "continent": "Africa"},
+"Guatemala": {"iso_alpha3": "GTM", "continent": "North America"},
+"CÃ´te d'Ivoire": {"iso_alpha3": "CIV", "continent": "Africa"}
 }

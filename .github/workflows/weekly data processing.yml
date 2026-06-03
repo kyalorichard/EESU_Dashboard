@@ -12,6 +12,7 @@ jobs:
     env:
       DATA_DIR: exports
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: gpt-5-mini
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -21,7 +22,7 @@ jobs:
       SFTP_PORT: ${{ secrets.SFTP_PORT }}
       SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
       SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-      REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
+      SFTP_REMOTE_DIR: ${{ secrets.SFTP_REMOTE_DIR }}
       LOCAL_DIR: exports
 
     steps:
@@ -43,13 +44,36 @@ jobs:
           python - <<'PY'
           import os
           print("OPENAI_API_KEY exists:", bool(os.getenv("OPENAI_API_KEY")))
-          print("SMTP_HOST exists:", bool(os.getenv("SMTP_HOST")))
-          print("NOTIFY_EMAIL exists:", bool(os.getenv("NOTIFY_EMAIL")))
+          print("OPENAI_API_KEY length:", len(os.getenv("OPENAI_API_KEY", "")))
+          print("OPENAI_API_KEY starts sk:", os.getenv("OPENAI_API_KEY", "").startswith("sk-"))
+          print("SFTP_REMOTE_DIR exists:", bool(os.getenv("SFTP_REMOTE_DIR")))
           print("SFTP_HOST exists:", bool(os.getenv("SFTP_HOST")))
-          print("SFTP_PORT exists:", bool(os.getenv("SFTP_PORT")))
           print("SFTP_USERNAME exists:", bool(os.getenv("SFTP_USERNAME")))
           print("SFTP_PASSWORD exists:", bool(os.getenv("SFTP_PASSWORD")))
-          print("REMOTE_DIR exists:", bool(os.getenv("SFTP_REMOTE_DIR")))
+          PY
+
+      - name: Test OpenAI connectivity
+        run: |
+          python - <<'PY'
+          import os, sys
+          import openai
+      
+          key = os.getenv("OPENAI_API_KEY", "")
+          print("Key present:", bool(key))
+          print("Starts with sk-:", key.startswith("sk-"))
+          print("Length:", len(key))
+      
+          openai.api_key = key
+      
+          try:
+              resp = openai.chat.completions.create(
+                  model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
+                  messages=[{"role": "user", "content": "Say OK"}],
+              )
+              print("OpenAI OK:", resp.choices[0].message.content[:20])
+          except Exception as e:
+              print("OpenAI ERROR:", e)
+              sys.exit(1)
           PY
 
       - name: Run EESU data processing

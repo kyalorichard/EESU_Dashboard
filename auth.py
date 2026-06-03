@@ -1,17 +1,17 @@
-# auth_safe.py
-import streamlit as st
+# auth.py
 import json
 import time
 
-DEBUG = True  # Set False in production
+import streamlit as st
 
-# -----------------------------
-# Optional Imports
-# -----------------------------
+DEBUG = False
+
+
 try:
     import pyrebase
     HAS_PYREBASE = True
 except ImportError:
+    pyrebase = None
     HAS_PYREBASE = False
 
 try:
@@ -19,27 +19,24 @@ try:
     from firebase_admin import credentials
     HAS_FIREBASE_ADMIN = True
 except ImportError:
+    firebase_admin = None
+    credentials = None
     HAS_FIREBASE_ADMIN = False
 
 try:
     from streamlit_cookies_manager import EncryptedCookieManager
     HAS_COOKIES = True
 except ImportError:
+    EncryptedCookieManager = None
     HAS_COOKIES = False
 
-# -----------------------------
-# 1️⃣ Firebase Admin (Safe)
-# -----------------------------
+
 def init_firebase_admin():
     if not HAS_FIREBASE_ADMIN:
-        if DEBUG:
-            st.warning("firebase_admin not installed, skipping Admin init.")
         return None
 
-    secrets_admin = st.secrets.get("firebase_admin")
+    secrets_admin = st.secrets.get("firebase_admin", {})
     if not secrets_admin:
-        if DEBUG:
-            st.warning("Firebase Admin secrets missing in secrets.toml, skipping init.")
         return None
 
     try:
@@ -55,95 +52,73 @@ def init_firebase_admin():
             "token_uri": secrets_admin["token_uri"],
             "auth_provider_x509_cert_url": secrets_admin["auth_provider_x509_cert_url"],
             "client_x509_cert_url": secrets_admin["client_x509_cert_url"],
-            "universe_domain": secrets_admin.get("universe_domain", "googleapis.com")
+            "universe_domain": secrets_admin.get("universe_domain", "googleapis.com"),
         })
+
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred)
+
         return firebase_admin
+
     except Exception as e:
         if DEBUG:
             st.warning(f"Firebase Admin init failed: {e}")
         return None
 
-# -----------------------------
-# 2️⃣ Firebase Client (Pyrebase, Safe)
-# -----------------------------
+
+def _firebase_required_keys():
+    return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
+
+
 def init_firebase_client():
-    cfg = st.secrets.get("firebase", {})
-    if not cfg:
-        if DEBUG:
-            st.warning("Firebase client config missing in secrets.toml, skipping client init.")
+    if not HAS_PYREBASE:
+        st.error("❌ Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy.")
         return None, None
 
-    if not HAS_PYREBASE:
-        if DEBUG:
-            st.warning("pyrebase not installed, skipping client init.")
+    cfg_raw = st.secrets.get("firebase", {})
+    if not cfg_raw:
+        st.error("❌ Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`.")
         return None, None
+
+    cfg = dict(cfg_raw)
+    missing = [k for k in _firebase_required_keys() if not cfg.get(k)]
+
+    if missing:
+        st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
+        return None, None
+
+    cfg.setdefault("databaseURL", "")
 
     try:
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
+
+        if not auth:
+            st.error("❌ Firebase auth object was not created.")
+            return None, None
+
         return firebase, auth
+
     except Exception as e:
-        if DEBUG:
-            st.warning(f"Firebase client init failed: {e}")
+        st.error(f"❌ Firebase initialization failed: {e}")
         return None, None
+
 
 firebase_admin_app = init_firebase_admin()
 firebase_client, firebase_auth = init_firebase_client()
 
-# -----------------------------
-# 3️⃣ Privileged Domains
-# -----------------------------
+
 PRIVILEGED_DOMAINS = set(
-    d.lower() for d in st.secrets.get("access", {}).get("privileged_domains", [])
+    str(d).lower().strip()
+    for d in st.secrets.get("access", {}).get("privileged_domains", [])
+    if str(d).strip()
 )
 
-# -----------------------------
-# 4️⃣ Cookie Manager (Safe)
-# -----------------------------
-def get_cookies():
-    if not HAS_COOKIES:
-        if DEBUG:
-            st.warning("streamlit_cookies_manager not installed, cookies disabled.")
-        return None
 
-    if "cookies" not in st.session_state:
-        password = st.secrets.get("cookie", {}).get("cookie_password")
-        if not password:
-            if DEBUG:
-                st.warning("Cookie password missing in secrets.toml, skipping cookies.")
-            return None
-        st.session_state.cookies = EncryptedCookieManager(prefix="myapp", password=password)
+def get_domain(email: str) -> str:
+    return str(email or "").strip().split("@")[-1].lower()
 
-    cookies = st.session_state.cookies
 
-    # Wait until cookies are ready (max 1 sec)
-    try:
-        start = time.time()
-        while not cookies.ready() and time.time() - start < 1.0:
-            time.sleep(0.05)
-        if not cookies.ready():
-            return None
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Cookie load error: {e}")
-        return None
-
-    try:
-        if hasattr(cookies, "sync"):
-            cookies.sync()
-        elif hasattr(cookies, "load"):
-            cookies.load()
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Could not sync/load cookies: {e}")
-
-    return cookies
-
-# -----------------------------
-# 5️⃣ Session Helpers
-# -----------------------------
 def init_session():
     defaults = {
         "user": False,
@@ -152,157 +127,539 @@ def init_session():
         "role": None,
         "email_verified": False,
         "restored": False,
+        "auth_mode": "Login",
+        "auth_remember": False,
+        "auth_view": False,
     }
+
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
 
-def restore_session():
-    cookies = get_cookies()
-    if not cookies:
-        st.session_state.restored = True
-        return
-    if st.session_state.restored:
-        return
-    try:
-        if cookies.ready() and "email" in cookies:
-            st.session_state.user = True
-            st.session_state.email = cookies.get("email")
-            st.session_state.name = cookies.get("name")
-            st.session_state.role = cookies.get("role")
-            st.session_state.email_verified = cookies.get("email_verified", False)
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Error restoring session: {e}")
-    st.session_state.restored = True
 
-def logout():
-    cookies = get_cookies()
-    if cookies and cookies.ready():
-        for key in ["email", "name", "role", "email_verified"]:
-            if key in cookies:
-                del cookies[key]
-        try:
-            cookies.save()
-        except Exception:
-            pass
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+def is_authenticated():
+    init_session()
+    restore_session()
+    return bool(st.session_state.get("user") and st.session_state.get("email_verified"))
 
-def parse_error(e):
-    try:
-        payload = e.args[1] if len(e.args) > 1 else e.args[0]
-        data = json.loads(payload)
-        return data.get("error", {}).get("message", str(e))
-    except Exception:
-        return str(e)
-
-def get_domain(email):
-    return email.strip().split("@")[-1].lower()
 
 def is_privileged():
+    init_session()
+    restore_session()
     return (
         st.session_state.get("user", False)
         and st.session_state.get("email_verified", False)
         and st.session_state.get("role") == "privileged"
     )
 
-# -----------------------------
-# 6️⃣ Authentication UI
-# -----------------------------
+
+def get_cookies():
+    if not HAS_COOKIES:
+        return None
+
+    if "cookies" not in st.session_state:
+        password = st.secrets.get("cookie", {}).get("cookie_password")
+        if not password:
+            return None
+
+        st.session_state.cookies = EncryptedCookieManager(
+            prefix="eusee",
+            password=password,
+        )
+
+    cookies = st.session_state.cookies
+
+    try:
+        start = time.time()
+
+        while not cookies.ready() and time.time() - start < 1.0:
+            time.sleep(0.05)
+
+        if not cookies.ready():
+            return None
+
+        if hasattr(cookies, "sync"):
+            cookies.sync()
+        elif hasattr(cookies, "load"):
+            cookies.load()
+
+    except Exception as e:
+        if DEBUG:
+            st.sidebar.warning(f"Cookie load error: {e}")
+        return None
+
+    return cookies
+
+
+def restore_session():
+    if st.session_state.get("restored"):
+        return
+
+    cookies = get_cookies()
+
+    if cookies and cookies.ready():
+        try:
+            if "email" in cookies:
+                st.session_state.user = True
+                st.session_state.email = str(cookies.get("email") or "").lower().strip()
+                st.session_state.name = cookies.get("name")
+                st.session_state.role = cookies.get("role")
+                st.session_state.email_verified = str(cookies.get("email_verified", "False")) == "True"
+        except Exception as e:
+            if DEBUG:
+                st.sidebar.warning(f"Error restoring session: {e}")
+
+    st.session_state.restored = True
+
+
+def _save_cookie_session(email, name, verified, role, remember=False):
+    if not remember:
+        return
+
+    cookies = get_cookies()
+
+    if cookies and cookies.ready():
+        cookies["email"] = str(email or "").lower().strip()
+        cookies["name"] = name
+        cookies["email_verified"] = str(bool(verified))
+        cookies["role"] = role
+
+        try:
+            cookies.save()
+        except Exception:
+            pass
+
+
+def logout():
+    cookies = get_cookies()
+
+    if cookies and cookies.ready():
+        for key in ["email", "name", "role", "email_verified"]:
+            if key in cookies:
+                del cookies[key]
+
+        try:
+            cookies.save()
+        except Exception:
+            pass
+
+    for key in [
+        "user",
+        "email",
+        "name",
+        "role",
+        "email_verified",
+        "restored",
+        "auth_mode",
+        "auth_remember",
+        "auth_view",
+    ]:
+        if key in st.session_state:
+            del st.session_state[key]
+
+    st.rerun()
+
+
+def parse_error(e):
+    try:
+        payload = e.args[1] if len(e.args) > 1 else e.args[0]
+        data = json.loads(payload)
+        msg = data.get("error", {}).get("message", str(e))
+    except Exception:
+        msg = str(e)
+
+    friendly = {
+        "EMAIL_NOT_FOUND": "No account was found for this email address.",
+        "INVALID_PASSWORD": "The password is incorrect.",
+        "INVALID_LOGIN_CREDENTIALS": "Invalid email or password.",
+        "EMAIL_EXISTS": "An account already exists for this email address.",
+        "WEAK_PASSWORD": "Password is too weak. Use at least six characters.",
+        "TOO_MANY_ATTEMPTS_TRY_LATER": "Too many attempts. Please try again later.",
+        "USER_DISABLED": "This user account has been disabled.",
+    }
+
+    return friendly.get(msg, msg)
+
+
+def _auth_page_css():
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            display: none !important;
+        }
+
+        header[data-testid="stHeader"] {
+            background: transparent !important;
+        }
+
+        html, body, .stApp {
+            background:
+                radial-gradient(circle at 10% 10%, rgba(102, 0, 148, 0.14), transparent 30%),
+                radial-gradient(circle at 90% 18%, rgba(0, 140, 170, 0.14), transparent 28%),
+                radial-gradient(circle at 50% 100%, rgba(255, 219, 88, 0.16), transparent 34%),
+                linear-gradient(135deg, #faf7fc 0%, #f7fbfd 50%, #fffaf0 100%) !important;
+        }
+
+        .block-container {
+            max-width: 920px !important;
+            padding-top: 2.4rem !important;
+            padding-bottom: 2.4rem !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            border-radius: 30px !important;
+            border: 1px solid rgba(102, 0, 148, 0.12) !important;
+            box-shadow:
+                0 26px 80px rgba(35, 25, 66, 0.16),
+                inset 0 1px 0 rgba(255,255,255,0.9) !important;
+            background: rgba(255, 255, 255, 0.94) !important;
+            backdrop-filter: blur(18px) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] > div {
+            padding: 36px 40px 32px 40px !important;
+            box-sizing: border-box;
+        }
+
+        .auth-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #f7f0fb, #f4fbfd);
+            color: #4b006d;
+            border: 1px solid rgba(102,0,148,0.16);
+            border-radius: 999px;
+            padding: 8px 13px;
+            font-size: 11.5px;
+            font-weight: 900;
+            font-family: Arial, sans-serif;
+            letter-spacing: 0.15px;
+            white-space: nowrap;
+        }
+
+        .mode-card {
+            display: flex;
+            align-items: flex-end;
+            gap: 24px;
+            margin: 0 0 24px 0;
+            border-bottom: 1px solid #eee7f4;
+            padding-bottom: 0;
+        }
+
+        .mode-active {
+            position: relative;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            font-weight: 900;
+            color: #231942;
+            background: transparent;
+            border: none;
+            padding: 0 2px 13px 2px;
+            letter-spacing: -0.1px;
+        }
+
+        .mode-active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 100%;
+            height: 3px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #660094, #008CAA);
+        }
+
+        .auth-note {
+            background: linear-gradient(135deg, #fffaf0, #fffdf7);
+            border: 1px solid rgba(255,219,88,0.58);
+            border-left: 4px solid #FFDB58;
+            border-radius: 16px;
+            padding: 13px 15px;
+            color: #4b3b14;
+            font-size: 11.8px;
+            line-height: 1.5;
+            font-family: Arial, sans-serif;
+            margin-top: 16px;
+        }
+
+        label p {
+            font-size: 12px !important;
+            font-weight: 900 !important;
+            color: #332045 !important;
+            margin-bottom: 4px !important;
+        }
+
+        div[data-testid="stTextInput"] input {
+            border-radius: 14px !important;
+            min-height: 46px !important;
+            font-size: 13px !important;
+            border: 1px solid #e5d9eb !important;
+            background: #fcfbfd !important;
+            box-shadow: inset 0 1px 2px rgba(35,25,66,0.03) !important;
+        }
+
+        div[data-testid="stTextInput"] input:focus {
+            border-color: #660094 !important;
+            box-shadow: 0 0 0 3px rgba(102,0,148,0.10) !important;
+        }
+
+        div[data-testid="stForm"] {
+            border: 0 !important;
+            padding: 0 !important;
+        }
+
+        button[kind="primaryFormSubmit"],
+        button[kind="formSubmit"] {
+            border-radius: 14px !important;
+            min-height: 47px !important;
+            font-weight: 900 !important;
+            background: linear-gradient(135deg, #660094, #008CAA) !important;
+            border: 0 !important;
+            box-shadow: 0 10px 24px rgba(102,0,148,0.18) !important;
+        }
+
+        button {
+            border-radius: 14px !important;
+            font-weight: 850 !important;
+            border-color: #e6ddec !important;
+        }
+
+        button:hover {
+            border-color: #660094 !important;
+            box-shadow: 0 8px 20px rgba(35,25,66,0.10) !important;
+        }
+
+        .small-footer {
+            text-align: center;
+            color: #91869b;
+            font-size: 10.8px;
+            font-family: Arial, sans-serif;
+            margin-top: 18px;
+        }
+
+        @media (max-width: 900px) {
+            .block-container {
+                max-width: 100% !important;
+                padding: 1rem !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"] > div {
+                padding: 24px !important;
+            }
+
+            .auth-pill {
+                justify-content: center;
+                width: 100%;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _set_auth_mode(mode: str):
+    st.session_state.auth_mode = mode
+    st.rerun()
+
+
+def _back_to_dashboard():
+    st.session_state.auth_view = False
+    st.rerun()
+
+
+def _login_form():
+    with st.form("eusee_login_form"):
+        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
+        password = st.text_input("Password", placeholder="Enter your password", type="password")
+
+        remember = st.checkbox(
+            "Keep me signed in on this device",
+            value=st.session_state.get("auth_remember", False),
+        )
+
+        submitted = st.form_submit_button("Sign in to Dashboard", use_container_width=True)
+
+    if submitted:
+        if not firebase_auth:
+            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+            return
+
+        if not email or not password:
+            st.error("Enter email and password.")
+            return
+
+        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+            st.error("Access is restricted to approved EUSEE partner accounts.")
+            return
+
+        try:
+            user = firebase_auth.sign_in_with_email_and_password(email, password)
+            info = firebase_auth.get_account_info(user["idToken"])
+            verified = bool(info["users"][0].get("emailVerified", False))
+            role = "privileged" if verified else "restricted"
+
+            st.session_state.user = True
+            st.session_state.email = email
+            st.session_state.name = email.split("@")[0].replace(".", " ").title()
+            st.session_state.email_verified = verified
+            st.session_state.role = role
+            st.session_state.auth_remember = remember
+            st.session_state.auth_view = False
+
+            _save_cookie_session(email, st.session_state.name, verified, role, remember)
+
+            st.success("Signed in successfully. Redirecting to dashboard...")
+            st.rerun()
+
+        except Exception as e:
+            st.error(parse_error(e))
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Create Account", use_container_width=True, key="switch_to_register"):
+            _set_auth_mode("Register")
+
+    with col2:
+        if st.button("Forgot Password", use_container_width=True, key="switch_to_reset"):
+            _set_auth_mode("Reset")
+
+
+def _register_form():
+    with st.form("eusee_register_form"):
+        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
+        password = st.text_input("Password", placeholder="Create a secure password", type="password")
+
+        submitted = st.form_submit_button("Create Account", use_container_width=True)
+
+    if submitted:
+        if not firebase_auth:
+            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+            return
+
+        if not email or not password:
+            st.error("Enter email and password.")
+            return
+
+        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+            st.error("Registration is restricted to approved EUSEE partner accounts.")
+            return
+
+        try:
+            user = firebase_auth.create_user_with_email_and_password(email, password)
+            firebase_auth.send_email_verification(user["idToken"])
+            st.success("Registration successful. Check your email to verify your account, then sign in.")
+            st.session_state.auth_mode = "Login"
+
+        except Exception as e:
+            st.error(parse_error(e))
+
+
+def _reset_form():
+    with st.form("eusee_reset_form"):
+        reset_email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
+
+        submitted = st.form_submit_button("Send Password Reset Link", use_container_width=True)
+
+    if submitted:
+        if not firebase_auth:
+            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+            return
+
+        if not reset_email:
+            st.warning("Enter your email first.")
+            return
+
+        if PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
+            st.error("Password reset is restricted to approved EUSEE partner accounts.")
+            return
+
+        try:
+            firebase_auth.send_password_reset_email(reset_email)
+            st.success("Password reset email sent.")
+            st.session_state.auth_mode = "Login"
+
+        except Exception as e:
+            st.error(parse_error(e))
+
+
+def _render_premium_auth_page():
+    _auth_page_css()
+
+    mode = st.session_state.get("auth_mode", "Login")
+
+    left_space, center, right_space = st.columns([0.16, 0.68, 0.16])
+
+    with center:
+        with st.container(border=True):
+            top_a, top_b = st.columns([1.35, 0.65])
+
+            with top_a:
+                st.markdown(
+                    '<div class="auth-pill">🔐 Authorized users only</div>',
+                    unsafe_allow_html=True,
+                )
+
+            with top_b:
+                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
+                    _back_to_dashboard()
+
+            if mode == "Login":
+                st.markdown(
+                    """
+                    <div class="mode-card">
+                        <div class="mode-active">Sign in</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                _login_form()
+
+            elif mode == "Register":
+                st.markdown(
+                    """
+                    <div class="mode-card">
+                        <div class="mode-active">Create account</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                _register_form()
+
+            else:
+                st.markdown(
+                    """
+                    <div class="mode-card">
+                        <div class="mode-active">Password reset</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                _reset_form()
+
+            st.markdown(
+                """
+                <div class="auth-note">
+                    Access is limited to approved EUSEE partner accounts.
+                    After successful sign-in, you will return automatically to the dashboard.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="small-footer">EUSEE Dashboard · Secure authentication · Protected access</div>',
+                unsafe_allow_html=True,
+            )
+
+
 def auth_ui():
     init_session()
     restore_session()
-    sidebar = st.sidebar
 
-    if st.session_state.user:
-        sidebar.success(f"👋 {st.session_state.name}")
-        if not st.session_state.email_verified:
-            sidebar.warning("Email not verified.")
-            sidebar.info("Please verify your email before accessing the dashboard.")
-            if sidebar.button("Logout"):
-                logout()
-            return
-        if sidebar.button("Logout"):
-            logout()
+    if st.session_state.get("user") and st.session_state.get("email_verified"):
+        st.session_state.auth_view = False
         return
 
-    action = sidebar.radio("Select Action", ["Login", "Register"])
-
-    # --- LOGIN ---
-    if action == "Login":
-        if not firebase_auth:
-            sidebar.warning("Firebase auth not initialized, login disabled.")
-            return
-        with sidebar.form("login_form"):
-            email = st.text_input("Email").strip()
-            password = st.text_input("Password", type="password")
-            col1, col2 = st.columns(2)
-            submit = col1.form_submit_button("Sign in")
-            forgot = col2.form_submit_button("Forgot Password")
-
-            if submit:
-                if not email or not password:
-                    st.error("Enter email and password.")
-                    return
-                if get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Access restricted to approved domains.")
-                    return
-                try:
-                    user = firebase_auth.sign_in_with_email_and_password(email, password)
-                    info = firebase_auth.get_account_info(user["idToken"])
-                    verified = info["users"][0]["emailVerified"]
-                    role = "privileged" if verified else "restricted"
-
-                    st.session_state.user = True
-                    st.session_state.email = email
-                    st.session_state.name = email.split("@")[0].title()
-                    st.session_state.email_verified = verified
-                    st.session_state.role = role
-
-                    cookies = get_cookies()
-                    if cookies and cookies.ready():
-                        cookies["email"] = email
-                        cookies["name"] = st.session_state.name
-                        cookies["email_verified"] = verified
-                        cookies["role"] = role
-                        try:
-                            cookies.save()
-                        except Exception:
-                            pass
-                    st.rerun()
-                except Exception as e:
-                    st.error(parse_error(e))
-
-            if forgot:
-                if not email:
-                    st.warning("Enter email above for password reset.")
-                    return
-                if get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Reset restricted to approved domains.")
-                    return
-                try:
-                    firebase_auth.send_password_reset_email(email)
-                    st.success("Password reset email sent.")
-                except Exception as e:
-                    st.error(parse_error(e))
-
-    # --- REGISTER ---
-    if action == "Register":
-        if not firebase_auth:
-            sidebar.warning("Firebase auth not initialized, registration disabled.")
-            return
-        with sidebar.form("register_form"):
-            email = st.text_input("Email").strip()
-            password = st.text_input("Password", type="password")
-            submit = st.form_submit_button("Register")
-            if submit:
-                if get_domain(email) not in PRIVILEGED_DOMAINS:
-                    st.error("Registration restricted to approved domains.")
-                    return
-                try:
-                    user = firebase_auth.create_user_with_email_and_password(email, password)
-                    firebase_auth.send_email_verification(user["idToken"])
-                    st.success("Registration successful. Check your email to verify.")
-                except Exception as e:
-                    st.error(parse_error(e))
+    _render_premium_auth_page()

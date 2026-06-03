@@ -2,10 +2,9 @@ name: Data pull Incremental Sync
 
 on:
   schedule:
-    - cron: "0 6 * * *" # Runs daily at 06:00 UTC
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
-# Required for pushing commits and opening PRs
 permissions:
   contents: write
   pull-requests: write
@@ -18,8 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Use PAT if you want PR/merge to work reliably
-          token: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          token: ${{ github.token }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -33,13 +31,12 @@ jobs:
           pip install pandas paramiko
 
       - name: Run SFTP CSV sync
+        id: sync
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           LOCAL_DIR: exports
-
-          # Align these to what your script reads
           SMTP_HOST: ${{ secrets.SMTP_SERVER }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USERNAME }}
@@ -50,17 +47,23 @@ jobs:
           mkdir -p exports
           python data_extraction.py
 
+          if git status --porcelain exports/ | grep .; then
+            echo "new_files=1" >> $GITHUB_OUTPUT
+          else
+            echo "new_files=0" >> $GITHUB_OUTPUT
+          fi
+
       - name: Exit if no new CSV
-        if: env.NEW_FILES_DOWNLOADED == '0'
+        if: steps.sync.outputs.new_files == '0'
         run: |
           echo "No new CSV file detected. Exiting workflow."
-          exit 0
 
       - name: Create Pull Request
         id: cpr
+        if: steps.sync.outputs.new_files == '1'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GIT_TOKEN_CUSTOM }}
+          token: ${{ github.token }}
           base: main
           branch: automated/csv-update
           delete-branch: true
@@ -71,12 +74,10 @@ jobs:
           add-paths: |
             exports/
 
-      # Optional auto-merge (repo must allow auto-merge; PAT must have rights)
-      - name: Enable auto-merge (squash) if allowed
+      - name: Enable auto-merge
         if: steps.cpr.outputs.pull-request-number != ''
         continue-on-error: true
         run: |
           gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --squash --auto
         env:
-          GH_TOKEN: ${{ secrets.GIT_TOKEN_CUSTOM }}
-   
+          GH_TOKEN: ${{ github.token }}
