@@ -1,4 +1,3 @@
-# authz.py
 from __future__ import annotations
 
 import json
@@ -7,6 +6,14 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+except Exception:
+    firebase_admin = None
+    credentials = None
+    firestore = None
 
 
 FEATURE_KEYS = [
@@ -48,7 +55,6 @@ REMOVED_FEATURE_KEYS = {
 
 
 def _secrets_get(section: str, key: str, default: Any = None) -> Any:
-    """Safely read nested Streamlit secrets without failing local runs."""
     try:
         if section in st.secrets and key in st.secrets[section]:
             return st.secrets[section][key]
@@ -65,15 +71,6 @@ def _as_list(value: Any) -> list[str]:
     if isinstance(value, (list, tuple, set)):
         return [str(x).strip() for x in value if str(x).strip()]
     return []
-
-
-def get_access_config_path() -> Path:
-    configured = _secrets_get("access_control", "config_path", None)
-    if configured:
-        return Path(str(configured))
-    if Path("/exports").exists():
-        return Path("/exports/eusee_access_config.json")
-    return Path(__file__).resolve().parent / "exports" / "eusee_access_config.json"
 
 
 def get_admin_emails() -> list[str]:
@@ -103,7 +100,6 @@ def is_admin() -> bool:
 
 
 def get_current_role() -> str:
-    """Resolve role from admin email, authenticated email domain, or public guest."""
     if is_admin():
         return "admin"
 
@@ -118,7 +114,6 @@ def get_current_role() -> str:
 
 
 def default_access_config() -> dict[str, Any]:
-    """Default role permissions. Admins always receive all permissions dynamically."""
     return {
         "guest": {
             "features": {
@@ -191,36 +186,7 @@ def default_access_config() -> dict[str, Any]:
             "years": [],
         },
         "privileged": {
-            "features": {
-                "view_dashboard": True,
-                "view_overview": True,
-                "view_coverage_monitored_countries": True,
-                "view_monitored_countries_value": True,
-                "view_maps": True,
-                "view_negative_alerts": True,
-                "view_analytical_flow_panel": True,
-                "view_data_table": True,
-                "download_data": True,
-                "use_ai_copilot": True,
-                "view_user_manual": True,
-                "view_admin_page": False,
-                "view_chart_overview_alert_type": True,
-                "view_chart_overview_enabling_principles": True,
-                "view_chart_overview_regions": True,
-                "view_chart_overview_countries": True,
-                "view_chart_negative_restrictive_actors": True,
-                "view_chart_negative_affected_actors": True,
-                "view_chart_negative_restrictive_mechanisms": True,
-                "view_chart_negative_event_types": True,
-                "view_chart_negative_alert_types": True,
-                "view_chart_negative_enabling_principles": True,
-                "view_chart_heatmap_actor_mechanism": True,
-                "view_chart_heatmap_subject_mechanism": True,
-                "view_chart_heatmap_actor_subject": True,
-                "view_chart_sankey_flow": True,
-                "view_chart_geospatial_map": True,
-                "view_chart_ai_copilot_plots": True,
-            },
+            "features": {key: True for key in FEATURE_KEYS},
             "regions": [],
             "countries": [],
             "years": [],
@@ -230,6 +196,7 @@ def default_access_config() -> dict[str, Any]:
 
 def _normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
     base = default_access_config()
+
     if not isinstance(config, dict):
         return base
 
@@ -244,53 +211,109 @@ def _normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
             config[role]["features"].pop(removed_key, None)
 
         for key in FEATURE_KEYS:
-            default_value = base[role]["features"].get(key, False)
-            config[role]["features"].setdefault(key, default_value)
+            config[role]["features"].setdefault(
+                key,
+                base[role]["features"].get(key, False),
+            )
 
     return config
 
 
-def load_access_config() -> dict[str, Any]:
-    path = get_access_config_path()
-    if not path.exists():
-        config = default_access_config()
-        save_access_config(config)
-        return config
+@st.cache_resource(show_spinner=False)
+def _get_firestore_client():
+    if firebase_admin is None:
+        return None
 
     try:
-        with path.open("r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception:
-        config = default_access_config()
+        if firebase_admin._apps:
+            return firestore.client()
 
-    normalized = _normalize_config(config)
-    if normalized != config:
-        save_access_config(normalized)
-    return normalized
+        service_account_info = _secrets_get("firebase", "service_account", None)
+
+        if service_account_info:
+            if isinstance(service_account_info, str):
+                service_account_info = json.loads(service_account_info)
+
+            cred = credentials.Certificate(dict(service_account_info))
+            firebase_admin.initialize_app(cred)
+            return firestore.client()
+
+    except Exception as exc:
+        st.error(f"Firebase initialization failed: {exc}")
+
+    return None
+
+
+def _firestore_doc_ref():
+    db = _get_firestore_client()
+    if db is None:
+        return None
+
+    collection = _secrets_get(
+        "access_control",
+        "firestore_collection",
+        "dashboard_settings",
+    )
+    document = _secrets_get(
+        "access_control",
+        "firestore_document",
+        "access_control",
+    )
+
+    return db.collection(collection).document(document)
+
+
+def load_access_config() -> dict[str, Any]:
+    doc_ref = _firestore_doc_ref()
+
+    if doc_ref is None:
+        return default_access_config()
+
+    try:
+        snapshot = doc_ref.get()
+
+        if not snapshot.exists:
+            config = default_access_config()
+            doc_ref.set(config)
+            return config
+
+        config = snapshot.to_dict()
+        normalized = _normalize_config(config)
+
+        if normalized != config:
+            doc_ref.set(normalized)
+
+        return normalized
+
+    except Exception as exc:
+        st.error(f"Failed to load access config from Firestore: {exc}")
+        return default_access_config()
 
 
 def save_access_config(config: dict[str, Any]) -> bool:
-    path = get_access_config_path()
+    doc_ref = _firestore_doc_ref()
+
+    if doc_ref is None:
+        st.error("Firestore is not configured. Access settings were not saved.")
+        return False
+
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
         normalized = _normalize_config(config)
-        with path.open("w", encoding="utf-8") as f:
-            json.dump(normalized, f, indent=2)
+        doc_ref.set(normalized)
+        st.cache_data.clear()
         return True
+
     except Exception as exc:
-        st.error(f"Failed to save access config: {exc}")
+        st.error(f"Failed to save access config to Firestore: {exc}")
         return False
 
 
 def reset_access_config() -> bool:
-    path = get_access_config_path()
-    try:
-        if path.exists():
-            path.unlink()
-        return save_access_config(default_access_config())
-    except Exception as exc:
-        st.error(f"Failed to reset access config: {exc}")
-        return False
+    return save_access_config(default_access_config())
+
+
+def get_access_config_path() -> str:
+    return "Firestore: dashboard_settings/access_control"
 
 
 def has_permission(permission: str) -> bool:
@@ -307,7 +330,6 @@ def has_permission(permission: str) -> bool:
 
 
 def apply_data_scope(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply role-level region/country/year restrictions from the admin page."""
     if df is None or getattr(df, "empty", True) or is_admin():
         return df
 
@@ -326,6 +348,8 @@ def apply_data_scope(df: pd.DataFrame) -> pd.DataFrame:
         scoped = scoped[scoped["alert-country"].astype(str).isin([str(x) for x in countries])]
 
     if years and "year" in scoped.columns:
-        scoped = scoped[pd.to_numeric(scoped["year"], errors="coerce").isin([int(x) for x in years])]
+        scoped = scoped[
+            pd.to_numeric(scoped["year"], errors="coerce").isin([int(x) for x in years])
+        ]
 
     return scoped
