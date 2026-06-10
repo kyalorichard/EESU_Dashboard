@@ -222,6 +222,57 @@ def _normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
 @st.cache_resource(show_spinner=False)
 def _get_firestore_client():
     if firebase_admin is None:
+        st.error("firebase-admin is not installed. Add firebase-admin to requirements.txt and redeploy.")
+        return None
+
+    try:
+        if firebase_admin._apps:
+            return firestore.client()
+
+        service_account_info = None
+
+        if "firebase_admin" in st.secrets:
+            service_account_info = dict(st.secrets["firebase_admin"])
+        elif "firebase" in st.secrets and "service_account" in st.secrets["firebase"]:
+            service_account_info = dict(st.secrets["firebase"]["service_account"])
+
+        if not service_account_info:
+            st.error(
+                "Firebase secrets not found. Expected [firebase_admin] or [firebase.service_account] in Streamlit secrets."
+            )
+            return None
+
+        required_keys = [
+            "type",
+            "project_id",
+            "private_key_id",
+            "private_key",
+            "client_email",
+            "client_id",
+            "auth_uri",
+            "token_uri",
+            "auth_provider_x509_cert_url",
+            "client_x509_cert_url",
+        ]
+
+        missing = [key for key in required_keys if not service_account_info.get(key)]
+
+        if missing:
+            st.error(f"Firebase secrets missing required keys: {missing}")
+            return None
+
+        service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+
+        cred = credentials.Certificate(service_account_info)
+        firebase_admin.initialize_app(cred)
+
+        return firestore.client()
+
+    except Exception as exc:
+        st.error(f"Firebase initialization failed: {exc}")
+        return None
+    
+    if firebase_admin is None:
         return None
 
     try:
