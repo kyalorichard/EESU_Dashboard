@@ -228,7 +228,14 @@ def _get_firestore_client():
         if firebase_admin._apps:
             return firestore.client()
 
-        service_account_info = _secrets_get("firebase", "service_account", None)
+        try:
+            service_account_info = dict(st.secrets["firebase_admin"])
+        except Exception:
+            service_account_info = _secrets_get(
+                "firebase",
+                "service_account",
+                None
+            )
 
         if service_account_info:
             if isinstance(service_account_info, str):
