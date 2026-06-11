@@ -183,7 +183,7 @@ def get_cookies():
     return cookies
 
 
-def restore_session():
+
     if st.session_state.get("restored"):
         return
 
@@ -206,7 +206,7 @@ def restore_session():
                 st.sidebar.warning(f"Error restoring session: {e}")
 
     st.session_state.restored = True
-
+def restore_session():
 
 def is_authenticated():
     init_session()
