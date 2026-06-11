@@ -2695,14 +2695,12 @@ if not has_permission("view_dashboard"):
 
 # ---------------- DASHBOARD TITLE WITH ANIMATED DIVIDER AND TITLE ----------------
 st.markdown(f"""
-<!-- Container for animations -->
-<div style="overflow: hidden;">
+<div class="dashboard-title-shell">
 
 <h1 class="animated-title">
     EU SEE Dashboard
 </h1>
 
-<!-- Animated divider -->
 <div class="animated-divider"></div>
 
 <div class="animated-subtitle">
@@ -2711,13 +2709,19 @@ st.markdown(f"""
     in the enabling environment for civil society.
 </div>
 
-
 </div>
 
 <style>
-/* ---------------- Title ---------------- */
+.dashboard-title-shell {{
+    overflow: hidden;
+    margin-top: -4.5rem !important;
+    padding-top: 0rem !important;
+    margin-bottom: 0.4rem !important;
+}}
+
 .animated-title {{
     margin: 0 0 0px 0 !important;
+    padding: 0 !important;
     line-height: 1.02;
     color: #660094;
     font-size: 48px;
@@ -2729,19 +2733,18 @@ st.markdown(f"""
     animation-delay: 0.2s;
 }}
 
-/* Title animation */
 @keyframes titleFadeSlide {{
     from {{ opacity: 0; transform: translateY(-20px); }}
     to   {{ opacity: 1; transform: translateY(0); }}
 }}
 
-/* ---------------- Divider ---------------- */
 .animated-divider {{
     width: 15%;
     max-width: 120px;
     height: 4px;
     background: linear-gradient(to right, #FFDB58, #660094);
     border-radius: 2px;
+    margin-top: 0rem !important;
     margin-bottom: 2px !important;
     opacity: 0;
     transform: translateX(-120%);
@@ -2754,11 +2757,11 @@ st.markdown(f"""
     to   {{ transform: translateX(0); opacity: 1; }}
 }}
 
-/* ---------------- Subtitle ---------------- */
 .animated-subtitle {{
     font-size: 14px;
     font-family: Arial, sans-serif;
     color: #333333;
+    margin-top: 0rem !important;
     margin-bottom: 3px !important;
     padding-bottom: 0px !important;
     max-width: 980px;
@@ -2772,68 +2775,8 @@ st.markdown(f"""
     from {{ opacity: 0; }}
     to   {{ opacity: 1; }}
 }}
-
-
-/* ---------------- Last updated badge ---------------- */
-.last-updated-badge {{
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    width: fit-content;
-    max-width: 100%;
-    margin: 2px 0 14px 0;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%);
-    border: 1px solid rgba(102, 0, 148, 0.14);
-    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07), inset 0 1px 0 rgba(255,255,255,0.95);
-    font-family: Arial, sans-serif;
-    opacity: 0;
-    animation: subtitleFade 0.8s ease-out forwards;
-    animation-delay: 1.15s;
-}}
-.last-updated-icon {{
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
-    color: #660094;
-    border: 1px solid rgba(102,0,148,.10);
-    font-size: 14px;
-    font-weight: 900;
-}}
-.last-updated-copy {{
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
-    color: #344054;
-}}
-.last-updated-label {{
-    color: #660094;
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-}}
-.last-updated-copy strong {{
-    color: #23152F;
-    font-size: 12.5px;
-    font-weight: 950;
-}}
-.last-updated-copy small {{
-    color: #667085;
-    font-size: 10.5px;
-    font-weight: 700;
-}}
-
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
