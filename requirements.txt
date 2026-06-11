@@ -31,7 +31,7 @@ paramiko==3.5.1
 portalocker==3.2.0
 
 firebase-admin==6.5.0
-pyrebase4==4.8.0
+pyrebase4==4.9.0
 
 streamlit-plotly-events==0.0.6
 streamlit-cookies-manager==0.2.0
