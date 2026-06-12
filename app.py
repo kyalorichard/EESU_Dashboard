@@ -28,28 +28,9 @@ footer {
     visibility: hidden;
 }
 
-/* Keep Streamlit header available so the sidebar can be reopened.
-   Do not hide the header globally: Streamlit places the collapsed sidebar
-   control there in some versions. */
+/* Hide header */
 header {
-    visibility: visible !important;
-}
-
-header[data-testid="stHeader"] {
-    visibility: visible !important;
-    background: transparent !important;
-}
-
-button[data-testid="collapsedControl"],
-[data-testid="collapsedControl"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    position: fixed !important;
-    top: 10px !important;
-    left: 12px !important;
-    z-index: 1000000 !important;
+    visibility: hidden;
 }
 
 /* Hide GitHub icon/link if present */
@@ -1048,7 +1029,7 @@ def can_view_monitored_countries_value() -> bool:
 def monitored_countries_display_value(value) -> str:
     """Format monitored-country values only for permitted users."""
     if not can_view_monitored_countries_value():
-        return "+80"
+        return "Restricted"
     try:
         return f"{int(value):,}"
     except Exception:
@@ -2733,7 +2714,7 @@ st.markdown(f"""
 <style>
 .dashboard-title-shell {{
     overflow: hidden;
-    margin-top: -9.5rem !important;
+    margin-top: -6.5rem !important;
     padding-top: 0rem !important;
     margin-bottom: 0.4rem !important;
 }}
