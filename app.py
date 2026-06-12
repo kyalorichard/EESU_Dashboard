@@ -6143,8 +6143,8 @@ with tab_negative:
             # ---------------- TAB 3 (MAP) ----------------
     else:
         render_access_locked("Negative Alerts", "privileged")
-
-'''with tab_map:
+"""
+with tab_map:
 
     if has_permission("view_maps"):
 
@@ -7113,7 +7113,7 @@ with tab_negative:
 
     else:
         render_access_locked("Visualization Map", "viewer or privileged")
-'''
+"""
 
 with tab_manual:
 
