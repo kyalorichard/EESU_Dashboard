@@ -3009,7 +3009,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
                     <div><div class="eusee-kpi-title">Monitored Countries</div></div>
                     <div class="eusee-kpi-icon">🌍</div>
                 </div>
-                <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
+                <div class="eusee-kpi-value" style="color:#008CAA;font-size:24px;">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
             
         </div>
