@@ -3802,7 +3802,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-eyebrow">Coverage</div><div class="eusee-kpi-title">Monitored Countries</div></div>
+                    <div><div class="eusee-kpi-title">Monitored Countries</div></div>
                     <div class="eusee-kpi-icon">🌍</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
@@ -4006,7 +4006,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Coverage</div><div class="negintel-title">Monitored Countries</div></div>
+                    <div><div class="negintel-title">Monitored Countries</div></div>
                     <div class="negintel-icon">🌍</div>
                 </div>
                 <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
@@ -4019,7 +4019,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">monitoring volume</div><div class="negintel-title">Total Negative alerts</div></div>
+                    <div><div class="negintel-title">Total Negative alerts</div></div>
                     <div class="negintel-icon">⚠️</div>
                 </div>
                 <div class="negintel-value">{negative_total:,}</div>
