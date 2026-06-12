@@ -13,66 +13,36 @@ import hashlib
 from datetime import datetime
 from auth import auth_ui, is_privileged, is_authenticated
 
-import streamlit as st
-
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
+# Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
 
 st.markdown("""
 <style>
+/* Keep Streamlit's native header/sidebar controls available.
+   Only hide non-essential branding/action items. */
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
 
-/* Hide Streamlit menu (top-right) */
-#MainMenu {
-    visibility: hidden;
-}
-
-/* Hide footer */
-footer {
-    visibility: hidden;
-}
-
-/* Keep Streamlit header available so the sidebar can be reopened.
-   Do not hide the header globally: Streamlit places the collapsed sidebar
-   control there in some versions. */
-header {
-    visibility: visible !important;
-}
-
+header,
 header[data-testid="stHeader"] {
-    visibility: visible !important;
-    background: transparent !important;
-}
-
-button[data-testid="collapsedControl"],
-[data-testid="collapsedControl"] {
     visibility: visible !important;
     display: flex !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    position: fixed !important;
-    top: 10px !important;
-    left: 12px !important;
-    z-index: 1000000 !important;
 }
 
-/* Hide GitHub icon/link if present */
+[data-testid="stToolbar"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
 a[href*="github.com"] {
     display: none !important;
 }
-
-/* Keep Streamlit toolbar available because it contains the sidebar restore control in some versions.
-   Individual unwanted buttons are hidden below, but the toolbar container itself must remain clickable. */
-[data-testid="stToolbar"] {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-}
-
-/* Hide deploy button */
-[data-testid="stDecoration"] {
-    display: none !important;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -269,19 +239,6 @@ def inject_classic_dashboard_css():
         z-index: 999999 !important;
     }
     div[data-testid="stToolbar"] { right: 0.75rem !important; }
-    button[data-testid="collapsedControl"],
-    [data-testid="collapsedControl"] {
-        position: fixed !important;
-        top: 10px !important;
-        left: 12px !important;
-        z-index: 1000000 !important;
-        width: 38px !important;
-        height: 38px !important;
-        border-radius: 12px !important;
-        background: #FFFFFF !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 6px 18px rgba(16,24,40,.12) !important;
-    }
     div[data-testid="stDecoration"] { display: none !important; }
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
@@ -782,13 +739,6 @@ def inject_final_responsive_overrides():
         backdrop-filter: blur(10px) !important;
         border-bottom: 1px solid rgba(230,232,239,.8) !important;
         z-index: 999999 !important;
-    }
-    button[data-testid="collapsedControl"], [data-testid="collapsedControl"] {
-        position: fixed !important;
-        top: 10px !important;
-        left: 12px !important;
-        z-index: 1000000 !important;
-        transform: none !important;
     }
     .eusee-kpi-card {
         height: 190px !important;
@@ -15676,6 +15626,3 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-
-# ---------------- SIDEBAR RESTORE FINAL OVERRIDE ----------------
-# Keep this at the end so later CSS cannot accidentally hide the reopen control.
