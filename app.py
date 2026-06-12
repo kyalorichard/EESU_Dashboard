@@ -5968,7 +5968,6 @@ with tab_negative:
                 st.markdown(
                     """
                     <div class="negative-filter-shell">
-                        <div class="negative-filter-eyebrow">Negative alerts filter panel</div>
                         <div class="negative-filter-title">Negative Alerts Filter Panel</div>
                         <div class="negative-filter-note">
                             Explore negative alerts in more detail, including affected civil society actors, 
@@ -7434,7 +7433,6 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-hero">
-                    <div class="manual-eyebrow">Dashboard navigation guide</div>
                     <div class="manual-title">Dashboard User Guide</div>
                     <div class="manual-title-divider"></div>
                     <p class="manual-lead">
