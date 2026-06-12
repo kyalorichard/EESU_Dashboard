@@ -3398,7 +3398,6 @@ def _nice_percent_axis_max(max_pct):
         max_pct = float(max_pct)
     except Exception:
         return 10
-
     if max_pct <= 0:
         return 5
     if max_pct <= 2:
@@ -3408,7 +3407,7 @@ def _nice_percent_axis_max(max_pct):
     if max_pct <= 10:
         return 12
     if max_pct <= 15:
-        return 27
+        return 17
     if max_pct <= 20:
         return 25
     if max_pct <= 30:
@@ -3556,7 +3555,6 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
 
     return fig
 
-
 # ---------------- STACKED BAR LABEL CONTRAST HELPER ----------------
 def readable_stacked_bar_label_color(hex_color):
     """Return readable value-label color for stacked-bar segments."""
@@ -3592,7 +3590,6 @@ def readable_stacked_bar_label_color(hex_color):
         return "#111827"
     except Exception:
         return "#111827"
-
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
@@ -3731,6 +3728,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     )
 
     return fig
+
+
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
@@ -6066,7 +6065,6 @@ with tab_negative:
                 st.markdown(
                     """
                     <div class="negative-filter-shell">
-                        <div class="negative-filter-eyebrow">Negative alerts filter panel</div>
                         <div class="negative-filter-title">Negative Alerts Filter Panel</div>
                         <div class="negative-filter-note">
                             Explore negative alerts in more detail, including affected civil society actors, 
@@ -7531,7 +7529,6 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-hero">
-                    <div class="manual-eyebrow">Dashboard navigation guide</div>
                     <div class="manual-title">Dashboard User Guide</div>
                     <div class="manual-title-divider"></div>
                     <p class="manual-lead">
