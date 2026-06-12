@@ -28,9 +28,28 @@ footer {
     visibility: hidden;
 }
 
-/* Hide header */
+/* Keep Streamlit header available so the sidebar can be reopened.
+   Do not hide the header globally: Streamlit places the collapsed sidebar
+   control there in some versions. */
 header {
-    visibility: hidden;
+    visibility: visible !important;
+}
+
+header[data-testid="stHeader"] {
+    visibility: visible !important;
+    background: transparent !important;
+}
+
+button[data-testid="collapsedControl"],
+[data-testid="collapsedControl"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 12px !important;
+    z-index: 1000000 !important;
 }
 
 /* Hide GitHub icon/link if present */
