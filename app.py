@@ -427,7 +427,15 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             height: 10px !important;
             width: 10px !important;
         }
-       
+        div[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb {
+            background: #D6BBE5 !important;
+            border-radius: 999px !important;
+            border: 2px solid #FFFFFF !important;
+        }
+        div[data-testid="stDataFrame"] ::-webkit-scrollbar-track {
+            background: #F8FAFC !important;
+            border-radius: 999px !important;
+        }
         </style>
         <div class="eusee-data-preview-note">
             <strong>Filtered data preview:</strong> Review a sample of the filtered data and download the full dataset based on the filters currently applied
@@ -2241,7 +2249,7 @@ tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
         "📊 Overview",
         "⚠️ Negative Alerts Analysis",
-        "🗺️ Visualization Map",
+        #"🗺️ Visualization Map",
         "📘 User Manual",
     ]
 )
