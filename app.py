@@ -7531,11 +7531,11 @@ with tab_manual:
                 <div class="manual-hero">
                     <div class="manual-title">Dashboard User Guide</div>
                     <div class="manual-title-divider"></div>
-                    <p class="manual-access-note">
+                    <span class="manual-lead">
                         A quick guide to help you navigate the dashboard, apply filters, interpret charts and maps,
                         explore alert analysis, search the data preview, export filtered results, and use the AI assistant
                         for additional analytical exploration.
-                    </p>
+                    </span>
                     <div>
                         <span class="manual-access-pill">Privileged access only</span>
                         <span class="manual-access-note">
