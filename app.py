@@ -3338,7 +3338,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Coverage</div><div class="negintel-title">Monitored Countries</div></div>
+                    <div><div class="negintel-title">Monitored Countries</div></div>
                     <div class="negintel-icon">🌍</div>
                 </div>
                 <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
@@ -3351,7 +3351,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         <div class="negintel-card">
             <div>
                 <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">monitoring volume</div><div class="negintel-title">Total Negative alerts</div></div>
+                    <div><div class="negintel-title">Total Negative alerts</div></div>
                     <div class="negintel-icon">⚠️</div>
                 </div>
                 <div class="negintel-value">{negative_total:,}</div>
