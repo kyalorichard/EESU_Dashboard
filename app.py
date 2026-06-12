@@ -2245,8 +2245,7 @@ st.markdown(f"""
 
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
-#tab_map disabled
-tab_overview, tab_negative,tab_map, tab_manual = st.tabs(
+tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
     [
         "📊 Overview",
         "⚠️ Negative Alerts Analysis",
@@ -2306,7 +2305,7 @@ def render_top_feedback_bar():
             #eusee-feedback-floating-root {{
                 position: fixed !important;
                 top: clamp(58px, 7vh, 78px) !important;
-                left: 80% !important;
+                left: 50% !important;
                 transform: translateX(-50%) !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
@@ -4954,6 +4953,7 @@ def render_chart_floating_tip(*args, **kwargs):
     return None
 
 
+
 # ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
 def inject_full_tab_responsive_css():
     """Responsive shell that stacks tab content only on small screens and preserves chart legend placement."""
@@ -7542,6 +7542,7 @@ with tab_manual:
 
     else:
         render_access_locked("User Manual", "guest or higher")
+
 
 # ---------------- LANGFLOW-BACKED AI COPILOT ----------------
 def _get_langflow_config():
