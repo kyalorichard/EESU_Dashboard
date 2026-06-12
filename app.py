@@ -1029,7 +1029,7 @@ def can_view_monitored_countries_value() -> bool:
 def monitored_countries_display_value(value) -> str:
     """Format monitored-country values only for permitted users."""
     if not can_view_monitored_countries_value():
-        return "Restricted"
+        return "+80"
     try:
         return f"{int(value):,}"
     except Exception:
@@ -2714,7 +2714,7 @@ st.markdown(f"""
 <style>
 .dashboard-title-shell {{
     overflow: hidden;
-    margin-top: -7.5rem !important;
+    margin-top: -9.5rem !important;
     padding-top: 0rem !important;
     margin-bottom: 0.4rem !important;
 }}
