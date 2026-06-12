@@ -2246,11 +2246,11 @@ st.markdown(f"""
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
 #tab_map disabled
-tab_overview, tab_negative, tab_manual = st.tabs(
+tab_overview, tab_negative,tab_map, tab_manual = st.tabs(
     [
         "📊 Overview",
         "⚠️ Negative Alerts Analysis",
-        #"🗺️ Visualization Map",
+        "🗺️ Visualization Map",
         "📘 User Manual",
     ]
 )
@@ -4954,7 +4954,6 @@ def render_chart_floating_tip(*args, **kwargs):
     return None
 
 
-
 # ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
 def inject_full_tab_responsive_css():
     """Responsive shell that stacks tab content only on small screens and preserves chart legend placement."""
@@ -5968,6 +5967,7 @@ with tab_negative:
                 st.markdown(
                     """
                     <div class="negative-filter-shell">
+                        <div class="negative-filter-eyebrow">Negative alerts filter panel</div>
                         <div class="negative-filter-title">Negative Alerts Filter Panel</div>
                         <div class="negative-filter-note">
                             Explore negative alerts in more detail, including affected civil society actors, 
@@ -6143,7 +6143,7 @@ with tab_negative:
             # ---------------- TAB 3 (MAP) ----------------
     else:
         render_access_locked("Negative Alerts", "privileged")
-"""
+
 with tab_map:
 
     if has_permission("view_maps"):
@@ -7113,7 +7113,6 @@ with tab_map:
 
     else:
         render_access_locked("Visualization Map", "viewer or privileged")
-"""
 
 with tab_manual:
 
@@ -7433,6 +7432,7 @@ with tab_manual:
             st.markdown(
                 """
                 <div class="manual-hero">
+                    <div class="manual-eyebrow">Dashboard navigation guide</div>
                     <div class="manual-title">Dashboard User Guide</div>
                     <div class="manual-title-divider"></div>
                     <p class="manual-lead">
@@ -7542,7 +7542,6 @@ with tab_manual:
 
     else:
         render_access_locked("User Manual", "guest or higher")
-
 
 # ---------------- LANGFLOW-BACKED AI COPILOT ----------------
 def _get_langflow_config():
