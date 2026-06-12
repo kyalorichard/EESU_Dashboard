@@ -879,6 +879,25 @@ def load_data():
 # --- Load data safely ---
 data = apply_data_scope(load_data())
 
+#### --------prepare enabling principles to be ordered-------------------------------------------
+ENABLING_PRINCIPLE_ORDER = [
+    "1. Respect and protection of fundamental freedoms",
+    "2. Supportive legal and regulatory framework",
+    "3. Accessible and sustainable resources",
+    "4. Open and responsive State",
+    "5. Supportive public culture and discourses on civil society",
+    "6. Access to a secure digital environment"
+]
+
+ENABLING_PRINCIPLE_LABEL_MAP = {
+    "Respect and protection of fundamental freedoms":"1. Respect and protection of fundamental freedoms",
+    "Supportive legal and regulatory framework":"2. Supportive legal and regulatory framework",
+    "Accessible and sustainable resources":"3. Accessible and sustainable resources",
+    "State openness and responsiveness to civil society":"4. Open and responsive State",
+    "Civic Culture and Public Discourses on Civil Society":"5. Supportive public culture and discourses on civil society",
+    "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
+}
+
 # ---------------- SIDEBAR LAST UPDATED PANEL ----------------
 def render_sidebar_last_updated_panel():
     """Render the latest dataset update status inside the sidebar.
@@ -2014,13 +2033,28 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         else []
     )
 
-    selected_enabling_principle = safe_multiselect(
+    reverse_principle_map = {
+    v: k for k, v in ENABLING_PRINCIPLE_LABEL_MAP.items()
+    }
+
+    principle_display_options = [
+        label
+        for label in ENABLING_PRINCIPLE_ORDER
+        if label in reverse_principle_map
+    ]
+
+    selected_principle_display = safe_multiselect(
         "Enabling principle",
-        principle_options,
+        principle_display_options,
         "selected_enabling_principle",
         container=sidebar_filter_box,
     )
 
+    selected_enabling_principle = [
+        reverse_principle_map[p]
+        for p in selected_principle_display
+    ]
+    
     selected_years = safe_multiselect(
         "Year",
         sorted(data["year"].dropna().unique())
@@ -4337,24 +4371,7 @@ def explode_multi_valued_columns(df, cols):
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
 
-#### --------prepare enabling principles to be ordered-------------------------------------------
-ENABLING_PRINCIPLE_ORDER = [
-    "1. Respect and protection of fundamental freedoms",
-    "2. Supportive legal and regulatory framework",
-    "3. Accessible and sustainable resources",
-    "4. Open and responsive State",
-    "5. Supportive public culture and discourses on civil society",
-    "6. Access to a secure digital environment"
-]
 
-ENABLING_PRINCIPLE_LABEL_MAP = {
-    "Respect and protection of fundamental freedoms":"1. Respect and protection of fundamental freedoms",
-    "Supportive legal and regulatory framework":"2. Supportive legal and regulatory framework",
-    "Accessible and sustainable resources":"3. Accessible and sustainable resources",
-    "State openness and responsiveness to civil society":"4. Open and responsive State",
-    "Civic Culture and Public Discourses on Civil Society":"5. Supportive public culture and discourses on civil society",
-    "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
-}
 
 
 
