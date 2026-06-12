@@ -7281,7 +7281,7 @@ with tab_manual:
                 }
                 .manual-lead {
                     color: #475467;
-                    font-size: 13px;
+                    font-size: 10px;
                     line-height: 1.72;
                     max-width: 1150px;
                     margin: 0;
@@ -7464,7 +7464,7 @@ with tab_manual:
                 @media (max-width: 760px) {
                     .manual-hero { padding: 13px 14px; }
                     .manual-title { font-size: 18px; }
-                    .manual-lead { font-size: 12px; }
+                    .manual-lead { font-size: 10px; }
                     .manual-access-note { display: block; margin-top: 7px; }
                     .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                     .manual-mini-card { min-height: auto; }
