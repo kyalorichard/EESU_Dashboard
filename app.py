@@ -12,6 +12,13 @@ import base64
 import hashlib
 from datetime import datetime
 from auth import auth_ui, is_privileged, is_authenticated
+import math
+import paramiko
+import logging
+import tempfile  
+import os
+import re
+import requests
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
 # Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
@@ -45,7 +52,6 @@ a[href*="github.com"] {
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
@@ -103,51 +109,13 @@ except Exception:
         st.error("Admin page is not available. Confirm authz.py and admin_page.py are deployed with app.py.")
     def render_admin_sidebar_navigation():
         return "Dashboard"
-import math
-import paramiko
-import logging
-import tempfile  
-import os
-import re
-import requests
 
-try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
-
-# OPENAI PACKAGE NOTE:
-#   Add openai>=1.0.0 to requirements.txt.
-#   Preferred Streamlit Cloud secrets format now uses a nested section:
-#       [openai]
-#       OPENAI_API_KEY = "sk-proj-..."
-#       OPENAI_MODEL = "gpt-4o-mini"
-#   The loader also supports flat Streamlit secrets and deployment environment variables.
-
-# Optional dependency for real Plotly map click events.
-# If not installed, the app falls back to the country drill-down dropdown.
 try:
     from streamlit_plotly_events import plotly_events
     HAS_PLOTLY_EVENTS = True
 except Exception:
     plotly_events = None
     HAS_PLOTLY_EVENTS = False
-
-# --- SFTP CONFIG ---
-#sftp_secrets = st.secrets.get("sftp", {})
-#SFTP_HOST = sftp_secrets.get("host")
-#SFTP_PORT = 22
-#SFTP_USERNAME = sftp_secrets.get("username")
-#SFTP_PASSWORD = sftp_secrets.get("password")
-#REMOTE_DIR = sftp_secrets.get("remote_dir", "exports")
-
-#st.write("SFTP_HOST:", sftp_secrets.get("host"))
-#st.write("SFTP_USERNAME:", sftp_secrets.get("username"))
-#st.write("SFTP_PASSWORD:", sftp_secrets.get("password"))
-#st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
-
-
-
 
 # ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
 def configure_global_plotly_typography():
@@ -1051,7 +1019,6 @@ def _read_pdf_bytes_cached(pdf_path_str: str):
         return pdf_path.read_bytes(), ""
     except Exception as exc:
         return None, f"Could not read {pdf_path.name}: {exc}"
-
 
 def _safe_pdf_download_button(title: str, pdf_path: Path, key_prefix: str):
     """Render a PDF download button safely without blocking the tab."""
