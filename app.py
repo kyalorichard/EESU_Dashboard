@@ -5262,6 +5262,7 @@ def render_dashboard_plotly_chart(
     permission_key: str | None = None,
     permission_label: str | None = None,
     use_container_width: bool = True,
+    **kwargs,
 ):
     """Render a Plotly figure with the dashboard permission wrapper.
 
@@ -5288,6 +5289,17 @@ def render_dashboard_plotly_chart(
     if fig is None:
         target.info(f"No data available for {label}.")
         return
+
+    # Compatibility with older calls that passed AI/chart-explanation metadata.
+    # These arguments are intentionally ignored here because all chatbot/AI code
+    # has been removed, but accepting them keeps existing chart calls stable.
+    chart_info = kwargs.get("chart_info")
+    show_title_tooltip = kwargs.get("show_title_tooltip", False)
+    if chart_info and show_title_tooltip:
+        try:
+            target.caption(str(chart_info))
+        except Exception:
+            pass
 
     try:
         fig = apply_responsive_plotly_layout(fig)
