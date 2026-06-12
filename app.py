@@ -15,6 +15,8 @@ from auth import auth_ui, is_privileged, is_authenticated
 
 import streamlit as st
 
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
+
 st.markdown("""
 <style>
 
@@ -28,9 +30,28 @@ footer {
     visibility: hidden;
 }
 
-/* Hide header */
+/* Keep Streamlit header available so the sidebar can be reopened.
+   Do not hide the header globally: Streamlit places the collapsed sidebar
+   control there in some versions. */
 header {
-    visibility: hidden;
+    visibility: visible !important;
+}
+
+header[data-testid="stHeader"] {
+    visibility: visible !important;
+    background: transparent !important;
+}
+
+button[data-testid="collapsedControl"],
+[data-testid="collapsedControl"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 12px !important;
+    z-index: 1000000 !important;
 }
 
 /* Hide GitHub icon/link if present */
@@ -38,9 +59,13 @@ a[href*="github.com"] {
     display: none !important;
 }
 
-/* Hide toolbar */
+/* Keep Streamlit toolbar available because it contains the sidebar restore control in some versions.
+   Individual unwanted buttons are hidden below, but the toolbar container itself must remain clickable. */
 [data-testid="stToolbar"] {
-    display: none !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
 }
 
 /* Hide deploy button */
@@ -50,6 +75,139 @@ a[href*="github.com"] {
 
 </style>
 """, unsafe_allow_html=True)
+
+
+def inject_sidebar_restore_safety_layer():
+    """Keep the Streamlit native sidebar restore button visible after collapse."""
+    st.markdown("""
+    <style>
+    /* Do not hide the header or toolbar: Streamlit stores the sidebar restore button there. */
+    header,
+    header[data-testid="stHeader"],
+    div[data-testid="stToolbar"] {
+        visibility: visible !important;
+        display: flex !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
+    header[data-testid="stHeader"] {
+        min-height: 48px !important;
+        height: 48px !important;
+        background: rgba(247,248,251,.94) !important;
+        z-index: 2147483000 !important;
+    }
+
+    /* Support several Streamlit versions/selectors for the sidebar toggle. */
+    button[data-testid="collapsedControl"],
+    [data-testid="collapsedControl"],
+    button[aria-label="Open sidebar"],
+    button[aria-label="Close sidebar"],
+    button[title="Open sidebar"],
+    button[title="Close sidebar"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        position: fixed !important;
+        top: 9px !important;
+        left: 10px !important;
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 12px !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 8px 22px rgba(16,24,40,.16) !important;
+        z-index: 2147483647 !important;
+    }
+
+    /* Hide decorative/deploy elements only; never hide the toolbar container. */
+    [data-testid="stDecoration"],
+    [data-testid="stDeployButton"],
+    a[href*="github.com"] {
+        display: none !important;
+    }
+
+    #MainMenu, footer {
+        visibility: hidden !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def install_sidebar_restore_button():
+    """Add an always-visible rescue button that clicks Streamlit's native sidebar toggle."""
+    components.html(
+        """
+        <script>
+        (function () {
+            const parentDoc = window.parent.document;
+            const existing = parentDoc.getElementById('eusee-sidebar-rescue-button');
+            if (existing) existing.remove();
+
+            const btn = parentDoc.createElement('button');
+            btn.id = 'eusee-sidebar-rescue-button';
+            btn.type = 'button';
+            btn.innerHTML = '☰';
+            btn.title = 'Open / close filters sidebar';
+            btn.setAttribute('aria-label', 'Open / close filters sidebar');
+            btn.style.cssText = `
+                position: fixed;
+                top: 9px;
+                left: 10px;
+                width: 40px;
+                height: 40px;
+                border-radius: 12px;
+                border: 1px solid #E6E8EF;
+                background: #FFFFFF;
+                color: #660094;
+                font-size: 22px;
+                line-height: 34px;
+                font-weight: 900;
+                cursor: pointer;
+                z-index: 2147483647;
+                box-shadow: 0 8px 22px rgba(16,24,40,.18);
+            `;
+
+            btn.onclick = function () {
+                const selectors = [
+                    'button[data-testid="collapsedControl"]',
+                    '[data-testid="collapsedControl"] button',
+                    '[data-testid="collapsedControl"]',
+                    'button[aria-label="Open sidebar"]',
+                    'button[aria-label="Close sidebar"]',
+                    'button[title="Open sidebar"]',
+                    'button[title="Close sidebar"]'
+                ];
+
+                for (const selector of selectors) {
+                    const el = parentDoc.querySelector(selector);
+                    if (el && el !== btn) {
+                        el.click();
+                        return;
+                    }
+                }
+
+                const sidebar = parentDoc.querySelector('section[data-testid="stSidebar"]');
+                if (sidebar) {
+                    sidebar.style.display = 'block';
+                    sidebar.style.visibility = 'visible';
+                    sidebar.style.transform = 'translateX(0px)';
+                    sidebar.style.left = '0px';
+                }
+            };
+
+            parentDoc.body.appendChild(btn);
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+inject_sidebar_restore_safety_layer()
+install_sidebar_restore_button()
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
@@ -150,7 +308,6 @@ except Exception:
 #st.write("SFTP_PASSWORD:", sftp_secrets.get("password"))
 #st.write("SFTP_REMOTE_DIR:", sftp_secrets.get("remote_dir", "exports"))
 
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide")
 
 
 
@@ -1029,7 +1186,7 @@ def can_view_monitored_countries_value() -> bool:
 def monitored_countries_display_value(value) -> str:
     """Format monitored-country values only for permitted users."""
     if not can_view_monitored_countries_value():
-        return "Restricted"
+        return "+80"
     try:
         return f"{int(value):,}"
     except Exception:
@@ -2714,7 +2871,7 @@ st.markdown(f"""
 <style>
 .dashboard-title-shell {{
     overflow: hidden;
-    margin-top: -6.5rem !important;
+    margin-top: -9.5rem !important;
     padding-top: 0rem !important;
     margin-bottom: 0.4rem !important;
 }}
@@ -15650,3 +15807,9 @@ st.markdown(f"""
     <div class="eusee-fixed-footer-copy">© 2025 EU SEE Dashboard. All rights reserved.</div>
 </div>
 """, unsafe_allow_html=True)
+
+
+# ---------------- SIDEBAR RESTORE FINAL OVERRIDE ----------------
+# Keep this at the end so later CSS cannot accidentally hide the reopen control.
+inject_sidebar_restore_safety_layer()
+install_sidebar_restore_button()
