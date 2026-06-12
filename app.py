@@ -1628,7 +1628,7 @@ def render_sidebar_access_settings_profile():
     }
     .eusee-privilege-marker { display: none; }
     section[data-testid="stSidebar"] .eusee-privilege-title {
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 700;
         color: #23152F;
         margin-bottom: -2px;
