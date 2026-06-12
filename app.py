@@ -1624,7 +1624,7 @@ def render_sidebar_access_settings_profile():
     st.sidebar.markdown("""
     <style>
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
-        gap: 0.45rem;
+        gap: 0.25rem;
     }
     .eusee-privilege-marker { display: none; }
     section[data-testid="stSidebar"] .eusee-privilege-title {
@@ -1634,7 +1634,7 @@ def render_sidebar_access_settings_profile():
         margin-bottom: -2px;
     }
     section[data-testid="stSidebar"] .eusee-privilege-note {
-        font-size: 10.5px;
+        font-size: 8px;
         color: #667085;
         line-height: 1.35;
         margin-top: -4px;
