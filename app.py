@@ -15629,7 +15629,7 @@ st.markdown(f"""
 }}
 .eusee-fixed-footer img {{
     display: block;
-    width: min(650px, 85vw);
+    width: min(700px, 85vw);
     max-width: 85vw;
     height: auto;
     margin: 0 auto !important;
