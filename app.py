@@ -5247,6 +5247,64 @@ RESTRICTED_VISUAL_PERMISSION_LABELS = {
     "view_chart_geospatial_map": "Geospatial intelligence map",
 }
 
+
+def render_dashboard_plotly_chart(
+    fig,
+    *,
+    plot_df=None,
+    visual_type: str = "chart",
+    x_col: str | None = None,
+    group_col: str | None = None,
+    dashboard_df=None,
+    config: dict | None = None,
+    key: str | None = None,
+    container=None,
+    permission_key: str | None = None,
+    permission_label: str | None = None,
+    use_container_width: bool = True,
+):
+    """Render a Plotly figure with the dashboard permission wrapper.
+
+    This function replaces the removed chatbot/AI-aware chart wrapper and keeps
+    all existing chart calls working. It only checks the configured permission,
+    applies responsive Plotly layout, and renders the chart.
+    """
+    target = container if container is not None else st
+
+    label = permission_label or RESTRICTED_VISUAL_PERMISSION_LABELS.get(
+        permission_key or "",
+        visual_type.title() if visual_type else "Dashboard chart",
+    )
+
+    if permission_key and not can_render_feature(permission_key):
+        render_permission_locked_card(
+            section_title=label,
+            permission_key=permission_key,
+            container=target,
+            compact=True,
+        )
+        return
+
+    if fig is None:
+        target.info(f"No data available for {label}.")
+        return
+
+    try:
+        fig = apply_responsive_plotly_layout(fig)
+    except Exception:
+        pass
+
+    chart_config = {"displayModeBar": False, "responsive": True}
+    if config:
+        chart_config.update(config)
+
+    target.plotly_chart(
+        fig,
+        use_container_width=use_container_width,
+        config=chart_config,
+        key=key,
+    )
+
 def render_permission_locked_card(
     section_title: str,
     permission_key: str,
@@ -8147,7 +8205,7 @@ st.markdown(f"""
 }}
 .eusee-fixed-footer img {{
     display: block;
-    width: min(700px, 92vw);
+    width: min(900px, 92vw);
     max-width: 92vw;
     height: auto;
     margin: 0 auto !important;
