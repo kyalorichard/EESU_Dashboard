@@ -7281,11 +7281,11 @@ with tab_manual:
                 }
                 .manual-lead {
                     color: #475467;
-                    font-size: 14px;
-                    line-height: 1.72;
+                    font-size: 12px;
+                    line-height: 1.5;
                     max-width: 1150px;
                     margin: 0;
-                    font-weight: 500;
+                    font-weight: 300;
                 }
                 .manual-access-pill {
                     display: inline-flex;
