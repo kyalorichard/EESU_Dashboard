@@ -3387,7 +3387,11 @@ def render_chart_shell():
 
 render_chart_shell()
 
-# ---------------- PERCENT AXIS / HEIGHT HELPERS ----------------
+# ---------------- PERCENT AXIS / STANDARD HEIGHT HELPERS ----------------
+CHART_HEIGHT_VERTICAL = 450
+CHART_HEIGHT_HORIZONTAL = 600
+
+
 def _nice_percent_axis_max(max_pct):
     """Return a readable percentage axis maximum based on observed max percentage."""
     try:
@@ -3418,33 +3422,26 @@ def _nice_percent_axis_max(max_pct):
     return 100
 
 
-def _dynamic_percent_chart_height(n_items, horizontal=False):
-    """Adjust chart height based on number of displayed categories."""
-    try:
-        n_items = int(n_items)
-    except Exception:
-        n_items = 1
-
-    if horizontal:
-        return max(380, min(1600, 120 + (n_items * 58)))
-
-    return max(350, min(950, 120 + (n_items * 42)))
+def _standard_chart_height(horizontal=False):
+    """Keep all bar/stacked charts visually consistent."""
+    return CHART_HEIGHT_HORIZONTAL if horizontal else CHART_HEIGHT_VERTICAL
 
 
 # ---------------- DYNAMIC BAR CHART ----------------
 def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, normalize_labels=True):
-    """Create a percentage bar chart.
-
-    Ordinary bar charts display percentage of total.
-    Axis range adjusts to the maximum percentage so small values remain visible.
-    Raw counts are preserved in hover.
-    """
+    """Create a percentage bar chart with standard height and dynamic percent axis."""
     df = df.copy()
 
     if df is None or df.empty or x not in df.columns or y not in df.columns:
         fig = go.Figure()
         fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
-        return apply_classic_chart_theme(fig, title=title, height=330, horizontal=horizontal, showlegend=False)
+        return apply_classic_chart_theme(
+            fig,
+            title=title,
+            height=_standard_chart_height(horizontal),
+            horizontal=horizontal,
+            showlegend=False,
+        )
 
     df[y] = pd.to_numeric(df[y], errors="coerce").fillna(0)
     df["raw_count"] = df[y]
@@ -3453,16 +3450,16 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     df["percent_value"] = np.where(
         total_count > 0,
         (df["raw_count"] / total_count) * 100,
-        0
+        0,
     ).round(1)
 
-    df["percent_label"] = df["percent_value"].map(lambda v: f"{v:.1f}%" if v > 0 else "")
+    df["percent_label"] = df["percent_value"].map(
+        lambda v: f"{v:.1f}%" if v > 0 else ""
+    )
 
     max_pct = float(df["percent_value"].max()) if not df.empty else 0
     axis_max = _nice_percent_axis_max(max_pct)
-
-    num_bars = df.shape[0]
-    height = _dynamic_percent_chart_height(num_bars, horizontal=horizontal)
+    height = _standard_chart_height(horizontal)
 
     if normalize_labels:
         df[x] = df[x].apply(
@@ -3472,7 +3469,9 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
             )
         )
     else:
-        df[x] = df[x].astype(str).apply(lambda l: wrap_label_by_words(l, words_per_line=3))
+        df[x] = df[x].astype(str).apply(
+            lambda l: wrap_label_by_words(l, words_per_line=3)
+        )
 
     if "Other" in df[x].values:
         df_other = df[df[x] == "Other"]
@@ -3493,7 +3492,10 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     fig.update_traces(
-        textposition=["inside" if val >= (axis_max * 0.12) else "outside" for val in df["percent_value"]],
+        textposition=[
+            "inside" if val >= (axis_max * 0.12) else "outside"
+            for val in df["percent_value"]
+        ],
         insidetextanchor="end",
         texttemplate="%{text}",
         textfont=dict(size=11, color="#1F2937", family=CHART_FONT),
@@ -3523,9 +3525,6 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
             gridwidth=1,
             gridcolor="lightgray",
         )
-
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
 
     fig = apply_classic_chart_theme(
         fig,
@@ -3595,33 +3594,33 @@ def readable_stacked_bar_label_color(hex_color):
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
-    """Create a stacked bar chart where each segment is percent of the grand total.
-
-    Percentages are calculated as:
-        segment count / grand total count * 100
-
-    Axis range adjusts to the largest stacked category percentage.
-    Raw counts are preserved in hover.
-    """
+    """Create a stacked bar chart using percent of grand total with standard height."""
     df = df.copy()
 
     if df is None or df.empty or y not in df.columns or x not in df.columns or color_col not in df.columns:
         fig = go.Figure()
         fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
-        return apply_classic_chart_theme(fig, title=title, height=350, horizontal=horizontal, showlegend=False)
+        return apply_classic_chart_theme(
+            fig,
+            title=title,
+            height=_standard_chart_height(horizontal),
+            horizontal=horizontal,
+            showlegend=False,
+        )
 
     df[x] = pd.to_numeric(df[x], errors="coerce").fillna(0)
     df["raw_count"] = df[x]
 
     grand_total = float(df["raw_count"].sum())
-
     df["percent_value"] = np.where(
         grand_total > 0,
         (df["raw_count"] / grand_total) * 100,
-        0
+        0,
     ).round(1)
 
-    df["percent_label"] = df["percent_value"].map(lambda v: f"{v:.1f}%" if v > 0 else "")
+    df["percent_label"] = df["percent_value"].map(
+        lambda v: f"{v:.1f}%" if v > 0 else ""
+    )
 
     if "Other" in df[y].astype(str).values:
         df_other = df[df[y].astype(str) == "Other"]
@@ -3629,20 +3628,17 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
         df = pd.concat([df_main, df_other], ignore_index=True)
 
     if normalize_labels:
-        df[y] = df[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+        df[y] = df[y].apply(
+            lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4)
+        )
     else:
         df[y] = df[y].apply(lambda l: wrap_label_by_words(l, words_per_line=4))
 
-    if horizontal:
-        ordered_y = list(dict.fromkeys(df[y].tolist()))[::-1]
-    else:
-        ordered_y = list(dict.fromkeys(df[y].tolist()))
+    ordered_y = list(dict.fromkeys(df[y].tolist()))[::-1] if horizontal else list(dict.fromkeys(df[y].tolist()))
 
     max_pct = float(df.groupby(y)["percent_value"].sum().max()) if not df.empty else 0
     axis_max = _nice_percent_axis_max(max_pct)
-
-    n_categories = df[y].nunique()
-    height = _dynamic_percent_chart_height(n_categories, horizontal=horizontal)
+    height = _standard_chart_height(horizontal)
 
     categories = sorted(df[color_col].dropna().unique())
     category_colors = CHART_COLORS
@@ -3651,7 +3647,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
 
     for cat in categories:
         df_cat = df[df[color_col] == cat].copy()
-
         df_cat[y] = pd.Categorical(df_cat[y], categories=ordered_y, ordered=True)
         df_cat = df_cat.sort_values(y)
 
@@ -3734,7 +3729,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     )
 
     return fig
-
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
