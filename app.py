@@ -13136,16 +13136,12 @@ def render_ai_assistant_panel(df):
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-if has_permission("use_ai_copilot"):
-    render_ai_assistant_panel(filtered_global)
-# When unavailable, the AI Copilot status is shown in Settings / Profile instead of a sidebar alert.
 
 
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
-# Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
-# Footer image
+
 
 # OpenAI test UI is now integrated inside the AI Copilot drawer.
 
