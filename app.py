@@ -2939,94 +2939,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
-# ---------------- HARD FIX: REMOVE OVERVIEW TAB INTERNAL SCROLLBARS ----------------
-def inject_overview_no_scroll_hard_fix():
-    """Remove nested scrollbars created inside the Overview tab only.
-
-    Streamlit can create extra scroll containers inside tab panels and dataframes.
-    CSS alone can miss those wrappers because their DOM structure changes between
-    Streamlit versions. This lightweight JS marks the first tab panel as Overview
-    and neutralizes vertical overflow only within that panel. Other tabs remain
-    unchanged.
-    """
-    st.markdown("""
-    <style>
-    /* The first tab panel is the Overview tab. Remove vertical scroll wrappers there only. */
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type > div,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stVerticalBlock"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stElementContainer"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="column"] {
-        overflow-y: visible !important;
-        max-height: none !important;
-        height: auto !important;
-    }
-
-    /* Overview charts must not introduce internal scrollbars. */
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .stPlotlyChart,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stPlotlyChart"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .js-plotly-plot,
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type .plot-container {
-        overflow-y: visible !important;
-        max-height: none !important;
-    }
-
-    /* Overview dataframe: no vertical scrollbar; keep horizontal scrollbar only when columns are wide. */
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"],
-    div[data-testid="stTabs"]:first-of-type div[role="tabpanel"]:first-of-type div[data-testid="stDataFrame"] > div {
-        overflow-y: visible !important;
-        overflow-x: auto !important;
-        max-height: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    components.html("""
-    <script>
-    (function() {
-        const doc = window.parent.document;
-
-        function removeOverviewScrollbars() {
-            const tabs = doc.querySelector('div[data-testid="stTabs"]');
-            if (!tabs) return;
-
-            const panels = tabs.querySelectorAll('div[role="tabpanel"]');
-            const overview = panels && panels.length ? panels[0] : null;
-            if (!overview) return;
-
-            overview.setAttribute('data-overview-no-scroll', 'true');
-            overview.style.overflowY = 'visible';
-            overview.style.maxHeight = 'none';
-            overview.style.height = 'auto';
-
-            overview.querySelectorAll('div, section, article').forEach(function(el) {
-                const testid = el.getAttribute('data-testid') || '';
-
-                // Keep horizontal scrolling for wide tables, but remove vertical scrolling.
-                if (testid === 'stDataFrame') {
-                    el.style.overflowX = 'auto';
-                    el.style.overflowY = 'visible';
-                    el.style.maxHeight = 'none';
-                    return;
-                }
-
-                el.style.overflowY = 'visible';
-                el.style.maxHeight = 'none';
-            });
-        }
-
-        removeOverviewScrollbars();
-        setTimeout(removeOverviewScrollbars, 250);
-        setTimeout(removeOverviewScrollbars, 1000);
-    })();
-    </script>
-    """, height=0, width=0)
-
-
-inject_overview_no_scroll_hard_fix()
-
-
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
     """
@@ -3777,7 +3689,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-eyebrow">Coverage</div><div class="eusee-kpi-title">Monitored Countries</div></div>
+                    <div><div class="eusee-kpi-title">Monitored Countries</div></div>
                     <div class="eusee-kpi-icon">🌍</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
@@ -3791,7 +3703,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-eyebrow">Monitoring volume</div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" tabindex="0" aria-label="Total alerts interpretation note" data-tooltip="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
+                    <div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" tabindex="0" aria-label="Total alerts interpretation note" data-tooltip="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
                     <div class="eusee-kpi-icon">⚠️</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
@@ -3803,7 +3715,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         st.markdown(f"""
         <div class="eusee-kpi-card">
             <div class="eusee-kpi-top">
-                <div><div class="eusee-kpi-eyebrow">Composition</div><div class="eusee-kpi-title">Alerts Breakdown</div></div>
+                <div><div class="eusee-kpi-title">Alerts Breakdown</div></div>
                 <div class="eusee-kpi-icon">◔</div>
             </div>
             <div class="eusee-donut-layout">
