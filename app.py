@@ -2245,7 +2245,8 @@ st.markdown(f"""
 
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
-tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
+#tab_map disabled
+tab_overview, tab_negative, tab_manual = st.tabs(
     [
         "📊 Overview",
         "⚠️ Negative Alerts Analysis",
@@ -2305,7 +2306,7 @@ def render_top_feedback_bar():
             #eusee-feedback-floating-root {{
                 position: fixed !important;
                 top: clamp(58px, 7vh, 78px) !important;
-                left: 50% !important;
+                left: 80% !important;
                 transform: translateX(-50%) !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
