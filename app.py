@@ -3540,10 +3540,13 @@ def readable_stacked_bar_label_color(hex_color):
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
 def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
-    """Create a 100% stacked bar chart.
+    """Create a stacked bar chart where each segment is percent of the grand total.
 
-    Each bar sums to 100% within the main category (`y`). Raw counts are preserved
-    in hover and percent labels are shown inside the stack segments.
+    Percentages are calculated as:
+        segment count / grand total count * 100
+
+    This means the full chart sums to 100%, not each individual bar.
+    Raw counts are preserved in hover and percent labels are shown inside segments.
     """
     df = df.copy()
 
@@ -3555,25 +3558,27 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     df[x] = pd.to_numeric(df[x], errors="coerce").fillna(0)
     df["raw_count"] = df[x]
 
-    # Calculate percent within each displayed category so stacked bars total 100%.
-    category_totals = df.groupby(y)["raw_count"].transform("sum")
-    df["percent_value"] = np.where(category_totals > 0, (df["raw_count"] / category_totals) * 100, 0)
-    df["percent_label"] = df["percent_value"].map(lambda v: f"{v:.1f}%")
+    # Calculate percent of the full chart total, not within each displayed category.
+    grand_total = df["raw_count"].sum()
+    df["percent_value"] = np.where(
+        grand_total > 0,
+        (df["raw_count"] / grand_total) * 100,
+        0
+    ).round(1)
 
-    # Preserve category order before label wrapping.
+    df["percent_label"] = df["percent_value"].map(lambda v: f"{v:.1f}%" if v > 0 else "")
+
     if "Other" in df[y].astype(str).values:
         df_other = df[df[y].astype(str) == "Other"]
         df_main = df[df[y].astype(str) != "Other"]
         df = pd.concat([df_main, df_other], ignore_index=True)
 
-    # Label handling.
     if normalize_labels:
         df[y] = df[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
     else:
         df[y] = df[y].apply(lambda l: wrap_label_by_words(l, words_per_line=4))
 
     if horizontal:
-        # Reverse row display for a more natural top-to-bottom order.
         ordered_y = list(dict.fromkeys(df[y].tolist()))[::-1]
     else:
         ordered_y = list(dict.fromkeys(df[y].tolist()))
@@ -3582,14 +3587,12 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     category_colors = CHART_COLORS
 
     fig = go.Figure()
+
     for cat in categories:
         df_cat = df[df[color_col] == cat].copy()
-        if horizontal:
-            df_cat[y] = pd.Categorical(df_cat[y], categories=ordered_y, ordered=True)
-            df_cat = df_cat.sort_values(y)
-        else:
-            df_cat[y] = pd.Categorical(df_cat[y], categories=ordered_y, ordered=True)
-            df_cat = df_cat.sort_values(y)
+
+        df_cat[y] = pd.Categorical(df_cat[y], categories=ordered_y, ordered=True)
+        df_cat = df_cat.sort_values(y)
 
         bar_color = category_colors.get(cat, "#660094")
         label_color = readable_stacked_bar_label_color(bar_color)
@@ -3608,9 +3611,9 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
             textfont=dict(color=label_color, size=11, family=CHART_FONT),
             marker_line=dict(color="rgba(255,255,255,0.72)", width=0.8),
             hovertemplate=(
-                f"<b>%{{y}}</b><br>{cat}: %{{customdata[1]:.1f}}%<br>Count: %{{customdata[0]:,.0f}}<extra></extra>"
+                f"<b>%{{y}}</b><br>{cat}: %{{customdata[1]:.1f}}% of total<br>Count: %{{customdata[0]:,.0f}}<extra></extra>"
                 if horizontal else
-                f"<b>%{{x}}</b><br>{cat}: %{{customdata[1]:.1f}}%<br>Count: %{{customdata[0]:,.0f}}<extra></extra>"
+                f"<b>%{{x}}</b><br>{cat}: %{{customdata[1]:.1f}}% of total<br>Count: %{{customdata[0]:,.0f}}<extra></extra>"
             ),
         ))
 
@@ -3624,10 +3627,24 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
 
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor="black", title=None)
-        fig.update_xaxes(title="Percent within category", ticksuffix="%", range=[0, 100], showgrid=True, gridwidth=1, gridcolor="lightgray")
+        fig.update_xaxes(
+            title="Percent of total",
+            ticksuffix="%",
+            range=[0, max(100, df.groupby(y)["percent_value"].sum().max() * 1.08)],
+            showgrid=True,
+            gridwidth=1,
+            gridcolor="lightgray"
+        )
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title=None)
-        fig.update_yaxes(title="Percent within category", ticksuffix="%", range=[0, 100], showgrid=True, gridwidth=1, gridcolor="lightgray")
+        fig.update_yaxes(
+            title="Percent of total",
+            ticksuffix="%",
+            range=[0, max(100, df.groupby(y)["percent_value"].sum().max() * 1.08)],
+            showgrid=True,
+            gridwidth=1,
+            gridcolor="lightgray"
+        )
 
     fig = apply_classic_chart_theme(
         fig,
@@ -3637,12 +3654,20 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
         showlegend=True,
     )
 
-    # Keep 100% axis after applying theme.
     fig.update_layout(barmode="stack")
+
     if horizontal:
-        fig.update_xaxes(title="Percent within category", ticksuffix="%", range=[0, 100])
+        fig.update_xaxes(
+            title="Percent of total",
+            ticksuffix="%",
+            range=[0, max(100, df.groupby(y)["percent_value"].sum().max() * 1.08)]
+        )
     else:
-        fig.update_yaxes(title="Percent within category", ticksuffix="%", range=[0, 100])
+        fig.update_yaxes(
+            title="Percent of total",
+            ticksuffix="%",
+            range=[0, max(100, df.groupby(y)["percent_value"].sum().max() * 1.08)]
+        )
 
     fig.add_annotation(
         text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
@@ -3656,9 +3681,8 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
         xanchor="center",
         yanchor="middle",
     )
+
     return fig
-
-
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
