@@ -3213,7 +3213,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
                     <div><div class="negintel-title">Monitored Countries</div></div>
                     <div class="negintel-icon">🌍</div>
                 </div>
-                <div class="negintel-value" style="color:#008CAA;font-size:{countries_size};">{countries_value}</div>
+                <div class="negintel-value" style="color:#008CAA;font-size:36px;">{countries_value}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
