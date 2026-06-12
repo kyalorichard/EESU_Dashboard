@@ -4020,8 +4020,6 @@ def render_heatmaps(df, top_n=5):
         fig3.update_traces(zmin=0, zmax=zmax)
         render_dashboard_plotly_chart(fig3, plot_df=actor_subject_pivot.stack().reset_index(name="count"), visual_type="heatmap", x_col="Actor of repression", group_col="Subject of repression", dashboard_df=df_top, config={"displayModeBar": False}, key="heatmap_actor_subject_pro", permission_key="view_chart_heatmap_actor_subject", permission_label="Actor × affected actor heatmap")
         
-
-
 # ---------------- PROFESSIONAL SANKEY FUNCTION ----------------
 def render_sankey(df, top_n=None, width=900, wrap_width=22):
     if df.empty:
@@ -4698,7 +4696,6 @@ def render_permission_locked_card(
     """, unsafe_allow_html=True)
 
 
-
 def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
     """Render any chart/widget only when its admin-configured permission is enabled."""
     if can_render_feature(permission_key):
@@ -5084,14 +5081,6 @@ def render_chart_floating_tip(*args, **kwargs):
     """
     return None
 
-
-def inject_chart_floating_tip_css():
-    """Deprecated compatibility hook kept to avoid breaking older calls."""
-    return None
-
-
-# Floating chart tips intentionally disabled; chart notes now use Plotly-native info badges.
-inject_chart_floating_tip_css()
 
 
 # ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
@@ -5663,9 +5652,7 @@ def inject_final_responsive_tab_text_ux():
     }
     </style>
     """, unsafe_allow_html=True)
-
 inject_final_responsive_tab_text_ux()
-
 
 # ---------------- FINAL TOP TAB SPACING OVERRIDE ----------------
 def inject_final_top_tab_spacing_override():
@@ -5741,10 +5728,7 @@ def inject_final_top_tab_spacing_override():
     }
     </style>
     """, unsafe_allow_html=True)
-
-
 inject_final_top_tab_spacing_override()
-
 
 # ---------------- FINAL LEGEND COLOR + SPACING FIX ----------------
 def inject_plotly_legend_color_spacing_fix():
@@ -5779,9 +5763,7 @@ def inject_plotly_legend_color_spacing_fix():
     }
     </style>
     """, unsafe_allow_html=True)
-
 inject_plotly_legend_color_spacing_fix()
-
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
 
@@ -8034,8 +8016,6 @@ def render_ai_assistant_panel(df):
             st.markdown("</div>", unsafe_allow_html=True)
 
 
-
-
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
@@ -8067,8 +8047,8 @@ st.markdown(f"""
 }}
 .eusee-fixed-footer img {{
     display: block;
-    width: min(900px, 92vw);
-    max-width: 92vw;
+    width: min(700px, 82vw);
+    max-width: 82vw;
     height: auto;
     margin: 0 auto !important;
     padding: 0 !important;
