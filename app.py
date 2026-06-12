@@ -7532,8 +7532,8 @@ with tab_manual:
                     <div class="manual-title">Dashboard User Guide</div>
                     <div class="manual-title-divider"></div>
                     <span class="manual-lead">
-                        A quick guide to help you navigate the dashboard, apply filters, interpret charts and maps,<br>
-                        explore alert analysis, search the data preview, export filtered results, and use the AI assistant
+                        A quick guide to help you navigate the dashboard, apply filters, interpret charts and maps,
+                        explore alert analysis, <br> search the data preview, export filtered results, and use the AI assistant
                         for additional analytical exploration.
                     </span>
                     <div>
