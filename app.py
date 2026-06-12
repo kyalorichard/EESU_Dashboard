@@ -117,70 +117,7 @@ except Exception:
     plotly_events = None
     HAS_PLOTLY_EVENTS = False
 
-# ---------------- GLOBAL EXECUTIVE TYPOGRAPHY + COLOR SYSTEM ----------------
-def configure_global_plotly_typography():
-    """Apply a consistent executive font and color system to Plotly charts.
 
-    This does not change chart data, traces, permissions, filters, or dashboard logic.
-    It only sets default typography and neutral visual defaults for charts that do
-    not explicitly override their own font settings.
-    """
-    executive_template = go.layout.Template(
-        layout=go.Layout(
-            font=dict(
-                family="Inter, Segoe UI, Arial, sans-serif",
-                size=12,
-                color="#475467",
-            ),
-            title=dict(
-                font=dict(
-                    family="Inter, Segoe UI, Arial, sans-serif",
-                    size=18,
-                    color="#101828",
-                ),
-                x=0.02,
-                xanchor="left",
-            ),
-            legend=dict(
-                font=dict(
-                    family="Inter, Segoe UI, Arial, sans-serif",
-                    size=11,
-                    color="#475467",
-                ),
-            ),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=30, r=24, t=58, b=34),
-            hoverlabel=dict(
-                font=dict(
-                    family="Inter, Segoe UI, Arial, sans-serif",
-                    size=11,
-                    color="#101828",
-                ),
-                bgcolor="#FFFFFF",
-                bordercolor="#E4E7EC",
-            ),
-            xaxis=dict(
-                title_font=dict(size=12, color="#344054"),
-                tickfont=dict(size=11, color="#667085"),
-                gridcolor="#EEF0F4",
-                zerolinecolor="#E4E7EC",
-            ),
-            yaxis=dict(
-                title_font=dict(size=12, color="#344054"),
-                tickfont=dict(size=11, color="#667085"),
-                gridcolor="#EEF0F4",
-                zerolinecolor="#E4E7EC",
-            ),
-        )
-    )
-    pio.templates["eusee_executive"] = executive_template
-    pio.templates.default = "plotly_white+eusee_executive"
-    px.defaults.template = "plotly_white+eusee_executive"
-    px.defaults.labels = px.defaults.labels or {}
-
-
-configure_global_plotly_typography()
 
 # ---------------- PROFESSIONAL CLASSIC DASHBOARD UX STYLING ----------------
 def inject_classic_dashboard_css():
@@ -336,18 +273,6 @@ def render_classic_filter_header():
     </div>
     """, unsafe_allow_html=True)
 
-
-def render_filter_status_card(df):
-    total = len(df) if df is not None else 0
-    countries = df['alert-country'].nunique() if df is not None and not df.empty and 'alert-country' in df.columns else 0
-    years = df['year'].nunique() if df is not None and not df.empty and 'year' in df.columns else 0
-    st.sidebar.markdown(f"""
-    <div class="classic-filter-status">
-        <div class="status-row"><span>Filtered records</span><span class="status-value">{total:,}</span></div>
-        <div class="status-row"><span>Countries</span><span class="status-value">{countries:,}</span></div>
-        <div class="status-row"><span>Years</span><span class="status-value">{years:,}</span></div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> pd.Series:
@@ -640,60 +565,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
-
-# ---------------- LIGHTWEIGHT LOADING FEEDBACK FOR FILTER / UI RERUNS ----------------
-def inject_blocking_filter_loader():
-    """
-    Lightweight replacement for the previous full-page JavaScript blocking loader.
-
-    Why this version:
-    - The previous loader attached global click/change listeners to the whole app.
-    - It created a full-screen overlay with blur and pointer interception.
-    - On Streamlit, that can make every filter interaction feel extremely slow,
-      especially when charts, tables, maps, Sankey diagrams and chatbot sections rerender.
-
-    This version keeps loading feedback visible but avoids freezing the dashboard.
-    It does not intercept clicks and does not attach expensive JS event listeners.
-    """
-    st.markdown("""
-    <style>
-    /* Keep Streamlit's native running indicator visible and polished instead of using a heavy full-screen blocker. */
-    [data-testid="stStatusWidget"] {
-        visibility: visible !important;
-        right: 18px !important;
-        top: 14px !important;
-        z-index: 999999 !important;
-    }
-
-    /* Soft visual feedback during reruns without disabling the whole UI. */
-    .stApp[data-testid="stApp"] {
-        transition: opacity .12s ease-in-out;
-    }
-
-    /* Remove any old injected blocking overlay if a browser cache still has it. */
-    #eusee-blocking-loader-overlay {
-        display: none !important;
-        pointer-events: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Performance: avoid expensive blur filters on low-power devices. */
-    @media (max-width: 900px), (prefers-reduced-motion: reduce) {
-        * {
-            scroll-behavior: auto !important;
-        }
-        .eusee-kpi-card,
-        .executive-table-shell,
-        div[data-testid="stExpander"],
-        section[data-testid="stSidebar"] {
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_blocking_filter_loader()
 
 
 # ---------------- FINAL RESPONSIVE OVERRIDES FOR KPI / SIDEBAR / HEADER ----------------
