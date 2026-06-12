@@ -7282,9 +7282,10 @@ with tab_manual:
                 .manual-lead {
                     color: #475467;
                     font-size: 10px;
-                    line-height: 1.5;
+                    line-height: 1.72;
                     max-width: 1150px;
                     margin: 0;
+                    font-weight: 500;
                 }
                 .manual-access-pill {
                     display: inline-flex;
@@ -7530,7 +7531,7 @@ with tab_manual:
                 <div class="manual-hero">
                     <div class="manual-title">Dashboard User Guide</div>
                     <div class="manual-title-divider"></div>
-                    <p class="manual-lead">
+                    <p class="manual-access-note">
                         A quick guide to help you navigate the dashboard, apply filters, interpret charts and maps,
                         explore alert analysis, search the data preview, export filtered results, and use the AI assistant
                         for additional analytical exploration.
