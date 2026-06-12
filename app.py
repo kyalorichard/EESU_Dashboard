@@ -2245,7 +2245,8 @@ st.markdown(f"""
 
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
-tab_overview, tab_negative, tab_map, tab_manual = st.tabs(
+#tab_map disabled
+tab_overview, tab_negative,tab_map, tab_manual = st.tabs(
     [
         "📊 Overview",
         "⚠️ Negative Alerts Analysis",
@@ -2305,7 +2306,7 @@ def render_top_feedback_bar():
             #eusee-feedback-floating-root {{
                 position: fixed !important;
                 top: clamp(58px, 7vh, 78px) !important;
-                left: 50% !important;
+                left: 80% !important;
                 transform: translateX(-50%) !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
@@ -3387,74 +3388,84 @@ def render_chart_shell():
 render_chart_shell()
 
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,normalize_labels=True):
-   
+def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, normalize_labels=True):
+    """Create a percentage bar chart.
+
+    - Ordinary bar charts display percent of the chart total.
+    - Raw counts are preserved in hover as `raw_count`.
+    - Existing calls that pass x='category', y='count' continue to work.
+    """
     df = df.copy()
 
-    # ---------------- Safe numeric conversion for y ----------------
-    #df[y] = pd.to_numeric(df[y], errors='coerce').fillna(0)
+    if df is None or df.empty or x not in df.columns or y not in df.columns:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
+        return apply_classic_chart_theme(fig, title=title, height=330, horizontal=horizontal, showlegend=False)
+
+    # Preserve raw counts and calculate percentage of total.
+    df[y] = pd.to_numeric(df[y], errors="coerce").fillna(0)
+    df["raw_count"] = df[y]
+    total_count = float(df["raw_count"].sum())
+    df["percent_value"] = np.where(total_count > 0, (df["raw_count"] / total_count) * 100, 0)
+    df["percent_label"] = df["percent_value"].map(lambda v: f"{v:.1f}%")
 
     num_bars = df.shape[0]
-    height = max(330, min(520, num_bars * 24 + 120))  # Professional compact auto-height
-    font_size = max(10, min(12, 13 - int(num_bars / 8)))
+    height = max(330, min(520, num_bars * 24 + 120))
 
-    # Optional: wrap labels (assuming wrap_label_by_words exists)
-    
-    # ---------------- Label handling ----------------
+    # Label handling.
     if normalize_labels:
         df[x] = df[x].apply(
             lambda l: wrap_label_by_words(
                 normalize_label(l) if x not in ["alert-country", "region"] else str(l),
-                words_per_line=3
+                words_per_line=3,
             )
         )
     else:
-        df[x] = df[x].astype(str).apply(
-            lambda l: wrap_label_by_words(l, words_per_line=3)
-        )
-        
-    # Move "Other" category to the end if present
+        df[x] = df[x].astype(str).apply(lambda l: wrap_label_by_words(l, words_per_line=3))
+
+    # Move Other category to the end if present.
     if "Other" in df[x].values:
         df_other = df[df[x] == "Other"]
         df_main = df[df[x] != "Other"]
         df = pd.concat([df_main, df_other], ignore_index=True)
-        
-    # For horizontal charts, reverse order so "Other" is at bottom
         if horizontal:
             df = df[::-1].reset_index(drop=True)
-    # Create bar chart
+
+    # Create percentage bar chart.
     fig = px.bar(
         df,
-        x=x if not horizontal else y,
-        y=y if not horizontal else x,
-        orientation='h' if horizontal else 'v',
+        x="percent_value" if horizontal else x,
+        y=x if horizontal else "percent_value",
+        orientation="h" if horizontal else "v",
         color=color_col,
-        #color_discrete_map=COLOR_MAPPING if color_col else None,
-        color_discrete_sequence=[CHART_COLORS['Default']],
-        text=y
+        color_discrete_sequence=[CHART_COLORS["Default"]],
+        text="percent_label",
+        custom_data=["raw_count", "percent_value"],
     )
 
-    # Text positions (inside if large enough, otherwise outside)
+    # Text positions.
     fig.update_traces(
-        textposition=['inside' if val > 25 else 'outside' for val in df[y]],
-        insidetextanchor='end',
+        textposition=["inside" if val >= 8 else "outside" for val in df["percent_value"]],
+        insidetextanchor="end",
         texttemplate="%{text}",
         textfont=dict(size=11, color="#1F2937", family=CHART_FONT),
         marker_line=dict(color="rgba(255,255,255,0.75)", width=0.8),
-        hovertemplate="<b>%{label}</b><br>Count: %{text}<extra></extra>"
+        hovertemplate=(
+            "<b>%{y}</b><br>" if horizontal else "<b>%{x}</b><br>"
+        ) + "Share: %{customdata[1]:.1f}%<br>Count: %{customdata[0]:,.0f}<extra></extra>",
     )
 
-    # Bold axis lines
+    # Axis lines and percent scale.
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_yaxes(showline=True, linewidth=2, linecolor="black", title=None)
+        fig.update_xaxes(title="Percent of total", ticksuffix="%", range=[0, max(100, float(df["percent_value"].max()) * 1.15)], showgrid=True, gridwidth=1, gridcolor="lightgray")
     else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
+        fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title=None)
+        fig.update_yaxes(title="Percent of total", ticksuffix="%", range=[0, max(100, float(df["percent_value"].max()) * 1.15)], showgrid=True, gridwidth=1, gridcolor="lightgray")
 
-    # Grid and axis
-    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor="lightgray")
 
-    # Professional chart theme
     fig = apply_classic_chart_theme(
         fig,
         title=title,
@@ -3463,15 +3474,13 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         showlegend=bool(color_col),
     )
 
-    # ---------------- Dynamic download-only source ----------------
+    # Keep percentage axis after applying theme.
     if horizontal:
-        # For horizontal bars, find max x for positioning
-        max_val = df[x].sum()
+        fig.update_xaxes(title="Percent of total", ticksuffix="%", range=[0, max(100, float(df["percent_value"].max()) * 1.15)])
     else:
-        # For vertical bars, find max y for positioning
-        max_val = df[x].sum()
-   
-    # ---------------- WATERMARK ----------------
+        fig.update_yaxes(title="Percent of total", ticksuffix="%", range=[0, max(100, float(df["percent_value"].max()) * 1.15)])
+
+    # Watermark.
     fig.add_annotation(
         text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
         xref="paper",
@@ -3479,16 +3488,13 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None,norm
         x=0.5,
         y=0.5,
         showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
+        font=dict(size=20, color="black"),
         opacity=0.035,
         xanchor="center",
-        yanchor="middle"
-    )  
+        yanchor="middle",
+    )
     return fig
+
 
 # ---------------- STACKED BAR LABEL CONTRAST HELPER ----------------
 def readable_stacked_bar_label_color(hex_color):
@@ -3533,55 +3539,96 @@ def readable_stacked_bar_label_color(hex_color):
         return "#111827"
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, horizontal=False, normalize_labels=True):
-    categories = sorted(df[color_col].unique())
-    #color_sequence = ['#008CAA','#660094','#FFDB58']
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
+    """Create a 100% stacked bar chart.
 
-    # ---------------- Define category-to-color mapping ----------------
+    Each bar sums to 100% within the main category (`y`). Raw counts are preserved
+    in hover and percent labels are shown inside the stack segments.
+    """
+    df = df.copy()
+
+    if df is None or df.empty or y not in df.columns or x not in df.columns or color_col not in df.columns:
+        fig = go.Figure()
+        fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
+        return apply_classic_chart_theme(fig, title=title, height=350, horizontal=horizontal, showlegend=False)
+
+    df[x] = pd.to_numeric(df[x], errors="coerce").fillna(0)
+    df["raw_count"] = df[x]
+
+    # Calculate percent within each displayed category so stacked bars total 100%.
+    category_totals = df.groupby(y)["raw_count"].transform("sum")
+    df["percent_value"] = np.where(category_totals > 0, (df["raw_count"] / category_totals) * 100, 0)
+    df["percent_label"] = df["percent_value"].map(lambda v: f"{v:.1f}%")
+
+    # Preserve category order before label wrapping.
+    if "Other" in df[y].astype(str).values:
+        df_other = df[df[y].astype(str) == "Other"]
+        df_main = df[df[y].astype(str) != "Other"]
+        df = pd.concat([df_main, df_other], ignore_index=True)
+
+    # Label handling.
+    if normalize_labels:
+        df[y] = df[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+    else:
+        df[y] = df[y].apply(lambda l: wrap_label_by_words(l, words_per_line=4))
+
+    if horizontal:
+        # Reverse row display for a more natural top-to-bottom order.
+        ordered_y = list(dict.fromkeys(df[y].tolist()))[::-1]
+    else:
+        ordered_y = list(dict.fromkeys(df[y].tolist()))
+
+    categories = sorted(df[color_col].dropna().unique())
     category_colors = CHART_COLORS
-    
-    categories = sorted(df[color_col].unique())
-   
+
     fig = go.Figure()
-    for i, cat in enumerate(categories):
-        df_cat = df[df[color_col]==cat].copy()
-         # ---------------- Label handling ----------------
-        if normalize_labels:
-            df_cat[y] = df_cat[y].apply(lambda l: wrap_label_by_words(normalize_label(l), words_per_line=4))
+    for cat in categories:
+        df_cat = df[df[color_col] == cat].copy()
+        if horizontal:
+            df_cat[y] = pd.Categorical(df_cat[y], categories=ordered_y, ordered=True)
+            df_cat = df_cat.sort_values(y)
         else:
-            df_cat[y] = df_cat[y].apply(
-                lambda l: wrap_label_by_words(l, words_per_line=4)
-            )                  
-        
-        bar_color = category_colors.get(cat, "#660094")  # fallback color if category missing
+            df_cat[y] = pd.Categorical(df_cat[y], categories=ordered_y, ordered=True)
+            df_cat = df_cat.sort_values(y)
+
+        bar_color = category_colors.get(cat, "#660094")
         label_color = readable_stacked_bar_label_color(bar_color)
 
         fig.add_trace(go.Bar(
-            x=df_cat[y] if not horizontal else df_cat[x],
-            y=df_cat[x] if not horizontal else df_cat[y],
+            x=df_cat["percent_value"] if horizontal else df_cat[y],
+            y=df_cat[y] if horizontal else df_cat["percent_value"],
             name=cat,
-            orientation='h' if horizontal else 'v',
+            orientation="h" if horizontal else "v",
             marker_color=bar_color,
-            text=df_cat[x],
-            textposition='inside',
-            insidetextanchor='end',
+            text=df_cat["percent_label"],
+            customdata=np.stack([df_cat["raw_count"], df_cat["percent_value"]], axis=-1),
+            textposition="inside",
+            insidetextanchor="middle",
+            texttemplate="%{text}",
             textfont=dict(color=label_color, size=11, family=CHART_FONT),
             marker_line=dict(color="rgba(255,255,255,0.72)", width=0.8),
-            hovertemplate=f"<b>%{{y}}</b><br>{cat}: %{{x}} alerts<extra></extra>"
+            hovertemplate=(
+                f"<b>%{{y}}</b><br>{cat}: %{{customdata[1]:.1f}}%<br>Count: %{{customdata[0]:,.0f}}<extra></extra>"
+                if horizontal else
+                f"<b>%{{x}}</b><br>{cat}: %{{customdata[1]:.1f}}%<br>Count: %{{customdata[0]:,.0f}}<extra></extra>"
+            ),
         ))
-    num_bars = df.shape[0]
+
     height = 350
-    # Bold axis line
+
+    fig.update_layout(
+        barmode="stack",
+        height=height,
+        margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20),
+    )
+
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor='black')     
-        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
-        fig.update_xaxes(tickfont=dict(family="Arial",size=11, color="black"))  
+        fig.update_yaxes(showline=True, linewidth=2, linecolor="black", title=None)
+        fig.update_xaxes(title="Percent within category", ticksuffix="%", range=[0, 100], showgrid=True, gridwidth=1, gridcolor="lightgray")
     else:
-        fig.update_xaxes(showline=True, linewidth=2, linecolor='black')
-              
-    fig.update_layout(barmode='stack', height=height, margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20))
-    fig.update_xaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
-    fig.update_yaxes(title=None, showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title=None)
+        fig.update_yaxes(title="Percent within category", ticksuffix="%", range=[0, 100], showgrid=True, gridwidth=1, gridcolor="lightgray")
+
     fig = apply_classic_chart_theme(
         fig,
         title=title,
@@ -3589,17 +3636,14 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         horizontal=horizontal,
         showlegend=True,
     )
-    fig.update_layout(barmode='stack')
 
-    # ---------------- Dynamic download-only source ----------------
+    # Keep 100% axis after applying theme.
+    fig.update_layout(barmode="stack")
     if horizontal:
-        # For horizontal bars, find max x for positioning
-        max_val = df[x].sum()
+        fig.update_xaxes(title="Percent within category", ticksuffix="%", range=[0, 100])
     else:
-        # For vertical bars, find max y for positioning
-        max_val = df[x].sum()
-  
-    # ---------------- WATERMARK ----------------
+        fig.update_yaxes(title="Percent within category", ticksuffix="%", range=[0, 100])
+
     fig.add_annotation(
         text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
         xref="paper",
@@ -3607,17 +3651,13 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact",title=None, 
         x=0.5,
         y=0.5,
         showarrow=False,
-        font=dict(
-            size=20,
-            color="black"
-        ),
-        #textangle=-30,
+        font=dict(size=20, color="black"),
         opacity=0.035,
         xanchor="center",
-        yanchor="middle"
+        yanchor="middle",
     )
-
     return fig
+
 
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
@@ -4497,9 +4537,6 @@ def can_render_feature(permission_key: str) -> bool:
     except Exception:
         return False
 
-
-
-
 # Central chart/map privilege catalogue. Every visual listed here is rendered
 # through render_dashboard_plotly_chart() or render_permission_locked_card() so
 # restricted users see the same polished locked-state card instead of a plain message.
@@ -4575,7 +4612,6 @@ def render_if_permitted(permission_key: str, section_title: str, render_fn, cont
     return None
 
 # ---------------- TABS ALREADY RENDERED DIRECTLY BELOW SUBTITLE ----------------
-
 SOURCE_TEXT = "Source: EU SEE Dashboard. Data compiled by EU SEE Network."
 def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     """
@@ -4595,14 +4631,12 @@ def add_source_line(fig, y_offset=-0.15, font_size=12, font_color="gray"):
     )
     return fig
 
-
 # ---------------- PROFESSIONAL TITLE-AWARE IN-CHART INFO BADGE ----------------
 def _strip_plotly_html(text):
     """Return plain title text for width estimation only."""
     if text is None:
         return ""
     return re.sub(r"<[^>]+>", "", str(text)).replace("&nbsp;", " ").strip()
-
 
 def _estimate_badge_x_from_title(
     title_text,
@@ -4637,7 +4671,6 @@ def _estimate_badge_x_from_title(
 
     return min(max(badge_x, 0.04), max_x)
 
-
 def _wrap_chart_tooltip_text(message, line_length=82):
     """Format long tooltip text so Plotly hover labels remain readable."""
     raw = _strip_plotly_html(message)
@@ -4663,7 +4696,6 @@ def _wrap_chart_tooltip_text(message, line_length=82):
 
     return "<br>".join(lines)
 
-
 def _figure_has_chart_info_badge(fig):
     """Avoid duplicate info badges when a chart already received one manually."""
     try:
@@ -4679,7 +4711,6 @@ def _figure_has_chart_info_badge(fig):
         return False
     return False
 
-
 def _escape_plotly_title_attr(value):
     """Escape text used inside the Plotly title HTML tooltip attribute."""
     return (
@@ -4690,7 +4721,6 @@ def _escape_plotly_title_attr(value):
         .replace(">", "&gt;")
         .replace("'", "&#39;")
     )
-
 
 def _build_plotly_title_with_info(title_text, tooltip_text):
     """Build a Plotly-safe title with the info icon locked beside the title.
@@ -4726,7 +4756,6 @@ def _build_plotly_title_with_info(title_text, tooltip_text):
     ">i</span>
 </span>
 """.strip()
-
 
 def add_chart_info_badge(
     fig,
@@ -4951,8 +4980,6 @@ def render_chart_floating_tip(*args, **kwargs):
     through add_chart_info_badge(...), so no floating Streamlit overlay is rendered.
     """
     return None
-
-
 
 # ---------------- SMALL-SCREEN RESPONSIVENESS + NON-INTRUSIVE LEGEND PATCH ----------------
 def inject_full_tab_responsive_css():
@@ -7542,7 +7569,6 @@ with tab_manual:
 
     else:
         render_access_locked("User Manual", "guest or higher")
-
 
 # ---------------- LANGFLOW-BACKED AI COPILOT ----------------
 def _get_langflow_config():
