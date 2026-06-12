@@ -566,9 +566,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
 
 inject_classic_dashboard_css()
 
-
-
-
 # ---------------- HARD COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
 def inject_compact_dashboard_spacing_css():
     """Force-remove Streamlit wrapper gaps around title, tabs, and footer only."""
@@ -690,54 +687,6 @@ def inject_compact_dashboard_spacing_css():
 
 inject_compact_dashboard_spacing_css()
 
-
-# ---------------- LIGHTWEIGHT CHATBOT PERFORMANCE OPTIMIZATION ----------------
-@st.cache_data(show_spinner=False, ttl=120)
-def build_compact_chatbot_context(df):
-    """Create a compact reusable context for the AI assistant without calling OpenAI."""
-    if df is None or len(df) == 0:
-        return {}
-
-    context = {
-        "rows": int(len(df)),
-        "columns": list(df.columns)[:50],
-    }
-
-    if 'alert-country' in df.columns:
-        context["countries"] = sorted(
-            df['alert-country'].dropna().astype(str).unique().tolist()
-        )[:25]
-
-    if 'alert-impact' in df.columns:
-        context["alert_types"] = df['alert-impact'].value_counts().head(10).to_dict()
-
-    if 'restrictive mechanism' in df.columns:
-        context["top_mechanisms"] = df['restrictive mechanism'].value_counts().head(10).to_dict()
-
-    if 'restrictive actor' in df.columns:
-        context["top_actors"] = df['restrictive actor'].value_counts().head(10).to_dict()
-
-    return context
-
-
-def detect_chat_intent(prompt: str):
-    """Lightweight keyword intent detection; no OpenAI call is made here."""
-    p = str(prompt or "").lower()
-    if any(k in p for k in ["plot", "chart", "graph", "visualize", "visualise"]):
-        return "plot"
-    if any(k in p for k in ["country", "countries", "region", "map"]):
-        return "country"
-    if any(k in p for k in ["trend", "increase", "decrease", "pattern", "year", "month"]):
-        return "trend"
-    if any(k in p for k in ["summary", "overview", "summarize", "summarise"]):
-        return "summary"
-    return "general"
-
-
-# Keep the chatbot memory lightweight across reruns.
-st.session_state.setdefault("chat_messages", [])
-if len(st.session_state["chat_messages"]) > 6:
-    st.session_state["chat_messages"] = st.session_state["chat_messages"][-6:]
 
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
@@ -1146,7 +1095,6 @@ def render_sidebar_last_updated_panel():
     </div>
     """, unsafe_allow_html=True)
 
-
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     """
@@ -1221,7 +1169,6 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
         cleaned = options.copy()
     st.session_state[session_key] = cleaned
     return cleaned
-
 
 def inject_professional_sidebar_filter_css():
     """Additional styling for the upgraded grouped sidebar filter experience."""
@@ -1628,11 +1575,8 @@ def inject_professional_sidebar_filter_css():
     </style>
     """, unsafe_allow_html=True)
 
-
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
-
-
 
 # ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
 def render_sidebar_access_settings_profile():
@@ -1756,7 +1700,6 @@ def render_sidebar_access_settings_profile():
             if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_signin_btn"):
                 st.session_state.auth_view = True
                 st.rerun()
-
 
 render_sidebar_access_settings_profile()
 
@@ -2132,83 +2075,6 @@ def inject_sidebar_professional_typography_overrides():
     }
     </style>
     """, unsafe_allow_html=True)
-
-
-
-# ---------------- PRESERVE COLLAPSIBLE / EXPANDER ICON RENDERING ----------------
-def inject_preserve_collapsible_icons_css():
-    """Final visual safeguard for Streamlit collapse/expander icons.
-
-    Keeps the global typography system active while preventing text/font rules
-    from replacing native Material/Streamlit icons inside collapsible panels.
-    This is presentation-only and does not change widget keys, callbacks,
-    permissions, filters, chart logic, or tab content.
-    """
-    st.markdown("""
-    <style>
-    /* Do not let dashboard typography rules turn native expander icons into text. */
-    div[data-testid="stExpander"] summary svg,
-    div[data-testid="stExpander"] summary svg *,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary svg * {
-        font-family: initial !important;
-        color: currentColor !important;
-        fill: currentColor !important;
-        stroke: currentColor !important;
-        width: 1em !important;
-        height: 1em !important;
-        min-width: 1em !important;
-        flex-shrink: 0 !important;
-        display: inline-block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
-
-    /* Streamlit Material icon spans must keep the Material font, not the dashboard text font. */
-    [data-testid="stIconMaterial"],
-    [data-testid="stIconMaterial"] span,
-    [data-testid="stIconMaterial"] div,
-    span[data-testid="stIconMaterial"],
-    section[data-testid="stSidebar"] [data-testid="stIconMaterial"],
-    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] span,
-    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] div {
-        font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons" !important;
-        font-weight: normal !important;
-        font-style: normal !important;
-        font-size: 20px !important;
-        line-height: 1 !important;
-        letter-spacing: normal !important;
-        text-transform: none !important;
-        white-space: nowrap !important;
-        word-wrap: normal !important;
-        direction: ltr !important;
-        -webkit-font-feature-settings: "liga" !important;
-        -webkit-font-smoothing: antialiased !important;
-        font-feature-settings: "liga" !important;
-        color: inherit !important;
-    }
-
-    /* Keep only the expander label text styled; leave the icon container untouched. */
-    div[data-testid="stExpander"] summary p,
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
-        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
-        font-size: 13px !important;
-        font-weight: 850 !important;
-        color: #23152F !important;
-        line-height: 1.2 !important;
-        margin: 0 !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary p {
-        font-size: 12.5px !important;
-        font-weight: 750 !important;
-        color: #1D2939 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_sidebar_professional_typography_overrides()
-inject_preserve_collapsible_icons_css()
 
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
