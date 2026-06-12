@@ -2714,7 +2714,7 @@ st.markdown(f"""
 <style>
 .dashboard-title-shell {{
     overflow: hidden;
-    margin-top: -9.5rem !important;
+    margin-top: -11.5rem !important;
     padding-top: 0rem !important;
     margin-bottom: 0.4rem !important;
 }}
