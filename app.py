@@ -342,16 +342,9 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         st.info("No records are available for the current filter selection.")
         return
 
-    # Shared table dimensions for every Data Preview component. Keep Overview
-    # and Negative Alerts Analysis visually identical.
-    # Fixed compact height used by all Data Preview tables.
-    # This keeps the Overview panel from becoming too long and gives the
-    # table its own vertical scrollbar, matching the Negative Alerts tab.
+    
     DATA_PREVIEW_STANDARD_HEIGHT = 460
 
-    # Work only on the globally/tab-filtered dataframe provided to this component.
-    # This guarantees that the table, search result, and CSV export all respect
-    # the dashboard filters already applied upstream.
     display_df = df.copy()
 
     # Preserve content, only improve display formatting for date-like columns.
@@ -565,128 +558,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
-
-# ---------------- HARD COMPACT HEADER / TAB / FOOTER SPACING FIX ----------------
-def inject_compact_dashboard_spacing_css():
-    """Force-remove Streamlit wrapper gaps around title, tabs, and footer only."""
-    st.markdown("""
-    <style>
-    /* Page shell: keep the dashboard close to the browser header. */
-    .main .block-container,
-    section.main .block-container,
-    [data-testid="stAppViewContainer"] .main .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 1.6rem !important;
-    }
-
-    /* Remove vertical rhythm added by Streamlit around injected CSS/HTML blocks. */
-    .main .block-container > div,
-    .main .block-container [data-testid="stVerticalBlock"] > div {
-        gap: 0rem !important;
-        row-gap: 0rem !important;
-    }
-
-    /* Hide blank wrappers created by CSS-only markdown blocks and tiny components. */
-    .main .block-container div[data-testid="stElementContainer"]:has(style),
-    .main .block-container div[data-testid="stMarkdownContainer"]:has(style),
-    .main .block-container div[data-testid="element-container"]:has(style) {
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        overflow: hidden !important;
-    }
-    .main .block-container iframe[width="1"],
-    .main .block-container iframe[height="1"],
-    .main .block-container iframe[height="0"] {
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        display: block !important;
-    }
-    .main .block-container div[data-testid="stElementContainer"]:has(iframe[width="1"]),
-    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="1"]),
-    .main .block-container div[data-testid="stElementContainer"]:has(iframe[height="0"]) {
-        height: 0px !important;
-        min-height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        overflow: hidden !important;
-    }
-
-    /* Dashboard intro block: compact but still readable. */
-    .animated-title {
-        margin-top: 0rem !important;
-        margin-bottom: 0.05rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.02 !important;
-    }
-    .animated-divider {
-        margin-top: 0rem !important;
-        margin-bottom: 0.12rem !important;
-    }
-    .animated-subtitle {
-        margin-top: 0rem !important;
-        margin-bottom: 2.5rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        line-height: 1.25 !important;
-    }
-    .animated-title + .animated-divider,
-    .animated-divider + .animated-subtitle {
-        margin-top: 0rem !important;
-    }
-
-    /* Force tabs to start immediately after the dashboard subtitle. */
-    div[data-testid="stTabs"] {
-        margin-top: -1.35rem !important;
-        padding-top: 0rem !important;
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    div[data-testid="stTabs"] > div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-    div[data-testid="stTabs"] div[role="tablist"] {
-        margin-top: 0rem !important;
-        margin-bottom: 0.05rem !important;
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    div[data-testid="stTabs"] div[role="tabpanel"] {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-
-    /* Remove empty footer/pre-footer spacing while keeping fixed footer visible. */
-    .eusee-fixed-footer,
-    .eusee-fixed-footer * {
-        box-sizing: border-box !important;
-    }
-    .eusee-fixed-footer {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
-    }
-    .main .block-container > div:last-child,
-    div[data-testid="stVerticalBlock"] > div:last-child {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
-    div[data-testid="stVerticalBlock"] > div:empty,
-    div[data-testid="stElementContainer"]:empty {
-        display: none !important;
-        height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-inject_compact_dashboard_spacing_css()
-
 
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
