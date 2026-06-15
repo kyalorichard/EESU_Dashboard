@@ -23,34 +23,36 @@ import requests
 st.markdown("""
 <style>
 
-/* Hide Streamlit menu (top-right) */
-#MainMenu {
-    visibility: hidden;
+/* Hide Streamlit chrome */
+#MainMenu {display:none !important;}
+header {display:none !important;}
+footer {display:none !important;}
+
+/* Hide toolbar and action buttons */
+[data-testid="stToolbar"] {display:none !important;}
+[data-testid="stDecoration"] {display:none !important;}
+[data-testid="stStatusWidget"] {display:none !important;}
+[data-testid="stDeployButton"] {display:none !important;}
+[data-testid="baseButton-header"] {display:none !important;}
+
+/* Hide top-right button group */
+.stAppHeader {
+    display:none !important;
 }
 
-/* Hide footer */
-footer {
-    visibility: hidden;
-}
-
-/* Hide header */
-header {
-    visibility: hidden;
-}
-
-/* Hide GitHub icon/link if present */
+/* Hide GitHub links */
 a[href*="github.com"] {
-    display: none !important;
+    display:none !important;
 }
 
-/* Hide toolbar */
-[data-testid="stToolbar"] {
-    display: none !important;
+/* Hide all header action buttons */
+button[kind="header"] {
+    display:none !important;
 }
 
-/* Hide deploy button */
-[data-testid="stDecoration"] {
-    display: none !important;
+/* Remove top padding left after hiding header */
+.block-container {
+    padding-top: 1rem !important;
 }
 
 </style>
