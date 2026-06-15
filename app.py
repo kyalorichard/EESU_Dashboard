@@ -23,21 +23,32 @@ import requests
 # Hide Streamlit menu, GitHub/source link, deploy button, footer, header
 st.markdown("""
 <style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+/* Hide Streamlit header / toolbar / GitHub / deploy */
+header {display: none !important;}
+footer {display: none !important;}
+#MainMenu {display: none !important;}
 
+[data-testid="stHeader"] {display: none !important;}
 [data-testid="stToolbar"] {display: none !important;}
 [data-testid="stDecoration"] {display: none !important;}
 [data-testid="stStatusWidget"] {display: none !important;}
 [data-testid="stDeployButton"] {display: none !important;}
+[data-testid="baseButton-header"] {display: none !important;}
 
-a[href*="github.com"] {
+/* Hide any GitHub / source links */
+a[href*="github.com"],
+a[href*="streamlit.io/cloud"],
+a[href*="share.streamlit.io"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Hide parent containers that contain GitHub links */
+div:has(a[href*="github.com"]) {
     display: none !important;
 }
 </style>
-""", unsafe_allow_html=True)
-
+            
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
 # Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
 
