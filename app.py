@@ -22,30 +22,37 @@ import requests
 
 st.markdown("""
 <style>
-/* Hide Streamlit header / toolbar / GitHub / deploy */
-header {display: none !important;}
-footer {display: none !important;}
-#MainMenu {display: none !important;}
 
-[data-testid="stHeader"] {display: none !important;}
-[data-testid="stToolbar"] {display: none !important;}
-[data-testid="stDecoration"] {display: none !important;}
-[data-testid="stStatusWidget"] {display: none !important;}
-[data-testid="stDeployButton"] {display: none !important;}
-[data-testid="baseButton-header"] {display: none !important;}
-
-/* Hide any GitHub / source links */
-a[href*="github.com"],
-a[href*="streamlit.io/cloud"],
-a[href*="share.streamlit.io"] {
-    display: none !important;
-    visibility: hidden !important;
+/* Hide Streamlit menu (top-right) */
+#MainMenu {
+    visibility: hidden;
 }
 
-/* Hide parent containers that contain GitHub links */
-div:has(a[href*="github.com"]) {
+/* Hide footer */
+footer {
+    visibility: hidden;
+}
+
+/* Hide header */
+header {
+    visibility: hidden;
+}
+
+/* Hide GitHub icon/link if present */
+a[href*="github.com"] {
     display: none !important;
 }
+
+/* Hide toolbar */
+[data-testid="stToolbar"] {
+    display: none !important;
+}
+
+/* Hide deploy button */
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
             
