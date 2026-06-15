@@ -20,7 +20,6 @@ import os
 import re
 import requests
 
-# Hide Streamlit menu, GitHub/source link, deploy button, footer, header
 st.markdown("""
 <style>
 /* Hide Streamlit header / toolbar / GitHub / deploy */
@@ -48,6 +47,7 @@ div:has(a[href*="github.com"]) {
     display: none !important;
 }
 </style>
+""", unsafe_allow_html=True)
             
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
 # Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
