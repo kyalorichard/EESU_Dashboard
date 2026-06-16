@@ -7831,38 +7831,24 @@ def ask_langflow(user_question, dashboard_context):
     return extract_langflow_text(response.json())
 
 # ============================================================
-# EUSEE AI COPILOT - TRUE OVERLAY USING STREAMLIT DIALOG
+# EUSEE AI COPILOT - TRUE FIXED FLOATING LAUNCHER
 # ============================================================
+
+import streamlit.components.v1 as components
 
 st.session_state.setdefault("eusee_chat_messages", [])
 
-st.markdown("""
-<style>
-div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-fixed) {
-    position: fixed !important;
-    left: 24px !important;
-    bottom: 24px !important;
-    z-index: 999999 !important;
-    width: auto !important;
-}
-
-div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-fixed) button {
-    border-radius: 999px !important;
-    height: 52px !important;
-    padding: 0 20px !important;
-    background: #FFFFFF !important;
-    color: #660094 !important;
-    font-weight: 900 !important;
-    border: 1px solid #E7D4F1 !important;
-    box-shadow: 0 14px 34px rgba(102,0,148,.22) !important;
-}
-</style>
-""", unsafe_allow_html=True)
+def open_copilot_from_query():
+    return st.query_params.get("eusee_copilot") == "1"
 
 
 @st.dialog("🤖 EUSEE AI Copilot", width="large")
 def eusee_ai_dialog():
     st.caption("Ask about the current dashboard data. Responses are limited to the active dashboard context.")
+
+    if st.button("Close Copilot", use_container_width=True):
+        st.query_params.clear()
+        st.rerun()
 
     if not has_permission("use_ai_copilot"):
         st.info("AI Copilot is not enabled for your access level.")
@@ -7882,21 +7868,18 @@ def eusee_ai_dialog():
         submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
 
     if submitted and user_question.strip():
+        user_question = user_question.strip()
+
         st.session_state.eusee_chat_messages.append({
             "role": "user",
-            "content": user_question.strip()
+            "content": user_question
         })
 
         dashboard_context = build_dashboard_context(filtered_global)
-        session_id = get_current_email() or "guest-session"
 
         with st.spinner("Analyzing dashboard context..."):
             try:
-                answer_text = ask_langflow(
-                    user_question.strip(),
-                    dashboard_context,
-                    session_id=session_id
-                )
+                answer_text = ask_langflow(user_question, dashboard_context)
 
                 try:
                     parsed = json.loads(answer_text)
@@ -7926,11 +7909,52 @@ def eusee_ai_dialog():
         st.rerun()
 
 
-with st.container():
-    st.markdown('<span id="eusee-ai-launcher-fixed"></span>', unsafe_allow_html=True)
+# Open dialog when query parameter is set
+if open_copilot_from_query():
+    eusee_ai_dialog()
 
-    if st.button("💬 EUSEE Copilot", key="eusee_ai_dialog_launcher"):
-        eusee_ai_dialog()
+
+# Zero-height fixed launcher: does not affect dashboard layout
+components.html(
+    """
+    <script>
+    function openEuseeCopilot() {
+        const url = new URL(window.parent.location.href);
+        url.searchParams.set("eusee_copilot", "1");
+        window.parent.location.href = url.toString();
+    }
+    </script>
+
+    <button onclick="openEuseeCopilot()" class="eusee-ai-floating-btn">
+        💬 EUSEE Copilot
+    </button>
+
+    <style>
+    .eusee-ai-floating-btn {
+        position: fixed;
+        left: 24px;
+        bottom: 24px;
+        z-index: 2147483647;
+        border-radius: 999px;
+        height: 52px;
+        padding: 0 20px;
+        background: #FFFFFF;
+        color: #660094;
+        font-weight: 900;
+        border: 1px solid #E7D4F1;
+        box-shadow: 0 14px 34px rgba(102,0,148,.22);
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        font-size: 15px;
+    }
+
+    .eusee-ai-floating-btn:hover {
+        background: #F8F1FC;
+    }
+    </style>
+    """,
+    height=0,
+)
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
