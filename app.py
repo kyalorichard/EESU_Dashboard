@@ -20,116 +20,96 @@ import os
 import re
 import requests
 
-st.set_page_config(
-    page_title="EUSEE Dashboard",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# ---------------- SIDEBAR COLLAPSE + FILTERS SIGNPOSTING FIX ----------------
-# IMPORTANT: st.set_page_config must remain the first Streamlit command.
-# Do not hide the Streamlit header/toolbar because the sidebar toggle lives there.
 st.markdown("""
 <style>
-/* Hide non-essential Streamlit chrome only */
-#MainMenu { visibility: hidden !important; }
-footer { visibility: hidden !important; }
-[data-testid="stDecoration"],
-[data-testid="stDeployButton"],
-a[href*="github.com"] {
-    display: none !important;
+
+/* Hide Streamlit chrome */
+#MainMenu {display:none !important;}
+header {display:none !important;}
+footer {display:none !important;}
+
+/* Hide toolbar and action buttons */
+[data-testid="stToolbar"] {display:none !important;}
+[data-testid="stDecoration"] {display:none !important;}
+[data-testid="stStatusWidget"] {display:none !important;}
+[data-testid="stDeployButton"] {display:none !important;}
+[data-testid="baseButton-header"] {display:none !important;}
+
+/* Hide top-right button group */
+.stAppHeader {
+    display:none !important;
 }
 
-/* Keep the native header/toolbar visible so collapsed sidebar can reopen */
+/* Hide GitHub links */
+a[href*="github.com"] {
+    display:none !important;
+}
+
+/* Hide all header action buttons */
+button[kind="header"] {
+    display:none !important;
+}
+
+/* Remove top padding left after hiding header */
+.block-container {
+    padding-top: 1rem !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+            
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
+# Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
+st.markdown("""
+<style>
+/* Clear sidebar toggle signposting */
+button[data-testid="collapsedControl"]::after {
+    content: " Filters";
+    font-size: 12px;
+    font-weight: 800;
+    color: #660094;
+    margin-left: 6px;
+}
+
+button[data-testid="collapsedControl"] {
+    width: auto !important;
+    min-width: 92px !important;
+    height: 38px !important;
+    border-radius: 999px !important;
+    padding: 0 12px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E7D4F1 !important;
+    box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Keep Streamlit's native header/sidebar controls available.
+   Only hide non-essential branding/action items. */
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
+
 header,
-header[data-testid="stHeader"],
-div[data-testid="stToolbar"] {
+header[data-testid="stHeader"] {
     visibility: visible !important;
     display: flex !important;
     opacity: 1 !important;
     pointer-events: auto !important;
 }
 
-header[data-testid="stHeader"] {
-    min-height: 48px !important;
-    height: 48px !important;
-    background: rgba(247,248,251,.94) !important;
-    border-bottom: 1px solid rgba(230,232,239,.8) !important;
-    z-index: 2147483000 !important;
-}
-
-/* Clear Filters button/signpost for multiple Streamlit versions */
-button[data-testid="collapsedControl"],
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapseButton"],
-button[aria-label="Open sidebar"],
-button[aria-label="Close sidebar"],
-button[title="Open sidebar"],
-button[title="Close sidebar"] {
-    display: inline-flex !important;
+[data-testid="stToolbar"] {
     visibility: visible !important;
+    display: flex !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    position: fixed !important;
-    top: 9px !important;
-    left: 10px !important;
-    z-index: 2147483647 !important;
-    width: auto !important;
-    min-width: 108px !important;
-    height: 38px !important;
-    min-height: 38px !important;
-    padding: 0 12px !important;
-    border-radius: 999px !important;
-    background: #FFFFFF !important;
-    border: 1px solid #E7D4F1 !important;
-    box-shadow: 0 8px 20px rgba(16,24,40,.12) !important;
-    color: #660094 !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    font-size: 0 !important;
-    line-height: 1 !important;
-    overflow: visible !important;
 }
 
-button[data-testid="collapsedControl"] svg,
-[data-testid="collapsedControl"] svg,
-[data-testid="stSidebarCollapseButton"] svg,
-button[aria-label="Open sidebar"] svg,
-button[aria-label="Close sidebar"] svg,
-button[title="Open sidebar"] svg,
-button[title="Close sidebar"] svg {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 17px !important;
-    height: 17px !important;
-    min-width: 17px !important;
-    min-height: 17px !important;
-    color: #660094 !important;
-    fill: currentColor !important;
-    stroke: currentColor !important;
-}
-
-button[data-testid="collapsedControl"]::after,
-[data-testid="collapsedControl"]::after,
-[data-testid="stSidebarCollapseButton"]::after,
-button[aria-label="Open sidebar"]::after,
-button[aria-label="Close sidebar"]::after,
-button[title="Open sidebar"]::after,
-button[title="Close sidebar"]::after {
-    content: "Filters" !important;
-    display: inline-block !important;
-    font-size: 12px !important;
-    font-weight: 900 !important;
-    color: #660094 !important;
-    letter-spacing: .01em !important;
-    white-space: nowrap !important;
-}
-
-/* Avoid top content being hidden by the visible header */
-.block-container {
-    padding-top: 3.1rem !important;
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+a[href*="github.com"] {
+    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -2421,7 +2401,7 @@ def render_top_feedback_bar():
             #eusee-feedback-floating-root {{
                 position: fixed !important;
                 top: clamp(58px, 7vh, 78px) !important;
-                left: 80% !important;
+                left: 95% !important;
                 transform: translateX(-50%) !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
