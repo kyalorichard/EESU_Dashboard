@@ -7930,6 +7930,13 @@ components.html(
     </button>
 
     <style>
+    html, body {
+        background: transparent !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
     .eusee-ai-floating-btn {
         position: fixed;
         left: 24px;
@@ -7947,13 +7954,9 @@ components.html(
         font-family: Arial, sans-serif;
         font-size: 15px;
     }
-
-    .eusee-ai-floating-btn:hover {
-        background: #F8F1FC;
-    }
     </style>
     """,
-    height=0,
+    height=80,
 )
 
 # ---------------- FOOTER ----------------
