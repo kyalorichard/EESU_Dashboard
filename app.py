@@ -20,14 +20,6 @@ import os
 import re
 import requests
 
-
-try:
-    from streamlit_float import float_init, float_parent
-    HAS_STREAMLIT_FLOAT = True
-except Exception:
-    float_init = None
-    float_parent = None
-    HAS_STREAMLIT_FLOAT = False
 st.markdown("""
 <style>
 
@@ -67,9 +59,6 @@ button[kind="header"] {
 """, unsafe_allow_html=True)
             
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
-
-if HAS_STREAMLIT_FLOAT:
-    float_init()
 # Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
 st.markdown("""
 <style>
@@ -7751,149 +7740,73 @@ if tab_manual is not None:
         else:
             render_access_locked("User Manual", "guest or higher")
 
+# ---------------- LANGFLOW-BACKED AI COPILOT ----------------
+LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "")
+def build_dashboard_context(df):
+    if df is None or df.empty:
+        return "No records available under the current dashboard filters."
 
-# ---------------- FOOTER ----------------
-# Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
+    context = {
+        "filtered_records": len(df),
+        "countries": df["alert-country"].value_counts().head(10).to_dict()
+            if "alert-country" in df.columns else {},
+        "regions": df["region"].value_counts().to_dict()
+            if "region" in df.columns else {},
+        "alert_impacts": df["alert-impact"].value_counts().to_dict()
+            if "alert-impact" in df.columns else {},
+        "alert_types": df["alert-type"].value_counts().head(10).to_dict()
+            if "alert-type" in df.columns else {},
+        "enabling_principles": df["Enabling principle"].value_counts().to_dict()
+            if "Enabling principle" in df.columns else {},
+        "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available")
+    }
 
+    return json.dumps(context, indent=2, default=str)
 
-# OpenAI test UI is now integrated inside the AI Copilot drawer.
-
-
-# ============================================================
-# CLEAN TRUE FLOATING LANGFLOW AI COPILOT
-# Requires: streamlit-float
-# Place after filtered_global is created.
-# ============================================================
-
-def _get_langflow_config():
-    """Load Langflow configuration from Streamlit secrets or environment variables."""
-    try:
-        langflow_secrets = st.secrets.get("langflow", {})
-    except Exception:
-        langflow_secrets = {}
-
-    api_url = (
-        langflow_secrets.get("LANGFLOW_API_URL")
-        or st.secrets.get("LANGFLOW_API_URL", "")
-        or os.getenv("LANGFLOW_API_URL", "")
+# ---------------- LANGFLOW-BACKED AI COPILOT ----------------
+def get_langflow_config():
+    lf = st.secrets.get("langflow", {})
+    return (
+        lf.get("LANGFLOW_API_URL", ""),
+        lf.get("LANGFLOW_API_KEY", "")
     )
 
-    api_key = (
-        langflow_secrets.get("LANGFLOW_API_KEY")
-        or st.secrets.get("LANGFLOW_API_KEY", "")
-        or os.getenv("LANGFLOW_API_KEY", "")
-    )
 
-    return str(api_url or "").strip(), str(api_key or "").strip()
+LANGFLOW_API_URL, LANGFLOW_API_KEY = get_langflow_config()
 
 
-LANGFLOW_API_URL, LANGFLOW_API_KEY = _get_langflow_config()
+def build_dashboard_context(df):
+    if df is None or df.empty:
+        return "No records available under the current dashboard filters."
+
+    context = {
+        "filtered_records": len(df),
+        "countries": df["alert-country"].value_counts().head(10).to_dict()
+            if "alert-country" in df.columns else {},
+        "regions": df["region"].value_counts().to_dict()
+            if "region" in df.columns else {},
+        "alert_impacts": df["alert-impact"].value_counts().to_dict()
+            if "alert-impact" in df.columns else {},
+        "alert_types": df["alert-type"].value_counts().head(10).to_dict()
+            if "alert-type" in df.columns else {},
+        "enabling_principles": df["enabling-principle"].value_counts().head(10).to_dict()
+            if "enabling-principle" in df.columns else {},
+        "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available")
+    }
+
+    return json.dumps(context, indent=2, default=str)
 
 
-@st.cache_data(show_spinner=False, ttl=90)
-def _build_langflow_dashboard_context(df):
-    """Build compact dashboard context from the active filtered dataframe.
-
-    This prevents sending the full raw dataset to Langflow while still giving
-    the copilot enough dashboard-grounded context for summaries, comparisons,
-    and chart recommendations.
-    """
-    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
-        return (
-            "Dataset: EU SEE Dashboard\n"
-            "Filtered records: 0\n"
-            "No records available under the current filters."
-        )
-
-    lines = [
-        "Dataset: EU SEE Dashboard",
-        "Scope: Use only this dashboard context. Do not use external knowledge.",
-        f"Filtered records: {len(df):,}",
-        f"Latest dataset date: {st.session_state.get('latest_dataset_date', 'Not available')}",
-    ]
-
-    def add_top(label, col, top_n=10):
-        if col in df.columns:
-            s = df[col].dropna().astype(str).str.strip()
-            s = s[(s != "") & (~s.str.lower().isin(["nan", "none"]))]
-            top = s.value_counts().head(top_n)
-            if not top.empty:
-                lines.append(
-                    label + ": " + "; ".join([f"{k}: {int(v):,}" for k, v in top.items()])
-                )
-
-    add_top("Top countries", "alert-country")
-    add_top("Regions", "region")
-    add_top("Alert impact distribution", "alert-impact")
-    add_top("Alert types", "alert-type")
-    add_top("Restrictive actors", "Actor of repression")
-    add_top("Restrictive mechanisms", "Mechanism of repression")
-    add_top("Affected actors/groups", "Subject of repression")
-    add_top("Enabling principles", "Enabling principle")
-    add_top("Enabling principles", "enabling-principle")
-
-    if "year" in df.columns:
-        years = pd.to_numeric(df["year"], errors="coerce").dropna()
-        if not years.empty:
-            lines.append(f"Year range: {int(years.min())} - {int(years.max())}")
-
-    if "month_name" in df.columns:
-        add_top("Months", "month_name", top_n=12)
-
-    return "\n".join(lines)
-
-
-def _extract_langflow_text(response_json):
-    """Extract final Langflow message text robustly across Langflow response variants."""
-    paths = [
-        ["outputs", 0, "outputs", 0, "results", "message", "text"],
-        ["outputs", 0, "outputs", 0, "results", "text", "data", "text"],
-        ["outputs", 0, "outputs", 0, "outputs", "message", "message"],
-    ]
-
-    for path in paths:
-        try:
-            obj = response_json
-            for key in path:
-                obj = obj[key]
-            if obj:
-                return str(obj)
-        except Exception:
-            pass
-
-    return json.dumps(response_json, indent=2, default=str)
-
-
-def _safe_parse_langflow_answer(raw_text):
-    """Parse structured Langflow JSON; fallback safely to raw text."""
+def extract_langflow_text(result):
     try:
-        if isinstance(raw_text, dict):
-            return raw_text
-        return json.loads(str(raw_text))
+        return result["outputs"][0]["outputs"][0]["results"]["message"]["text"]
     except Exception:
-        return {
-            "answer": str(raw_text),
-            "available_in_context": True,
-            "used_current_filters": True,
-            "interpretation_note": "",
-            "chart": {"should_render": False},
-            "follow_up_suggestions": [],
-            "website_redirect": "For a broader overview and additional qualitative insights, please visit the EUSEE website."
-        }
+        return json.dumps(result, indent=2, default=str)
 
 
 def ask_langflow(user_question, dashboard_context, session_id="eusee-dashboard-user"):
-    """Send user query and compact dashboard context to Langflow."""
     if not LANGFLOW_API_URL:
-        return json.dumps({
-            "answer": "Langflow API URL is not configured. Please add LANGFLOW_API_URL under [langflow] in Streamlit secrets.",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "interpretation_note": "",
-            "chart": {"should_render": False},
-            "follow_up_suggestions": [],
-            "website_redirect": "For a broader overview and additional qualitative insights, please visit the EUSEE website."
-        })
+        return '{"answer":"Langflow API URL is not configured.","website_redirect":"For a broader overview and additional qualitative insights, please visit the EUSEE website."}'
 
     payload = {
         "input_value": user_question,
@@ -7919,367 +7832,49 @@ def ask_langflow(user_question, dashboard_context, session_id="eusee-dashboard-u
     }
 
     headers = {"Content-Type": "application/json"}
-
     if LANGFLOW_API_KEY:
-        # Langflow deployments differ; include both common auth headers.
         headers["x-api-key"] = LANGFLOW_API_KEY
-        headers["Authorization"] = f"Bearer {LANGFLOW_API_KEY}"
 
     r = requests.post(LANGFLOW_API_URL, json=payload, headers=headers, timeout=90)
     r.raise_for_status()
-
-    return _extract_langflow_text(r.json())
-
-
-def render_clean_floating_eusee_copilot(df):
-    """Render a professional bottom-right copilot without disturbing dashboard layout.
-
-    Uses streamlit-float when installed. If streamlit-float is not available,
-    a compact inline fallback is shown so the dashboard does not break.
-    """
-    st.session_state.setdefault("eusee_ai_open", False)
-    st.session_state.setdefault("eusee_ai_messages", [])
-
-    copilot_allowed = bool(has_permission("use_ai_copilot"))
-
-    st.markdown("""
-    <style>
-    .eusee-float-launcher-note {
-        display: none;
-    }
-
-    .eusee-clean-ai-card {
-        background: #FFFFFF;
-        border: 1px solid rgba(102,0,148,.18);
-        border-radius: 22px;
-        box-shadow: 0 24px 70px rgba(16,24,40,.25);
-        overflow: hidden;
-        font-family: "Inter", "Segoe UI", Arial, sans-serif;
-    }
-
-    .eusee-clean-ai-header {
-        background: linear-gradient(135deg, #660094 0%, #3B005F 58%, #008CAA 100%);
-        color: #FFFFFF;
-        padding: 15px 16px;
-    }
-
-    .eusee-clean-ai-header small {
-        display: block;
-        font-size: 9px;
-        font-weight: 900;
-        letter-spacing: .14em;
-        text-transform: uppercase;
-        opacity: .86;
-    }
-
-    .eusee-clean-ai-header strong {
-        display: block;
-        margin-top: 4px;
-        font-size: 16px;
-        font-weight: 950;
-        line-height: 1.15;
-    }
-
-    .eusee-clean-ai-header span {
-        display: block;
-        margin-top: 5px;
-        font-size: 11px;
-        line-height: 1.35;
-        opacity: .9;
-    }
-
-    .eusee-clean-ai-body {
-        padding: 14px;
-    }
-
-    .eusee-clean-ai-msg-user,
-    .eusee-clean-ai-msg-bot {
-        padding: 9px 10px;
-        border-radius: 14px;
-        font-size: 12px;
-        line-height: 1.45;
-        margin-bottom: 8px;
-        border: 1px solid #EEF0F4;
-        word-break: break-word;
-    }
-
-    .eusee-clean-ai-msg-user {
-        background: #F4EAF8;
-        border-color: #E7D4F1;
-        color: #23152F;
-    }
-
-    .eusee-clean-ai-msg-bot {
-        background: #F8FAFC;
-        color: #344054;
-    }
-
-    .eusee-clean-ai-msg-user small,
-    .eusee-clean-ai-msg-bot small {
-        display: block;
-        font-size: 9px;
-        font-weight: 850;
-        color: #667085;
-        margin-bottom: 4px;
-    }
-
-    .eusee-clean-ai-empty {
-        background: #F8FAFC;
-        border: 1px dashed #D0D5DD;
-        color: #667085;
-        border-radius: 14px;
-        padding: 11px;
-        font-size: 11.5px;
-        line-height: 1.4;
-        margin-bottom: 10px;
-    }
-
-    .eusee-clean-ai-scope {
-        background: #FFFCED;
-        border: 1px solid #F8E9A1;
-        color: #667085;
-        font-size: 10.5px;
-        line-height: 1.35;
-        padding: 8px 9px;
-        border-radius: 12px;
-        margin-top: 8px;
-    }
-
-    .eusee-clean-ai-lock {
-        background: #FFF4ED;
-        border: 1px solid #FECDCA;
-        color: #B42318;
-        font-size: 11px;
-        line-height: 1.4;
-        padding: 9px 10px;
-        border-radius: 12px;
-        margin-bottom: 10px;
-    }
-
-    /* Launcher button appearance */
-    div[data-testid="stVerticalBlock"]:has(#eusee-clean-ai-launcher-marker) button {
-        border-radius: 999px !important;
-        min-height: 54px !important;
-        padding: 0 20px !important;
-        background: linear-gradient(135deg, #660094 0%, #008CAA 100%) !important;
-        color: #FFFFFF !important;
-        border: 1px solid rgba(255,255,255,.25) !important;
-        box-shadow: 0 18px 40px rgba(102,0,148,.32) !important;
-        font-weight: 950 !important;
-        font-size: 13px !important;
-        white-space: nowrap !important;
-    }
-
-    /* Panel buttons */
-    div[data-testid="stVerticalBlock"]:has(#eusee-clean-ai-panel-marker) button {
-        border-radius: 12px !important;
-        font-size: 11.5px !important;
-        font-weight: 900 !important;
-    }
-
-    div[data-testid="stVerticalBlock"]:has(#eusee-clean-ai-panel-marker) textarea {
-        border-radius: 14px !important;
-        font-size: 12px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Floating launcher
-    launcher_container = st.container()
-    with launcher_container:
-        st.markdown('<span id="eusee-clean-ai-launcher-marker"></span>', unsafe_allow_html=True)
-        launcher_label = "✕ Close Copilot" if st.session_state.eusee_ai_open else "🤖 Ask EUSEE Copilot"
-        if st.button(launcher_label, key="eusee_clean_ai_launcher"):
-            st.session_state.eusee_ai_open = not st.session_state.eusee_ai_open
-            st.rerun()
-
-        if HAS_STREAMLIT_FLOAT:
-            float_parent(
-                css="""
-                position: fixed;
-                bottom: 26px;
-                right: 26px;
-                z-index: 999999;
-                background: transparent;
-                width: auto;
-                pointer-events: auto;
-                """
-            )
-
-    if not st.session_state.eusee_ai_open:
-        return
-
-    # Floating panel
-    panel_container = st.container()
-    with panel_container:
-        st.markdown('<span id="eusee-clean-ai-panel-marker"></span>', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="eusee-clean-ai-card">
-            <div class="eusee-clean-ai-header">
-                <small>Dashboard AI Assistant</small>
-                <strong>EUSEE Analytical Copilot</strong>
-                <span>Ask for summaries, comparisons, patterns, or chart recommendations using the current dashboard filters.</span>
-            </div>
-            <div class="eusee-clean-ai-body">
-        """, unsafe_allow_html=True)
-
-        if not copilot_allowed:
-            st.markdown("""
-            <div class="eusee-clean-ai-lock">
-                AI Copilot is not enabled for your access level. Ask the dashboard admin to enable <strong>use_ai_copilot</strong>.
-            </div>
-            """, unsafe_allow_html=True)
-
-        messages = st.session_state.get("eusee_ai_messages", [])
-        if not messages:
-            st.markdown("""
-            <div class="eusee-clean-ai-empty">
-                No conversation yet. Try <strong>Executive summary</strong>, <strong>Top countries</strong>, or <strong>Suggest chart</strong>.
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            for msg in messages[-6:]:
-                role = msg.get("role", "assistant")
-                label = "You" if role == "user" else "EUSEE Copilot"
-                css_class = "eusee-clean-ai-msg-user" if role == "user" else "eusee-clean-ai-msg-bot"
-                safe_content = str(msg.get("content", ""))[:4000]
-                st.markdown(
-                    f"<div class='{css_class}'><small>{label}</small>{safe_content}</div>",
-                    unsafe_allow_html=True,
-                )
-
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button(
-                "Executive summary",
-                key="eusee_clean_ai_summary",
-                use_container_width=True,
-                disabled=not copilot_allowed,
-            ):
-                st.session_state["eusee_ai_pending"] = "Give me an executive summary of the current filtered dashboard."
-                st.rerun()
-
-        with c2:
-            if st.button(
-                "Top countries",
-                key="eusee_clean_ai_top_countries",
-                use_container_width=True,
-                disabled=not copilot_allowed,
-            ):
-                st.session_state["eusee_ai_pending"] = "What are the top countries by alert count under the current dashboard filters?"
-                st.rerun()
-
-        c3, c4 = st.columns(2)
-        with c3:
-            if st.button(
-                "Compare regions",
-                key="eusee_clean_ai_regions",
-                use_container_width=True,
-                disabled=not copilot_allowed,
-            ):
-                st.session_state["eusee_ai_pending"] = "Compare regions based on the current filtered dashboard."
-                st.rerun()
-
-        with c4:
-            if st.button(
-                "Suggest chart",
-                key="eusee_clean_ai_chart",
-                use_container_width=True,
-                disabled=not copilot_allowed,
-            ):
-                st.session_state["eusee_ai_pending"] = "Suggest the best chart for the current filtered dashboard."
-                st.rerun()
-
-        default_question = st.session_state.pop("eusee_ai_pending", "")
-
-        with st.form("eusee_clean_ai_form", clear_on_submit=True):
-            user_question = st.text_area(
-                "Ask EUSEE Copilot",
-                value=default_question,
-                placeholder="Ask about the current dashboard data...",
-                height=88,
-                label_visibility="collapsed",
-                disabled=not copilot_allowed,
-            )
-            submitted = st.form_submit_button(
-                "Ask Copilot",
-                use_container_width=True,
-                disabled=not copilot_allowed,
-            )
-
-        if submitted and str(user_question or "").strip() and copilot_allowed:
-            query = str(user_question).strip()
-            st.session_state.eusee_ai_messages.append({"role": "user", "content": query})
-            st.session_state.eusee_ai_messages = st.session_state.eusee_ai_messages[-12:]
-
-            try:
-                dashboard_context = _build_langflow_dashboard_context(df)
-                session_id = get_current_email() or st.session_state.get("session_id", "guest-session")
-
-                with st.spinner("EUSEE Copilot is analyzing the current dashboard context..."):
-                    raw_answer = ask_langflow(
-                        user_question=query,
-                        dashboard_context=dashboard_context,
-                        session_id=session_id,
-                    )
-
-                parsed = _safe_parse_langflow_answer(raw_answer)
-                answer = parsed.get("answer", "")
-
-                chart = parsed.get("chart", {}) or {}
-                if chart.get("should_render"):
-                    answer += (
-                        f"<br><br><strong>Recommended chart:</strong> {chart.get('chart_type', 'Chart')}"
-                        f"<br>- X axis: {chart.get('x_axis', '')}"
-                        f"<br>- Y axis: {chart.get('y_axis', '')}"
-                        f"<br>- Group: {chart.get('color_or_group', '')}"
-                        f"<br>- Reason: {chart.get('reason', '')}"
-                    )
-
-                redirect = parsed.get(
-                    "website_redirect",
-                    "For a broader overview and additional qualitative insights, please visit the EUSEE website."
-                )
-                answer += f"<br><br><em>{redirect}</em>"
-
-            except Exception as exc:
-                answer = f"Could not reach the EUSEE Copilot service: {exc}"
-
-            st.session_state.eusee_ai_messages.append({"role": "assistant", "content": answer})
-            st.session_state.eusee_ai_messages = st.session_state.eusee_ai_messages[-12:]
-            st.rerun()
-
-        st.markdown("""
-            <div class="eusee-clean-ai-scope">
-                Dashboard-only mode: the assistant uses compact summaries from the current filtered dashboard view. The full raw dataset is not sent.
-            </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if HAS_STREAMLIT_FLOAT:
-            float_parent(
-                css="""
-                position: fixed;
-                bottom: 94px;
-                right: 26px;
-                width: min(420px, calc(100vw - 32px));
-                max-height: calc(100vh - 128px);
-                overflow-y: auto;
-                z-index: 999998;
-                background: transparent;
-                border-radius: 22px;
-                pointer-events: auto;
-                """
-            )
-        else:
-            st.warning("Install streamlit-float for true floating mode: add streamlit-float to requirements.txt.")
+    return extract_langflow_text(r.json())
 
 
-# Render the clean floating copilot using the active filtered dashboard data.
-render_clean_floating_eusee_copilot(filtered_global)
+# Always render panel; restrict usage inside panel
+st.markdown("### 🤖 EUSEE AI Copilot")
 
+if not has_permission("use_ai_copilot"):
+    st.info("AI Copilot is not enabled for your access level. Ask the admin to enable `use_ai_copilot`.")
+else:
+    user_question = st.chat_input("Ask about the current dashboard data...")
+
+    if user_question:
+        dashboard_context = build_dashboard_context(filtered_global)
+        session_id = get_current_email() or "guest-session"
+
+        with st.spinner("Analyzing dashboard context..."):
+            answer_text = ask_langflow(user_question, dashboard_context, session_id=session_id)
+
+        try:
+            parsed = json.loads(answer_text)
+            st.markdown(parsed.get("answer", ""))
+
+            chart = parsed.get("chart", {})
+            if chart.get("should_render"):
+                st.info(f"Recommended chart: {chart.get('chart_type', 'Chart')}")
+
+            st.caption(parsed.get(
+                "website_redirect",
+                "For a broader overview and additional qualitative insights, please visit the EUSEE website."
+            ))
+        except Exception:
+            st.write(answer_text)
+
+# ---------------- FOOTER ----------------
+# Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
+
+
+# OpenAI test UI is now integrated inside the AI Copilot drawer.
 
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
