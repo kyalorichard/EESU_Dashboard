@@ -7769,7 +7769,6 @@ def _get_langflow_config():
 
 LANGFLOW_API_URL, LANGFLOW_API_KEY = _get_langflow_config()
 
-
 def _sanitize_for_context(value):
     """Compact safe string conversion for dashboard-context summaries."""
     if value is None:
@@ -7778,7 +7777,6 @@ def _sanitize_for_context(value):
     if text.lower() in ["nan", "none", "nat"]:
         return ""
     return text
-
 
 @st.cache_data(show_spinner=False, ttl=90)
 def _build_langflow_dashboard_context(df):
@@ -7855,7 +7853,6 @@ def _extract_langflow_text(response_json):
 
     return json.dumps(response_json, indent=2, default=str)
 
-
 def _safe_parse_langflow_answer(raw_text):
     """Parse structured JSON from Langflow; fallback to a displayable object."""
     try:
@@ -7884,7 +7881,6 @@ def _safe_parse_langflow_answer(raw_text):
         "follow_up_suggestions": [],
         "website_redirect": "For a broader overview and additional qualitative insights, please visit the EUSEE website."
     }
-
 
 def ask_langflow(user_question, dashboard_context, session_id="eusee-dashboard-user"):
     """Send the user question plus filtered-dashboard context to Langflow."""
@@ -7938,7 +7934,6 @@ def ask_langflow(user_question, dashboard_context, session_id="eusee-dashboard-u
     response.raise_for_status()
     return _extract_langflow_text(response.json())
 
-
 def _append_eusee_ai_message(role, content):
     st.session_state.setdefault("eusee_ai_messages", [])
     st.session_state["eusee_ai_messages"].append({
@@ -7948,7 +7943,6 @@ def _append_eusee_ai_message(role, content):
     })
     # Keep the drawer lightweight.
     st.session_state["eusee_ai_messages"] = st.session_state["eusee_ai_messages"][-12:]
-
 
 def inject_true_floating_copilot_css():
     """CSS that floats real Streamlit containers using marker-based :has selectors."""
@@ -8149,7 +8143,6 @@ def inject_true_floating_copilot_css():
     }
     </style>
     """, unsafe_allow_html=True)
-
 
 def render_true_floating_eusee_copilot(df):
     """Render a professional floating bottom-right EUSEE Langflow chat drawer."""
