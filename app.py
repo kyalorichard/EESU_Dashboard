@@ -7816,25 +7816,39 @@ def ask_langflow(user_question, dashboard_context):
         },
     }
 
-    headers = {"Content-Type": "application/json"}
+    auth_attempts = [
+        {"Content-Type": "application/json", "x-api-key": LANGFLOW_API_KEY},
+        {"Content-Type": "application/json", "Authorization": f"Bearer {LANGFLOW_API_KEY}"},
+        {"Content-Type": "application/json"},
+    ]
 
-    if LANGFLOW_API_KEY:
-        headers["x-api-key"] = LANGFLOW_API_KEY
-        headers["Authorization"] = f"Bearer {LANGFLOW_API_KEY}"
+    last_error = None
 
-    response = requests.post(
-        LANGFLOW_API_URL,
-        json=payload,
-        headers=headers,
-        timeout=90,
-    )
-    response.raise_for_status()
+    for headers in auth_attempts:
+        if not LANGFLOW_API_KEY and ("x-api-key" in headers or "Authorization" in headers):
+            continue
 
-    return extract_langflow_text(response.json())
+        try:
+            response = requests.post(
+                LANGFLOW_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=90,
+            )
+
+            if response.status_code == 200:
+                return extract_langflow_text(response.json())
+
+            last_error = f"{response.status_code} {response.reason}: {response.text[:700]}"
+
+        except Exception as e:
+            last_error = str(e)
+
+    return f"Could not reach the EUSEE Copilot service. Langflow response: {last_error}"
 
 
 # ============================================================
-# EUSEE AI COPILOT DIALOG
+# EUSEE AI COPILOT RIGHT-SIDE PANEL
 # ============================================================
 
 def is_copilot_open():
@@ -7845,6 +7859,63 @@ def close_copilot():
     if "eusee_copilot" in st.query_params:
         del st.query_params["eusee_copilot"]
     st.rerun()
+
+
+st.markdown(
+    """
+    <style>
+    a.eusee-ai-floating-btn {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 2147483647;
+        border-radius: 999px;
+        height: 52px;
+        padding: 0 22px;
+        background: #FFFFFF;
+        color: #660094 !important;
+        font-weight: 900;
+        border: 1px solid #E7D4F1;
+        box-shadow: 0 14px 34px rgba(102,0,148,.22);
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        font-size: 15px;
+        text-decoration: none !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    a.eusee-ai-floating-btn:hover {
+        background: #F8F1FC;
+        color: #660094 !important;
+        text-decoration: none !important;
+    }
+
+    div[data-testid="stDialog"] div[role="dialog"] {
+        position: fixed !important;
+        right: 24px !important;
+        top: 72px !important;
+        bottom: 86px !important;
+        width: 430px !important;
+        max-width: calc(100vw - 48px) !important;
+        height: calc(100vh - 158px) !important;
+        margin: 0 !important;
+        border-radius: 18px !important;
+        overflow-y: auto !important;
+    }
+
+    div[data-testid="stDialog"] {
+        background: rgba(0,0,0,0.08) !important;
+    }
+    </style>
+
+    <a class="eusee-ai-floating-btn" href="?eusee_copilot=1" target="_self">
+        💬 EUSEE Copilot
+    </a>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.dialog("🤖 EUSEE AI Copilot", width="large")
@@ -7865,7 +7936,7 @@ def eusee_ai_dialog():
     with st.form("eusee_ai_dialog_form", clear_on_submit=True):
         user_question = st.text_area(
             "Ask about the current dashboard data",
-            placeholder="Example: Give me an executive summary of the current filtered dashboard.",
+            placeholder="Example: Plot top 5 negative alerts distribution by country.",
             height=90,
             label_visibility="collapsed",
         )
@@ -7882,28 +7953,7 @@ def eusee_ai_dialog():
         dashboard_context = build_dashboard_context(filtered_global)
 
         with st.spinner("Analyzing dashboard context..."):
-            try:
-                answer_text = ask_langflow(user_question, dashboard_context)
-
-                try:
-                    parsed = json.loads(answer_text)
-                    answer = parsed.get("answer", answer_text)
-
-                    chart = parsed.get("chart", {})
-                    if chart.get("should_render"):
-                        answer += f"\n\n**Recommended chart:** {chart.get('chart_type', 'Chart')}"
-
-                    redirect = parsed.get(
-                        "website_redirect",
-                        "For a broader overview and additional qualitative insights, please visit the EUSEE website.",
-                    )
-                    answer += f"\n\n_{redirect}_"
-
-                except Exception:
-                    answer = answer_text
-
-            except Exception as e:
-                answer = f"Could not reach the EUSEE Copilot service: {e}"
+            answer = ask_langflow(user_question, dashboard_context)
 
         st.session_state.eusee_chat_messages.append({
             "role": "assistant",
@@ -7913,54 +7963,8 @@ def eusee_ai_dialog():
         st.rerun()
 
 
-# Open dialog
 if is_copilot_open():
     eusee_ai_dialog()
-
-
-# ============================================================
-# FIXED FLOATING LAUNCHER — DOES NOT AFFECT DASHBOARD LAYOUT
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-    .eusee-ai-floating-btn {
-        position: fixed;
-        left: 24px;
-        bottom: 24px;
-        z-index: 2147483647;
-        border-radius: 999px;
-        height: 52px;
-        padding: 15px 22px;
-        background: #FFFFFF;
-        color: #660094 !important;
-        font-weight: 900;
-        border: 1px solid #E7D4F1;
-        box-shadow: 0 14px 34px rgba(102,0,148,.22);
-        cursor: pointer;
-        font-family: Arial, sans-serif;
-        font-size: 15px;
-        text-decoration: none !important;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .eusee-ai-floating-btn:hover {
-        background: #F8F1FC;
-        color: #660094 !important;
-        text-decoration: none !important;
-    }
-    </style>
-
-    <a class="eusee-ai-floating-btn" href="?eusee_copilot=1" target="_self">
-        💬 EUSEE Copilot
-    </a>
-    """,
-    unsafe_allow_html=True,
-)
-
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
