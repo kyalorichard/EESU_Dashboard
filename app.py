@@ -58,8 +58,31 @@ button[kind="header"] {
 </style>
 """, unsafe_allow_html=True)
             
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 # Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
+st.markdown("""
+<style>
+/* Clear sidebar toggle signposting */
+button[data-testid="collapsedControl"]::after {
+    content: " Filters";
+    font-size: 12px;
+    font-weight: 800;
+    color: #660094;
+    margin-left: 6px;
+}
+
+button[data-testid="collapsedControl"] {
+    width: auto !important;
+    min-width: 92px !important;
+    height: 38px !important;
+    border-radius: 999px !important;
+    padding: 0 12px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E7D4F1 !important;
+    box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
