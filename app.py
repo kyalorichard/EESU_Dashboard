@@ -7740,13 +7740,14 @@ if tab_manual is not None:
         else:
             render_access_locked("User Manual", "guest or higher")
 
-# ---------------- LANGFLOW-BACKED AI COPILOT ----------------
 
 # ============================================================
 # SIMPLE EUSEE LANGFLOW CHATBOT
 # ============================================================
 
+import json
 import uuid
+import requests
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "")
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "")
@@ -7799,23 +7800,24 @@ def ask_langflow(user_question, dashboard_context):
         "tweaks": {
             "Prompt Template-v8BIx": {
                 "dashboard_context": dashboard_context,
-                "question": user_question
+                "question": user_question,
             },
             "ChatInput-0gnCu": {
                 "input_value": user_question,
                 "session_id": st.session_state.eusee_chat_session_id,
                 "context_id": "eusee-dashboard",
-                "should_store_message": True
+                "should_store_message": True,
             },
             "ChatOutput-wP9WA": {
                 "session_id": st.session_state.eusee_chat_session_id,
                 "context_id": "eusee-dashboard",
-                "should_store_message": True
-            }
-        }
+                "should_store_message": True,
+            },
+        },
     }
 
     headers = {"Content-Type": "application/json"}
+
     if LANGFLOW_API_KEY:
         headers["x-api-key"] = LANGFLOW_API_KEY
         headers["Authorization"] = f"Bearer {LANGFLOW_API_KEY}"
@@ -7824,22 +7826,25 @@ def ask_langflow(user_question, dashboard_context):
         LANGFLOW_API_URL,
         json=payload,
         headers=headers,
-        timeout=90
+        timeout=90,
     )
     response.raise_for_status()
 
     return extract_langflow_text(response.json())
 
+
 # ============================================================
-# EUSEE AI COPILOT - TRUE FIXED FLOATING LAUNCHER
+# EUSEE AI COPILOT DIALOG
 # ============================================================
 
-import streamlit.components.v1 as components
-
-st.session_state.setdefault("eusee_chat_messages", [])
-
-def open_copilot_from_query():
+def is_copilot_open():
     return st.query_params.get("eusee_copilot") == "1"
+
+
+def close_copilot():
+    if "eusee_copilot" in st.query_params:
+        del st.query_params["eusee_copilot"]
+    st.rerun()
 
 
 @st.dialog("🤖 EUSEE AI Copilot", width="large")
@@ -7847,8 +7852,7 @@ def eusee_ai_dialog():
     st.caption("Ask about the current dashboard data. Responses are limited to the active dashboard context.")
 
     if st.button("Close Copilot", use_container_width=True):
-        st.query_params.clear()
-        st.rerun()
+        close_copilot()
 
     if not has_permission("use_ai_copilot"):
         st.info("AI Copilot is not enabled for your access level.")
@@ -7872,7 +7876,7 @@ def eusee_ai_dialog():
 
         st.session_state.eusee_chat_messages.append({
             "role": "user",
-            "content": user_question
+            "content": user_question,
         })
 
         dashboard_context = build_dashboard_context(filtered_global)
@@ -7891,7 +7895,7 @@ def eusee_ai_dialog():
 
                     redirect = parsed.get(
                         "website_redirect",
-                        "For a broader overview and additional qualitative insights, please visit the EUSEE website."
+                        "For a broader overview and additional qualitative insights, please visit the EUSEE website.",
                     )
                     answer += f"\n\n_{redirect}_"
 
@@ -7903,40 +7907,24 @@ def eusee_ai_dialog():
 
         st.session_state.eusee_chat_messages.append({
             "role": "assistant",
-            "content": answer
+            "content": answer,
         })
 
         st.rerun()
 
 
-# Open dialog when query parameter is set
-if open_copilot_from_query():
+# Open dialog
+if is_copilot_open():
     eusee_ai_dialog()
 
 
-# Zero-height fixed launcher: does not affect dashboard layout
-components.html(
+# ============================================================
+# FIXED FLOATING LAUNCHER — DOES NOT AFFECT DASHBOARD LAYOUT
+# ============================================================
+
+st.markdown(
     """
-    <script>
-    function openEuseeCopilot() {
-        const url = new URL(window.parent.location.href);
-        url.searchParams.set("eusee_copilot", "1");
-        window.parent.location.href = url.toString();
-    }
-    </script>
-
-    <button onclick="openEuseeCopilot()" class="eusee-ai-floating-btn">
-        💬 EUSEE Copilot
-    </button>
-
     <style>
-    html, body {
-        background: transparent !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
-
     .eusee-ai-floating-btn {
         position: fixed;
         left: 24px;
@@ -7944,20 +7932,35 @@ components.html(
         z-index: 2147483647;
         border-radius: 999px;
         height: 52px;
-        padding: 0 20px;
+        padding: 15px 22px;
         background: #FFFFFF;
-        color: #660094;
+        color: #660094 !important;
         font-weight: 900;
         border: 1px solid #E7D4F1;
         box-shadow: 0 14px 34px rgba(102,0,148,.22);
         cursor: pointer;
         font-family: Arial, sans-serif;
         font-size: 15px;
+        text-decoration: none !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .eusee-ai-floating-btn:hover {
+        background: #F8F1FC;
+        color: #660094 !important;
+        text-decoration: none !important;
     }
     </style>
+
+    <a class="eusee-ai-floating-btn" href="?eusee_copilot=1" target="_self">
+        💬 EUSEE Copilot
+    </a>
     """,
-    height=80,
+    unsafe_allow_html=True,
 )
+
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
