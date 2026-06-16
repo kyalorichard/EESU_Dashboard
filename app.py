@@ -2401,7 +2401,7 @@ def render_top_feedback_bar():
             #eusee-feedback-floating-root {{
                 position: fixed !important;
                 top: clamp(58px, 7vh, 78px) !important;
-                left: 80% !important;
+                left: 95% !important;
                 transform: translateX(-50%) !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
