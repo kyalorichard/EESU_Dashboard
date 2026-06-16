@@ -7830,78 +7830,108 @@ def ask_langflow(user_question, dashboard_context):
 
     return extract_langflow_text(response.json())
 
+# ============================================================
+# EUSEE AI COPILOT - TRUE OVERLAY USING STREAMLIT DIALOG
+# ============================================================
+
+st.session_state.setdefault("eusee_chat_messages", [])
+
 st.markdown("""
 <style>
-div[data-testid="stVerticalBlock"]:has(#eusee-chatbot-float) {
+div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-fixed) {
     position: fixed !important;
     left: 24px !important;
     bottom: 24px !important;
-    width: min(420px, calc(100vw - 32px)) !important;
-    max-height: calc(100vh - 80px) !important;
-    overflow-y: auto !important;
     z-index: 999999 !important;
+    width: auto !important;
+}
+
+div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-fixed) button {
+    border-radius: 999px !important;
+    height: 52px !important;
+    padding: 0 20px !important;
     background: #FFFFFF !important;
-    border: 1px solid rgba(102,0,148,.18) !important;
-    border-radius: 22px !important;
-    box-shadow: 0 24px 70px rgba(16,24,40,.24) !important;
-    padding: 14px !important;
+    color: #660094 !important;
+    font-weight: 900 !important;
+    border: 1px solid #E7D4F1 !important;
+    box-shadow: 0 14px 34px rgba(102,0,148,.22) !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-with st.container():
-    st.markdown('<span id="eusee-chatbot-float"></span>', unsafe_allow_html=True)
 
-    st.markdown("### 🤖 EUSEE AI Copilot")
+@st.dialog("🤖 EUSEE AI Copilot", width="large")
+def eusee_ai_dialog():
+    st.caption("Ask about the current dashboard data. Responses are limited to the active dashboard context.")
 
     if not has_permission("use_ai_copilot"):
         st.info("AI Copilot is not enabled for your access level.")
-    else:
-        for msg in st.session_state.eusee_chat_messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        return
 
-        user_question = st.chat_input("Ask about the current dashboard data...")
+    for msg in st.session_state.eusee_chat_messages[-8:]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-        if user_question:
-            st.session_state.eusee_chat_messages.append({
-                "role": "user",
-                "content": user_question
-            })
+    with st.form("eusee_ai_dialog_form", clear_on_submit=True):
+        user_question = st.text_area(
+            "Ask about the current dashboard data",
+            placeholder="Example: Give me an executive summary of the current filtered dashboard.",
+            height=90,
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
 
-            dashboard_context = build_dashboard_context(filtered_global)
+    if submitted and user_question.strip():
+        st.session_state.eusee_chat_messages.append({
+            "role": "user",
+            "content": user_question.strip()
+        })
 
-            with st.spinner("Analyzing dashboard context..."):
+        dashboard_context = build_dashboard_context(filtered_global)
+        session_id = get_current_email() or "guest-session"
+
+        with st.spinner("Analyzing dashboard context..."):
+            try:
+                answer_text = ask_langflow(
+                    user_question.strip(),
+                    dashboard_context,
+                    session_id=session_id
+                )
+
                 try:
-                    raw_answer = ask_langflow(user_question, dashboard_context)
+                    parsed = json.loads(answer_text)
+                    answer = parsed.get("answer", answer_text)
 
-                    try:
-                        parsed = json.loads(raw_answer)
-                        answer = parsed.get("answer", raw_answer)
+                    chart = parsed.get("chart", {})
+                    if chart.get("should_render"):
+                        answer += f"\n\n**Recommended chart:** {chart.get('chart_type', 'Chart')}"
 
-                        chart = parsed.get("chart", {})
-                        if chart.get("should_render"):
-                            answer += f"\n\n**Recommended chart:** {chart.get('chart_type', 'Chart')}"
+                    redirect = parsed.get(
+                        "website_redirect",
+                        "For a broader overview and additional qualitative insights, please visit the EUSEE website."
+                    )
+                    answer += f"\n\n_{redirect}_"
 
-                        redirect = parsed.get(
-                            "website_redirect",
-                            "For a broader overview and additional qualitative insights, please visit the EUSEE website."
-                        )
-                        answer += f"\n\n_{redirect}_"
+                except Exception:
+                    answer = answer_text
 
-                    except Exception:
-                        answer = raw_answer
+            except Exception as e:
+                answer = f"Could not reach the EUSEE Copilot service: {e}"
 
-                except Exception as e:
-                    answer = f"Could not reach the EUSEE Copilot service: {e}"
+        st.session_state.eusee_chat_messages.append({
+            "role": "assistant",
+            "content": answer
+        })
 
-            st.session_state.eusee_chat_messages.append({
-                "role": "assistant",
-                "content": answer
-            })
+        st.rerun()
 
-            st.rerun()
-            
+
+with st.container():
+    st.markdown('<span id="eusee-ai-launcher-fixed"></span>', unsafe_allow_html=True)
+
+    if st.button("💬 EUSEE Copilot", key="eusee_ai_dialog_launcher"):
+        eusee_ai_dialog()
+
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
