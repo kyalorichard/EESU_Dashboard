@@ -7763,7 +7763,51 @@ def build_dashboard_context(df):
 
     return json.dumps(context, indent=2, default=str)
 
+# ---------------- LANGFLOW-BACKED AI COPILOT ----------------
+def get_langflow_config():
+    lf = st.secrets.get("langflow", {})
+    return (
+        lf.get("LANGFLOW_API_URL", ""),
+        lf.get("LANGFLOW_API_KEY", "")
+    )
+
+
+LANGFLOW_API_URL, LANGFLOW_API_KEY = get_langflow_config()
+
+
+def build_dashboard_context(df):
+    if df is None or df.empty:
+        return "No records available under the current dashboard filters."
+
+    context = {
+        "filtered_records": len(df),
+        "countries": df["alert-country"].value_counts().head(10).to_dict()
+            if "alert-country" in df.columns else {},
+        "regions": df["region"].value_counts().to_dict()
+            if "region" in df.columns else {},
+        "alert_impacts": df["alert-impact"].value_counts().to_dict()
+            if "alert-impact" in df.columns else {},
+        "alert_types": df["alert-type"].value_counts().head(10).to_dict()
+            if "alert-type" in df.columns else {},
+        "enabling_principles": df["enabling-principle"].value_counts().head(10).to_dict()
+            if "enabling-principle" in df.columns else {},
+        "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available")
+    }
+
+    return json.dumps(context, indent=2, default=str)
+
+
+def extract_langflow_text(result):
+    try:
+        return result["outputs"][0]["outputs"][0]["results"]["message"]["text"]
+    except Exception:
+        return json.dumps(result, indent=2, default=str)
+
+
 def ask_langflow(user_question, dashboard_context, session_id="eusee-dashboard-user"):
+    if not LANGFLOW_API_URL:
+        return '{"answer":"Langflow API URL is not configured.","website_redirect":"For a broader overview and additional qualitative insights, please visit the EUSEE website."}'
+
     payload = {
         "input_value": user_question,
         "output_type": "chat",
@@ -7791,42 +7835,41 @@ def ask_langflow(user_question, dashboard_context, session_id="eusee-dashboard-u
     if LANGFLOW_API_KEY:
         headers["x-api-key"] = LANGFLOW_API_KEY
 
-    r = requests.post(LANGFLOW_URL, json=payload, headers=headers, timeout=90)
+    r = requests.post(LANGFLOW_API_URL, json=payload, headers=headers, timeout=90)
     r.raise_for_status()
-    return r.json()
+    return extract_langflow_text(r.json())
 
-if has_permission("use_ai_copilot"):
-    st.subheader("EUSEE AI Copilot")
 
+# Always render panel; restrict usage inside panel
+st.markdown("### 🤖 EUSEE AI Copilot")
+
+if not has_permission("use_ai_copilot"):
+    st.info("AI Copilot is not enabled for your access level. Ask the admin to enable `use_ai_copilot`.")
+else:
     user_question = st.chat_input("Ask about the current dashboard data...")
 
     if user_question:
         dashboard_context = build_dashboard_context(filtered_global)
+        session_id = get_current_email() or "guest-session"
 
         with st.spinner("Analyzing dashboard context..."):
-            result = ask_langflow(
-                user_question,
-                dashboard_context,
-                session_id=get_current_email() or "guest-session"
-            )
-
-        raw_text = result["outputs"][0]["outputs"][0]["results"]["message"]["text"]
+            answer_text = ask_langflow(user_question, dashboard_context, session_id=session_id)
 
         try:
-            parsed = json.loads(raw_text)
-            st.write(parsed.get("answer", ""))
+            parsed = json.loads(answer_text)
+            st.markdown(parsed.get("answer", ""))
 
-            if parsed.get("chart", {}).get("should_render"):
-                st.info(f"Recommended chart: {parsed['chart'].get('chart_type')}")
+            chart = parsed.get("chart", {})
+            if chart.get("should_render"):
+                st.info(f"Recommended chart: {chart.get('chart_type', 'Chart')}")
 
-            st.caption(parsed.get("website_redirect", ""))
-
+            st.caption(parsed.get(
+                "website_redirect",
+                "For a broader overview and additional qualitative insights, please visit the EUSEE website."
+            ))
         except Exception:
-            st.write(raw_text)
-else:
-    st.info("AI Copilot is not enabled for your access level.")
+            st.write(answer_text)
 
-    
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
