@@ -7742,6 +7742,8 @@ if tab_manual is not None:
 
 # ---------------- LANGFLOW-BACKED AI COPILOT ----------------
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "")
+LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "")
+
 def build_dashboard_context(df):
     if df is None or df.empty:
         return "No records available under the current dashboard filters."
