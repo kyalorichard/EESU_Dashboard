@@ -8532,11 +8532,8 @@ def eusee_ai_dialog():
         st.rerun()
 
 
-st.session_state.setdefault("eusee_ai_open", False)
-
-if st.session_state.eusee_ai_open:
+if st.session_state.get("eusee_ai_open", False):
     eusee_ai_dialog()
-    
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
