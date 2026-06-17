@@ -7852,7 +7852,7 @@ def build_filter_summary(df):
     }
 
 
-def build_dashboard_context(df, max_records=500, top_n=30):
+def build_dashboard_context(df, max_records=0, top_n=15):
     if df is None or df.empty:
         return json.dumps({
             "available": False,
@@ -7885,6 +7885,20 @@ def build_dashboard_context(df, max_records=500, top_n=30):
         "natural_language_index": {},
         "sample_records": [],
     }
+
+    priority_column_order = [
+        "alert-country",
+        "region",
+        "alert-impact",
+        "alert-type",
+        "Enabling principle",
+        "Actor of repression",
+        "Mechanism of repression",
+        "Affected actor",
+        "Subject of repression",
+        "year",
+        "month_name",
+    ]
 
     categorical_cols = []
 
@@ -7933,41 +7947,46 @@ def build_dashboard_context(df, max_records=500, top_n=30):
             top_counts = all_counts.head(top_n)
             bottom_counts = all_counts.sort_values(ascending=True).head(top_n)
 
+            top_dict = {str(k): int(v) for k, v in top_counts.items()}
+            bottom_dict = {str(k): int(v) for k, v in bottom_counts.items()}
+
             context["column_summaries"][col] = {
                 "type": "categorical_text",
                 "non_empty_records": int(clean_series.count()),
                 "unique_values": int(clean_series.nunique()),
-                "top_values": {str(k): int(v) for k, v in top_counts.items()},
-                "bottom_values": {str(k): int(v) for k, v in bottom_counts.items()}
+                "top_values": top_dict,
+                "bottom_values": bottom_dict
             }
 
             context["universal_rankings"][col] = {
-                "highest": {str(k): int(v) for k, v in top_counts.items()},
-                "lowest": {str(k): int(v) for k, v in bottom_counts.items()}
+                "highest": top_dict,
+                "lowest": bottom_dict
             }
 
             simple_col = _safe_key(col)
 
-            context["natural_language_index"][f"top {simple_col}"] = context["universal_rankings"][col]["highest"]
-            context["natural_language_index"][f"highest {simple_col}"] = context["universal_rankings"][col]["highest"]
-            context["natural_language_index"][f"most common {simple_col}"] = context["universal_rankings"][col]["highest"]
-            context["natural_language_index"][f"lowest {simple_col}"] = context["universal_rankings"][col]["lowest"]
-            context["natural_language_index"][f"least common {simple_col}"] = context["universal_rankings"][col]["lowest"]
-            context["natural_language_index"][f"distribution of {simple_col}"] = context["universal_rankings"][col]["highest"]
+            context["natural_language_index"][f"top {simple_col}"] = top_dict
+            context["natural_language_index"][f"highest {simple_col}"] = top_dict
+            context["natural_language_index"][f"most common {simple_col}"] = top_dict
+            context["natural_language_index"][f"lowest {simple_col}"] = bottom_dict
+            context["natural_language_index"][f"least common {simple_col}"] = bottom_dict
+            context["natural_language_index"][f"distribution of {simple_col}"] = top_dict
 
-            if len(top_counts) > 0:
+            if top_dict:
+                first_key = next(iter(top_dict))
                 context["direct_answer_index"][f"highest_count_by_{col}"] = {
                     "dimension": col,
-                    "value": str(top_counts.index[0]),
-                    "count": int(top_counts.iloc[0]),
+                    "value": first_key,
+                    "count": top_dict[first_key],
                     "basis": "Current filtered dashboard records"
                 }
 
-            if len(bottom_counts) > 0:
+            if bottom_dict:
+                first_key = next(iter(bottom_dict))
                 context["direct_answer_index"][f"lowest_count_by_{col}"] = {
                     "dimension": col,
-                    "value": str(bottom_counts.index[0]),
-                    "count": int(bottom_counts.iloc[0]),
+                    "value": first_key,
+                    "count": bottom_dict[first_key],
                     "basis": "Current filtered dashboard records"
                 }
 
@@ -7999,7 +8018,6 @@ def build_dashboard_context(df, max_records=500, top_n=30):
 
             impact_key = str(impact_value).lower().strip().replace(" ", "_")
             simple_impact = _safe_key(impact_value)
-
             context["universal_filtered_rankings"][impact_key] = {}
 
             for col in categorical_cols:
@@ -8031,7 +8049,6 @@ def build_dashboard_context(df, max_records=500, top_n=30):
 
                 simple_dimension = _safe_key(col)
 
-                # Natural English aliases
                 context["natural_language_index"][f"top {simple_dimension} by {simple_impact} alerts"] = highest_ranking
                 context["natural_language_index"][f"top {simple_dimension} with {simple_impact} alerts"] = highest_ranking
                 context["natural_language_index"][f"{simple_dimension} with highest {simple_impact} alerts"] = highest_ranking
@@ -8042,7 +8059,6 @@ def build_dashboard_context(df, max_records=500, top_n=30):
                 context["natural_language_index"][f"{simple_dimension} with lowest {simple_impact} alerts"] = lowest_ranking
                 context["natural_language_index"][f"least {simple_impact} alerts by {simple_dimension}"] = lowest_ranking
 
-                # Short aliases for common user wording
                 if simple_dimension == "country":
                     context["natural_language_index"][f"top countries with highest {simple_impact} alerts"] = highest_ranking
                     context["natural_language_index"][f"countries with highest {simple_impact} alerts"] = highest_ranking
@@ -8089,10 +8105,12 @@ def build_dashboard_context(df, max_records=500, top_n=30):
                         "basis": "Current filtered dashboard records"
                     }
 
-    for row_col in categorical_cols[:12]:
+    priority_cols = [c for c in priority_column_order if c in categorical_cols]
+
+    for row_col in priority_cols:
         context["universal_cross_tabs"][row_col] = {}
 
-        for col_col in categorical_cols[:12]:
+        for col_col in priority_cols:
             if row_col == col_col:
                 continue
 
@@ -8115,11 +8133,9 @@ def build_dashboard_context(df, max_records=500, top_n=30):
             except Exception:
                 pass
 
-    safe_records = work.head(max_records).replace({np.nan: ""})
-    context["sample_records"] = safe_records.to_dict("records")
+    context["sample_records"] = []
 
     return json.dumps(context, indent=2, default=str)
-
 
 def extract_langflow_text(response_json):
     try:
@@ -8414,7 +8430,8 @@ def eusee_ai_dialog():
             default=str
         )
 
-        dashboard_context = build_dashboard_context(active_df)
+        #dashboard_context = build_dashboard_context(active_df)
+        dashboard_context = build_dashboard_context(active_df, max_records=0, top_n=15)
 
         with st.spinner("Asking LangFlow..."):
             answer = ask_langflow(user_question, dashboard_context, filter_summary)
