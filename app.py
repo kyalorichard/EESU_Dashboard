@@ -20,6 +20,10 @@ import os
 import re
 import requests
 
+import uuid
+
+
+
 st.markdown("""
 <style>
 
@@ -7750,10 +7754,6 @@ if tab_manual is not None:
 # SIMPLE EUSEE LANGFLOW CHATBOT
 # ============================================================
 
-import json
-import uuid
-import requests
-
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
 
@@ -7954,6 +7954,8 @@ def eusee_ai_dialog():
         dashboard_context = build_dashboard_context(filtered_global)
 
         with st.spinner("Analyzing dashboard context..."):
+            with st.expander("Copilot Debug"):
+                st.code(dashboard_context)
             answer = ask_langflow(user_question, dashboard_context)
 
         st.session_state.eusee_chat_messages.append({
