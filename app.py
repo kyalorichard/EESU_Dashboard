@@ -8198,11 +8198,11 @@ def ask_langflow(user_question, lookup_context, dashboard_context, filter_summar
         })
 
 
-def render_langflow_output(raw_answer):
+def render_langflow_output(raw_answer, chart_instance_key=None):
     try:
         result = json.loads(raw_answer)
     except Exception:
-        st.markdown(raw_answer)
+        st.markdown(str(raw_answer))
         return
 
     answer = result.get("answer", "")
@@ -8214,32 +8214,65 @@ def render_langflow_output(raw_answer):
         return
 
     chart_type = str(chart.get("type", "")).lower().strip()
-    x_values = chart.get("x", [])
-    y_values = chart.get("y", [])
 
-    if not chart_type or not x_values or not y_values:
+    x_values = chart.get("x", chart.get("labels", chart.get("categories", [])))
+    y_values = chart.get("y", chart.get("values", chart.get("counts", [])))
+
+    if not chart_type:
+        st.warning("Chart could not be rendered: missing chart type.")
+        st.json(chart)
+        return
+
+    if not x_values or not y_values:
+        st.warning("Chart could not be rendered: missing x/y chart data.")
+        st.json(chart)
+        return
+
+    if len(x_values) != len(y_values):
+        st.warning("Chart could not be rendered: x and y lengths do not match.")
+        st.json(chart)
         return
 
     x_label = chart.get("x_label", "Category") or "Category"
     y_label = chart.get("y_label", "Count") or "Count"
-    title = chart.get("title", "")
+    title = chart.get("title", "") or "Dashboard chart"
     sort_order = str(chart.get("sort_order", "")).lower().strip()
 
+    chart_df = pd.DataFrame({
+        x_label: [str(x) for x in x_values],
+        y_label: pd.to_numeric(y_values, errors="coerce")
+    }).dropna(subset=[y_label])
+
+    if chart_df.empty:
+        st.warning("Chart could not be rendered: numeric values are empty after conversion.")
+        st.json(chart)
+        return
+
+    if sort_order == "descending":
+        chart_df = chart_df.sort_values(y_label, ascending=False)
+    elif sort_order == "ascending":
+        chart_df = chart_df.sort_values(y_label, ascending=True)
+
+    if chart_instance_key is None:
+        chart_instance_key = uuid.uuid4().hex
+
+    base_key = f"eusee_ai_chart_{chart_instance_key}_{abs(hash(raw_answer))}"
+
     try:
-        chart_df = pd.DataFrame({
-            x_label: x_values,
-            y_label: pd.to_numeric(y_values, errors="coerce")
-        }).dropna(subset=[y_label])
-
-        if sort_order == "descending":
-            chart_df = chart_df.sort_values(y_label, ascending=False)
-        elif sort_order == "ascending":
-            chart_df = chart_df.sort_values(y_label, ascending=True)
-
         if chart_type == "bar":
-            fig = px.bar(chart_df, x=x_label, y=y_label, title=title, text=y_label)
+            fig = px.bar(
+                chart_df,
+                x=x_label,
+                y=y_label,
+                title=title,
+                text=y_label
+            )
             fig.update_layout(height=430)
-            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"{base_key}_bar"
+            )
 
         elif chart_type in ["horizontal_bar", "hbar"]:
             fig_df = chart_df.sort_values(y_label, ascending=True)
@@ -8252,23 +8285,60 @@ def render_langflow_output(raw_answer):
                 text=y_label
             )
             fig.update_layout(height=max(430, 42 * len(fig_df)))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"{base_key}_hbar"
+            )
 
         elif chart_type == "pie":
-            fig = px.pie(chart_df, names=x_label, values=y_label, title=title)
-            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
+            fig = px.pie(
+                chart_df,
+                names=x_label,
+                values=y_label,
+                title=title
+            )
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"{base_key}_pie"
+            )
 
         elif chart_type == "donut":
-            fig = px.pie(chart_df, names=x_label, values=y_label, title=title, hole=0.45)
-            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
+            fig = px.pie(
+                chart_df,
+                names=x_label,
+                values=y_label,
+                title=title,
+                hole=0.45
+            )
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"{base_key}_donut"
+            )
 
         elif chart_type == "line":
-            fig = px.line(chart_df, x=x_label, y=y_label, title=title, markers=True)
-            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
+            fig = px.line(
+                chart_df,
+                x=x_label,
+                y=y_label,
+                title=title,
+                markers=True
+            )
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"{base_key}_line"
+            )
+
+        else:
+            st.warning(f"Unsupported chart type returned by LangFlow: {chart_type}")
+            st.json(chart)
 
     except Exception as e:
         st.warning(f"Chart could not be rendered: {e}")
-
+        st.json(chart)
 
 def is_copilot_open():
     return st.query_params.get("eusee_copilot") == "1"
@@ -8355,7 +8425,10 @@ def eusee_ai_dialog():
     for msg in st.session_state.eusee_chat_messages[-12:]:
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
-                render_langflow_output(msg["content"])
+                render_langflow_output(
+                    msg["content"],
+                    chart_instance_key=f"{i}_{msg.get('id', '')}"
+                )                
             else:
                 st.markdown(msg["content"])
 
@@ -8373,6 +8446,7 @@ def eusee_ai_dialog():
         user_question = user_question.strip()
 
         st.session_state.eusee_chat_messages.append({
+            "id": uuid.uuid4().hex,
             "role": "user",
             "content": user_question,
         })
@@ -8402,6 +8476,7 @@ def eusee_ai_dialog():
             )
 
         st.session_state.eusee_chat_messages.append({
+            "id": uuid.uuid4().hex,
             "role": "assistant",
             "content": answer,
         })
