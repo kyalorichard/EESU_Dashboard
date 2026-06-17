@@ -7808,10 +7808,6 @@ if tab_manual is not None:
 
 # ============================================================
 # EUSEE LANGFLOW CHATBOT
-# LangFlow-only brain: answers + plots + memory + filtered data
-# ============================================================
-# ============================================================
-# EUSEE LANGFLOW CHATBOT
 # Fully working compact lookup context + filtered data + plots
 # ============================================================
 
@@ -8256,7 +8252,10 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
     if chart_instance_key is None:
         chart_instance_key = uuid.uuid4().hex
 
-    base_key = f"eusee_ai_chart_{chart_instance_key}_{abs(hash(raw_answer))}"
+    # Use a stable message-level key plus a short render id to avoid
+    # Streamlit/Plotly duplicate element IDs when the same chart is redrawn.
+    unique_render_id = uuid.uuid4().hex[:8]
+    base_key = f"eusee_ai_chart_{chart_instance_key}_{unique_render_id}"
 
     try:
         if chart_type == "bar":
@@ -8422,15 +8421,22 @@ def eusee_ai_dialog():
         st.session_state.eusee_chat_messages = []
         st.rerun()
 
-    for msg in st.session_state.eusee_chat_messages[-12:]:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
+    for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
+        if not isinstance(msg, dict):
+            continue
+
+        role = msg.get("role", "assistant")
+        content = msg.get("content", "")
+
+        with st.chat_message(role):
+            if role == "assistant":
+                chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
                 render_langflow_output(
-                    msg["content"],
-                    chart_instance_key=f"{i}_{msg.get('id', '')}"
-                )                
+                    content,
+                    chart_instance_key=chart_key
+                )
             else:
-                st.markdown(msg["content"])
+                st.markdown(content)
 
     with st.form("eusee_ai_dialog_form", clear_on_submit=True):
         user_question = st.text_area(
