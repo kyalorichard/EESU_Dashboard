@@ -7809,6 +7809,7 @@ if tab_manual is not None:
 # ============================================================
 # EUSEE LANGFLOW CHATBOT
 # LangFlow-only brain: answers + plots + memory + filtered data
+# Natural-language dashboard context enabled
 # ============================================================
 
 import json
@@ -7824,6 +7825,18 @@ LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").st
 
 st.session_state.setdefault("eusee_chat_messages", [])
 st.session_state.setdefault("eusee_chat_session_id", str(uuid.uuid4()))
+
+
+def _safe_key(value):
+    return (
+        str(value)
+        .lower()
+        .strip()
+        .replace("alert-", "")
+        .replace("_", " ")
+        .replace("-", " ")
+        .replace("/", " ")
+    )
 
 
 def build_filter_summary(df):
@@ -7863,6 +7876,8 @@ def build_dashboard_context(df, max_records=500, top_n=30):
         "universal_filtered_rankings": {},
         "universal_cross_tabs": {},
         "direct_answer_index": {},
+        "dashboard_answer_hints": {},
+        "natural_language_index": {},
         "sample_records": [],
     }
 
@@ -7909,24 +7924,45 @@ def build_dashboard_context(df, max_records=500, top_n=30):
                 .dropna()
             )
 
-            counts = clean_series.value_counts().head(top_n)
+            all_counts = clean_series.value_counts()
+            top_counts = all_counts.head(top_n)
+            bottom_counts = all_counts.sort_values(ascending=True).head(top_n)
 
             context["column_summaries"][col] = {
                 "type": "categorical_text",
                 "non_empty_records": int(clean_series.count()),
                 "unique_values": int(clean_series.nunique()),
-                "top_values": {str(k): int(v) for k, v in counts.items()}
+                "top_values": {str(k): int(v) for k, v in top_counts.items()},
+                "bottom_values": {str(k): int(v) for k, v in bottom_counts.items()}
             }
 
             context["universal_rankings"][col] = {
-                str(k): int(v) for k, v in counts.items()
+                "highest": {str(k): int(v) for k, v in top_counts.items()},
+                "lowest": {str(k): int(v) for k, v in bottom_counts.items()}
             }
 
-            if len(counts) > 0:
+            simple_col = _safe_key(col)
+
+            context["natural_language_index"][f"top {simple_col}"] = context["universal_rankings"][col]["highest"]
+            context["natural_language_index"][f"highest {simple_col}"] = context["universal_rankings"][col]["highest"]
+            context["natural_language_index"][f"most common {simple_col}"] = context["universal_rankings"][col]["highest"]
+            context["natural_language_index"][f"lowest {simple_col}"] = context["universal_rankings"][col]["lowest"]
+            context["natural_language_index"][f"least common {simple_col}"] = context["universal_rankings"][col]["lowest"]
+            context["natural_language_index"][f"distribution of {simple_col}"] = context["universal_rankings"][col]["highest"]
+
+            if len(top_counts) > 0:
                 context["direct_answer_index"][f"highest_count_by_{col}"] = {
                     "dimension": col,
-                    "value": str(counts.index[0]),
-                    "count": int(counts.iloc[0]),
+                    "value": str(top_counts.index[0]),
+                    "count": int(top_counts.iloc[0]),
+                    "basis": "Current filtered dashboard records"
+                }
+
+            if len(bottom_counts) > 0:
+                context["direct_answer_index"][f"lowest_count_by_{col}"] = {
+                    "dimension": col,
+                    "value": str(bottom_counts.index[0]),
+                    "count": int(bottom_counts.iloc[0]),
                     "basis": "Current filtered dashboard records"
                 }
 
@@ -7957,33 +7993,94 @@ def build_dashboard_context(df, max_records=500, top_n=30):
             ]
 
             impact_key = str(impact_value).lower().strip().replace(" ", "_")
+            simple_impact = _safe_key(impact_value)
+
             context["universal_filtered_rankings"][impact_key] = {}
 
             for col in categorical_cols:
                 if col == impact_col:
                     continue
 
-                counts = (
+                all_counts = (
                     filtered_df[col]
                     .astype(str)
                     .str.strip()
                     .replace("", np.nan)
                     .dropna()
                     .value_counts()
-                    .head(top_n)
                 )
 
-                ranking = {str(k): int(v) for k, v in counts.items()}
-                context["universal_filtered_rankings"][impact_key][col] = ranking
+                if all_counts.empty:
+                    continue
 
-                if ranking:
-                    top_value = next(iter(ranking))
+                top_counts = all_counts.head(top_n)
+                bottom_counts = all_counts.sort_values(ascending=True).head(top_n)
+
+                highest_ranking = {str(k): int(v) for k, v in top_counts.items()}
+                lowest_ranking = {str(k): int(v) for k, v in bottom_counts.items()}
+
+                context["universal_filtered_rankings"][impact_key][col] = {
+                    "highest": highest_ranking,
+                    "lowest": lowest_ranking
+                }
+
+                simple_dimension = _safe_key(col)
+
+                # Natural English aliases
+                context["natural_language_index"][f"top {simple_dimension} by {simple_impact} alerts"] = highest_ranking
+                context["natural_language_index"][f"top {simple_dimension} with {simple_impact} alerts"] = highest_ranking
+                context["natural_language_index"][f"{simple_dimension} with highest {simple_impact} alerts"] = highest_ranking
+                context["natural_language_index"][f"highest {simple_impact} alerts by {simple_dimension}"] = highest_ranking
+                context["natural_language_index"][f"{simple_impact} alerts by {simple_dimension}"] = highest_ranking
+
+                context["natural_language_index"][f"lowest {simple_impact} alerts by {simple_dimension}"] = lowest_ranking
+                context["natural_language_index"][f"{simple_dimension} with lowest {simple_impact} alerts"] = lowest_ranking
+                context["natural_language_index"][f"least {simple_impact} alerts by {simple_dimension}"] = lowest_ranking
+
+                # Short aliases for common user wording
+                if simple_dimension == "country":
+                    context["natural_language_index"][f"top countries with highest {simple_impact} alerts"] = highest_ranking
+                    context["natural_language_index"][f"countries with highest {simple_impact} alerts"] = highest_ranking
+                    context["natural_language_index"][f"country with highest {simple_impact} alerts"] = highest_ranking
+                    context["natural_language_index"][f"country with lowest {simple_impact} alerts"] = lowest_ranking
+
+                if simple_dimension == "region":
+                    context["natural_language_index"][f"top regions with highest {simple_impact} alerts"] = highest_ranking
+                    context["natural_language_index"][f"regions with highest {simple_impact} alerts"] = highest_ranking
+                    context["natural_language_index"][f"region with highest {simple_impact} alerts"] = highest_ranking
+                    context["natural_language_index"][f"region with lowest {simple_impact} alerts"] = lowest_ranking
+
+                context["dashboard_answer_hints"][f"top_{simple_dimension}_by_{simple_impact}_alerts"] = {
+                    "dimension": col,
+                    "filter": f"{impact_col} = {impact_value}",
+                    "ranking": highest_ranking
+                }
+
+                context["dashboard_answer_hints"][f"lowest_{simple_dimension}_by_{simple_impact}_alerts"] = {
+                    "dimension": col,
+                    "filter": f"{impact_col} = {impact_value}",
+                    "ranking": lowest_ranking
+                }
+
+                if highest_ranking:
+                    top_value = next(iter(highest_ranking))
                     context["direct_answer_index"][f"highest_{impact_key}_by_{col}"] = {
                         "filter_column": impact_col,
                         "filter_value": impact_value,
                         "dimension": col,
                         "value": top_value,
-                        "count": ranking[top_value],
+                        "count": highest_ranking[top_value],
+                        "basis": "Current filtered dashboard records"
+                    }
+
+                if lowest_ranking:
+                    bottom_value = next(iter(lowest_ranking))
+                    context["direct_answer_index"][f"lowest_{impact_key}_by_{col}"] = {
+                        "filter_column": impact_col,
+                        "filter_value": impact_value,
+                        "dimension": col,
+                        "value": bottom_value,
+                        "count": lowest_ranking[bottom_value],
                         "basis": "Current filtered dashboard records"
                     }
 
@@ -8017,320 +8114,6 @@ def build_dashboard_context(df, max_records=500, top_n=30):
     context["sample_records"] = safe_records.to_dict("records")
 
     return json.dumps(context, indent=2, default=str)
-
-
-def extract_langflow_text(response_json):
-    try:
-        return response_json["outputs"][0]["outputs"][0]["results"]["message"]["text"]
-    except Exception:
-        return json.dumps(response_json, indent=2, default=str)
-
-
-def ask_langflow(user_question, dashboard_context, filter_summary):
-    if not LANGFLOW_API_URL:
-        return json.dumps({
-            "answer": "LangFlow API URL is not configured.",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "configuration_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-    if not LANGFLOW_API_KEY:
-        return json.dumps({
-            "answer": "LangFlow API key is not configured.",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "configuration_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-    chat_memory = json.dumps(
-        st.session_state.eusee_chat_messages[-12:],
-        indent=2,
-        default=str
-    )
-
-    payload = {
-        "input_value": user_question,
-        "output_type": "chat",
-        "input_type": "chat",
-        "tweaks": {
-            "Prompt Template-v8BIx": {
-                "dashboard_context": dashboard_context,
-                "filter_summary": filter_summary,
-                "chat_memory": chat_memory,
-                "question": user_question,
-            },
-            "ChatInput-0gnCu": {
-                "session_id": st.session_state.eusee_chat_session_id,
-                "context_id": "eusee-dashboard",
-                "should_store_message": True,
-            },
-            "ChatOutput-wP9WA": {
-                "session_id": st.session_state.eusee_chat_session_id,
-                "context_id": "eusee-dashboard",
-                "should_store_message": True,
-            },
-        },
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": LANGFLOW_API_KEY,
-    }
-
-    try:
-        response = requests.post(
-            LANGFLOW_API_URL,
-            json=payload,
-            headers=headers,
-            timeout=90,
-        )
-
-        if response.status_code == 200:
-            return extract_langflow_text(response.json())
-
-        return json.dumps({
-            "answer": f"Could not reach the EUSEE Copilot service. LangFlow response: {response.status_code} {response.reason}: {response.text[:700]}",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "langflow_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-    except Exception as e:
-        return json.dumps({
-            "answer": f"Could not reach the EUSEE Copilot service. LangFlow error: {e}",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "langflow_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-
-def render_langflow_output(raw_answer):
-    try:
-        result = json.loads(raw_answer)
-    except Exception:
-        st.markdown(raw_answer)
-        return
-
-    answer = result.get("answer", "")
-    if answer:
-        st.markdown(answer)
-
-    chart = result.get("chart", {})
-    if not isinstance(chart, dict) or not chart:
-        return
-
-    chart_type = str(chart.get("type", "")).lower().strip()
-    x_values = chart.get("x", [])
-    y_values = chart.get("y", [])
-
-    if not chart_type or not x_values or not y_values:
-        return
-
-    x_label = chart.get("x_label", "Category") or "Category"
-    y_label = chart.get("y_label", "Count") or "Count"
-    title = chart.get("title", "")
-    sort_order = str(chart.get("sort_order", "")).lower().strip()
-
-    try:
-        chart_df = pd.DataFrame({
-            x_label: x_values,
-            y_label: pd.to_numeric(y_values, errors="coerce")
-        }).dropna(subset=[y_label])
-
-        if sort_order == "descending":
-            chart_df = chart_df.sort_values(y_label, ascending=False)
-        elif sort_order == "ascending":
-            chart_df = chart_df.sort_values(y_label, ascending=True)
-
-        if chart_type == "bar":
-            fig = px.bar(chart_df, x=x_label, y=y_label, title=title, text=y_label)
-            fig.update_layout(height=430)
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif chart_type in ["horizontal_bar", "hbar"]:
-            fig_df = chart_df.sort_values(y_label, ascending=True)
-            fig = px.bar(
-                fig_df,
-                x=y_label,
-                y=x_label,
-                orientation="h",
-                title=title,
-                text=y_label
-            )
-            fig.update_layout(height=max(430, 42 * len(fig_df)))
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif chart_type == "pie":
-            fig = px.pie(chart_df, names=x_label, values=y_label, title=title)
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif chart_type == "donut":
-            fig = px.pie(chart_df, names=x_label, values=y_label, title=title, hole=0.45)
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif chart_type == "line":
-            fig = px.line(chart_df, x=x_label, y=y_label, title=title, markers=True)
-            st.plotly_chart(fig, use_container_width=True)
-
-        else:
-            st.warning(f"Unsupported chart type returned by LangFlow: {chart_type}")
-
-    except Exception as e:
-        st.warning(f"Chart could not be rendered: {e}")
-
-
-def is_copilot_open():
-    return st.query_params.get("eusee_copilot") == "1"
-
-
-def close_copilot():
-    if "eusee_copilot" in st.query_params:
-        del st.query_params["eusee_copilot"]
-    st.rerun()
-
-
-st.markdown(
-    """
-    <style>
-    a.eusee-ai-floating-btn {
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        z-index: 2147483647;
-        border-radius: 999px;
-        height: 52px;
-        padding: 0 22px;
-        background: #FFFFFF;
-        color: #660094 !important;
-        font-weight: 900;
-        border: 1px solid #E7D4F1;
-        box-shadow: 0 14px 34px rgba(102,0,148,.22);
-        cursor: pointer;
-        font-family: Arial, sans-serif;
-        font-size: 15px;
-        text-decoration: none !important;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    a.eusee-ai-floating-btn:hover {
-        background: #F8F1FC;
-        color: #660094 !important;
-        text-decoration: none !important;
-    }
-
-    div[data-testid="stDialog"] div[role="dialog"] {
-        position: fixed !important;
-        right: 24px !important;
-        top: 72px !important;
-        bottom: 86px !important;
-        width: 460px !important;
-        max-width: calc(100vw - 48px) !important;
-        height: calc(100vh - 158px) !important;
-        margin: 0 !important;
-        border-radius: 18px !important;
-        overflow-y: auto !important;
-    }
-
-    div[data-testid="stDialog"] {
-        background: rgba(0,0,0,0.08) !important;
-    }
-    </style>
-
-    <a class="eusee-ai-floating-btn" href="?eusee_copilot=1" target="_self">
-        💬 EUSEE Copilot
-    </a>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-@st.dialog("🤖 EUSEE AI Copilot", width="large")
-def eusee_ai_dialog():
-    st.caption(
-        "Ask about the current filtered dashboard data. Answers and charts are generated by LangFlow."
-    )
-
-    if st.button("Close Copilot", use_container_width=True):
-        close_copilot()
-
-    if not has_permission("use_ai_copilot"):
-        st.info("AI Copilot is not enabled for your access level.")
-        return
-
-    if st.button("Clear Chat Memory", use_container_width=True):
-        st.session_state.eusee_chat_messages = []
-        st.rerun()
-
-    for msg in st.session_state.eusee_chat_messages[-12:]:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
-                render_langflow_output(msg["content"])
-            else:
-                st.markdown(msg["content"])
-
-    with st.form("eusee_ai_dialog_form", clear_on_submit=True):
-        user_question = st.text_area(
-            "Ask about the current dashboard data",
-            placeholder="Example: Plot top 5 countries by negative alerts.",
-            height=90,
-            label_visibility="collapsed",
-        )
-
-        submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
-
-    if submitted and user_question.strip():
-        user_question = user_question.strip()
-
-        st.session_state.eusee_chat_messages.append({
-            "role": "user",
-            "content": user_question,
-        })
-
-        active_df = st.session_state.get("eusee_active_filtered_df", None)
-
-        if active_df is None:
-            active_df = filtered_global.copy()
-
-        filter_summary = json.dumps(
-            st.session_state.get(
-                "eusee_active_filter_summary",
-                build_filter_summary(active_df)
-            ),
-            indent=2,
-            default=str
-        )
-
-        dashboard_context = build_dashboard_context(active_df)
-
-        with st.spinner("Asking LangFlow..."):
-            answer = ask_langflow(user_question, dashboard_context, filter_summary)
-
-        st.session_state.eusee_chat_messages.append({
-            "role": "assistant",
-            "content": answer,
-        })
-
-        st.rerun()
-
-
-if is_copilot_open():
-    eusee_ai_dialog()
-    
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
