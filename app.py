@@ -7748,8 +7748,17 @@ if tab_manual is not None:
 
 
 # ============================================================
-# SIMPLE EUSEE LANGFLOW CHATBOT
+# EUSEE LANGFLOW CHATBOT
+# LangFlow-only brain: answers + plots + memory
 # ============================================================
+
+import json
+import uuid
+import requests
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
@@ -7779,11 +7788,11 @@ def build_dashboard_context(df, max_records=800, top_n=25):
         "columns_available": list(work.columns),
         "column_summaries": {},
         "key_rankings": {},
+        "direct_answers": {},
         "cross_tabs": {},
         "sample_records": [],
     }
 
-    # Summarise every available column
     for col in work.columns:
         try:
             series = work[col].dropna()
@@ -7841,14 +7850,24 @@ def build_dashboard_context(df, max_records=800, top_n=25):
         if column in work.columns:
             counts = (
                 work[column]
-                .replace("", np.nan)
-                .dropna()
                 .astype(str)
                 .str.strip()
+                .replace("", np.nan)
+                .dropna()
                 .value_counts()
                 .head(top_n)
             )
-            context["key_rankings"][label] = {str(k): int(v) for k, v in counts.items()}
+
+            ranking = {str(k): int(v) for k, v in counts.items()}
+            context["key_rankings"][label] = ranking
+
+            if ranking:
+                first_key = next(iter(ranking))
+                context["direct_answers"][f"highest_{label}"] = {
+                    "name": first_key,
+                    "count": ranking[first_key],
+                    "basis": "Current filtered dashboard records"
+                }
 
     value_counts_for("alert-country", "countries_by_alert_count")
     value_counts_for("region", "regions_by_alert_count")
@@ -7860,7 +7879,6 @@ def build_dashboard_context(df, max_records=800, top_n=25):
     value_counts_for("Affected actor", "affected_actors")
     value_counts_for("Subject of repression", "subjects_of_repression")
 
-    # Negative alert rankings
     if "alert-impact" in work.columns:
         negative_df = work[
             work["alert-impact"].astype(str).str.lower().str.strip().eq("negative")
@@ -7870,19 +7888,51 @@ def build_dashboard_context(df, max_records=800, top_n=25):
 
         if not negative_df.empty:
             if "alert-country" in negative_df.columns:
-                counts = negative_df["alert-country"].value_counts().head(top_n)
-                context["key_rankings"]["countries_by_negative_alert_count"] = {
-                    str(k): int(v) for k, v in counts.items()
-                }
+                counts = (
+                    negative_df["alert-country"]
+                    .astype(str)
+                    .str.strip()
+                    .replace("", np.nan)
+                    .dropna()
+                    .value_counts()
+                    .head(top_n)
+                )
+
+                ranking = {str(k): int(v) for k, v in counts.items()}
+                context["key_rankings"]["countries_by_negative_alert_count"] = ranking
+
+                if ranking:
+                    top_country = next(iter(ranking))
+                    context["direct_answers"]["country_with_highest_negative_alerts"] = {
+                        "country": top_country,
+                        "count": ranking[top_country],
+                        "basis": "Current filtered dashboard records"
+                    }
 
             if "region" in negative_df.columns:
-                counts = negative_df["region"].value_counts().head(top_n)
+                counts = (
+                    negative_df["region"]
+                    .astype(str)
+                    .str.strip()
+                    .replace("", np.nan)
+                    .dropna()
+                    .value_counts()
+                    .head(top_n)
+                )
                 context["key_rankings"]["regions_by_negative_alert_count"] = {
                     str(k): int(v) for k, v in counts.items()
                 }
 
             if "alert-type" in negative_df.columns:
-                counts = negative_df["alert-type"].value_counts().head(top_n)
+                counts = (
+                    negative_df["alert-type"]
+                    .astype(str)
+                    .str.strip()
+                    .replace("", np.nan)
+                    .dropna()
+                    .value_counts()
+                    .head(top_n)
+                )
                 context["key_rankings"]["negative_alert_types"] = {
                     str(k): int(v) for k, v in counts.items()
                 }
@@ -7921,10 +7971,30 @@ def extract_langflow_text(response_json):
 
 def ask_langflow(user_question, dashboard_context):
     if not LANGFLOW_API_URL:
-        return "Langflow API URL is not configured."
+        return json.dumps({
+            "answer": "LangFlow API URL is not configured.",
+            "available_in_context": False,
+            "used_current_filters": False,
+            "interpretation_note": "",
+            "chart": {},
+            "follow_up_suggestions": []
+        })
 
     if not LANGFLOW_API_KEY:
-        return "Langflow API key is not configured."
+        return json.dumps({
+            "answer": "LangFlow API key is not configured.",
+            "available_in_context": False,
+            "used_current_filters": False,
+            "interpretation_note": "",
+            "chart": {},
+            "follow_up_suggestions": []
+        })
+
+    chat_memory = json.dumps(
+        st.session_state.eusee_chat_messages[-12:],
+        indent=2,
+        default=str
+    )
 
     payload = {
         "input_value": user_question,
@@ -7933,6 +8003,7 @@ def ask_langflow(user_question, dashboard_context):
         "tweaks": {
             "Prompt Template-v8BIx": {
                 "dashboard_context": dashboard_context,
+                "chat_memory": chat_memory,
                 "question": user_question,
             },
             "ChatInput-0gnCu": {
@@ -7964,14 +8035,117 @@ def ask_langflow(user_question, dashboard_context):
         if response.status_code == 200:
             return extract_langflow_text(response.json())
 
-        return (
-            "Could not reach the EUSEE Copilot service. "
-            f"Langflow response: {response.status_code} {response.reason}: "
-            f"{response.text[:700]}"
-        )
+        return json.dumps({
+            "answer": (
+                "Could not reach the EUSEE Copilot service. "
+                f"LangFlow response: {response.status_code} {response.reason}: "
+                f"{response.text[:700]}"
+            ),
+            "available_in_context": False,
+            "used_current_filters": False,
+            "interpretation_note": "",
+            "chart": {},
+            "follow_up_suggestions": []
+        })
 
     except Exception as e:
-        return f"Could not reach the EUSEE Copilot service. Langflow error: {e}"
+        return json.dumps({
+            "answer": f"Could not reach the EUSEE Copilot service. LangFlow error: {e}",
+            "available_in_context": False,
+            "used_current_filters": False,
+            "interpretation_note": "",
+            "chart": {},
+            "follow_up_suggestions": []
+        })
+
+
+def render_langflow_output(raw_answer):
+    try:
+        result = json.loads(raw_answer)
+    except Exception:
+        st.markdown(raw_answer)
+        return
+
+    answer = result.get("answer", "")
+    if answer:
+        st.markdown(answer)
+
+    chart = result.get("chart", {})
+
+    if not isinstance(chart, dict):
+        return
+
+    chart_type = str(chart.get("type", "")).lower().strip()
+    x_values = chart.get("x", [])
+    y_values = chart.get("y", [])
+
+    if not chart_type or not x_values or not y_values:
+        return
+
+    x_label = chart.get("x_label", "Category") or "Category"
+    y_label = chart.get("y_label", "Count") or "Count"
+    title = chart.get("title", "")
+
+    try:
+        chart_df = pd.DataFrame({
+            x_label: x_values,
+            y_label: y_values
+        })
+
+        if chart_type == "bar":
+            fig = px.bar(
+                chart_df,
+                x=x_label,
+                y=y_label,
+                title=title,
+                text=y_label
+            )
+            fig.update_layout(height=420)
+            st.plotly_chart(fig, use_container_width=True)
+
+        elif chart_type in ["horizontal_bar", "hbar"]:
+            fig = px.bar(
+                chart_df.sort_values(y_label, ascending=True),
+                x=y_label,
+                y=x_label,
+                orientation="h",
+                title=title,
+                text=y_label
+            )
+            fig.update_layout(height=max(420, 42 * len(chart_df)))
+            st.plotly_chart(fig, use_container_width=True)
+
+        elif chart_type == "pie":
+            fig = px.pie(
+                chart_df,
+                names=x_label,
+                values=y_label,
+                title=title
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        elif chart_type == "donut":
+            fig = px.pie(
+                chart_df,
+                names=x_label,
+                values=y_label,
+                title=title,
+                hole=0.45
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        elif chart_type == "line":
+            fig = px.line(
+                chart_df,
+                x=x_label,
+                y=y_label,
+                title=title,
+                markers=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"Chart could not be rendered: {e}")
 
 
 def is_copilot_open():
@@ -8020,7 +8194,7 @@ st.markdown(
         right: 24px !important;
         top: 72px !important;
         bottom: 86px !important;
-        width: 430px !important;
+        width: 460px !important;
         max-width: calc(100vw - 48px) !important;
         height: calc(100vh - 158px) !important;
         margin: 0 !important;
@@ -8043,7 +8217,9 @@ st.markdown(
 
 @st.dialog("🤖 EUSEE AI Copilot", width="large")
 def eusee_ai_dialog():
-    st.caption("Ask about the current dashboard data. Responses are limited to the active dashboard context.")
+    st.caption(
+        "Ask about the current dashboard data. Answers and chart instructions are generated by LangFlow."
+    )
 
     if st.button("Close Copilot", use_container_width=True):
         close_copilot()
@@ -8052,17 +8228,29 @@ def eusee_ai_dialog():
         st.info("AI Copilot is not enabled for your access level.")
         return
 
-    for msg in st.session_state.eusee_chat_messages[-8:]:
+    if st.button("Clear Chat Memory", use_container_width=True):
+        st.session_state.eusee_chat_messages = []
+        st.rerun()
+
+    for msg in st.session_state.eusee_chat_messages[-12:]:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            if msg["role"] == "assistant":
+                render_langflow_output(msg["content"])
+            else:
+                st.markdown(msg["content"])
 
     with st.form("eusee_ai_dialog_form", clear_on_submit=True):
         user_question = st.text_area(
             "Ask about the current dashboard data",
-            placeholder="Example: Plot top 5 negative alerts distribution by country.",
+            placeholder=(
+                "Examples: Country with highest negative alerts; "
+                "Plot top 5 countries by negative alerts; "
+                "What did I ask previously?"
+            ),
             height=90,
             label_visibility="collapsed",
         )
+
         submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
 
     if submitted and user_question.strip():
@@ -8075,7 +8263,7 @@ def eusee_ai_dialog():
 
         dashboard_context = build_dashboard_context(filtered_global)
 
-        with st.spinner("Analyzing dashboard context..."):
+        with st.spinner("Asking LangFlow..."):
             answer = ask_langflow(user_question, dashboard_context)
 
         st.session_state.eusee_chat_messages.append({
