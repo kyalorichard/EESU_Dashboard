@@ -7806,7 +7806,7 @@ if tab_manual is not None:
             render_access_locked("User Manual", "guest or higher")
 
 
- ============================================================
+# ============================================================
 # EUSEE LANGFLOW CHATBOT
 # Fully working compact lookup context + filtered data + plots
 # ============================================================
@@ -8339,72 +8339,45 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         st.warning(f"Chart could not be rendered: {e}")
         st.json(chart)
 
-# ============================================================
-# EUSEE COPILOT OVERLAY STATE
-# Opens/closes without changing URL query params.
-# This avoids full dashboard reload caused by href="?eusee_copilot=1".
-# ============================================================
-
-st.session_state.setdefault("eusee_ai_open", False)
-
-
-def toggle_copilot():
-    st.session_state.eusee_ai_open = not st.session_state.eusee_ai_open
+def is_copilot_open():
+    return st.query_params.get("eusee_copilot") == "1"
 
 
 def close_copilot():
-    st.session_state.eusee_ai_open = False
+    if "eusee_copilot" in st.query_params:
+        del st.query_params["eusee_copilot"]
+    st.rerun()
 
 
-# Floating button positioning.
-# The marker lets CSS target only this Streamlit button wrapper.
 st.markdown(
     """
     <style>
-    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) {
-        position: fixed !important;
-        right: 24px !important;
-        bottom: 24px !important;
-        z-index: 2147483647 !important;
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        background: transparent !important;
-        pointer-events: auto !important;
-    }
-
-    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) .stButton {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) button {
-        border-radius: 999px !important;
-        height: 52px !important;
-        padding: 0 22px !important;
-        background: #FFFFFF !important;
+    a.eusee-ai-floating-btn {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 2147483647;
+        border-radius: 999px;
+        height: 52px;
+        padding: 0 22px;
+        background: #FFFFFF;
         color: #660094 !important;
-        font-weight: 900 !important;
-        border: 1px solid #E7D4F1 !important;
-        box-shadow: 0 14px 34px rgba(102,0,148,.22) !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 15px !important;
-        cursor: pointer !important;
-        white-space: nowrap !important;
+        font-weight: 900;
+        border: 1px solid #E7D4F1;
+        box-shadow: 0 14px 34px rgba(102,0,148,.22);
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+        font-size: 15px;
+        text-decoration: none !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) button:hover {
-        background: #F8F1FC !important;
+    a.eusee-ai-floating-btn:hover {
+        background: #F8F1FC;
         color: #660094 !important;
-        border-color: #DAB9EA !important;
-    }
-
-    /* Keep dialog as overlay; do not affect dashboard columns/tabs/maps. */
-    div[data-testid="stDialog"] {
-        background: rgba(0,0,0,0.08) !important;
-        z-index: 2147483646 !important;
+        text-decoration: none !important;
     }
 
     div[data-testid="stDialog"] div[role="dialog"] {
@@ -8418,48 +8391,33 @@ st.markdown(
         margin: 0 !important;
         border-radius: 18px !important;
         overflow-y: auto !important;
-        box-shadow: 0 18px 46px rgba(16,24,40,.22) !important;
     }
 
-    @media (max-width: 700px) {
-        div[data-testid="stDialog"] div[role="dialog"] {
-            right: 12px !important;
-            left: 12px !important;
-            top: 68px !important;
-            bottom: 78px !important;
-            width: auto !important;
-            max-width: none !important;
-            height: calc(100vh - 146px) !important;
-        }
-
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) {
-            right: 14px !important;
-            bottom: 18px !important;
-        }
+    div[data-testid="stDialog"] {
+        background: rgba(0,0,0,0.08) !important;
     }
     </style>
-    <div id="eusee-ai-floating-marker"></div>
+
+    <a class="eusee-ai-floating-btn" href="?eusee_copilot=1" target="_self">
+        💬 EUSEE Copilot
+    </a>
     """,
     unsafe_allow_html=True,
 )
-
-if st.button("💬 EUSEE Copilot", key="toggle_eusee_copilot_btn"):
-    toggle_copilot()
 
 
 @st.dialog("🤖 EUSEE AI Copilot", width="large")
 def eusee_ai_dialog():
     st.caption("Ask about the current filtered dashboard data. Answers and charts are generated by LangFlow.")
 
-    if st.button("Close Copilot", use_container_width=True, key="close_eusee_copilot_btn"):
+    if st.button("Close Copilot", use_container_width=True):
         close_copilot()
-        st.rerun()
 
     if not has_permission("use_ai_copilot"):
         st.info("AI Copilot is not enabled for your access level.")
         return
 
-    if st.button("Clear Chat Memory", use_container_width=True, key="clear_eusee_chat_memory_btn"):
+    if st.button("Clear Chat Memory", use_container_width=True):
         st.session_state.eusee_chat_messages = []
         st.rerun()
 
