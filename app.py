@@ -7806,7 +7806,7 @@ if tab_manual is not None:
             render_access_locked("User Manual", "guest or higher")
 
 
-# ============================================================
+ ============================================================
 # EUSEE LANGFLOW CHATBOT
 # Fully working compact lookup context + filtered data + plots
 # ============================================================
@@ -8339,286 +8339,201 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         st.warning(f"Chart could not be rendered: {e}")
         st.json(chart)
 
-
 # ============================================================
-# EUSEE COPILOT FLOATING DRAWER
-# Session-state based: no URL query-param navigation
+# EUSEE COPILOT OVERLAY STATE
+# Opens/closes without changing URL query params.
+# This avoids full dashboard reload caused by href="?eusee_copilot=1".
 # ============================================================
 
 st.session_state.setdefault("eusee_ai_open", False)
 
 
-def open_close_copilot_toggle():
-    """Toggle the floating Copilot drawer without changing URL query parameters."""
-    st.session_state.eusee_ai_open = not bool(st.session_state.get("eusee_ai_open", False))
+def toggle_copilot():
+    st.session_state.eusee_ai_open = not st.session_state.eusee_ai_open
 
 
-def close_copilot_panel():
-    """Close the floating Copilot drawer."""
+def close_copilot():
     st.session_state.eusee_ai_open = False
 
 
-def inject_eusee_copilot_drawer_css():
-    st.markdown(
-        """
-        <style>
-        /* Floating launcher: Streamlit-native button, positioned above dashboard */
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-marker) {
-            position: fixed !important;
-            right: 24px !important;
-            bottom: 76px !important;
-            z-index: 2147483647 !important;
+# Floating button positioning.
+# The marker lets CSS target only this Streamlit button wrapper.
+st.markdown(
+    """
+    <style>
+    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) {
+        position: fixed !important;
+        right: 24px !important;
+        bottom: 24px !important;
+        z-index: 2147483647 !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        pointer-events: auto !important;
+    }
+
+    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) .stButton {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) button {
+        border-radius: 999px !important;
+        height: 52px !important;
+        padding: 0 22px !important;
+        background: #FFFFFF !important;
+        color: #660094 !important;
+        font-weight: 900 !important;
+        border: 1px solid #E7D4F1 !important;
+        box-shadow: 0 14px 34px rgba(102,0,148,.22) !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 15px !important;
+        cursor: pointer !important;
+        white-space: nowrap !important;
+    }
+
+    div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) button:hover {
+        background: #F8F1FC !important;
+        color: #660094 !important;
+        border-color: #DAB9EA !important;
+    }
+
+    /* Keep dialog as overlay; do not affect dashboard columns/tabs/maps. */
+    div[data-testid="stDialog"] {
+        background: rgba(0,0,0,0.08) !important;
+        z-index: 2147483646 !important;
+    }
+
+    div[data-testid="stDialog"] div[role="dialog"] {
+        position: fixed !important;
+        right: 24px !important;
+        top: 72px !important;
+        bottom: 86px !important;
+        width: 460px !important;
+        max-width: calc(100vw - 48px) !important;
+        height: calc(100vh - 158px) !important;
+        margin: 0 !important;
+        border-radius: 18px !important;
+        overflow-y: auto !important;
+        box-shadow: 0 18px 46px rgba(16,24,40,.22) !important;
+    }
+
+    @media (max-width: 700px) {
+        div[data-testid="stDialog"] div[role="dialog"] {
+            right: 12px !important;
+            left: 12px !important;
+            top: 68px !important;
+            bottom: 78px !important;
             width: auto !important;
-            max-width: 240px !important;
-            gap: 0 !important;
+            max-width: none !important;
+            height: calc(100vh - 146px) !important;
         }
 
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-marker) .stButton > button {
-            border-radius: 999px !important;
-            min-height: 52px !important;
-            padding: 0 22px !important;
-            background: #FFFFFF !important;
-            color: #660094 !important;
-            font-weight: 900 !important;
-            border: 1px solid #E7D4F1 !important;
-            box-shadow: 0 14px 34px rgba(102,0,148,.22) !important;
-            font-family: Arial, sans-serif !important;
-            font-size: 15px !important;
-            white-space: nowrap !important;
+        div[data-testid="stVerticalBlock"]:has(#eusee-ai-floating-marker) {
+            right: 14px !important;
+            bottom: 18px !important;
         }
+    }
+    </style>
+    <div id="eusee-ai-floating-marker"></div>
+    """,
+    unsafe_allow_html=True,
+)
 
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-marker) .stButton > button:hover {
-            background: #F8F1FC !important;
-            color: #660094 !important;
-            border-color: #D6BBE5 !important;
-        }
-
-        /* Floating drawer shell */
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker) {
-            position: fixed !important;
-            right: 24px !important;
-            top: 72px !important;
-            bottom: 140px !important;
-            width: 470px !important;
-            max-width: calc(100vw - 48px) !important;
-            z-index: 2147483646 !important;
-            background: #FFFFFF !important;
-            border: 1px solid #E6E8EF !important;
-            border-radius: 20px !important;
-            box-shadow: 0 24px 70px rgba(16,24,40,.22) !important;
-            padding: 14px 14px 16px 14px !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-        }
-
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker)::-webkit-scrollbar {
-            width: 9px !important;
-        }
-
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker)::-webkit-scrollbar-thumb {
-            background: #D6BBE5 !important;
-            border-radius: 999px !important;
-            border: 2px solid #FFFFFF !important;
-        }
-
-        .eusee-ai-panel-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 4px 2px 10px 2px;
-            border-bottom: 1px solid #EEF0F4;
-            margin-bottom: 10px;
-            font-family: Arial, sans-serif;
-        }
-
-        .eusee-ai-panel-eyebrow {
-            color: #660094;
-            font-size: 10px;
-            font-weight: 950;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-            line-height: 1.1;
-        }
-
-        .eusee-ai-panel-title {
-            margin-top: 4px;
-            color: #23152F;
-            font-size: 17px;
-            font-weight: 950;
-            line-height: 1.15;
-        }
-
-        .eusee-ai-panel-note {
-            margin-top: 4px;
-            color: #667085;
-            font-size: 11.5px;
-            line-height: 1.35;
-            font-weight: 600;
-        }
-
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker) textarea {
-            border-radius: 14px !important;
-            border: 1px solid #D0D5DD !important;
-            font-size: 12.5px !important;
-        }
-
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker) .stButton > button,
-        div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker) .stFormSubmitButton > button {
-            border-radius: 12px !important;
-            font-weight: 900 !important;
-        }
-
-        @media (max-width: 700px) {
-            div[data-testid="stVerticalBlock"]:has(#eusee-ai-panel-marker) {
-                left: 12px !important;
-                right: 12px !important;
-                top: 64px !important;
-                bottom: 118px !important;
-                width: auto !important;
-                max-width: none !important;
-                border-radius: 18px !important;
-            }
-
-            div[data-testid="stVerticalBlock"]:has(#eusee-ai-launcher-marker) {
-                right: 14px !important;
-                bottom: 72px !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+if st.button("💬 EUSEE Copilot", key="toggle_eusee_copilot_btn"):
+    toggle_copilot()
 
 
-def render_eusee_copilot_launcher():
-    """Render a floating toggle button using Streamlit state, not URL params."""
-    st.markdown('<span id="eusee-ai-launcher-marker"></span>', unsafe_allow_html=True)
+@st.dialog("🤖 EUSEE AI Copilot", width="large")
+def eusee_ai_dialog():
+    st.caption("Ask about the current filtered dashboard data. Answers and charts are generated by LangFlow.")
 
-    label = "✕ Hide Copilot" if st.session_state.get("eusee_ai_open", False) else "💬 EUSEE Copilot"
-    if st.button(label, key="eusee_ai_floating_toggle_btn"):
-        open_close_copilot_toggle()
+    if st.button("Close Copilot", use_container_width=True, key="close_eusee_copilot_btn"):
+        close_copilot()
+        st.rerun()
+
+    if not has_permission("use_ai_copilot"):
+        st.info("AI Copilot is not enabled for your access level.")
+        return
+
+    if st.button("Clear Chat Memory", use_container_width=True, key="clear_eusee_chat_memory_btn"):
+        st.session_state.eusee_chat_messages = []
+        st.rerun()
+
+    for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
+        if not isinstance(msg, dict):
+            continue
+
+        role = msg.get("role", "assistant")
+        content = msg.get("content", "")
+
+        with st.chat_message(role):
+            if role == "assistant":
+                chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
+                render_langflow_output(
+                    content,
+                    chart_instance_key=chart_key
+                )
+            else:
+                st.markdown(content)
+
+    with st.form("eusee_ai_dialog_form", clear_on_submit=True):
+        user_question = st.text_area(
+            "Ask about the current dashboard data",
+            placeholder="Example: summarise the negative alerts in Africa",
+            height=90,
+            label_visibility="collapsed",
+        )
+
+        submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
+
+    if submitted and user_question.strip():
+        user_question = user_question.strip()
+
+        st.session_state.eusee_chat_messages.append({
+            "id": uuid.uuid4().hex,
+            "role": "user",
+            "content": user_question,
+        })
+
+        active_df = st.session_state.get("eusee_active_filtered_df", None)
+        if active_df is None:
+            active_df = filtered_global.copy()
+
+        lookup_context = build_lookup_context(active_df, top_n=15)
+        dashboard_context = build_dashboard_context(active_df, top_n=10)
+        filter_summary = build_filter_summary(active_df)
+
+        # TEMP DEBUG: enable only while testing.
+        with st.expander("DEBUG Copilot context", expanded=False):
+            st.caption("If the answer is missing here, the Python context builder is the problem.")
+            try:
+                st.json(json.loads(lookup_context))
+            except Exception:
+                st.write(lookup_context[:3000])
+
+        with st.spinner("Asking LangFlow..."):
+            answer = ask_langflow(
+                user_question=user_question,
+                lookup_context=lookup_context,
+                dashboard_context=dashboard_context,
+                filter_summary=filter_summary,
+            )
+
+        st.session_state.eusee_chat_messages.append({
+            "id": uuid.uuid4().hex,
+            "role": "assistant",
+            "content": answer,
+        })
+
         st.rerun()
 
 
-def render_eusee_copilot_panel():
-    """Render the floating Copilot drawer only when session-state says it is open."""
-    if not st.session_state.get("eusee_ai_open", False):
-        return
-
-    with st.container():
-        st.markdown('<span id="eusee-ai-panel-marker"></span>', unsafe_allow_html=True)
-
-        st.markdown(
-            """
-            <div class="eusee-ai-panel-header">
-                <div>
-                    <div class="eusee-ai-panel-eyebrow">Dashboard assistant</div>
-                    <div class="eusee-ai-panel-title">🤖 EUSEE AI Copilot</div>
-                    <div class="eusee-ai-panel-note">
-                        Ask about the current filtered dashboard data. Answers and charts are generated by LangFlow.
-                    </div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        close_col, clear_col = st.columns([1, 1])
-
-        with close_col:
-            if st.button("Close", use_container_width=True, key="eusee_ai_close_panel_btn"):
-                close_copilot_panel()
-                st.rerun()
-
-        with clear_col:
-            if st.button("Clear chat", use_container_width=True, key="eusee_ai_clear_memory_btn"):
-                st.session_state.eusee_chat_messages = []
-                st.rerun()
-
-        if not has_permission("use_ai_copilot"):
-            st.info("AI Copilot is not enabled for your access level.")
-            return
-
-        # Render recent chat history.
-        for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
-            if not isinstance(msg, dict):
-                continue
-
-            role = msg.get("role", "assistant")
-            content = msg.get("content", "")
-
-            with st.chat_message(role):
-                if role == "assistant":
-                    chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
-                    render_langflow_output(
-                        content,
-                        chart_instance_key=chart_key,
-                    )
-                else:
-                    st.markdown(content)
-
-        with st.form("eusee_ai_floating_form", clear_on_submit=True):
-            user_question = st.text_area(
-                "Ask about the current dashboard data",
-                placeholder="Example: summarise the negative alerts in Africa",
-                height=90,
-                label_visibility="collapsed",
-                key="eusee_ai_user_question",
-            )
-
-            submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
-
-        if submitted and user_question.strip():
-            user_question = user_question.strip()
-
-            st.session_state.eusee_chat_messages.append({
-                "id": uuid.uuid4().hex,
-                "role": "user",
-                "content": user_question,
-            })
-
-            active_df = st.session_state.get("eusee_active_filtered_df", None)
-            if active_df is None:
-                try:
-                    active_df = filtered_global.copy()
-                except Exception:
-                    active_df = pd.DataFrame()
-
-            lookup_context = build_lookup_context(active_df, top_n=15)
-            dashboard_context = build_dashboard_context(active_df, top_n=10)
-            filter_summary = build_filter_summary(active_df)
-
-            # TEMP DEBUG: keep collapsed while testing.
-            with st.expander("DEBUG Copilot context", expanded=False):
-                st.caption("If the answer is missing here, the Python context builder is the problem.")
-                try:
-                    st.json(json.loads(lookup_context))
-                except Exception:
-                    st.write(lookup_context[:3000])
-
-            with st.spinner("Asking LangFlow..."):
-                answer = ask_langflow(
-                    user_question=user_question,
-                    lookup_context=lookup_context,
-                    dashboard_context=dashboard_context,
-                    filter_summary=filter_summary,
-                )
-
-            st.session_state.eusee_chat_messages.append({
-                "id": uuid.uuid4().hex,
-                "role": "assistant",
-                "content": answer,
-            })
-
-            st.rerun()
-
-
-inject_eusee_copilot_drawer_css()
-render_eusee_copilot_launcher()
-render_eusee_copilot_panel()
-
-
+if is_copilot_open():
+    eusee_ai_dialog()
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
