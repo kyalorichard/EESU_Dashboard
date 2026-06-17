@@ -341,19 +341,24 @@ def render_classic_filter_header():
 
 
 def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> pd.Series:
-    """Fast, case-insensitive table search used by all Data Preview tables.
+    """
+    Boolean table search across all visible Data Preview columns.
 
-    The previous implementation used ``apply(axis=1)`` over every row, which is
-    slow for large filtered datasets. This version scans columns with vectorized
-    string operations and treats multiple typed words as AND terms. It keeps
-    dashboard-level filters intact because it only searches the dataframe already
-    passed into the Data Preview component.
+    Supported:
+    - AND: Kenya AND negative
+    - OR: Kenya OR Uganda
+    - NOT: Kenya NOT positive
+    - quoted phrases: "civil society" AND Kenya
+
+    Default behavior:
+    - Multiple words without operators are treated as AND.
+      Example: Kenya negative = Kenya AND negative
     """
     if table_df is None or table_df.empty:
         return pd.Series(dtype=bool)
 
-    cleaned_query = " ".join(str(search_text or "").split()).strip()
-    if not cleaned_query:
+    query = str(search_text or "").strip()
+    if not query:
         return pd.Series(True, index=table_df.index)
 
     searchable_cols = [
@@ -370,23 +375,71 @@ def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> p
     if not searchable_cols:
         return pd.Series(False, index=table_df.index)
 
-    mask = pd.Series(True, index=table_df.index)
-    for term in cleaned_query.lower().split():
-        term_mask = pd.Series(False, index=table_df.index)
-        for col in searchable_cols:
-            term_mask |= (
-                table_df[col]
-                .fillna("")
-                .astype(str)
-                .str.lower()
-                .str.contains(term, regex=False, na=False)
-            )
-        mask &= term_mask
-        if not bool(mask.any()):
-            break
+    # Build one searchable text string per row
+    row_text = pd.Series("", index=table_df.index)
+
+    for col in searchable_cols:
+        row_text = row_text + " " + (
+            table_df[col]
+            .fillna("")
+            .astype(str)
+            .str.lower()
+        )
+
+    # Tokenize quoted phrases and Boolean operators
+    tokens = re.findall(r'"[^"]+"|\bAND\b|\bOR\b|\bNOT\b|[^\s]+', query, flags=re.IGNORECASE)
+
+    if not tokens:
+        return pd.Series(True, index=table_df.index)
+
+    def term_mask(term: str) -> pd.Series:
+        term = term.strip().strip('"').lower()
+        if not term:
+            return pd.Series(True, index=table_df.index)
+        return row_text.str.contains(term, regex=False, na=False)
+
+    # If no Boolean operators are used, default to AND search
+    has_boolean = any(t.upper() in {"AND", "OR", "NOT"} for t in tokens)
+
+    if not has_boolean:
+        mask = pd.Series(True, index=table_df.index)
+        for term in tokens:
+            mask &= term_mask(term)
+        return mask
+
+    # Boolean parser: left-to-right evaluation
+    mask = None
+    current_op = "AND"
+    negate_next = False
+
+    for token in tokens:
+        upper = token.upper()
+
+        if upper in {"AND", "OR"}:
+            current_op = upper
+            continue
+
+        if upper == "NOT":
+            negate_next = True
+            continue
+
+        this_mask = term_mask(token)
+
+        if negate_next:
+            this_mask = ~this_mask
+            negate_next = False
+
+        if mask is None:
+            mask = this_mask
+        elif current_op == "AND":
+            mask &= this_mask
+        elif current_op == "OR":
+            mask |= this_mask
+
+    if mask is None:
+        return pd.Series(True, index=table_df.index)
 
     return mask
-
 
 def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
     """Render a clean, fast, searchable table with controlled scrolling and row limits.
@@ -513,7 +566,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             search_text = st.text_input(
                 "Search table",
                 value="",
-                placeholder="Search by country, alert type, principle, date or keyword.",
+                placeholder='Use Boolean search, e.g. Kenya AND negative, Uganda OR Kenya, "civil society" NOT positive.',                
                 key=f"{key}_search",
             )
 
@@ -2240,8 +2293,14 @@ filtered_global = data[
     (data['year'].isin(selected_years))
 ].copy()
 
-#render_filter_status_card(filtered_global)
 
+st.session_state["eusee_active_filtered_df"] = filtered_global.copy()
+
+st.session_state["eusee_active_filter_summary"] = {
+    "filtered_records": int(len(filtered_global)),
+    "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
+    "basis": "Current active sidebar/dashboard filters"
+}
 
 
 # ---------------- ADMIN ROUTING FROM SIDEBAR PRIVILEGE CENTER ----------------
@@ -7749,7 +7808,7 @@ if tab_manual is not None:
 
 # ============================================================
 # EUSEE LANGFLOW CHATBOT
-# LangFlow-only brain: answers + plots + memory
+# LangFlow-only brain: answers + plots + memory + filtered data
 # ============================================================
 
 import json
@@ -7767,7 +7826,15 @@ st.session_state.setdefault("eusee_chat_messages", [])
 st.session_state.setdefault("eusee_chat_session_id", str(uuid.uuid4()))
 
 
-def build_dashboard_context(df, max_records=800, top_n=25):
+def build_filter_summary(df):
+    return {
+        "filtered_records": int(len(df)) if df is not None else 0,
+        "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
+        "note": "This summary reflects the active dashboard filtered dataframe."
+    }
+
+
+def build_dashboard_context(df, max_records=500, top_n=30):
     if df is None or df.empty:
         return json.dumps({
             "available": False,
@@ -7786,110 +7853,118 @@ def build_dashboard_context(df, max_records=800, top_n=25):
         "filtered_records": int(len(work)),
         "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
         "columns_available": list(work.columns),
+        "dataset_schema": {
+            "categorical_columns": [],
+            "numeric_columns": [],
+            "datetime_columns": []
+        },
         "column_summaries": {},
-        "key_rankings": {},
-        "direct_answers": {},
-        "cross_tabs": {},
+        "universal_rankings": {},
+        "universal_filtered_rankings": {},
+        "universal_cross_tabs": {},
+        "direct_answer_index": {},
         "sample_records": [],
     }
 
+    categorical_cols = []
+
     for col in work.columns:
-        try:
-            series = work[col].dropna()
+        series = work[col].dropna()
 
-            if series.empty:
-                context["column_summaries"][col] = {
-                    "type": "empty",
-                    "non_empty_records": 0,
-                    "top_values": {}
-                }
-                continue
-
-            if pd.api.types.is_numeric_dtype(series):
-                context["column_summaries"][col] = {
-                    "type": "numeric",
-                    "non_empty_records": int(series.count()),
-                    "min": float(series.min()),
-                    "max": float(series.max()),
-                    "mean": float(series.mean()),
-                    "median": float(series.median())
-                }
-
-            elif pd.api.types.is_datetime64_any_dtype(series):
-                context["column_summaries"][col] = {
-                    "type": "datetime",
-                    "non_empty_records": int(series.count()),
-                    "min_date": str(series.min()),
-                    "max_date": str(series.max())
-                }
-
-            else:
-                counts = (
-                    series.astype(str)
-                    .str.strip()
-                    .replace("", np.nan)
-                    .dropna()
-                    .value_counts()
-                    .head(top_n)
-                )
-
-                context["column_summaries"][col] = {
-                    "type": "categorical_text",
-                    "non_empty_records": int(series.astype(str).str.strip().ne("").sum()),
-                    "unique_values": int(series.astype(str).str.strip().replace("", np.nan).dropna().nunique()),
-                    "top_values": {str(k): int(v) for k, v in counts.items()}
-                }
-
-        except Exception as e:
+        if series.empty:
             context["column_summaries"][col] = {
-                "type": "error",
-                "error": str(e)
+                "type": "empty",
+                "non_empty_records": 0
+            }
+            continue
+
+        if pd.api.types.is_numeric_dtype(series):
+            context["dataset_schema"]["numeric_columns"].append(col)
+            context["column_summaries"][col] = {
+                "type": "numeric",
+                "non_empty_records": int(series.count()),
+                "min": float(series.min()),
+                "max": float(series.max()),
+                "mean": float(series.mean()),
+                "median": float(series.median())
             }
 
-    def value_counts_for(column, label):
-        if column in work.columns:
-            counts = (
-                work[column]
-                .astype(str)
+        elif pd.api.types.is_datetime64_any_dtype(series):
+            context["dataset_schema"]["datetime_columns"].append(col)
+            context["column_summaries"][col] = {
+                "type": "datetime",
+                "non_empty_records": int(series.count()),
+                "min_date": str(series.min()),
+                "max_date": str(series.max())
+            }
+
+        else:
+            categorical_cols.append(col)
+            context["dataset_schema"]["categorical_columns"].append(col)
+
+            clean_series = (
+                series.astype(str)
                 .str.strip()
                 .replace("", np.nan)
                 .dropna()
-                .value_counts()
-                .head(top_n)
             )
 
-            ranking = {str(k): int(v) for k, v in counts.items()}
-            context["key_rankings"][label] = ranking
+            counts = clean_series.value_counts().head(top_n)
 
-            if ranking:
-                first_key = next(iter(ranking))
-                context["direct_answers"][f"highest_{label}"] = {
-                    "name": first_key,
-                    "count": ranking[first_key],
+            context["column_summaries"][col] = {
+                "type": "categorical_text",
+                "non_empty_records": int(clean_series.count()),
+                "unique_values": int(clean_series.nunique()),
+                "top_values": {str(k): int(v) for k, v in counts.items()}
+            }
+
+            context["universal_rankings"][col] = {
+                str(k): int(v) for k, v in counts.items()
+            }
+
+            if len(counts) > 0:
+                context["direct_answer_index"][f"highest_count_by_{col}"] = {
+                    "dimension": col,
+                    "value": str(counts.index[0]),
+                    "count": int(counts.iloc[0]),
                     "basis": "Current filtered dashboard records"
                 }
 
-    value_counts_for("alert-country", "countries_by_alert_count")
-    value_counts_for("region", "regions_by_alert_count")
-    value_counts_for("alert-impact", "alert_impacts")
-    value_counts_for("alert-type", "alert_types")
-    value_counts_for("Enabling principle", "enabling_principles")
-    value_counts_for("Actor of repression", "actors_of_repression")
-    value_counts_for("Mechanism of repression", "mechanisms_of_repression")
-    value_counts_for("Affected actor", "affected_actors")
-    value_counts_for("Subject of repression", "subjects_of_repression")
+    impact_col = None
+    for possible in ["alert-impact", "impact", "Alert impact", "Impact"]:
+        if possible in work.columns:
+            impact_col = possible
+            break
 
-    if "alert-impact" in work.columns:
-        negative_df = work[
-            work["alert-impact"].astype(str).str.lower().str.strip().eq("negative")
-        ]
+    if impact_col:
+        impact_values = (
+            work[impact_col]
+            .astype(str)
+            .str.strip()
+            .replace("", np.nan)
+            .dropna()
+            .unique()
+            .tolist()
+        )
 
-        context["negative_alert_records"] = int(len(negative_df))
+        for impact_value in impact_values:
+            filtered_df = work[
+                work[impact_col]
+                .astype(str)
+                .str.lower()
+                .str.strip()
+                .eq(str(impact_value).lower().strip())
+            ]
 
-        if not negative_df.empty:
-            if "alert-country" in negative_df.columns:
+            impact_key = str(impact_value).lower().strip().replace(" ", "_")
+            context["universal_filtered_rankings"][impact_key] = {}
+
+            for col in categorical_cols:
+                if col == impact_col:
+                    continue
+
                 counts = (
-                    negative_df["alert-country"]
+                    filtered_df[col]
                     .astype(str)
                     .str.strip()
                     .replace("", np.nan)
@@ -7899,62 +7974,44 @@ def build_dashboard_context(df, max_records=800, top_n=25):
                 )
 
                 ranking = {str(k): int(v) for k, v in counts.items()}
-                context["key_rankings"]["countries_by_negative_alert_count"] = ranking
+                context["universal_filtered_rankings"][impact_key][col] = ranking
 
                 if ranking:
-                    top_country = next(iter(ranking))
-                    context["direct_answers"]["country_with_highest_negative_alerts"] = {
-                        "country": top_country,
-                        "count": ranking[top_country],
+                    top_value = next(iter(ranking))
+                    context["direct_answer_index"][f"highest_{impact_key}_by_{col}"] = {
+                        "filter_column": impact_col,
+                        "filter_value": impact_value,
+                        "dimension": col,
+                        "value": top_value,
+                        "count": ranking[top_value],
                         "basis": "Current filtered dashboard records"
                     }
 
-            if "region" in negative_df.columns:
-                counts = (
-                    negative_df["region"]
-                    .astype(str)
-                    .str.strip()
-                    .replace("", np.nan)
-                    .dropna()
-                    .value_counts()
-                    .head(top_n)
-                )
-                context["key_rankings"]["regions_by_negative_alert_count"] = {
-                    str(k): int(v) for k, v in counts.items()
-                }
+    for row_col in categorical_cols[:12]:
+        context["universal_cross_tabs"][row_col] = {}
 
-            if "alert-type" in negative_df.columns:
-                counts = (
-                    negative_df["alert-type"]
-                    .astype(str)
-                    .str.strip()
-                    .replace("", np.nan)
-                    .dropna()
-                    .value_counts()
-                    .head(top_n)
-                )
-                context["key_rankings"]["negative_alert_types"] = {
-                    str(k): int(v) for k, v in counts.items()
-                }
+        for col_col in categorical_cols[:12]:
+            if row_col == col_col:
+                continue
 
-    def add_crosstab(row_col, col_col, label):
-        if row_col in work.columns and col_col in work.columns:
-            tab = pd.crosstab(work[row_col], work[col_col])
-            if not tab.empty:
-                tab = tab.loc[
-                    tab.sum(axis=1).sort_values(ascending=False).head(top_n).index
-                ]
-                context["cross_tabs"][label] = {
-                    str(idx): {str(k): int(v) for k, v in row.items()}
-                    for idx, row in tab.iterrows()
-                }
+            try:
+                tab = pd.crosstab(work[row_col], work[col_col])
 
-    add_crosstab("alert-country", "alert-impact", "country_by_impact")
-    add_crosstab("region", "alert-impact", "region_by_impact")
-    add_crosstab("alert-country", "alert-type", "country_by_alert_type")
-    add_crosstab("Enabling principle", "alert-impact", "enabling_principle_by_impact")
-    add_crosstab("Actor of repression", "Mechanism of repression", "actor_by_mechanism")
-    add_crosstab("Mechanism of repression", "alert-impact", "mechanism_by_impact")
+                if not tab.empty:
+                    tab = tab.loc[
+                        tab.sum(axis=1)
+                        .sort_values(ascending=False)
+                        .head(top_n)
+                        .index
+                    ]
+
+                    context["universal_cross_tabs"][row_col][col_col] = {
+                        str(idx): {str(k): int(v) for k, v in row.items()}
+                        for idx, row in tab.iterrows()
+                    }
+
+            except Exception:
+                pass
 
     safe_records = work.head(max_records).replace({np.nan: ""})
     context["sample_records"] = safe_records.to_dict("records")
@@ -7969,12 +8026,13 @@ def extract_langflow_text(response_json):
         return json.dumps(response_json, indent=2, default=str)
 
 
-def ask_langflow(user_question, dashboard_context):
+def ask_langflow(user_question, dashboard_context, filter_summary):
     if not LANGFLOW_API_URL:
         return json.dumps({
             "answer": "LangFlow API URL is not configured.",
             "available_in_context": False,
             "used_current_filters": False,
+            "analysis_type": "configuration_error",
             "interpretation_note": "",
             "chart": {},
             "follow_up_suggestions": []
@@ -7985,6 +8043,7 @@ def ask_langflow(user_question, dashboard_context):
             "answer": "LangFlow API key is not configured.",
             "available_in_context": False,
             "used_current_filters": False,
+            "analysis_type": "configuration_error",
             "interpretation_note": "",
             "chart": {},
             "follow_up_suggestions": []
@@ -8003,6 +8062,7 @@ def ask_langflow(user_question, dashboard_context):
         "tweaks": {
             "Prompt Template-v8BIx": {
                 "dashboard_context": dashboard_context,
+                "filter_summary": filter_summary,
                 "chat_memory": chat_memory,
                 "question": user_question,
             },
@@ -8036,13 +8096,10 @@ def ask_langflow(user_question, dashboard_context):
             return extract_langflow_text(response.json())
 
         return json.dumps({
-            "answer": (
-                "Could not reach the EUSEE Copilot service. "
-                f"LangFlow response: {response.status_code} {response.reason}: "
-                f"{response.text[:700]}"
-            ),
+            "answer": f"Could not reach the EUSEE Copilot service. LangFlow response: {response.status_code} {response.reason}: {response.text[:700]}",
             "available_in_context": False,
             "used_current_filters": False,
+            "analysis_type": "langflow_error",
             "interpretation_note": "",
             "chart": {},
             "follow_up_suggestions": []
@@ -8053,6 +8110,7 @@ def ask_langflow(user_question, dashboard_context):
             "answer": f"Could not reach the EUSEE Copilot service. LangFlow error: {e}",
             "available_in_context": False,
             "used_current_filters": False,
+            "analysis_type": "langflow_error",
             "interpretation_note": "",
             "chart": {},
             "follow_up_suggestions": []
@@ -8071,8 +8129,7 @@ def render_langflow_output(raw_answer):
         st.markdown(answer)
 
     chart = result.get("chart", {})
-
-    if not isinstance(chart, dict):
+    if not isinstance(chart, dict) or not chart:
         return
 
     chart_type = str(chart.get("type", "")).lower().strip()
@@ -8085,64 +8142,51 @@ def render_langflow_output(raw_answer):
     x_label = chart.get("x_label", "Category") or "Category"
     y_label = chart.get("y_label", "Count") or "Count"
     title = chart.get("title", "")
+    sort_order = str(chart.get("sort_order", "")).lower().strip()
 
     try:
         chart_df = pd.DataFrame({
             x_label: x_values,
-            y_label: y_values
-        })
+            y_label: pd.to_numeric(y_values, errors="coerce")
+        }).dropna(subset=[y_label])
+
+        if sort_order == "descending":
+            chart_df = chart_df.sort_values(y_label, ascending=False)
+        elif sort_order == "ascending":
+            chart_df = chart_df.sort_values(y_label, ascending=True)
 
         if chart_type == "bar":
-            fig = px.bar(
-                chart_df,
-                x=x_label,
-                y=y_label,
-                title=title,
-                text=y_label
-            )
-            fig.update_layout(height=420)
+            fig = px.bar(chart_df, x=x_label, y=y_label, title=title, text=y_label)
+            fig.update_layout(height=430)
             st.plotly_chart(fig, use_container_width=True)
 
         elif chart_type in ["horizontal_bar", "hbar"]:
+            fig_df = chart_df.sort_values(y_label, ascending=True)
             fig = px.bar(
-                chart_df.sort_values(y_label, ascending=True),
+                fig_df,
                 x=y_label,
                 y=x_label,
                 orientation="h",
                 title=title,
                 text=y_label
             )
-            fig.update_layout(height=max(420, 42 * len(chart_df)))
+            fig.update_layout(height=max(430, 42 * len(fig_df)))
             st.plotly_chart(fig, use_container_width=True)
 
         elif chart_type == "pie":
-            fig = px.pie(
-                chart_df,
-                names=x_label,
-                values=y_label,
-                title=title
-            )
+            fig = px.pie(chart_df, names=x_label, values=y_label, title=title)
             st.plotly_chart(fig, use_container_width=True)
 
         elif chart_type == "donut":
-            fig = px.pie(
-                chart_df,
-                names=x_label,
-                values=y_label,
-                title=title,
-                hole=0.45
-            )
+            fig = px.pie(chart_df, names=x_label, values=y_label, title=title, hole=0.45)
             st.plotly_chart(fig, use_container_width=True)
 
         elif chart_type == "line":
-            fig = px.line(
-                chart_df,
-                x=x_label,
-                y=y_label,
-                title=title,
-                markers=True
-            )
+            fig = px.line(chart_df, x=x_label, y=y_label, title=title, markers=True)
             st.plotly_chart(fig, use_container_width=True)
+
+        else:
+            st.warning(f"Unsupported chart type returned by LangFlow: {chart_type}")
 
     except Exception as e:
         st.warning(f"Chart could not be rendered: {e}")
@@ -8218,7 +8262,7 @@ st.markdown(
 @st.dialog("🤖 EUSEE AI Copilot", width="large")
 def eusee_ai_dialog():
     st.caption(
-        "Ask about the current dashboard data. Answers and chart instructions are generated by LangFlow."
+        "Ask about the current filtered dashboard data. Answers and charts are generated by LangFlow."
     )
 
     if st.button("Close Copilot", use_container_width=True):
@@ -8242,11 +8286,7 @@ def eusee_ai_dialog():
     with st.form("eusee_ai_dialog_form", clear_on_submit=True):
         user_question = st.text_area(
             "Ask about the current dashboard data",
-            placeholder=(
-                "Examples: Country with highest negative alerts; "
-                "Plot top 5 countries by negative alerts; "
-                "What did I ask previously?"
-            ),
+            placeholder="Example: Plot top 5 countries by negative alerts.",
             height=90,
             label_visibility="collapsed",
         )
@@ -8261,10 +8301,24 @@ def eusee_ai_dialog():
             "content": user_question,
         })
 
-        dashboard_context = build_dashboard_context(filtered_global)
+        active_df = st.session_state.get("eusee_active_filtered_df", None)
+
+        if active_df is None:
+            active_df = filtered_global.copy()
+
+        filter_summary = json.dumps(
+            st.session_state.get(
+                "eusee_active_filter_summary",
+                build_filter_summary(active_df)
+            ),
+            indent=2,
+            default=str
+        )
+
+        dashboard_context = build_dashboard_context(active_df)
 
         with st.spinner("Asking LangFlow..."):
-            answer = ask_langflow(user_question, dashboard_context)
+            answer = ask_langflow(user_question, dashboard_context, filter_summary)
 
         st.session_state.eusee_chat_messages.append({
             "role": "assistant",
