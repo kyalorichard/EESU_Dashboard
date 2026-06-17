@@ -2370,6 +2370,8 @@ if _dashboard_tab_specs:
 else:
     st.error("No dashboard tabs are enabled for your role. Please contact the dashboard administrator.")
     st.stop()
+
+
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
     """
@@ -2420,7 +2422,7 @@ def render_top_feedback_bar():
             #eusee-feedback-floating-root {{
                 position: fixed !important;
                 top: clamp(58px, 7vh, 78px) !important;
-                left: 80% !important;
+                left: 75% !important;
                 transform: translateX(-50%) !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
