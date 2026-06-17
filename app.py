@@ -7746,13 +7746,16 @@ if tab_manual is not None:
 # ============================================================
 # SIMPLE EUSEE LANGFLOW CHATBOT
 # ============================================================
+# ============================================================
+# SIMPLE EUSEE LANGFLOW CHATBOT
+# ============================================================
 
 import json
 import uuid
 import requests
 
-LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "")
-LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "")
+LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
+LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
 
 st.session_state.setdefault("eusee_chat_messages", [])
 st.session_state.setdefault("eusee_chat_session_id", str(uuid.uuid4()))
@@ -7766,19 +7769,19 @@ def build_dashboard_context(df):
         "filtered_records": len(df),
         "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
         "top_countries": df["alert-country"].value_counts().head(10).to_dict()
-            if "alert-country" in df.columns else {},
+        if "alert-country" in df.columns else {},
         "regions": df["region"].value_counts().to_dict()
-            if "region" in df.columns else {},
+        if "region" in df.columns else {},
         "alert_impacts": df["alert-impact"].value_counts().to_dict()
-            if "alert-impact" in df.columns else {},
+        if "alert-impact" in df.columns else {},
         "alert_types": df["alert-type"].value_counts().head(10).to_dict()
-            if "alert-type" in df.columns else {},
+        if "alert-type" in df.columns else {},
         "enabling_principles": df["Enabling principle"].value_counts().head(10).to_dict()
-            if "Enabling principle" in df.columns else {},
+        if "Enabling principle" in df.columns else {},
         "actors": df["Actor of repression"].value_counts().head(10).to_dict()
-            if "Actor of repression" in df.columns else {},
+        if "Actor of repression" in df.columns else {},
         "mechanisms": df["Mechanism of repression"].value_counts().head(10).to_dict()
-            if "Mechanism of repression" in df.columns else {},
+        if "Mechanism of repression" in df.columns else {},
     }
 
     return json.dumps(context, indent=2, default=str)
@@ -7794,6 +7797,9 @@ def extract_langflow_text(response_json):
 def ask_langflow(user_question, dashboard_context):
     if not LANGFLOW_API_URL:
         return "Langflow API URL is not configured."
+
+    if not LANGFLOW_API_KEY:
+        return "Langflow API key is not configured."
 
     payload = {
         "input_value": user_question,
@@ -7818,35 +7824,30 @@ def ask_langflow(user_question, dashboard_context):
         },
     }
 
-    auth_attempts = [
-        {"Content-Type": "application/json", "x-api-key": LANGFLOW_API_KEY},
-        {"Content-Type": "application/json", "Authorization": f"Bearer {LANGFLOW_API_KEY}"},
-        {"Content-Type": "application/json"},
-    ]
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": LANGFLOW_API_KEY,
+    }
 
-    last_error = None
+    try:
+        response = requests.post(
+            LANGFLOW_API_URL,
+            json=payload,
+            headers=headers,
+            timeout=90,
+        )
 
-    for headers in auth_attempts:
-        if not LANGFLOW_API_KEY and ("x-api-key" in headers or "Authorization" in headers):
-            continue
+        if response.status_code == 200:
+            return extract_langflow_text(response.json())
 
-        try:
-            response = requests.post(
-                LANGFLOW_API_URL,
-                json=payload,
-                headers=headers,
-                timeout=90,
-            )
+        return (
+            "Could not reach the EUSEE Copilot service. "
+            f"Langflow response: {response.status_code} {response.reason}: "
+            f"{response.text[:700]}"
+        )
 
-            if response.status_code == 200:
-                return extract_langflow_text(response.json())
-
-            last_error = f"{response.status_code} {response.reason}: {response.text[:700]}"
-
-        except Exception as e:
-            last_error = str(e)
-
-    return f"Could not reach the EUSEE Copilot service. Langflow response: {last_error}"
+    except Exception as e:
+        return f"Could not reach the EUSEE Copilot service. Langflow error: {e}"
 
 
 # ============================================================
@@ -7967,7 +7968,7 @@ def eusee_ai_dialog():
 
 if is_copilot_open():
     eusee_ai_dialog()
-
+    
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
