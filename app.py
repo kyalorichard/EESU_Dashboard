@@ -8239,7 +8239,7 @@ def render_langflow_output(raw_answer):
         if chart_type == "bar":
             fig = px.bar(chart_df, x=x_label, y=y_label, title=title, text=y_label)
             fig.update_layout(height=430)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
 
         elif chart_type in ["horizontal_bar", "hbar"]:
             fig_df = chart_df.sort_values(y_label, ascending=True)
@@ -8256,15 +8256,15 @@ def render_langflow_output(raw_answer):
 
         elif chart_type == "pie":
             fig = px.pie(chart_df, names=x_label, values=y_label, title=title)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
 
         elif chart_type == "donut":
             fig = px.pie(chart_df, names=x_label, values=y_label, title=title, hole=0.45)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
 
         elif chart_type == "line":
             fig = px.line(chart_df, x=x_label, y=y_label, title=title, markers=True)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"eusee_ai_chart_{uuid.uuid4()}")
 
     except Exception as e:
         st.warning(f"Chart could not be rendered: {e}")
