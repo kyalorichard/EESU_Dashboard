@@ -8532,8 +8532,11 @@ def eusee_ai_dialog():
         st.rerun()
 
 
-if is_copilot_open():
+st.session_state.setdefault("eusee_ai_open", False)
+
+if st.session_state.eusee_ai_open:
     eusee_ai_dialog()
+    
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
