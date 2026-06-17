@@ -7750,9 +7750,6 @@ if tab_manual is not None:
 # ============================================================
 # SIMPLE EUSEE LANGFLOW CHATBOT
 # ============================================================
-# ============================================================
-# SIMPLE EUSEE LANGFLOW CHATBOT
-# ============================================================
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
@@ -7761,28 +7758,156 @@ st.session_state.setdefault("eusee_chat_messages", [])
 st.session_state.setdefault("eusee_chat_session_id", str(uuid.uuid4()))
 
 
-def build_dashboard_context(df):
+def build_dashboard_context(df, max_records=800, top_n=25):
     if df is None or df.empty:
-        return "No dashboard records available under the current filters."
+        return json.dumps({
+            "available": False,
+            "message": "No dashboard records available under the current filters."
+        })
+
+    work = df.copy()
+    work.columns = [str(c).strip() for c in work.columns]
+
+    for col in work.columns:
+        if pd.api.types.is_object_dtype(work[col]) or pd.api.types.is_string_dtype(work[col]):
+            work[col] = work[col].fillna("").astype(str).str.strip()
 
     context = {
-        "filtered_records": len(df),
+        "available": True,
+        "filtered_records": int(len(work)),
         "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
-        "top_countries": df["alert-country"].value_counts().head(10).to_dict()
-        if "alert-country" in df.columns else {},
-        "regions": df["region"].value_counts().to_dict()
-        if "region" in df.columns else {},
-        "alert_impacts": df["alert-impact"].value_counts().to_dict()
-        if "alert-impact" in df.columns else {},
-        "alert_types": df["alert-type"].value_counts().head(10).to_dict()
-        if "alert-type" in df.columns else {},
-        "enabling_principles": df["Enabling principle"].value_counts().head(10).to_dict()
-        if "Enabling principle" in df.columns else {},
-        "actors": df["Actor of repression"].value_counts().head(10).to_dict()
-        if "Actor of repression" in df.columns else {},
-        "mechanisms": df["Mechanism of repression"].value_counts().head(10).to_dict()
-        if "Mechanism of repression" in df.columns else {},
+        "columns_available": list(work.columns),
+        "column_summaries": {},
+        "key_rankings": {},
+        "cross_tabs": {},
+        "sample_records": [],
     }
+
+    # Summarise every available column
+    for col in work.columns:
+        try:
+            series = work[col].dropna()
+
+            if series.empty:
+                context["column_summaries"][col] = {
+                    "type": "empty",
+                    "non_empty_records": 0,
+                    "top_values": {}
+                }
+                continue
+
+            if pd.api.types.is_numeric_dtype(series):
+                context["column_summaries"][col] = {
+                    "type": "numeric",
+                    "non_empty_records": int(series.count()),
+                    "min": float(series.min()),
+                    "max": float(series.max()),
+                    "mean": float(series.mean()),
+                    "median": float(series.median())
+                }
+
+            elif pd.api.types.is_datetime64_any_dtype(series):
+                context["column_summaries"][col] = {
+                    "type": "datetime",
+                    "non_empty_records": int(series.count()),
+                    "min_date": str(series.min()),
+                    "max_date": str(series.max())
+                }
+
+            else:
+                counts = (
+                    series.astype(str)
+                    .str.strip()
+                    .replace("", np.nan)
+                    .dropna()
+                    .value_counts()
+                    .head(top_n)
+                )
+
+                context["column_summaries"][col] = {
+                    "type": "categorical_text",
+                    "non_empty_records": int(series.astype(str).str.strip().ne("").sum()),
+                    "unique_values": int(series.astype(str).str.strip().replace("", np.nan).dropna().nunique()),
+                    "top_values": {str(k): int(v) for k, v in counts.items()}
+                }
+
+        except Exception as e:
+            context["column_summaries"][col] = {
+                "type": "error",
+                "error": str(e)
+            }
+
+    def value_counts_for(column, label):
+        if column in work.columns:
+            counts = (
+                work[column]
+                .replace("", np.nan)
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .value_counts()
+                .head(top_n)
+            )
+            context["key_rankings"][label] = {str(k): int(v) for k, v in counts.items()}
+
+    value_counts_for("alert-country", "countries_by_alert_count")
+    value_counts_for("region", "regions_by_alert_count")
+    value_counts_for("alert-impact", "alert_impacts")
+    value_counts_for("alert-type", "alert_types")
+    value_counts_for("Enabling principle", "enabling_principles")
+    value_counts_for("Actor of repression", "actors_of_repression")
+    value_counts_for("Mechanism of repression", "mechanisms_of_repression")
+    value_counts_for("Affected actor", "affected_actors")
+    value_counts_for("Subject of repression", "subjects_of_repression")
+
+    # Negative alert rankings
+    if "alert-impact" in work.columns:
+        negative_df = work[
+            work["alert-impact"].astype(str).str.lower().str.strip().eq("negative")
+        ]
+
+        context["negative_alert_records"] = int(len(negative_df))
+
+        if not negative_df.empty:
+            if "alert-country" in negative_df.columns:
+                counts = negative_df["alert-country"].value_counts().head(top_n)
+                context["key_rankings"]["countries_by_negative_alert_count"] = {
+                    str(k): int(v) for k, v in counts.items()
+                }
+
+            if "region" in negative_df.columns:
+                counts = negative_df["region"].value_counts().head(top_n)
+                context["key_rankings"]["regions_by_negative_alert_count"] = {
+                    str(k): int(v) for k, v in counts.items()
+                }
+
+            if "alert-type" in negative_df.columns:
+                counts = negative_df["alert-type"].value_counts().head(top_n)
+                context["key_rankings"]["negative_alert_types"] = {
+                    str(k): int(v) for k, v in counts.items()
+                }
+
+    def add_crosstab(row_col, col_col, label):
+        if row_col in work.columns and col_col in work.columns:
+            tab = pd.crosstab(work[row_col], work[col_col])
+            if not tab.empty:
+                tab = tab.loc[
+                    tab.sum(axis=1).sort_values(ascending=False).head(top_n).index
+                ]
+                context["cross_tabs"][label] = {
+                    str(idx): {str(k): int(v) for k, v in row.items()}
+                    for idx, row in tab.iterrows()
+                }
+
+    add_crosstab("alert-country", "alert-impact", "country_by_impact")
+    add_crosstab("region", "alert-impact", "region_by_impact")
+    add_crosstab("alert-country", "alert-type", "country_by_alert_type")
+    add_crosstab("Enabling principle", "alert-impact", "enabling_principle_by_impact")
+    add_crosstab("Actor of repression", "Mechanism of repression", "actor_by_mechanism")
+    add_crosstab("Mechanism of repression", "alert-impact", "mechanism_by_impact")
+
+    safe_records = work.head(max_records).replace({np.nan: ""})
+    context["sample_records"] = safe_records.to_dict("records")
 
     return json.dumps(context, indent=2, default=str)
 
@@ -7822,6 +7947,7 @@ def ask_langflow(user_question, dashboard_context):
             },
         },
     }
+
     headers = {
         "Content-Type": "application/json",
         "x-api-key": LANGFLOW_API_KEY,
@@ -7847,10 +7973,6 @@ def ask_langflow(user_question, dashboard_context):
     except Exception as e:
         return f"Could not reach the EUSEE Copilot service. Langflow error: {e}"
 
-
-# ============================================================
-# EUSEE AI COPILOT RIGHT-SIDE PANEL
-# ============================================================
 
 def is_copilot_open():
     return st.query_params.get("eusee_copilot") == "1"
@@ -7954,8 +8076,6 @@ def eusee_ai_dialog():
         dashboard_context = build_dashboard_context(filtered_global)
 
         with st.spinner("Analyzing dashboard context..."):
-            with st.expander("Copilot Debug"):
-                st.code(dashboard_context)
             answer = ask_langflow(user_question, dashboard_context)
 
         st.session_state.eusee_chat_messages.append({
