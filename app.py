@@ -7811,7 +7811,6 @@ def ask_langflow(user_question, dashboard_context):
                 "question": user_question,
             },
             "ChatInput-0gnCu": {
-                "input_value": user_question,
                 "session_id": st.session_state.eusee_chat_session_id,
                 "context_id": "eusee-dashboard",
                 "should_store_message": True,
@@ -7823,7 +7822,6 @@ def ask_langflow(user_question, dashboard_context):
             },
         },
     }
-
     headers = {
         "Content-Type": "application/json",
         "x-api-key": LANGFLOW_API_KEY,
