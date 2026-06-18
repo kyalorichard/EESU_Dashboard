@@ -7,6 +7,11 @@ import pandas as pd
 import streamlit as st
 
 from authz import (
+    FEATURE_KEYS,
+    FEATURE_REGISTRY,
+    LOCKED_FALSE,
+    ROLES,
+    default_access_config,
     get_access_config_path,
     get_admin_emails,
     get_current_email,
@@ -15,45 +20,10 @@ from authz import (
     has_permission,
     is_admin,
     load_access_config,
-    save_access_config,
-    default_access_config,
+    normalize_access_config,
     reset_access_config,
+    save_access_config,
 )
-
-FEATURE_LABELS = {
-    "view_dashboard": "Dashboard access",
-    "view_overview": "Overview tab",
-    "view_coverage_monitored_countries": "Summary cards",
-    "view_monitored_countries_value": "Monitored Countries value",
-    "view_maps": "Visualization Map",
-    "view_negative_alerts": "Negative Alerts tab",
-    "view_analytical_flow_panel": "Analytical Flow Panels (Heatmaps / Sankey)",
-    "view_data_table": "Summary data preview",
-    "download_data": "CSV/XLSX downloads",
-    "use_ai_copilot": "AI Copilot",
-    "view_user_manual": "User manual",
-    "view_admin_page": "Admin page",
-    "view_chart_overview_alert_type": "Chart: Overview alert type distribution",
-    "view_chart_overview_enabling_principles": "Chart: Overview enabling-principle distribution",
-    "view_chart_overview_regions": "Chart: Overview regional distribution",
-    "view_chart_overview_countries": "Chart: Overview country distribution",
-    "view_chart_negative_restrictive_actors": "Chart: Restrictive actors",
-    "view_chart_negative_affected_actors": "Chart: Civil society actors affected",
-    "view_chart_negative_restrictive_mechanisms": "Chart: Restrictive mechanisms",
-    "view_chart_negative_event_types": "Chart: Negative event types",
-    "view_chart_negative_alert_types": "Chart: Negative alert types",
-    "view_chart_negative_enabling_principles": "Chart: Negative enabling principles",
-    "view_chart_heatmap_actor_mechanism": "Chart: Actor × mechanism heatmap",
-    "view_chart_heatmap_subject_mechanism": "Chart: Affected actor × mechanism heatmap",
-    "view_chart_heatmap_actor_subject": "Chart: Actor × affected actor heatmap",
-    "view_chart_sankey_flow": "Chart: Analytical Sankey flow",
-    "view_chart_geospatial_map": "Chart: Geospatial intelligence map",
-    "view_chart_ai_copilot_plots": "Chart: AI Copilot generated plots",
-}
-
-GUEST_LOCKED_FEATURES = {
-    "view_admin_page",
-}
 
 
 def _clear_app_cache():
@@ -80,40 +50,70 @@ def inject_admin_css():
         .admin-hero {
             background: linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);
             border: 1px solid #e6e8ef;
-            border-radius: 18px;
-            padding: 22px 24px;
-            box-shadow: 0 10px 28px rgba(16,24,40,.06);
+            border-radius: 20px;
+            padding: 24px 26px;
+            box-shadow: 0 12px 32px rgba(16,24,40,.06);
             margin-bottom: 16px;
         }
 
         .admin-eyebrow {
             font-size: 10px;
             font-weight: 900;
-            color: #344054;
-            letter-spacing: .12em;
+            color: #475467;
+            letter-spacing: .14em;
             text-transform: uppercase;
-            margin-bottom: 6px;
+            margin-bottom: 7px;
         }
 
         .admin-title {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 900;
             color: #101828;
             line-height: 1.1;
-            margin-bottom: 6px;
+            margin-bottom: 7px;
         }
 
         .admin-subtitle {
             font-size: 13px;
             color: #667085;
-            line-height: 1.45;
-            max-width: 980px;
+            line-height: 1.5;
+            max-width: 1050px;
+        }
+
+        .admin-card {
+            background: #ffffff;
+            border: 1px solid #e6e8ef;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 22px rgba(16,24,40,.045);
+            height: 100%;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: #667085;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .metric-value {
+            font-size: 26px;
+            font-weight: 900;
+            color: #101828;
+            margin-top: 3px;
+        }
+
+        .metric-note {
+            font-size: 12px;
+            color: #667085;
+            margin-top: 3px;
         }
 
         .admin-info {
             background: #eff8ff;
             border: 1px solid #b2ddff;
-            border-radius: 12px;
+            border-radius: 13px;
             padding: 11px 13px;
             color: #175cd3;
             font-size: 12px;
@@ -124,7 +124,7 @@ def inject_admin_css():
             text-align: center;
             font-size: 11px;
             color: #98a2b3;
-            margin-top: 16px;
+            margin-top: 18px;
         }
 
         .stButton > button {
@@ -155,6 +155,11 @@ def inject_admin_css():
             font-weight: 900 !important;
             color: #101828 !important;
             background: #ffffff !important;
+        }
+
+        div[data-testid="stDataFrame"] {
+            border-radius: 14px !important;
+            overflow: hidden !important;
         }
         </style>
         """,
@@ -200,38 +205,6 @@ def render_admin_sidebar_navigation():
     )
 
 
-def _safe_role_config(config: dict, role: str) -> dict:
-    config.setdefault(role, {})
-    config[role].setdefault("features", {})
-    config[role].setdefault("regions", [])
-    config[role].setdefault("countries", [])
-    config[role].setdefault("years", [])
-
-    removed_permissions = {
-        "view_public_summary",
-        "view_country_counts",
-        "view_negative_relationship_intelligence",
-    }
-
-    for removed_permission in removed_permissions:
-        config[role]["features"].pop(removed_permission, None)
-
-    for key in FEATURE_LABELS:
-        config[role]["features"].setdefault(key, False)
-
-    return config
-
-
-def _sync_feature_session_state(config: dict):
-    for role_name in ["guest", "viewer", "privileged"]:
-        config = _safe_role_config(config, role_name)
-        for feature_key, value in config[role_name]["features"].items():
-            session_key = f"persist_feature_{role_name}_{feature_key}"
-
-            if session_key not in st.session_state:
-                st.session_state[session_key] = bool(value)
-
-
 def _render_header():
     st.markdown(
         f"""
@@ -239,7 +212,7 @@ def _render_header():
             <div class="admin-eyebrow">Admin workspace</div>
             <div class="admin-title">EU SEE Dashboard Administration</div>
             <div class="admin-subtitle">
-                Configure access roles, visibility settings, data scope and dashboard governance.
+                Manage access roles, feature visibility, data scope, users and dashboard governance from one professional control center.
                 <br>
                 Saved config: <code>{get_access_config_path()}</code>
             </div>
@@ -249,169 +222,308 @@ def _render_header():
     )
 
 
-def _render_role_summary(role: str):
-    with st.container(border=True):
-        st.markdown("### 👥 Role summary")
-        st.caption("Current role")
-        st.info(role.capitalize())
-        st.caption("Last updated")
-        st.write(datetime.now().strftime("%b %d, %Y %I:%M %p"))
-        st.caption("Updated by")
-        st.write(get_current_email() or "Admin")
+def _metric_card(label: str, value: str | int, note: str = ""):
+    st.markdown(
+        f"""
+        <div class="admin-card">
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-def _render_help_card():
-    with st.container(border=True):
-        st.markdown("### ❔ Need help?")
-        st.caption(
-            "Use this page to control what each access role can view or download. "
-            "Save changes after editing permissions."
+def _feature_label(feature_key: str) -> str:
+    return FEATURE_REGISTRY.get(feature_key, ("Other", feature_key))[1]
+
+
+def _feature_group(feature_key: str) -> str:
+    return FEATURE_REGISTRY.get(feature_key, ("Other", feature_key))[0]
+
+
+def _feature_groups() -> dict[str, list[str]]:
+    groups: dict[str, list[str]] = {}
+
+    for key in FEATURE_KEYS:
+        group = _feature_group(key)
+        groups.setdefault(group, []).append(key)
+
+    return groups
+
+
+def _role_enabled_count(config: dict, role: str) -> int:
+    features = config.get(role, {}).get("features", {})
+    return sum(1 for key in FEATURE_KEYS if bool(features.get(key, False)))
+
+
+def _build_permission_matrix(config: dict) -> pd.DataFrame:
+    rows = []
+
+    for key in FEATURE_KEYS:
+        row = {
+            "Group": _feature_group(key),
+            "Permission": _feature_label(key),
+            "Key": key,
+        }
+
+        for role in ROLES:
+            row[role.capitalize()] = "✅" if config.get(role, {}).get("features", {}).get(key, False) else "—"
+
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def _render_overview_tab(config: dict):
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        _metric_card("Current role", get_current_role().capitalize(), get_current_email() or "Not signed in")
+
+    with c2:
+        _metric_card("Admin emails", len(get_admin_emails()), "Configured in secrets")
+
+    with c3:
+        _metric_card("Privileged domains", len(get_privileged_domains()), "Domain-based access")
+
+    with c4:
+        _metric_card("Permissions", len(FEATURE_KEYS), "Centralized registry")
+
+    st.markdown("### Role access summary")
+
+    summary_rows = []
+
+    for role in ROLES:
+        summary_rows.append(
+            {
+                "Role": role.capitalize(),
+                "Enabled permissions": _role_enabled_count(config, role),
+                "Total permissions": len(FEATURE_KEYS),
+                "Regions scope": "All" if not config.get(role, {}).get("regions") else len(config[role]["regions"]),
+                "Countries scope": "All" if not config.get(role, {}).get("countries") else len(config[role]["countries"]),
+                "Years scope": "All" if not config.get(role, {}).get("years") else len(config[role]["years"]),
+            }
         )
-        st.button("View documentation", use_container_width=True)
+
+    st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("### Permission matrix")
+    st.caption("This matrix gives a quick professional overview of Guest, Viewer and Privileged access.")
+
+    matrix_df = _build_permission_matrix(config)
+    st.dataframe(matrix_df, use_container_width=True, hide_index=True)
 
 
-def _render_visibility_tab(config: dict):
-    left, right = st.columns([4.3, 1.35])
+def _render_roles_tab(config: dict):
+    st.markdown("### Configure role permissions")
 
-    with left:
-        with st.container(border=True):
-            st.markdown("### Configure role")
-            st.caption("Define what content and features this role can see and access.")
+    role = st.selectbox(
+        "Select role",
+        ROLES,
+        format_func=lambda x: x.capitalize(),
+        key="admin_role_selector",
+    )
 
-            role = st.selectbox(
-                "Configure role",
-                ["guest", "viewer", "privileged"],
-                index=0,
-                key="admin_visibility_role",
-            )
+    config = normalize_access_config(config)
+    features = config[role]["features"]
 
-            config = _safe_role_config(config, role)
-            features = config[role]["features"]
+    st.markdown(
+        """
+        <div class="admin-info">
+            Permissions are grouped from a single central registry. This avoids duplicate definitions across the admin page and access-control backend.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-            st.markdown(
-                """
-                <div class="admin-info">
-                    ℹ️ Settings are saved to Firestore. They should remain consistent after reboot, redeploy, or Docker restart.
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    col_a, col_b, col_c = st.columns([1.2, 1.2, 1])
 
-            c1, c2 = st.columns(2)
+    with col_a:
+        if st.button("Enable default preset", use_container_width=True):
+            default_config = default_access_config()
+            config[role]["features"] = default_config[role]["features"]
+            if save_access_config(config):
+                _clear_app_cache()
+                st.success(f"{role.capitalize()} preset restored.")
+                st.rerun()
 
-            left_features = [
-                "view_dashboard",
-                "view_overview",
-                "view_negative_alerts",
-                "view_maps",
-                "view_analytical_flow_panel",
-                "view_coverage_monitored_countries",
-                "view_monitored_countries_value",
-                "view_data_table",
-                "download_data",
-                "use_ai_copilot",
-                "view_user_manual",
-                "view_admin_page",
-            ]
+    with col_b:
+        if role != "guest":
+            if st.button("Enable all permissions", use_container_width=True):
+                config[role]["features"] = {key: True for key in FEATURE_KEYS}
+                for locked_key in LOCKED_FALSE.get(role, set()):
+                    config[role]["features"][locked_key] = False
+                if save_access_config(config):
+                    _clear_app_cache()
+                    st.success(f"All allowed permissions enabled for {role}.")
+                    st.rerun()
+        else:
+            st.button("Enable all permissions", disabled=True, use_container_width=True)
 
-            overview_chart_features = [
-                "view_chart_overview_alert_type",
-                "view_chart_overview_enabling_principles",
-                "view_chart_overview_regions",
-                "view_chart_overview_countries",
-            ]
+    with col_c:
+        if st.button("Disable all optional permissions", use_container_width=True):
+            config[role]["features"] = {key: False for key in FEATURE_KEYS}
+            for locked_key in LOCKED_FALSE.get(role, set()):
+                config[role]["features"][locked_key] = False
+            if save_access_config(config):
+                _clear_app_cache()
+                st.success(f"Permissions disabled for {role}.")
+                st.rerun()
 
-            negative_chart_features = [
-                "view_chart_negative_restrictive_actors",
-                "view_chart_negative_affected_actors",
-                "view_chart_negative_restrictive_mechanisms",
-                "view_chart_negative_event_types",
-                "view_chart_negative_alert_types",
-                "view_chart_negative_enabling_principles",
-            ]
+    groups = _feature_groups()
 
-            analytical_chart_features = [
-                "view_chart_heatmap_actor_mechanism",
-                "view_chart_heatmap_subject_mechanism",
-                "view_chart_heatmap_actor_subject",
-                "view_chart_sankey_flow",
-                "view_chart_geospatial_map",
-                "view_chart_ai_copilot_plots",
-            ]
+    for group_name, keys in groups.items():
+        enabled_in_group = sum(1 for key in keys if features.get(key, False))
 
-            def render_feature_checkbox(feature_key: str):
-                checkbox_key = f"persist_feature_{role}_{feature_key}"
+        with st.expander(f"{group_name} ({enabled_in_group}/{len(keys)} enabled)", expanded=group_name == "Core access"):
+            group_cols = st.columns(2)
 
-                features[feature_key] = st.checkbox(
-                    FEATURE_LABELS[feature_key],
-                    value=bool(st.session_state.get(checkbox_key, features.get(feature_key, False))),
-                    key=checkbox_key,
-                    disabled=(role == "guest" and feature_key in GUEST_LOCKED_FEATURES),
+            for index, feature_key in enumerate(keys):
+                with group_cols[index % 2]:
+                    disabled = feature_key in LOCKED_FALSE.get(role, set())
+
+                    features[feature_key] = st.checkbox(
+                        _feature_label(feature_key),
+                        value=bool(features.get(feature_key, False)),
+                        key=f"feature_{role}_{feature_key}",
+                        disabled=disabled,
+                    )
+
+                    if disabled:
+                        features[feature_key] = False
+
+    config[role]["features"] = features
+
+    save_col, reset_col, download_col = st.columns(3)
+
+    with save_col:
+        if st.button("💾 Save role permissions", type="primary", use_container_width=True):
+            if save_access_config(config):
+                _clear_app_cache()
+                st.success("Role permissions saved.")
+                st.rerun()
+
+    with reset_col:
+        if st.button("↩ Reset all roles", use_container_width=True):
+            if reset_access_config():
+                _clear_app_cache()
+                st.success("All roles reset to default permissions.")
+                st.rerun()
+
+    with download_col:
+        st.download_button(
+            "⬇ Download config",
+            data=json.dumps(config, indent=2),
+            file_name="eusee_access_config.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+
+
+def _render_dashboard_tab(config: dict):
+    st.markdown("### Dashboard visibility manager")
+    st.caption("Quickly control major dashboard areas without scrolling through every chart permission.")
+
+    role = st.selectbox(
+        "Configure dashboard visibility for role",
+        ROLES,
+        format_func=lambda x: x.capitalize(),
+        key="dashboard_visibility_role",
+    )
+
+    features = config[role]["features"]
+
+    section_map = {
+        "Overview": [
+            "view_overview",
+            "view_coverage_monitored_countries",
+            "view_monitored_countries_value",
+            "view_chart_overview_alert_type",
+            "view_chart_overview_enabling_principles",
+            "view_chart_overview_regions",
+            "view_chart_overview_countries",
+        ],
+        "Negative Alerts": [
+            "view_negative_alerts",
+            "view_chart_negative_restrictive_actors",
+            "view_chart_negative_affected_actors",
+            "view_chart_negative_restrictive_mechanisms",
+            "view_chart_negative_event_types",
+            "view_chart_negative_alert_types",
+            "view_chart_negative_enabling_principles",
+        ],
+        "Visualization Map": [
+            "view_maps",
+            "view_chart_geospatial_map",
+        ],
+        "Analytical Flow Panels": [
+            "view_analytical_flow_panel",
+            "view_chart_heatmap_actor_mechanism",
+            "view_chart_heatmap_subject_mechanism",
+            "view_chart_heatmap_actor_subject",
+            "view_chart_sankey_flow",
+        ],
+        "Data and exports": [
+            "view_data_table",
+            "download_data",
+        ],
+        "AI Copilot": [
+            "use_ai_copilot",
+            "view_chart_ai_copilot_plots",
+        ],
+        "User Manual": [
+            "view_user_manual",
+        ],
+    }
+
+    cols = st.columns(2)
+
+    for idx, (section, keys) in enumerate(section_map.items()):
+        with cols[idx % 2]:
+            with st.container(border=True):
+                enabled_count = sum(1 for key in keys if features.get(key, False))
+                st.markdown(f"#### {section}")
+                st.caption(f"{enabled_count}/{len(keys)} permissions enabled")
+
+                enable_all = st.checkbox(
+                    f"Enable {section}",
+                    value=enabled_count == len(keys),
+                    key=f"section_toggle_{role}_{section}",
                 )
 
-                if role == "guest" and feature_key in GUEST_LOCKED_FEATURES:
-                    features[feature_key] = False
+                for key in keys:
+                    if key in LOCKED_FALSE.get(role, set()):
+                        features[key] = False
+                    else:
+                        features[key] = bool(enable_all)
 
-            with c1:
-                with st.expander("Core access and content visibility", expanded=True):
-                    for key in left_features:
-                        render_feature_checkbox(key)
+                with st.expander("Included permissions", expanded=False):
+                    for key in keys:
+                        st.write(("✅ " if features.get(key, False) else "— ") + _feature_label(key))
 
-                with st.expander("Overview charts authorization", expanded=True):
-                    for key in overview_chart_features:
-                        render_feature_checkbox(key)
+    config[role]["features"] = features
 
-            with c2:
-                with st.expander("Negative alerts charts authorization", expanded=True):
-                    for key in negative_chart_features:
-                        render_feature_checkbox(key)
-
-                with st.expander("Advanced / map / AI charts authorization", expanded=True):
-                    for key in analytical_chart_features:
-                        render_feature_checkbox(key)
-
-            config[role]["features"] = features
-
-            save_col, reset_col = st.columns(2)
-
-            with save_col:
-                if st.button("💾 Save visibility settings", type="primary", use_container_width=True):
-                    if save_access_config(config):
-                        _clear_app_cache()
-                        st.success("Visibility settings saved.")
-                        st.rerun()
-
-            with reset_col:
-                if st.button("↩ Reset all roles to defaults", use_container_width=True):
-                    if save_access_config(default_access_config()):
-                        _clear_app_cache()
-                        st.success("Defaults restored.")
-                        st.rerun()
-
-            st.download_button(
-                "⬇️ Download access config (JSON)",
-                data=json.dumps(config, indent=2),
-                file_name="eusee_access_config.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-
-    with right:
-        _render_role_summary(role)
-        _render_help_card()
+    if st.button("💾 Save dashboard visibility", type="primary", use_container_width=True):
+        if save_access_config(config):
+            _clear_app_cache()
+            st.success("Dashboard visibility saved.")
+            st.rerun()
 
 
 def _render_scope_tab(config: dict, data=None):
+    st.markdown("### Data scope")
+    st.caption("Leave selections empty to allow all available values for that role.")
+
     role = st.selectbox(
         "Configure data scope for role",
-        ["guest", "viewer", "privileged"],
-        index=0,
+        ROLES,
+        format_func=lambda x: x.capitalize(),
         key="scope_role",
     )
 
-    config = _safe_role_config(config, role)
-
-    st.info("Leave selections empty to allow all available values for that role.")
+    config = normalize_access_config(config)
 
     regions, countries, years = [], [], []
 
@@ -423,7 +535,7 @@ def _render_scope_tab(config: dict, data=None):
             countries = sorted(data["alert-country"].dropna().astype(str).unique())
 
         if "year" in data.columns:
-            years = sorted([int(y) for y in data["year"].dropna().unique()])
+            years = sorted([int(y) for y in pd.to_numeric(data["year"], errors="coerce").dropna().unique()])
 
     c1, c2, c3 = st.columns(3)
 
@@ -462,23 +574,28 @@ def _render_scope_tab(config: dict, data=None):
 
 
 def _render_users_tab():
+    st.markdown("### Access identities")
+    st.caption("Admins are configured by email. Privileged users can also be assigned by email domain.")
+
     rows = []
 
     for email in get_admin_emails():
         rows.append(
             {
-                "identity": email,
-                "role": "admin",
-                "source": "[auth].admin_emails",
+                "Identity": email,
+                "Effective role": "Admin",
+                "Source": "[auth].admin_emails",
+                "Access type": "Direct email",
             }
         )
 
     for domain in get_privileged_domains():
         rows.append(
             {
-                "identity": f"*@{domain}",
-                "role": "privileged",
-                "source": "[access].privileged_domains",
+                "Identity": f"*@{domain}",
+                "Effective role": "Privileged",
+                "Source": "[access].privileged_domains",
+                "Access type": "Domain rule",
             }
         )
 
@@ -487,8 +604,19 @@ def _render_users_tab():
     else:
         st.warning("No admin emails or privileged domains configured.")
 
-    st.code(
-        """
+    st.markdown("### Current session")
+    st.json(
+        {
+            "current_email": get_current_email(),
+            "current_role": get_current_role(),
+            "is_admin": is_admin(),
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
+
+    with st.expander("Secrets format reference", expanded=False):
+        st.code(
+            """
 [auth]
 admin_emails = ["kyalorichard11@gmail.com"]
 
@@ -499,7 +627,7 @@ privileged_domains = ["cgiar.org", "icarda.org"]
 firestore_collection = "dashboard_settings"
 firestore_document = "access_control"
 
-[firebase.service_account]
+[firebase_admin]
 type = "service_account"
 project_id = "YOUR_PROJECT_ID"
 private_key_id = "YOUR_PRIVATE_KEY_ID"
@@ -511,46 +639,43 @@ token_uri = "https://oauth2.googleapis.com/token"
 auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
 client_x509_cert_url = "YOUR_CLIENT_CERT_URL"
 """,
-        language="toml",
-    )
+            language="toml",
+        )
 
 
-def _render_diagnostics_tab():
-    config = load_access_config()
+def _render_system_tab(config: dict):
+    st.markdown("### System diagnostics")
 
-    st.json(
-        {
-            "current_email": get_current_email(),
-            "current_role": get_current_role(),
-            "is_admin": is_admin(),
-            "config_backend": str(get_access_config_path()),
-            "can_download": has_permission("download_data"),
-            "can_use_ai_copilot": has_permission("use_ai_copilot"),
-            "can_view_monitored_countries_value": has_permission("view_monitored_countries_value"),
-            "timestamp_utc": datetime.utcnow().isoformat() + "Z",
-            "session_email_verified": st.session_state.get("email_verified"),
-            "session_user": st.session_state.get("user"),
-        }
-    )
+    c1, c2, c3, c4 = st.columns(4)
 
-    st.subheader("Access config reset")
+    with c1:
+        _metric_card("Firestore config", "Active", get_access_config_path())
+
+    with c2:
+        _metric_card("Current role", get_current_role().capitalize(), get_current_email() or "No email")
+
+    with c3:
+        _metric_card("AI permission", "Yes" if has_permission("use_ai_copilot") else "No", "Current session")
+
+    with c4:
+        _metric_card("Download permission", "Yes" if has_permission("download_data") else "No", "Current session")
+
+    st.markdown("### Loaded access configuration")
+
+    with st.expander("View raw access config", expanded=False):
+        st.json(config)
+
+    st.markdown("### Maintenance")
 
     st.warning(
-        "Use this only if permissions are corrupted or you want to restore the default guest/viewer/privileged configuration."
+        "Use reset only if permissions are corrupted or you intentionally want to restore Guest, Viewer and Privileged defaults."
     )
 
-    if st.button(
-        "🧹 Reset access config and rebuild permissions",
-        type="primary",
-        use_container_width=True,
-    ):
+    if st.button("🧹 Reset access config and rebuild permissions", type="primary", use_container_width=True):
         if reset_access_config():
             _clear_app_cache()
             st.success("Access config reset successfully.")
             st.rerun()
-
-    st.subheader("Loaded access config")
-    st.json(config)
 
 
 def render_admin_page(data=None):
@@ -560,21 +685,29 @@ def render_admin_page(data=None):
 
     inject_admin_css()
 
-    config = load_access_config()
-
-    for role_name in ["guest", "viewer", "privileged"]:
-        config = _safe_role_config(config, role_name)
-
-    _sync_feature_session_state(config)
+    config = normalize_access_config(load_access_config())
 
     _render_header()
 
-    tab_visibility, tab_scope, tab_users, tab_system = st.tabs(
-        ["Visibility", "Data scope", "Users", "Diagnostics"]
+    tab_overview, tab_roles, tab_dashboard, tab_scope, tab_users, tab_system = st.tabs(
+        [
+            "Overview",
+            "Roles",
+            "Dashboard visibility",
+            "Data scope",
+            "Users",
+            "System",
+        ]
     )
 
-    with tab_visibility:
-        _render_visibility_tab(config)
+    with tab_overview:
+        _render_overview_tab(config)
+
+    with tab_roles:
+        _render_roles_tab(config)
+
+    with tab_dashboard:
+        _render_dashboard_tab(config)
 
     with tab_scope:
         _render_scope_tab(config, data=data)
@@ -583,12 +716,12 @@ def render_admin_page(data=None):
         _render_users_tab()
 
     with tab_system:
-        _render_diagnostics_tab()
+        _render_system_tab(config)
 
     st.markdown(
         """
         <div class="admin-footer">
-            © 2026 EU SEE Project. All rights reserved.
+            © 2026 EU SEE Project. Administration Center.
         </div>
         """,
         unsafe_allow_html=True,

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -16,41 +14,74 @@ except Exception:
     firestore = None
 
 
-FEATURE_KEYS = [
-    "view_dashboard",
-    "view_overview",
-    "view_coverage_monitored_countries",
-    "view_monitored_countries_value",
-    "view_maps",
-    "view_negative_alerts",
-    "view_analytical_flow_panel",
-    "view_data_table",
-    "download_data",
-    "use_ai_copilot",
-    "view_user_manual",
-    "view_admin_page",
-    "view_chart_overview_alert_type",
-    "view_chart_overview_enabling_principles",
-    "view_chart_overview_regions",
-    "view_chart_overview_countries",
-    "view_chart_negative_restrictive_actors",
-    "view_chart_negative_affected_actors",
-    "view_chart_negative_restrictive_mechanisms",
-    "view_chart_negative_event_types",
-    "view_chart_negative_alert_types",
-    "view_chart_negative_enabling_principles",
-    "view_chart_heatmap_actor_mechanism",
-    "view_chart_heatmap_subject_mechanism",
-    "view_chart_heatmap_actor_subject",
-    "view_chart_sankey_flow",
-    "view_chart_geospatial_map",
-    "view_chart_ai_copilot_plots",
-]
+ROLES = ["guest", "viewer", "privileged"]
+
+FEATURE_REGISTRY = {
+    "view_dashboard": ("Core access", "Dashboard access"),
+    "view_overview": ("Core access", "Overview tab"),
+    "view_coverage_monitored_countries": ("Core access", "Summary cards"),
+    "view_monitored_countries_value": ("Core access", "Monitored Countries value"),
+    "view_maps": ("Core access", "Visualization Map"),
+    "view_negative_alerts": ("Core access", "Negative Alerts tab"),
+    "view_analytical_flow_panel": ("Core access", "Analytical Flow Panels"),
+    "view_data_table": ("Core access", "Summary data preview"),
+    "download_data": ("Core access", "CSV/XLSX downloads"),
+    "use_ai_copilot": ("AI Copilot", "AI Copilot"),
+    "view_user_manual": ("Core access", "User manual"),
+    "view_admin_page": ("Administration", "Admin page"),
+
+    "view_chart_overview_alert_type": ("Overview charts", "Alert type distribution"),
+    "view_chart_overview_enabling_principles": ("Overview charts", "Enabling-principle distribution"),
+    "view_chart_overview_regions": ("Overview charts", "Regional distribution"),
+    "view_chart_overview_countries": ("Overview charts", "Country distribution"),
+
+    "view_chart_negative_restrictive_actors": ("Negative alerts charts", "Restrictive actors"),
+    "view_chart_negative_affected_actors": ("Negative alerts charts", "Civil society actors affected"),
+    "view_chart_negative_restrictive_mechanisms": ("Negative alerts charts", "Restrictive mechanisms"),
+    "view_chart_negative_event_types": ("Negative alerts charts", "Negative event types"),
+    "view_chart_negative_alert_types": ("Negative alerts charts", "Negative alert types"),
+    "view_chart_negative_enabling_principles": ("Negative alerts charts", "Negative enabling principles"),
+
+    "view_chart_heatmap_actor_mechanism": ("Analytical charts", "Actor × mechanism heatmap"),
+    "view_chart_heatmap_subject_mechanism": ("Analytical charts", "Affected actor × mechanism heatmap"),
+    "view_chart_heatmap_actor_subject": ("Analytical charts", "Actor × affected actor heatmap"),
+    "view_chart_sankey_flow": ("Analytical charts", "Analytical Sankey flow"),
+    "view_chart_geospatial_map": ("Analytical charts", "Geospatial intelligence map"),
+    "view_chart_ai_copilot_plots": ("AI Copilot", "AI Copilot generated plots"),
+}
+
+FEATURE_KEYS = list(FEATURE_REGISTRY.keys())
 
 REMOVED_FEATURE_KEYS = {
     "view_public_summary",
     "view_country_counts",
     "view_negative_relationship_intelligence",
+}
+
+ROLE_PRESETS = {
+    "guest": {
+        "view_dashboard",
+        "view_overview",
+        "view_coverage_monitored_countries",
+        "view_maps",
+        "view_user_manual",
+    },
+    "viewer": {
+        "view_dashboard",
+        "view_overview",
+        "view_coverage_monitored_countries",
+        "view_maps",
+        "view_negative_alerts",
+        "view_data_table",
+        "view_user_manual",
+    },
+    "privileged": set(FEATURE_KEYS),
+}
+
+LOCKED_FALSE = {
+    "guest": {"view_admin_page"},
+    "viewer": {"view_admin_page"},
+    "privileged": {"view_admin_page"},
 }
 
 
@@ -88,9 +119,11 @@ def get_current_email() -> str:
         st.session_state.get("user_email"),
         user.get("email") if isinstance(user, dict) else None,
     ]
+
     for value in candidates:
         if value:
             return str(value).strip().lower()
+
     return ""
 
 
@@ -104,6 +137,7 @@ def get_current_role() -> str:
         return "admin"
 
     email = get_current_email()
+
     if email:
         domain = email.split("@")[-1].lower() if "@" in email else ""
         if domain in get_privileged_domains():
@@ -114,93 +148,36 @@ def get_current_role() -> str:
 
 
 def default_access_config() -> dict[str, Any]:
-    return {
-        "guest": {
-            "features": {
-                "view_dashboard": True,
-                "view_overview": True,
-                "view_coverage_monitored_countries": True,
-                "view_monitored_countries_value": False,
-                "view_maps": True,
-                "view_negative_alerts": False,
-                "view_analytical_flow_panel": False,
-                "view_data_table": False,
-                "download_data": False,
-                "use_ai_copilot": False,
-                "view_user_manual": True,
-                "view_admin_page": False,
-                "view_chart_overview_alert_type": False,
-                "view_chart_overview_enabling_principles": False,
-                "view_chart_overview_regions": False,
-                "view_chart_overview_countries": False,
-                "view_chart_negative_restrictive_actors": False,
-                "view_chart_negative_affected_actors": False,
-                "view_chart_negative_restrictive_mechanisms": False,
-                "view_chart_negative_event_types": False,
-                "view_chart_negative_alert_types": False,
-                "view_chart_negative_enabling_principles": False,
-                "view_chart_heatmap_actor_mechanism": False,
-                "view_chart_heatmap_subject_mechanism": False,
-                "view_chart_heatmap_actor_subject": False,
-                "view_chart_sankey_flow": False,
-                "view_chart_geospatial_map": False,
-                "view_chart_ai_copilot_plots": False,
-            },
+    config = {}
+
+    for role in ROLES:
+        enabled = ROLE_PRESETS.get(role, set())
+
+        features = {
+            key: key in enabled
+            for key in FEATURE_KEYS
+        }
+
+        for locked_key in LOCKED_FALSE.get(role, set()):
+            features[locked_key] = False
+
+        config[role] = {
+            "features": features,
             "regions": [],
             "countries": [],
             "years": [],
-        },
-        "viewer": {
-            "features": {
-                "view_dashboard": True,
-                "view_overview": True,
-                "view_coverage_monitored_countries": True,
-                "view_monitored_countries_value": False,
-                "view_maps": True,
-                "view_negative_alerts": True,
-                "view_analytical_flow_panel": False,
-                "view_data_table": True,
-                "download_data": False,
-                "use_ai_copilot": False,
-                "view_user_manual": True,
-                "view_admin_page": False,
-                "view_chart_overview_alert_type": False,
-                "view_chart_overview_enabling_principles": False,
-                "view_chart_overview_regions": False,
-                "view_chart_overview_countries": False,
-                "view_chart_negative_restrictive_actors": False,
-                "view_chart_negative_affected_actors": False,
-                "view_chart_negative_restrictive_mechanisms": False,
-                "view_chart_negative_event_types": False,
-                "view_chart_negative_alert_types": False,
-                "view_chart_negative_enabling_principles": False,
-                "view_chart_heatmap_actor_mechanism": False,
-                "view_chart_heatmap_subject_mechanism": False,
-                "view_chart_heatmap_actor_subject": False,
-                "view_chart_sankey_flow": False,
-                "view_chart_geospatial_map": False,
-                "view_chart_ai_copilot_plots": False,
-            },
-            "regions": [],
-            "countries": [],
-            "years": [],
-        },
-        "privileged": {
-            "features": {key: True for key in FEATURE_KEYS},
-            "regions": [],
-            "countries": [],
-            "years": [],
-        },
-    }
+        }
+
+    return config
 
 
-def _normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
+def normalize_access_config(config: dict[str, Any] | None) -> dict[str, Any]:
     base = default_access_config()
 
     if not isinstance(config, dict):
         return base
 
-    for role in ["guest", "viewer", "privileged"]:
+    for role in ROLES:
         config.setdefault(role, {})
         config[role].setdefault("features", {})
         config[role].setdefault("regions", [])
@@ -215,6 +192,9 @@ def _normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
                 key,
                 base[role]["features"].get(key, False),
             )
+
+        for locked_key in LOCKED_FALSE.get(role, set()):
+            config[role]["features"][locked_key] = False
 
     return config
 
@@ -238,7 +218,7 @@ def _get_firestore_client():
 
         if not service_account_info:
             st.error(
-                "Firebase secrets not found. Expected [firebase_admin] or [firebase.service_account] in Streamlit secrets."
+                "Firebase secrets not found. Expected [firebase_admin] or [firebase.service_account]."
             )
             return None
 
@@ -271,39 +251,11 @@ def _get_firestore_client():
     except Exception as exc:
         st.error(f"Firebase initialization failed: {exc}")
         return None
-    
-    if firebase_admin is None:
-        return None
-
-    try:
-        if firebase_admin._apps:
-            return firestore.client()
-
-        try:
-            service_account_info = dict(st.secrets["firebase_admin"])
-        except Exception:
-            service_account_info = _secrets_get(
-                "firebase",
-                "service_account",
-                None
-            )
-
-        if service_account_info:
-            if isinstance(service_account_info, str):
-                service_account_info = json.loads(service_account_info)
-
-            cred = credentials.Certificate(dict(service_account_info))
-            firebase_admin.initialize_app(cred)
-            return firestore.client()
-
-    except Exception as exc:
-        st.error(f"Firebase initialization failed: {exc}")
-
-    return None
 
 
 def _firestore_doc_ref():
     db = _get_firestore_client()
+
     if db is None:
         return None
 
@@ -312,6 +264,7 @@ def _firestore_doc_ref():
         "firestore_collection",
         "dashboard_settings",
     )
+
     document = _secrets_get(
         "access_control",
         "firestore_document",
@@ -336,7 +289,7 @@ def load_access_config() -> dict[str, Any]:
             return config
 
         config = snapshot.to_dict()
-        normalized = _normalize_config(config)
+        normalized = normalize_access_config(config)
 
         if normalized != config:
             doc_ref.set(normalized)
@@ -356,7 +309,7 @@ def save_access_config(config: dict[str, Any]) -> bool:
         return False
 
     try:
-        normalized = _normalize_config(config)
+        normalized = normalize_access_config(config)
         doc_ref.set(normalized)
         st.cache_data.clear()
         return True
@@ -379,11 +332,13 @@ def has_permission(permission: str) -> bool:
         return True
 
     role = get_current_role()
-    if role not in {"guest", "viewer", "privileged"}:
+
+    if role not in ROLES:
         role = "guest"
 
     config = load_access_config()
     features = config.get(role, {}).get("features", {})
+
     return bool(features.get(permission, False))
 
 
@@ -392,6 +347,10 @@ def apply_data_scope(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     role = get_current_role()
+
+    if role not in ROLES:
+        role = "guest"
+
     config = load_access_config().get(role, {})
     scoped = df.copy()
 
