@@ -8321,31 +8321,29 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 
 
 # ============================================================
-# SAFE EUSEE AI COPILOT POPOVER
-# Opens/closes without rerunning and does not interfere with dashboard tabs/charts.
+# SAFE EUSEE AI COPILOT RIGHT-SIDE DRAWER
+# Opens/closes client-side through Streamlit popover behavior.
+# The visual layer is styled as a right-side drawer with no nested inner panel.
 # Only submitting a Copilot question triggers the normal Streamlit rerun.
 # ============================================================
 
 
-def inject_eusee_ai_popover_css():
-    """Small visual polish for the native Streamlit popover.
+def inject_eusee_ai_right_drawer_css():
+    """Right-side Copilot drawer styling.
 
-    Important:
-    - Do NOT use broad `:has(.marker)` selectors on Streamlit layout blocks.
-      Those can accidentally match parent dashboard containers and hide tabs/charts.
-    - Keep this CSS limited to popover/button appearance only.
+    Safety rules:
+    - Keep selectors scoped to the native Streamlit popover and BaseWeb popover.
+    - Do not use broad :has() selectors on parent Streamlit layout blocks.
+    - Do not hide or reposition dashboard tab/chart containers.
     """
     st.markdown(
         """
         <style>
-        /* Keep footer space so the Copilot control never covers the fixed footer. */
         .main .block-container {
             padding-bottom: 7rem !important;
         }
 
-        /* Right-side Copilot launcher.
-           This targets only the native Streamlit popover container and does not
-           touch tab/chart parent blocks, so it will not hide dashboard content. */
+        /* Floating launcher only. */
         div[data-testid="stPopover"] {
             position: fixed !important;
             right: 22px !important;
@@ -8372,18 +8370,85 @@ def inject_eusee_ai_popover_css():
             color: #FFFFFF !important;
         }
 
-        /* Popover body: make the opened Copilot feel like a compact right drawer. */
+        /* Drawer shell. This styles the native popover itself as the drawer,
+           so the chatbot is not placed inside another visual panel. */
         div[data-baseweb="popover"] {
             z-index: 999999 !important;
         }
 
         div[data-baseweb="popover"] > div {
-            border-radius: 20px !important;
-            border: 1px solid #E6E8EF !important;
-            box-shadow: 0 24px 60px rgba(16,24,40,.24) !important;
-            width: min(430px, calc(100vw - 32px)) !important;
-            max-height: min(78vh, 720px) !important;
+            position: fixed !important;
+            top: 52px !important;
+            right: 0 !important;
+            left: auto !important;
+            bottom: 0 !important;
+            width: min(440px, 96vw) !important;
+            height: calc(100vh - 52px) !important;
+            max-height: calc(100vh - 52px) !important;
             overflow-y: auto !important;
+            border-radius: 18px 0 0 18px !important;
+            border: 0 !important;
+            border-left: 1px solid #E6E8EF !important;
+            background: #FFFFFF !important;
+            box-shadow: -18px 0 50px rgba(16,24,40,.18) !important;
+            padding: 0 !important;
+        }
+
+        /* Remove extra visual padding around the drawer contents where possible. */
+        div[data-baseweb="popover"] > div > div {
+            padding: 0 !important;
+        }
+
+        .eusee-copilot-drawer-header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+            border-bottom: 1px solid #E6E8EF;
+            padding: 14px 16px 12px 16px;
+            font-family: Arial, sans-serif;
+        }
+
+        .eusee-copilot-drawer-eyebrow {
+            font-size: 9px;
+            font-weight: 950;
+            color: #660094;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+
+        .eusee-copilot-drawer-title {
+            font-size: 17px;
+            font-weight: 950;
+            color: #23152F;
+            margin-top: 4px;
+            line-height: 1.15;
+        }
+
+        .eusee-copilot-drawer-note {
+            font-size: 11px;
+            color: #667085;
+            line-height: 1.35;
+            margin-top: 5px;
+        }
+
+        .eusee-copilot-drawer-body {
+            padding: 12px 14px 18px 14px;
+        }
+
+        .eusee-copilot-drawer-body [data-testid="stChatMessage"] {
+            background: transparent !important;
+        }
+
+        .eusee-copilot-drawer-body textarea {
+            border-radius: 14px !important;
+            border: 1px solid #D0D5DD !important;
+        }
+
+        .eusee-copilot-drawer-body .stButton > button,
+        .eusee-copilot-drawer-body .stFormSubmitButton > button {
+            border-radius: 12px !important;
+            font-weight: 900 !important;
         }
 
         @media (max-width: 700px) {
@@ -8397,6 +8462,14 @@ def inject_eusee_ai_popover_css():
                 padding: 0 15px !important;
                 font-size: 12px !important;
             }
+
+            div[data-baseweb="popover"] > div {
+                top: 48px !important;
+                width: 100vw !important;
+                height: calc(100vh - 48px) !important;
+                max-height: calc(100vh - 48px) !important;
+                border-radius: 0 !important;
+            }
         }
         </style>
         """,
@@ -8407,30 +8480,21 @@ def inject_eusee_ai_popover_css():
 def _render_eusee_ai_copilot_body():
     st.markdown(
         """
-        <div style="
-            background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
-            border:1px solid #EEF0F4;
-            border-radius:16px;
-            padding:12px 13px;
-            margin-bottom:10px;
-            font-family:Arial,sans-serif;
-        ">
-            <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
-                Dashboard assistant
-            </div>
-            <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
-                🤖 EUSEE AI Copilot
-            </div>
-            <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
+        <div class="eusee-copilot-drawer-header">
+            <div class="eusee-copilot-drawer-eyebrow">Dashboard assistant</div>
+            <div class="eusee-copilot-drawer-title">🤖 EUSEE AI Copilot</div>
+            <div class="eusee-copilot-drawer-note">
                 Ask about the current filtered dashboard data. Answers and charts use the active dashboard context.
             </div>
         </div>
+        <div class="eusee-copilot-drawer-body">
         """,
         unsafe_allow_html=True,
     )
 
     if not has_permission("use_ai_copilot"):
         st.info("AI Copilot is not enabled for your access level.")
+        st.markdown("</div>", unsafe_allow_html=True)
         return
 
     if st.button("Clear Chat Memory", use_container_width=True, key="eusee_ai_clear_chat_memory"):
@@ -8451,13 +8515,13 @@ def _render_eusee_ai_copilot_body():
             else:
                 st.markdown(content)
 
-    with st.form("eusee_ai_popover_form", clear_on_submit=True):
+    with st.form("eusee_ai_right_drawer_form", clear_on_submit=True):
         user_question = st.text_area(
             "Ask about the current dashboard data",
             placeholder="Example: summarise the negative alerts in Africa",
             height=90,
             label_visibility="collapsed",
-            key="eusee_ai_popover_question",
+            key="eusee_ai_right_drawer_question",
         )
 
         submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
@@ -8503,14 +8567,16 @@ def _render_eusee_ai_copilot_body():
 
         st.rerun()
 
+    st.markdown("</div>", unsafe_allow_html=True)
 
-def render_eusee_ai_copilot_popover():
-    """Render a safe Copilot control after the dashboard content.
 
-    Native `st.popover` opens and closes on the client side, so it avoids a full
-    dashboard reload while also avoiding intrusive CSS that can hide tabs/charts.
+def render_eusee_ai_copilot_right_drawer():
+    """Render a right-side Copilot drawer after dashboard content.
+
+    The native Streamlit popover provides client-side open/close behavior.
+    CSS makes it look like a direct right drawer, without an additional inner panel.
     """
-    inject_eusee_ai_popover_css()
+    inject_eusee_ai_right_drawer_css()
 
     try:
         with st.popover("💬 EUSEE Copilot", use_container_width=False):
@@ -8521,7 +8587,7 @@ def render_eusee_ai_copilot_popover():
             _render_eusee_ai_copilot_body()
 
 
-render_eusee_ai_copilot_popover()
+render_eusee_ai_copilot_right_drawer()
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
