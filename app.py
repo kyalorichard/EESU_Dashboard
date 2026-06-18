@@ -23,46 +23,19 @@ import requests
 import uuid
 
 
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
+# Keep Streamlit sidebar toggle available; hide only non-essential branding/actions.
 st.markdown("""
 <style>
-
-/* Hide Streamlit chrome */
-#MainMenu {display:none !important;}
-header {display:none !important;}
-footer {display:none !important;}
-
-/* Hide toolbar and action buttons */
-[data-testid="stToolbar"] {display:none !important;}
-[data-testid="stDecoration"] {display:none !important;}
-[data-testid="stStatusWidget"] {display:none !important;}
-[data-testid="stDeployButton"] {display:none !important;}
-[data-testid="baseButton-header"] {display:none !important;}
-
-/* Hide top-right button group */
-.stAppHeader {
-    display:none !important;
-}
-
-/* Hide GitHub links */
-a[href*="github.com"] {
-    display:none !important;
-}
-
-/* Hide all header action buttons */
-button[kind="header"] {
-    display:none !important;
-}
-
-/* Remove top padding left after hiding header */
-.block-container {
-    padding-top: 1rem !important;
-}
-
+#MainMenu {visibility:hidden !important;}
+footer {visibility:hidden !important;}
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+a[href*="github.com"] {display:none !important;}
+.block-container {padding-top: 1rem !important;}
 </style>
 """, unsafe_allow_html=True)
-            
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 # Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
 st.markdown("""
 <style>
@@ -128,7 +101,13 @@ try:
         has_permission,
         apply_data_scope,
     )
-    from admin_page import render_admin_page, render_admin_sidebar_navigation
+
+    try:
+        # Preferred name used by the optimized admin script.
+        from admin import render_admin_page, render_admin_sidebar_navigation
+    except Exception:
+        # Backward-compatible fallback if your file is still named admin_page.py.
+        from admin_page import render_admin_page, render_admin_sidebar_navigation
 except Exception:
     def admin_is_admin():
         return False
