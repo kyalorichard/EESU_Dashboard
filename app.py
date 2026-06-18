@@ -8438,11 +8438,13 @@ def _render_eusee_ai_copilot_body():
     st.markdown(
         """
         <div style="
-            background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
-            border:1px solid #EEF0F4;
-            border-radius:16px;
-            padding:12px 13px;
-            margin-bottom:10px;
+            position:sticky;
+            top:0;
+            z-index:2;
+            background:#FFFFFF;
+            border-bottom:1px solid #EEF0F4;
+            padding:14px 14px 12px 14px;
+            margin:0;
             font-family:Arial,sans-serif;
         ">
             <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
