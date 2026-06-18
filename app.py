@@ -8343,22 +8343,60 @@ def inject_eusee_ai_popover_css():
             padding-bottom: 7rem !important;
         }
 
-        /* Native popover button styling. This is intentionally light-touch. */
+        /* Right-side Copilot launcher.
+           This targets only the native Streamlit popover container and does not
+           touch tab/chart parent blocks, so it will not hide dashboard content. */
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            right: 22px !important;
+            bottom: 82px !important;
+            z-index: 999998 !important;
+            width: auto !important;
+            max-width: calc(100vw - 44px) !important;
+        }
+
         div[data-testid="stPopover"] > button {
             border-radius: 999px !important;
-            min-height: 48px !important;
-            padding: 0 18px !important;
-            background: #FFFFFF !important;
-            color: #660094 !important;
-            border: 1px solid #E7D4F1 !important;
-            box-shadow: 0 12px 30px rgba(102,0,148,.16) !important;
+            min-height: 52px !important;
+            padding: 0 20px !important;
+            background: linear-gradient(135deg,#660094 0%,#008CAA 100%) !important;
+            color: #FFFFFF !important;
+            border: 1px solid rgba(255,255,255,.30) !important;
+            box-shadow: 0 16px 36px rgba(102,0,148,.28) !important;
             font-weight: 950 !important;
         }
 
         div[data-testid="stPopover"] > button:hover {
-            background: #F8F1FC !important;
-            border-color: #D6BBE5 !important;
-            color: #660094 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 18px 42px rgba(102,0,148,.34) !important;
+            color: #FFFFFF !important;
+        }
+
+        /* Popover body: make the opened Copilot feel like a compact right drawer. */
+        div[data-baseweb="popover"] {
+            z-index: 999999 !important;
+        }
+
+        div[data-baseweb="popover"] > div {
+            border-radius: 20px !important;
+            border: 1px solid #E6E8EF !important;
+            box-shadow: 0 24px 60px rgba(16,24,40,.24) !important;
+            width: min(430px, calc(100vw - 32px)) !important;
+            max-height: min(78vh, 720px) !important;
+            overflow-y: auto !important;
+        }
+
+        @media (max-width: 700px) {
+            div[data-testid="stPopover"] {
+                right: 14px !important;
+                bottom: 72px !important;
+            }
+
+            div[data-testid="stPopover"] > button {
+                min-height: 48px !important;
+                padding: 0 15px !important;
+                font-size: 12px !important;
+            }
         }
         </style>
         """,
