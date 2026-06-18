@@ -8377,13 +8377,43 @@ def inject_eusee_ai_popover_css():
             z-index: 999999 !important;
         }
 
+        /* Remove ALL outer panel styling */
         div[data-baseweb="popover"] > div {
-            border-radius: 20px !important;
-            border: 1px solid #E6E8EF !important;
-            box-shadow: 0 24px 60px rgba(16,24,40,.24) !important;
-            width: min(430px, calc(100vw - 32px)) !important;
-            max-height: min(78vh, 720px) !important;
+            position: fixed !important;
+            top: 52px !important;
+            right: 0 !important;
+            left: auto !important;
+            bottom: 0 !important;
+
+            width: min(440px, 96vw) !important;
+            height: calc(100vh - 52px) !important;
+            max-height: calc(100vh - 52px) !important;
+
             overflow-y: auto !important;
+
+            border-radius: 0 !important;
+            border: none !important;
+            outline: none !important;
+            background: #FFFFFF !important;
+            box-shadow: none !important;
+
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Remove Streamlit/BaseWeb wrapper cards */
+        div[data-baseweb="popover"] > div > div,
+        div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
+        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        div[data-baseweb="popover"] > div > div {
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
         @media (max-width: 700px) {
