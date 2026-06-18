@@ -8372,78 +8372,18 @@ def inject_eusee_ai_popover_css():
             color: #FFFFFF !important;
         }
 
-        /* Popover body: fixed right drawer with no extra outer/inner panel.
-           Important fix: BaseWeb positions popovers using transforms below the
-           launcher button. Those transforms can make the drawer appear under the
-           button. We neutralize the popover host and pin the drawer to the
-           viewport instead. */
+        /* Popover body: make the opened Copilot feel like a compact right drawer. */
         div[data-baseweb="popover"] {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            transform: none !important;
             z-index: 999999 !important;
-            pointer-events: none !important;
-            background: transparent !important;
         }
 
         div[data-baseweb="popover"] > div {
-            position: fixed !important;
-            top: 52px !important;
-            right: 0 !important;
-            left: auto !important;
-            bottom: 0 !important;
-            width: min(440px, 96vw) !important;
-            height: calc(100vh - 52px) !important;
-            max-height: calc(100vh - 52px) !important;
+            border-radius: 20px !important;
+            border: 1px solid #E6E8EF !important;
+            box-shadow: 0 24px 60px rgba(16,24,40,.24) !important;
+            width: min(430px, calc(100vw - 32px)) !important;
+            max-height: min(78vh, 720px) !important;
             overflow-y: auto !important;
-            transform: none !important;
-            pointer-events: auto !important;
-
-            border-radius: 0 !important;
-            border: none !important;
-            outline: none !important;
-            background: #FFFFFF !important;
-            box-shadow: none !important;
-
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        /* Remove BaseWeb/Streamlit popover inner card padding/wrappers. */
-        div[data-baseweb="popover"] > div > div,
-        div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
-        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: transparent !important;
-        }
-
-        div[data-baseweb="popover"] > div > div {
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        /* Keep only useful spacing inside the drawer content. */
-        div[data-baseweb="popover"] .block-container,
-        div[data-baseweb="popover"] section,
-        div[data-baseweb="popover"] div[data-testid="stVerticalBlock"] {
-            max-width: 100% !important;
-        }
-
-        div[data-baseweb="popover"] div[data-testid="stChatMessage"] {
-            border-radius: 14px !important;
-            border: 1px solid #EEF0F4 !important;
-            box-shadow: none !important;
-            margin: 8px 12px !important;
-        }
-
-        div[data-baseweb="popover"] div[data-testid="stChatInput"],
-        div[data-baseweb="popover"] textarea {
-            border-radius: 14px !important;
-            box-shadow: none !important;
         }
 
         @media (max-width: 700px) {
@@ -8465,17 +8405,14 @@ def inject_eusee_ai_popover_css():
 
 
 def _render_eusee_ai_copilot_body():
-    # Simple drawer header only. No outer card/panel around the chatbot.
     st.markdown(
         """
         <div style="
-            position:sticky;
-            top:0;
-            z-index:2;
-            background:#FFFFFF;
-            border-bottom:1px solid #EEF0F4;
-            padding:14px 14px 12px 14px;
-            margin:0;
+            background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+            border:1px solid #EEF0F4;
+            border-radius:16px;
+            padding:12px 13px;
+            margin-bottom:10px;
             font-family:Arial,sans-serif;
         ">
             <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
