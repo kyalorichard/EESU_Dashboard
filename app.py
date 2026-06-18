@@ -8401,15 +8401,23 @@ def eusee_ai_dialog():
         st.session_state.eusee_chat_messages = []
         st.rerun()
 
-    for msg in st.session_state.eusee_chat_messages[-12:]:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
+    for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
+        if not isinstance(msg, dict):
+            continue
+
+        role = msg.get("role", "assistant")
+        content = msg.get("content", "")
+
+        with st.chat_message(role):
+            if role == "assistant":
+                chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
+
                 render_langflow_output(
-                    msg["content"],
-                    chart_instance_key=f"{i}_{msg.get('id', '')}"
-                )                
+                    content,
+                    chart_instance_key=chart_key
+                )
             else:
-                st.markdown(msg["content"])
+                st.markdown(content)
 
     with st.form("eusee_ai_dialog_form", clear_on_submit=True):
         user_question = st.text_area(
