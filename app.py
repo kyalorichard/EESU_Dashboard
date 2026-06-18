@@ -8372,11 +8372,20 @@ def inject_eusee_ai_popover_css():
             color: #FFFFFF !important;
         }
 
-        /* Popover body: right drawer with no extra outer/inner panel.
-           The native popover is only used as a drawer host; it should not
-           render a visible rounded card around the chatbot. */
+        /* Popover body: fixed right drawer with no extra outer/inner panel.
+           Important fix: BaseWeb positions popovers using transforms below the
+           launcher button. Those transforms can make the drawer appear under the
+           button. We neutralize the popover host and pin the drawer to the
+           viewport instead. */
         div[data-baseweb="popover"] {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            transform: none !important;
             z-index: 999999 !important;
+            pointer-events: none !important;
+            background: transparent !important;
         }
 
         div[data-baseweb="popover"] > div {
@@ -8389,6 +8398,8 @@ def inject_eusee_ai_popover_css():
             height: calc(100vh - 52px) !important;
             max-height: calc(100vh - 52px) !important;
             overflow-y: auto !important;
+            transform: none !important;
+            pointer-events: auto !important;
 
             border-radius: 0 !important;
             border: none !important;
@@ -8397,6 +8408,7 @@ def inject_eusee_ai_popover_css():
             box-shadow: none !important;
 
             padding: 0 !important;
+            margin: 0 !important;
         }
 
         /* Remove BaseWeb/Streamlit popover inner card padding/wrappers. */
@@ -8411,6 +8423,7 @@ def inject_eusee_ai_popover_css():
 
         div[data-baseweb="popover"] > div > div {
             padding: 0 !important;
+            margin: 0 !important;
         }
 
         /* Keep only useful spacing inside the drawer content. */
