@@ -8378,27 +8378,29 @@ def inject_eusee_ai_popover_css():
         }
 
         /* Remove ALL outer panel styling */
+        /* Keep Streamlit popover positioning */
         div[data-baseweb="popover"] > div {
-            position: fixed !important;
-            top: 52px !important;
-            right: 0 !important;
-            left: auto !important;
-            bottom: 0 !important;
-
-            width: min(440px, 96vw) !important;
-            height: calc(100vh - 52px) !important;
-            max-height: calc(100vh - 52px) !important;
-
+            width: min(430px, calc(100vw - 32px)) !important;
+            max-height: min(78vh, 720px) !important;
             overflow-y: auto !important;
 
-            border-radius: 0 !important;
-            border: none !important;
-            outline: none !important;
             background: #FFFFFF !important;
+            border: none !important;
+            border-radius: 0 !important;
             box-shadow: none !important;
 
             padding: 0 !important;
             margin: 0 !important;
+        }
+
+        /* Remove inner wrapper card */
+        div[data-baseweb="popover"] > div > div,
+        div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
+        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
         }
 
         /* Remove Streamlit/BaseWeb wrapper cards */
