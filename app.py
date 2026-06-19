@@ -8177,6 +8177,37 @@ def ask_langflow(user_question, lookup_context, dashboard_context, filter_summar
         })
 
 
+EUSEE_WEBSITE_REDIRECT_TEXT = (
+    "\n\n---\n"
+    "🌐 For a broader overview and additional qualitative insights, "
+    "please visit the EUSEE website at https://eusee.org"
+)
+
+
+def _append_eusee_website_redirect(answer: str, result: dict) -> str:
+    """Append the EUSEE website redirect only for dashboard-derived chatbot answers.
+
+    The redirect is shown when the LangFlow JSON confirms that the answer is
+    available in the supplied dashboard context and uses the active filters.
+    This avoids adding the link to greetings, configuration errors, or unrelated
+    responses.
+    """
+    answer = str(answer or "").strip()
+
+    dashboard_related = (
+        bool(result.get("available_in_context", False))
+        and bool(result.get("used_current_filters", False))
+    )
+
+    if not dashboard_related:
+        return answer
+
+    if "https://eusee.org" in answer:
+        return answer
+
+    return answer + EUSEE_WEBSITE_REDIRECT_TEXT
+
+
 def render_langflow_output(raw_answer, chart_instance_key=None):
     try:
         result = json.loads(raw_answer)
@@ -8184,7 +8215,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         st.markdown(str(raw_answer))
         return
 
-    answer = result.get("answer", "")
+    answer = _append_eusee_website_redirect(result.get("answer", ""), result)
     if answer:
         st.markdown(answer)
 
