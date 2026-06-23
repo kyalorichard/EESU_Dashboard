@@ -1611,6 +1611,7 @@ render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
 
+
 regions_labels = [
     "Africa",
     "The Middle East",
@@ -7904,24 +7905,19 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 
 
 def inject_eusee_ai_popover_css():
-    """Small visual polish for the native Streamlit popover.
-
-    Important:
-    - Do NOT use broad `:has(.marker)` selectors on Streamlit layout blocks.
-      Those can accidentally match parent dashboard containers and hide tabs/charts.
-    - Keep this CSS limited to popover/button appearance only.
-    """
     st.markdown(
         """
         <style>
-        /* Keep footer space so the Copilot control never covers the fixed footer. */
+        html,
+        body,
+        [data-testid="stAppViewContainer"] {
+            overflow-x: hidden !important;
+        }
+
         .main .block-container {
             padding-bottom: 7rem !important;
         }
 
-        /* Right-side Copilot launcher.
-           This targets only the native Streamlit popover container and does not
-           touch tab/chart parent blocks, so it will not hide dashboard content. */
         div[data-testid="stPopover"] {
             position: fixed !important;
             right: 22px !important;
@@ -7940,6 +7936,7 @@ def inject_eusee_ai_popover_css():
             border: 1px solid rgba(255,255,255,.30) !important;
             box-shadow: 0 16px 36px rgba(102,0,148,.28) !important;
             font-weight: 950 !important;
+            white-space: nowrap !important;
         }
 
         div[data-testid="stPopover"] > button:hover {
@@ -7948,17 +7945,20 @@ def inject_eusee_ai_popover_css():
             color: #FFFFFF !important;
         }
 
-        /* Popover body: make the opened Copilot feel like a compact right drawer. */
         div[data-baseweb="popover"] {
             z-index: 999999 !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
         }
 
-        /* Remove ALL outer panel styling */
-        /* Keep Streamlit popover positioning */
         div[data-baseweb="popover"] > div {
-            width: min(430px, calc(100vw - 32px)) !important;
-            max-height: min(78vh, 720px) !important;
+            width: clamp(320px, 38vw, 620px) !important;
+            max-width: calc(100vw - 24px) !important;
+            min-width: unset !important;
+
+            max-height: min(82vh, 760px) !important;
             overflow-y: auto !important;
+            overflow-x: hidden !important;
 
             background: #FFFFFF !important;
             border: none !important;
@@ -7969,24 +7969,24 @@ def inject_eusee_ai_popover_css():
             margin: 0 !important;
         }
 
-        /* Remove inner wrapper card */
-        div[data-baseweb="popover"] > div > div,
+        div[data-baseweb="popover"] *,
+        div[data-baseweb="popover"] > div *,
         div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
         div[data-baseweb="popover"] [data-testid="stElementContainer"] {
-            background: transparent !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            overflow-wrap: break-word !important;
+            word-break: break-word !important;
+            box-sizing: border-box !important;
         }
 
-        /* Remove Streamlit/BaseWeb wrapper cards */
         div[data-baseweb="popover"] > div > div,
         div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
         div[data-baseweb="popover"] [data-testid="stElementContainer"] {
+            background: transparent !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
-            background: transparent !important;
         }
 
         div[data-baseweb="popover"] > div > div {
@@ -7994,23 +7994,49 @@ def inject_eusee_ai_popover_css():
             margin: 0 !important;
         }
 
+        div[data-baseweb="popover"] textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+            resize: vertical !important;
+        }
+
+        div[data-baseweb="popover"] .js-plotly-plot,
+        div[data-baseweb="popover"] .plotly,
+        div[data-baseweb="popover"] svg {
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        @media (max-width: 900px) {
+            div[data-baseweb="popover"] > div {
+                width: min(520px, calc(100vw - 24px)) !important;
+                max-width: calc(100vw - 24px) !important;
+            }
+        }
+
         @media (max-width: 700px) {
             div[data-testid="stPopover"] {
-                right: 14px !important;
+                right: 10px !important;
                 bottom: 72px !important;
+                max-width: calc(100vw - 20px) !important;
             }
 
             div[data-testid="stPopover"] > button {
                 min-height: 48px !important;
-                padding: 0 15px !important;
+                padding: 0 14px !important;
                 font-size: 12px !important;
+            }
+
+            div[data-baseweb="popover"] > div {
+                width: calc(100vw - 20px) !important;
+                max-width: calc(100vw - 20px) !important;
+                max-height: 76vh !important;
             }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 def _render_eusee_ai_copilot_body():
     st.markdown(
