@@ -7713,8 +7713,8 @@ def inject_eusee_ai_popover_css():
             }
 
             div[data-baseweb="popover"] > div {
-                width: calc(100vw - 24px) !important;
-                max-width: calc(100vw - 24px) !important;
+                width: calc(200vw - 24px) !important;
+                max-width: calc(200vw - 24px) !important;
             }
         }
         </style>
