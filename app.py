@@ -7672,9 +7672,10 @@ def inject_eusee_ai_popover_css():
         }
 
         div[data-baseweb="popover"] > div {
-            width: min(560px, calc(100vw - 32px)) !important;
-            max-width: min(560px, calc(100vw - 32px)) !important;
-            max-height: min(78vh, 720px) !important;
+            width: min(760px, calc(100vw - 32px)) !important;
+            max-width: min(760px, calc(100vw - 32px)) !important;
+            min-width: 680px !important;
+            max-height: min(82vh, 780px) !important;
             overflow-y: auto !important;
 
             background: #FFFFFF !important;
@@ -7713,8 +7714,9 @@ def inject_eusee_ai_popover_css():
             }
 
             div[data-baseweb="popover"] > div {
-                width: calc(200vw - 24px) !important;
-                max-width: calc(200vw - 24px) !important;
+                width: min(760px, calc(100vw - 32px)) !important;
+                max-width: min(760px, calc(100vw - 32px)) !important;
+                min-width: 680px !important;
             }
         }
         </style>
