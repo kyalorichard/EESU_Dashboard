@@ -8149,22 +8149,19 @@ def _render_eusee_ai_copilot_body():
 
 
 def render_eusee_ai_copilot_popover():
-    """Render a safe Copilot control after the dashboard content.
+    """Render EUSEE Copilot only when enabled by Admin permissions."""
 
-    Native `st.popover` opens and closes on the client side, so it avoids a full
-    dashboard reload while also avoiding intrusive CSS that can hide tabs/charts.
-    """
+    if not has_permission("use_ai_copilot"):
+        return
+
     inject_eusee_ai_popover_css()
 
     try:
         with st.popover("💬 EUSEE Copilot", use_container_width=False):
             _render_eusee_ai_copilot_body()
     except Exception:
-        # Fallback for older Streamlit versions that do not support st.popover.
         with st.expander("💬 EUSEE Copilot", expanded=False):
             _render_eusee_ai_copilot_body()
-
-
 render_eusee_ai_copilot_popover()
 
 # ---------------- FOOTER ----------------
