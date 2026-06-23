@@ -21,8 +21,6 @@ import re
 import requests
 
 import uuid
-import plotly.express as px
-
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
@@ -997,6 +995,92 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
     "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
 }
 
+# ---------------- SIDEBAR LAST UPDATED PANEL ----------------
+def render_sidebar_last_updated_panel():
+    """Render the latest dataset update status inside the sidebar.
+
+    This replaces the former main-page badge so the dashboard header remains clean
+    while keeping update metadata visible near access and filter controls.
+    """
+    latest_date_display = st.session_state.get("latest_dataset_date", "Not available")
+    latest_date_source = st.session_state.get(
+        "latest_dataset_date_source",
+        "Based on latest loaded dataset",
+    )
+
+    st.sidebar.markdown(f"""
+    <style>
+    .sidebar-last-updated {{
+        margin: 10px 0 14px 0;
+        padding: 12px 13px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F4EAF8 100%);
+        border: 1px solid rgba(102,0,148,.14);
+        box-shadow: 0 8px 22px rgba(16,24,40,.06);
+        font-family: Arial, sans-serif;
+    }}
+
+    .sidebar-last-updated-top {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+
+    .sidebar-last-updated-icon {{
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
+        color: #660094;
+        font-size: 15px;
+        font-weight: 900;
+        border: 1px solid rgba(102,0,148,.10);
+    }}
+
+    .sidebar-last-updated-copy {{
+        min-width: 0;
+    }}
+
+    .sidebar-last-updated-label {{
+        font-size: 9px;
+        font-weight: 950;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: #660094;
+        line-height: 1.1;
+    }}
+
+    .sidebar-last-updated-date {{
+        margin-top: 3px;
+        font-size: 13px;
+        font-weight: 950;
+        color: #23152F;
+        line-height: 1.15;
+    }}
+
+    .sidebar-last-updated-note {{
+        margin-top: 7px;
+        font-size: 10px;
+        line-height: 1.35;
+        color: #667085;
+    }}
+    </style>
+
+    <div class="sidebar-last-updated" title="{latest_date_source}">
+        <div class="sidebar-last-updated-top">
+            <div class="sidebar-last-updated-icon">⏱</div>
+            <div class="sidebar-last-updated-copy">
+                <div class="sidebar-last-updated-label">Last updated</div>
+                <div class="sidebar-last-updated-date">{latest_date_display}</div>
+            </div>
+        </div>
+        <div class="sidebar-last-updated-note">{latest_date_source}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
 def safe_multiselect(label, options, session_key, sidebar=True, container=None):
@@ -1281,13 +1365,31 @@ def inject_professional_sidebar_filter_css():
         color: #660094 !important;
     }
 
-    /* ---------------- SELECT / MULTISELECT DROPDOWN MENU ---------------- */
-    /*
-       Streamlit/BaseWeb renders dropdown menus in a portal outside the sidebar.
-       Avoid broad listbox rules that let the menu expand across the page.
-       The :has() selector limits this styling to select/multiselect dropdown popovers only.
-    */
-    
+    div[role="listbox"] {
+        border-radius: 13px !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
+        overflow: hidden !important;
+        background: #FFFFFF !important;
+    }
+
+    div[role="option"] {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+        color: #344054 !important;
+        font-weight: 700 !important;
+    }
+
+    div[role="option"]:hover {
+        background: rgba(102,0,148,.065) !important;
+        color: #23152F !important;
+    }
+
+    div[aria-selected="true"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        font-weight: 900 !important;
+    }
 
     .stMultiSelect label, .stSelectbox label {
         font-size: 10.8px !important;
@@ -1460,8 +1562,6 @@ def inject_professional_sidebar_filter_css():
     </style>
     """, unsafe_allow_html=True)
 
-
-
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
@@ -1592,6 +1692,377 @@ render_sidebar_access_settings_profile()
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
+
+
+
+def inject_sidebar_professional_typography_overrides():
+    """Final sidebar-only typography and color refinement.
+
+    Scope:
+    - Does not change callbacks, widget keys, data filtering, permissions, or icons.
+    - Only normalizes font family, font color, control text, tags, expanders, buttons,
+      captions, and hover/focus states for a more production-ready sidebar UX.
+    """
+    st.markdown("""
+    <style>
+    /* =========================
+       EUSEE SIDEBAR TYPOGRAPHY + COLOR SYSTEM
+       Final override layer: visual polish only.
+    ========================= */
+
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+        border-right: 1px solid #E7EAF0 !important;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+        color: #344054 !important;
+    }
+
+    section[data-testid="stSidebar"] * {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+    }
+
+    /* Preserve icon rendering and avoid replacing Streamlit/native SVG icons. */
+    section[data-testid="stSidebar"] svg,
+    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] {
+        font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
+    }
+
+    /* Core sidebar text hierarchy */
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] small,
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: #667085 !important;
+        font-size: 11px !important;
+        line-height: 1.42 !important;
+        font-weight: 500 !important;
+    }
+
+    section[data-testid="stSidebar"] strong,
+    section[data-testid="stSidebar"] b {
+        color: #1D2939 !important;
+        font-weight: 750 !important;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: #1D2939 !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    section[data-testid="stSidebar"] h3 {
+        font-size: 15px !important;
+        line-height: 1.2 !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    /* Widget labels */
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stSlider label,
+    section[data-testid="stSidebar"] .stRadio label,
+    section[data-testid="stSidebar"] .stTextInput label {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #344054 !important;
+        letter-spacing: 0.01em !important;
+        margin-bottom: 4px !important;
+        line-height: 1.25 !important;
+    }
+
+    /* Select, multiselect, input and text controls */
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] > div,
+    section[data-testid="stSidebar"] input,
+    section[data-testid="stSidebar"] textarea {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 12px !important;
+        min-height: 40px !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+        color: #101828 !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        transition: border-color .16s ease, box-shadow .16s ease, background .16s ease !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover,
+    section[data-testid="stSidebar"] [data-baseweb="input"] > div:hover {
+        border-color: #B8C0CC !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.05) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within,
+    section[data-testid="stSidebar"] [data-baseweb="input"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 4px rgba(102,0,148,.10) !important;
+    }
+
+    section[data-testid="stSidebar"] input::placeholder,
+    section[data-testid="stSidebar"] textarea::placeholder {
+        color: #98A2B3 !important;
+        font-size: 11.5px !important;
+        font-weight: 500 !important;
+    }
+
+    /* Multiselect selected chips */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background: #F4F4F5 !important;
+        border: 1px solid #E4E7EC !important;
+        color: #344054 !important;
+        border-radius: 999px !important;
+        padding: 2px 8px !important;
+        font-size: 10px !important;
+        font-weight: 650 !important;
+        line-height: 1.2 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] svg {
+        color: #667085 !important;
+    }
+
+    /* Dropdown menu attached to sidebar widgets */
+    div[role="listbox"] {
+        border-radius: 14px !important;
+        border: 1px solid #E4E7EC !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 16px 32px rgba(16,24,40,.12) !important;
+        overflow: hidden !important;
+    }
+
+    div[role="option"] {
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: #344054 !important;
+        padding: 9px 12px !important;
+        transition: background .15s ease, color .15s ease !important;
+    }
+
+    div[role="option"]:hover {
+        background: #F9F5FF !important;
+        color: #23152F !important;
+    }
+
+    div[aria-selected="true"] {
+        background: #F4EBFF !important;
+        color: #660094 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Expanders: clean professional headers without touching native arrows/icons */
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        border: 1px solid #E6E8EF !important;
+        border-radius: 16px !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 20px rgba(16,24,40,.05) !important;
+        overflow: hidden !important;
+        margin-bottom: 10px !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        min-height: 42px !important;
+        padding: 10px 12px !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAFAFA 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+        color: #1D2939 !important;
+        font-size: 12.5px !important;
+        font-weight: 750 !important;
+        letter-spacing: -0.005em !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F9FAFB 100%) !important;
+        color: #101828 !important;
+    }
+
+    /* Buttons */
+    section[data-testid="stSidebar"] .stButton > button,
+    section[data-testid="stSidebar"] button[kind="secondary"],
+    section[data-testid="stSidebar"] button[kind="primary"] {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 12px !important;
+        min-height: 38px !important;
+        color: #344054 !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.04) !important;
+        transition: all .16s ease !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:hover,
+    section[data-testid="stSidebar"] button[kind="secondary"]:hover,
+    section[data-testid="stSidebar"] button[kind="primary"]:hover {
+        background: #F9FAFB !important;
+        border-color: #B8C0CC !important;
+        color: #101828 !important;
+        box-shadow: 0 2px 5px rgba(16,24,40,.06) !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:focus,
+    section[data-testid="stSidebar"] button:focus {
+        box-shadow: 0 0 0 4px rgba(102,0,148,.10) !important;
+        border-color: #660094 !important;
+    }
+
+    section[data-testid="stSidebar"] button[disabled] {
+        opacity: 1 !important;
+        color: #475467 !important;
+        background: #F9FAFB !important;
+        border-color: #EAECF0 !important;
+    }
+
+
+
+    .sidebar-filter-section-title {
+        margin: 12px 0 6px 0 !important;
+        padding: 7px 9px !important;
+        border-radius: 10px !important;
+        background: #F9FAFB !important;
+        border: 1px solid #EEF0F4 !important;
+        color: #475467 !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        letter-spacing: .08em !important;
+        text-transform: uppercase !important;
+        line-height: 1.1 !important;
+    }
+
+    /* Sidebar custom cards already used in the app */
+    .classic-filter-header,
+    .classic-filter-status,
+    .sidebar-last-updated,
+    .sidebar-access-shell,
+    .sidebar-profile-card,
+    .sidebar-filter-footer {
+        font-family: "Inter", "Segoe UI", Arial, sans-serif !important;
+        color: #344054 !important;
+        border-color: #E6E8EF !important;
+    }
+
+    .classic-filter-eyebrow,
+    .sidebar-last-updated-label,
+    .sidebar-access-eyebrow {
+        color: #660094 !important;
+        font-size: 9px !important;
+        font-weight: 800 !important;
+        letter-spacing: .12em !important;
+    }
+
+    .classic-filter-title,
+    .sidebar-last-updated-date,
+    .sidebar-access-title,
+    .sidebar-filter-footer-title {
+        color: #1D2939 !important;
+        font-weight: 800 !important;
+    }
+
+    .classic-filter-note,
+    .classic-filter-status .status-row,
+    .sidebar-last-updated-note,
+    .sidebar-access-note,
+    .sidebar-access-help,
+    .sidebar-filter-section,
+    .sidebar-filter-footer-note {
+        color: #667085 !important;
+        font-size: 10.5px !important;
+        font-weight: 500 !important;
+        line-height: 1.38 !important;
+    }
+
+    .classic-filter-status .status-value {
+        color: #660094 !important;
+        font-weight: 800 !important;
+    }
+
+    .sidebar-access-pill,
+    .sidebar-access-pill.secondary,
+    .data-preview-pill,
+    .negative-filter-chip {
+        background: #F9FAFB !important;
+        color: #475467 !important;
+        border: 1px solid #EAECF0 !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+    }
+
+    .sidebar-profile-row {
+        color: #667085 !important;
+        font-size: 10.5px !important;
+        font-weight: 500 !important;
+    }
+
+    .sidebar-profile-row strong {
+        color: #1D2939 !important;
+        font-weight: 750 !important;
+    }
+
+    /* Metrics inside sidebar */
+    section[data-testid="stSidebar"] [data-testid="stMetric"] {
+        background: #FFFFFF !important;
+        border: 1px solid #EEF0F4 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(16,24,40,.035) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+        color: #667085 !important;
+        font-size: 9px !important;
+        font-weight: 750 !important;
+        text-transform: uppercase !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        color: #1D2939 !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+    }
+
+
+
+    /* Hide typed-search text inside sidebar multiselect controls while preserving selected chips, dropdown options and all filter behavior. */
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input,
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input::placeholder {
+        color: transparent !important;
+        caret-color: transparent !important;
+        text-shadow: none !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] input {
+        width: 1px !important;
+        min-width: 1px !important;
+        opacity: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+        color: #667085 !important;
+    }
+
+    /* Scrollbar polish */
+    section[data-testid="stSidebar"] ::-webkit-scrollbar {
+        width: 6px !important;
+    }
+
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-track {
+        background: transparent !important;
+    }
+
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+        background: #D0D5DD !important;
+        border-radius: 999px !important;
+    }
+
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb:hover {
+        background: #98A2B3 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
 
@@ -1768,7 +2239,7 @@ st.sidebar.markdown(
 )
 
 # Keep the dataset update status as the final sidebar panel.
-
+render_sidebar_last_updated_panel()
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
@@ -7318,7 +7789,18 @@ if tab_manual is not None:
 # EUSEE LANGFLOW CHATBOT
 # LangFlow-only brain: answers + plots + memory + filtered data
 # ============================================================
+# ============================================================
+# EUSEE LANGFLOW CHATBOT
+# Fully working compact lookup context + filtered data + plots
+# ============================================================
 
+import json
+import uuid
+import requests
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
@@ -7695,37 +8177,6 @@ def ask_langflow(user_question, lookup_context, dashboard_context, filter_summar
         })
 
 
-EUSEE_WEBSITE_REDIRECT_TEXT = (
-    "\n\n---\n"
-    "🌐 For a broader overview and additional qualitative insights, "
-    "please visit the EUSEE website at https://eusee.org"
-)
-
-
-def _append_eusee_website_redirect(answer: str, result: dict) -> str:
-    """Append the EUSEE website redirect only for dashboard-derived chatbot answers.
-
-    The redirect is shown when the LangFlow JSON confirms that the answer is
-    available in the supplied dashboard context and uses the active filters.
-    This avoids adding the link to greetings, configuration errors, or unrelated
-    responses.
-    """
-    answer = str(answer or "").strip()
-
-    dashboard_related = (
-        bool(result.get("available_in_context", False))
-        and bool(result.get("used_current_filters", False))
-    )
-
-    if not dashboard_related:
-        return answer
-
-    if "https://eusee.org" in answer:
-        return answer
-
-    return answer + EUSEE_WEBSITE_REDIRECT_TEXT
-
-
 def render_langflow_output(raw_answer, chart_instance_key=None):
     try:
         result = json.loads(raw_answer)
@@ -7733,7 +8184,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         st.markdown(str(raw_answer))
         return
 
-    answer = _append_eusee_website_redirect(result.get("answer", ""), result)
+    answer = result.get("answer", "")
     if answer:
         st.markdown(answer)
 
@@ -7870,166 +8321,173 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 
 
 # ============================================================
-# SAFE EUSEE AI COPILOT POPOVER
-# Opens/closes without rerunning and does not interfere with dashboard tabs/charts.
+# CLIENT-SIDE FLOATING EUSEE AI COPILOT DRAWER
+# Opens/closes without changing query params and without rerunning dashboard.
 # Only submitting a Copilot question triggers the normal Streamlit rerun.
 # ============================================================
 
+def inject_eusee_ai_drawer_shell():
+    """Render CSS + browser-side toggle logic for the floating Copilot drawer.
 
-def inject_eusee_ai_popover_css():
-    """Scoped styling for the native Streamlit Copilot popover.
-
-    Important fix:
-    Streamlit/BaseWeb uses the same `div[data-baseweb="popover"]` portal for
-    both `st.popover()` and select/multiselect dropdown menus. Therefore, broad
-    rules such as `div[data-baseweb="popover"] > div { width: 430px; ... }`
-    also resize sidebar multiselect dropdowns and make them appear outside the
-    sidebar/window.
-
-    This version scopes the drawer styling to popovers that contain Streamlit
-    content blocks and separately keeps select/multiselect dropdown menus small.
+    Why this approach:
+    - The previous query-parameter/dialog implementation opened with
+      `?eusee_copilot=1` and closed with `st.rerun()`, which forced the full
+      dashboard to reload.
+    - This drawer is always mounted but hidden by CSS.
+    - JavaScript only toggles a body class in the browser, so show/hide is instant.
     """
     st.markdown(
         """
         <style>
-        /* Keep footer space so the Copilot control never covers the fixed footer. */
-        .main .block-container {
-            padding-bottom: 7rem !important;
+        .eusee-ai-drawer-marker {
+            display: none !important;
         }
 
-        /* Right-side Copilot launcher only. */
-        div[data-testid="stPopover"] {
+        div[data-testid="stVerticalBlock"]:has(.eusee-ai-drawer-marker) {
             position: fixed !important;
-            right: 22px !important;
-            bottom: 82px !important;
-            z-index: 999998 !important;
-            width: auto !important;
-            max-width: calc(100vw - 44px) !important;
-        }
-
-        div[data-testid="stPopover"] > button {
-            border-radius: 999px !important;
-            min-height: 52px !important;
-            padding: 0 20px !important;
-            background: linear-gradient(135deg,#660094 0%,#008CAA 100%) !important;
-            color: #FFFFFF !important;
-            border: 1px solid rgba(255,255,255,.30) !important;
-            box-shadow: 0 16px 36px rgba(102,0,148,.28) !important;
-            font-weight: 950 !important;
-        }
-
-        div[data-testid="stPopover"] > button:hover {
-            transform: translateY(-1px) !important;
-            box-shadow: 0 18px 42px rgba(102,0,148,.34) !important;
-            color: #FFFFFF !important;
-        }
-
-        /* BaseWeb popovers are shared by st.popover and select/multiselect menus. */
-        div[data-baseweb="popover"] {
-            z-index: 999999 !important;
-        }
-
-        /* -------- SELECT / MULTISELECT DROPDOWN FIX --------
-           Keep dropdown lists compact. Do not force fixed/left positioning.
-           BaseWeb will keep the menu under the input. */
-        div[data-baseweb="popover"]:has([role="listbox"]) > div {
-            width: auto !important;
-            min-width: 0 !important;
-            max-width: 240px !important;
-            max-height: 280px !important;
-            overflow: visible !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-
-        div[data-baseweb="popover"] [role="listbox"] {
-            width: 220px !important;
-            min-width: 220px !important;
-            max-width: 220px !important;
-            max-height: 260px !important;
-            padding: 6px !important;
-            margin-top: 4px !important;
-            background: #FFFFFF !important;
-            border: 1px solid #E6E8EF !important;
-            border-radius: 12px !important;
-            box-shadow: 0 12px 28px rgba(16,24,40,.18) !important;
+            right: 24px !important;
+            top: 72px !important;
+            bottom: 86px !important;
+            width: 460px !important;
+            max-width: calc(100vw - 48px) !important;
+            height: calc(100vh - 158px) !important;
+            z-index: 2147483600 !important;
+            display: none !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
-        }
-
-        div[data-baseweb="popover"] [role="option"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-            padding: 8px 10px !important;
-            border-radius: 9px !important;
-            font-size: 11.5px !important;
-            font-weight: 750 !important;
-            line-height: 1.25 !important;
-            color: #344054 !important;
-            white-space: normal !important;
-            overflow-wrap: anywhere !important;
-        }
-
-        div[data-baseweb="popover"] [role="option"]:hover {
-            background: rgba(102,0,148,.07) !important;
-            color: #23152F !important;
-        }
-
-        div[data-baseweb="popover"] [role="option"][aria-selected="true"] {
-            background: #F4EAF8 !important;
-            color: #660094 !important;
-            font-weight: 900 !important;
-        }
-
-        /* -------- COPILOT DRAWER ONLY --------
-           Scope drawer styling to Streamlit popover content, but exclude listbox
-           popovers used by select/multiselect widgets. */
-        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div {
-            width: min(430px, calc(100vw - 32px)) !important;
-            max-height: min(78vh, 720px) !important;
-            overflow-y: auto !important;
             background: #FFFFFF !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
+            border: 1px solid #E6E8EF !important;
+            border-radius: 20px !important;
+            box-shadow: 0 24px 70px rgba(16,24,40,.22) !important;
+            padding: 0.9rem 1rem 1rem 1rem !important;
         }
 
-        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div > div,
-        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) [data-testid="stVerticalBlock"],
-        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) [data-testid="stElementContainer"] {
-            background: transparent !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
+        body.eusee-ai-copilot-open div[data-testid="stVerticalBlock"]:has(.eusee-ai-drawer-marker) {
+            display: block !important;
         }
 
-        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div > div {
-            padding: 0 !important;
-            margin: 0 !important;
+        body.eusee-ai-copilot-open::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 2147483500;
+            background: rgba(16,24,40,.08);
+            pointer-events: none;
+        }
+
+        .eusee-ai-drawer-header {
+            position: sticky;
+            top: -0.9rem;
+            z-index: 2;
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+            border-bottom: 1px solid #EEF0F4;
+            margin: -0.9rem -1rem 0.75rem -1rem;
+            padding: 0.85rem 1rem 0.75rem 1rem;
+            border-radius: 20px 20px 0 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .eusee-ai-drawer-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .eusee-ai-drawer-eyebrow {
+            font-size: 9px;
+            font-weight: 950;
+            color: #660094;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .eusee-ai-drawer-title {
+            margin-top: 4px;
+            font-size: 16px;
+            font-weight: 950;
+            color: #23152F;
+            line-height: 1.15;
+        }
+
+        .eusee-ai-drawer-note {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #667085;
+            line-height: 1.35;
+            max-width: 340px;
+        }
+
+        .eusee-ai-close-btn {
+            appearance: none;
+            border: 1px solid #E6E8EF;
+            background: #FFFFFF;
+            color: #344054;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1;
+            box-shadow: 0 4px 12px rgba(16,24,40,.06);
+        }
+
+        .eusee-ai-close-btn:hover {
+            background: #F8FAFC;
+            color: #660094;
+            border-color: #E7D4F1;
+        }
+
+        .eusee-ai-floating-btn {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 2147483647;
+            border-radius: 999px;
+            height: 54px;
+            padding: 0 22px;
+            background: #FFFFFF;
+            color: #660094;
+            font-weight: 950;
+            border: 1px solid #E7D4F1;
+            box-shadow: 0 14px 34px rgba(102,0,148,.22);
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .eusee-ai-floating-btn:hover {
+            background: #F8F1FC;
+        }
+
+        body.eusee-ai-copilot-open .eusee-ai-floating-btn {
+            display: none !important;
         }
 
         @media (max-width: 700px) {
-            div[data-testid="stPopover"] {
-                right: 14px !important;
-                bottom: 72px !important;
+            div[data-testid="stVerticalBlock"]:has(.eusee-ai-drawer-marker) {
+                right: 12px !important;
+                left: 12px !important;
+                top: 64px !important;
+                bottom: 84px !important;
+                width: auto !important;
+                max-width: none !important;
+                height: calc(100vh - 148px) !important;
+                border-radius: 18px !important;
             }
 
-            div[data-testid="stPopover"] > button {
-                min-height: 48px !important;
-                padding: 0 15px !important;
-                font-size: 12px !important;
-            }
-
-            div[data-baseweb="popover"] [role="listbox"] {
-                width: min(220px, calc(100vw - 32px)) !important;
-                min-width: min(220px, calc(100vw - 32px)) !important;
-                max-width: min(220px, calc(100vw - 32px)) !important;
+            .eusee-ai-floating-btn {
+                right: 16px;
+                bottom: 18px;
+                height: 50px;
+                padding: 0 18px;
+                font-size: 13px;
             }
         }
         </style>
@@ -8037,123 +8495,174 @@ def inject_eusee_ai_popover_css():
         unsafe_allow_html=True,
     )
 
-def _render_eusee_ai_copilot_body():
-    st.markdown(
+    components.html(
         """
-        <div style="
-            position:sticky;
-            top:0;
-            z-index:2;
-            background:#FFFFFF;
-            border-bottom:1px solid #EEF0F4;
-            padding:14px 14px 12px 14px;
-            margin:0;
-            font-family:Arial,sans-serif;
-        ">
-            <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
-                Dashboard assistant
-            </div>
-            <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
-                🤖 EUSEE AI Copilot
-            </div>
-            <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
-                Ask about the current filtered dashboard data. Answers and charts use the active dashboard context.
-            </div>
-        </div>
+        <script>
+        (function () {
+            const parentDoc = window.parent.document;
+            const parentWin = window.parent;
+            const storageKey = "eusee_ai_copilot_open";
+
+            function setOpen(isOpen) {
+                parentDoc.body.classList.toggle("eusee-ai-copilot-open", isOpen);
+                try {
+                    parentWin.localStorage.setItem(storageKey, isOpen ? "1" : "0");
+                } catch (e) {}
+            }
+
+            function getStoredOpen() {
+                try {
+                    return parentWin.localStorage.getItem(storageKey) === "1";
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function ensureFloatingButton() {
+                let btn = parentDoc.getElementById("eusee-ai-floating-toggle");
+                if (!btn) {
+                    btn = parentDoc.createElement("button");
+                    btn.id = "eusee-ai-floating-toggle";
+                    btn.type = "button";
+                    btn.className = "eusee-ai-floating-btn";
+                    btn.innerHTML = "💬 <span>EUSEE Copilot</span>";
+                    parentDoc.body.appendChild(btn);
+                }
+
+                btn.onclick = function () {
+                    setOpen(true);
+                };
+            }
+
+            function bindCloseButtons() {
+                parentDoc.querySelectorAll(".eusee-ai-close-btn").forEach(function (btn) {
+                    if (btn.dataset.bound === "1") return;
+                    btn.dataset.bound = "1";
+                    btn.addEventListener("click", function () {
+                        setOpen(false);
+                    });
+                });
+            }
+
+            ensureFloatingButton();
+            bindCloseButtons();
+            setOpen(getStoredOpen());
+
+            const observer = new MutationObserver(function () {
+                ensureFloatingButton();
+                bindCloseButtons();
+                setOpen(getStoredOpen());
+            });
+
+            observer.observe(parentDoc.body, { childList: true, subtree: true });
+        })();
+        </script>
         """,
-        unsafe_allow_html=True,
+        height=0,
+        width=0,
     )
 
-    if not has_permission("use_ai_copilot"):
-        st.info("AI Copilot is not enabled for your access level.")
-        return
 
-    if st.button("Clear Chat Memory", use_container_width=True, key="eusee_ai_clear_chat_memory"):
-        st.session_state.eusee_chat_messages = []
-        st.rerun()
+def render_eusee_ai_copilot_drawer():
+    inject_eusee_ai_drawer_shell()
 
-    for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
-        if not isinstance(msg, dict):
-            continue
+    with st.container():
+        st.markdown('<span class="eusee-ai-drawer-marker"></span>', unsafe_allow_html=True)
 
-        role = msg.get("role", "assistant")
-        content = msg.get("content", "")
-
-        with st.chat_message(role):
-            if role == "assistant":
-                chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
-                render_langflow_output(content, chart_instance_key=chart_key)
-            else:
-                st.markdown(content)
-
-    with st.form("eusee_ai_popover_form", clear_on_submit=True):
-        user_question = st.text_area(
-            "Ask about the current dashboard data",
-            placeholder="Example: summarise the negative alerts in Africa",
-            height=90,
-            label_visibility="collapsed",
-            key="eusee_ai_popover_question",
+        st.markdown(
+            """
+            <div class="eusee-ai-drawer-header">
+                <div class="eusee-ai-drawer-top">
+                    <div>
+                        <div class="eusee-ai-drawer-eyebrow">Dashboard assistant</div>
+                        <div class="eusee-ai-drawer-title">🤖 EUSEE AI Copilot</div>
+                        <div class="eusee-ai-drawer-note">
+                            Ask about the current filtered dashboard data. Answers and charts are generated using the active dashboard context.
+                        </div>
+                    </div>
+                    <button type="button" class="eusee-ai-close-btn" title="Close Copilot">×</button>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-        submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
+        if not has_permission("use_ai_copilot"):
+            st.info("AI Copilot is not enabled for your access level.")
+            return
 
-    if submitted and user_question.strip():
-        user_question = user_question.strip()
+        if st.button("Clear Chat Memory", use_container_width=True, key="eusee_ai_clear_chat_memory"):
+            st.session_state.eusee_chat_messages = []
+            st.rerun()
 
-        st.session_state.eusee_chat_messages.append({
-            "id": uuid.uuid4().hex,
-            "role": "user",
-            "content": user_question,
-        })
+        for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
+            if not isinstance(msg, dict):
+                continue
 
-        active_df = st.session_state.get("eusee_active_filtered_df", None)
-        if active_df is None:
-            active_df = filtered_global.copy()
+            role = msg.get("role", "assistant")
+            content = msg.get("content", "")
 
-        lookup_context = build_lookup_context(active_df, top_n=15)
-        dashboard_context = build_dashboard_context(active_df, top_n=10)
-        filter_summary = build_filter_summary(active_df)
+            with st.chat_message(role):
+                if role == "assistant":
+                    chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
+                    render_langflow_output(content, chart_instance_key=chart_key)
+                else:
+                    st.markdown(content)
 
-        # Keep debug collapsed and available only during testing.
-        with st.expander("DEBUG Copilot context", expanded=False):
-            st.caption("If the answer is missing here, the Python context builder is the problem.")
-            try:
-                st.json(json.loads(lookup_context))
-            except Exception:
-                st.write(lookup_context[:3000])
-
-        with st.spinner("Asking LangFlow..."):
-            answer = ask_langflow(
-                user_question=user_question,
-                lookup_context=lookup_context,
-                dashboard_context=dashboard_context,
-                filter_summary=filter_summary,
+        with st.form("eusee_ai_drawer_form", clear_on_submit=True):
+            user_question = st.text_area(
+                "Ask about the current dashboard data",
+                placeholder="Example: summarise the negative alerts in Africa",
+                height=90,
+                label_visibility="collapsed",
+                key="eusee_ai_drawer_question",
             )
 
-        st.session_state.eusee_chat_messages.append({
-            "id": uuid.uuid4().hex,
-            "role": "assistant",
-            "content": answer,
-        })
+            submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
 
-        st.rerun()
+        if submitted and user_question.strip():
+            user_question = user_question.strip()
+
+            st.session_state.eusee_chat_messages.append({
+                "id": uuid.uuid4().hex,
+                "role": "user",
+                "content": user_question,
+            })
+
+            active_df = st.session_state.get("eusee_active_filtered_df", None)
+            if active_df is None:
+                active_df = filtered_global.copy()
+
+            lookup_context = build_lookup_context(active_df, top_n=15)
+            dashboard_context = build_dashboard_context(active_df, top_n=10)
+            filter_summary = build_filter_summary(active_df)
+
+            # Keep debug collapsed and available only during testing.
+            with st.expander("DEBUG Copilot context", expanded=False):
+                st.caption("If the answer is missing here, the Python context builder is the problem.")
+                try:
+                    st.json(json.loads(lookup_context))
+                except Exception:
+                    st.write(lookup_context[:3000])
+
+            with st.spinner("Asking LangFlow..."):
+                answer = ask_langflow(
+                    user_question=user_question,
+                    lookup_context=lookup_context,
+                    dashboard_context=dashboard_context,
+                    filter_summary=filter_summary,
+                )
+
+            st.session_state.eusee_chat_messages.append({
+                "id": uuid.uuid4().hex,
+                "role": "assistant",
+                "content": answer,
+            })
+
+            st.rerun()
 
 
-def render_eusee_ai_copilot_popover():
-    """Render EUSEE Copilot only when enabled by Admin permissions."""
-
-    if not has_permission("use_ai_copilot"):
-        return
-
-    inject_eusee_ai_popover_css()
-
-    try:
-        with st.popover("💬 EUSEE Copilot", use_container_width=False):
-            _render_eusee_ai_copilot_body()
-    except Exception:
-        with st.expander("💬 EUSEE Copilot", expanded=False):
-            _render_eusee_ai_copilot_body()
-render_eusee_ai_copilot_popover()
+render_eusee_ai_copilot_drawer()
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
