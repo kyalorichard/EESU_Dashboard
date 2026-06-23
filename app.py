@@ -1782,7 +1782,7 @@ st.sidebar.markdown(
 )
 
 # Keep the dataset update status as the final sidebar panel.
-render_sidebar_last_updated_panel()
+
 
 # ---------------- FILTER DATA ----------------
 def contains_any(cell_value, selected_values):
