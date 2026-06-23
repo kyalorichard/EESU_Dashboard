@@ -21,6 +21,8 @@ import re
 import requests
 
 import uuid
+import plotly.express as px
+
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
@@ -7316,18 +7318,7 @@ if tab_manual is not None:
 # EUSEE LANGFLOW CHATBOT
 # LangFlow-only brain: answers + plots + memory + filtered data
 # ============================================================
-# ============================================================
-# EUSEE LANGFLOW CHATBOT
-# Fully working compact lookup context + filtered data + plots
-# ============================================================
 
-import json
-import uuid
-import requests
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import streamlit as st
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
