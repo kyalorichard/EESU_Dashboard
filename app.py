@@ -1279,15 +1279,57 @@ def inject_professional_sidebar_filter_css():
         color: #660094 !important;
     }
 
-    div[role="listbox"] {
-        border-radius: 13px !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
-        background: #FFFFFF !important;
+    /* Multiselect dropdown menu: directly below input, clean width */
+    div[data-baseweb="popover"] {
+        z-index: 999999 !important;
+    }
 
-        max-width: 100% !important;
-        overflow-x: hidden !important;
+    div[data-baseweb="popover"] > div {
+        margin-top: 4px !important;
+        border-radius: 14px !important;
+        overflow: hidden !important;
+    }
+
+    div[role="listbox"] {
+        width: 100% !important;
+        min-width: 260px !important;
+        max-width: 360px !important;
+        max-height: 260px !important;
+
+        margin-top: 4px !important;
+        padding: 6px !important;
+
+        background: #FFFFFF !important;
+        border: 1px solid #E6E8EF !important;
+        border-radius: 14px !important;
+        box-shadow: 0 14px 32px rgba(16,24,40,.16) !important;
+
         overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    div[role="option"] {
+        min-height: 34px !important;
+        padding: 8px 10px !important;
+        border-radius: 10px !important;
+
+        font-size: 12px !important;
+        font-weight: 750 !important;
+        color: #344054 !important;
+
+        white-space: normal !important;
+        line-height: 1.25 !important;
+    }
+
+    div[role="option"]:hover {
+        background: rgba(102,0,148,.07) !important;
+        color: #23152F !important;
+    }
+
+    div[role="option"][aria-selected="true"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        font-weight: 900 !important;
     }
 
     div[role="option"] {
@@ -1302,11 +1344,6 @@ def inject_professional_sidebar_filter_css():
         color: #23152F !important;
     }
 
-    div[aria-selected="true"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        font-weight: 900 !important;
-    }
 
     .stMultiSelect label, .stSelectbox label {
         font-size: 10.8px !important;
@@ -1479,6 +1516,8 @@ def inject_professional_sidebar_filter_css():
     </style>
     """, unsafe_allow_html=True)
 
+
+
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
@@ -1610,7 +1649,7 @@ render_sidebar_access_settings_profile()
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
-
+# Sidebar compact/responsive override removed to restore the previous sidebar layout.
 
 regions_labels = [
     "Africa",
