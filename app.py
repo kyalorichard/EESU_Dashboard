@@ -1369,8 +1369,11 @@ def inject_professional_sidebar_filter_css():
         border-radius: 13px !important;
         border: 1px solid #E6E8EF !important;
         box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
-        overflow: hidden !important;
         background: #FFFFFF !important;
+
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
     }
 
     div[role="option"] {
