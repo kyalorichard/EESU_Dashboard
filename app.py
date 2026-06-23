@@ -997,79 +997,60 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 
 
 # ---------------- MULTISELECT WITH SELECT ALL ----------------
+# ---------------- SIMPLE DROPDOWN WITH ALL OPTION ----------------
 def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     """
-    Professional multiselect helper with Select all behavior.
+    Backward-compatible replacement for old multiselect.
 
-    Fixes dependent-filter behavior by pruning stale selections whenever the
-    available option list changes. This is important for the Overview Data
-    Preview table because Country depends on Region, and Month depends on Year.
+    It uses a normal Streamlit selectbox dropdown instead of multiselect popup.
+    Returns a list so your existing filtering code can continue working.
     """
     target = container if container is not None else (st.sidebar if sidebar else st)
 
-    # Clean options, remove blanks, and de-duplicate by string representation.
     clean_options = []
     seen = set()
+
     for x in list(options):
         if pd.isna(x):
             continue
+
         val = x.item() if hasattr(x, "item") else x
+
         if isinstance(val, str):
             val = val.strip()
             if val == "" or val.lower() in ["nan", "none"]:
                 continue
+
         sig = str(val)
         if sig not in seen:
             clean_options.append(val)
             seen.add(sig)
 
-    options = sorted(clean_options, key=lambda v: str(v).lower())
-    options_with_all = ["Select all"] + options
-    widget_key = f"{session_key}_widget"
-    options_signature_key = f"{session_key}_options_signature"
-    options_signature = "||".join(map(str, options))
-    valid_values = set(map(str, options))
+    clean_options = sorted(clean_options, key=lambda v: str(v).lower())
 
-    # Prune stale internal selections when upstream filters change the options.
-    current_internal = st.session_state.get(session_key, options.copy())
-    current_internal = [x for x in current_internal if str(x) in valid_values]
+    dropdown_options = ["All"] + clean_options
+    widget_key = f"{session_key}_dropdown"
 
-    # Empty means all currently available values are active.
-    if not current_internal:
-        current_internal = options.copy()
+    current_value = st.session_state.get(widget_key, "All")
 
-    st.session_state[session_key] = current_internal
+    if current_value not in dropdown_options:
+        current_value = "All"
 
-    # Keep widget state synchronized with the current option universe. Without
-    # this, a country/month chosen under a previous Region/Year can remain in
-    # session_state and make the Overview table appear incorrectly filtered.
-    options_changed = st.session_state.get(options_signature_key) != options_signature
-    if options_changed or widget_key not in st.session_state:
-        if set(map(str, current_internal)) == valid_values:
-            st.session_state[widget_key] = []
-        else:
-            st.session_state[widget_key] = [x for x in current_internal if str(x) in valid_values]
-        st.session_state[options_signature_key] = options_signature
-    else:
-        st.session_state[widget_key] = [x for x in st.session_state.get(widget_key, []) if x == "Select all" or str(x) in valid_values]
-
-    selected = target.multiselect(
+    selected = target.selectbox(
         label,
-        options_with_all,
+        dropdown_options,
+        index=dropdown_options.index(current_value),
         key=widget_key,
-        placeholder="",
-        help="Leave empty or choose Select all to include all available options.",
+        help="Choose one option or keep All to include all available records.",
     )
 
-    if "Select all" in selected or len(selected) == 0:
-        st.session_state[session_key] = options.copy()
-        return options
+    if selected == "All":
+        st.session_state[session_key] = clean_options
+        return clean_options
 
-    cleaned = [x for x in selected if x != "Select all" and str(x) in valid_values]
-    if not cleaned:
-        cleaned = options.copy()
-    st.session_state[session_key] = cleaned
-    return cleaned
+    st.session_state[session_key] = [selected]
+    return [selected]
+
 
 def inject_professional_sidebar_filter_css():
     """Simple sidebar filter styling without custom popup/listbox override."""
@@ -1400,6 +1381,8 @@ def inject_professional_sidebar_filter_css():
 
     </style>
     """, unsafe_allow_html=True)
+
+
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
