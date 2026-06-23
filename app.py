@@ -7716,8 +7716,8 @@ def inject_eusee_ai_popover_css():
 
         /* Chat messages */
         div[data-testid="stChatMessage"] {
-            width: 100% !important;
-            max-width: 100% !important;
+            width: 80% !important;
+            max-width: 80% !important;
         }
 
         /* Mobile */
