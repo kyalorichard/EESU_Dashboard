@@ -1285,66 +1285,7 @@ def inject_professional_sidebar_filter_css():
        Avoid broad listbox rules that let the menu expand across the page.
        The :has() selector limits this styling to select/multiselect dropdown popovers only.
     */
-    div[data-baseweb="popover"]:has(div[role="listbox"]) {
-        z-index: 999999 !important;
-        max-width: 232px !important;
-        min-width: 0 !important;
-    }
-
-    div[data-baseweb="popover"]:has(div[role="listbox"]) > div {
-        max-width: 232px !important;
-        min-width: 0 !important;
-        width: 232px !important;
-        margin-top: 4px !important;
-        border-radius: 14px !important;
-        overflow: hidden !important;
-    }
-
-    div[data-baseweb="popover"] div[role="listbox"] {
-        width: 232px !important;
-        min-width: 0 !important;
-        max-width: 232px !important;
-        max-height: 250px !important;
-
-        padding: 6px !important;
-        border-radius: 14px !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 14px 30px rgba(16,24,40,.16) !important;
-        background: #FFFFFF !important;
-
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        box-sizing: border-box !important;
-    }
-
-    div[data-baseweb="popover"] div[role="option"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-height: 34px !important;
-        padding: 8px 10px !important;
-        border-radius: 10px !important;
-        box-sizing: border-box !important;
-
-        font-size: 11.5px !important;
-        line-height: 1.25 !important;
-        color: #344054 !important;
-        font-weight: 750 !important;
-
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-        word-break: normal !important;
-    }
-
-    div[data-baseweb="popover"] div[role="option"]:hover {
-        background: rgba(102,0,148,.065) !important;
-        color: #23152F !important;
-    }
-
-    div[data-baseweb="popover"] div[role="option"][aria-selected="true"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        font-weight: 900 !important;
-    }
+    
 
     .stMultiSelect label, .stSelectbox label {
         font-size: 10.8px !important;
@@ -7945,12 +7886,17 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 
 
 def inject_eusee_ai_popover_css():
-    """Small visual polish for the native Streamlit popover.
+    """Scoped styling for the native Streamlit Copilot popover.
 
-    Important:
-    - Do NOT use broad `:has(.marker)` selectors on Streamlit layout blocks.
-      Those can accidentally match parent dashboard containers and hide tabs/charts.
-    - Keep this CSS limited to popover/button appearance only.
+    Important fix:
+    Streamlit/BaseWeb uses the same `div[data-baseweb="popover"]` portal for
+    both `st.popover()` and select/multiselect dropdown menus. Therefore, broad
+    rules such as `div[data-baseweb="popover"] > div { width: 430px; ... }`
+    also resize sidebar multiselect dropdowns and make them appear outside the
+    sidebar/window.
+
+    This version scopes the drawer styling to popovers that contain Streamlit
+    content blocks and separately keeps select/multiselect dropdown menus small.
     """
     st.markdown(
         """
@@ -7960,9 +7906,7 @@ def inject_eusee_ai_popover_css():
             padding-bottom: 7rem !important;
         }
 
-        /* Right-side Copilot launcher.
-           This targets only the native Streamlit popover container and does not
-           touch tab/chart parent blocks, so it will not hide dashboard content. */
+        /* Right-side Copilot launcher only. */
         div[data-testid="stPopover"] {
             position: fixed !important;
             right: 22px !important;
@@ -7989,48 +7933,92 @@ def inject_eusee_ai_popover_css():
             color: #FFFFFF !important;
         }
 
-        /* Popover body: make the opened Copilot feel like a compact right drawer. */
+        /* BaseWeb popovers are shared by st.popover and select/multiselect menus. */
         div[data-baseweb="popover"] {
             z-index: 999999 !important;
         }
 
-        /* Remove ALL outer panel styling */
-        /* Keep Streamlit popover positioning */
-        div[data-baseweb="popover"] > div {
+        /* -------- SELECT / MULTISELECT DROPDOWN FIX --------
+           Keep dropdown lists compact. Do not force fixed/left positioning.
+           BaseWeb will keep the menu under the input. */
+        div[data-baseweb="popover"]:has([role="listbox"]) > div {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: 240px !important;
+            max-height: 280px !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        div[data-baseweb="popover"] [role="listbox"] {
+            width: 220px !important;
+            min-width: 220px !important;
+            max-width: 220px !important;
+            max-height: 260px !important;
+            padding: 6px !important;
+            margin-top: 4px !important;
+            background: #FFFFFF !important;
+            border: 1px solid #E6E8EF !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 28px rgba(16,24,40,.18) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+
+        div[data-baseweb="popover"] [role="option"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 8px 10px !important;
+            border-radius: 9px !important;
+            font-size: 11.5px !important;
+            font-weight: 750 !important;
+            line-height: 1.25 !important;
+            color: #344054 !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+        }
+
+        div[data-baseweb="popover"] [role="option"]:hover {
+            background: rgba(102,0,148,.07) !important;
+            color: #23152F !important;
+        }
+
+        div[data-baseweb="popover"] [role="option"][aria-selected="true"] {
+            background: #F4EAF8 !important;
+            color: #660094 !important;
+            font-weight: 900 !important;
+        }
+
+        /* -------- COPILOT DRAWER ONLY --------
+           Scope drawer styling to Streamlit popover content, but exclude listbox
+           popovers used by select/multiselect widgets. */
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div {
             width: min(430px, calc(100vw - 32px)) !important;
             max-height: min(78vh, 720px) !important;
             overflow-y: auto !important;
-
             background: #FFFFFF !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
-
             padding: 0 !important;
             margin: 0 !important;
         }
 
-        /* Remove inner wrapper card */
-        div[data-baseweb="popover"] > div > div,
-        div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
-        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div > div,
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) [data-testid="stVerticalBlock"],
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) [data-testid="stElementContainer"] {
             background: transparent !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
         }
 
-        /* Remove Streamlit/BaseWeb wrapper cards */
-        div[data-baseweb="popover"] > div > div,
-        div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
-        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: transparent !important;
-        }
-
-        div[data-baseweb="popover"] > div > div {
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div > div {
             padding: 0 !important;
             margin: 0 !important;
         }
@@ -8046,12 +8034,17 @@ def inject_eusee_ai_popover_css():
                 padding: 0 15px !important;
                 font-size: 12px !important;
             }
+
+            div[data-baseweb="popover"] [role="listbox"] {
+                width: min(220px, calc(100vw - 32px)) !important;
+                min-width: min(220px, calc(100vw - 32px)) !important;
+                max-width: min(220px, calc(100vw - 32px)) !important;
+            }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 def _render_eusee_ai_copilot_body():
     st.markdown(
