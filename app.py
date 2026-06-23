@@ -7683,10 +7683,16 @@ def inject_eusee_ai_popover_css():
             z-index: 999999 !important;
         }
 
+        div[data-baseweb="popover"],
+        div[data-baseweb="popover"] > div {
+            width: 400px !important;
+            max-width: calc(100vw - 32px) !important;
+            min-width: 400px !important;
+        }
+
         /* Remove ALL outer panel styling */
         /* Keep Streamlit popover positioning */
         div[data-baseweb="popover"] > div {
-            width: 300px !important;
             width: min(560px, calc(100vw - 32px)) !important;
             max-height: min(78vh, 720px) !important;
             overflow-y: auto !important;
