@@ -7789,18 +7789,7 @@ if tab_manual is not None:
 # EUSEE LANGFLOW CHATBOT
 # LangFlow-only brain: answers + plots + memory + filtered data
 # ============================================================
-# ============================================================
-# EUSEE LANGFLOW CHATBOT
-# Fully working compact lookup context + filtered data + plots
-# ============================================================
 
-import json
-import uuid
-import requests
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import streamlit as st
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
@@ -8177,6 +8166,37 @@ def ask_langflow(user_question, lookup_context, dashboard_context, filter_summar
         })
 
 
+EUSEE_WEBSITE_REDIRECT_TEXT = (
+    "\n\n---\n"
+    "🌐 For a broader overview and additional qualitative insights, "
+    "please visit the EUSEE website at https://eusee.org"
+)
+
+
+def _append_eusee_website_redirect(answer: str, result: dict) -> str:
+    """Append the EUSEE website redirect only for dashboard-derived chatbot answers.
+
+    The redirect is shown when the LangFlow JSON confirms that the answer is
+    available in the supplied dashboard context and uses the active filters.
+    This avoids adding the link to greetings, configuration errors, or unrelated
+    responses.
+    """
+    answer = str(answer or "").strip()
+
+    dashboard_related = (
+        bool(result.get("available_in_context", False))
+        and bool(result.get("used_current_filters", False))
+    )
+
+    if not dashboard_related:
+        return answer
+
+    if "https://eusee.org" in answer:
+        return answer
+
+    return answer + EUSEE_WEBSITE_REDIRECT_TEXT
+
+
 def render_langflow_output(raw_answer, chart_instance_key=None):
     try:
         result = json.loads(raw_answer)
@@ -8184,7 +8204,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         st.markdown(str(raw_answer))
         return
 
-    answer = result.get("answer", "")
+    answer = _append_eusee_website_redirect(result.get("answer", ""), result)
     if answer:
         st.markdown(answer)
 
@@ -8319,104 +8339,231 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         st.warning(f"Chart could not be rendered: {e}")
         st.json(chart)
 
-def is_copilot_open():
-    return st.query_params.get("eusee_copilot") == "1"
+
+# ============================================================
+# SAFE EUSEE AI COPILOT POPOVER
+# Opens/closes without rerunning and does not interfere with dashboard tabs/charts.
+# Only submitting a Copilot question triggers the normal Streamlit rerun.
+# ============================================================
 
 
-def close_copilot():
-    if "eusee_copilot" in st.query_params:
-        del st.query_params["eusee_copilot"]
-    st.rerun()
+def inject_eusee_ai_popover_css():
+    """Scoped styling for the native Streamlit Copilot popover.
 
+    Important fix:
+    Streamlit/BaseWeb uses the same `div[data-baseweb="popover"]` portal for
+    both `st.popover()` and select/multiselect dropdown menus. Therefore, broad
+    rules such as `div[data-baseweb="popover"] > div { width: 430px; ... }`
+    also resize sidebar multiselect dropdowns and make them appear outside the
+    sidebar/window.
 
-st.markdown(
+    This version scopes the drawer styling to popovers that contain Streamlit
+    content blocks and separately keeps select/multiselect dropdown menus small.
     """
-    <style>
-    a.eusee-ai-floating-btn {
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        z-index: 2147483647;
-        border-radius: 999px;
-        height: 52px;
-        padding: 0 22px;
-        background: #FFFFFF;
-        color: #660094 !important;
-        font-weight: 900;
-        border: 1px solid #E7D4F1;
-        box-shadow: 0 14px 34px rgba(102,0,148,.22);
-        cursor: pointer;
-        font-family: Arial, sans-serif;
-        font-size: 15px;
-        text-decoration: none !important;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
+    st.markdown(
+        """
+        <style>
+        /* Keep footer space so the Copilot control never covers the fixed footer. */
+        .main .block-container {
+            padding-bottom: 7rem !important;
+        }
 
-    a.eusee-ai-floating-btn:hover {
-        background: #F8F1FC;
-        color: #660094 !important;
-        text-decoration: none !important;
-    }
+        /* Right-side Copilot launcher only. */
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            right: 22px !important;
+            bottom: 82px !important;
+            z-index: 999998 !important;
+            width: auto !important;
+            max-width: calc(100vw - 44px) !important;
+        }
 
-    div[data-testid="stDialog"] div[role="dialog"] {
-        position: fixed !important;
-        right: 24px !important;
-        top: 72px !important;
-        bottom: 86px !important;
-        width: 460px !important;
-        max-width: calc(100vw - 48px) !important;
-        height: calc(100vh - 158px) !important;
-        margin: 0 !important;
-        border-radius: 18px !important;
-        overflow-y: auto !important;
-    }
+        div[data-testid="stPopover"] > button {
+            border-radius: 999px !important;
+            min-height: 52px !important;
+            padding: 0 20px !important;
+            background: linear-gradient(135deg,#660094 0%,#008CAA 100%) !important;
+            color: #FFFFFF !important;
+            border: 1px solid rgba(255,255,255,.30) !important;
+            box-shadow: 0 16px 36px rgba(102,0,148,.28) !important;
+            font-weight: 950 !important;
+        }
 
-    div[data-testid="stDialog"] {
-        background: rgba(0,0,0,0.08) !important;
-    }
-    </style>
+        div[data-testid="stPopover"] > button:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 18px 42px rgba(102,0,148,.34) !important;
+            color: #FFFFFF !important;
+        }
 
-    <a class="eusee-ai-floating-btn" href="?eusee_copilot=1" target="_self">
-        💬 EUSEE Copilot
-    </a>
-    """,
-    unsafe_allow_html=True,
-)
+        /* BaseWeb popovers are shared by st.popover and select/multiselect menus. */
+        div[data-baseweb="popover"] {
+            z-index: 999999 !important;
+        }
 
+        /* -------- SELECT / MULTISELECT DROPDOWN FIX --------
+           Keep dropdown lists compact. Do not force fixed/left positioning.
+           BaseWeb will keep the menu under the input. */
+        div[data-baseweb="popover"]:has([role="listbox"]) > div {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: 240px !important;
+            max-height: 280px !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
 
-@st.dialog("🤖 EUSEE AI Copilot", width="large")
-def eusee_ai_dialog():
-    st.caption("Ask about the current filtered dashboard data. Answers and charts are generated by LangFlow.")
+        div[data-baseweb="popover"] [role="listbox"] {
+            width: 220px !important;
+            min-width: 220px !important;
+            max-width: 220px !important;
+            max-height: 260px !important;
+            padding: 6px !important;
+            margin-top: 4px !important;
+            background: #FFFFFF !important;
+            border: 1px solid #E6E8EF !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 28px rgba(16,24,40,.18) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
 
-    if st.button("Close Copilot", use_container_width=True):
-        close_copilot()
+        div[data-baseweb="popover"] [role="option"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 8px 10px !important;
+            border-radius: 9px !important;
+            font-size: 11.5px !important;
+            font-weight: 750 !important;
+            line-height: 1.25 !important;
+            color: #344054 !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+        }
+
+        div[data-baseweb="popover"] [role="option"]:hover {
+            background: rgba(102,0,148,.07) !important;
+            color: #23152F !important;
+        }
+
+        div[data-baseweb="popover"] [role="option"][aria-selected="true"] {
+            background: #F4EAF8 !important;
+            color: #660094 !important;
+            font-weight: 900 !important;
+        }
+
+        /* -------- COPILOT DRAWER ONLY --------
+           Scope drawer styling to Streamlit popover content, but exclude listbox
+           popovers used by select/multiselect widgets. */
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div {
+            width: min(430px, calc(100vw - 32px)) !important;
+            max-height: min(78vh, 720px) !important;
+            overflow-y: auto !important;
+            background: #FFFFFF !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div > div,
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) [data-testid="stVerticalBlock"],
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) [data-testid="stElementContainer"] {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        div[data-baseweb="popover"]:has([data-testid="stVerticalBlock"]):not(:has([role="listbox"])) > div > div {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        @media (max-width: 700px) {
+            div[data-testid="stPopover"] {
+                right: 14px !important;
+                bottom: 72px !important;
+            }
+
+            div[data-testid="stPopover"] > button {
+                min-height: 48px !important;
+                padding: 0 15px !important;
+                font-size: 12px !important;
+            }
+
+            div[data-baseweb="popover"] [role="listbox"] {
+                width: min(220px, calc(100vw - 32px)) !important;
+                min-width: min(220px, calc(100vw - 32px)) !important;
+                max-width: min(220px, calc(100vw - 32px)) !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def _render_eusee_ai_copilot_body():
+    st.markdown(
+        """
+        <div style="
+            position:sticky;
+            top:0;
+            z-index:2;
+            background:#FFFFFF;
+            border-bottom:1px solid #EEF0F4;
+            padding:14px 14px 12px 14px;
+            margin:0;
+            font-family:Arial,sans-serif;
+        ">
+            <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
+                Dashboard assistant
+            </div>
+            <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
+                🤖 EUSEE AI Copilot
+            </div>
+            <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
+                Ask about the current filtered dashboard data. Answers and charts use the active dashboard context.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if not has_permission("use_ai_copilot"):
         st.info("AI Copilot is not enabled for your access level.")
         return
 
-    if st.button("Clear Chat Memory", use_container_width=True):
+    if st.button("Clear Chat Memory", use_container_width=True, key="eusee_ai_clear_chat_memory"):
         st.session_state.eusee_chat_messages = []
         st.rerun()
 
-    for msg in st.session_state.eusee_chat_messages[-12:]:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
-                render_langflow_output(
-                    msg["content"],
-                    chart_instance_key=f"{i}_{msg.get('id', '')}"
-                )                
-            else:
-                st.markdown(msg["content"])
+    for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
+        if not isinstance(msg, dict):
+            continue
 
-    with st.form("eusee_ai_dialog_form", clear_on_submit=True):
+        role = msg.get("role", "assistant")
+        content = msg.get("content", "")
+
+        with st.chat_message(role):
+            if role == "assistant":
+                chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
+                render_langflow_output(content, chart_instance_key=chart_key)
+            else:
+                st.markdown(content)
+
+    with st.form("eusee_ai_popover_form", clear_on_submit=True):
         user_question = st.text_area(
             "Ask about the current dashboard data",
             placeholder="Example: summarise the negative alerts in Africa",
             height=90,
             label_visibility="collapsed",
+            key="eusee_ai_popover_question",
         )
 
         submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
@@ -8438,7 +8585,7 @@ def eusee_ai_dialog():
         dashboard_context = build_dashboard_context(active_df, top_n=10)
         filter_summary = build_filter_summary(active_df)
 
-        # TEMP DEBUG: enable only while testing.
+        # Keep debug collapsed and available only during testing.
         with st.expander("DEBUG Copilot context", expanded=False):
             st.caption("If the answer is missing here, the Python context builder is the problem.")
             try:
@@ -8455,7 +8602,7 @@ def eusee_ai_dialog():
             )
 
         st.session_state.eusee_chat_messages.append({
-             "id": uuid.uuid4().hex,
+            "id": uuid.uuid4().hex,
             "role": "assistant",
             "content": answer,
         })
@@ -8463,8 +8610,22 @@ def eusee_ai_dialog():
         st.rerun()
 
 
-if is_copilot_open():
-    eusee_ai_dialog()
+def render_eusee_ai_copilot_popover():
+    """Render EUSEE Copilot only when enabled by Admin permissions."""
+
+    if not has_permission("use_ai_copilot"):
+        return
+
+    inject_eusee_ai_popover_css()
+
+    try:
+        with st.popover("💬 EUSEE Copilot", use_container_width=False):
+            _render_eusee_ai_copilot_body()
+    except Exception:
+        with st.expander("💬 EUSEE Copilot", expanded=False):
+            _render_eusee_ai_copilot_body()
+render_eusee_ai_copilot_popover()
+
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
 
@@ -8517,4 +8678,3 @@ st.markdown(f"""
     <div class="eusee-fixed-footer-copy">© 2025 EU SEE Dashboard. All rights reserved.</div>
 </div>
 """, unsafe_allow_html=True)
-
