@@ -1072,7 +1072,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     return cleaned
 
 def inject_professional_sidebar_filter_css():
-    """Additional styling for the upgraded grouped sidebar filter experience."""
+    """Simple sidebar filter styling without custom popup/listbox override."""
     st.markdown("""
     <style>
 
@@ -1084,7 +1084,6 @@ def inject_professional_sidebar_filter_css():
         box-shadow: 0 6px 16px rgba(16,24,40,.045);
         font-family: Arial, sans-serif;
     }
-
 
     .sidebar-access-shell {
         margin: 12px 0 10px 0;
@@ -1202,24 +1201,6 @@ def inject_professional_sidebar_filter_css():
         font-weight: 650;
     }
 
-    .sidebar-access-center {
-        margin-bottom: 8px;
-    }
-
-    .sidebar-profile-card-merged {
-        margin-top: 10px;
-        padding: 8px 9px;
-        background: rgba(255,255,255,.92);
-        border-color: #EEF0F4;
-        box-shadow: none;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="column"] .stButton > button {
-        height: 34px !important;
-        font-size: 11px !important;
-        border-radius: 10px !important;
-    }
-
     .sidebar-profile-row {
         display: flex;
         justify-content: space-between;
@@ -1246,74 +1227,47 @@ def inject_professional_sidebar_filter_css():
         white-space: nowrap;
     }
 
-    /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
-    [data-baseweb="select"] > div {
-        background: #FFFFFF !important;
-        border: 1px solid #D0D5DD !important;
-        border-radius: 12px !important;
-        min-height: 38px !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
-        transition: all .16s ease !important;
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
+            linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
     }
 
-    [data-baseweb="select"] > div:hover {
-        border-color: #B692C8 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.075) !important;
+    section[data-testid="stSidebar"] .block-container,
+    section[data-testid="stSidebar"] > div {
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
     }
 
-    [data-baseweb="select"] > div:focus-within {
-        border-color: #660094 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.14) !important;
+    .sidebar-filter-section {
+        font-family: Arial, sans-serif;
+        font-size: 10.5px;
+        color: #667085;
+        line-height: 1.35;
+        margin: -2px 0 9px 0;
     }
 
-    [data-baseweb="tag"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        border: 1px solid #E7D4F1 !important;
-        border-radius: 999px !important;
-        font-size: 10px !important;
-        font-weight: 850 !important;
+    .sidebar-filter-footer {
+        background: #FFFFFF;
+        border: 1px solid #E6E8EF;
+        border-radius: 14px;
+        padding: 9px 10px;
+        margin: 9px 0 12px 0;
+        box-shadow: 0 6px 16px rgba(16,24,40,.045);
+        font-family: Arial, sans-serif;
     }
 
-    [data-baseweb="tag"] svg {
-        color: #660094 !important;
+    .sidebar-filter-footer-title {
+        font-size: 11px;
+        font-weight: 900;
+        color: #23152F;
+        margin-bottom: 3px;
     }
 
-    div[role="listbox"] {
-        border-radius: 13px !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
-        background: #FFFFFF !important;
-
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
-
-    div[role="option"] {
-        font-size: 12px !important;
-        padding: 8px 12px !important;
-        color: #344054 !important;
-        font-weight: 700 !important;
-    }
-
-    div[role="option"]:hover {
-        background: rgba(102,0,148,.065) !important;
-        color: #23152F !important;
-    }
-
-    div[aria-selected="true"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        font-weight: 900 !important;
-    }
-
-    .stMultiSelect label, .stSelectbox label {
-        font-size: 10.8px !important;
-        font-weight: 900 !important;
-        color: #344054 !important;
-        letter-spacing: .01em !important;
-        margin-bottom: 4px !important;
+    .sidebar-filter-footer-note {
+        font-size: 10px;
+        color: #667085;
+        line-height: 1.35;
     }
 
     .negative-filter-shell {
@@ -1365,48 +1319,6 @@ def inject_professional_sidebar_filter_css():
         color: #B42318;
         border: 1px solid rgba(180,35,24,.14);
     }
-    section[data-testid="stSidebar"] {
-        background:
-            radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
-            linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
-    }
-
-    section[data-testid="stSidebar"] .block-container,
-    section[data-testid="stSidebar"] > div {
-        padding-left: 0.85rem !important;
-        padding-right: 0.85rem !important;
-    }
-
-    .sidebar-filter-section {
-        font-family: Arial, sans-serif;
-        font-size: 10.5px;
-        color: #667085;
-        line-height: 1.35;
-        margin: -2px 0 9px 0;
-    }
-
-    .sidebar-filter-footer {
-        background: #FFFFFF;
-        border: 1px solid #E6E8EF;
-        border-radius: 14px;
-        padding: 9px 10px;
-        margin: 9px 0 12px 0;
-        box-shadow: 0 6px 16px rgba(16,24,40,.045);
-        font-family: Arial, sans-serif;
-    }
-
-    .sidebar-filter-footer-title {
-        font-size: 11px;
-        font-weight: 900;
-        color: #23152F;
-        margin-bottom: 3px;
-    }
-
-    .sidebar-filter-footer-note {
-        font-size: 10px;
-        color: #667085;
-        line-height: 1.35;
-    }
 
     div[data-testid="stExpander"] {
         margin-bottom: 10px !important;
@@ -1426,24 +1338,29 @@ def inject_professional_sidebar_filter_css():
         font-family: Arial, sans-serif !important;
         font-size: 12.5px !important;
         font-weight: 900 !important;
-        letter-spacing: -0.01em !important;
     }
 
     div[data-testid="stExpander"] summary:hover {
         background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
     }
 
+    /* SIMPLE SIDEBAR DROPDOWNS ONLY */
     section[data-testid="stSidebar"] [data-baseweb="select"] > div {
         min-height: 38px !important;
-        border-radius: 12px !important;
+        border-radius: 8px !important;
         border: 1px solid #D0D5DD !important;
         background: #FFFFFF !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+        box-shadow: none !important;
     }
 
     section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
-        border-color: #B692C8 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.07) !important;
+        border-color: #660094 !important;
+        box-shadow: none !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 2px rgba(102,0,148,.10) !important;
     }
 
     section[data-testid="stSidebar"] [data-baseweb="tag"] {
@@ -1453,6 +1370,10 @@ def inject_professional_sidebar_filter_css():
         border-radius: 999px !important;
         font-size: 10px !important;
         font-weight: 800 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] svg {
+        color: #660094 !important;
     }
 
     section[data-testid="stSidebar"] label {
@@ -1476,9 +1397,9 @@ def inject_professional_sidebar_filter_css():
         background: #EFFBFE !important;
         border-color: rgba(0,140,170,.18) !important;
     }
+
     </style>
     """, unsafe_allow_html=True)
-
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
