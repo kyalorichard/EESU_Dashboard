@@ -7660,6 +7660,9 @@ def inject_eusee_ai_popover_css():
     )
 
 
+@st.dialog("🤖 EUSEE AI Copilot", width="large")
+def render_eusee_ai_dialog():
+    _render_eusee_ai_copilot_body()
 
 
 def render_eusee_ai_copilot_popover():
