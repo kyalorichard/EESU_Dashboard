@@ -7686,7 +7686,8 @@ def inject_eusee_ai_popover_css():
         /* Remove ALL outer panel styling */
         /* Keep Streamlit popover positioning */
         div[data-baseweb="popover"] > div {
-            width: min(5600px, calc(100vw - 32px)) !important;
+            width: 300px !important;
+            width: min(560px, calc(100vw - 32px)) !important;
             max-height: min(78vh, 720px) !important;
             overflow-y: auto !important;
 
