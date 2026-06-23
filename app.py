@@ -996,14 +996,13 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
 }
 
 
-# ---------------- MULTISELECT WITH SELECT ALL ----------------
 # ---------------- SIMPLE DROPDOWN WITH ALL OPTION ----------------
 def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     """
     Backward-compatible replacement for old multiselect.
 
-    It uses a normal Streamlit selectbox dropdown instead of multiselect popup.
-    Returns a list so your existing filtering code can continue working.
+    Uses a normal Streamlit selectbox dropdown instead of multiselect popup.
+    Returns a list so existing filtering code continues working.
     """
     target = container if container is not None else (st.sidebar if sidebar else st)
 
@@ -1032,7 +1031,6 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     widget_key = f"{session_key}_dropdown"
 
     current_value = st.session_state.get(widget_key, "All")
-
     if current_value not in dropdown_options:
         current_value = "All"
 
@@ -1053,7 +1051,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
 
 
 def inject_professional_sidebar_filter_css():
-    """Additional styling for the upgraded grouped sidebar filter experience."""
+    """Simple sidebar filter styling without custom popup/listbox overrides."""
     st.markdown("""
     <style>
 
@@ -1065,7 +1063,6 @@ def inject_professional_sidebar_filter_css():
         box-shadow: 0 6px 16px rgba(16,24,40,.045);
         font-family: Arial, sans-serif;
     }
-
 
     .sidebar-access-shell {
         margin: 12px 0 10px 0;
@@ -1089,207 +1086,55 @@ def inject_professional_sidebar_filter_css():
         background: linear-gradient(90deg, #660094 0%, #008CAA 58%, #FFDB58 100%);
     }
 
-    .sidebar-access-top {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 3px;
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
+            linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
     }
 
-    .sidebar-access-icon {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-        border-radius: 13px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #660094;
-        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
-        border: 1px solid rgba(102,0,148,.10);
-        font-size: 16px;
-        font-weight: 900;
+    section[data-testid="stSidebar"] .block-container,
+    section[data-testid="stSidebar"] > div {
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
     }
 
-    .sidebar-access-copy {
-        min-width: 0;
-        flex: 1;
-    }
-
-    .sidebar-access-eyebrow {
-        font-size: 9px;
-        font-weight: 950;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #660094;
-        line-height: 1.1;
-    }
-
-    .sidebar-access-title {
-        margin-top: 3px;
-        color: #23152F;
-        font-size: 13px;
-        font-weight: 950;
-        line-height: 1.15;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .sidebar-access-note {
-        margin-top: 4px;
-        color: #667085;
-        font-size: 10.5px;
-        font-weight: 700;
-        line-height: 1.35;
-    }
-
-    .sidebar-access-pill-row {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-top: 10px;
-    }
-
-    .sidebar-access-pill {
-        display: inline-flex;
-        align-items: center;
-        width: fit-content;
-        padding: 5px 8px;
-        border-radius: 999px;
-        background: #EFFBFE;
-        color: #008CAA;
-        border: 1px solid rgba(0,140,170,.14);
-        font-size: 9.5px;
-        font-weight: 950;
-        line-height: 1;
-    }
-
-    .sidebar-access-pill.secondary {
-        background: #F4EAF8;
-        color: #660094;
-        border-color: #E7D4F1;
-    }
-
-    .sidebar-access-help {
-        margin-top: 9px;
-        padding: 8px 9px;
-        border-radius: 12px;
-        background: #F9FAFB;
-        border: 1px solid #EEF0F4;
-        color: #667085;
-        font-size: 10.2px;
-        line-height: 1.35;
-        font-weight: 650;
-    }
-
-    .sidebar-access-center {
-        margin-bottom: 8px;
-    }
-
-    .sidebar-profile-card-merged {
-        margin-top: 10px;
-        padding: 8px 9px;
-        background: rgba(255,255,255,.92);
-        border-color: #EEF0F4;
-        box-shadow: none;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="column"] .stButton > button {
-        height: 34px !important;
-        font-size: 11px !important;
-        border-radius: 10px !important;
-    }
-
-    .sidebar-profile-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-        padding: 5px 0;
-        border-bottom: 1px solid #F2F4F7;
-        font-size: 10.5px;
-        color: #667085;
-    }
-
-    .sidebar-profile-row:last-child {
-        border-bottom: 0;
-    }
-
-    .sidebar-profile-row strong {
-        color: #2D0055;
-        font-size: 10.5px;
-        font-weight: 900;
-        text-align: right;
-        max-width: 155px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
-    [data-baseweb="select"] > div {
-        background: #FFFFFF !important;
-        border: 1px solid #D0D5DD !important;
-        border-radius: 12px !important;
-        min-height: 38px !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
-        transition: all .16s ease !important;
-    }
-
-    [data-baseweb="select"] > div:hover {
-        border-color: #B692C8 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.075) !important;
-    }
-
-    [data-baseweb="select"] > div:focus-within {
-        border-color: #660094 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.14) !important;
-    }
-
-    [data-baseweb="tag"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        border: 1px solid #E7D4F1 !important;
-        border-radius: 999px !important;
-        font-size: 10px !important;
-        font-weight: 850 !important;
-    }
-
-    [data-baseweb="tag"] svg {
-        color: #660094 !important;
-    }
-
-    div[role="listbox"] {
-        border-radius: 13px !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
-        background: #FFFFFF !important;
-
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
-
-    div[role="option"] {
-        font-size: 12px !important;
-        padding: 8px 12px !important;
-        color: #344054 !important;
-        font-weight: 700 !important;
-    }
-
-    div[role="option"]:hover {
-        background: rgba(102,0,148,.065) !important;
-        color: #23152F !important;
-    }
-
-    div[aria-selected="true"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
+    section[data-testid="stSidebar"] label {
+        font-size: 10.8px !important;
         font-weight: 900 !important;
+        color: #344054 !important;
+        letter-spacing: .01em !important;
+        margin-bottom: 4px !important;
     }
 
-    .stMultiSelect label, .stSelectbox label {
+    /* Simple dropdown styling only */
+    section[data-testid="stSidebar"] .stSelectbox {
+        margin-bottom: 0.55rem !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] {
+        width: 100% !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+        min-height: 36px !important;
+        border-radius: 8px !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        box-shadow: none !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
+        border-color: #98A2B3 !important;
+        box-shadow: none !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 2px rgba(102,0,148,.10) !important;
+    }
+
+    .stMultiSelect label,
+    .stSelectbox label {
         font-size: 10.8px !important;
         font-weight: 900 !important;
         color: #344054 !important;
@@ -1345,17 +1190,6 @@ def inject_professional_sidebar_filter_css():
         background: #FFF4ED;
         color: #B42318;
         border: 1px solid rgba(180,35,24,.14);
-    }
-    section[data-testid="stSidebar"] {
-        background:
-            radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
-            linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
-    }
-
-    section[data-testid="stSidebar"] .block-container,
-    section[data-testid="stSidebar"] > div {
-        padding-left: 0.85rem !important;
-        padding-right: 0.85rem !important;
     }
 
     .sidebar-filter-section {
@@ -1414,28 +1248,6 @@ def inject_professional_sidebar_filter_css():
         background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
     }
 
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
-        min-height: 38px !important;
-        border-radius: 12px !important;
-        border: 1px solid #D0D5DD !important;
-        background: #FFFFFF !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
-    }
-
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
-        border-color: #B692C8 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.07) !important;
-    }
-
-    
-    section[data-testid="stSidebar"] label {
-        font-size: 10.8px !important;
-        font-weight: 900 !important;
-        color: #344054 !important;
-        letter-spacing: .01em !important;
-        margin-bottom: 4px !important;
-    }
-
     section[data-testid="stSidebar"] .stButton > button {
         border-radius: 12px !important;
         height: 38px !important;
@@ -1449,18 +1261,20 @@ def inject_professional_sidebar_filter_css():
         background: #EFFBFE !important;
         border-color: rgba(0,140,170,.18) !important;
     }
+
     </style>
     """, unsafe_allow_html=True)
+
 
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
+
 # ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
 def render_sidebar_access_settings_profile():
-    """Render one clean, native Streamlit sidebar panel for access, account, navigation, and feature status.
-
-    This version intentionally avoids rendering the panel body with raw HTML so users never see
-    HTML tags/scripts if Streamlit sanitization or markdown rendering changes.
+    """
+    Render one clean native Streamlit sidebar panel for access, account,
+    navigation, and feature status.
     """
     signed_in = is_authenticated()
     is_admin_user = bool(signed_in and admin_is_admin())
@@ -1477,9 +1291,6 @@ def render_sidebar_access_settings_profile():
     admin_status = "Enabled" if is_admin_user else "Not available"
     access_status = "Signed in" if signed_in else "Public mode"
 
-    # Show the monitored-country value as a first-class item in the
-    # privilege/access list. Use the already scoped dataframe so the value
-    # respects the active role's data scope.
     try:
         raw_monitored_countries_value = (
             int(data["alert-country"].nunique())
@@ -1494,28 +1305,20 @@ def render_sidebar_access_settings_profile():
         monitored_countries_value = 0
 
     st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
+
     if not is_admin_user:
         st.session_state["eusee_sidebar_workspace"] = "Dashboard"
 
-    # Small CSS only for Streamlit widgets in the privilege center; no visible HTML content is rendered.
     st.sidebar.markdown("""
     <style>
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
         gap: 0.25rem;
     }
-    .eusee-privilege-marker { display: none; }
-    section[data-testid="stSidebar"] .eusee-privilege-title {
-        font-size: 8px;
-        font-weight: 700;
-        color: #23152F;
-        margin-bottom: -2px;
+
+    .eusee-privilege-marker {
+        display: none;
     }
-    section[data-testid="stSidebar"] .eusee-privilege-note {
-        font-size: 8px;
-        color: #667085;
-        line-height: 1.35;
-        margin-top: -4px;
-    }
+
     section[data-testid="stSidebar"] [data-testid="stMetric"] {
         background: #FFFFFF;
         border: 1px solid #EEF0F4;
@@ -1523,12 +1326,14 @@ def render_sidebar_access_settings_profile():
         padding: 7px 8px;
         box-shadow: 0 2px 8px rgba(16,24,40,.035);
     }
+
     section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
         font-size: 8px !important;
         font-weight: 700 !important;
         color: #667085 !important;
         text-transform: uppercase;
     }
+
     section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
         font-size: 13px !important;
         font-weight: 900 !important;
@@ -1537,7 +1342,6 @@ def render_sidebar_access_settings_profile():
     </style>
     """, unsafe_allow_html=True)
 
-    # Use a bordered native container where available; fallback gracefully for older Streamlit versions.
     try:
         panel = st.sidebar.container(border=True)
     except TypeError:
@@ -1549,13 +1353,13 @@ def render_sidebar_access_settings_profile():
         st.caption("Central access, role, navigation, and feature availability.")
 
         st.markdown(f"**{display_name}**")
+
         st.caption(
             "Your dashboard permissions are controlled by your approved EUSEE role."
             if signed_in
             else "Sign in to access advanced features and analyses available to EUSEE partners."
         )
 
-           
         if is_admin_user:
             workspace = st.radio(
                 "Workspace",
@@ -1565,6 +1369,7 @@ def render_sidebar_access_settings_profile():
                 index=0 if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else 1,
                 label_visibility="collapsed",
             )
+
             if workspace != st.session_state.get("eusee_sidebar_workspace"):
                 st.session_state["eusee_sidebar_workspace"] = workspace
                 st.rerun()
@@ -1578,9 +1383,8 @@ def render_sidebar_access_settings_profile():
                 st.session_state.auth_view = True
                 st.rerun()
 
-render_sidebar_access_settings_profile()
 
-render_classic_filter_header()
+render_sidebar_access_settings_profile()
 inject_professional_sidebar_filter_css()
 
 
