@@ -1279,71 +1279,72 @@ def inject_professional_sidebar_filter_css():
         color: #660094 !important;
     }
 
-    /* Multiselect dropdown menu: directly below input, clean width */
-    div[data-baseweb="popover"] {
+    /* ---------------- SELECT / MULTISELECT DROPDOWN MENU ---------------- */
+    /*
+       Streamlit/BaseWeb renders dropdown menus in a portal outside the sidebar.
+       Avoid broad listbox rules that let the menu expand across the page.
+       The :has() selector limits this styling to select/multiselect dropdown popovers only.
+    */
+    div[data-baseweb="popover"]:has(div[role="listbox"]) {
         z-index: 999999 !important;
+        max-width: 232px !important;
+        min-width: 0 !important;
     }
 
-    div[data-baseweb="popover"] > div {
+    div[data-baseweb="popover"]:has(div[role="listbox"]) > div {
+        max-width: 232px !important;
+        min-width: 0 !important;
+        width: 232px !important;
         margin-top: 4px !important;
         border-radius: 14px !important;
         overflow: hidden !important;
     }
 
-    div[role="listbox"] {
-        width: 100% !important;
-        min-width: 260px !important;
-        max-width: 360px !important;
-        max-height: 260px !important;
+    div[data-baseweb="popover"] div[role="listbox"] {
+        width: 232px !important;
+        min-width: 0 !important;
+        max-width: 232px !important;
+        max-height: 250px !important;
 
-        margin-top: 4px !important;
         padding: 6px !important;
-
-        background: #FFFFFF !important;
-        border: 1px solid #E6E8EF !important;
         border-radius: 14px !important;
-        box-shadow: 0 14px 32px rgba(16,24,40,.16) !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 14px 30px rgba(16,24,40,.16) !important;
+        background: #FFFFFF !important;
 
-        overflow-y: auto !important;
         overflow-x: hidden !important;
+        overflow-y: auto !important;
+        box-sizing: border-box !important;
     }
 
-    div[role="option"] {
+    div[data-baseweb="popover"] div[role="option"] {
+        width: 100% !important;
+        max-width: 100% !important;
         min-height: 34px !important;
         padding: 8px 10px !important;
         border-radius: 10px !important;
+        box-sizing: border-box !important;
 
-        font-size: 12px !important;
-        font-weight: 750 !important;
+        font-size: 11.5px !important;
+        line-height: 1.25 !important;
         color: #344054 !important;
+        font-weight: 750 !important;
 
         white-space: normal !important;
-        line-height: 1.25 !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
     }
 
-    div[role="option"]:hover {
-        background: rgba(102,0,148,.07) !important;
-        color: #23152F !important;
-    }
-
-    div[role="option"][aria-selected="true"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        font-weight: 900 !important;
-    }
-
-    div[role="option"] {
-        font-size: 12px !important;
-        padding: 8px 12px !important;
-        color: #344054 !important;
-        font-weight: 700 !important;
-    }
-
-    div[role="option"]:hover {
+    div[data-baseweb="popover"] div[role="option"]:hover {
         background: rgba(102,0,148,.065) !important;
         color: #23152F !important;
     }
 
+    div[data-baseweb="popover"] div[role="option"][aria-selected="true"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        font-weight: 900 !important;
+    }
 
     .stMultiSelect label, .stSelectbox label {
         font-size: 10.8px !important;
