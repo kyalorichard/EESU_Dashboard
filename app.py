@@ -7632,7 +7632,6 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 # Only submitting a Copilot question triggers the normal Streamlit rerun.
 # ============================================================
 
-
 def inject_eusee_ai_popover_css():
     st.markdown(
         """
@@ -7669,31 +7668,46 @@ def inject_eusee_ai_popover_css():
 
         div[data-baseweb="popover"] {
             z-index: 999999 !important;
+            width: 760px !important;
+            max-width: 92vw !important;
         }
 
         div[data-baseweb="popover"] > div {
-            width: min(760px, calc(100vw - 32px)) !important;
-            max-width: min(760px, calc(100vw - 32px)) !important;
+            width: 760px !important;
+            max-width: 92vw !important;
             min-width: 680px !important;
             max-height: min(82vh, 780px) !important;
             overflow-y: auto !important;
-
             background: #FFFFFF !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
-
             padding: 0 !important;
             margin: 0 !important;
         }
 
         div[data-baseweb="popover"] > div > div,
         div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
-        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
+        div[data-baseweb="popover"] [data-testid="stElementContainer"],
+        div[data-baseweb="popover"] .element-container,
+        div[data-baseweb="popover"] section,
+        div[data-baseweb="popover"] form {
+            width: 100% !important;
+            max-width: 100% !important;
             background: transparent !important;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
+        }
+
+        div[data-baseweb="popover"] textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        div[data-baseweb="popover"] [data-testid="stChatMessage"] {
+            width: 100% !important;
+            max-width: 100% !important;
         }
 
         div[data-baseweb="popover"] > div > div {
@@ -7701,7 +7715,14 @@ def inject_eusee_ai_popover_css():
             margin: 0 !important;
         }
 
-        @media (max-width: 700px) {
+        @media (max-width: 900px) {
+            div[data-baseweb="popover"],
+            div[data-baseweb="popover"] > div {
+                width: calc(100vw - 24px) !important;
+                max-width: calc(100vw - 24px) !important;
+                min-width: unset !important;
+            }
+
             div[data-testid="stPopover"] {
                 right: 14px !important;
                 bottom: 72px !important;
@@ -7712,18 +7733,11 @@ def inject_eusee_ai_popover_css():
                 padding: 0 15px !important;
                 font-size: 12px !important;
             }
-
-            div[data-baseweb="popover"] > div {
-                width: min(760px, calc(100vw - 32px)) !important;
-                max-width: min(760px, calc(100vw - 32px)) !important;
-                min-width: 680px !important;
-            }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 def _render_eusee_ai_copilot_body():
     st.markdown(
         """
