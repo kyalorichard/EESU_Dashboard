@@ -7640,39 +7640,83 @@ def inject_eusee_ai_popover_css():
             padding-bottom: 7rem !important;
         }
 
-        div[data-testid="stDialog"] {
-            width: min(900px, 94vw) !important;
-            max-width: min(900px, 94vw) !important;
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            right: 22px !important;
+            bottom: 82px !important;
+            z-index: 999998 !important;
+            width: auto !important;
+            max-width: calc(100vw - 44px) !important;
         }
 
-        div[data-testid="stDialog"] > div {
-            width: min(900px, 94vw) !important;
-            max-width: min(900px, 94vw) !important;
+        div[data-testid="stPopover"] > button {
+            border-radius: 999px !important;
+            min-height: 52px !important;
+            padding: 0 20px !important;
+            background: linear-gradient(135deg,#660094 0%,#008CAA 100%) !important;
+            color: #FFFFFF !important;
+            border: 1px solid rgba(255,255,255,.30) !important;
+            box-shadow: 0 16px 36px rgba(102,0,148,.28) !important;
+            font-weight: 950 !important;
         }
 
-        div[data-testid="stDialog"] * {
-            box-sizing: border-box !important;
+        div[data-baseweb="popover"] {
+            z-index: 999999 !important;
+            width: min(820px, calc(100vw - 44px)) !important;
+            max-width: calc(100vw - 44px) !important;
+        }
+
+        div[data-baseweb="popover"] > div {
+            width: min(820px, calc(100vw - 44px)) !important;
+            max-width: calc(100vw - 44px) !important;
+            min-width: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: #FFFFFF !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        div[data-baseweb="popover"] * {
             max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow-wrap: anywhere !important;
+            word-break: normal !important;
+        }
+
+        div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
+        div[data-baseweb="popover"] [data-testid="stElementContainer"],
+        div[data-baseweb="popover"] .element-container,
+        div[data-baseweb="popover"] form,
+        div[data-baseweb="popover"] textarea,
+        div[data-baseweb="popover"] [data-testid="stChatMessage"] {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        div[data-baseweb="popover"] textarea {
+            resize: vertical !important;
+        }
+
+        @media (max-width: 900px) {
+            div[data-testid="stPopover"] {
+                right: 14px !important;
+                bottom: 72px !important;
+            }
+
+            div[data-baseweb="popover"],
+            div[data-baseweb="popover"] > div {
+                width: calc(100vw - 24px) !important;
+                max-width: calc(100vw - 24px) !important;
+            }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
-
-@st.dialog("🤖 EUSEE AI Copilot", width="large")
-def render_eusee_ai_dialog():
-    _render_eusee_ai_copilot_body()
-
-
-def render_eusee_ai_copilot_popover():
-    inject_eusee_ai_popover_css()
-
-    if st.button("💬 EUSEE Copilot", key="eusee_ai_open_button"):
-        render_eusee_ai_dialog()
-
-
-render_eusee_ai_copilot_popover()
 
 def _render_eusee_ai_copilot_body():
     st.markdown(
