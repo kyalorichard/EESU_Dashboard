@@ -7664,26 +7664,28 @@ def inject_eusee_ai_popover_css():
             z-index: 999999 !important;
             width: min(820px, calc(100vw - 44px)) !important;
             max-width: calc(100vw - 44px) !important;
+            overflow: visible !important;
         }
 
         div[data-baseweb="popover"] > div {
-            width: min(820px, calc(100vw - 44px)) !important;
-            max-width: calc(100vw - 44px) !important;
+            width: 100% !important;
+            max-width: 100% !important;
             min-width: 0 !important;
-            max-height: none !important;
+            height: auto !important;
+            max-height: unset !important;
             overflow: visible !important;
             background: #FFFFFF !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
+            border: 1px solid #EEF0F4 !important;
+            border-radius: 18px !important;
+            box-shadow: 0 22px 55px rgba(0,0,0,.16) !important;
             padding: 0 !important;
             margin: 0 !important;
         }
 
         div[data-baseweb="popover"] * {
-            max-width: 100% !important;
             box-sizing: border-box !important;
-            overflow-wrap: anywhere !important;
+            max-width: 100% !important;
+            overflow-wrap: break-word !important;
             word-break: normal !important;
         }
 
@@ -7691,14 +7693,46 @@ def inject_eusee_ai_popover_css():
         div[data-baseweb="popover"] [data-testid="stElementContainer"],
         div[data-baseweb="popover"] .element-container,
         div[data-baseweb="popover"] form,
-        div[data-baseweb="popover"] textarea,
-        div[data-baseweb="popover"] [data-testid="stChatMessage"] {
+        div[data-baseweb="popover"] [data-testid="stForm"],
+        div[data-baseweb="popover"] [data-testid="stChatMessage"],
+        div[data-baseweb="popover"] [data-testid="stChatMessageContent"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        div[data-baseweb="popover"] textarea {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            min-height: 90px !important;
+            resize: vertical !important;
+            overflow-y: hidden !important;
+        }
+
+        div[data-baseweb="popover"] button {
+            max-width: 100% !important;
+            white-space: normal !important;
+        }
+
+        div[data-baseweb="popover"] [data-testid="stFormSubmitButton"] button,
+        div[data-baseweb="popover"] button[kind="primary"],
+        div[data-baseweb="popover"] button[kind="secondary"] {
+            width: 100% !important;
+        }
+
+        div[data-baseweb="popover"] [data-testid="stExpander"] {
             width: 100% !important;
             max-width: 100% !important;
         }
 
-        div[data-baseweb="popover"] textarea {
-            resize: vertical !important;
+        div[data-baseweb="popover"] * {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+
+        div[data-baseweb="popover"] *::-webkit-scrollbar {
+            display: none !important;
         }
 
         @media (max-width: 900px) {
@@ -7717,6 +7751,7 @@ def inject_eusee_ai_popover_css():
         """,
         unsafe_allow_html=True,
     )
+
 
 def _render_eusee_ai_copilot_body():
     st.markdown(
