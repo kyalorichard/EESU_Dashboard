@@ -7632,22 +7632,22 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 # Only submitting a Copilot question triggers the normal Streamlit rerun.
 # ============================================================
 
-
 def inject_eusee_ai_popover_css():
     st.markdown(
         """
         <style>
+
         .main .block-container {
             padding-bottom: 7rem !important;
         }
 
+        /* Floating launcher button */
         div[data-testid="stPopover"] {
             position: fixed !important;
             right: 22px !important;
             bottom: 82px !important;
             z-index: 999998 !important;
             width: auto !important;
-            max-width: calc(100vw - 44px) !important;
         }
 
         div[data-testid="stPopover"] > button {
@@ -7667,16 +7667,22 @@ def inject_eusee_ai_popover_css():
             color: #FFFFFF !important;
         }
 
+        /* Popover layer */
         div[data-baseweb="popover"] {
             z-index: 999999 !important;
         }
 
+        /* Chatbot panel */
         div[data-baseweb="popover"] > div {
-            width: min(760px, calc(100vw - 32px)) !important;
-            max-width: min(760px, calc(100vw - 32px)) !important;
-            min-width: 680px !important;
-            max-height: min(82vh, 780px) !important;
-            overflow-y: auto !important;
+            width: min(1000px, calc(100vw - 24px)) !important;
+            max-width: min(1000px, calc(100vw - 24px)) !important;
+            min-width: 900px !important;
+
+            height: auto !important;
+            max-height: none !important;
+
+            overflow: visible !important;
+            overflow-y: visible !important;
 
             background: #FFFFFF !important;
             border: none !important;
@@ -7687,6 +7693,7 @@ def inject_eusee_ai_popover_css():
             margin: 0 !important;
         }
 
+        /* Remove all nested panel styling */
         div[data-baseweb="popover"] > div > div,
         div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
         div[data-baseweb="popover"] [data-testid="stElementContainer"] {
@@ -7694,6 +7701,7 @@ def inject_eusee_ai_popover_css():
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
+            overflow: visible !important;
         }
 
         div[data-baseweb="popover"] > div > div {
@@ -7701,9 +7709,22 @@ def inject_eusee_ai_popover_css():
             margin: 0 !important;
         }
 
-        @media (max-width: 700px) {
+        /* Remove scrollbars from chatbot content */
+        div[data-baseweb="popover"] * {
+            overflow-y: visible !important;
+        }
+
+        /* Chat messages */
+        div[data-testid="stChatMessage"] {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        /* Mobile */
+        @media (max-width: 1000px) {
+
             div[data-testid="stPopover"] {
-                right: 14px !important;
+                right: 12px !important;
                 bottom: 72px !important;
             }
 
@@ -7714,17 +7735,21 @@ def inject_eusee_ai_popover_css():
             }
 
             div[data-baseweb="popover"] > div {
-                width: min(760px, calc(100vw - 32px)) !important;
-            max-width: min(760px, calc(100vw - 32px)) !important;
-            min-width: 680px !important;
+                width: calc(100vw - 24px) !important;
+                max-width: calc(100vw - 24px) !important;
+                min-width: auto !important;
+
+                height: auto !important;
+                max-height: none !important;
+
+                overflow: visible !important;
             }
         }
+
         </style>
         """,
         unsafe_allow_html=True,
     )
-
-
 def _render_eusee_ai_copilot_body():
     st.markdown(
         """
