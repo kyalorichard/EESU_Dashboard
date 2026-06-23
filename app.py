@@ -7636,12 +7636,10 @@ def inject_eusee_ai_popover_css():
     st.markdown(
         """
         <style>
-
         .main .block-container {
             padding-bottom: 7rem !important;
         }
 
-        /* Floating launcher button */
         div[data-testid="stPopover"] {
             position: fixed !important;
             right: 22px !important;
@@ -7661,28 +7659,21 @@ def inject_eusee_ai_popover_css():
             font-weight: 950 !important;
         }
 
-        div[data-testid="stPopover"] > button:hover {
-            transform: translateY(-1px) !important;
-            box-shadow: 0 18px 42px rgba(102,0,148,.34) !important;
-            color: #FFFFFF !important;
-        }
-
-        /* Popover layer */
         div[data-baseweb="popover"] {
             z-index: 999999 !important;
         }
 
-        /* Chatbot panel */
+        div[data-baseweb="popover"],
         div[data-baseweb="popover"] > div {
-            width: min(1000px, calc(100vw - 24px)) !important;
-            max-width: min(1000px, calc(100vw - 24px)) !important;
+            width: 1100px !important;
+            max-width: calc(100vw - 32px) !important;
             min-width: 900px !important;
+        }
 
+        div[data-baseweb="popover"] > div {
             height: auto !important;
             max-height: none !important;
-
             overflow: visible !important;
-            overflow-y: visible !important;
 
             background: #FFFFFF !important;
             border: none !important;
@@ -7693,36 +7684,23 @@ def inject_eusee_ai_popover_css():
             margin: 0 !important;
         }
 
-        /* Remove all nested panel styling */
-        div[data-baseweb="popover"] > div > div,
         div[data-baseweb="popover"] [data-testid="stVerticalBlock"],
-        div[data-baseweb="popover"] [data-testid="stElementContainer"] {
-            background: transparent !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            overflow: visible !important;
+        div[data-baseweb="popover"] [data-testid="stElementContainer"],
+        div[data-baseweb="popover"] [data-testid="column"],
+        div[data-baseweb="popover"] .st-emotion-cache-1r6slb0,
+        div[data-baseweb="popover"] .st-emotion-cache-ocqkz7 {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
         }
 
-        div[data-baseweb="popover"] > div > div {
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        /* Remove scrollbars from chatbot content */
         div[data-baseweb="popover"] * {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
             overflow-y: visible !important;
         }
 
-        /* Chat messages */
-        div[data-testid="stChatMessage"] {
-            width: 80% !important;
-            max-width: 80% !important;
-        }
-
-        /* Mobile */
         @media (max-width: 1000px) {
-
             div[data-testid="stPopover"] {
                 right: 12px !important;
                 bottom: 72px !important;
@@ -7734,22 +7712,18 @@ def inject_eusee_ai_popover_css():
                 font-size: 12px !important;
             }
 
+            div[data-baseweb="popover"],
             div[data-baseweb="popover"] > div {
                 width: calc(100vw - 24px) !important;
                 max-width: calc(100vw - 24px) !important;
                 min-width: auto !important;
-
-                height: auto !important;
-                max-height: none !important;
-
-                overflow: visible !important;
             }
         }
-
         </style>
         """,
         unsafe_allow_html=True,
     )
+
 def _render_eusee_ai_copilot_body():
     st.markdown(
         """
