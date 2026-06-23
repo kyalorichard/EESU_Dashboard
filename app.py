@@ -1075,370 +1075,40 @@ def inject_professional_sidebar_filter_css():
     """Additional styling for the upgraded grouped sidebar filter experience."""
     st.markdown("""
     <style>
-
-    .sidebar-profile-card {
-        background: #FFFFFF;
-        border: 1px solid #E6E8EF;
-        border-radius: 14px;
-        padding: 9px 10px;
-        box-shadow: 0 6px 16px rgba(16,24,40,.045);
-        font-family: Arial, sans-serif;
-    }
-
-
-    .sidebar-access-shell {
-        margin: 12px 0 10px 0;
-        padding: 12px 12px 11px 12px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #FCF7FF 100%);
-        border: 1px solid rgba(102,0,148,.16);
-        box-shadow: 0 10px 24px rgba(16,24,40,.065);
-        font-family: Arial, sans-serif;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .sidebar-access-shell::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #660094 0%, #008CAA 58%, #FFDB58 100%);
-    }
-
-    .sidebar-access-top {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 3px;
-    }
-
-    .sidebar-access-icon {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-        border-radius: 13px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #660094;
-        background: linear-gradient(135deg, rgba(102,0,148,.12), rgba(0,140,170,.10));
-        border: 1px solid rgba(102,0,148,.10);
-        font-size: 16px;
-        font-weight: 900;
-    }
-
-    .sidebar-access-copy {
-        min-width: 0;
-        flex: 1;
-    }
-
-    .sidebar-access-eyebrow {
-        font-size: 9px;
-        font-weight: 950;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #660094;
-        line-height: 1.1;
-    }
-
-    .sidebar-access-title {
-        margin-top: 3px;
-        color: #23152F;
-        font-size: 13px;
-        font-weight: 950;
-        line-height: 1.15;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .sidebar-access-note {
-        margin-top: 4px;
-        color: #667085;
-        font-size: 10.5px;
-        font-weight: 700;
-        line-height: 1.35;
-    }
-
-    .sidebar-access-pill-row {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-top: 10px;
-    }
-
-    .sidebar-access-pill {
-        display: inline-flex;
-        align-items: center;
-        width: fit-content;
-        padding: 5px 8px;
-        border-radius: 999px;
-        background: #EFFBFE;
-        color: #008CAA;
-        border: 1px solid rgba(0,140,170,.14);
-        font-size: 9.5px;
-        font-weight: 950;
-        line-height: 1;
-    }
-
-    .sidebar-access-pill.secondary {
-        background: #F4EAF8;
-        color: #660094;
-        border-color: #E7D4F1;
-    }
-
-    .sidebar-access-help {
-        margin-top: 9px;
-        padding: 8px 9px;
-        border-radius: 12px;
-        background: #F9FAFB;
-        border: 1px solid #EEF0F4;
-        color: #667085;
-        font-size: 10.2px;
-        line-height: 1.35;
-        font-weight: 650;
-    }
-
-    .sidebar-access-center {
-        margin-bottom: 8px;
-    }
-
-    .sidebar-profile-card-merged {
-        margin-top: 10px;
-        padding: 8px 9px;
-        background: rgba(255,255,255,.92);
-        border-color: #EEF0F4;
-        box-shadow: none;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="column"] .stButton > button {
-        height: 34px !important;
-        font-size: 11px !important;
-        border-radius: 10px !important;
-    }
-
-    .sidebar-profile-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-        padding: 5px 0;
-        border-bottom: 1px solid #F2F4F7;
-        font-size: 10.5px;
-        color: #667085;
-    }
-
-    .sidebar-profile-row:last-child {
-        border-bottom: 0;
-    }
-
-    .sidebar-profile-row strong {
-        color: #2D0055;
-        font-size: 10.5px;
-        font-weight: 900;
-        text-align: right;
-        max-width: 155px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    /* ---------------- GLOBAL SELECT / MULTISELECT COLOR SYSTEM ---------------- */
-    [data-baseweb="select"] > div {
-        background: #FFFFFF !important;
-        border: 1px solid #D0D5DD !important;
-        border-radius: 12px !important;
-        min-height: 38px !important;
-        box-shadow: 0 1px 2px rgba(16,24,40,.05) !important;
-        transition: all .16s ease !important;
-    }
-
-    [data-baseweb="select"] > div:hover {
-        border-color: #B692C8 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.075) !important;
-    }
-
-    [data-baseweb="select"] > div:focus-within {
-        border-color: #660094 !important;
-        box-shadow: 0 0 0 3px rgba(102,0,148,.14) !important;
-    }
-
-    [data-baseweb="tag"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        border: 1px solid #E7D4F1 !important;
-        border-radius: 999px !important;
-        font-size: 10px !important;
-        font-weight: 850 !important;
-    }
-
-    [data-baseweb="tag"] svg {
-        color: #660094 !important;
-    }
-
-    div[role="listbox"] {
-        border-radius: 13px !important;
-        border: 1px solid #E6E8EF !important;
-        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
-        background: #FFFFFF !important;
-
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
-
-    div[role="option"] {
-        font-size: 12px !important;
-        padding: 8px 12px !important;
-        color: #344054 !important;
-        font-weight: 700 !important;
-    }
-
-    div[role="option"]:hover {
-        background: rgba(102,0,148,.065) !important;
-        color: #23152F !important;
-    }
-
-    div[aria-selected="true"] {
-        background: #F4EAF8 !important;
-        color: #660094 !important;
-        font-weight: 900 !important;
-    }
-
-    .stMultiSelect label, .stSelectbox label {
-        font-size: 10.8px !important;
-        font-weight: 900 !important;
-        color: #344054 !important;
-        letter-spacing: .01em !important;
-        margin-bottom: 4px !important;
-    }
-
-    .negative-filter-shell {
-        background: linear-gradient(135deg, #FFFFFF 0%, #FFFCFB 100%);
-        border: 1px solid rgba(180,35,24,.12);
-        border-radius: 16px;
-        padding: 11px 13px;
-        margin: 2px 0 13px 0;
-        box-shadow: 0 8px 22px rgba(16,24,40,.055);
-        font-family: Arial, sans-serif;
-    }
-
-    .negative-filter-eyebrow {
-        font-size: 9.5px;
-        font-weight: 900;
-        color: #B42318;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-        margin-bottom: 4px;
-    }
-
-    .negative-filter-title {
-        font-size: 14px;
-        font-weight: 950;
-        color: #23152F;
-        line-height: 1.15;
-    }
-
-    .negative-filter-note {
-        font-size: 10.7px;
-        color: #667085;
-        line-height: 1.35;
-        margin-top: 5px;
-    }
-
-    .negative-filter-chip-row {
-        display: flex;
-        gap: 7px;
-        flex-wrap: wrap;
-        margin-top: 9px;
-    }
-
-    .negative-filter-chip {
-        border-radius: 999px;
-        padding: 5px 9px;
-        font-size: 9.8px;
-        font-weight: 900;
-        background: #FFF4ED;
-        color: #B42318;
-        border: 1px solid rgba(180,35,24,.14);
-    }
+    /* Keep sidebar width stable */
     section[data-testid="stSidebar"] {
+        width: 320px !important;
+        min-width: 320px !important;
+        max-width: 320px !important;
         background:
             radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
             linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
     }
 
-    section[data-testid="stSidebar"] .block-container,
     section[data-testid="stSidebar"] > div {
+        width: 320px !important;
+        max-width: 320px !important;
+        overflow-x: hidden !important;
         padding-left: 0.85rem !important;
         padding-right: 0.85rem !important;
     }
 
-    .sidebar-filter-section {
-        font-family: Arial, sans-serif;
-        font-size: 10.5px;
-        color: #667085;
-        line-height: 1.35;
-        margin: -2px 0 9px 0;
-    }
-
-    .sidebar-filter-footer {
-        background: #FFFFFF;
-        border: 1px solid #E6E8EF;
-        border-radius: 14px;
-        padding: 9px 10px;
-        margin: 9px 0 12px 0;
-        box-shadow: 0 6px 16px rgba(16,24,40,.045);
-        font-family: Arial, sans-serif;
-    }
-
-    .sidebar-filter-footer-title {
-        font-size: 11px;
-        font-weight: 900;
-        color: #23152F;
-        margin-bottom: 3px;
-    }
-
-    .sidebar-filter-footer-note {
-        font-size: 10px;
-        color: #667085;
-        line-height: 1.35;
-    }
-
-    div[data-testid="stExpander"] {
-        margin-bottom: 10px !important;
-        border-radius: 16px !important;
-        border: 1px solid #E6E8EF !important;
-        background: #FFFFFF !important;
-        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
-        overflow: hidden !important;
-    }
-
-    div[data-testid="stExpander"] summary {
-        min-height: 42px !important;
-        padding: 10px 13px !important;
-        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
-        border-bottom: 1px solid #EEF0F4 !important;
-        color: #23152F !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 12.5px !important;
-        font-weight: 900 !important;
-        letter-spacing: -0.01em !important;
-    }
-
-    div[data-testid="stExpander"] summary:hover {
-        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    /* Select / multiselect input */
+    section[data-testid="stSidebar"] [data-baseweb="select"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
     }
 
     section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+        width: 100% !important;
+        max-width: 100% !important;
         min-height: 38px !important;
         border-radius: 12px !important;
         border: 1px solid #D0D5DD !important;
         background: #FFFFFF !important;
         box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+        overflow: hidden !important;
     }
 
     section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
@@ -1446,7 +1116,14 @@ def inject_professional_sidebar_filter_css():
         box-shadow: 0 0 0 3px rgba(102,0,148,.07) !important;
     }
 
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within {
+        border-color: #660094 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.14) !important;
+    }
+
+    /* Selected chips must not stretch the sidebar */
     section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        max-width: 210px !important;
         background: #F4EAF8 !important;
         color: #660094 !important;
         border: 1px solid #E7D4F1 !important;
@@ -1455,7 +1132,61 @@ def inject_professional_sidebar_filter_css():
         font-weight: 800 !important;
     }
 
-    section[data-testid="stSidebar"] label {
+    section[data-testid="stSidebar"] [data-baseweb="tag"] span {
+        max-width: 170px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        display: inline-block !important;
+    }
+
+    /* Fix dropdown/popover overflow */
+    div[data-baseweb="popover"] {
+        max-width: 300px !important;
+        width: 300px !important;
+        min-width: 300px !important;
+        z-index: 9999999 !important;
+    }
+
+    div[data-baseweb="popover"] div[role="listbox"] {
+        width: 300px !important;
+        max-width: 300px !important;
+        min-width: 300px !important;
+        max-height: 320px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        border-radius: 13px !important;
+        border: 1px solid #E6E8EF !important;
+        box-shadow: 0 14px 30px rgba(16,24,40,.14) !important;
+        background: #FFFFFF !important;
+    }
+
+    div[data-baseweb="popover"] div[role="option"] {
+        max-width: 300px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+        color: #344054 !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+    }
+
+    div[data-baseweb="popover"] div[role="option"]:hover {
+        background: rgba(102,0,148,.065) !important;
+        color: #23152F !important;
+    }
+
+    div[data-baseweb="popover"] div[aria-selected="true"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        font-weight: 900 !important;
+    }
+
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stSelectbox label {
         font-size: 10.8px !important;
         font-weight: 900 !important;
         color: #344054 !important;
@@ -1478,7 +1209,6 @@ def inject_professional_sidebar_filter_css():
     }
     </style>
     """, unsafe_allow_html=True)
-
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
@@ -1610,7 +1340,6 @@ render_sidebar_access_settings_profile()
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
-# Sidebar compact/responsive override removed to restore the previous sidebar layout.
 
 regions_labels = [
     "Africa",
