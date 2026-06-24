@@ -63,25 +63,33 @@ ROLE_PRESETS = {
         "view_dashboard",
         "view_overview",
         "view_coverage_monitored_countries",
-        "view_maps",
         "view_user_manual",
     },
     "viewer": {
         "view_dashboard",
         "view_overview",
         "view_coverage_monitored_countries",
-        "view_maps",
         "view_negative_alerts",
         "view_data_table",
         "view_user_manual",
     },
+    # Privileged users retain all normal dashboard permissions except the
+    # Visualization Map permissions, which are locked to Admin only below.
     "privileged": set(FEATURE_KEYS),
 }
 
+# Permissions that can never be granted to non-admin roles from Firestore/Admin UI.
+# Admin users still have full access because has_permission() returns True for is_admin().
+ADMIN_ONLY_FEATURES = {
+    "view_admin_page",
+    "view_maps",
+    "view_chart_geospatial_map",
+}
+
 LOCKED_FALSE = {
-    "guest": {"view_admin_page"},
-    "viewer": {"view_admin_page"},
-    "privileged": {"view_admin_page"},
+    "guest": set(ADMIN_ONLY_FEATURES),
+    "viewer": set(ADMIN_ONLY_FEATURES),
+    "privileged": set(ADMIN_ONLY_FEATURES),
 }
 
 
