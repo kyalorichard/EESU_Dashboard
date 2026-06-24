@@ -5610,7 +5610,22 @@ if tab_overview is not None:
             df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
             a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
             a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
-            a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
+            #a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
+            a4 = (
+                filtered_global
+                .groupby(["alert-country", "alert-impact"])
+                .size()
+                .reset_index(name="count")
+            )
+
+            a4["percentage"] = (
+                a4["count"] / a4["count"].sum() * 100
+            )
+
+            a4 = a4.sort_values(
+                by="percentage",
+                ascending=False
+            ).head(20)
             r1c1,r1c2 = st.columns(2)
             r2c1,r2c2 = st.columns(2)
 
