@@ -25,21 +25,72 @@ import uuid
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# Keep Streamlit sidebar toggle available; hide only non-essential branding/actions.
+# ------------------------------------------------------------------
+# HIDE GITHUB / SOURCE CODE ACCESS
+# KEEP SIDEBAR TOGGLE VISIBLE
+# ------------------------------------------------------------------
 st.markdown("""
 <style>
-#MainMenu {visibility:hidden !important;}
-footer {visibility:hidden !important;}
-[data-testid="stDecoration"],
-[data-testid="stDeployButton"],
-a[href*="github.com"] {display:none !important;}
-.block-container {padding-top: 1rem !important;}
-</style>
-""", unsafe_allow_html=True)
-# Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
-st.markdown("""
-<style>
-/* Clear sidebar toggle signposting */
+
+/* Streamlit menu */
+#MainMenu {
+    visibility: hidden !important;
+}
+
+/* Footer */
+footer {
+    visibility: hidden !important;
+}
+
+/* Purple top decoration line */
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+
+/* Deploy button */
+[data-testid="stDeployButton"] {
+    display: none !important;
+}
+
+/* Source code / GitHub / toolbar actions */
+[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
+
+/* Extra toolbar buttons */
+[data-testid="stToolbarActions"] {
+    display: none !important;
+}
+
+/* Keep header visible */
+header[data-testid="stHeader"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    background: rgba(247,248,251,0.95) !important;
+}
+
+/* Keep sidebar toggle visible */
+button[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    width: auto !important;
+    min-width: 92px !important;
+    height: 38px !important;
+
+    border-radius: 999px !important;
+    padding: 0 12px !important;
+
+    background: #FFFFFF !important;
+    border: 1px solid #E7D4F1 !important;
+
+    box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
+}
+
+/* Filters text beside sidebar icon */
 button[data-testid="collapsedControl"]::after {
     content: " Filters";
     font-size: 12px;
@@ -48,48 +99,28 @@ button[data-testid="collapsedControl"]::after {
     margin-left: 6px;
 }
 
-button[data-testid="collapsedControl"] {
-    width: auto !important;
-    min-width: 92px !important;
-    height: 38px !important;
-    border-radius: 999px !important;
-    padding: 0 12px !important;
-    background: #FFFFFF !important;
-    border: 1px solid #E7D4F1 !important;
-    box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-/* Keep Streamlit's native header/sidebar controls available.
-   Only hide non-essential branding/action items. */
-#MainMenu { visibility: hidden !important; }
-footer { visibility: hidden !important; }
-
-header,
-header[data-testid="stHeader"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-}
-
-[data-testid="stToolbar"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-}
-
-[data-testid="stDecoration"],
-[data-testid="stDeployButton"],
+/* Hide any GitHub links */
 a[href*="github.com"] {
     display: none !important;
 }
+
+/* Hide source-code links */
+a[href*="source"] {
+    display: none !important;
+}
+
+/* Hide toolbar container completely */
+[data-testid="stToolbar"] {
+    display: none !important;
+}
+
+.block-container {
+    padding-top: 1rem !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
