@@ -5625,7 +5625,7 @@ if tab_overview is not None:
             a4 = a4.sort_values(
                 by="percentage",
                 ascending=False
-            ).head(20)
+            )
             r1c1,r1c2 = st.columns(2)
             r2c1,r2c2 = st.columns(2)
 
