@@ -5616,7 +5616,7 @@ if tab_overview is not None:
                 filtered_global
                 .groupby("alert-country")
                 .size()
-                .nlargest(10)
+                .nlargest(15)
                 .index
             )
 
