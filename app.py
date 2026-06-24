@@ -25,29 +25,71 @@ import uuid
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
+# Keep Streamlit sidebar toggle available; hide only non-essential branding/actions.
+st.markdown("""
+<style>
+#MainMenu {visibility:hidden !important;}
+footer {visibility:hidden !important;}
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+a[href*="github.com"] {display:none !important;}
+.block-container {padding-top: 1rem !important;}
+</style>
+""", unsafe_allow_html=True)
+# Sidebar restore fix: do not hide or restyle Streamlit's native header/sidebar toggle.
+st.markdown("""
+<style>
+/* Clear sidebar toggle signposting */
+button[data-testid="collapsedControl"]::after {
+    content: " Filters";
+    font-size: 12px;
+    font-weight: 800;
+    color: #660094;
+    margin-left: 6px;
+}
 
-# ---------------- STREAMLIT / GITHUB BRANDING CLEANUP ----------------
-def inject_hide_github_button():
-    st.markdown("""
-    <style>
+button[data-testid="collapsedControl"] {
+    width: auto !important;
+    min-width: 92px !important;
+    height: 38px !important;
+    border-radius: 999px !important;
+    padding: 0 12px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E7D4F1 !important;
+    box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    /* Hide GitHub/source code button only */
-    a[href*="github.com"],
-    a[title*="GitHub"],
-    a[aria-label*="GitHub"],
-    button[title*="GitHub"],
-    button[aria-label*="GitHub"] {
-        display: none !important;
-    }
+st.markdown("""
+<style>
+/* Keep Streamlit's native header/sidebar controls available.
+   Only hide non-essential branding/action items. */
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
 
-    </style>
-    """, unsafe_allow_html=True)
+header,
+header[data-testid="stHeader"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
 
-inject_hide_github_button()
+[data-testid="stToolbar"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
 
-# Disable Plotly modebar icons globally.
-pio.templates.default = "plotly_white"
-PLOTLY_CLEAN_CONFIG = {"displayModeBar": False, "responsive": True}
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+a[href*="github.com"] {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
@@ -81,6 +123,7 @@ except Exception:
             "view_overview",
             "view_coverage_monitored_countries",
             "view_monitored_countries_value",
+            "view_maps",
             "view_negative_alerts",
             "view_analytical_flow_panel",
             "view_data_table",
@@ -101,6 +144,7 @@ except Exception:
             "view_chart_heatmap_subject_mechanism",
             "view_chart_heatmap_actor_subject",
             "view_chart_sankey_flow",
+            "view_chart_geospatial_map",
             "view_chart_ai_copilot_plots",
         ]
     def apply_data_scope(df):
@@ -143,7 +187,7 @@ def inject_classic_dashboard_css():
         border-bottom: 1px solid rgba(230,232,239,0.75) !important;
         z-index: 999999 !important;
     }
-    div[data-testid="stToolbar"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+    div[data-testid="stToolbar"] { right: 0.75rem !important; }
     div[data-testid="stDecoration"] { display: none !important; }
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
@@ -611,7 +655,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
         """, unsafe_allow_html=True)
 
 inject_classic_dashboard_css()
-inject_hide_streamlit_github_controls()
 
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
@@ -1879,8 +1922,7 @@ if has_permission("view_overview"):
 if has_permission("view_negative_alerts"):
     _dashboard_tab_specs.append(("negative", "⚠️ Negative Alerts Analysis"))
 
-# Visualization Map is admin-only and does not use role permissions.
-if admin_is_admin():
+if has_permission("view_maps"):
     _dashboard_tab_specs.append(("map", "🗺️ Visualization Map"))
 
 if has_permission("view_user_manual"):
@@ -5872,8 +5914,10 @@ if tab_negative is not None:
 if tab_map is not None:
     with tab_map:
 
-        if admin_is_admin():
-            # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
+        if has_permission("view_maps"):
+
+            if has_permission("view_maps"):
+                # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
                 if has_permission("view_coverage_monitored_countries"):
                     render_summary_cards(filtered_global, card_key="map_summary")
 
