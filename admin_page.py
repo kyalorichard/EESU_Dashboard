@@ -425,6 +425,7 @@ def _render_roles_tab(config: dict):
 def _render_dashboard_tab(config: dict):
     st.markdown("### Dashboard visibility manager")
     st.caption("Quickly control major dashboard areas without scrolling through every chart permission.")
+    st.info("Visualization Map is locked to Admin users only and is intentionally not configurable for Guest, Viewer, or Privileged roles.")
 
     role = st.selectbox(
         "Configure dashboard visibility for role",
@@ -453,10 +454,6 @@ def _render_dashboard_tab(config: dict):
             "view_chart_negative_event_types",
             "view_chart_negative_alert_types",
             "view_chart_negative_enabling_principles",
-        ],
-        "Visualization Map": [
-            "view_maps",
-            "view_chart_geospatial_map",
         ],
         "Analytical Flow Panels": [
             "view_analytical_flow_panel",

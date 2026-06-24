@@ -123,7 +123,6 @@ except Exception:
             "view_overview",
             "view_coverage_monitored_countries",
             "view_monitored_countries_value",
-            "view_maps",
             "view_negative_alerts",
             "view_analytical_flow_panel",
             "view_data_table",
@@ -144,7 +143,6 @@ except Exception:
             "view_chart_heatmap_subject_mechanism",
             "view_chart_heatmap_actor_subject",
             "view_chart_sankey_flow",
-            "view_chart_geospatial_map",
             "view_chart_ai_copilot_plots",
         ]
     def apply_data_scope(df):
@@ -1922,7 +1920,8 @@ if has_permission("view_overview"):
 if has_permission("view_negative_alerts"):
     _dashboard_tab_specs.append(("negative", "⚠️ Negative Alerts Analysis"))
 
-if has_permission("view_maps"):
+# Visualization Map is admin-only and does not use role permissions.
+if admin_is_admin():
     _dashboard_tab_specs.append(("map", "🗺️ Visualization Map"))
 
 if has_permission("view_user_manual"):
@@ -5914,10 +5913,8 @@ if tab_negative is not None:
 if tab_map is not None:
     with tab_map:
 
-        if has_permission("view_maps"):
-
-            if has_permission("view_maps"):
-                # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
+        if admin_is_admin():
+            # ---------------- PREMIUM GEOSPATIAL INTELLIGENCE TAB ----------------
                 if has_permission("view_coverage_monitored_countries"):
                     render_summary_cards(filtered_global, card_key="map_summary")
 
