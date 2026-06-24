@@ -5611,21 +5611,51 @@ if tab_overview is not None:
             a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
             a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
             #a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
-            a4 = (
+            # Top 10 countries by total alert count
+            top10_countries = (
                 filtered_global
+                .groupby("alert-country")
+                .size()
+                .nlargest(10)
+                .index
+            )
+
+            # Keep only those countries
+            a4 = (
+                filtered_global[
+                    filtered_global["alert-country"].isin(top10_countries)
+                ]
                 .groupby(["alert-country", "alert-impact"])
                 .size()
                 .reset_index(name="count")
             )
 
+            # Percentage of total alerts within the Top 10 countries
             a4["percentage"] = (
                 a4["count"] / a4["count"].sum() * 100
             )
 
-            a4 = a4.sort_values(
-                by="percentage",
-                ascending=False
+            # Sort countries by their total counts
+            country_order = (
+                filtered_global
+                .groupby("alert-country")
+                .size()
+                .loc[top10_countries]
+                .sort_values(ascending=False)
+                .index
             )
+
+            a4["alert-country"] = pd.Categorical(
+                a4["alert-country"],
+                categories=country_order,
+                ordered=True
+            )
+
+            a4 = a4.sort_values(
+                ["alert-country", "count"],
+                ascending=[True, False]
+            )
+
             r1c1,r1c2 = st.columns(2)
             r2c1,r2c2 = st.columns(2)
 
