@@ -27,163 +27,23 @@ st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_
 
 
 # ---------------- STREAMLIT / GITHUB BRANDING CLEANUP ----------------
-def inject_hide_streamlit_github_controls():
-    """Hide Streamlit/GitHub/source-code controls while keeping the sidebar toggle usable."""
+def inject_hide_github_button():
     st.markdown("""
     <style>
-    /* Hide Streamlit menu, footer, deployment/source controls */
-    #MainMenu,
-    footer,
-    [data-testid="stDecoration"],
-    [data-testid="stDeployButton"],
-    [data-testid="stStatusWidget"],
-    [data-testid="manage-app-button"],
-    [data-testid="stToolbar"],
-    [data-testid="stToolbarActions"],
-    [data-testid="stActionButton"],
-    [data-testid="stActionButtonIcon"],
-    [data-testid="stHeaderActionElements"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        width: 0 !important;
-        min-width: 0 !important;
-        max-width: 0 !important;
-        overflow: hidden !important;
-    }
 
-    /* Remove any GitHub/source links or icons that Streamlit may inject */
+    /* Hide GitHub/source code button only */
     a[href*="github.com"],
-    a[href*="github.io"],
-    a[href*="/blob/"],
-    a[href*="/tree/"],
-    a[href*="source"],
     a[title*="GitHub"],
     a[aria-label*="GitHub"],
     button[title*="GitHub"],
-    button[aria-label*="GitHub"],
-    button[title*="source"],
-    button[aria-label*="source"],
-    img[alt*="GitHub"],
-    svg[aria-label*="GitHub"],
-    svg[data-testid*="github"],
-    [class*="github"],
-    [aria-label*="View source"],
-    [title*="View source"] {
+    button[aria-label*="GitHub"] {
         display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
     }
 
-    /* Keep the header only as a thin container so the native sidebar toggle remains available */
-    header,
-    header[data-testid="stHeader"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        height: 48px !important;
-        min-height: 48px !important;
-        background: rgba(247,248,251,0.92) !important;
-        border-bottom: 1px solid rgba(230,232,239,0.75) !important;
-        z-index: 999999 !important;
-    }
-
-    /* Keep sidebar open/close control visible */
-    button[data-testid="collapsedControl"] {
-        display: inline-flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        width: auto !important;
-        min-width: 92px !important;
-        height: 38px !important;
-        border-radius: 999px !important;
-        padding: 0 12px !important;
-        background: #FFFFFF !important;
-        border: 1px solid #E7D4F1 !important;
-        box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
-    }
-
-    button[data-testid="collapsedControl"]::after {
-        content: " Filters";
-        font-size: 12px;
-        font-weight: 800;
-        color: #660094;
-        margin-left: 6px;
-    }
-
-    /* Hide Plotly chart modebar/buttons */
-    .modebar,
-    .modebar-container,
-    .js-plotly-plot .modebar,
-    .js-plotly-plot .modebar-container {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
-
-    .block-container {
-        padding-top: 1rem !important;
-    }
     </style>
-
-    <script>
-    /* Extra guard for Streamlit Cloud toolbar/source controls that appear after initial render. */
-    (function() {
-        const selectors = [
-            '#MainMenu',
-            'footer',
-            '[data-testid="stDecoration"]',
-            '[data-testid="stDeployButton"]',
-            '[data-testid="stToolbar"]',
-            '[data-testid="stToolbarActions"]',
-            '[data-testid="stStatusWidget"]',
-            '[data-testid="manage-app-button"]',
-            'a[href*="github.com"]',
-            'a[href*="github.io"]',
-            'a[href*="/blob/"]',
-            'a[href*="/tree/"]',
-            'a[title*="GitHub"]',
-            'a[aria-label*="GitHub"]',
-            'button[title*="GitHub"]',
-            'button[aria-label*="GitHub"]',
-            '[aria-label*="View source"]',
-            '[title*="View source"]',
-            '.modebar',
-            '.modebar-container'
-        ];
-
-        function hideControls() {
-            selectors.forEach(function(selector) {
-                document.querySelectorAll(selector).forEach(function(el) {
-                    if (el && !el.matches('button[data-testid="collapsedControl"]')) {
-                        el.style.setProperty('display', 'none', 'important');
-                        el.style.setProperty('visibility', 'hidden', 'important');
-                        el.style.setProperty('opacity', '0', 'important');
-                        el.style.setProperty('pointer-events', 'none', 'important');
-                    }
-                });
-            });
-        }
-
-        hideControls();
-        new MutationObserver(hideControls).observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    })();
-    </script>
     """, unsafe_allow_html=True)
 
-
-inject_hide_streamlit_github_controls()
+inject_hide_github_button()
 
 # Disable Plotly modebar icons globally.
 pio.templates.default = "plotly_white"
