@@ -14,6 +14,7 @@ from datetime import datetime
 from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 import math
 import paramiko
+import logging
 import tempfile  
 import os
 import re
@@ -21,12 +22,6 @@ import requests
 
 import uuid
 
-from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
-
-import logging
-
-import warnings
-warnings.filterwarnings("ignore")
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
