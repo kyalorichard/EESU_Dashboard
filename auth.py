@@ -1,7 +1,6 @@
 # auth.py
 import json
 import time
-import requests
 
 import streamlit as st
 
@@ -67,14 +66,7 @@ def init_firebase_admin():
 
 
 def _firebase_required_keys():
-    return [
-        "apiKey",
-        "authDomain",
-        "projectId",
-        "storageBucket",
-        "messagingSenderId",
-        "appId",
-    ]
+    return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
 
 
 def init_firebase_client():
@@ -99,11 +91,6 @@ def init_firebase_client():
     try:
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
-
-        if not auth:
-            st.error("❌ Firebase auth object was not created.")
-            return None, None
-
         return firebase, auth
 
     except Exception as e:
@@ -137,8 +124,6 @@ def init_session():
         "auth_mode": "Login",
         "auth_remember": True,
         "auth_view": False,
-        "id_token": None,
-        "refresh_token": None,
     }
 
     for k, v in defaults.items():
@@ -146,15 +131,21 @@ def init_session():
 
 
 def get_cookies():
+    """
+    Safe cookie loader.
+
+    Important:
+    Do NOT use st.stop() here. It can prevent the whole dashboard from loading.
+    """
     if not HAS_COOKIES:
-        st.error("❌ Missing package: streamlit-cookies-manager.")
         return None
 
     if "cookies" not in st.session_state:
         password = st.secrets.get("cookie", {}).get("cookie_password")
 
         if not password:
-            st.error("Cookie password missing. Add [cookie].cookie_password to secrets.toml.")
+            if DEBUG:
+                st.sidebar.warning("Cookie password missing. Add [cookie].cookie_password to secrets.toml.")
             return None
 
         st.session_state.cookies = EncryptedCookieManager(
@@ -164,81 +155,44 @@ def get_cookies():
 
     cookies = st.session_state.cookies
 
-    if not cookies.ready():
-        st.stop()
+    try:
+        if hasattr(cookies, "sync"):
+            cookies.sync()
+        elif hasattr(cookies, "load"):
+            cookies.load()
+    except Exception:
+        pass
 
     return cookies
 
 
-def refresh_firebase_token(refresh_token: str):
-    api_key = st.secrets.get("firebase", {}).get("apiKey")
-
-    if not api_key or not refresh_token:
-        return None
-
-    url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
-
-    payload = {
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
-
-    try:
-        response = requests.post(url, data=payload, timeout=15)
-
-        if response.status_code != 200:
-            if DEBUG:
-                st.sidebar.warning(f"Firebase token refresh failed: {response.text}")
-            return None
-
-        return response.json()
-
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Firebase token refresh error: {e}")
-        return None
-
-
 def restore_session():
+    """
+    Restore login session from cookies.
+
+    Important:
+    If cookies are not ready yet, do not mark restored=True.
+    That allows Streamlit to try again on the next rerun.
+    """
     if st.session_state.get("restored"):
         return
 
     cookies = get_cookies()
 
     if not cookies:
+        st.session_state.restored = True
         return
 
     try:
+        if not cookies.ready():
+            return
+
         email = str(cookies.get("email") or "").lower().strip()
         name = cookies.get("name")
         role = cookies.get("role")
         verified = str(cookies.get("email_verified", "False")) == "True"
-        refresh_token = cookies.get("refresh_token")
 
-        if email and verified and refresh_token:
-            refreshed = refresh_firebase_token(refresh_token)
-
-            if refreshed:
-                new_id_token = refreshed.get("id_token")
-                new_refresh_token = refreshed.get("refresh_token", refresh_token)
-
-                cookies["id_token"] = new_id_token or ""
-                cookies["refresh_token"] = new_refresh_token or refresh_token
-                cookies.save()
-
-                st.session_state.user = True
-                st.session_state.email = email
-                st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
-                st.session_state.role = role or "privileged"
-                st.session_state.email_verified = True
-                st.session_state.auth_view = False
-                st.session_state.id_token = new_id_token
-                st.session_state.refresh_token = new_refresh_token
-
-            else:
-                logout_without_rerun()
-
-        elif email and verified:
+        if email and verified:
             st.session_state.user = True
             st.session_state.email = email
             st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
@@ -246,37 +200,32 @@ def restore_session():
             st.session_state.email_verified = True
             st.session_state.auth_view = False
 
+        st.session_state.restored = True
+
     except Exception as e:
         if DEBUG:
-            st.sidebar.warning(f"Error restoring Firebase session: {e}")
+            st.sidebar.warning(f"Error restoring session: {e}")
 
-    st.session_state.restored = True
+        st.session_state.restored = True
 
 
-def _save_cookie_session(
-    email,
-    name,
-    verified,
-    role,
-    id_token=None,
-    refresh_token=None,
-):
+def _save_cookie_session(email, name, verified, role, remember=True):
+    """
+    Always save cookie after successful login.
+    """
     cookies = get_cookies()
 
     if not cookies:
         return
 
     try:
+        if hasattr(cookies, "ready") and not cookies.ready():
+            return
+
         cookies["email"] = str(email or "").lower().strip()
         cookies["name"] = name or ""
         cookies["email_verified"] = str(bool(verified))
         cookies["role"] = role or ""
-
-        if id_token:
-            cookies["id_token"] = id_token
-
-        if refresh_token:
-            cookies["refresh_token"] = refresh_token
 
         cookies.save()
 
@@ -285,26 +234,20 @@ def _save_cookie_session(
             st.sidebar.warning(f"Cookie save error: {e}")
 
 
-def logout_without_rerun():
+def logout():
     cookies = get_cookies()
 
     if cookies:
-        for key in [
-            "email",
-            "name",
-            "role",
-            "email_verified",
-            "id_token",
-            "refresh_token",
-        ]:
-            try:
-                if key in cookies:
-                    del cookies[key]
-            except Exception:
-                pass
-
         try:
-            cookies.save()
+            if not hasattr(cookies, "ready") or cookies.ready():
+                for key in ["email", "name", "role", "email_verified"]:
+                    try:
+                        if key in cookies:
+                            del cookies[key]
+                    except Exception:
+                        pass
+
+                cookies.save()
         except Exception:
             pass
 
@@ -318,15 +261,10 @@ def logout_without_rerun():
         "auth_mode",
         "auth_remember",
         "auth_view",
-        "id_token",
-        "refresh_token",
     ]:
         if key in st.session_state:
             del st.session_state[key]
 
-
-def logout():
-    logout_without_rerun()
     st.rerun()
 
 
@@ -591,7 +529,6 @@ def _login_form():
 
         try:
             user = firebase_auth.sign_in_with_email_and_password(email, password)
-
             info = firebase_auth.get_account_info(user["idToken"])
             verified = bool(info["users"][0].get("emailVerified", False))
             role = "privileged" if verified else "restricted"
@@ -604,16 +541,13 @@ def _login_form():
             st.session_state.auth_remember = True
             st.session_state.auth_view = False
             st.session_state.restored = True
-            st.session_state.id_token = user.get("idToken")
-            st.session_state.refresh_token = user.get("refreshToken")
 
             _save_cookie_session(
                 email=email,
                 name=st.session_state.name,
                 verified=verified,
                 role=role,
-                id_token=user.get("idToken"),
-                refresh_token=user.get("refreshToken"),
+                remember=True,
             )
 
             st.success("Signed in successfully. Redirecting to dashboard...")
