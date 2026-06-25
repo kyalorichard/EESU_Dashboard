@@ -2,7 +2,6 @@
 import json
 import requests
 import streamlit as st
-
 from streamlit_javascript import st_javascript
 
 DEBUG = False
@@ -130,6 +129,7 @@ def init_session():
         "auth_view": False,
         "id_token": None,
         "refresh_token": None,
+        "login_saved_pending": False,
     }
 
     for k, v in defaults.items():
@@ -150,7 +150,7 @@ def save_browser_session(email, name, verified, role, id_token, refresh_token):
     localStorage.setItem("{LS_REFRESH_TOKEN}", {_js_escape(refresh_token)});
     "ok";
     """
-    st_javascript(js, key="save_eusee_auth")
+    return st_javascript(js, key="save_eusee_auth")
 
 
 def clear_browser_session():
@@ -163,7 +163,7 @@ def clear_browser_session():
     localStorage.removeItem("{LS_REFRESH_TOKEN}");
     "cleared";
     """
-    st_javascript(js, key="clear_eusee_auth")
+    return st_javascript(js, key="clear_eusee_auth")
 
 
 def read_browser_session():
@@ -215,10 +215,14 @@ def refresh_firebase_token(refresh_token: str):
 
 
 def restore_session():
-    if st.session_state.get("restored"):
+    if st.session_state.get("user") and st.session_state.get("email_verified"):
+        st.session_state.restored = True
         return
 
     data = read_browser_session()
+
+    if not data:
+        return
 
     email = str(data.get("email") or "").lower().strip()
     name = data.get("name")
@@ -226,32 +230,35 @@ def restore_session():
     verified = str(data.get("email_verified") or "").lower() == "true"
     refresh_token = data.get("refresh_token")
 
-    if email and verified and refresh_token:
-        refreshed = refresh_firebase_token(refresh_token)
+    if not email or not verified or not refresh_token:
+        return
 
-        if refreshed:
-            id_token = refreshed.get("id_token")
-            new_refresh_token = refreshed.get("refresh_token", refresh_token)
+    refreshed = refresh_firebase_token(refresh_token)
 
-            st.session_state.user = True
-            st.session_state.email = email
-            st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
-            st.session_state.role = role or "privileged"
-            st.session_state.email_verified = True
-            st.session_state.auth_view = False
-            st.session_state.id_token = id_token
-            st.session_state.refresh_token = new_refresh_token
+    if not refreshed:
+        return
 
-            save_browser_session(
-                email=email,
-                name=st.session_state.name,
-                verified=True,
-                role=st.session_state.role,
-                id_token=id_token,
-                refresh_token=new_refresh_token,
-            )
+    id_token = refreshed.get("id_token")
+    new_refresh_token = refreshed.get("refresh_token", refresh_token)
 
+    st.session_state.user = True
+    st.session_state.email = email
+    st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
+    st.session_state.role = role or "privileged"
+    st.session_state.email_verified = True
+    st.session_state.auth_view = False
+    st.session_state.id_token = id_token
+    st.session_state.refresh_token = new_refresh_token
     st.session_state.restored = True
+
+    save_browser_session(
+        email=email,
+        name=st.session_state.name,
+        verified=True,
+        role=st.session_state.role,
+        id_token=id_token,
+        refresh_token=new_refresh_token,
+    )
 
 
 def logout():
@@ -268,6 +275,7 @@ def logout():
         "auth_view",
         "id_token",
         "refresh_token",
+        "login_saved_pending",
     ]:
         if key in st.session_state:
             del st.session_state[key]
@@ -517,7 +525,7 @@ def _login_form():
             st.session_state.id_token = user.get("idToken")
             st.session_state.refresh_token = user.get("refreshToken")
 
-            save_browser_session(
+            save_status = save_browser_session(
                 email=email,
                 name=name,
                 verified=verified,
@@ -526,8 +534,12 @@ def _login_form():
                 refresh_token=user.get("refreshToken"),
             )
 
-            st.success("Signed in successfully. Redirecting to dashboard...")
-            st.rerun()
+            st.success("Signed in successfully. Dashboard access is active.")
+
+            if save_status == "ok":
+                st.info("Session saved. You may refresh the page and remain logged in.")
+            else:
+                st.info("Session is active. If this is the first login after update, refresh once after a few seconds.")
 
         except Exception as e:
             st.error(parse_error(e))
