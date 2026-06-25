@@ -1,11 +1,13 @@
 # auth.py
 from __future__ import annotations
 
+import base64
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 try:
     import pyrebase
@@ -14,119 +16,9 @@ except ImportError:
     pyrebase = None
     HAS_PYREBASE = False
 
-try:
-    import firebase_admin
-    from firebase_admin import credentials
-    HAS_FIREBASE_ADMIN = True
-except ImportError:
-    firebase_admin = None
-    credentials = None
-    HAS_FIREBASE_ADMIN = False
-
-try:
-    import extra_streamlit_components as stx
-    HAS_COOKIE_MANAGER = True
-except ImportError:
-    stx = None
-    HAS_COOKIE_MANAGER = False
-
 
 COOKIE_NAME = "eusee_auth_session"
-COOKIE_DAYS = 30
-DEBUG = False
-
-
-@st.cache_resource(show_spinner=False)
-def get_cookie_manager():
-    if not HAS_COOKIE_MANAGER:
-        return None
-    return stx.CookieManager(key="eusee_cookie_manager")
-
-
-def init_firebase_admin():
-    if not HAS_FIREBASE_ADMIN:
-        return None
-
-    secrets_admin = st.secrets.get("firebase_admin", {})
-    if not secrets_admin:
-        return None
-
-    try:
-        private_key = secrets_admin["private_key"].replace("\\n", "\n")
-        cred = credentials.Certificate({
-            "type": "service_account",
-            "project_id": secrets_admin["project_id"],
-            "private_key_id": secrets_admin["private_key_id"],
-            "private_key": private_key,
-            "client_email": secrets_admin["client_email"],
-            "client_id": secrets_admin["client_id"],
-            "auth_uri": secrets_admin["auth_uri"],
-            "token_uri": secrets_admin["token_uri"],
-            "auth_provider_x509_cert_url": secrets_admin["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": secrets_admin["client_x509_cert_url"],
-            "universe_domain": secrets_admin.get("universe_domain", "googleapis.com"),
-        })
-
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred)
-
-        return firebase_admin
-
-    except Exception as e:
-        if DEBUG:
-            st.warning(f"Firebase Admin init failed: {e}")
-        return None
-
-
-def init_firebase_client():
-    if not HAS_PYREBASE:
-        st.error("❌ Add `pyrebase4` to requirements.txt.")
-        return None, None
-
-    cfg_raw = st.secrets.get("firebase", {})
-    if not cfg_raw:
-        st.error("❌ Firebase config missing in secrets.toml.")
-        return None, None
-
-    cfg = dict(cfg_raw)
-
-    required = [
-        "apiKey",
-        "authDomain",
-        "projectId",
-        "storageBucket",
-        "messagingSenderId",
-        "appId",
-    ]
-
-    missing = [k for k in required if not cfg.get(k)]
-    if missing:
-        st.error("❌ Firebase config missing keys: " + ", ".join(missing))
-        return None, None
-
-    cfg.setdefault("databaseURL", "")
-
-    try:
-        firebase = pyrebase.initialize_app(cfg)
-        return firebase, firebase.auth()
-    except Exception as e:
-        st.error(f"❌ Firebase initialization failed: {e}")
-        return None, None
-
-
-firebase_admin_app = init_firebase_admin()
-firebase_client, firebase_auth = init_firebase_client()
-
-
-PRIVILEGED_DOMAINS = set(
-    str(d).lower().strip()
-    for d in st.secrets.get("access", {}).get("privileged_domains", [])
-    if str(d).strip()
-)
-
-
-def get_domain(email: str) -> str:
-    return str(email or "").strip().split("@")[-1].lower()
+COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 
 
 def init_session():
@@ -147,56 +39,110 @@ def init_session():
         st.session_state.setdefault(key, value)
 
 
-def _session_payload(email, name, verified, role, id_token, refresh_token):
-    return {
-        "email": str(email or "").lower().strip(),
-        "name": str(name or ""),
-        "email_verified": bool(verified),
-        "role": str(role or "guest"),
-        "id_token": str(id_token or ""),
-        "refresh_token": str(refresh_token or ""),
-    }
+def init_firebase_client():
+    if not HAS_PYREBASE:
+        st.error("❌ Add `pyrebase4` to requirements.txt.")
+        return None, None
 
+    cfg = dict(st.secrets.get("firebase", {}))
+    cfg.setdefault("databaseURL", "")
 
-def _write_cookie(payload: dict):
-    manager = get_cookie_manager()
-    if manager is None:
-        st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
-        return
+    required = [
+        "apiKey",
+        "authDomain",
+        "projectId",
+        "storageBucket",
+        "messagingSenderId",
+        "appId",
+    ]
 
-    manager.set(
-        COOKIE_NAME,
-        json.dumps(payload),
-        expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
-    )
-
-
-def _read_cookie() -> dict:
-    manager = get_cookie_manager()
-    if manager is None:
-        return {}
-
-    raw = manager.get(COOKIE_NAME)
-    if not raw:
-        return {}
+    missing = [k for k in required if not cfg.get(k)]
+    if missing:
+        st.error("❌ Firebase config missing keys: " + ", ".join(missing))
+        return None, None
 
     try:
-        return json.loads(raw)
+        firebase = pyrebase.initialize_app(cfg)
+        return firebase, firebase.auth()
+    except Exception as e:
+        st.error(f"❌ Firebase initialization failed: {e}")
+        return None, None
+
+
+firebase_client, firebase_auth = init_firebase_client()
+
+
+PRIVILEGED_DOMAINS = set(
+    str(d).lower().strip()
+    for d in st.secrets.get("access", {}).get("privileged_domains", [])
+    if str(d).strip()
+)
+
+
+def get_domain(email: str) -> str:
+    return str(email or "").strip().split("@")[-1].lower()
+
+
+def _encode_payload(payload: dict) -> str:
+    raw = json.dumps(payload).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("utf-8")
+
+
+def _decode_payload(value: str) -> dict:
+    try:
+        raw = base64.urlsafe_b64decode(value.encode("utf-8"))
+        return json.loads(raw.decode("utf-8"))
     except Exception:
         return {}
 
 
-def _delete_cookie():
-    manager = get_cookie_manager()
-    if manager is not None:
-        try:
-            manager.delete(COOKIE_NAME)
-        except Exception:
-            pass
+def _read_cookie() -> dict:
+    try:
+        raw = st.context.cookies.get(COOKIE_NAME)
+    except Exception:
+        raw = None
+
+    if not raw:
+        return {}
+
+    return _decode_payload(raw)
+
+
+def _set_cookie_and_reload(payload: dict):
+    encoded = _encode_payload(payload)
+
+    components.html(
+        f"""
+        <script>
+        document.cookie = "{COOKIE_NAME}={encoded}; path=/; max-age={COOKIE_MAX_AGE}; SameSite=Lax";
+        setTimeout(function() {{
+            window.parent.location.reload();
+        }}, 250);
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+def _clear_cookie_and_reload():
+    components.html(
+        f"""
+        <script>
+        document.cookie = "{COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax";
+        setTimeout(function() {{
+            window.parent.location.reload();
+        }}, 250);
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def refresh_firebase_token(refresh_token: str):
     api_key = st.secrets.get("firebase", {}).get("apiKey")
+
     if not api_key or not refresh_token:
         return None
 
@@ -221,12 +167,12 @@ def refresh_firebase_token(refresh_token: str):
         return None
 
 
-def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
-    st.session_state.user = bool(email and verified)
+def _apply_state(email, name, role, id_token, refresh_token):
+    st.session_state.user = True
     st.session_state.email = email
     st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
-    st.session_state.email_verified = bool(verified)
     st.session_state.role = role or "privileged"
+    st.session_state.email_verified = True
     st.session_state.id_token = id_token
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
@@ -241,6 +187,7 @@ def restore_session():
         return True
 
     cookie_data = _read_cookie()
+
     if not cookie_data:
         st.session_state.restored = True
         return False
@@ -248,41 +195,27 @@ def restore_session():
     email = str(cookie_data.get("email") or "").lower().strip()
     name = cookie_data.get("name") or ""
     role = cookie_data.get("role") or "privileged"
-    verified = bool(cookie_data.get("email_verified"))
     refresh_token = cookie_data.get("refresh_token") or ""
 
-    if not email or not verified or not refresh_token:
-        _delete_cookie()
+    if not email or not refresh_token:
         st.session_state.restored = True
         return False
 
     refreshed = refresh_firebase_token(refresh_token)
+
     if not refreshed:
-        _delete_cookie()
         st.session_state.restored = True
         return False
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
 
-    _apply_authenticated_state(
+    _apply_state(
         email=email,
         name=name,
-        verified=True,
         role=role,
         id_token=id_token,
         refresh_token=new_refresh_token,
-    )
-
-    _write_cookie(
-        _session_payload(
-            email=email,
-            name=st.session_state.name,
-            verified=True,
-            role=role,
-            id_token=id_token,
-            refresh_token=new_refresh_token,
-        )
     )
 
     return True
@@ -290,7 +223,10 @@ def restore_session():
 
 def is_authenticated():
     restore_session()
-    return bool(st.session_state.get("user") and st.session_state.get("email_verified"))
+    return bool(
+        st.session_state.get("user")
+        and st.session_state.get("email_verified")
+    )
 
 
 def is_privileged():
@@ -298,13 +234,11 @@ def is_privileged():
     return bool(
         st.session_state.get("user")
         and st.session_state.get("email_verified")
-        and st.session_state.get("role") in ["privileged", "admin"]
+        and st.session_state.get("role") == "privileged"
     )
 
 
 def logout():
-    _delete_cookie()
-
     for key in [
         "user",
         "email",
@@ -319,8 +253,7 @@ def logout():
     ]:
         st.session_state.pop(key, None)
 
-    init_session()
-    st.rerun()
+    _clear_cookie_and_reload()
 
 
 def parse_error(e):
@@ -518,35 +451,30 @@ def _login_form():
             verified = bool(info["users"][0].get("emailVerified", False))
 
             if not verified:
-                st.warning("Your account exists, but the email is not verified. Please verify your email first.")
+                st.warning("Please verify your email before signing in.")
                 return
 
             role = "privileged"
             name = email.split("@")[0].replace(".", " ").title()
 
-            _apply_authenticated_state(
+            _apply_state(
                 email=email,
                 name=name,
-                verified=True,
                 role=role,
                 id_token=user.get("idToken"),
                 refresh_token=user.get("refreshToken"),
             )
 
-            _write_cookie(
-                _session_payload(
-                    email=email,
-                    name=name,
-                    verified=True,
-                    role=role,
-                    id_token=user.get("idToken"),
-                    refresh_token=user.get("refreshToken"),
-                )
-            )
+            st.success("Signed in successfully. Redirecting to dashboard...")
 
-            st.session_state.auth_view = False
-            st.success("Signed in successfully.")
-            st.rerun()
+            _set_cookie_and_reload(
+                {
+                    "email": email,
+                    "name": name,
+                    "role": role,
+                    "refresh_token": user.get("refreshToken"),
+                }
+            )
 
         except Exception as e:
             st.error(parse_error(e))
