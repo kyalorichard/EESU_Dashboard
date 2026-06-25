@@ -36,11 +36,16 @@ COOKIE_DAYS = 30
 DEBUG = False
 
 
-@st.cache_resource(show_spinner=False)
 def get_cookie_manager():
     if not HAS_COOKIE_MANAGER:
         return None
-    return stx.CookieManager(key="eusee_cookie_manager")
+
+    if "_eusee_cookie_manager" not in st.session_state:
+        st.session_state["_eusee_cookie_manager"] = stx.CookieManager(
+            key="eusee_cookie_manager"
+        )
+
+    return st.session_state["_eusee_cookie_manager"]
 
 
 def init_firebase_admin():
