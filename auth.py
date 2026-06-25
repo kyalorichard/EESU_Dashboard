@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import re
+from pathlib import Path
 from datetime import datetime, timedelta
 
 import requests
@@ -34,6 +37,30 @@ except ImportError:
 COOKIE_NAME = "eusee_auth_session"
 COOKIE_DAYS = 30
 DEBUG = False
+
+# -----------------------------------------------------------------------------
+# Per-user chatbot history persistence
+# -----------------------------------------------------------------------------
+# Streamlit session_state is lost on browser refresh/new session. These helpers
+# persist chatbot messages on the server, separated by authenticated user email.
+# Use append_user_chat_message() whenever the chatbot adds a message, or call
+# save_user_chat_history() after updating st.session_state[CHAT_HISTORY_KEY].
+
+CHAT_HISTORY_KEY = "eusee_chat_history"
+CHAT_HISTORY_ALIASES = [
+    "messages",
+    "chat_messages",
+    "chat_history",
+    "eusee_messages",
+    "eusee_chat_messages",
+    "copilot_messages",
+    "ai_copilot_messages",
+]
+CHAT_HISTORY_MAX_MESSAGES = 80
+CHAT_HISTORY_DIR = Path(
+    st.secrets.get("chatbot", {}).get("history_dir", ".eusee_chat_history")
+)
+
 
 
 #@st.cache_resource(show_spinner=False)
@@ -139,6 +166,177 @@ def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
 
 
+def _safe_user_key(email: str) -> str:
+    clean_email = str(email or "").strip().lower()
+    if not clean_email:
+        return "guest"
+
+    readable = re.sub(r"[^a-z0-9]+", "_", clean_email).strip("_")[:42]
+    digest = hashlib.sha256(clean_email.encode("utf-8")).hexdigest()[:16]
+    return f"{readable}_{digest}"
+
+
+def _chat_history_path(email: str | None = None) -> Path | None:
+    target_email = str(email or st.session_state.get("email") or "").strip().lower()
+    if not target_email:
+        return None
+
+    return CHAT_HISTORY_DIR / f"{_safe_user_key(target_email)}.json"
+
+
+def _normalise_chat_message(message: dict) -> dict | None:
+    if not isinstance(message, dict):
+        return None
+
+    role = str(message.get("role") or message.get("sender") or "").strip().lower()
+    content = str(message.get("content") or message.get("message") or message.get("text") or "").strip()
+
+    if role not in {"user", "assistant", "system"} or not content:
+        return None
+
+    item = {
+        "role": role,
+        "content": content,
+    }
+
+    if message.get("timestamp"):
+        item["timestamp"] = str(message.get("timestamp"))
+    else:
+        item["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+    return item
+
+
+def _normalise_chat_history(messages) -> list[dict]:
+    if not isinstance(messages, list):
+        return []
+
+    cleaned = []
+    for msg in messages:
+        item = _normalise_chat_message(msg)
+        if item:
+            cleaned.append(item)
+
+    return cleaned[-CHAT_HISTORY_MAX_MESSAGES:]
+
+
+def _get_current_session_chat_history() -> list[dict]:
+    for key in [CHAT_HISTORY_KEY, *CHAT_HISTORY_ALIASES]:
+        value = st.session_state.get(key)
+        if isinstance(value, list) and value:
+            return _normalise_chat_history(value)
+    return []
+
+
+def _sync_chat_history_aliases(messages: list[dict]):
+    cleaned = _normalise_chat_history(messages)
+    st.session_state[CHAT_HISTORY_KEY] = cleaned
+
+    # Keep common existing chatbot keys synchronized so the rest of app.py can
+    # continue using its current variable name without breaking.
+    for key in CHAT_HISTORY_ALIASES:
+        if key in st.session_state:
+            st.session_state[key] = cleaned
+
+
+def load_user_chat_history(email: str | None = None) -> list[dict]:
+    """Load saved chatbot history for the authenticated user into session_state."""
+    path = _chat_history_path(email)
+    if path is None:
+        _sync_chat_history_aliases([])
+        return []
+
+    try:
+        if not path.exists():
+            _sync_chat_history_aliases([])
+            return []
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        messages = _normalise_chat_history(data.get("messages", []))
+        _sync_chat_history_aliases(messages)
+        st.session_state.chat_history_loaded = True
+        return messages
+
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Could not load chatbot history: {e}")
+        _sync_chat_history_aliases([])
+        return []
+
+
+def save_user_chat_history(messages: list[dict] | None = None, email: str | None = None) -> bool:
+    """Save chatbot history for the authenticated user."""
+    target_email = str(email or st.session_state.get("email") or "").strip().lower()
+    if not target_email:
+        return False
+
+    cleaned = _normalise_chat_history(
+        messages if messages is not None else _get_current_session_chat_history()
+    )
+
+    try:
+        CHAT_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        path = _chat_history_path(target_email)
+        if path is None:
+            return False
+
+        payload = {
+            "email": target_email,
+            "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "messages": cleaned,
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        _sync_chat_history_aliases(cleaned)
+        return True
+
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Could not save chatbot history: {e}")
+        return False
+
+
+def append_user_chat_message(role: str, content: str) -> list[dict]:
+    """Append one chatbot message and persist it immediately."""
+    current = _get_current_session_chat_history()
+    item = _normalise_chat_message({"role": role, "content": content})
+
+    if item:
+        current.append(item)
+
+    current = current[-CHAT_HISTORY_MAX_MESSAGES:]
+    _sync_chat_history_aliases(current)
+    save_user_chat_history(current)
+    return current
+
+
+def clear_user_chat_history(email: str | None = None):
+    """Clear the current user's saved chatbot history."""
+    _sync_chat_history_aliases([])
+
+    path = _chat_history_path(email)
+    if path and path.exists():
+        try:
+            path.unlink()
+        except Exception:
+            pass
+
+
+def ensure_user_chat_history_loaded():
+    """Call this once after authentication to restore the user's chatbot memory."""
+    if not st.session_state.get("user") or not st.session_state.get("email_verified"):
+        return []
+
+    loaded_for = st.session_state.get("chat_history_loaded_for")
+    current_email = str(st.session_state.get("email") or "").strip().lower()
+
+    if loaded_for != current_email:
+        messages = load_user_chat_history(current_email)
+        st.session_state.chat_history_loaded_for = current_email
+        return messages
+
+    return st.session_state.get(CHAT_HISTORY_KEY, [])
+
+
 def init_session():
     defaults = {
         "user": False,
@@ -151,6 +349,9 @@ def init_session():
         "auth_view": False,
         "id_token": None,
         "refresh_token": None,
+        CHAT_HISTORY_KEY: [],
+        "chat_history_loaded": False,
+        "chat_history_loaded_for": None,
     }
 
     for key, value in defaults.items():
@@ -241,6 +442,7 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
+    ensure_user_chat_history_loaded()
 
 
 def restore_session():
@@ -322,6 +524,7 @@ def is_privileged():
         and st.session_state.get("role") in ["privileged", "admin"]
     )
 def logout():
+    save_user_chat_history()
     _delete_cookie()
 
     for key in [
@@ -335,6 +538,10 @@ def logout():
         "auth_view",
         "id_token",
         "refresh_token",
+        CHAT_HISTORY_KEY,
+        "chat_history_loaded",
+        "chat_history_loaded_for",
+        *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
 
@@ -719,6 +926,7 @@ def auth_ui():
     restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
+        ensure_user_chat_history_loaded()
         st.session_state.auth_view = False
         return
 

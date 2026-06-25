@@ -7422,8 +7422,148 @@ LANGFLOW_PROMPT_COMPONENT_ID = st.secrets.get("langflow", {}).get(
     "Prompt Template-hiUxU"
 ).strip()
 
-st.session_state.setdefault("eusee_chat_messages", [])
-st.session_state.setdefault("eusee_chat_session_id", str(uuid.uuid4()))
+# ---------------- CHAT HISTORY PERSISTENCE ----------------
+# Stores each authenticated user's Copilot history on disk so it survives
+# Streamlit reruns, browser refreshes, logout/login, and app restarts when the
+# project folder or Docker volume is persistent.
+CHAT_HISTORY_DIR = BASE_DIR / "chat_history"
+CHAT_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+CHAT_HISTORY_LIMIT = 100
+
+
+def _current_chat_user_key() -> str:
+    """Return a stable privacy-safe key for the active user chat history."""
+    email = str(st.session_state.get("email") or "").lower().strip()
+
+    if email:
+        identity = f"user::{email}"
+    else:
+        # Public/guest users only get a browser-session-level identity.
+        # Authenticated users get persistent per-email history.
+        st.session_state.setdefault("eusee_guest_chat_key", str(uuid.uuid4()))
+        identity = f"guest::{st.session_state.eusee_guest_chat_key}"
+
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def _chat_history_path(user_key: str | None = None) -> Path:
+    user_key = user_key or _current_chat_user_key()
+    return CHAT_HISTORY_DIR / f"{user_key}.json"
+
+
+def _normalise_chat_messages(messages) -> list[dict]:
+    clean_messages = []
+
+    if not isinstance(messages, list):
+        return clean_messages
+
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+
+        role = str(msg.get("role", "assistant")).strip().lower()
+        if role not in {"user", "assistant", "system"}:
+            role = "assistant"
+
+        content = str(msg.get("content", "")).strip()
+        if not content:
+            continue
+
+        clean_messages.append({
+            "id": str(msg.get("id") or uuid.uuid4().hex),
+            "role": role,
+            "content": content,
+            "created_at": str(msg.get("created_at") or datetime.utcnow().isoformat(timespec="seconds") + "Z"),
+        })
+
+    return clean_messages[-CHAT_HISTORY_LIMIT:]
+
+
+def load_user_chat_history(force: bool = False) -> list[dict]:
+    """Load the current user's saved Copilot history into session state."""
+    user_key = _current_chat_user_key()
+
+    if (
+        not force
+        and st.session_state.get("eusee_chat_history_loaded")
+        and st.session_state.get("eusee_chat_user_key") == user_key
+    ):
+        return st.session_state.get("eusee_chat_messages", [])
+
+    history_file = _chat_history_path(user_key)
+    messages = []
+
+    if history_file.exists():
+        try:
+            payload = json.loads(history_file.read_text(encoding="utf-8"))
+            messages = _normalise_chat_messages(payload.get("messages", []))
+        except Exception:
+            messages = []
+
+    st.session_state.eusee_chat_user_key = user_key
+    st.session_state.eusee_chat_messages = messages
+    st.session_state.eusee_chat_history_loaded = True
+    st.session_state.eusee_chat_session_id = user_key[:32]
+
+    return messages
+
+
+def save_user_chat_history() -> None:
+    """Persist the active user's Copilot history to disk."""
+    user_key = st.session_state.get("eusee_chat_user_key") or _current_chat_user_key()
+    messages = _normalise_chat_messages(st.session_state.get("eusee_chat_messages", []))
+    st.session_state.eusee_chat_messages = messages
+
+    payload = {
+        "user_key": user_key,
+        "email": str(st.session_state.get("email") or "").lower().strip(),
+        "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "message_count": len(messages),
+        "messages": messages,
+    }
+
+    try:
+        history_file = _chat_history_path(user_key)
+        tmp_file = history_file.with_suffix(".tmp")
+        tmp_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp_file.replace(history_file)
+    except Exception as exc:
+        if st.secrets.get("debug", {}).get("show_chat_history_errors", False):
+            st.warning(f"Chat history could not be saved: {exc}")
+
+
+def append_user_chat_message(role: str, content: str) -> None:
+    """Append one Copilot message and immediately save the user's history."""
+    load_user_chat_history()
+
+    st.session_state.eusee_chat_messages.append({
+        "id": uuid.uuid4().hex,
+        "role": str(role or "assistant").lower().strip(),
+        "content": str(content or "").strip(),
+        "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    })
+
+    st.session_state.eusee_chat_messages = _normalise_chat_messages(
+        st.session_state.eusee_chat_messages
+    )
+    save_user_chat_history()
+
+
+def clear_user_chat_history() -> None:
+    """Clear the current user's saved Copilot history."""
+    user_key = st.session_state.get("eusee_chat_user_key") or _current_chat_user_key()
+    st.session_state.eusee_chat_messages = []
+    st.session_state.eusee_chat_history_loaded = True
+
+    try:
+        history_file = _chat_history_path(user_key)
+        if history_file.exists():
+            history_file.unlink()
+    except Exception:
+        pass
+
+
+load_user_chat_history(force=True)
 
 
 def _clean_df(df):
@@ -8161,8 +8301,13 @@ def _render_eusee_ai_copilot_body():
         st.info("AI Copilot is not enabled for your access level.")
         return
 
+    load_user_chat_history()
+
+    history_count = len(st.session_state.get("eusee_chat_messages", []))
+    st.caption(f"Chat history: {history_count} saved message(s) for this user.")
+
     if st.button("Clear Chat Memory", use_container_width=True, key="eusee_ai_clear_chat_memory"):
-        st.session_state.eusee_chat_messages = []
+        clear_user_chat_history()
         st.rerun()
 
     for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
@@ -8193,11 +8338,7 @@ def _render_eusee_ai_copilot_body():
     if submitted and user_question.strip():
         user_question = user_question.strip()
 
-        st.session_state.eusee_chat_messages.append({
-            "id": uuid.uuid4().hex,
-            "role": "user",
-            "content": user_question,
-        })
+        append_user_chat_message("user", user_question)
 
         active_df = st.session_state.get("eusee_active_filtered_df", None)
         if active_df is None:
@@ -8223,11 +8364,7 @@ def _render_eusee_ai_copilot_body():
                 filter_summary=filter_summary,
             )
 
-        st.session_state.eusee_chat_messages.append({
-            "id": uuid.uuid4().hex,
-            "role": "assistant",
-            "content": answer,
-        })
+        append_user_chat_message("assistant", answer)
 
         st.rerun()
 
