@@ -224,6 +224,12 @@ def refresh_firebase_token(refresh_token: str):
 
 
 def restore_session():
+    # Prevent repeated st_javascript calls in the same Streamlit run
+    if st.session_state.get("restore_attempted", False):
+        return
+
+    st.session_state.restore_attempted = True
+
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
         return
@@ -260,16 +266,6 @@ def restore_session():
     st.session_state.refresh_token = new_refresh_token
     st.session_state.restored = True
 
-    save_browser_session(
-        email=email,
-        name=st.session_state.name,
-        verified=True,
-        role=st.session_state.role,
-        id_token=id_token,
-        refresh_token=new_refresh_token,
-    )
-
-
 def logout():
     clear_browser_session()
 
@@ -280,6 +276,7 @@ def logout():
         "role",
         "email_verified",
         "restored",
+        "restore_attempted",
         "auth_mode",
         "auth_view",
         "id_token",
