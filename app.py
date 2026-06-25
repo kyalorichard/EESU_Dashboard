@@ -25,7 +25,8 @@ from auth import auth_ui, is_privileged, is_authenticated, init_session, restore
 
 import logging
 
-logging.getLogger("streamlit").setLevel(logging.ERROR)
+import warnings
+warnings.filterwarnings("ignore")
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
