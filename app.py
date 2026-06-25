@@ -11,7 +11,14 @@ import plotly.graph_objects as go
 import base64
 import hashlib
 from datetime import datetime
-from auth import auth_ui, is_privileged, is_authenticated
+from auth import (
+    auth_ui,
+    is_privileged,
+    is_authenticated,
+    init_session,
+    restore_session,
+    logout,
+)
 import math
 import paramiko
 import logging
@@ -24,6 +31,14 @@ import uuid
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
+
+# ------------------------------------------------------------------
+# AUTH SESSION BOOTSTRAP
+# Must run immediately after page config and before sidebar, filters,
+# admin routing, data loading, charts, or permission checks.
+# ------------------------------------------------------------------
+init_session()
+restore_session()
 
 # ------------------------------------------------------------------
 # HIDE GITHUB / SOURCE CODE ACCESS
@@ -714,10 +729,8 @@ def monitored_countries_display_value(value) -> str:
 
 
 # ---------------- AUTH STATE NOTES ----------------
-# Authentication is handled by the existing sidebar/auth components.
+# Authentication defaults are initialized centrally by init_session().
 # Restricted feature cards intentionally do not route users to a separate auth view.
-st.session_state.setdefault("auth_mode", "Login")
-st.session_state.setdefault("auth_reset_open", False)
 
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
@@ -776,8 +789,6 @@ def _safe_pdf_download_button(title: str, pdf_path: Path, key_prefix: str):
 # Restricted chart/map/tab cards remain passive locked-state messages and do not
 # trigger login navigation.
 st.session_state.setdefault("auth_view", False)
-st.session_state.setdefault("auth_mode", "Login")
-st.session_state.setdefault("auth_reset_open", False)
 
 if is_authenticated():
     st.session_state.auth_view = False
@@ -1610,7 +1621,6 @@ def render_sidebar_access_settings_profile():
 
         if signed_in:
             if st.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
-                from auth import logout
                 logout()
         else:
             if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_signin_btn"):
