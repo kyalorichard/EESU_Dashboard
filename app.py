@@ -255,7 +255,7 @@ def render_top_account_controls():
                 st.rerun()
 
 
-render_top_account_controls()
+# Account controls are rendered after auth routing so the sign-in page is not mixed with the dashboard header.
 
 try:
     from streamlit_plotly_events import plotly_events
@@ -908,6 +908,10 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
         st.rerun()
 
     st.stop()
+
+
+# Render account controls only on the dashboard/admin surface, not inside the login route.
+render_top_account_controls()
 
 
 # ---------------- LOAD DATA ----------------

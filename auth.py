@@ -33,6 +33,7 @@ except ImportError:
 
 
 COOKIE_DAYS = 30
+LOGOUT_COOKIE = "eusee_logged_out"
 
 COOKIE_KEYS = [
     "email",
@@ -41,6 +42,7 @@ COOKIE_KEYS = [
     "email_verified",
     "id_token",
     "refresh_token",
+    LOGOUT_COOKIE,
 ]
 
 
@@ -148,6 +150,7 @@ def init_session():
         "auth_view": False,
         "id_token": None,
         "refresh_token": None,
+        "auth_force_logout": False,
     }
 
     for key, value in defaults.items():
@@ -260,6 +263,7 @@ def _save_cookie_session(
     if not cookies:
         return
 
+    _cookie_set(cookies, LOGOUT_COOKIE, "")
     _cookie_set(cookies, "email", str(email or "").lower().strip())
     _cookie_set(cookies, "name", str(name or ""))
     _cookie_set(cookies, "email_verified", str(bool(verified)))
@@ -276,8 +280,24 @@ def _clear_cookie_session():
     if not cookies:
         return
 
+    # First overwrite auth cookies with blank values. On Streamlit Community
+    # Cloud, Docker, and reverse-proxy deployments, CookieManager.delete() can
+    # lag by one rerun; blanking prevents an immediate silent re-login.
+    for key in COOKIE_KEYS:
+        try:
+            _cookie_set(cookies, key, "")
+        except Exception:
+            pass
+
+    # Then request deletion as well.
     for key in COOKIE_KEYS:
         _cookie_delete(cookies, key)
+
+    # Explicit logout marker used by restore_session() as a final guard.
+    try:
+        _cookie_set(cookies, LOGOUT_COOKIE, "1")
+    except Exception:
+        pass
 
 def restore_session():
     """
@@ -290,6 +310,20 @@ def restore_session():
     """
     init_session()
 
+    # Do not restore a cookie session immediately after the user clicked Logout.
+    # This prevents the common "logout then instantly logged back in" problem
+    # when the browser cookie component has not finished deleting old cookies.
+    if st.session_state.get("auth_force_logout"):
+        st.session_state.user = False
+        st.session_state.email = None
+        st.session_state.name = None
+        st.session_state.role = None
+        st.session_state.email_verified = False
+        st.session_state.id_token = None
+        st.session_state.refresh_token = None
+        st.session_state.restored = True
+        return
+
     if st.session_state.get("restored"):
         return
 
@@ -299,6 +333,11 @@ def restore_session():
 
     try:
         all_cookies = _read_all_cookies()
+
+        if str(all_cookies.get(LOGOUT_COOKIE) or "").strip() == "1":
+            st.session_state.auth_force_logout = True
+            st.session_state.restored = True
+            return
 
         refresh_token = all_cookies.get("refresh_token")
         email_cookie = str(all_cookies.get("email") or "").lower().strip()
@@ -380,6 +419,9 @@ def is_authenticated():
     init_session()
     restore_session()
 
+    if st.session_state.get("auth_force_logout"):
+        return False
+
     return bool(
         st.session_state.get("user")
         and st.session_state.get("email_verified")
@@ -390,6 +432,9 @@ def is_privileged():
     init_session()
     restore_session()
 
+    if st.session_state.get("auth_force_logout"):
+        return False
+
     return (
         st.session_state.get("user", False)
         and st.session_state.get("email_verified", False)
@@ -398,24 +443,36 @@ def is_privileged():
 
 
 def logout():
+    # Keep this guard in session_state across the rerun. Do not delete it below.
+    st.session_state.auth_force_logout = True
+    st.session_state.restored = True
+
     _clear_cookie_session()
 
+    # Clear authentication state but keep the cookie_manager mounted. Removing
+    # the component key can make deletes less reliable on the immediate rerun.
     for key in [
         "user",
         "email",
         "name",
         "role",
         "email_verified",
-        "restored",
         "auth_mode",
-        "auth_remember",
         "auth_view",
         "id_token",
         "refresh_token",
-        "cookie_manager",
     ]:
         if key in st.session_state:
             del st.session_state[key]
+
+    st.session_state.user = False
+    st.session_state.email = None
+    st.session_state.name = None
+    st.session_state.role = None
+    st.session_state.email_verified = False
+    st.session_state.auth_view = False
+    st.session_state.id_token = None
+    st.session_state.refresh_token = None
 
     st.rerun()
 
@@ -675,6 +732,8 @@ def _login_form():
             role = "privileged" if verified else "restricted"
             name = email.split("@")[0].replace(".", " ").title()
 
+            st.session_state.auth_force_logout = False
+
             _set_authenticated_session(
                 email=email,
                 name=name,
@@ -686,7 +745,7 @@ def _login_form():
 
             st.session_state.auth_remember = remember
             st.session_state.auth_view = False
-            st.session_state.restored = False
+            st.session_state.restored = True
 
             _save_cookie_session(
                 email=email,
