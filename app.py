@@ -3852,6 +3852,11 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
             value=[l["value"] for l in links],
             color=[l["color"] for l in links],
             hovertemplate="<b>%{value}</b> linked alerts<extra></extra>",
+        ),
+         textfont=dict(
+            family="Arial",
+            size=13,
+            color="#000000"
         )
     ))
 
