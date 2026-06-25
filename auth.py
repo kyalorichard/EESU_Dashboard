@@ -36,11 +36,21 @@ COOKIE_DAYS = 30
 DEBUG = False
 
 
-@st.cache_resource(show_spinner=False)
+#@st.cache_resource(show_spinner=False)
+_COOKIE_MANAGER = None
+
 def get_cookie_manager():
+    global _COOKIE_MANAGER
+
     if not HAS_COOKIE_MANAGER:
         return None
-    return stx.CookieManager(key="eusee_cookie_manager")
+
+    if _COOKIE_MANAGER is None:
+        _COOKIE_MANAGER = stx.CookieManager(
+            key="eusee_cookie_manager_main"
+        )
+
+    return _COOKIE_MANAGER
 
 
 def init_firebase_admin():
@@ -289,19 +299,28 @@ def restore_session():
 
 
 def is_authenticated():
-    restore_session()
-    return bool(st.session_state.get("user") and st.session_state.get("email_verified"))
+    init_session()
+
+    if not st.session_state.get("restored"):
+        restore_session()
+
+    return bool(
+        st.session_state.get("user")
+        and st.session_state.get("email_verified")
+    )
 
 
 def is_privileged():
-    restore_session()
+    init_session()
+
+    if not st.session_state.get("restored"):
+        restore_session()
+
     return bool(
         st.session_state.get("user")
         and st.session_state.get("email_verified")
         and st.session_state.get("role") in ["privileged", "admin"]
     )
-
-
 def logout():
     _delete_cookie()
 
