@@ -1581,6 +1581,7 @@ def render_sidebar_access_settings_profile():
     /* Description */
     section[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{
         font-size:10px !important;
+        font-family: Arial, sans-serif;
         line-height:1.5 !important;
         color:#667085 !important;
     }
@@ -1596,6 +1597,7 @@ def render_sidebar_access_settings_profile():
 
     section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
         font-size:10px !important;
+        font-family: Arial, sans-serif;
         font-weight:800 !important;
         color:#667085 !important;
         text-transform:uppercase;
