@@ -2,6 +2,7 @@
 import json
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_javascript import st_javascript
 
 DEBUG = False
@@ -131,6 +132,7 @@ def init_session():
         "refresh_token": None,
         "browser_session_data": {},
         "browser_session_read_done": False,
+        "_auth_js_counter": 0,
     }
 
     for k, v in defaults.items():
@@ -139,6 +141,11 @@ def init_session():
 
 def _js_escape(value):
     return json.dumps(str(value or ""))
+
+
+def _next_js_key(prefix: str) -> str:
+    st.session_state["_auth_js_counter"] = st.session_state.get("_auth_js_counter", 0) + 1
+    return f"{prefix}_{st.session_state['_auth_js_counter']}"
 
 
 def save_browser_session(email, name, verified, role, id_token, refresh_token):
@@ -151,20 +158,43 @@ def save_browser_session(email, name, verified, role, id_token, refresh_token):
     localStorage.setItem("{LS_REFRESH_TOKEN}", {_js_escape(refresh_token)});
     "ok";
     """
-    return st_javascript(js, key="save_eusee_auth")
+    return st_javascript(js, key=_next_js_key("save_eusee_auth"))
+
+
+def save_browser_session_and_reload(email, name, verified, role, id_token, refresh_token):
+    html = f"""
+    <script>
+    localStorage.setItem("{LS_EMAIL}", {_js_escape(email)});
+    localStorage.setItem("{LS_NAME}", {_js_escape(name)});
+    localStorage.setItem("{LS_ROLE}", {_js_escape(role)});
+    localStorage.setItem("{LS_VERIFIED}", {_js_escape(str(bool(verified)))});
+    localStorage.setItem("{LS_ID_TOKEN}", {_js_escape(id_token)});
+    localStorage.setItem("{LS_REFRESH_TOKEN}", {_js_escape(refresh_token)});
+
+    setTimeout(function() {{
+        window.parent.location.reload();
+    }}, 300);
+    </script>
+    """
+    components.html(html, height=0, width=0)
 
 
 def clear_browser_session():
-    js = f"""
+    html = f"""
+    <script>
     localStorage.removeItem("{LS_EMAIL}");
     localStorage.removeItem("{LS_NAME}");
     localStorage.removeItem("{LS_ROLE}");
     localStorage.removeItem("{LS_VERIFIED}");
     localStorage.removeItem("{LS_ID_TOKEN}");
     localStorage.removeItem("{LS_REFRESH_TOKEN}");
-    "cleared";
+
+    setTimeout(function() {{
+        window.parent.location.reload();
+    }}, 250);
+    </script>
     """
-    return st_javascript(js, key="clear_eusee_auth")
+    components.html(html, height=0, width=0)
 
 
 def read_browser_session():
@@ -182,7 +212,7 @@ def read_browser_session():
     }});
     """
 
-    raw = st_javascript(js, key="read_eusee_auth_once")
+    raw = st_javascript(js, key=_next_js_key("read_eusee_auth"))
 
     if not raw or raw in [0, "0", None]:
         return {}
@@ -224,12 +254,6 @@ def refresh_firebase_token(refresh_token: str):
 
 
 def restore_session():
-    # Prevent repeated st_javascript calls in the same Streamlit run
-    if st.session_state.get("restore_attempted", False):
-        return
-
-    st.session_state.restore_attempted = True
-
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
         return
@@ -266,6 +290,16 @@ def restore_session():
     st.session_state.refresh_token = new_refresh_token
     st.session_state.restored = True
 
+    save_browser_session(
+        email=email,
+        name=st.session_state.name,
+        verified=True,
+        role=st.session_state.role,
+        id_token=id_token,
+        refresh_token=new_refresh_token,
+    )
+
+
 def logout():
     clear_browser_session()
 
@@ -276,7 +310,6 @@ def logout():
         "role",
         "email_verified",
         "restored",
-        "restore_attempted",
         "auth_mode",
         "auth_view",
         "id_token",
@@ -286,8 +319,6 @@ def logout():
     ]:
         if key in st.session_state:
             del st.session_state[key]
-
-    st.rerun()
 
 
 def is_authenticated():
@@ -542,7 +573,9 @@ def _login_form():
             }
             st.session_state.browser_session_read_done = True
 
-            save_status = save_browser_session(
+            st.success("Signed in successfully. Redirecting to dashboard...")
+
+            save_browser_session_and_reload(
                 email=email,
                 name=name,
                 verified=verified,
@@ -550,13 +583,6 @@ def _login_form():
                 id_token=user.get("idToken"),
                 refresh_token=user.get("refreshToken"),
             )
-
-            st.success("Signed in successfully. Dashboard access is active.")
-
-            if save_status == "ok":
-                st.info("Session saved. You may refresh the page and remain logged in.")
-            else:
-                st.info("Session is active. If this is the first login after update, refresh once after a few seconds.")
 
         except Exception as e:
             st.error(parse_error(e))
