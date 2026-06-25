@@ -1,5 +1,8 @@
 # auth.py
 import json
+import time
+from datetime import datetime, timedelta
+
 import streamlit as st
 
 DEBUG = False
@@ -29,7 +32,7 @@ except ImportError:
     HAS_COOKIES = False
 
 
-COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+COOKIE_DAYS = 30
 
 COOKIE_KEYS = [
     "email",
@@ -152,6 +155,13 @@ def init_session():
 
 
 def get_cookies():
+    """
+    Return the browser cookie manager.
+
+    extra-streamlit-components is a frontend component. Calling get_all()
+    helps mount/synchronize the component before we try to read values after
+    a browser refresh.
+    """
     if not HAS_COOKIES:
         return None
 
@@ -161,6 +171,60 @@ def get_cookies():
         )
 
     return st.session_state.cookie_manager
+
+
+def _read_all_cookies():
+    cookies = get_cookies()
+    if not cookies:
+        return {}
+
+    try:
+        values = cookies.get_all()
+        return values or {}
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Cookie read failed: {e}")
+        return {}
+
+
+def _cookie_expires_at():
+    return datetime.now() + timedelta(days=COOKIE_DAYS)
+
+
+def _cookie_set(cookies, name, value):
+    """
+    Compatible wrapper for extra-streamlit-components CookieManager.set().
+
+    The reliable API uses expires_at instead of max_age:
+        cookies.set(cookie, val, expires_at=...)
+    """
+    if not cookies:
+        return
+
+    try:
+        cookies.set(
+            cookie=name,
+            val=str(value or ""),
+            expires_at=_cookie_expires_at(),
+        )
+    except TypeError:
+        cookies.set(
+            name,
+            str(value or ""),
+            expires_at=_cookie_expires_at(),
+        )
+
+
+def _cookie_delete(cookies, name):
+    if not cookies:
+        return
+
+    try:
+        cookies.delete(cookie=name)
+    except TypeError:
+        cookies.delete(name)
+    except Exception:
+        pass
 
 
 def _set_authenticated_session(
@@ -196,17 +260,16 @@ def _save_cookie_session(
     if not cookies:
         return
 
-    cookies.set("email", str(email or "").lower().strip(), max_age=COOKIE_MAX_AGE)
-    cookies.set("name", str(name or ""), max_age=COOKIE_MAX_AGE)
-    cookies.set("email_verified", str(bool(verified)), max_age=COOKIE_MAX_AGE)
-    cookies.set("role", str(role or ""), max_age=COOKIE_MAX_AGE)
+    _cookie_set(cookies, "email", str(email or "").lower().strip())
+    _cookie_set(cookies, "name", str(name or ""))
+    _cookie_set(cookies, "email_verified", str(bool(verified)))
+    _cookie_set(cookies, "role", str(role or ""))
 
     if id_token:
-        cookies.set("id_token", str(id_token), max_age=COOKIE_MAX_AGE)
+        _cookie_set(cookies, "id_token", str(id_token))
 
     if refresh_token:
-        cookies.set("refresh_token", str(refresh_token), max_age=COOKIE_MAX_AGE)
-
+        _cookie_set(cookies, "refresh_token", str(refresh_token))
 
 def _clear_cookie_session():
     cookies = get_cookies()
@@ -214,30 +277,37 @@ def _clear_cookie_session():
         return
 
     for key in COOKIE_KEYS:
-        try:
-            cookies.delete(key)
-        except Exception:
-            pass
-
+        _cookie_delete(cookies, key)
 
 def restore_session():
+    """
+    Restore Firebase login after browser refresh.
+
+    Important:
+    - Do not mark restored=True if cookies are not yet available.
+    - Do not delete cookies after one failed refresh attempt; Streamlit
+      components can lag by one rerun on Docker/Plesk/Community Cloud.
+    """
     init_session()
 
     if st.session_state.get("restored"):
         return
 
     cookies = get_cookies()
-
     if not cookies:
         return
 
     try:
-        refresh_token = cookies.get("refresh_token")
-        email_cookie = str(cookies.get("email") or "").lower().strip()
-        name_cookie = cookies.get("name")
-        role_cookie = cookies.get("role")
-        verified_cookie = str(cookies.get("email_verified", "False")) == "True"
+        all_cookies = _read_all_cookies()
 
+        refresh_token = all_cookies.get("refresh_token")
+        email_cookie = str(all_cookies.get("email") or "").lower().strip()
+        name_cookie = all_cookies.get("name")
+        role_cookie = all_cookies.get("role")
+        verified_cookie = str(all_cookies.get("email_verified", "False")) == "True"
+
+        # If the cookie component has not returned values yet, leave restored
+        # as False so a later rerun can try again.
         if not refresh_token and not email_cookie:
             return
 
@@ -275,27 +345,36 @@ def restore_session():
                     remember=True,
                 )
 
+                st.session_state.restored = True
+                return
+
             except Exception as e:
                 if DEBUG:
                     st.warning(f"Token refresh failed: {e}")
-                _clear_cookie_session()
 
-        elif email_cookie:
+                # Do not clear cookies here. A first refresh can fail while the
+                # frontend cookie component is still synchronizing.
+                st.session_state.restored = False
+                return
+
+        if email_cookie:
             _set_authenticated_session(
                 email=email_cookie,
                 name=name_cookie,
                 verified=verified_cookie,
                 role=role_cookie,
-                id_token=cookies.get("id_token"),
+                id_token=all_cookies.get("id_token"),
                 refresh_token=refresh_token,
             )
+
+            st.session_state.restored = True
+            return
 
     except Exception as e:
         if DEBUG:
             st.warning(f"Session restore failed: {e}")
 
     st.session_state.restored = True
-
 
 def is_authenticated():
     init_session()
@@ -607,7 +686,7 @@ def _login_form():
 
             st.session_state.auth_remember = remember
             st.session_state.auth_view = False
-            st.session_state.restored = True
+            st.session_state.restored = False
 
             _save_cookie_session(
                 email=email,
