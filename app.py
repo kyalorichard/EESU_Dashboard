@@ -1564,7 +1564,7 @@ def render_sidebar_access_settings_profile():
 
     /* Panel title */
     section[data-testid="stSidebar"] h3{
-        font-size:20px !important;
+        font-size:12px !important;
         font-weight:900 !important;
         color:#23152F !important;
         margin-bottom:0.4rem !important;
@@ -1572,7 +1572,7 @@ def render_sidebar_access_settings_profile():
 
     /* Guest access / Logged-in user name */
     section[data-testid="stSidebar"] p{
-        font-size:15px !important;
+        font-size:10px !important;
         font-weight:700 !important;
         color:#23152F !important;
         line-height:1.45 !important;
@@ -1580,7 +1580,7 @@ def render_sidebar_access_settings_profile():
 
     /* Description */
     section[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{
-        font-size:13px !important;
+        font-size:10px !important;
         line-height:1.5 !important;
         color:#667085 !important;
     }
@@ -1595,14 +1595,14 @@ def render_sidebar_access_settings_profile():
     }
 
     section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
-        font-size:11px !important;
+        font-size:10px !important;
         font-weight:800 !important;
         color:#667085 !important;
         text-transform:uppercase;
     }
 
     section[data-testid="stSidebar"] [data-testid="stMetricValue"]{
-        font-size:15px !important;
+        font-size:12px !important;
         font-weight:900 !important;
         color:#23152F !important;
     }
