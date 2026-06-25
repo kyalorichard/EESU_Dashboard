@@ -41,3 +41,4 @@ requests==2.32.4
 streamlit-float
 
 extra-streamlit-components
+streamlit-javascript
