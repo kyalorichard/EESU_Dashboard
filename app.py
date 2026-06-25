@@ -122,10 +122,7 @@ a[href*="source"] {
     display: none !important;
 }
 
-/* Hide toolbar container completely */
-[data-testid="stToolbar"] {
-    display: none !important;
-}
+
 
 .block-container {
     padding-top: 1rem !important;
