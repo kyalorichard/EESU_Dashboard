@@ -1557,15 +1557,15 @@ def render_sidebar_access_settings_profile():
     }
     .eusee-privilege-marker { display: none; }
     section[data-testid="stSidebar"] .eusee-privilege-title {
-        font-size: 7px;
+        font-size: 8px;
         font-weight: 700;
         color: #23152F;
         margin-bottom: -2px;
     }
     section[data-testid="stSidebar"] .eusee-privilege-note {
-        font-size: 7px;
+        font-size: 8px;
         color: #667085;
-        line-height: 1.35;
+        line-height: 1.05;
         margin-top: -4px;
     }
     section[data-testid="stSidebar"] [data-testid="stMetric"] {
@@ -1576,14 +1576,14 @@ def render_sidebar_access_settings_profile():
         box-shadow: 0 2px 8px rgba(16,24,40,.035);
     }
     section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
-        font-size: 7px !important;
-        font-weight: 700 !important;
+        font-size: 8px !important;
+        font-weight: 500 !important;
         color: #667085 !important;
         text-transform: uppercase;
     }
     section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
-        font-size: 10px !important;
-        font-weight: 900 !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
         color: #23152F !important;
     }
     </style>
