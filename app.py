@@ -41,49 +41,81 @@ init_session()
 restore_session()
 
 # ------------------------------------------------------------------
-# HIDE GITHUB / SOURCE CODE ACCESS
-# KEEP SIDEBAR TOGGLE VISIBLE
+# HIDE ONLY STREAMLIT MENU / DEPLOY / GITHUB SOURCE ACCESS
+# KEEP LOGIN STATUS, ADMIN, LOGOUT, SIDEBAR TOGGLE, AND HEADER CONTROLS VISIBLE
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
 
-/* Streamlit menu */
-#MainMenu {
-    visibility: hidden !important;
-}
-
-/* Footer */
-footer {
-    visibility: hidden !important;
-}
-
-/* Purple top decoration line */
-[data-testid="stDecoration"] {
+/* Hide Streamlit default menu and footer only */
+#MainMenu,
+footer,
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+[data-testid="manage-app-button"],
+[data-testid="stStatusWidget"] {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
-/* Deploy button */
-[data-testid="stDeployButton"] {
-    display: none !important;
-}
+/*
+   IMPORTANT:
+   Do NOT hide these containers:
+   - [data-testid="stToolbar"]
+   - [data-testid="stToolbarActions"]
+   - [data-testid="stHeaderActionElements"]
 
-/* Source code / GitHub / toolbar actions */
+   Those containers can also hold custom login status, admin, and logout controls.
+   We keep them visible and hide only GitHub/source-code links inside them.
+*/
+header[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stToolbarActions"],
 [data-testid="stHeaderActionElements"] {
-    display: none !important;
-}
-
-/* Extra toolbar buttons */
-[data-testid="stToolbarActions"] {
-    display: none !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
 }
 
 /* Keep header visible */
 header[data-testid="stHeader"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
     background: rgba(247,248,251,0.95) !important;
+    border-bottom: 1px solid rgba(230,232,239,0.75) !important;
+    z-index: 999999 !important;
+}
+
+/* Hide only GitHub/source-code anchors/buttons, not the full toolbar */
+a[href*="github.com"],
+a[href*="githubusercontent.com"],
+a[href*="/blob/"],
+a[href*="/tree/"],
+a[href*="source"],
+a[aria-label*="GitHub"],
+a[title*="GitHub"],
+button[aria-label*="GitHub"],
+button[title*="GitHub"],
+button[aria-label*="Source"],
+button[title*="Source"],
+button[aria-label*="source"],
+button[title*="source"],
+[data-testid="stToolbarActions"] a[href*="github"],
+[data-testid="stToolbarActions"] a[href*="source"],
+[data-testid="stHeaderActionElements"] a[href*="github"],
+[data-testid="stHeaderActionElements"] a[href*="source"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
 }
 
 /* Keep sidebar toggle visible */
@@ -91,6 +123,7 @@ button[data-testid="collapsedControl"] {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
 
     width: auto !important;
     min-width: 92px !important;
@@ -112,21 +145,6 @@ button[data-testid="collapsedControl"]::after {
     font-weight: 800;
     color: #660094;
     margin-left: 6px;
-}
-
-/* Hide any GitHub links */
-a[href*="github.com"] {
-    display: none !important;
-}
-
-/* Hide source-code links */
-a[href*="source"] {
-    display: none !important;
-}
-
-/* Hide toolbar container completely */
-[data-testid="stToolbar"] {
-    display: none !important;
 }
 
 .block-container {
