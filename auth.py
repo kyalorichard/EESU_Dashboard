@@ -167,24 +167,17 @@ def get_cookies():
 
 
 def restore_session():
-    """
-    Restore login session from cookies.
-
-    Important:
-    If cookies are not ready yet, do not mark restored=True.
-    That allows Streamlit to try again on the next rerun.
-    """
     if st.session_state.get("restored"):
         return
 
     cookies = get_cookies()
 
-    if not cookies:
+    if cookies is None:
         st.session_state.restored = True
         return
 
     try:
-        if not cookies.ready():
+        if hasattr(cookies, "ready") and not cookies.ready():
             return
 
         email = str(cookies.get("email") or "").lower().strip()
@@ -205,17 +198,12 @@ def restore_session():
     except Exception as e:
         if DEBUG:
             st.sidebar.warning(f"Error restoring session: {e}")
-
         st.session_state.restored = True
 
-
 def _save_cookie_session(email, name, verified, role, remember=True):
-    """
-    Always save cookie after successful login.
-    """
     cookies = get_cookies()
 
-    if not cookies:
+    if cookies is None:
         return
 
     try:
@@ -233,11 +221,10 @@ def _save_cookie_session(email, name, verified, role, remember=True):
         if DEBUG:
             st.sidebar.warning(f"Cookie save error: {e}")
 
-
 def logout():
     cookies = get_cookies()
 
-    if cookies:
+    if cookies is not None:
         try:
             if not hasattr(cookies, "ready") or cookies.ready():
                 for key in ["email", "name", "role", "email_verified"]:
@@ -266,7 +253,6 @@ def logout():
             del st.session_state[key]
 
     st.rerun()
-
 
 def is_authenticated():
     init_session()
