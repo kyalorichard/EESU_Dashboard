@@ -134,7 +134,7 @@ def init_session():
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
-        "auth_remember": True,
+        "auth_remember": False,
         "auth_view": False,
     }
 
@@ -144,14 +144,14 @@ def init_session():
 
 def get_cookies():
     if not HAS_COOKIES:
-        st.error("❌ Missing package: streamlit-cookies-manager.")
         return None
 
     if "cookies" not in st.session_state:
         password = st.secrets.get("cookie", {}).get("cookie_password")
 
         if not password:
-            st.error("Cookie password missing. Add [cookie].cookie_password to secrets.toml.")
+            if DEBUG:
+                st.sidebar.warning("Cookie password missing. Add [cookie].cookie_password to secrets.toml.")
             return None
 
         st.session_state.cookies = EncryptedCookieManager(
@@ -161,8 +161,24 @@ def get_cookies():
 
     cookies = st.session_state.cookies
 
-    if not cookies.ready():
-        st.stop()
+    try:
+        start = time.time()
+
+        while not cookies.ready() and time.time() - start < 2.0:
+            time.sleep(0.05)
+
+        if not cookies.ready():
+            return None
+
+        if hasattr(cookies, "sync"):
+            cookies.sync()
+        elif hasattr(cookies, "load"):
+            cookies.load()
+
+    except Exception as e:
+        if DEBUG:
+            st.sidebar.warning(f"Cookie load error: {e}")
+        return None
 
     return cookies
 
@@ -173,26 +189,24 @@ def restore_session():
 
     cookies = get_cookies()
 
-    if not cookies:
-        return
+    if cookies and cookies.ready():
+        try:
+            email = str(cookies.get("email") or "").lower().strip()
+            name = cookies.get("name")
+            role = cookies.get("role")
+            verified = str(cookies.get("email_verified", "False")) == "True"
 
-    try:
-        email = str(cookies.get("email") or "").lower().strip()
-        name = cookies.get("name")
-        role = cookies.get("role")
-        verified = str(cookies.get("email_verified", "False")) == "True"
+            if email and verified:
+                st.session_state.user = True
+                st.session_state.email = email
+                st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
+                st.session_state.role = role or "privileged"
+                st.session_state.email_verified = True
+                st.session_state.auth_view = False
 
-        if email and verified:
-            st.session_state.user = True
-            st.session_state.email = email
-            st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
-            st.session_state.role = role or "privileged"
-            st.session_state.email_verified = True
-            st.session_state.auth_view = False
-
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Error restoring session: {e}")
+        except Exception as e:
+            if DEBUG:
+                st.sidebar.warning(f"Error restoring session: {e}")
 
     st.session_state.restored = True
 
@@ -200,7 +214,7 @@ def restore_session():
 def _save_cookie_session(email, name, verified, role, remember=True):
     cookies = get_cookies()
 
-    if not cookies:
+    if not cookies or not cookies.ready():
         return
 
     try:
@@ -219,7 +233,7 @@ def _save_cookie_session(email, name, verified, role, remember=True):
 def logout():
     cookies = get_cookies()
 
-    if cookies:
+    if cookies and cookies.ready():
         for key in ["email", "name", "role", "email_verified"]:
             try:
                 if key in cookies:
