@@ -1,7 +1,5 @@
 # auth.py
 import json
-import time
-
 import streamlit as st
 
 DEBUG = False
@@ -24,11 +22,23 @@ except ImportError:
     HAS_FIREBASE_ADMIN = False
 
 try:
-    from streamlit_cookies_manager import EncryptedCookieManager
+    import extra_streamlit_components as stx
     HAS_COOKIES = True
 except ImportError:
-    EncryptedCookieManager = None
+    stx = None
     HAS_COOKIES = False
+
+
+COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+
+COOKIE_KEYS = [
+    "email",
+    "name",
+    "role",
+    "email_verified",
+    "id_token",
+    "refresh_token",
+]
 
 
 def init_firebase_admin():
@@ -100,11 +110,6 @@ def init_firebase_client():
     try:
         firebase = pyrebase.initialize_app(cfg)
         auth = firebase.auth()
-
-        if not auth:
-            st.error("❌ Firebase auth object was not created.")
-            return None, None
-
         return firebase, auth
 
     except Exception as e:
@@ -121,16 +126,6 @@ PRIVILEGED_DOMAINS = set(
     for d in st.secrets.get("access", {}).get("privileged_domains", [])
     if str(d).strip()
 )
-
-
-COOKIE_KEYS = [
-    "email",
-    "name",
-    "role",
-    "email_verified",
-    "id_token",
-    "refresh_token",
-]
 
 
 def get_domain(email: str) -> str:
@@ -152,79 +147,20 @@ def init_session():
         "refresh_token": None,
     }
 
-    for k, v in defaults.items():
-        st.session_state.setdefault(k, v)
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
 
 
 def get_cookies():
     if not HAS_COOKIES:
         return None
 
-    if "cookies" not in st.session_state:
-        password = st.secrets.get("cookie", {}).get("cookie_password")
+    if "cookie_manager" not in st.session_state:
+        st.session_state.cookie_manager = stx.CookieManager(
+            key="eusee_cookie_manager"
+        )
 
-        if not password:
-            return None
-
-        try:
-            st.session_state.cookies = EncryptedCookieManager(
-                prefix="eusee",
-                password=password,
-                expiration_days=30,
-            )
-        except TypeError:
-            st.session_state.cookies = EncryptedCookieManager(
-                prefix="eusee",
-                password=password,
-            )
-
-    cookies = st.session_state.cookies
-
-    try:
-        start = time.time()
-
-        while not cookies.ready() and time.time() - start < 2.0:
-            time.sleep(0.05)
-
-        if not cookies.ready():
-            return None
-
-        if hasattr(cookies, "sync"):
-            cookies.sync()
-        elif hasattr(cookies, "load"):
-            cookies.load()
-
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Cookie load error: {e}")
-        return None
-
-    return cookies
-
-
-def _save_cookies_safely(cookies):
-    if not cookies:
-        return
-
-    try:
-        cookies.save()
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Cookie save error: {e}")
-
-
-def _clear_cookie_session():
-    cookies = get_cookies()
-
-    if cookies and cookies.ready():
-        for key in COOKIE_KEYS:
-            try:
-                if key in cookies:
-                    del cookies[key]
-            except Exception:
-                pass
-
-        _save_cookies_safely(cookies)
+    return st.session_state.cookie_manager
 
 
 def _set_authenticated_session(
@@ -257,20 +193,31 @@ def _save_cookie_session(
         return
 
     cookies = get_cookies()
+    if not cookies:
+        return
 
-    if cookies and cookies.ready():
-        cookies["email"] = str(email or "").lower().strip()
-        cookies["name"] = str(name or "")
-        cookies["email_verified"] = str(bool(verified))
-        cookies["role"] = str(role or "")
+    cookies.set("email", str(email or "").lower().strip(), max_age=COOKIE_MAX_AGE)
+    cookies.set("name", str(name or ""), max_age=COOKIE_MAX_AGE)
+    cookies.set("email_verified", str(bool(verified)), max_age=COOKIE_MAX_AGE)
+    cookies.set("role", str(role or ""), max_age=COOKIE_MAX_AGE)
 
-        if id_token:
-            cookies["id_token"] = str(id_token)
+    if id_token:
+        cookies.set("id_token", str(id_token), max_age=COOKIE_MAX_AGE)
 
-        if refresh_token:
-            cookies["refresh_token"] = str(refresh_token)
+    if refresh_token:
+        cookies.set("refresh_token", str(refresh_token), max_age=COOKIE_MAX_AGE)
 
-        _save_cookies_safely(cookies)
+
+def _clear_cookie_session():
+    cookies = get_cookies()
+    if not cookies:
+        return
+
+    for key in COOKIE_KEYS:
+        try:
+            cookies.delete(key)
+        except Exception:
+            pass
 
 
 def restore_session():
@@ -281,8 +228,7 @@ def restore_session():
 
     cookies = get_cookies()
 
-    if not cookies or not cookies.ready():
-        st.session_state.restored = True
+    if not cookies:
         return
 
     try:
@@ -291,6 +237,9 @@ def restore_session():
         name_cookie = cookies.get("name")
         role_cookie = cookies.get("role")
         verified_cookie = str(cookies.get("email_verified", "False")) == "True"
+
+        if not refresh_token and not email_cookie:
+            return
 
         if refresh_token and firebase_auth:
             try:
@@ -328,8 +277,7 @@ def restore_session():
 
             except Exception as e:
                 if DEBUG:
-                    st.sidebar.warning(f"Token refresh failed: {e}")
-
+                    st.warning(f"Token refresh failed: {e}")
                 _clear_cookie_session()
 
         elif email_cookie:
@@ -344,7 +292,7 @@ def restore_session():
 
     except Exception as e:
         if DEBUG:
-            st.sidebar.warning(f"Error restoring session: {e}")
+            st.warning(f"Session restore failed: {e}")
 
     st.session_state.restored = True
 
@@ -352,6 +300,7 @@ def restore_session():
 def is_authenticated():
     init_session()
     restore_session()
+
     return bool(
         st.session_state.get("user")
         and st.session_state.get("email_verified")
@@ -361,6 +310,7 @@ def is_authenticated():
 def is_privileged():
     init_session()
     restore_session()
+
     return (
         st.session_state.get("user", False)
         and st.session_state.get("email_verified", False)
@@ -383,7 +333,7 @@ def logout():
         "auth_view",
         "id_token",
         "refresh_token",
-        "cookies",
+        "cookie_manager",
     ]:
         if key in st.session_state:
             del st.session_state[key]
@@ -639,10 +589,7 @@ def _login_form():
             return
 
         try:
-            user = firebase_auth.sign_in_with_email_and_password(
-                email,
-                password,
-            )
+            user = firebase_auth.sign_in_with_email_and_password(email, password)
 
             info = firebase_auth.get_account_info(user["idToken"])
             verified = bool(info["users"][0].get("emailVerified", False))
@@ -681,19 +628,11 @@ def _login_form():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button(
-            "Create Account",
-            use_container_width=True,
-            key="switch_to_register",
-        ):
+        if st.button("Create Account", use_container_width=True, key="switch_to_register"):
             _set_auth_mode("Register")
 
     with col2:
-        if st.button(
-            "Forgot Password",
-            use_container_width=True,
-            key="switch_to_reset",
-        ):
+        if st.button("Forgot Password", use_container_width=True, key="switch_to_reset"):
             _set_auth_mode("Reset")
 
 
@@ -729,11 +668,7 @@ def _register_form():
             return
 
         try:
-            user = firebase_auth.create_user_with_email_and_password(
-                email,
-                password,
-            )
-
+            user = firebase_auth.create_user_with_email_and_password(email, password)
             firebase_auth.send_email_verification(user["idToken"])
 
             st.success("Registration successful. Check your email to verify your account, then sign in.")
