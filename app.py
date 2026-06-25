@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import base64
 import hashlib
 from datetime import datetime
-from auth import auth_ui, is_privileged, is_authenticated
+from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 import math
 import paramiko
 import logging
@@ -24,6 +24,9 @@ import uuid
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
+
+init_session()
+restore_session()
 
 # ------------------------------------------------------------------
 # HIDE GITHUB / SOURCE CODE ACCESS
@@ -1610,7 +1613,6 @@ def render_sidebar_access_settings_profile():
 
         if signed_in:
             if st.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
-                from auth import logout
                 logout()
         else:
             if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_signin_btn"):
