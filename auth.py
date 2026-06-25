@@ -1,8 +1,9 @@
 # auth.py
 import json
-import time
-
+import requests
 import streamlit as st
+
+from streamlit_javascript import st_javascript
 
 DEBUG = False
 
@@ -22,12 +23,13 @@ except ImportError:
     credentials = None
     HAS_FIREBASE_ADMIN = False
 
-try:
-    from streamlit_cookies_manager import EncryptedCookieManager
-    HAS_COOKIES = True
-except ImportError:
-    EncryptedCookieManager = None
-    HAS_COOKIES = False
+
+LS_EMAIL = "eusee_email"
+LS_NAME = "eusee_name"
+LS_ROLE = "eusee_role"
+LS_VERIFIED = "eusee_email_verified"
+LS_ID_TOKEN = "eusee_id_token"
+LS_REFRESH_TOKEN = "eusee_refresh_token"
 
 
 def init_firebase_admin():
@@ -65,34 +67,37 @@ def init_firebase_admin():
         return None
 
 
-def _firebase_required_keys():
-    return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
-
-
 def init_firebase_client():
     if not HAS_PYREBASE:
-        st.error("❌ Firebase client package missing. Add `pyrebase4` to requirements.txt and redeploy.")
+        st.error("❌ Add `pyrebase4` to requirements.txt.")
         return None, None
 
     cfg_raw = st.secrets.get("firebase", {})
     if not cfg_raw:
-        st.error("❌ Firebase config missing. Add the `[firebase]` block to `.streamlit/secrets.toml`.")
+        st.error("❌ Firebase config missing in secrets.toml.")
         return None, None
 
     cfg = dict(cfg_raw)
-    missing = [k for k in _firebase_required_keys() if not cfg.get(k)]
 
+    required = [
+        "apiKey",
+        "authDomain",
+        "projectId",
+        "storageBucket",
+        "messagingSenderId",
+        "appId",
+    ]
+
+    missing = [k for k in required if not cfg.get(k)]
     if missing:
-        st.error("❌ Firebase config is incomplete. Missing keys: " + ", ".join(missing))
+        st.error("❌ Firebase config missing keys: " + ", ".join(missing))
         return None, None
 
     cfg.setdefault("databaseURL", "")
 
     try:
         firebase = pyrebase.initialize_app(cfg)
-        auth = firebase.auth()
-        return firebase, auth
-
+        return firebase, firebase.auth()
     except Exception as e:
         st.error(f"❌ Firebase initialization failed: {e}")
         return None, None
@@ -122,121 +127,135 @@ def init_session():
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
-        "auth_remember": True,
         "auth_view": False,
+        "id_token": None,
+        "refresh_token": None,
     }
 
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
 
 
-def get_cookies():
+def _js_escape(value):
+    return json.dumps(str(value or ""))
+
+
+def save_browser_session(email, name, verified, role, id_token, refresh_token):
+    js = f"""
+    localStorage.setItem("{LS_EMAIL}", {_js_escape(email)});
+    localStorage.setItem("{LS_NAME}", {_js_escape(name)});
+    localStorage.setItem("{LS_ROLE}", {_js_escape(role)});
+    localStorage.setItem("{LS_VERIFIED}", {_js_escape(str(bool(verified)))});
+    localStorage.setItem("{LS_ID_TOKEN}", {_js_escape(id_token)});
+    localStorage.setItem("{LS_REFRESH_TOKEN}", {_js_escape(refresh_token)});
+    "ok";
     """
-    Safe cookie loader.
+    st_javascript(js, key="save_eusee_auth")
 
-    Important:
-    Do NOT use st.stop() here. It can prevent the whole dashboard from loading.
+
+def clear_browser_session():
+    js = f"""
+    localStorage.removeItem("{LS_EMAIL}");
+    localStorage.removeItem("{LS_NAME}");
+    localStorage.removeItem("{LS_ROLE}");
+    localStorage.removeItem("{LS_VERIFIED}");
+    localStorage.removeItem("{LS_ID_TOKEN}");
+    localStorage.removeItem("{LS_REFRESH_TOKEN}");
+    "cleared";
     """
-    if not HAS_COOKIES:
-        return None
+    st_javascript(js, key="clear_eusee_auth")
 
-    if "cookies" not in st.session_state:
-        password = st.secrets.get("cookie", {}).get("cookie_password")
 
-        if not password:
-            if DEBUG:
-                st.sidebar.warning("Cookie password missing. Add [cookie].cookie_password to secrets.toml.")
-            return None
+def read_browser_session():
+    js = f"""
+    JSON.stringify({{
+        email: localStorage.getItem("{LS_EMAIL}") || "",
+        name: localStorage.getItem("{LS_NAME}") || "",
+        role: localStorage.getItem("{LS_ROLE}") || "",
+        email_verified: localStorage.getItem("{LS_VERIFIED}") || "",
+        id_token: localStorage.getItem("{LS_ID_TOKEN}") || "",
+        refresh_token: localStorage.getItem("{LS_REFRESH_TOKEN}") || ""
+    }});
+    """
 
-        st.session_state.cookies = EncryptedCookieManager(
-            prefix="eusee",
-            password=password,
-        )
+    raw = st_javascript(js, key="read_eusee_auth")
 
-    cookies = st.session_state.cookies
+    if not raw or raw in [0, "0", None]:
+        return {}
 
     try:
-        if hasattr(cookies, "sync"):
-            cookies.sync()
-        elif hasattr(cookies, "load"):
-            cookies.load()
+        return json.loads(raw)
     except Exception:
-        pass
+        return {}
 
-    return cookies
+
+def refresh_firebase_token(refresh_token: str):
+    api_key = st.secrets.get("firebase", {}).get("apiKey")
+
+    if not api_key or not refresh_token:
+        return None
+
+    url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
+
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    }
+
+    try:
+        response = requests.post(url, data=payload, timeout=15)
+
+        if response.status_code != 200:
+            return None
+
+        return response.json()
+
+    except Exception:
+        return None
 
 
 def restore_session():
     if st.session_state.get("restored"):
         return
 
-    cookies = get_cookies()
+    data = read_browser_session()
 
-    if cookies is None:
-        st.session_state.restored = True
-        return
+    email = str(data.get("email") or "").lower().strip()
+    name = data.get("name")
+    role = data.get("role")
+    verified = str(data.get("email_verified") or "").lower() == "true"
+    refresh_token = data.get("refresh_token")
 
-    try:
-        if hasattr(cookies, "ready") and not cookies.ready():
-            return
+    if email and verified and refresh_token:
+        refreshed = refresh_firebase_token(refresh_token)
 
-        email = str(cookies.get("email") or "").lower().strip()
-        name = cookies.get("name")
-        role = cookies.get("role")
-        verified = str(cookies.get("email_verified", "False")) == "True"
+        if refreshed:
+            id_token = refreshed.get("id_token")
+            new_refresh_token = refreshed.get("refresh_token", refresh_token)
 
-        if email and verified:
             st.session_state.user = True
             st.session_state.email = email
             st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
             st.session_state.role = role or "privileged"
             st.session_state.email_verified = True
             st.session_state.auth_view = False
+            st.session_state.id_token = id_token
+            st.session_state.refresh_token = new_refresh_token
 
-        st.session_state.restored = True
+            save_browser_session(
+                email=email,
+                name=st.session_state.name,
+                verified=True,
+                role=st.session_state.role,
+                id_token=id_token,
+                refresh_token=new_refresh_token,
+            )
 
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Error restoring session: {e}")
-        st.session_state.restored = True
+    st.session_state.restored = True
 
-def _save_cookie_session(email, name, verified, role, remember=True):
-    cookies = get_cookies()
-
-    if cookies is None:
-        return
-
-    try:
-        if hasattr(cookies, "ready") and not cookies.ready():
-            return
-
-        cookies["email"] = str(email or "").lower().strip()
-        cookies["name"] = name or ""
-        cookies["email_verified"] = str(bool(verified))
-        cookies["role"] = role or ""
-
-        cookies.save()
-
-    except Exception as e:
-        if DEBUG:
-            st.sidebar.warning(f"Cookie save error: {e}")
 
 def logout():
-    cookies = get_cookies()
-
-    if cookies is not None:
-        try:
-            if not hasattr(cookies, "ready") or cookies.ready():
-                for key in ["email", "name", "role", "email_verified"]:
-                    try:
-                        if key in cookies:
-                            del cookies[key]
-                    except Exception:
-                        pass
-
-                cookies.save()
-        except Exception:
-            pass
+    clear_browser_session()
 
     for key in [
         "user",
@@ -246,17 +265,20 @@ def logout():
         "email_verified",
         "restored",
         "auth_mode",
-        "auth_remember",
         "auth_view",
+        "id_token",
+        "refresh_token",
     ]:
         if key in st.session_state:
             del st.session_state[key]
 
     st.rerun()
 
+
 def is_authenticated():
     init_session()
     restore_session()
+
     return bool(
         st.session_state.get("user")
         and st.session_state.get("email_verified")
@@ -266,9 +288,10 @@ def is_authenticated():
 def is_privileged():
     init_session()
     restore_session()
-    return (
-        st.session_state.get("user", False)
-        and st.session_state.get("email_verified", False)
+
+    return bool(
+        st.session_state.get("user")
+        and st.session_state.get("email_verified")
         and st.session_state.get("role") == "privileged"
     )
 
@@ -367,7 +390,6 @@ def _auth_page_css():
             gap: 24px;
             margin: 0 0 24px 0;
             border-bottom: 1px solid #eee7f4;
-            padding-bottom: 0;
         }
 
         .mode-active {
@@ -376,10 +398,7 @@ def _auth_page_css():
             font-size: 15px;
             font-weight: 900;
             color: #231942;
-            background: transparent;
-            border: none;
             padding: 0 2px 13px 2px;
-            letter-spacing: -0.1px;
         }
 
         .mode-active::after {
@@ -410,7 +429,6 @@ def _auth_page_css():
             font-size: 12px !important;
             font-weight: 900 !important;
             color: #332045 !important;
-            margin-bottom: 4px !important;
         }
 
         div[data-testid="stTextInput"] input {
@@ -419,17 +437,6 @@ def _auth_page_css():
             font-size: 13px !important;
             border: 1px solid #e5d9eb !important;
             background: #fcfbfd !important;
-            box-shadow: inset 0 1px 2px rgba(35,25,66,0.03) !important;
-        }
-
-        div[data-testid="stTextInput"] input:focus {
-            border-color: #660094 !important;
-            box-shadow: 0 0 0 3px rgba(102,0,148,0.10) !important;
-        }
-
-        div[data-testid="stForm"] {
-            border: 0 !important;
-            padding: 0 !important;
         }
 
         button[kind="primaryFormSubmit"],
@@ -448,33 +455,12 @@ def _auth_page_css():
             border-color: #e6ddec !important;
         }
 
-        button:hover {
-            border-color: #660094 !important;
-            box-shadow: 0 8px 20px rgba(35,25,66,0.10) !important;
-        }
-
         .small-footer {
             text-align: center;
             color: #91869b;
             font-size: 10.8px;
             font-family: Arial, sans-serif;
             margin-top: 18px;
-        }
-
-        @media (max-width: 900px) {
-            .block-container {
-                max-width: 100% !important;
-                padding: 1rem !important;
-            }
-
-            div[data-testid="stVerticalBlockBorderWrapper"] > div {
-                padding: 24px !important;
-            }
-
-            .auth-pill {
-                justify-content: center;
-                width: 100%;
-            }
         }
         </style>
         """,
@@ -502,7 +488,7 @@ def _login_form():
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+            st.error("Firebase authentication is not initialized.")
             return
 
         if not email or not password:
@@ -516,24 +502,28 @@ def _login_form():
         try:
             user = firebase_auth.sign_in_with_email_and_password(email, password)
             info = firebase_auth.get_account_info(user["idToken"])
+
             verified = bool(info["users"][0].get("emailVerified", False))
             role = "privileged" if verified else "restricted"
+            name = email.split("@")[0].replace(".", " ").title()
 
             st.session_state.user = True
             st.session_state.email = email
-            st.session_state.name = email.split("@")[0].replace(".", " ").title()
+            st.session_state.name = name
             st.session_state.email_verified = verified
             st.session_state.role = role
-            st.session_state.auth_remember = True
             st.session_state.auth_view = False
             st.session_state.restored = True
+            st.session_state.id_token = user.get("idToken")
+            st.session_state.refresh_token = user.get("refreshToken")
 
-            _save_cookie_session(
+            save_browser_session(
                 email=email,
-                name=st.session_state.name,
+                name=name,
                 verified=verified,
                 role=role,
-                remember=True,
+                id_token=user.get("idToken"),
+                refresh_token=user.get("refreshToken"),
             )
 
             st.success("Signed in successfully. Redirecting to dashboard...")
@@ -545,19 +535,11 @@ def _login_form():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button(
-            "Create Account",
-            use_container_width=True,
-            key="switch_to_register",
-        ):
+        if st.button("Create Account", use_container_width=True, key="switch_to_register"):
             _set_auth_mode("Register")
 
     with col2:
-        if st.button(
-            "Forgot Password",
-            use_container_width=True,
-            key="switch_to_reset",
-        ):
+        if st.button("Forgot Password", use_container_width=True, key="switch_to_reset"):
             _set_auth_mode("Reset")
 
 
@@ -581,7 +563,7 @@ def _register_form():
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+            st.error("Firebase authentication is not initialized.")
             return
 
         if not email or not password:
@@ -616,7 +598,7 @@ def _reset_form():
 
     if submitted:
         if not firebase_auth:
-            st.error("Firebase authentication is not initialized. See the Firebase error shown above.")
+            st.error("Firebase authentication is not initialized.")
             return
 
         if not reset_email:
@@ -654,42 +636,26 @@ def _render_premium_auth_page():
                 )
 
             with top_b:
-                if st.button(
-                    "← Dashboard",
-                    use_container_width=True,
-                    key="premium_back_dashboard",
-                ):
+                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
                     _back_to_dashboard()
 
             if mode == "Login":
                 st.markdown(
-                    """
-                    <div class="mode-card">
-                        <div class="mode-active">Sign in</div>
-                    </div>
-                    """,
+                    '<div class="mode-card"><div class="mode-active">Sign in</div></div>',
                     unsafe_allow_html=True,
                 )
                 _login_form()
 
             elif mode == "Register":
                 st.markdown(
-                    """
-                    <div class="mode-card">
-                        <div class="mode-active">Create account</div>
-                    </div>
-                    """,
+                    '<div class="mode-card"><div class="mode-active">Create account</div></div>',
                     unsafe_allow_html=True,
                 )
                 _register_form()
 
             else:
                 st.markdown(
-                    """
-                    <div class="mode-card">
-                        <div class="mode-active">Password reset</div>
-                    </div>
-                    """,
+                    '<div class="mode-card"><div class="mode-active">Password reset</div></div>',
                     unsafe_allow_html=True,
                 )
                 _reset_form()
