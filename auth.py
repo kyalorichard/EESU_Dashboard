@@ -36,7 +36,7 @@ COOKIE_DAYS = 30
 DEBUG = False
 
 
-@st.cache_resource(show_spinner=False)
+#@st.cache_resource(show_spinner=False)
 def get_cookie_manager():
     if not HAS_COOKIE_MANAGER:
         return None
