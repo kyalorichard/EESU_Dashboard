@@ -41,6 +41,7 @@ def init_firebase_admin():
 
     try:
         private_key = secrets_admin["private_key"].replace("\\n", "\n")
+
         cred = credentials.Certificate({
             "type": "service_account",
             "project_id": secrets_admin["project_id"],
@@ -67,7 +68,14 @@ def init_firebase_admin():
 
 
 def _firebase_required_keys():
-    return ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
+    return [
+        "apiKey",
+        "authDomain",
+        "projectId",
+        "storageBucket",
+        "messagingSenderId",
+        "appId",
+    ]
 
 
 def init_firebase_client():
@@ -115,6 +123,16 @@ PRIVILEGED_DOMAINS = set(
 )
 
 
+COOKIE_KEYS = [
+    "email",
+    "name",
+    "role",
+    "email_verified",
+    "id_token",
+    "refresh_token",
+]
+
+
 def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
 
@@ -128,28 +146,14 @@ def init_session():
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
-        "auth_remember": False,
+        "auth_remember": True,
         "auth_view": False,
+        "id_token": None,
+        "refresh_token": None,
     }
 
     for k, v in defaults.items():
         st.session_state.setdefault(k, v)
-
-
-def is_authenticated():
-    init_session()
-    restore_session()
-    return bool(st.session_state.get("user") and st.session_state.get("email_verified"))
-
-
-def is_privileged():
-    init_session()
-    restore_session()
-    return (
-        st.session_state.get("user", False)
-        and st.session_state.get("email_verified", False)
-        and st.session_state.get("role") == "privileged"
-    )
 
 
 def get_cookies():
@@ -158,20 +162,28 @@ def get_cookies():
 
     if "cookies" not in st.session_state:
         password = st.secrets.get("cookie", {}).get("cookie_password")
+
         if not password:
             return None
 
-        st.session_state.cookies = EncryptedCookieManager(
-            prefix="eusee",
-            password=password,
-        )
+        try:
+            st.session_state.cookies = EncryptedCookieManager(
+                prefix="eusee",
+                password=password,
+                expiration_days=30,
+            )
+        except TypeError:
+            st.session_state.cookies = EncryptedCookieManager(
+                prefix="eusee",
+                password=password,
+            )
 
     cookies = st.session_state.cookies
 
     try:
         start = time.time()
 
-        while not cookies.ready() and time.time() - start < 1.0:
+        while not cookies.ready() and time.time() - start < 2.0:
             time.sleep(0.05)
 
         if not cookies.ready():
@@ -190,28 +202,57 @@ def get_cookies():
     return cookies
 
 
-def restore_session():
-    if st.session_state.get("restored"):
+def _save_cookies_safely(cookies):
+    if not cookies:
         return
 
+    try:
+        cookies.save()
+    except Exception as e:
+        if DEBUG:
+            st.sidebar.warning(f"Cookie save error: {e}")
+
+
+def _clear_cookie_session():
     cookies = get_cookies()
 
     if cookies and cookies.ready():
-        try:
-            if "email" in cookies:
-                st.session_state.user = True
-                st.session_state.email = str(cookies.get("email") or "").lower().strip()
-                st.session_state.name = cookies.get("name")
-                st.session_state.role = cookies.get("role")
-                st.session_state.email_verified = str(cookies.get("email_verified", "False")) == "True"
-        except Exception as e:
-            if DEBUG:
-                st.sidebar.warning(f"Error restoring session: {e}")
+        for key in COOKIE_KEYS:
+            try:
+                if key in cookies:
+                    del cookies[key]
+            except Exception:
+                pass
 
-    st.session_state.restored = True
+        _save_cookies_safely(cookies)
 
 
-def _save_cookie_session(email, name, verified, role, remember=False):
+def _set_authenticated_session(
+    email,
+    name,
+    verified,
+    role,
+    id_token=None,
+    refresh_token=None,
+):
+    st.session_state.user = True
+    st.session_state.email = str(email or "").lower().strip()
+    st.session_state.name = name
+    st.session_state.email_verified = bool(verified)
+    st.session_state.role = role
+    st.session_state.id_token = id_token
+    st.session_state.refresh_token = refresh_token
+
+
+def _save_cookie_session(
+    email,
+    name,
+    verified,
+    role,
+    id_token=None,
+    refresh_token=None,
+    remember=True,
+):
     if not remember:
         return
 
@@ -219,28 +260,116 @@ def _save_cookie_session(email, name, verified, role, remember=False):
 
     if cookies and cookies.ready():
         cookies["email"] = str(email or "").lower().strip()
-        cookies["name"] = name
+        cookies["name"] = str(name or "")
         cookies["email_verified"] = str(bool(verified))
-        cookies["role"] = role
+        cookies["role"] = str(role or "")
 
-        try:
-            cookies.save()
-        except Exception:
-            pass
+        if id_token:
+            cookies["id_token"] = str(id_token)
+
+        if refresh_token:
+            cookies["refresh_token"] = str(refresh_token)
+
+        _save_cookies_safely(cookies)
+
+
+def restore_session():
+    init_session()
+
+    if st.session_state.get("restored"):
+        return
+
+    cookies = get_cookies()
+
+    if not cookies or not cookies.ready():
+        st.session_state.restored = True
+        return
+
+    try:
+        refresh_token = cookies.get("refresh_token")
+        email_cookie = str(cookies.get("email") or "").lower().strip()
+        name_cookie = cookies.get("name")
+        role_cookie = cookies.get("role")
+        verified_cookie = str(cookies.get("email_verified", "False")) == "True"
+
+        if refresh_token and firebase_auth:
+            try:
+                refreshed = firebase_auth.refresh(refresh_token)
+
+                new_id_token = refreshed.get("idToken")
+                new_refresh_token = refreshed.get("refreshToken", refresh_token)
+
+                info = firebase_auth.get_account_info(new_id_token)
+                user_info = info["users"][0]
+
+                email = str(user_info.get("email") or email_cookie).lower().strip()
+                verified = bool(user_info.get("emailVerified", verified_cookie))
+                name = name_cookie or email.split("@")[0].replace(".", " ").title()
+                role = role_cookie or ("privileged" if verified else "restricted")
+
+                _set_authenticated_session(
+                    email=email,
+                    name=name,
+                    verified=verified,
+                    role=role,
+                    id_token=new_id_token,
+                    refresh_token=new_refresh_token,
+                )
+
+                _save_cookie_session(
+                    email=email,
+                    name=name,
+                    verified=verified,
+                    role=role,
+                    id_token=new_id_token,
+                    refresh_token=new_refresh_token,
+                    remember=True,
+                )
+
+            except Exception as e:
+                if DEBUG:
+                    st.sidebar.warning(f"Token refresh failed: {e}")
+
+                _clear_cookie_session()
+
+        elif email_cookie:
+            _set_authenticated_session(
+                email=email_cookie,
+                name=name_cookie,
+                verified=verified_cookie,
+                role=role_cookie,
+                id_token=cookies.get("id_token"),
+                refresh_token=refresh_token,
+            )
+
+    except Exception as e:
+        if DEBUG:
+            st.sidebar.warning(f"Error restoring session: {e}")
+
+    st.session_state.restored = True
+
+
+def is_authenticated():
+    init_session()
+    restore_session()
+    return bool(
+        st.session_state.get("user")
+        and st.session_state.get("email_verified")
+    )
+
+
+def is_privileged():
+    init_session()
+    restore_session()
+    return (
+        st.session_state.get("user", False)
+        and st.session_state.get("email_verified", False)
+        and st.session_state.get("role") == "privileged"
+    )
 
 
 def logout():
-    cookies = get_cookies()
-
-    if cookies and cookies.ready():
-        for key in ["email", "name", "role", "email_verified"]:
-            if key in cookies:
-                del cookies[key]
-
-        try:
-            cookies.save()
-        except Exception:
-            pass
+    _clear_cookie_session()
 
     for key in [
         "user",
@@ -252,6 +381,9 @@ def logout():
         "auth_mode",
         "auth_remember",
         "auth_view",
+        "id_token",
+        "refresh_token",
+        "cookies",
     ]:
         if key in st.session_state:
             del st.session_state[key]
@@ -275,6 +407,8 @@ def parse_error(e):
         "WEAK_PASSWORD": "Password is too weak. Use at least six characters.",
         "TOO_MANY_ATTEMPTS_TRY_LATER": "Too many attempts. Please try again later.",
         "USER_DISABLED": "This user account has been disabled.",
+        "TOKEN_EXPIRED": "Your login session expired. Please sign in again.",
+        "INVALID_REFRESH_TOKEN": "Your saved login session is no longer valid. Please sign in again.",
     }
 
     return friendly.get(msg, msg)
@@ -470,15 +604,26 @@ def _back_to_dashboard():
 
 def _login_form():
     with st.form("eusee_login_form"):
-        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
-        password = st.text_input("Password", placeholder="Enter your password", type="password")
+        email = st.text_input(
+            "Email address",
+            placeholder="name@organization.org",
+        ).strip().lower()
+
+        password = st.text_input(
+            "Password",
+            placeholder="Enter your password",
+            type="password",
+        )
 
         remember = st.checkbox(
             "Keep me signed in on this device",
-            value=st.session_state.get("auth_remember", False),
+            value=st.session_state.get("auth_remember", True),
         )
 
-        submitted = st.form_submit_button("Sign in to Dashboard", use_container_width=True)
+        submitted = st.form_submit_button(
+            "Sign in to Dashboard",
+            use_container_width=True,
+        )
 
     if submitted:
         if not firebase_auth:
@@ -494,20 +639,38 @@ def _login_form():
             return
 
         try:
-            user = firebase_auth.sign_in_with_email_and_password(email, password)
+            user = firebase_auth.sign_in_with_email_and_password(
+                email,
+                password,
+            )
+
             info = firebase_auth.get_account_info(user["idToken"])
             verified = bool(info["users"][0].get("emailVerified", False))
             role = "privileged" if verified else "restricted"
+            name = email.split("@")[0].replace(".", " ").title()
 
-            st.session_state.user = True
-            st.session_state.email = email
-            st.session_state.name = email.split("@")[0].replace(".", " ").title()
-            st.session_state.email_verified = verified
-            st.session_state.role = role
+            _set_authenticated_session(
+                email=email,
+                name=name,
+                verified=verified,
+                role=role,
+                id_token=user.get("idToken"),
+                refresh_token=user.get("refreshToken"),
+            )
+
             st.session_state.auth_remember = remember
             st.session_state.auth_view = False
+            st.session_state.restored = True
 
-            _save_cookie_session(email, st.session_state.name, verified, role, remember)
+            _save_cookie_session(
+                email=email,
+                name=name,
+                verified=verified,
+                role=role,
+                id_token=user.get("idToken"),
+                refresh_token=user.get("refreshToken"),
+                remember=remember,
+            )
 
             st.success("Signed in successfully. Redirecting to dashboard...")
             st.rerun()
@@ -518,20 +681,39 @@ def _login_form():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("Create Account", use_container_width=True, key="switch_to_register"):
+        if st.button(
+            "Create Account",
+            use_container_width=True,
+            key="switch_to_register",
+        ):
             _set_auth_mode("Register")
 
     with col2:
-        if st.button("Forgot Password", use_container_width=True, key="switch_to_reset"):
+        if st.button(
+            "Forgot Password",
+            use_container_width=True,
+            key="switch_to_reset",
+        ):
             _set_auth_mode("Reset")
 
 
 def _register_form():
     with st.form("eusee_register_form"):
-        email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
-        password = st.text_input("Password", placeholder="Create a secure password", type="password")
+        email = st.text_input(
+            "Email address",
+            placeholder="name@organization.org",
+        ).strip().lower()
 
-        submitted = st.form_submit_button("Create Account", use_container_width=True)
+        password = st.text_input(
+            "Password",
+            placeholder="Create a secure password",
+            type="password",
+        )
+
+        submitted = st.form_submit_button(
+            "Create Account",
+            use_container_width=True,
+        )
 
     if submitted:
         if not firebase_auth:
@@ -547,8 +729,13 @@ def _register_form():
             return
 
         try:
-            user = firebase_auth.create_user_with_email_and_password(email, password)
+            user = firebase_auth.create_user_with_email_and_password(
+                email,
+                password,
+            )
+
             firebase_auth.send_email_verification(user["idToken"])
+
             st.success("Registration successful. Check your email to verify your account, then sign in.")
             st.session_state.auth_mode = "Login"
 
@@ -558,9 +745,15 @@ def _register_form():
 
 def _reset_form():
     with st.form("eusee_reset_form"):
-        reset_email = st.text_input("Email address", placeholder="name@organization.org").strip().lower()
+        reset_email = st.text_input(
+            "Email address",
+            placeholder="name@organization.org",
+        ).strip().lower()
 
-        submitted = st.form_submit_button("Send Password Reset Link", use_container_width=True)
+        submitted = st.form_submit_button(
+            "Send Password Reset Link",
+            use_container_width=True,
+        )
 
     if submitted:
         if not firebase_auth:
@@ -602,7 +795,11 @@ def _render_premium_auth_page():
                 )
 
             with top_b:
-                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
+                if st.button(
+                    "← Dashboard",
+                    use_container_width=True,
+                    key="premium_back_dashboard",
+                ):
                     _back_to_dashboard()
 
             if mode == "Login":
