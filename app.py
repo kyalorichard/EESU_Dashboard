@@ -3855,7 +3855,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
         ),
          textfont=dict(
             family="Arial",
-            size=13,
+            size=10,
             color="#000000"
         )
     ))
