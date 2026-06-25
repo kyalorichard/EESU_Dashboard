@@ -22,6 +22,16 @@ import requests
 
 import uuid
 
+import warnings
+from streamlit.elements.lib.policies import CachedWidgetWarning
+
+warnings.filterwarnings(
+    "ignore",
+    category=CachedWidgetWarning
+)
+
+from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
+
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
