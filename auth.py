@@ -1,11 +1,11 @@
 # auth.py
+from __future__ import annotations
+
 import json
+from datetime import datetime, timedelta
+
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
-from streamlit_javascript import st_javascript
-
-DEBUG = False
 
 try:
     import pyrebase
@@ -23,13 +23,24 @@ except ImportError:
     credentials = None
     HAS_FIREBASE_ADMIN = False
 
+try:
+    import extra_streamlit_components as stx
+    HAS_COOKIE_MANAGER = True
+except ImportError:
+    stx = None
+    HAS_COOKIE_MANAGER = False
 
-LS_EMAIL = "eusee_email"
-LS_NAME = "eusee_name"
-LS_ROLE = "eusee_role"
-LS_VERIFIED = "eusee_email_verified"
-LS_ID_TOKEN = "eusee_id_token"
-LS_REFRESH_TOKEN = "eusee_refresh_token"
+
+COOKIE_NAME = "eusee_auth_session"
+COOKIE_DAYS = 30
+DEBUG = False
+
+
+@st.cache_resource(show_spinner=False)
+def get_cookie_manager():
+    if not HAS_COOKIE_MANAGER:
+        return None
+    return stx.CookieManager(key="eusee_cookie_manager")
 
 
 def init_firebase_admin():
@@ -123,126 +134,83 @@ def init_session():
         "user": False,
         "email": None,
         "name": None,
-        "role": None,
+        "role": "guest",
         "email_verified": False,
         "restored": False,
         "auth_mode": "Login",
         "auth_view": False,
         "id_token": None,
         "refresh_token": None,
-        "browser_session_data": {},
-        "browser_session_read_done": False,
-        "_auth_js_counter": 0,
     }
 
-    for k, v in defaults.items():
-        st.session_state.setdefault(k, v)
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
 
 
-def _js_escape(value):
-    return json.dumps(str(value or ""))
+def _session_payload(email, name, verified, role, id_token, refresh_token):
+    return {
+        "email": str(email or "").lower().strip(),
+        "name": str(name or ""),
+        "email_verified": bool(verified),
+        "role": str(role or "guest"),
+        "id_token": str(id_token or ""),
+        "refresh_token": str(refresh_token or ""),
+    }
 
 
-def _next_js_key(prefix: str) -> str:
-    st.session_state["_auth_js_counter"] = st.session_state.get("_auth_js_counter", 0) + 1
-    return f"{prefix}_{st.session_state['_auth_js_counter']}"
+def _write_cookie(payload: dict):
+    manager = get_cookie_manager()
+    if manager is None:
+        st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
+        return
+
+    manager.set(
+        COOKIE_NAME,
+        json.dumps(payload),
+        expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
+    )
 
 
-def save_browser_session(email, name, verified, role, id_token, refresh_token):
-    js = f"""
-    localStorage.setItem("{LS_EMAIL}", {_js_escape(email)});
-    localStorage.setItem("{LS_NAME}", {_js_escape(name)});
-    localStorage.setItem("{LS_ROLE}", {_js_escape(role)});
-    localStorage.setItem("{LS_VERIFIED}", {_js_escape(str(bool(verified)))});
-    localStorage.setItem("{LS_ID_TOKEN}", {_js_escape(id_token)});
-    localStorage.setItem("{LS_REFRESH_TOKEN}", {_js_escape(refresh_token)});
-    "ok";
-    """
-    return st_javascript(js, key=_next_js_key("save_eusee_auth"))
+def _read_cookie() -> dict:
+    manager = get_cookie_manager()
+    if manager is None:
+        return {}
 
-
-def save_browser_session_and_reload(email, name, verified, role, id_token, refresh_token):
-    html = f"""
-    <script>
-    localStorage.setItem("{LS_EMAIL}", {_js_escape(email)});
-    localStorage.setItem("{LS_NAME}", {_js_escape(name)});
-    localStorage.setItem("{LS_ROLE}", {_js_escape(role)});
-    localStorage.setItem("{LS_VERIFIED}", {_js_escape(str(bool(verified)))});
-    localStorage.setItem("{LS_ID_TOKEN}", {_js_escape(id_token)});
-    localStorage.setItem("{LS_REFRESH_TOKEN}", {_js_escape(refresh_token)});
-
-    setTimeout(function() {{
-        window.parent.location.reload();
-    }}, 300);
-    </script>
-    """
-    components.html(html, height=0, width=0)
-
-
-def clear_browser_session():
-    html = f"""
-    <script>
-    localStorage.removeItem("{LS_EMAIL}");
-    localStorage.removeItem("{LS_NAME}");
-    localStorage.removeItem("{LS_ROLE}");
-    localStorage.removeItem("{LS_VERIFIED}");
-    localStorage.removeItem("{LS_ID_TOKEN}");
-    localStorage.removeItem("{LS_REFRESH_TOKEN}");
-
-    setTimeout(function() {{
-        window.parent.location.reload();
-    }}, 250);
-    </script>
-    """
-    components.html(html, height=0, width=0)
-
-
-def read_browser_session():
-    if st.session_state.get("browser_session_read_done"):
-        return st.session_state.get("browser_session_data", {})
-
-    js = f"""
-    JSON.stringify({{
-        email: localStorage.getItem("{LS_EMAIL}") || "",
-        name: localStorage.getItem("{LS_NAME}") || "",
-        role: localStorage.getItem("{LS_ROLE}") || "",
-        email_verified: localStorage.getItem("{LS_VERIFIED}") || "",
-        id_token: localStorage.getItem("{LS_ID_TOKEN}") || "",
-        refresh_token: localStorage.getItem("{LS_REFRESH_TOKEN}") || ""
-    }});
-    """
-
-    raw = st_javascript(js, key=_next_js_key("read_eusee_auth"))
-
-    if not raw or raw in [0, "0", None]:
+    raw = manager.get(COOKIE_NAME)
+    if not raw:
         return {}
 
     try:
-        data = json.loads(raw)
+        return json.loads(raw)
     except Exception:
-        data = {}
+        return {}
 
-    st.session_state.browser_session_data = data
-    st.session_state.browser_session_read_done = True
 
-    return data
+def _delete_cookie():
+    manager = get_cookie_manager()
+    if manager is not None:
+        try:
+            manager.delete(COOKIE_NAME)
+        except Exception:
+            pass
 
 
 def refresh_firebase_token(refresh_token: str):
     api_key = st.secrets.get("firebase", {}).get("apiKey")
-
     if not api_key or not refresh_token:
         return None
 
     url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
 
-    payload = {
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
-
     try:
-        response = requests.post(url, data=payload, timeout=15)
+        response = requests.post(
+            url,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            timeout=15,
+        )
 
         if response.status_code != 200:
             return None
@@ -253,55 +221,89 @@ def refresh_firebase_token(refresh_token: str):
         return None
 
 
+def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
+    st.session_state.user = bool(email and verified)
+    st.session_state.email = email
+    st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
+    st.session_state.email_verified = bool(verified)
+    st.session_state.role = role or "privileged"
+    st.session_state.id_token = id_token
+    st.session_state.refresh_token = refresh_token
+    st.session_state.auth_view = False
+    st.session_state.restored = True
+
+
 def restore_session():
+    init_session()
+
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
-        return
+        return True
 
-    data = read_browser_session()
+    cookie_data = _read_cookie()
+    if not cookie_data:
+        st.session_state.restored = True
+        return False
 
-    if not data:
-        return
-
-    email = str(data.get("email") or "").lower().strip()
-    name = data.get("name")
-    role = data.get("role")
-    verified = str(data.get("email_verified") or "").lower() == "true"
-    refresh_token = data.get("refresh_token")
+    email = str(cookie_data.get("email") or "").lower().strip()
+    name = cookie_data.get("name") or ""
+    role = cookie_data.get("role") or "privileged"
+    verified = bool(cookie_data.get("email_verified"))
+    refresh_token = cookie_data.get("refresh_token") or ""
 
     if not email or not verified or not refresh_token:
-        return
+        _delete_cookie()
+        st.session_state.restored = True
+        return False
 
     refreshed = refresh_firebase_token(refresh_token)
-
     if not refreshed:
-        return
+        _delete_cookie()
+        st.session_state.restored = True
+        return False
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
 
-    st.session_state.user = True
-    st.session_state.email = email
-    st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
-    st.session_state.role = role or "privileged"
-    st.session_state.email_verified = True
-    st.session_state.auth_view = False
-    st.session_state.id_token = id_token
-    st.session_state.refresh_token = new_refresh_token
-    st.session_state.restored = True
-
-    save_browser_session(
+    _apply_authenticated_state(
         email=email,
-        name=st.session_state.name,
+        name=name,
         verified=True,
-        role=st.session_state.role,
+        role=role,
         id_token=id_token,
         refresh_token=new_refresh_token,
     )
 
+    _write_cookie(
+        _session_payload(
+            email=email,
+            name=st.session_state.name,
+            verified=True,
+            role=role,
+            id_token=id_token,
+            refresh_token=new_refresh_token,
+        )
+    )
+
+    return True
+
+
+def is_authenticated():
+    restore_session()
+    return bool(st.session_state.get("user") and st.session_state.get("email_verified"))
+
+
+def is_privileged():
+    restore_session()
+    return bool(
+        st.session_state.get("user")
+        and st.session_state.get("email_verified")
+        and st.session_state.get("role") in ["privileged", "admin"]
+    )
+
 
 def logout():
-    clear_browser_session()
+    _delete_cookie()
 
     for key in [
         "user",
@@ -314,32 +316,11 @@ def logout():
         "auth_view",
         "id_token",
         "refresh_token",
-        "browser_session_data",
-        "browser_session_read_done",
     ]:
-        if key in st.session_state:
-            del st.session_state[key]
+        st.session_state.pop(key, None)
 
-
-def is_authenticated():
     init_session()
-    restore_session()
-
-    return bool(
-        st.session_state.get("user")
-        and st.session_state.get("email_verified")
-    )
-
-
-def is_privileged():
-    init_session()
-    restore_session()
-
-    return bool(
-        st.session_state.get("user")
-        and st.session_state.get("email_verified")
-        and st.session_state.get("role") == "privileged"
-    )
+    st.rerun()
 
 
 def parse_error(e):
@@ -397,21 +378,6 @@ def _auth_page_css():
             max-width: 920px !important;
             padding-top: 2.4rem !important;
             padding-bottom: 2.4rem !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            border-radius: 30px !important;
-            border: 1px solid rgba(102, 0, 148, 0.12) !important;
-            box-shadow:
-                0 26px 80px rgba(35, 25, 66, 0.16),
-                inset 0 1px 0 rgba(255,255,255,0.9) !important;
-            background: rgba(255, 255, 255, 0.94) !important;
-            backdrop-filter: blur(18px) !important;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            padding: 36px 40px 32px 40px !important;
-            box-sizing: border-box;
         }
 
         .auth-pill {
@@ -550,39 +516,37 @@ def _login_form():
             info = firebase_auth.get_account_info(user["idToken"])
 
             verified = bool(info["users"][0].get("emailVerified", False))
-            role = "privileged" if verified else "restricted"
+
+            if not verified:
+                st.warning("Your account exists, but the email is not verified. Please verify your email first.")
+                return
+
+            role = "privileged"
             name = email.split("@")[0].replace(".", " ").title()
 
-            st.session_state.user = True
-            st.session_state.email = email
-            st.session_state.name = name
-            st.session_state.email_verified = verified
-            st.session_state.role = role
-            st.session_state.auth_view = False
-            st.session_state.restored = True
-            st.session_state.id_token = user.get("idToken")
-            st.session_state.refresh_token = user.get("refreshToken")
-
-            st.session_state.browser_session_data = {
-                "email": email,
-                "name": name,
-                "role": role,
-                "email_verified": str(bool(verified)),
-                "id_token": user.get("idToken") or "",
-                "refresh_token": user.get("refreshToken") or "",
-            }
-            st.session_state.browser_session_read_done = True
-
-            st.success("Signed in successfully. Redirecting to dashboard...")
-
-            save_browser_session_and_reload(
+            _apply_authenticated_state(
                 email=email,
                 name=name,
-                verified=verified,
+                verified=True,
                 role=role,
                 id_token=user.get("idToken"),
                 refresh_token=user.get("refreshToken"),
             )
+
+            _write_cookie(
+                _session_payload(
+                    email=email,
+                    name=name,
+                    verified=True,
+                    role=role,
+                    id_token=user.get("idToken"),
+                    refresh_token=user.get("refreshToken"),
+                )
+            )
+
+            st.session_state.auth_view = False
+            st.success("Signed in successfully.")
+            st.rerun()
 
         except Exception as e:
             st.error(parse_error(e))
