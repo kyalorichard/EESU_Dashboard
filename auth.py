@@ -129,7 +129,8 @@ def init_session():
         "auth_view": False,
         "id_token": None,
         "refresh_token": None,
-        "login_saved_pending": False,
+        "browser_session_data": {},
+        "browser_session_read_done": False,
     }
 
     for k, v in defaults.items():
@@ -167,6 +168,9 @@ def clear_browser_session():
 
 
 def read_browser_session():
+    if st.session_state.get("browser_session_read_done"):
+        return st.session_state.get("browser_session_data", {})
+
     js = f"""
     JSON.stringify({{
         email: localStorage.getItem("{LS_EMAIL}") || "",
@@ -178,15 +182,20 @@ def read_browser_session():
     }});
     """
 
-    raw = st_javascript(js, key="read_eusee_auth")
+    raw = st_javascript(js, key="read_eusee_auth_once")
 
     if not raw or raw in [0, "0", None]:
         return {}
 
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
     except Exception:
-        return {}
+        data = {}
+
+    st.session_state.browser_session_data = data
+    st.session_state.browser_session_read_done = True
+
+    return data
 
 
 def refresh_firebase_token(refresh_token: str):
@@ -275,7 +284,8 @@ def logout():
         "auth_view",
         "id_token",
         "refresh_token",
-        "login_saved_pending",
+        "browser_session_data",
+        "browser_session_read_done",
     ]:
         if key in st.session_state:
             del st.session_state[key]
@@ -524,6 +534,16 @@ def _login_form():
             st.session_state.restored = True
             st.session_state.id_token = user.get("idToken")
             st.session_state.refresh_token = user.get("refreshToken")
+
+            st.session_state.browser_session_data = {
+                "email": email,
+                "name": name,
+                "role": role,
+                "email_verified": str(bool(verified)),
+                "id_token": user.get("idToken") or "",
+                "refresh_token": user.get("refreshToken") or "",
+            }
+            st.session_state.browser_session_read_done = True
 
             save_status = save_browser_session(
                 email=email,
