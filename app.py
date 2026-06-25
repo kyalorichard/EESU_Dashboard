@@ -1552,40 +1552,61 @@ def render_sidebar_access_settings_profile():
     # Small CSS only for Streamlit widgets in the privilege center; no visible HTML content is rendered.
     st.sidebar.markdown("""
     <style>
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
-        gap: 0.25rem;
+    /* ---------- User Privilege Center ---------- */
+
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker){
+        gap:0.25rem;
     }
-    .eusee-privilege-marker { display: none; }
-    section[data-testid="stSidebar"] .eusee-privilege-title {
-        font-size: 8px;
-        font-weight: 700;
-        color: #23152F;
-        margin-bottom: -2px;
+
+    .eusee-privilege-marker{
+        display:none;
     }
-    section[data-testid="stSidebar"] .eusee-privilege-note {
-        font-size: 8px;
-        color: #667085;
-        line-height: 1.05;
-        margin-top: -4px;
+
+    /* Panel title */
+    section[data-testid="stSidebar"] h3{
+        font-size:20px !important;
+        font-weight:900 !important;
+        color:#23152F !important;
+        margin-bottom:0.4rem !important;
     }
-    section[data-testid="stSidebar"] [data-testid="stMetric"] {
-        background: #FFFFFF;
-        border: 1px solid #EEF0F4;
-        border-radius: 12px;
-        padding: 7px 8px;
-        box-shadow: 0 2px 8px rgba(16,24,40,.035);
+
+    /* Guest access / Logged-in user name */
+    section[data-testid="stSidebar"] p{
+        font-size:15px !important;
+        font-weight:700 !important;
+        color:#23152F !important;
+        line-height:1.45 !important;
     }
-    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
-        font-size: 8px !important;
-        font-weight: 500 !important;
-        color: #667085 !important;
-        text-transform: uppercase;
+
+    /* Description */
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{
+        font-size:13px !important;
+        line-height:1.5 !important;
+        color:#667085 !important;
     }
-    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        color: #23152F !important;
+
+    /* Metric cards */
+    section[data-testid="stSidebar"] [data-testid="stMetric"]{
+        background:#FFFFFF;
+        border:1px solid #EEF0F4;
+        border-radius:12px;
+        padding:7px 8px;
+        box-shadow:0 2px 8px rgba(16,24,40,.035);
     }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
+        font-size:11px !important;
+        font-weight:800 !important;
+        color:#667085 !important;
+        text-transform:uppercase;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"]{
+        font-size:15px !important;
+        font-weight:900 !important;
+        color:#23152F !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
