@@ -11,14 +11,7 @@ import plotly.graph_objects as go
 import base64
 import hashlib
 from datetime import datetime
-from auth import (
-    auth_ui,
-    is_privileged,
-    is_authenticated,
-    init_session,
-    restore_session,
-    logout,
-)
+from auth import auth_ui, is_privileged, is_authenticated
 import math
 import paramiko
 import logging
@@ -30,77 +23,74 @@ import requests
 import uuid
 
 
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 # ------------------------------------------------------------------
-# AUTH SESSION BOOTSTRAP
-# Must run immediately after page config and before sidebar, filters,
-# admin routing, data loading, charts, or permission checks.
-# ------------------------------------------------------------------
-init_session()
-restore_session()
-
-# ------------------------------------------------------------------
-# HIDE ONLY STREAMLIT DEFAULT/GITHUB CONTROLS
-# IMPORTANT: Do not hide stToolbar, stToolbarActions, or
-# stHeaderActionElements because those selectors can also hide account,
-# admin, login-status, and logout controls in deployed Streamlit builds.
+# HIDE GITHUB / SOURCE CODE ACCESS
+# KEEP SIDEBAR TOGGLE VISIBLE
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
-#MainMenu,
-footer,
-[data-testid="stDecoration"],
-[data-testid="stDeployButton"],
-[data-testid="manage-app-button"] {
-    display: none !important;
+
+/* Streamlit menu */
+#MainMenu {
     visibility: hidden !important;
 }
 
-header[data-testid="stHeader"],
-[data-testid="stToolbar"],
-[data-testid="stToolbarActions"],
-[data-testid="stHeaderActionElements"] {
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
+/* Footer */
+footer {
+    visibility: hidden !important;
 }
 
+/* Purple top decoration line */
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+
+/* Deploy button */
+[data-testid="stDeployButton"] {
+    display: none !important;
+}
+
+/* Source code / GitHub / toolbar actions */
+[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
+
+/* Extra toolbar buttons */
+[data-testid="stToolbarActions"] {
+    display: none !important;
+}
+
+/* Keep header visible */
 header[data-testid="stHeader"] {
+    visibility: visible !important;
     display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
     background: rgba(247,248,251,0.95) !important;
 }
 
-a[href*="github.com"],
-a[href*="githubusercontent.com"],
-a[href*="/source"],
-a[href*="source"],
-a[aria-label*="GitHub" i],
-a[title*="GitHub" i],
-button[aria-label*="GitHub" i],
-button[title*="GitHub" i],
-button[aria-label*="Source" i],
-button[title*="Source" i] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
+/* Keep sidebar toggle visible */
 button[data-testid="collapsedControl"] {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
-    pointer-events: auto !important;
+
     width: auto !important;
     min-width: 92px !important;
     height: 38px !important;
+
     border-radius: 999px !important;
     padding: 0 12px !important;
+
     background: #FFFFFF !important;
     border: 1px solid #E7D4F1 !important;
+
     box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
 }
 
+/* Filters text beside sidebar icon */
 button[data-testid="collapsedControl"]::after {
     content: " Filters";
     font-size: 12px;
@@ -109,11 +99,28 @@ button[data-testid="collapsedControl"]::after {
     margin-left: 6px;
 }
 
+/* Hide any GitHub links */
+a[href*="github.com"] {
+    display: none !important;
+}
+
+/* Hide source-code links */
+a[href*="source"] {
+    display: none !important;
+}
+
+/* Hide toolbar container completely */
+[data-testid="stToolbar"] {
+    display: none !important;
+}
+
 .block-container {
     padding-top: 1rem !important;
 }
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
@@ -177,85 +184,6 @@ except Exception:
         st.error("Admin page is not available. Confirm authz.py and admin_page.py are deployed with app.py.")
     def render_admin_sidebar_navigation():
         return "Dashboard"
-
-
-def render_top_account_controls():
-    """Always-visible account controls independent of Streamlit header CSS."""
-    signed_in = is_authenticated()
-    role = get_current_role() if callable(get_current_role) else "guest"
-    role_label = str(role or "guest").replace("_", " ").title()
-    email = get_current_email() if callable(get_current_email) else ""
-    email = email or st.session_state.get("email", "")
-
-    st.markdown("""
-    <style>
-    .eusee-top-account-shell {
-        margin: 0.25rem 0 0.75rem 0;
-        padding: 0.65rem 0.8rem;
-        border: 1px solid #E6E8EF;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-        box-shadow: 0 8px 22px rgba(16,24,40,.055);
-        font-family: Arial, sans-serif;
-    }
-    .eusee-top-account-title {
-        font-size: 12px;
-        font-weight: 900;
-        color: #23152F;
-        line-height: 1.2;
-    }
-    .eusee-top-account-note {
-        font-size: 10.5px;
-        color: #667085;
-        margin-top: 2px;
-        line-height: 1.3;
-    }
-    .eusee-status-ok { color:#067647; font-weight:900; }
-    .eusee-status-public { color:#B54708; font-weight:900; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    if signed_in:
-        c1, c2, c3, c4 = st.columns([2.2, 0.7, 0.7, 0.7])
-        with c1:
-            st.markdown(
-                f'''<div class="eusee-top-account-shell">
-                    <div class="eusee-top-account-title"><span class="eusee-status-ok">Signed in</span> · {role_label}</div>
-                    <div class="eusee-top-account-note">{email}</div>
-                </div>''',
-                unsafe_allow_html=True,
-            )
-        with c2:
-            if admin_is_admin():
-                if st.button("Admin", use_container_width=True, key="top_admin_btn"):
-                    st.session_state["eusee_sidebar_workspace"] = "Admin"
-                    st.rerun()
-            else:
-                st.button("Admin", use_container_width=True, disabled=True, key="top_admin_disabled_btn")
-        with c3:
-            if st.button("Dashboard", use_container_width=True, key="top_dashboard_btn"):
-                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
-                st.rerun()
-        with c4:
-            if st.button("Logout", use_container_width=True, key="top_logout_btn"):
-                logout()
-    else:
-        c1, c2 = st.columns([3.0, 0.9])
-        with c1:
-            st.markdown(
-                '''<div class="eusee-top-account-shell">
-                    <div class="eusee-top-account-title"><span class="eusee-status-public">Public mode</span></div>
-                    <div class="eusee-top-account-note">Sign in to access privileged dashboard features.</div>
-                </div>''',
-                unsafe_allow_html=True,
-            )
-        with c2:
-            if st.button("Sign in / Register", use_container_width=True, key="top_signin_btn"):
-                st.session_state.auth_view = True
-                st.rerun()
-
-
-# Account controls are rendered after auth routing so the sign-in page is not mixed with the dashboard header.
 
 try:
     from streamlit_plotly_events import plotly_events
@@ -786,8 +714,10 @@ def monitored_countries_display_value(value) -> str:
 
 
 # ---------------- AUTH STATE NOTES ----------------
-# Authentication defaults are initialized centrally by init_session().
+# Authentication is handled by the existing sidebar/auth components.
 # Restricted feature cards intentionally do not route users to a separate auth view.
+st.session_state.setdefault("auth_mode", "Login")
+st.session_state.setdefault("auth_reset_open", False)
 
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
@@ -846,6 +776,8 @@ def _safe_pdf_download_button(title: str, pdf_path: Path, key_prefix: str):
 # Restricted chart/map/tab cards remain passive locked-state messages and do not
 # trigger login navigation.
 st.session_state.setdefault("auth_view", False)
+st.session_state.setdefault("auth_mode", "Login")
+st.session_state.setdefault("auth_reset_open", False)
 
 if is_authenticated():
     st.session_state.auth_view = False
@@ -908,10 +840,6 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
         st.rerun()
 
     st.stop()
-
-
-# Render account controls only on the dashboard/admin surface, not inside the login route.
-render_top_account_controls()
 
 
 # ---------------- LOAD DATA ----------------
@@ -1682,6 +1610,7 @@ def render_sidebar_access_settings_profile():
 
         if signed_in:
             if st.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
+                from auth import logout
                 logout()
         else:
             if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_signin_btn"):
@@ -5683,49 +5612,49 @@ if tab_overview is not None:
             a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
             #a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
             # Top 10 countries by total alert count
-            top10_countries = (
-                filtered_global
-                .groupby("alert-country")
-                .size()
-                .nlargest(15)
-                .index
-            )
+        top10_countries = (
+            filtered_global
+            .groupby("alert-country")
+            .size()
+            .nlargest(15)
+            .index
+        )
 
-            # Keep only those countries
-            a4 = (
-                filtered_global[
-                    filtered_global["alert-country"].isin(top10_countries)
-                ]
-                .groupby(["alert-country", "alert-impact"])
-                .size()
-                .reset_index(name="count")
-            )
+        # Keep only those countries
+        a4 = (
+            filtered_global[
+                filtered_global["alert-country"].isin(top10_countries)
+            ]
+            .groupby(["alert-country", "alert-impact"])
+            .size()
+            .reset_index(name="count")
+        )
 
-            # Percentage of total alerts within the Top 10 countries
-            a4["percentage"] = (
-                a4["count"] / a4["count"].sum() * 100
-            )
+        # Percentage of total alerts within the Top 10 countries
+        a4["percentage"] = (
+            a4["count"] / a4["count"].sum() * 100
+        )
 
-            # Sort countries by their total counts
-            country_order = (
-                filtered_global
-                .groupby("alert-country")
-                .size()
-                .loc[top10_countries]
-                .sort_values(ascending=False)
-                .index
-            )
+        # Sort countries by their total counts
+        country_order = (
+            filtered_global
+            .groupby("alert-country")
+            .size()
+            .loc[top10_countries]
+            .sort_values(ascending=False)
+            .index
+        )
 
-            a4["alert-country"] = pd.Categorical(
-                a4["alert-country"],
-                categories=country_order,
-                ordered=True
-            )
+        a4["alert-country"] = pd.Categorical(
+            a4["alert-country"],
+            categories=country_order,
+            ordered=True
+        )
 
-            a4 = a4.sort_values(
-                ["alert-country", "count"],
-                ascending=[True, False]
-            )
+        a4 = a4.sort_values(
+            ["alert-country", "count"],
+            ascending=[True, False]
+        )
 
             r1c1,r1c2 = st.columns(2)
             r2c1,r2c2 = st.columns(2)
