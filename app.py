@@ -5484,118 +5484,6 @@ def _strip_plotly_html(value):
 def _escape_chart_header_html(value):
     return html.escape("" if value is None else str(value), quote=True)
 
-def render_chart_title_with_tooltip(target, title_text, tooltip_text):
-    """Render centered chart title with tooltip centered below the title."""
-    title_html = _escape_chart_header_html(_strip_plotly_html(title_text))
-    tooltip_html = _escape_chart_header_html(_strip_plotly_html(tooltip_text))
-
-    if not title_html or not tooltip_html:
-        return
-
-    target.markdown(f"""
-    <style>
-    .eusee-chart-title-tooltip-row {{
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        margin: 0 0 4px 0;
-        padding: 0 2px;
-        min-height: 28px;
-        position: relative;
-        z-index: 50;
-        font-family: Arial, sans-serif;
-        text-align: center;
-    }}
-
-    .eusee-chart-title-tooltip-text {{
-        color: #2D0055;
-        font-size: 13.5px;
-        font-weight: 900;
-        line-height: 1.18;
-        letter-spacing: -0.01em;
-        text-align: center;
-    }}
-
-    .eusee-chart-title-tooltip-wrap {{
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-    }}
-
-    .eusee-chart-title-tooltip-icon {{
-        width: 18px;
-        height: 18px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: #F4EAF8;
-        border: 1px solid #E7D4F1;
-        color: #660094;
-        font-size: 11px;
-        font-weight: 950;
-        line-height: 1;
-        cursor: help;
-        box-shadow: 0 2px 7px rgba(102,0,148,.08);
-    }}
-
-    .eusee-chart-title-tooltip-box {{
-        position: absolute;
-        top: 26px;
-        left: 50%;
-        transform: translate(-50%, 6px);
-        width: min(340px, 74vw);
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: #23152F;
-        border: 1px solid rgba(102,0,148,.35);
-        color: #FFFFFF;
-        font-size: 11px;
-        font-weight: 700;
-        line-height: 1.4;
-        box-shadow: 0 14px 32px rgba(16,24,40,.18);
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        z-index: 999999;
-        text-align: left;
-    }}
-
-    .eusee-chart-title-tooltip-wrap:hover .eusee-chart-title-tooltip-box,
-    .eusee-chart-title-tooltip-wrap:focus-within .eusee-chart-title-tooltip-box {{
-        opacity: 1;
-        visibility: visible;
-        transform: translate(-50%, 0);
-    }}
-
-    @media (max-width: 700px) {{
-        .eusee-chart-title-tooltip-row {{
-            justify-content: center;
-            flex-wrap: nowrap;
-            margin-bottom: 6px;
-        }}
-
-        .eusee-chart-title-tooltip-text {{
-            font-size: 12.5px;
-        }}
-
-        .eusee-chart-title-tooltip-box {{
-            width: min(290px, 82vw);
-        }}
-    }}
-    </style>
-
-    <div class="eusee-chart-title-tooltip-row">
-        <div class="eusee-chart-title-tooltip-text">{title_html}</div>
-        <span class="eusee-chart-title-tooltip-wrap" tabindex="0" aria-label="Chart information">
-            <span class="eusee-chart-title-tooltip-icon">i</span>
-            <span class="eusee-chart-title-tooltip-box">{tooltip_html}</span>
-        </span>
-    </div>
-    """, unsafe_allow_html=True)
 
 def render_dashboard_plotly_chart(
     fig,
@@ -5627,16 +5515,53 @@ def render_dashboard_plotly_chart(
         )
         return None
 
+    # Keep title and info badge inside the Plotly chart area
     if show_title_tooltip and chart_info:
-        chart_title = title or fig.layout.title.text or ""
-        render_chart_title_with_tooltip(target, chart_title, chart_info)
+        try:
+            fig = add_chart_info_badge(
+                fig,
+                chart_info,
+                x=0.56,
+                y=1.065,
+                chart_width_px=chart_width_px,
+            )
+        except Exception:
+            pass
 
+    # Keep chart title centered inside Plotly canvas
+    current_title = title or fig.layout.title.text or ""
+
+    if current_title:
         fig.update_layout(
-            title=None,
-            margin=dict(t=35)
+            title=dict(
+                text=current_title,
+                x=0.5,
+                xanchor="center",
+                y=0.965,
+                yanchor="top"
+            ),
+            margin=dict(
+                t=85
+            )
         )
 
     fig = apply_responsive_plotly_layout(fig)
+
+    # Re-apply title and top margin after responsive layout,
+    # in case apply_responsive_plotly_layout overrides layout values.
+    if current_title:
+        fig.update_layout(
+            title=dict(
+                text=current_title,
+                x=0.5,
+                xanchor="center",
+                y=0.965,
+                yanchor="top"
+            ),
+            margin=dict(
+                t=85
+            )
+        )
 
     target.plotly_chart(
         fig,
@@ -5644,8 +5569,6 @@ def render_dashboard_plotly_chart(
         config=config,
         key=key
     )
-
-
 # ---------------- TAB 1 ------------------------
 if tab_overview is not None:
     with tab_overview:
