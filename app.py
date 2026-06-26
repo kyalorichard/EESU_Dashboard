@@ -2467,14 +2467,11 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     }
 
     .eusee-kpi-title {
-        position: relative;
-        z-index: 1;
-        color: #344054;
-        font-size: 11px;
-        font-weight: 950;
-        text-transform: uppercase;
-        letter-spacing: .105em;
-        line-height: 1.25;
+        color: #23152F;
+        font-size: 12.5px;
+        font-weight: 900;
+        line-height: 1.08;
+        letter-spacing: -.01em;
     }
 
     .eusee-kpi-icon {
@@ -2492,35 +2489,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-weight: 900;
         box-shadow: none;
     }
-                
-    .eusee-kpi-icon-badge {
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 14px;
-        background: var(--kpi-soft);
-        border: 1px solid var(--kpi-border);
-        box-shadow: 0 8px 16px rgba(16,24,40,.055);
-        font-size: 18px;
-    }
-    .eusee-kpi-card-purple {
-        --kpi-accent: linear-gradient(90deg, #660094, #8D32B0);
-        --kpi-soft: rgba(102,0,148,.095);
-        --kpi-border: rgba(102,0,148,.14);
-        --kpi-line: rgba(102,0,148,.24);
-    }
-    .eusee-kpi-watermark {
-        position: absolute;
-        right: 20px;
-        top: 29px;
-        font-size: 58px;
-        opacity: .105;
-        z-index: 0;
-        pointer-events: none;
-        user-select: none;
-    }
+
     .eusee-kpi-value {
         font-size: 36px;
         line-height: .92;
@@ -2784,11 +2753,9 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         st.markdown(f"""
         <div class="eusee-kpi-card">
             <div>
-                <div class="eusee-kpi-top ">
-                    <div class="eusee-kpi-watermark">🌍</div>
-
+                <div class="eusee-kpi-top">
                     <div><div class="eusee-kpi-title">Monitored Countries</div></div>
-                    <div class="eusee-kpi-icon-badge">🌍</div>
+                    <div class="eusee-kpi-icon">🌍</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#008CAA;font-size:36px;">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
@@ -3203,6 +3170,7 @@ def _nice_percent_axis_max(max_pct):
     if max_pct <= 80:
         return 90
     return 100
+
 
 def _standard_chart_height(horizontal=False):
     """Keep all bar/stacked charts visually consistent."""
