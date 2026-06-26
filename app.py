@@ -19,9 +19,8 @@ import tempfile
 import os
 import re
 import requests
-
+import textwrap
 import uuid
-
 import warnings
 from streamlit.elements.lib.policies import CachedWidgetWarning
 
@@ -2381,30 +2380,24 @@ def info_tooltip(message: str) -> str:
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="summary"):
-    """
-    Render three polished executive KPI cards without adding extra information:
-    1. Monitored Countries
-    2. Total Alerts
-    3. Total Negative Alerts
+    total_countries = (
+        df["alert-country"].nunique()
+        if df is not None and not df.empty and "alert-country" in df.columns
+        else 0
+    )
 
-    The function keeps the same metric logic and permissions while improving:
-    - visual hierarchy
-    - subtle gradient background
-    - accent top border
-    - watermark icon
-    - premium shadow
-    - responsive layout
-    - hover interaction
-    """
-    total_countries = df["alert-country"].nunique() if not df.empty and "alert-country" in df.columns else 0
     total_alerts = len(df) if df is not None and not df.empty else 0
-    negative = int((df["alert-impact"] == "Negative").sum()) if not df.empty and "alert-impact" in df.columns else 0
+
+    negative = (
+        int(df["alert-impact"].astype(str).str.strip().str.lower().eq("negative").sum())
+        if df is not None and not df.empty and "alert-impact" in df.columns
+        else 0
+    )
 
     monitored_value = monitored_countries_display_value(total_countries)
 
-    st.markdown("""
+    st.markdown(textwrap.dedent("""
     <style>
-    /* ---------------- PREMIUM EXECUTIVE KPI SUMMARY CARDS ---------------- */
     .eusee-kpi-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2420,25 +2413,18 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         overflow: hidden;
         padding: 20px 22px 19px 22px;
         background:
-            radial-gradient(circle at 93% 18%, rgba(102, 0, 148, 0.075), transparent 31%),
-            linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(252,250,255,0.96) 100%);
-        border: 1px solid rgba(102, 0, 148, 0.13);
-        box-shadow:
-            0 16px 34px rgba(16, 24, 40, 0.075),
-            inset 0 1px 0 rgba(255,255,255,0.92);
-        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
+            radial-gradient(circle at 93% 18%, rgba(102,0,148,.075), transparent 31%),
+            linear-gradient(145deg, rgba(255,255,255,.98), rgba(252,250,255,.96));
+        border: 1px solid rgba(102,0,148,.13);
+        box-shadow: 0 16px 34px rgba(16,24,40,.075), inset 0 1px 0 rgba(255,255,255,.92);
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         isolation: isolate;
-        transition:
-            transform .22s ease,
-            box-shadow .22s ease,
-            border-color .22s ease;
+        transition: transform .22s ease, box-shadow .22s ease;
     }
 
     .eusee-premium-kpi-card:hover {
         transform: translateY(-4px);
-        box-shadow:
-            0 22px 46px rgba(16, 24, 40, 0.115),
-            inset 0 1px 0 rgba(255,255,255,0.96);
+        box-shadow: 0 22px 46px rgba(16,24,40,.115), inset 0 1px 0 rgba(255,255,255,.96);
     }
 
     .eusee-premium-kpi-card::before {
@@ -2469,10 +2455,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         right: 20px;
         top: 29px;
         font-size: 58px;
-        line-height: 1;
         opacity: .105;
         z-index: 0;
-        filter: grayscale(.05);
         pointer-events: none;
         user-select: none;
     }
@@ -2480,31 +2464,25 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     .eusee-kpi-header {
         position: relative;
         z-index: 1;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
         margin-bottom: 20px;
     }
 
     .eusee-kpi-icon-badge {
         width: 40px;
         height: 40px;
-        min-width: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 14px;
         background: var(--kpi-soft);
         border: 1px solid var(--kpi-border);
-        box-shadow: 0 8px 16px rgba(16, 24, 40, .055);
+        box-shadow: 0 8px 16px rgba(16,24,40,.055);
         font-size: 18px;
     }
 
     .eusee-kpi-title {
         position: relative;
         z-index: 1;
-        margin-top: 2px;
         color: #344054;
         font-size: 11px;
         font-weight: 950;
@@ -2520,8 +2498,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         height: 3px;
         border-radius: 999px;
         background: var(--kpi-accent);
-        opacity: .92;
-        margin: 0 0 12px 0;
+        margin: 9px 0 12px 0;
     }
 
     .eusee-kpi-value {
@@ -2532,7 +2509,6 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-weight: 950;
         letter-spacing: -0.055em;
         line-height: .96;
-        text-shadow: 0 1px 0 rgba(255,255,255,.95);
         transition: transform .22s ease;
     }
 
@@ -2551,24 +2527,24 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     }
 
     .eusee-kpi-card-purple {
-        --kpi-accent: linear-gradient(90deg, #660094 0%, #8D32B0 100%);
-        --kpi-soft: rgba(102, 0, 148, .095);
-        --kpi-border: rgba(102, 0, 148, .14);
-        --kpi-line: rgba(102, 0, 148, .24);
+        --kpi-accent: linear-gradient(90deg, #660094, #8D32B0);
+        --kpi-soft: rgba(102,0,148,.095);
+        --kpi-border: rgba(102,0,148,.14);
+        --kpi-line: rgba(102,0,148,.24);
     }
 
     .eusee-kpi-card-teal {
-        --kpi-accent: linear-gradient(90deg, #008CAA 0%, #14A9C4 100%);
-        --kpi-soft: rgba(0, 140, 170, .105);
-        --kpi-border: rgba(0, 140, 170, .16);
-        --kpi-line: rgba(0, 140, 170, .24);
+        --kpi-accent: linear-gradient(90deg, #008CAA, #14A9C4);
+        --kpi-soft: rgba(0,140,170,.105);
+        --kpi-border: rgba(0,140,170,.16);
+        --kpi-line: rgba(0,140,170,.24);
     }
 
     .eusee-kpi-card-red {
-        --kpi-accent: linear-gradient(90deg, #B42318 0%, #E5483D 100%);
-        --kpi-soft: rgba(180, 35, 24, .095);
-        --kpi-border: rgba(180, 35, 24, .15);
-        --kpi-line: rgba(180, 35, 24, .24);
+        --kpi-accent: linear-gradient(90deg, #B42318, #E5483D);
+        --kpi-soft: rgba(180,35,24,.095);
+        --kpi-border: rgba(180,35,24,.15);
+        --kpi-line: rgba(180,35,24,.24);
     }
 
     @media (max-width: 1050px) {
@@ -2580,69 +2556,49 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     @media (max-width: 720px) {
         .eusee-kpi-grid {
             grid-template-columns: 1fr;
-            gap: 12px;
-        }
-
-        .eusee-premium-kpi-card {
-            min-height: 158px;
-            padding: 18px 18px 17px 18px;
-        }
-
-        .eusee-kpi-bottom-line {
-            left: 18px;
-            right: 18px;
-        }
-
-        .eusee-kpi-watermark {
-            font-size: 48px;
-            right: 18px;
-            top: 28px;
         }
     }
     </style>
-    """, unsafe_allow_html=True)
+    """), unsafe_allow_html=True)
 
-    st.markdown(
-        f"""
-        <div class="eusee-kpi-grid" id="eusee-kpi-grid-{card_key}">
-            <div class="eusee-premium-kpi-card eusee-kpi-card-purple">
-                <div class="eusee-kpi-watermark">🌍</div>
-                <div class="eusee-kpi-header">
-                    <div class="eusee-kpi-icon-badge">🌍</div>
-                </div>
-                <div class="eusee-kpi-title">Monitored Countries</div>
-                <div class="eusee-kpi-rule"></div>
-                <div class="eusee-kpi-value">{monitored_value}</div>
-                <div class="eusee-kpi-bottom-line"></div>
-            </div>
-
-            <div class="eusee-premium-kpi-card eusee-kpi-card-teal">
-                <div class="eusee-kpi-watermark">📊</div>
-                <div class="eusee-kpi-header">
-                    <div class="eusee-kpi-icon-badge">📊</div>
-                </div>
-                <div class="eusee-kpi-title">Total Alerts</div>
-                <div class="eusee-kpi-rule"></div>
-                <div class="eusee-kpi-value">{total_alerts:,}</div>
-                <div class="eusee-kpi-bottom-line"></div>
-            </div>
-
-            <div class="eusee-premium-kpi-card eusee-kpi-card-red">
-                <div class="eusee-kpi-watermark">🚨</div>
-                <div class="eusee-kpi-header">
-                    <div class="eusee-kpi-icon-badge">🚨</div>
-                </div>
-                <div class="eusee-kpi-title">Total Negative Alerts</div>
-                <div class="eusee-kpi-rule"></div>
-                <div class="eusee-kpi-value">{negative:,}</div>
-                <div class="eusee-kpi-bottom-line"></div>
-            </div>
+    cards_html = f"""
+<div class="eusee-kpi-grid" id="eusee-kpi-grid-{card_key}">
+    <div class="eusee-premium-kpi-card eusee-kpi-card-purple">
+        <div class="eusee-kpi-watermark">🌍</div>
+        <div class="eusee-kpi-header">
+            <div class="eusee-kpi-icon-badge">🌍</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        <div class="eusee-kpi-title">Monitored Countries</div>
+        <div class="eusee-kpi-rule"></div>
+        <div class="eusee-kpi-value">{monitored_value}</div>
+        <div class="eusee-kpi-bottom-line"></div>
+    </div>
 
+    <div class="eusee-premium-kpi-card eusee-kpi-card-teal">
+        <div class="eusee-kpi-watermark">📊</div>
+        <div class="eusee-kpi-header">
+            <div class="eusee-kpi-icon-badge">📊</div>
+        </div>
+        <div class="eusee-kpi-title">Total Alerts</div>
+        <div class="eusee-kpi-rule"></div>
+        <div class="eusee-kpi-value">{total_alerts:,}</div>
+        <div class="eusee-kpi-bottom-line"></div>
+    </div>
 
+    <div class="eusee-premium-kpi-card eusee-kpi-card-red">
+        <div class="eusee-kpi-watermark">🚨</div>
+        <div class="eusee-kpi-header">
+            <div class="eusee-kpi-icon-badge">🚨</div>
+        </div>
+        <div class="eusee-kpi-title">Total Negative Alerts</div>
+        <div class="eusee-kpi-rule"></div>
+        <div class="eusee-kpi-value">{negative:,}</div>
+        <div class="eusee-kpi-bottom-line"></div>
+    </div>
+</div>
+"""
+
+    st.markdown(cards_html, unsafe_allow_html=True)
 
 def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
     """Return the most frequent comma-separated item for a negative-alert intelligence card."""
