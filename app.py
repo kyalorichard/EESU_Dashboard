@@ -2381,231 +2381,445 @@ def info_tooltip(message: str) -> str:
 
 # ---------------- RESPONSIVE SUMMARY CARDS ----------------
 def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="summary"):
-    total_countries = (
-        df["alert-country"].nunique()
-        if df is not None and not df.empty and "alert-country" in df.columns
-        else 0
-    )
+    """
+    Render compact, equal-height professional KPI cards:
+    1. Monitored Countries
+    2. Total Alerts
+    3. Alerts Breakdown as a contained donut plot
+    """
+    total_countries = df['alert-country'].nunique() if not df.empty else 0
+    total_alerts = len(df) if not df.empty else 0
+    negative = int((df['alert-impact'] == "Negative").sum()) if not df.empty else 0
+    positive = int((df['alert-impact'] == "Positive").sum()) if not df.empty else 0
+    context = int((df['alert-impact'] == "Context to watch").sum()) if not df.empty else 0
+    total_np = negative + positive + context
 
-    total_alerts = len(df) if df is not None and not df.empty else 0
+    neg_pct = round((negative / total_np) * 100, 1) if total_np else 0
+    pos_pct = round((positive / total_np) * 100, 1) if total_np else 0
+    context_pct = round((context / total_np) * 100, 1) if total_np else 0
 
-    negative = (
-        int(df["alert-impact"].astype(str).str.strip().str.lower().eq("negative").sum())
-        if df is not None and not df.empty and "alert-impact" in df.columns
-        else 0
-    )
+    neg_stop = neg_pct
+    pos_stop = neg_pct + pos_pct
 
-    monitored_value = monitored_countries_display_value(total_countries)
+    if total_np:
+        donut_gradient = (
+            f"conic-gradient(#FFDB58 0% {neg_stop}%, "
+            f"#660094 {neg_stop}% {pos_stop}%, "
+            f"#008CAA {pos_stop}% 100%)"
+        )
+    else:
+        donut_gradient = "conic-gradient(#E5E7EB 0% 100%)"
 
-    cards_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
+    st.markdown("""
     <style>
-    body {{
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        font-family: Inter, Segoe UI, Arial, sans-serif;
-    }}
-
-    .eusee-kpi-grid {{
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 16px;
-        width: 100%;
-        box-sizing: border-box;
-    }}
-
-    .eusee-premium-kpi-card {{
-        position: relative;
-        min-height: 178px;
-        border-radius: 22px;
-        overflow: hidden;
-        padding: 20px 22px 19px 22px;
+    /* ---------------- CLEAN PROFESSIONAL KPI SUMMARY CARDS ---------------- */
+    .eusee-kpi-card {
+        height: auto;
+        min-height: 172px;
         background:
-            radial-gradient(circle at 93% 18%, rgba(102,0,148,.075), transparent 31%),
-            linear-gradient(145deg, rgba(255,255,255,.98), rgba(252,250,255,.96));
-        border: 1px solid rgba(102,0,148,.13);
-        box-shadow: 0 16px 34px rgba(16,24,40,.075), inset 0 1px 0 rgba(255,255,255,.92);
-        isolation: isolate;
-        transition: transform .22s ease, box-shadow .22s ease;
+            radial-gradient(circle at 100% 0%, rgba(102, 0, 148, 0.055), transparent 34%),
+            linear-gradient(180deg, #FFFFFF 0%, #FCFAFF 100%);
+        border: 1px solid rgba(102, 0, 148, 0.115);
+        border-radius: 18px;
+        box-shadow: 0 12px 26px rgba(17, 24, 39, 0.070), inset 0 1px 0 rgba(255,255,255,0.95);
+        padding: 14px 15px 13px 15px;
+        margin: 2px 0 8px 0;
         box-sizing: border-box;
-    }}
-
-    .eusee-premium-kpi-card:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 22px 46px rgba(16,24,40,.115), inset 0 1px 0 rgba(255,255,255,.96);
-    }}
-
-    .eusee-premium-kpi-card::before {{
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: var(--kpi-accent);
-        z-index: 2;
-    }}
-
-    .eusee-premium-kpi-card::after {{
-        content: "";
-        position: absolute;
-        right: -42px;
-        bottom: -48px;
-        width: 150px;
-        height: 150px;
-        border-radius: 50%;
-        background: var(--kpi-soft);
-        z-index: 0;
-    }}
-
-    .eusee-kpi-watermark {{
-        position: absolute;
-        right: 20px;
-        top: 29px;
-        font-size: 58px;
-        opacity: .105;
-        z-index: 0;
-        pointer-events: none;
-        user-select: none;
-    }}
-
-    .eusee-kpi-header {{
+        overflow: visible;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
         position: relative;
-        z-index: 1;
-        margin-bottom: 20px;
-    }}
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
 
-    .eusee-kpi-icon-badge {{
-        width: 40px;
-        height: 40px;
+    /* Remove only the old top color strip; keep the card background shading. */
+    .eusee-kpi-card::before {
+        display: none !important;
+        content: none !important;
+        background: transparent !important;
+        height: 0 !important;
+    }
+
+    .eusee-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 32px rgba(17, 24, 39, 0.090), inset 0 1px 0 rgba(255,255,255,0.95);
+        border-color: rgba(102, 0, 148, 0.180);
+    }
+
+    .eusee-kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 0;
+    }
+
+    .eusee-kpi-eyebrow {
+        color: #667085;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: .11em;
+        text-transform: uppercase;
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+
+    .eusee-kpi-title {
+        color: #23152F;
+        font-size: 12.5px;
+        font-weight: 900;
+        line-height: 1.08;
+        letter-spacing: -.01em;
+    }
+
+    .eusee-kpi-icon {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        border-radius: 12px;
+        background: #F8FAFC;
+        color: #344054;
+        border: 1px solid #EEF2F6;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 14px;
-        background: var(--kpi-soft);
-        border: 1px solid var(--kpi-border);
-        box-shadow: 0 8px 16px rgba(16,24,40,.055);
-        font-size: 18px;
-    }}
+        font-size: 16px;
+        font-weight: 900;
+        box-shadow: none;
+    }
 
-    .eusee-kpi-title {{
-        position: relative;
-        z-index: 1;
-        color: #344054;
-        font-size: 11px;
+    .eusee-kpi-value {
+        font-size: 36px;
+        line-height: .92;
         font-weight: 950;
-        text-transform: uppercase;
-        letter-spacing: .105em;
-        line-height: 1.25;
-    }}
+        margin-top: 9px;
+        letter-spacing: -0.045em;
+        font-family: Arial Black, Arial, sans-serif;
+    }
 
-    .eusee-kpi-rule {{
-        position: relative;
-        z-index: 1;
-        width: 54px;
+    .eusee-kpi-note {
+        color: #667085;
+        font-size: 10.5px;
+        font-weight: 700;
+        line-height: 1.24;
+        margin-top: 6px;
+        white-space: normal;
+    }
+
+    .eusee-microline {
         height: 3px;
+        width: 46px;
         border-radius: 999px;
-        background: var(--kpi-accent);
-        margin: 9px 0 12px 0;
-    }}
+        background: #E6E8EF;
+        opacity: 1;
+        margin-top: 9px;
+    }
 
-    .eusee-kpi-value {{
+    .eusee-donut-layout {
+        display: grid;
+        grid-template-columns: 76px 1fr;
+        align-items: center;
+        gap: 9px;
+        margin-top: 4px;
+    }
+
+    .eusee-donut {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
         position: relative;
+        background: var(--donut-gradient);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.95), 0 6px 14px rgba(17,24,39,.10);
+    }
+
+    .eusee-donut::before {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border-radius: 50%;
+        background: #F8FAFC;
+        z-index: -1;
+    }
+
+    .eusee-donut::after {
+        content: "";
+        position: absolute;
+        inset: 17px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        box-shadow: inset 0 0 0 1px #E6E8EF;
+    }
+
+    .eusee-donut-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         z-index: 1;
         color: #23152F;
-        font-size: 58px;
         font-weight: 950;
-        letter-spacing: -0.055em;
-        line-height: .96;
-        transition: transform .22s ease;
-    }}
+        line-height: 1;
+        pointer-events: none;
+        font-family: Arial Black, Arial, sans-serif;
+    }
 
-    .eusee-premium-kpi-card:hover .eusee-kpi-value {{
-        transform: scale(1.025);
-    }}
+    .eusee-donut-center .num {
+        font-size: 14px;
+        letter-spacing: -.03em;
+    }
 
-    .eusee-kpi-bottom-line {{
+    .eusee-donut-center .lab {
+        font-size: 7.8px;
+        color: #667085;
+        margin-top: 2px;
+        font-family: Arial, sans-serif;
+        font-weight: 800;
+    }
+
+    .eusee-breakdown-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .eusee-breakdown-row {
+        display: grid;
+        grid-template-columns: 10px minmax(48px, 1fr) 42px 42px;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 10px;
+        background: #FFFFFF;
+        border: 1px solid #EEF2F6;
+        box-shadow: none;
+        line-height: 1;
+    }
+
+    .eusee-breakdown-row:hover {
+        background: #F9FAFB;
+        border-color: #E6E8EF;
+    }
+
+    .eusee-breakdown-label {
+        color: #344054;
+        font-size: 9.8px;
+        font-weight: 950;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .eusee-breakdown-pct {
+        color: #101828;
+        font-size: 10.4px;
+        font-weight: 950;
+        text-align: right;
+        font-family: Arial Black, Arial, sans-serif;
+        letter-spacing: -.035em;
+    }
+
+    .eusee-breakdown-count {
+        color: #667085;
+        font-size: 9.5px;
+        font-weight: 850;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .eusee-dot {
+        width: 8px;
+        height: 8px;
+        min-width: 8px;
+        border-radius: 999px;
+        display: inline-block;
+        box-shadow: 0 0 0 2px rgba(255,255,255,.85), 0 1px 3px rgba(17,24,39,.14);
+    }
+
+    .eusee-breakdown-bar {
+        grid-column: 2 / 5;
+        height: 3px;
+        background: #F2F4F7;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: -1px;
+    }
+
+    .eusee-breakdown-fill {
+        height: 100%;
+        border-radius: 999px;
+        width: var(--bar-width);
+        background: var(--bar-color);
+        opacity: .82;
+    }
+
+    .eusee-tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 17px;
+        height: 17px;
+        margin-left: 5px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #F4EAF8 0%, #EFFBFE 100%);
+        border: 1px solid rgba(102,0,148,.20);
+        color: #660094;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-size: 10px;
+        font-weight: 950;
+        line-height: 1;
+        cursor: help;
+        box-shadow: 0 2px 7px rgba(16,24,40,.08);
+        vertical-align: middle;
+    }
+
+    .eusee-tooltip::after {
+        content: attr(data-tooltip);
         position: absolute;
-        left: 22px;
-        right: 22px;
-        bottom: 15px;
-        height: 1px;
-        background: linear-gradient(90deg, var(--kpi-line), rgba(255,255,255,0));
-        z-index: 1;
-    }}
+        left: 50%;
+        top: calc(100% + 10px);
+        bottom: auto;
+        transform: translateX(-50%) translateY(-4px);
+        width: min(320px, 72vw);
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #23152F;
+        border: 1px solid rgba(255,255,255,.14);
+        color: #FFFFFF;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-size: 11px;
+        font-weight: 650;
+        line-height: 1.42;
+        letter-spacing: -0.005em;
+        text-align: left;
+        white-space: normal;
+        box-shadow: 0 16px 34px rgba(16,24,40,.22);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        z-index: 999999;
+        transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+    }
 
-    .eusee-kpi-card-purple {{
-        --kpi-accent: linear-gradient(90deg, #660094, #8D32B0);
-        --kpi-soft: rgba(102,0,148,.095);
-        --kpi-border: rgba(102,0,148,.14);
-        --kpi-line: rgba(102,0,148,.24);
-    }}
+    .eusee-tooltip::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: calc(100% + 4px);
+        bottom: auto;
+        transform: translateX(-50%);
+        border-width: 0 6px 6px 6px;
+        border-style: solid;
+        border-color: transparent transparent #23152F transparent;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 999999;
+        transition: opacity .16s ease, visibility .16s ease;
+    }
 
-    .eusee-kpi-card-teal {{
-        --kpi-accent: linear-gradient(90deg, #008CAA, #14A9C4);
-        --kpi-soft: rgba(0,140,170,.105);
-        --kpi-border: rgba(0,140,170,.16);
-        --kpi-line: rgba(0,140,170,.24);
-    }}
+    .eusee-tooltip:hover::after,
+    .eusee-tooltip:focus::after,
+    .eusee-tooltip:hover::before,
+    .eusee-tooltip:focus::before {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
 
-    .eusee-kpi-card-red {{
-        --kpi-accent: linear-gradient(90deg, #B42318, #E5483D);
-        --kpi-soft: rgba(180,35,24,.095);
-        --kpi-border: rgba(180,35,24,.15);
-        --kpi-line: rgba(180,35,24,.24);
-    }}
-
-    @media (max-width: 720px) {{
-        .eusee-kpi-grid {{
-            grid-template-columns: 1fr;
-        }}
-    }}
+    @media (max-width: 700px) {
+        .eusee-tooltip::after {
+            left: auto;
+            right: -12px;
+            transform: translateY(4px);
+            width: min(280px, 82vw);
+        }
+        .eusee-tooltip:hover::after,
+        .eusee-tooltip:focus::after {
+            transform: translateY(0);
+        }
+    }
     </style>
-    </head>
+    """, unsafe_allow_html=True)
 
-    <body>
-    <div class="eusee-kpi-grid">
-        <div class="eusee-premium-kpi-card eusee-kpi-card-purple">
-            <div class="eusee-kpi-watermark">🌍</div>
-            <div class="eusee-kpi-header">
-                <div class="eusee-kpi-icon-badge">🌍</div>
+    col1, col2, col3 = st.columns(3)
+
+    countries_value = monitored_countries_display_value(total_countries)
+    countries_size = "38px" if can_view_monitored_countries_value() else "18px" 
+    with col1:
+        st.markdown(f"""
+        <div class="eusee-kpi-card">
+            <div>
+                <div class="eusee-kpi-top">
+                    <div><div class="eusee-kpi-title">Monitored Countries</div></div>
+                    <div class="eusee-kpi-icon">🌍</div>
+                </div>
+                <div class="eusee-kpi-value" style="color:#008CAA;font-size:36px;">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
-            <div class="eusee-kpi-title">Monitored Countries</div>
-            <div class="eusee-kpi-rule"></div>
-            <div class="eusee-kpi-value">{monitored_value}</div>
-            <div class="eusee-kpi-bottom-line"></div>
+            
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="eusee-kpi-card">
+            <div>
+                <div class="eusee-kpi-top">
+                    <div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" tabindex="0" aria-label="Total alerts interpretation note" data-tooltip="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
+                    <div class="eusee-kpi-icon">⚠️</div>
+                </div>
+                <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div class="eusee-kpi-card">
+            <div class="eusee-kpi-top">
+                <div><div class="eusee-kpi-title">Alerts Breakdown</div></div>
+                <div class="eusee-kpi-icon">◔</div>
+            </div>
+            <div class="eusee-donut-layout">
+                <div class="eusee-donut" style="--donut-gradient:{donut_gradient};" title="Negative: {negative:,} ({neg_pct}%) | Positive: {positive:,} ({pos_pct}%) | Context to watch: {context:,} ({context_pct}%)">
+                    <div class="eusee-donut-center">
+                        <div class="num">{total_np:,}</div>
+                        <div class="lab">alerts</div>
+                    </div>
+                </div>
+                <div class="eusee-breakdown-list">
+                    <div class="eusee-breakdown-row" title="Negative alerts: {negative:,} records, {neg_pct}% of filtered alerts">
+                        <span class="eusee-dot" style="background:#FFDB58;"></span>
+                        <span class="eusee-breakdown-label">Negative</span>
+                        <span class="eusee-breakdown-pct">{neg_pct}%</span>
+                        <span class="eusee-breakdown-count">{negative:,}</span>
+                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{neg_pct}%; --bar-color:#FFDB58;"></div></div>
+                    </div>
+                    <div class="eusee-breakdown-row" title="Positive alerts: {positive:,} records, {pos_pct}% of filtered alerts">
+                        <span class="eusee-dot" style="background:#660094;"></span>
+                        <span class="eusee-breakdown-label">Positive</span>
+                        <span class="eusee-breakdown-pct">{pos_pct}%</span>
+                        <span class="eusee-breakdown-count">{positive:,}</span>
+                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{pos_pct}%; --bar-color:#660094;"></div></div>
+                    </div>
+                    <div class="eusee-breakdown-row" title="Context to watch alerts: {context:,} records, {context_pct}% of filtered alerts">
+                        <span class="eusee-dot" style="background:#008CAA;"></span>
+                        <span class="eusee-breakdown-label">Context to watch</span>
+                        <span class="eusee-breakdown-pct">{context_pct}%</span>
+                        <span class="eusee-breakdown-count">{context:,}</span>
+                        <div class="eusee-breakdown-bar"><div class="eusee-breakdown-fill" style="--bar-width:{context_pct}%; --bar-color:#008CAA;"></div></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="eusee-premium-kpi-card eusee-kpi-card-teal">
-            <div class="eusee-kpi-watermark">📊</div>
-            <div class="eusee-kpi-header">
-                <div class="eusee-kpi-icon-badge">📊</div>
-            </div>
-            <div class="eusee-kpi-title">Total Alerts</div>
-            <div class="eusee-kpi-rule"></div>
-            <div class="eusee-kpi-value">{total_alerts:,}</div>
-            <div class="eusee-kpi-bottom-line"></div>
-        </div>
+        """, unsafe_allow_html=True)
 
-        <div class="eusee-premium-kpi-card eusee-kpi-card-red">
-            <div class="eusee-kpi-watermark">🚨</div>
-            <div class="eusee-kpi-header">
-                <div class="eusee-kpi-icon-badge">🚨</div>
-            </div>
-            <div class="eusee-kpi-title">Total Negative Alerts</div>
-            <div class="eusee-kpi-rule"></div>
-            <div class="eusee-kpi-value">{negative:,}</div>
-            <div class="eusee-kpi-bottom-line"></div>
-        </div>
-    </div>
-    </body>
-    </html>
-    """
 
-    components.html(cards_html, height=215, scrolling=False)
+
 def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
     """Return the most frequent comma-separated item for a negative-alert intelligence card."""
     if df is None or df.empty or col not in df.columns:
