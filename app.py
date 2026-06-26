@@ -2467,15 +2467,18 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     }
 
     .eusee-kpi-title {
-        color: #23152F;
-        font-size: 12.5px;
-        font-weight: 900;
-        line-height: 1.08;
-        letter-spacing: -.01em;
+        position: relative;
+        z-index: 1;
+        color: #344054;
+        font-size: 11px;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .105em;
+        line-height: 1.25;
     }
 
-                
-    .eusee-kpi-icon-badge {
+                 
+    .eusee-kpi-icon{
         width: 40px;
         height: 40px;
         display: flex;
