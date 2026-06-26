@@ -5471,6 +5471,19 @@ def inject_plotly_legend_color_spacing_fix():
 inject_plotly_legend_color_spacing_fix()
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
+import html
+import re
+
+def _strip_plotly_html(value):
+    value = "" if value is None else str(value)
+    value = re.sub(r"<br\s*/?>", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"<[^>]+>", "", value)
+    return " ".join(value.split()).strip()
+
+
+def _escape_chart_header_html(value):
+    return html.escape("" if value is None else str(value), quote=True)
+
 def render_chart_title_with_tooltip(target, title_text, tooltip_text):
     """Render centered chart title with tooltip centered below the title."""
     title_html = _escape_chart_header_html(_strip_plotly_html(title_text))
