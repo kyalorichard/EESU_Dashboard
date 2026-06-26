@@ -5521,8 +5521,8 @@ def render_dashboard_plotly_chart(
             fig = add_chart_info_badge(
                 fig,
                 chart_info,
-                x=0.46,
-                y=1.165,
+                x=0.40,
+                y=1.195,
                 chart_width_px=chart_width_px,
             )
         except Exception:
