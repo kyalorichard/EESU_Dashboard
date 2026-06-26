@@ -2474,21 +2474,20 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         letter-spacing: -.01em;
     }
 
-    .eusee-kpi-icon {
-        width: 30px;
-        height: 30px;
-        min-width: 30px;
-        border-radius: 12px;
-        background: #F8FAFC;
-        color: #344054;
-        border: 1px solid #EEF2F6;
+                
+    .eusee-kpi-icon-badge {
+        width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
-        font-weight: 900;
-        box-shadow: none;
+        border-radius: 14px;
+        background: var(--kpi-soft);
+        border: 1px solid var(--kpi-border);
+        box-shadow: 0 8px 16px rgba(16,24,40,.055);
+        font-size: 18px;
     }
+
 
     .eusee-kpi-value {
         font-size: 36px;
@@ -3170,7 +3169,6 @@ def _nice_percent_axis_max(max_pct):
     if max_pct <= 80:
         return 90
     return 100
-
 
 def _standard_chart_height(horizontal=False):
     """Keep all bar/stacked charts visually consistent."""
