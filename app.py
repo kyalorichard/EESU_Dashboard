@@ -2477,8 +2477,23 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         line-height: 1.25;
     }
 
-                 
-    .eusee-kpi-icon{
+    .eusee-kpi-icon {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        border-radius: 12px;
+        background: #F8FAFC;
+        color: #344054;
+        border: 1px solid #EEF2F6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: 900;
+        box-shadow: none;
+    }
+                
+    .eusee-kpi-icon-badge {
         width: 40px;
         height: 40px;
         display: flex;
@@ -2490,8 +2505,22 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         box-shadow: 0 8px 16px rgba(16,24,40,.055);
         font-size: 18px;
     }
-
-
+    .eusee-kpi-card-purple {
+        --kpi-accent: linear-gradient(90deg, #660094, #8D32B0);
+        --kpi-soft: rgba(102,0,148,.095);
+        --kpi-border: rgba(102,0,148,.14);
+        --kpi-line: rgba(102,0,148,.24);
+    }
+    .eusee-kpi-watermark {
+        position: absolute;
+        right: 20px;
+        top: 29px;
+        font-size: 58px;
+        opacity: .105;
+        z-index: 0;
+        pointer-events: none;
+        user-select: none;
+    }
     .eusee-kpi-value {
         font-size: 36px;
         line-height: .92;
@@ -2755,9 +2784,11 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         st.markdown(f"""
         <div class="eusee-kpi-card">
             <div>
-                <div class="eusee-kpi-top">
+                <div class="eusee-kpi-top eusee-kpi-card-purple">
+                    <div class="eusee-kpi-watermark">🌍</div>
+
                     <div><div class="eusee-kpi-title">Monitored Countries</div></div>
-                    <div class="eusee-kpi-icon">🌍</div>
+                    <div class="eusee-kpi-icon-badge">🌍</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#008CAA;font-size:36px;">{countries_value}</div><div class="eusee-microline" style="color:#008CAA;"></div>
             </div>
