@@ -5522,7 +5522,7 @@ def render_dashboard_plotly_chart(
                 fig,
                 chart_info,
                 x=0.40,
-                y=1.202,
+                y=1.215,
                 chart_width_px=chart_width_px,
             )
         except Exception:
