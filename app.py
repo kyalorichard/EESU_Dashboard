@@ -5471,14 +5471,8 @@ def inject_plotly_legend_color_spacing_fix():
 inject_plotly_legend_color_spacing_fix()
 
 # ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
-
 def render_chart_title_with_tooltip(target, title_text, tooltip_text):
-    """Render a compact title row with an info tooltip directly beside the chart title.
-
-    This is used only for the two enabling-principle charts. The title and
-    tooltip are rendered together in Streamlit HTML instead of relying on
-    Plotly annotation positioning, which can shift across screen sizes.
-    """
+    """Render centered chart title with tooltip centered below the title."""
     title_html = _escape_chart_header_html(_strip_plotly_html(title_text))
     tooltip_html = _escape_chart_header_html(_strip_plotly_html(tooltip_text))
 
@@ -5490,22 +5484,26 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
     .eusee-chart-title-tooltip-row {{
         display: flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
         gap: 7px;
-        margin: 0 0 -10px 0;
+        margin: 0 0 4px 0;
         padding: 0 2px;
-        min-height: 24px;
+        min-height: 28px;
         position: relative;
-        z-index: 5;
+        z-index: 50;
         font-family: Arial, sans-serif;
+        text-align: center;
     }}
+
     .eusee-chart-title-tooltip-text {{
         color: #2D0055;
         font-size: 13.5px;
         font-weight: 900;
         line-height: 1.18;
         letter-spacing: -0.01em;
+        text-align: center;
     }}
+
     .eusee-chart-title-tooltip-wrap {{
         position: relative;
         display: inline-flex;
@@ -5513,6 +5511,7 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
         justify-content: center;
         flex: 0 0 auto;
     }}
+
     .eusee-chart-title-tooltip-icon {{
         width: 18px;
         height: 18px;
@@ -5529,11 +5528,13 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
         cursor: help;
         box-shadow: 0 2px 7px rgba(102,0,148,.08);
     }}
+
     .eusee-chart-title-tooltip-box {{
         position: absolute;
-        top: 24px;
-        left: 0;
-        width: min(310px, 72vw);
+        top: 26px;
+        left: 50%;
+        transform: translate(-50%, 6px);
+        width: min(340px, 74vw);
         padding: 10px 12px;
         border-radius: 12px;
         background: #23152F;
@@ -5545,34 +5546,35 @@ def render_chart_title_with_tooltip(target, title_text, tooltip_text):
         box-shadow: 0 14px 32px rgba(16,24,40,.18);
         opacity: 0;
         visibility: hidden;
-        transform: translateY(4px);
-        transition: all .16s ease;
         pointer-events: none;
         z-index: 999999;
+        text-align: left;
     }}
+
     .eusee-chart-title-tooltip-wrap:hover .eusee-chart-title-tooltip-box,
     .eusee-chart-title-tooltip-wrap:focus-within .eusee-chart-title-tooltip-box {{
         opacity: 1;
         visibility: visible;
-        transform: translateY(0);
+        transform: translate(-50%, 0);
     }}
+
     @media (max-width: 700px) {{
         .eusee-chart-title-tooltip-row {{
+            justify-content: center;
             flex-wrap: nowrap;
-            align-items: flex-start;
-            gap: 6px;
-            margin-bottom: -6px;
+            margin-bottom: 6px;
         }}
+
         .eusee-chart-title-tooltip-text {{
             font-size: 12.5px;
         }}
+
         .eusee-chart-title-tooltip-box {{
-            left: auto;
-            right: 0;
-            width: min(280px, 78vw);
+            width: min(290px, 82vw);
         }}
     }}
     </style>
+
     <div class="eusee-chart-title-tooltip-row">
         <div class="eusee-chart-title-tooltip-text">{title_html}</div>
         <span class="eusee-chart-title-tooltip-wrap" tabindex="0" aria-label="Chart information">
@@ -5602,36 +5604,34 @@ def render_dashboard_plotly_chart(
     permission_key=None,
     permission_label=None,
 ):
-    """Render dashboard Plotly visuals without adding automatic tooltips.
-
-    Info badges remain opt-in. Only charts passed with show_title_tooltip=True
-    receive the title-band tooltip badge, preserving the original behavior
-    where only the two enabling-principle charts carry explanatory notes.
-    """
     target = container if container is not None else st
 
     if permission_key and not can_render_feature(permission_key):
-        render_permission_locked_card(permission_label or title or visual_type.title(), permission_key, container=target)
+        render_permission_locked_card(
+            permission_label or title or visual_type.title(),
+            permission_key,
+            container=target
+        )
         return None
 
-    # Tooltip is disabled by default. For the two existing enabling-principle
-    # charts only, keep the info badge inside the Plotly figure title band so
-    # it appears together with the chart title rather than as a separate
-    # Streamlit header above the chart.
     if show_title_tooltip and chart_info:
-        try:
-            fig = add_chart_info_badge(
-                fig,
-                chart_info,
-                y=1.065,
-                chart_width_px=chart_width_px,
-            )
-        except Exception:
-            # Never allow the optional info badge to break chart rendering.
-            pass
+        chart_title = title or fig.layout.title.text or ""
+        render_chart_title_with_tooltip(target, chart_title, chart_info)
+
+        fig.update_layout(
+            title=None,
+            margin=dict(t=35)
+        )
 
     fig = apply_responsive_plotly_layout(fig)
-    target.plotly_chart(fig, use_container_width=use_container_width, config=config, key=key)
+
+    target.plotly_chart(
+        fig,
+        use_container_width=use_container_width,
+        config=config,
+        key=key
+    )
+
 
 # ---------------- TAB 1 ------------------------
 if tab_overview is not None:
@@ -5967,9 +5967,6 @@ if tab_negative is not None:
                     "Negative alerts may be classified under more than one enabling principle "
                     "and can therefore be counted in multiple principles."
                 )
-
-                # Add source line if needed
-                #fig23 = add_source_line(fig23)
 
                 # Render the chart in Streamlit with the info tooltip directly beside the title.
                 render_dashboard_plotly_chart(
