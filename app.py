@@ -23,6 +23,7 @@ import textwrap
 import uuid
 import warnings
 from streamlit.elements.lib.policies import CachedWidgetWarning
+import streamlit.components.v1 as components
 
 warnings.filterwarnings(
     "ignore",
@@ -2396,17 +2397,27 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
     monitored_value = monitored_countries_display_value(total_countries)
 
-    st.markdown(textwrap.dedent("""
+    cards_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
     <style>
-    .eusee-kpi-grid {
+    body {{
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+    }}
+
+    .eusee-kpi-grid {{
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 16px;
         width: 100%;
-        margin: 4px 0 18px 0;
-    }
+        box-sizing: border-box;
+    }}
 
-    .eusee-premium-kpi-card {
+    .eusee-premium-kpi-card {{
         position: relative;
         min-height: 178px;
         border-radius: 22px;
@@ -2417,17 +2428,17 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
             linear-gradient(145deg, rgba(255,255,255,.98), rgba(252,250,255,.96));
         border: 1px solid rgba(102,0,148,.13);
         box-shadow: 0 16px 34px rgba(16,24,40,.075), inset 0 1px 0 rgba(255,255,255,.92);
-        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         isolation: isolate;
         transition: transform .22s ease, box-shadow .22s ease;
-    }
+        box-sizing: border-box;
+    }}
 
-    .eusee-premium-kpi-card:hover {
+    .eusee-premium-kpi-card:hover {{
         transform: translateY(-4px);
         box-shadow: 0 22px 46px rgba(16,24,40,.115), inset 0 1px 0 rgba(255,255,255,.96);
-    }
+    }}
 
-    .eusee-premium-kpi-card::before {
+    .eusee-premium-kpi-card::before {{
         content: "";
         position: absolute;
         top: 0;
@@ -2436,9 +2447,9 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         height: 6px;
         background: var(--kpi-accent);
         z-index: 2;
-    }
+    }}
 
-    .eusee-premium-kpi-card::after {
+    .eusee-premium-kpi-card::after {{
         content: "";
         position: absolute;
         right: -42px;
@@ -2448,9 +2459,9 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         border-radius: 50%;
         background: var(--kpi-soft);
         z-index: 0;
-    }
+    }}
 
-    .eusee-kpi-watermark {
+    .eusee-kpi-watermark {{
         position: absolute;
         right: 20px;
         top: 29px;
@@ -2459,15 +2470,15 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         z-index: 0;
         pointer-events: none;
         user-select: none;
-    }
+    }}
 
-    .eusee-kpi-header {
+    .eusee-kpi-header {{
         position: relative;
         z-index: 1;
         margin-bottom: 20px;
-    }
+    }}
 
-    .eusee-kpi-icon-badge {
+    .eusee-kpi-icon-badge {{
         width: 40px;
         height: 40px;
         display: flex;
@@ -2478,9 +2489,9 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         border: 1px solid var(--kpi-border);
         box-shadow: 0 8px 16px rgba(16,24,40,.055);
         font-size: 18px;
-    }
+    }}
 
-    .eusee-kpi-title {
+    .eusee-kpi-title {{
         position: relative;
         z-index: 1;
         color: #344054;
@@ -2489,9 +2500,9 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         text-transform: uppercase;
         letter-spacing: .105em;
         line-height: 1.25;
-    }
+    }}
 
-    .eusee-kpi-rule {
+    .eusee-kpi-rule {{
         position: relative;
         z-index: 1;
         width: 54px;
@@ -2499,24 +2510,24 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         border-radius: 999px;
         background: var(--kpi-accent);
         margin: 9px 0 12px 0;
-    }
+    }}
 
-    .eusee-kpi-value {
+    .eusee-kpi-value {{
         position: relative;
         z-index: 1;
         color: #23152F;
-        font-size: clamp(42px, 4.4vw, 58px);
+        font-size: 58px;
         font-weight: 950;
         letter-spacing: -0.055em;
         line-height: .96;
         transition: transform .22s ease;
-    }
+    }}
 
-    .eusee-premium-kpi-card:hover .eusee-kpi-value {
+    .eusee-premium-kpi-card:hover .eusee-kpi-value {{
         transform: scale(1.025);
-    }
+    }}
 
-    .eusee-kpi-bottom-line {
+    .eusee-kpi-bottom-line {{
         position: absolute;
         left: 22px;
         right: 22px;
@@ -2524,82 +2535,77 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         height: 1px;
         background: linear-gradient(90deg, var(--kpi-line), rgba(255,255,255,0));
         z-index: 1;
-    }
+    }}
 
-    .eusee-kpi-card-purple {
+    .eusee-kpi-card-purple {{
         --kpi-accent: linear-gradient(90deg, #660094, #8D32B0);
         --kpi-soft: rgba(102,0,148,.095);
         --kpi-border: rgba(102,0,148,.14);
         --kpi-line: rgba(102,0,148,.24);
-    }
+    }}
 
-    .eusee-kpi-card-teal {
+    .eusee-kpi-card-teal {{
         --kpi-accent: linear-gradient(90deg, #008CAA, #14A9C4);
         --kpi-soft: rgba(0,140,170,.105);
         --kpi-border: rgba(0,140,170,.16);
         --kpi-line: rgba(0,140,170,.24);
-    }
+    }}
 
-    .eusee-kpi-card-red {
+    .eusee-kpi-card-red {{
         --kpi-accent: linear-gradient(90deg, #B42318, #E5483D);
         --kpi-soft: rgba(180,35,24,.095);
         --kpi-border: rgba(180,35,24,.15);
         --kpi-line: rgba(180,35,24,.24);
-    }
+    }}
 
-    @media (max-width: 1050px) {
-        .eusee-kpi-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
-    @media (max-width: 720px) {
-        .eusee-kpi-grid {
+    @media (max-width: 720px) {{
+        .eusee-kpi-grid {{
             grid-template-columns: 1fr;
-        }
-    }
+        }}
+    }}
     </style>
-    """), unsafe_allow_html=True)
+    </head>
 
-    cards_html = f"""
-<div class="eusee-kpi-grid" id="eusee-kpi-grid-{card_key}">
-    <div class="eusee-premium-kpi-card eusee-kpi-card-purple">
-        <div class="eusee-kpi-watermark">🌍</div>
-        <div class="eusee-kpi-header">
-            <div class="eusee-kpi-icon-badge">🌍</div>
+    <body>
+    <div class="eusee-kpi-grid">
+        <div class="eusee-premium-kpi-card eusee-kpi-card-purple">
+            <div class="eusee-kpi-watermark">🌍</div>
+            <div class="eusee-kpi-header">
+                <div class="eusee-kpi-icon-badge">🌍</div>
+            </div>
+            <div class="eusee-kpi-title">Monitored Countries</div>
+            <div class="eusee-kpi-rule"></div>
+            <div class="eusee-kpi-value">{monitored_value}</div>
+            <div class="eusee-kpi-bottom-line"></div>
         </div>
-        <div class="eusee-kpi-title">Monitored Countries</div>
-        <div class="eusee-kpi-rule"></div>
-        <div class="eusee-kpi-value">{monitored_value}</div>
-        <div class="eusee-kpi-bottom-line"></div>
-    </div>
 
-    <div class="eusee-premium-kpi-card eusee-kpi-card-teal">
-        <div class="eusee-kpi-watermark">📊</div>
-        <div class="eusee-kpi-header">
-            <div class="eusee-kpi-icon-badge">📊</div>
+        <div class="eusee-premium-kpi-card eusee-kpi-card-teal">
+            <div class="eusee-kpi-watermark">📊</div>
+            <div class="eusee-kpi-header">
+                <div class="eusee-kpi-icon-badge">📊</div>
+            </div>
+            <div class="eusee-kpi-title">Total Alerts</div>
+            <div class="eusee-kpi-rule"></div>
+            <div class="eusee-kpi-value">{total_alerts:,}</div>
+            <div class="eusee-kpi-bottom-line"></div>
         </div>
-        <div class="eusee-kpi-title">Total Alerts</div>
-        <div class="eusee-kpi-rule"></div>
-        <div class="eusee-kpi-value">{total_alerts:,}</div>
-        <div class="eusee-kpi-bottom-line"></div>
-    </div>
 
-    <div class="eusee-premium-kpi-card eusee-kpi-card-red">
-        <div class="eusee-kpi-watermark">🚨</div>
-        <div class="eusee-kpi-header">
-            <div class="eusee-kpi-icon-badge">🚨</div>
+        <div class="eusee-premium-kpi-card eusee-kpi-card-red">
+            <div class="eusee-kpi-watermark">🚨</div>
+            <div class="eusee-kpi-header">
+                <div class="eusee-kpi-icon-badge">🚨</div>
+            </div>
+            <div class="eusee-kpi-title">Total Negative Alerts</div>
+            <div class="eusee-kpi-rule"></div>
+            <div class="eusee-kpi-value">{negative:,}</div>
+            <div class="eusee-kpi-bottom-line"></div>
         </div>
-        <div class="eusee-kpi-title">Total Negative Alerts</div>
-        <div class="eusee-kpi-rule"></div>
-        <div class="eusee-kpi-value">{negative:,}</div>
-        <div class="eusee-kpi-bottom-line"></div>
     </div>
-</div>
-"""
+    </body>
+    </html>
+    """
 
-    st.markdown(cards_html, unsafe_allow_html=True)
-
+    components.html(cards_html, height=215, scrolling=False)
 def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
     """Return the most frequent comma-separated item for a negative-alert intelligence card."""
     if df is None or df.empty or col not in df.columns:
