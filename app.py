@@ -2782,7 +2782,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
     countries_size = "38px" if can_view_monitored_countries_value() else "18px" 
     with col1:
         st.markdown(f"""
-        <div class="eusee-kpi-card eusee-kpi-card-purple">
+        <div class="eusee-kpi-card">
             <div>
                 <div class="eusee-kpi-top ">
                     <div class="eusee-kpi-watermark">🌍</div>
