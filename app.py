@@ -7917,7 +7917,6 @@ def _append_eusee_website_redirect(answer: str, result: dict) -> str:
 
     return answer + EUSEE_WEBSITE_REDIRECT_TEXT
 
-
 def render_langflow_output(raw_answer, chart_instance_key=None):
     try:
         result = json.loads(raw_answer)
@@ -7934,34 +7933,43 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         return
 
     chart_type = str(chart.get("type", "")).lower().strip()
-
-    x_values = chart.get("x", chart.get("labels", chart.get("categories", [])))
-    y_values = chart.get("y", chart.get("values", chart.get("counts", [])))
+    title = chart.get("title", "") or "Dashboard chart"
+    x_label = chart.get("x_label", "Category") or "Category"
+    y_label = chart.get("y_label", "Count") or "Count"
+    sort_order = str(chart.get("sort_order", "")).lower().strip()
 
     if not chart_type:
         st.warning("Chart could not be rendered: missing chart type.")
         st.json(chart)
         return
 
-    if not x_values or not y_values:
-        st.warning("Chart could not be rendered: missing x/y chart data.")
+    data = chart.get("data", [])
+    if not isinstance(data, list) or not data:
+        st.warning("Chart could not be rendered: missing chart.data.")
         st.json(chart)
         return
 
-    if len(x_values) != len(y_values):
-        st.warning("Chart could not be rendered: x and y lengths do not match.")
+    chart_df = pd.DataFrame(data)
+
+    x_col = chart.get("x")
+    y_col = chart.get("y")
+    series_col = chart.get("series")
+
+    if not x_col or not y_col:
+        st.warning("Chart could not be rendered: missing x/y field names.")
         st.json(chart)
         return
 
-    x_label = chart.get("x_label", "Category") or "Category"
-    y_label = chart.get("y_label", "Count") or "Count"
-    title = chart.get("title", "") or "Dashboard chart"
-    sort_order = str(chart.get("sort_order", "")).lower().strip()
+    if x_col not in chart_df.columns or y_col not in chart_df.columns:
+        st.warning(
+            f"Chart could not be rendered: x/y fields not found in chart.data. "
+            f"x={x_col}, y={y_col}, columns={list(chart_df.columns)}"
+        )
+        st.json(chart)
+        return
 
-    chart_df = pd.DataFrame({
-        x_label: [str(x) for x in x_values],
-        y_label: pd.to_numeric(y_values, errors="coerce")
-    }).dropna(subset=[y_label])
+    chart_df[y_col] = pd.to_numeric(chart_df[y_col], errors="coerce")
+    chart_df = chart_df.dropna(subset=[y_col])
 
     if chart_df.empty:
         st.warning("Chart could not be rendered: numeric values are empty after conversion.")
@@ -7969,9 +7977,9 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         return
 
     if sort_order == "descending":
-        chart_df = chart_df.sort_values(y_label, ascending=False)
+        chart_df = chart_df.sort_values(y_col, ascending=False)
     elif sort_order == "ascending":
-        chart_df = chart_df.sort_values(y_label, ascending=True)
+        chart_df = chart_df.sort_values(y_col, ascending=True)
 
     if chart_instance_key is None:
         chart_instance_key = uuid.uuid4().hex
@@ -7982,75 +7990,127 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
         if chart_type == "bar":
             fig = px.bar(
                 chart_df,
-                x=x_label,
-                y=y_label,
+                x=x_col,
+                y=y_col,
                 title=title,
-                text=y_label
+                text=y_col,
+                labels={x_col: x_label, y_col: y_label}
             )
             fig.update_layout(height=430)
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key=f"{base_key}_bar"
-            )
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_bar")
 
         elif chart_type in ["horizontal_bar", "hbar"]:
-            fig_df = chart_df.sort_values(y_label, ascending=True)
+            fig_df = chart_df.sort_values(y_col, ascending=True)
             fig = px.bar(
                 fig_df,
-                x=y_label,
-                y=x_label,
+                x=y_col,
+                y=x_col,
                 orientation="h",
                 title=title,
-                text=y_label
+                text=y_col,
+                labels={x_col: x_label, y_col: y_label}
             )
             fig.update_layout(height=max(430, 42 * len(fig_df)))
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key=f"{base_key}_hbar"
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_hbar")
+
+        elif chart_type == "grouped_bar":
+            if not series_col or series_col not in chart_df.columns:
+                st.warning("Chart could not be rendered: grouped_bar requires a valid series field.")
+                st.json(chart)
+                return
+
+            fig = px.bar(
+                chart_df,
+                x=x_col,
+                y=y_col,
+                color=series_col,
+                barmode="group",
+                title=title,
+                text=y_col,
+                labels={x_col: x_label, y_col: y_label, series_col: chart.get("legend", "Series")}
             )
+            fig.update_layout(height=430)
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_grouped_bar")
+
+        elif chart_type in ["stacked_bar", "stacked_100_percent_bar"]:
+            if not series_col or series_col not in chart_df.columns:
+                st.warning("Chart could not be rendered: stacked charts require a valid series field.")
+                st.json(chart)
+                return
+
+            if chart_type == "stacked_100_percent_bar":
+                total_df = chart_df.groupby(x_col)[y_col].transform("sum")
+                chart_df["_percent"] = chart_df[y_col] / total_df * 100
+                plot_y = "_percent"
+                y_axis_title = "Percentage"
+            else:
+                plot_y = y_col
+                y_axis_title = y_label
+
+            fig = px.bar(
+                chart_df,
+                x=x_col,
+                y=plot_y,
+                color=series_col,
+                title=title,
+                text=plot_y,
+                labels={x_col: x_label, plot_y: y_axis_title, series_col: chart.get("legend", "Series")}
+            )
+            fig.update_layout(barmode="stack", height=430)
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_{chart_type}")
 
         elif chart_type == "pie":
             fig = px.pie(
                 chart_df,
-                names=x_label,
-                values=y_label,
+                names=x_col,
+                values=y_col,
                 title=title
             )
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key=f"{base_key}_pie"
-            )
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_pie")
 
         elif chart_type == "donut":
             fig = px.pie(
                 chart_df,
-                names=x_label,
-                values=y_label,
+                names=x_col,
+                values=y_col,
                 title=title,
                 hole=0.45
             )
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key=f"{base_key}_donut"
-            )
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_donut")
 
         elif chart_type == "line":
             fig = px.line(
                 chart_df,
-                x=x_label,
-                y=y_label,
+                x=x_col,
+                y=y_col,
                 title=title,
-                markers=True
+                markers=True,
+                labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key=f"{base_key}_line"
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_line")
+
+        elif chart_type == "area":
+            fig = px.area(
+                chart_df,
+                x=x_col,
+                y=y_col,
+                title=title,
+                labels={x_col: x_label, y_col: y_label}
             )
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_area")
+
+        elif chart_type == "scatter":
+            fig = px.scatter(
+                chart_df,
+                x=x_col,
+                y=y_col,
+                title=title,
+                labels={x_col: x_label, y_col: y_label}
+            )
+            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_scatter")
+
+        elif chart_type == "table":
+            st.dataframe(chart_df, use_container_width=True)
 
         else:
             st.warning(f"Unsupported chart type returned by LangFlow: {chart_type}")
@@ -8059,8 +8119,6 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
     except Exception as e:
         st.warning(f"Chart could not be rendered: {e}")
         st.json(chart)
-
-
 # ============================================================
 # SAFE EUSEE AI COPILOT POPOVER
 # Opens/closes without rerunning and does not interfere with dashboard tabs/charts.
