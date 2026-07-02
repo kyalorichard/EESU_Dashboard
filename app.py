@@ -7938,6 +7938,9 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
     y_label = chart.get("y_label", "Count") or "Count"
     sort_order = str(chart.get("sort_order", "")).lower().strip()
 
+    legend_value = chart.get("legend", "Series")
+    legend_label = "Series" if isinstance(legend_value, bool) else str(legend_value)
+
     if not chart_type:
         st.warning("Chart could not be rendered: missing chart type.")
         st.json(chart)
@@ -8027,7 +8030,11 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 barmode="group",
                 title=title,
                 text=y_col,
-                labels={x_col: x_label, y_col: y_label, series_col: chart.get("legend", "Series")}
+                labels={
+                    x_col: x_label,
+                    y_col: y_label,
+                    series_col: legend_label
+                }
             )
             fig.update_layout(height=430)
             st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_grouped_bar")
@@ -8040,7 +8047,8 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
 
             if chart_type == "stacked_100_percent_bar":
                 total_df = chart_df.groupby(x_col)[y_col].transform("sum")
-                chart_df["_percent"] = chart_df[y_col] / total_df * 100
+                chart_df["_percent"] = chart_df[y_col] / total_df.replace(0, pd.NA) * 100
+                chart_df = chart_df.dropna(subset=["_percent"])
                 plot_y = "_percent"
                 y_axis_title = "Percentage"
             else:
@@ -8054,7 +8062,11 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 color=series_col,
                 title=title,
                 text=plot_y,
-                labels={x_col: x_label, plot_y: y_axis_title, series_col: chart.get("legend", "Series")}
+                labels={
+                    x_col: x_label,
+                    plot_y: y_axis_title,
+                    series_col: legend_label
+                }
             )
             fig.update_layout(barmode="stack", height=430)
             st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_{chart_type}")
@@ -8119,6 +8131,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
     except Exception as e:
         st.warning(f"Chart could not be rendered: {e}")
         st.json(chart)
+
 # ============================================================
 # SAFE EUSEE AI COPILOT POPOVER
 # Opens/closes without rerunning and does not interfere with dashboard tabs/charts.
