@@ -63,21 +63,24 @@ CHAT_HISTORY_DIR = Path(
 
 
 
-#@st.cache_resource(show_spinner=False)
-_COOKIE_MANAGER = None
-
 def get_cookie_manager():
-    global _COOKIE_MANAGER
+    """
+    Return one CookieManager per Streamlit browser session.
 
+    Do NOT cache this object globally with @st.cache_resource or a module-level
+    singleton. Streamlit server globals are shared by all connected users, and a
+    globally cached CookieManager can cause one browser session to reuse another
+    user's authentication cookie/state.
+    """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if _COOKIE_MANAGER is None:
-        _COOKIE_MANAGER = stx.CookieManager(
+    if "_eusee_cookie_manager" not in st.session_state:
+        st.session_state["_eusee_cookie_manager"] = stx.CookieManager(
             key="eusee_cookie_manager_main"
         )
 
-    return _COOKIE_MANAGER
+    return st.session_state["_eusee_cookie_manager"]
 
 
 def init_firebase_admin():
@@ -161,9 +164,22 @@ PRIVILEGED_DOMAINS = set(
     if str(d).strip()
 )
 
+ADMIN_EMAILS = set(
+    str(e).lower().strip()
+    for e in st.secrets.get("access", {}).get("admin_emails", [])
+    if str(e).strip()
+)
+
 
 def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
+
+
+def _role_for_email(email: str) -> str:
+    clean_email = str(email or "").strip().lower()
+    if clean_email in ADMIN_EMAILS:
+        return "admin"
+    return "privileged"
 
 
 def _safe_user_key(email: str) -> str:
@@ -432,12 +448,39 @@ def refresh_firebase_token(refresh_token: str):
         return None
 
 
+def _clear_auth_state_only():
+    """Clear only authentication/user-scoped keys before applying another user."""
+    for key in [
+        "user",
+        "email",
+        "name",
+        "role",
+        "email_verified",
+        "id_token",
+        "refresh_token",
+        CHAT_HISTORY_KEY,
+        "chat_history_loaded",
+        "chat_history_loaded_for",
+        *CHAT_HISTORY_ALIASES,
+    ]:
+        st.session_state.pop(key, None)
+
+
 def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
-    st.session_state.user = bool(email and verified)
-    st.session_state.email = email
-    st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
+    clean_email = str(email or "").lower().strip()
+
+    # If a different account signs in in the same browser tab, remove all
+    # previous user-scoped state first so names, roles, permissions and chatbot
+    # memory cannot bleed into the new account.
+    previous_email = str(st.session_state.get("email") or "").lower().strip()
+    if previous_email and previous_email != clean_email:
+        _clear_auth_state_only()
+
+    st.session_state.user = bool(clean_email and verified)
+    st.session_state.email = clean_email
+    st.session_state.name = name or clean_email.split("@")[0].replace(".", " ").title()
     st.session_state.email_verified = bool(verified)
-    st.session_state.role = role or "privileged"
+    st.session_state.role = role or _role_for_email(clean_email)
     st.session_state.id_token = id_token
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
@@ -457,13 +500,8 @@ def restore_session():
         st.session_state.restored = True
         return False
 
-    email = str(cookie_data.get("email") or "").lower().strip()
-    name = cookie_data.get("name") or ""
-    role = cookie_data.get("role") or "privileged"
-    verified = bool(cookie_data.get("email_verified"))
     refresh_token = cookie_data.get("refresh_token") or ""
-
-    if not email or not verified or not refresh_token:
+    if not refresh_token:
         _delete_cookie()
         st.session_state.restored = True
         return False
@@ -476,6 +514,35 @@ def restore_session():
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
+
+    # Critical: never trust email/name/role from the browser cookie. The cookie is
+    # client-side and can be stale or tampered with. After refreshing the token,
+    # ask Firebase which user this token belongs to, then apply that user only.
+    try:
+        info = firebase_auth.get_account_info(id_token)
+        firebase_user = info["users"][0]
+        email = str(firebase_user.get("email") or "").lower().strip()
+        verified = bool(firebase_user.get("emailVerified", False))
+        name = firebase_user.get("displayName") or email.split("@")[0].replace(".", " ").title()
+    except Exception:
+        _delete_cookie()
+        _clear_auth_state_only()
+        st.session_state.restored = True
+        return False
+
+    if not email or not verified:
+        _delete_cookie()
+        _clear_auth_state_only()
+        st.session_state.restored = True
+        return False
+
+    if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+        _delete_cookie()
+        _clear_auth_state_only()
+        st.session_state.restored = True
+        return False
+
+    role = _role_for_email(email)
 
     _apply_authenticated_state(
         email=email,
@@ -747,7 +814,7 @@ def _login_form():
                 st.warning("Your account exists, but the email is not verified. Please verify your email first.")
                 return
 
-            role = "privileged"
+            role = _role_for_email(email)
             name = email.split("@")[0].replace(".", " ").title()
 
             _apply_authenticated_state(
@@ -923,7 +990,8 @@ def _render_premium_auth_page():
 
 def auth_ui():
     init_session()
-    restore_session()
+    if not st.session_state.get("restored"):
+        restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         ensure_user_chat_history_loaded()
