@@ -1017,7 +1017,7 @@ def _render_premium_auth_page():
 
 def auth_ui():
     init_session()
-    restore_session()
+    #restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         ensure_user_chat_history_loaded()
