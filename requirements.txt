@@ -42,3 +42,5 @@ streamlit-float
 
 extra-streamlit-components
 streamlit-javascript
+
+streamlit-js-eval
