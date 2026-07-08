@@ -37,6 +37,8 @@ except ImportError:
 COOKIE_NAME = "eusee_auth_session"
 COOKIE_DAYS = 30
 DEBUG = False
+COOKIE_RESTORE_MAX_ATTEMPTS = 2
+
 
 # -----------------------------------------------------------------------------
 # Per-user chatbot history persistence
@@ -368,6 +370,7 @@ def init_session():
         CHAT_HISTORY_KEY: [],
         "chat_history_loaded": False,
         "chat_history_loaded_for": None,
+        "cookie_restore_attempts": 0,
     }
 
     for key, value in defaults.items():
@@ -396,6 +399,7 @@ def _write_cookie(payload: dict):
         json.dumps(payload),
         expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
     )
+    st.session_state.cookie_restore_attempts = 0
 
 
 def _read_cookie() -> dict:
@@ -461,6 +465,7 @@ def _clear_auth_state_only():
         CHAT_HISTORY_KEY,
         "chat_history_loaded",
         "chat_history_loaded_for",
+        "cookie_restore_attempts",
         *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
@@ -485,6 +490,7 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
+    st.session_state.cookie_restore_attempts = 0
     ensure_user_chat_history_loaded()
 
 
@@ -497,6 +503,17 @@ def restore_session():
 
     cookie_data = _read_cookie()
     if not cookie_data:
+        # On a hard browser refresh, extra_streamlit_components.CookieManager
+        # may need one or two Streamlit reruns before browser cookies are
+        # available to Python. Do not finalize the user as logged out on the
+        # first empty read; otherwise the login page appears even though the
+        # Firebase refresh token cookie still exists.
+        attempts = int(st.session_state.get("cookie_restore_attempts", 0))
+        if attempts < COOKIE_RESTORE_MAX_ATTEMPTS:
+            st.session_state.cookie_restore_attempts = attempts + 1
+            st.session_state.restored = False
+            st.rerun()
+
         st.session_state.restored = True
         return False
 
@@ -608,6 +625,7 @@ def logout():
         CHAT_HISTORY_KEY,
         "chat_history_loaded",
         "chat_history_loaded_for",
+        "cookie_restore_attempts",
         *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
