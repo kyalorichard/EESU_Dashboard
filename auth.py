@@ -55,17 +55,21 @@ CHAT_HISTORY_DIR = Path(
 
 
 def get_cookie_manager():
-    """Create exactly one CookieManager component per Streamlit render.
+    """Return one CookieManager instance per Streamlit user session.
 
-    Important:
-    - Do not cache this with st.cache_resource. Cookies are browser-specific.
-    - Do not create it inside _read_cookie/_write_cookie/_delete_cookie repeatedly.
-    - Create it once in auth_ui(), then pass it to restore/read/write/delete helpers.
+    extra_streamlit_components.CookieManager renders a Streamlit component
+    during __init__. Creating it more than once in the same script run with
+    the same key causes StreamlitDuplicateElementKey.
     """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    return stx.CookieManager(key="eusee_cookie_manager_main")
+    manager = st.session_state.get("_eusee_cookie_manager")
+    if manager is None:
+        manager = stx.CookieManager(key="eusee_cookie_manager_main")
+        st.session_state["_eusee_cookie_manager"] = manager
+
+    return manager
 
 
 def init_firebase_admin():
@@ -366,11 +370,8 @@ def _session_payload(email, name, verified, role, id_token, refresh_token):
 
 
 def _write_cookie(payload: dict, manager=None):
+    manager = manager or st.session_state.get("_eusee_cookie_manager")
     if manager is None:
-        manager = get_cookie_manager()
-
-    if manager is None:
-        st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
         return
 
     manager.set(
@@ -381,17 +382,11 @@ def _write_cookie(payload: dict, manager=None):
 
 
 def _read_cookie(manager=None) -> dict:
-    if manager is None:
-        manager = get_cookie_manager()
-
+    manager = manager or st.session_state.get("_eusee_cookie_manager")
     if manager is None:
         return {}
 
-    try:
-        raw = manager.get(COOKIE_NAME)
-    except Exception:
-        return {}
-
+    raw = manager.get(COOKIE_NAME)
     if not raw:
         return {}
 
@@ -402,9 +397,7 @@ def _read_cookie(manager=None) -> dict:
 
 
 def _delete_cookie(manager=None):
-    if manager is None:
-        manager = get_cookie_manager()
-
+    manager = manager or st.session_state.get("_eusee_cookie_manager")
     if manager is not None:
         try:
             manager.delete(COOKIE_NAME)
@@ -482,9 +475,6 @@ def restore_session(manager=None):
 
     cookie_data = _read_cookie(manager)
     if not cookie_data:
-        # Do not delete anything here. On hard refresh, the CookieManager can return
-        # empty before the browser cookie is available. We simply mark restoration
-        # attempted for this render and show the login page if no cookie is found.
         st.session_state.restored = True
         return False
 
@@ -562,9 +552,9 @@ def is_privileged():
     )
 
 
-def logout(manager=None):
+def logout():
     save_user_chat_history()
-    _delete_cookie(manager)
+    _delete_cookie()
 
     for key in [
         "user",
@@ -969,7 +959,9 @@ def _render_premium_auth_page(manager=None):
 def auth_ui():
     init_session()
     manager = get_cookie_manager()
-    restore_session(manager)
+
+    if not st.session_state.get("restored"):
+        restore_session(manager)
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         ensure_user_chat_history_loaded()
