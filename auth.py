@@ -64,7 +64,7 @@ def _cookie_password() -> str:
     )
 
 
-@st.cache_resource(show_spinner=False)
+#@st.cache_resource(show_spinner=False)
 def get_cookie_manager():
     if not HAS_COOKIE_MANAGER:
         return None
