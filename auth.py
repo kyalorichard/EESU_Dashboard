@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+import hmac
+import base64
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -27,18 +29,15 @@ except ImportError:
     HAS_FIREBASE_ADMIN = False
 
 try:
-    from streamlit_js_eval import streamlit_js_eval
-    HAS_BROWSER_STORAGE = True
+    from streamlit_cookies_manager import EncryptedCookieManager
+    HAS_COOKIE_MANAGER = True
 except ImportError:
-    streamlit_js_eval = None
-    HAS_BROWSER_STORAGE = False
+    EncryptedCookieManager = None
+    HAS_COOKIE_MANAGER = False
 
 
-# Browser persistence key. This replaces extra_streamlit_components.CookieManager.
-# The stored value is a Firebase refresh-token payload used only to restore the
-# Streamlit session after page refresh.
-AUTH_STORAGE_KEY = "eusee_auth_session_v3"
-AUTH_STORAGE_DAYS = 30
+AUTH_COOKIE_NAME = "eusee_firebase_session_v4"
+AUTH_COOKIE_DAYS = 30
 DEBUG = False
 
 CHAT_HISTORY_KEY = "eusee_chat_history"
@@ -57,108 +56,38 @@ CHAT_HISTORY_DIR = Path(
 )
 
 
-def _storage_error_once():
-    if not st.session_state.get("_browser_storage_error_shown"):
-        st.session_state["_browser_storage_error_shown"] = True
+def _cookie_password() -> str:
+    return (
+        st.secrets.get("auth", {}).get("cookie_password")
+        or st.secrets.get("firebase", {}).get("apiKey")
+        or "CHANGE_ME_EUSEE_COOKIE_PASSWORD"
+    )
+
+
+@st.cache_resource(show_spinner=False)
+def get_cookie_manager():
+    if not HAS_COOKIE_MANAGER:
+        return None
+
+    return EncryptedCookieManager(
+        prefix="eusee/",
+        password=_cookie_password(),
+    )
+
+
+def _cookies_ready():
+    manager = get_cookie_manager()
+    if manager is None:
         st.error(
-            "❌ Persistent login requires `streamlit-js-eval`. "
-            "Add `streamlit-js-eval` to requirements.txt and redeploy."
+            "❌ Persistent login requires `streamlit-cookies-manager`. "
+            "Add `streamlit-cookies-manager` to requirements.txt and redeploy."
         )
+        return None
 
+    if not manager.ready():
+        st.stop()
 
-def _safe_js_string(value: str) -> str:
-    return json.dumps(str(value or ""))
-
-
-def _read_browser_auth() -> dict:
-    if not HAS_BROWSER_STORAGE:
-        _storage_error_once()
-        return {}
-
-    try:
-        raw = streamlit_js_eval(
-            js_expressions=(
-                "window.localStorage.getItem("
-                + _safe_js_string(AUTH_STORAGE_KEY)
-                + ")"
-            ),
-            key="eusee_auth_storage_read",
-        )
-    except Exception as e:
-        if DEBUG:
-            st.warning(f"Could not read browser auth storage: {e}")
-        return {}
-
-    if not raw:
-        return {}
-
-    try:
-        payload = json.loads(raw) if isinstance(raw, str) else {}
-    except Exception:
-        return {}
-
-    # Optional local expiry check. Firebase refresh itself remains the source of truth.
-    expires_at = payload.get("expires_at")
-    if expires_at:
-        try:
-            if datetime.fromisoformat(expires_at) < datetime.utcnow():
-                _delete_browser_auth()
-                return {}
-        except Exception:
-            pass
-
-    return payload if isinstance(payload, dict) else {}
-
-
-def _write_browser_auth(payload: dict):
-    if not HAS_BROWSER_STORAGE:
-        _storage_error_once()
-        return
-
-    safe_payload = dict(payload or {})
-    safe_payload["expires_at"] = (
-        datetime.utcnow() + timedelta(days=AUTH_STORAGE_DAYS)
-    ).isoformat(timespec="seconds")
-
-    raw = json.dumps(safe_payload)
-
-    try:
-        streamlit_js_eval(
-            js_expressions=(
-                "window.localStorage.setItem("
-                + _safe_js_string(AUTH_STORAGE_KEY)
-                + ", "
-                + _safe_js_string(raw)
-                + "); true;"
-            ),
-            key=f"eusee_auth_storage_write_{st.session_state.get('_auth_write_counter', 0)}",
-        )
-        st.session_state["_auth_write_counter"] = (
-            st.session_state.get("_auth_write_counter", 0) + 1
-        )
-    except Exception as e:
-        if DEBUG:
-            st.warning(f"Could not write browser auth storage: {e}")
-
-
-def _delete_browser_auth():
-    if not HAS_BROWSER_STORAGE:
-        return
-
-    try:
-        streamlit_js_eval(
-            js_expressions=(
-                "window.localStorage.removeItem("
-                + _safe_js_string(AUTH_STORAGE_KEY)
-                + "); true;"
-            ),
-            key=f"eusee_auth_storage_delete_{st.session_state.get('_auth_delete_counter', 0)}",
-        )
-        st.session_state["_auth_delete_counter"] = (
-            st.session_state.get("_auth_delete_counter", 0) + 1
-        )
-    except Exception:
-        pass
+    return manager
 
 
 def init_firebase_admin():
@@ -280,17 +209,14 @@ def _normalise_chat_message(message: dict) -> dict | None:
     if role not in {"user", "assistant", "system"} or not content:
         return None
 
-    item = {
+    return {
         "role": role,
         "content": content,
+        "timestamp": str(
+            message.get("timestamp")
+            or datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        ),
     }
-
-    if message.get("timestamp"):
-        item["timestamp"] = str(message.get("timestamp"))
-    else:
-        item["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-
-    return item
 
 
 def _normalise_chat_history(messages) -> list[dict]:
@@ -447,32 +373,103 @@ def init_session():
         st.session_state.setdefault(key, value)
 
 
-def _session_payload(email, name, verified, role, id_token, refresh_token):
+def _sign_payload(payload: dict) -> str:
+    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    sig = hmac.new(
+        _cookie_password().encode("utf-8"),
+        raw.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    token = json.dumps({"payload": payload, "sig": sig}, separators=(",", ":"))
+    return base64.urlsafe_b64encode(token.encode("utf-8")).decode("utf-8")
+
+
+def _unsign_payload(token: str) -> dict:
+    try:
+        decoded = base64.urlsafe_b64decode(str(token).encode("utf-8")).decode("utf-8")
+        wrapped = json.loads(decoded)
+
+        payload = wrapped.get("payload", {})
+        sig = wrapped.get("sig", "")
+
+        raw = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        expected = hmac.new(
+            _cookie_password().encode("utf-8"),
+            raw.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(sig, expected):
+            return {}
+
+        return payload if isinstance(payload, dict) else {}
+
+    except Exception:
+        return {}
+
+
+def _session_payload(email, name, verified, role, refresh_token):
     return {
         "email": str(email or "").lower().strip(),
         "name": str(name or ""),
         "email_verified": bool(verified),
         "role": str(role or "guest"),
-        "id_token": str(id_token or ""),
         "refresh_token": str(refresh_token or ""),
+        "expires_at": (
+            datetime.utcnow() + timedelta(days=AUTH_COOKIE_DAYS)
+        ).isoformat(timespec="seconds"),
     }
 
 
 def _write_persistent_auth(payload: dict):
-    """Persist minimal Firebase session data in browser localStorage.
+    manager = _cookies_ready()
+    if manager is None:
+        return
 
-    We intentionally avoid extra_streamlit_components.CookieManager because it
-    can create duplicate Streamlit component keys on refresh/rerun.
-    """
-    _write_browser_auth(payload)
+    manager[AUTH_COOKIE_NAME] = _sign_payload(payload)
+    manager.save()
 
 
 def _read_persistent_auth() -> dict:
-    return _read_browser_auth()
+    manager = _cookies_ready()
+    if manager is None:
+        return {}
+
+    token = manager.get(AUTH_COOKIE_NAME)
+    if not token:
+        return {}
+
+    payload = _unsign_payload(token)
+    if not payload:
+        _delete_persistent_auth()
+        return {}
+
+    expires_at = payload.get("expires_at")
+    if expires_at:
+        try:
+            if datetime.fromisoformat(expires_at) < datetime.utcnow():
+                _delete_persistent_auth()
+                return {}
+        except Exception:
+            _delete_persistent_auth()
+            return {}
+
+    return payload
 
 
 def _delete_persistent_auth():
-    _delete_browser_auth()
+    manager = get_cookie_manager()
+    if manager is None:
+        return
+
+    try:
+        if manager.ready():
+            manager[AUTH_COOKIE_NAME] = ""
+            del manager[AUTH_COOKIE_NAME]
+            manager.save()
+    except Exception:
+        pass
 
 
 def refresh_firebase_token(refresh_token: str):
@@ -514,7 +511,14 @@ def _verify_firebase_email(id_token: str, expected_email: str) -> bool:
             .strip()
         )
 
-        return firebase_email == str(expected_email or "").lower().strip()
+        firebase_verified = bool(
+            info.get("users", [{}])[0].get("emailVerified", False)
+        )
+
+        return (
+            firebase_email == str(expected_email or "").lower().strip()
+            and firebase_verified
+        )
 
     except Exception:
         return False
@@ -588,7 +592,6 @@ def restore_session():
             name=st.session_state.name,
             verified=True,
             role=role,
-            id_token=id_token,
             refresh_token=new_refresh_token,
         )
     )
@@ -866,7 +869,6 @@ def _login_form():
                     name=name,
                     verified=True,
                     role=role,
-                    id_token=user.get("idToken"),
                     refresh_token=user.get("refreshToken"),
                 )
             )
