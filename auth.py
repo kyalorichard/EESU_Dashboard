@@ -5,7 +5,7 @@ import json
 import hashlib
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 import streamlit as st
@@ -26,8 +26,25 @@ except ImportError:
     credentials = None
     HAS_FIREBASE_ADMIN = False
 
+try:
+    import extra_streamlit_components as stx
+    HAS_COOKIE_MANAGER = True
+except ImportError:
+    stx = None
+    HAS_COOKIE_MANAGER = False
 
+
+COOKIE_NAME = "eusee_auth_session"
+COOKIE_DAYS = 30
 DEBUG = False
+
+# -----------------------------------------------------------------------------
+# Per-user chatbot history persistence
+# -----------------------------------------------------------------------------
+# Streamlit session_state is lost on browser refresh/new session. These helpers
+# persist chatbot messages on the server, separated by authenticated user email.
+# Use append_user_chat_message() whenever the chatbot adds a message, or call
+# save_user_chat_history() after updating st.session_state[CHAT_HISTORY_KEY].
 
 CHAT_HISTORY_KEY = "eusee_chat_history"
 CHAT_HISTORY_ALIASES = [
@@ -43,6 +60,24 @@ CHAT_HISTORY_MAX_MESSAGES = 80
 CHAT_HISTORY_DIR = Path(
     st.secrets.get("chatbot", {}).get("history_dir", ".eusee_chat_history")
 )
+
+
+
+#@st.cache_resource(show_spinner=False)
+_COOKIE_MANAGER = None
+
+def get_cookie_manager():
+    global _COOKIE_MANAGER
+
+    if not HAS_COOKIE_MANAGER:
+        return None
+
+    if _COOKIE_MANAGER is None:
+        _COOKIE_MANAGER = stx.CookieManager(
+            key="eusee_cookie_manager_main"
+        )
+
+    return _COOKIE_MANAGER
 
 
 def init_firebase_admin():
@@ -154,24 +189,22 @@ def _normalise_chat_message(message: dict) -> dict | None:
         return None
 
     role = str(message.get("role") or message.get("sender") or "").strip().lower()
-    content = str(
-        message.get("content")
-        or message.get("message")
-        or message.get("text")
-        or ""
-    ).strip()
+    content = str(message.get("content") or message.get("message") or message.get("text") or "").strip()
 
     if role not in {"user", "assistant", "system"} or not content:
         return None
 
-    return {
+    item = {
         "role": role,
         "content": content,
-        "timestamp": str(
-            message.get("timestamp")
-            or datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        ),
     }
+
+    if message.get("timestamp"):
+        item["timestamp"] = str(message.get("timestamp"))
+    else:
+        item["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+    return item
 
 
 def _normalise_chat_history(messages) -> list[dict]:
@@ -199,14 +232,16 @@ def _sync_chat_history_aliases(messages: list[dict]):
     cleaned = _normalise_chat_history(messages)
     st.session_state[CHAT_HISTORY_KEY] = cleaned
 
+    # Keep common existing chatbot keys synchronized so the rest of app.py can
+    # continue using its current variable name without breaking.
     for key in CHAT_HISTORY_ALIASES:
         if key in st.session_state:
             st.session_state[key] = cleaned
 
 
 def load_user_chat_history(email: str | None = None) -> list[dict]:
+    """Load saved chatbot history for the authenticated user into session_state."""
     path = _chat_history_path(email)
-
     if path is None:
         _sync_chat_history_aliases([])
         return []
@@ -229,10 +264,8 @@ def load_user_chat_history(email: str | None = None) -> list[dict]:
         return []
 
 
-def save_user_chat_history(
-    messages: list[dict] | None = None,
-    email: str | None = None,
-) -> bool:
+def save_user_chat_history(messages: list[dict] | None = None, email: str | None = None) -> bool:
+    """Save chatbot history for the authenticated user."""
     target_email = str(email or st.session_state.get("email") or "").strip().lower()
     if not target_email:
         return False
@@ -252,12 +285,7 @@ def save_user_chat_history(
             "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "messages": cleaned,
         }
-
-        path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         _sync_chat_history_aliases(cleaned)
         return True
 
@@ -268,6 +296,7 @@ def save_user_chat_history(
 
 
 def append_user_chat_message(role: str, content: str) -> list[dict]:
+    """Append one chatbot message and persist it immediately."""
     current = _get_current_session_chat_history()
     item = _normalise_chat_message({"role": role, "content": content})
 
@@ -281,6 +310,7 @@ def append_user_chat_message(role: str, content: str) -> list[dict]:
 
 
 def clear_user_chat_history(email: str | None = None):
+    """Clear the current user's saved chatbot history."""
     _sync_chat_history_aliases([])
 
     path = _chat_history_path(email)
@@ -292,6 +322,7 @@ def clear_user_chat_history(email: str | None = None):
 
 
 def ensure_user_chat_history_loaded():
+    """Call this once after authentication to restore the user's chatbot memory."""
     if not st.session_state.get("user") or not st.session_state.get("email_verified"):
         return []
 
@@ -327,16 +358,81 @@ def init_session():
         st.session_state.setdefault(key, value)
 
 
-def _apply_authenticated_state(
-    email,
-    name,
-    verified,
-    role,
-    id_token,
-    refresh_token,
-):
-    email = str(email or "").lower().strip()
+def _session_payload(email, name, verified, role, id_token, refresh_token):
+    return {
+        "email": str(email or "").lower().strip(),
+        "name": str(name or ""),
+        "email_verified": bool(verified),
+        "role": str(role or "guest"),
+        "id_token": str(id_token or ""),
+        "refresh_token": str(refresh_token or ""),
+    }
 
+
+def _write_cookie(payload: dict):
+    manager = get_cookie_manager()
+    if manager is None:
+        st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
+        return
+
+    manager.set(
+        COOKIE_NAME,
+        json.dumps(payload),
+        expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
+    )
+
+
+def _read_cookie() -> dict:
+    manager = get_cookie_manager()
+    if manager is None:
+        return {}
+
+    raw = manager.get(COOKIE_NAME)
+    if not raw:
+        return {}
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        return {}
+
+
+def _delete_cookie():
+    manager = get_cookie_manager()
+    if manager is not None:
+        try:
+            manager.delete(COOKIE_NAME)
+        except Exception:
+            pass
+
+
+def refresh_firebase_token(refresh_token: str):
+    api_key = st.secrets.get("firebase", {}).get("apiKey")
+    if not api_key or not refresh_token:
+        return None
+
+    url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
+
+    try:
+        response = requests.post(
+            url,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            timeout=15,
+        )
+
+        if response.status_code != 200:
+            return None
+
+        return response.json()
+
+    except Exception:
+        return None
+
+
+def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
     st.session_state.user = bool(email and verified)
     st.session_state.email = email
     st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
@@ -346,23 +442,62 @@ def _apply_authenticated_state(
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
-
     ensure_user_chat_history_loaded()
 
 
 def restore_session():
-    """
-    Streamlit Cloud-safe version.
-
-    Persistent cookie/session restore is disabled to prevent one browser/user
-    from restoring another user's identity.
-
-    Users remain logged in during the active Streamlit session, but after a full
-    browser/session reset they must sign in again.
-    """
     init_session()
-    st.session_state.restored = True
-    return False
+
+    if st.session_state.get("user") and st.session_state.get("email_verified"):
+        st.session_state.restored = True
+        return True
+
+    cookie_data = _read_cookie()
+    if not cookie_data:
+        st.session_state.restored = True
+        return False
+
+    email = str(cookie_data.get("email") or "").lower().strip()
+    name = cookie_data.get("name") or ""
+    role = cookie_data.get("role") or "privileged"
+    verified = bool(cookie_data.get("email_verified"))
+    refresh_token = cookie_data.get("refresh_token") or ""
+
+    if not email or not verified or not refresh_token:
+        _delete_cookie()
+        st.session_state.restored = True
+        return False
+
+    refreshed = refresh_firebase_token(refresh_token)
+    if not refreshed:
+        _delete_cookie()
+        st.session_state.restored = True
+        return False
+
+    id_token = refreshed.get("id_token")
+    new_refresh_token = refreshed.get("refresh_token", refresh_token)
+
+    _apply_authenticated_state(
+        email=email,
+        name=name,
+        verified=True,
+        role=role,
+        id_token=id_token,
+        refresh_token=new_refresh_token,
+    )
+
+    _write_cookie(
+        _session_payload(
+            email=email,
+            name=st.session_state.name,
+            verified=True,
+            role=role,
+            id_token=id_token,
+            refresh_token=new_refresh_token,
+        )
+    )
+
+    return True
 
 
 def is_authenticated():
@@ -388,10 +523,9 @@ def is_privileged():
         and st.session_state.get("email_verified")
         and st.session_state.get("role") in ["privileged", "admin"]
     )
-
-
 def logout():
     save_user_chat_history()
+    _delete_cookie()
 
     for key in [
         "user",
@@ -610,10 +744,7 @@ def _login_form():
             verified = bool(info["users"][0].get("emailVerified", False))
 
             if not verified:
-                st.warning(
-                    "Your account exists, but the email is not verified. "
-                    "Please verify your email first."
-                )
+                st.warning("Your account exists, but the email is not verified. Please verify your email first.")
                 return
 
             role = "privileged"
@@ -628,6 +759,17 @@ def _login_form():
                 refresh_token=user.get("refreshToken"),
             )
 
+            _write_cookie(
+                _session_payload(
+                    email=email,
+                    name=name,
+                    verified=True,
+                    role=role,
+                    id_token=user.get("idToken"),
+                    refresh_token=user.get("refreshToken"),
+                )
+            )
+
             st.session_state.auth_view = False
             st.success("Signed in successfully.")
             st.rerun()
@@ -638,19 +780,11 @@ def _login_form():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button(
-            "Create Account",
-            use_container_width=True,
-            key="switch_to_register",
-        ):
+        if st.button("Create Account", use_container_width=True, key="switch_to_register"):
             _set_auth_mode("Register")
 
     with col2:
-        if st.button(
-            "Forgot Password",
-            use_container_width=True,
-            key="switch_to_reset",
-        ):
+        if st.button("Forgot Password", use_container_width=True, key="switch_to_reset"):
             _set_auth_mode("Reset")
 
 
@@ -688,10 +822,7 @@ def _register_form():
         try:
             user = firebase_auth.create_user_with_email_and_password(email, password)
             firebase_auth.send_email_verification(user["idToken"])
-            st.success(
-                "Registration successful. Check your email to verify your account, "
-                "then sign in."
-            )
+            st.success("Registration successful. Check your email to verify your account, then sign in.")
             st.session_state.auth_mode = "Login"
 
         except Exception as e:
@@ -750,11 +881,7 @@ def _render_premium_auth_page():
                 )
 
             with top_b:
-                if st.button(
-                    "← Dashboard",
-                    use_container_width=True,
-                    key="premium_back_dashboard",
-                ):
+                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
                     _back_to_dashboard()
 
             if mode == "Login":
