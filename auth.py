@@ -1014,14 +1014,10 @@ def _render_premium_auth_page():
                 unsafe_allow_html=True,
             )
 
-
 def auth_ui():
     init_session()
-    #restore_session()
 
-    if st.session_state.get("user") and st.session_state.get("email_verified"):
-        ensure_user_chat_history_loaded()
-        st.session_state.auth_view = False
+    if is_authenticated():
         return
 
     _render_premium_auth_page()
