@@ -26,6 +26,7 @@ from streamlit.elements.lib.policies import CachedWidgetWarning
 import streamlit.components.v1 as components
 from io import BytesIO
 
+
 warnings.filterwarnings(
     "ignore",
     category=CachedWidgetWarning
@@ -462,7 +463,6 @@ def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> p
 
     return mask
 
-from io import BytesIO
 
 def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
     """Render a clean, searchable table with one vertical and one horizontal scrollbar."""

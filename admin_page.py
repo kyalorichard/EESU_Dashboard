@@ -38,6 +38,28 @@ def _clear_app_cache():
         pass
 
 
+def _clean_domain(domain: str) -> str:
+    domain = str(domain or "").strip().lower()
+    domain = domain.replace("@", "")
+    domain = domain.replace("https://", "").replace("http://", "")
+    domain = domain.split("/")[0].strip()
+    return domain
+
+
+def _get_config_privileged_domains(config: dict) -> list[str]:
+    domains = config.get("privileged_domains")
+
+    if domains is None:
+        domains = get_privileged_domains()
+
+    return sorted({_clean_domain(d) for d in domains if _clean_domain(d)})
+
+
+def _save_config_privileged_domains(config: dict, domains: list[str]) -> bool:
+    config["privileged_domains"] = sorted({_clean_domain(d) for d in domains if _clean_domain(d)})
+    return save_access_config(config)
+
+
 def inject_admin_css():
     st.markdown(
         """
@@ -277,6 +299,8 @@ def _build_permission_matrix(config: dict) -> pd.DataFrame:
 
 
 def _render_overview_tab(config: dict):
+    privileged_domains = _get_config_privileged_domains(config)
+
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
@@ -286,7 +310,7 @@ def _render_overview_tab(config: dict):
         _metric_card("Admin emails", len(get_admin_emails()), "Configured in secrets")
 
     with c3:
-        _metric_card("Privileged domains", len(get_privileged_domains()), "Domain-based access")
+        _metric_card("Privileged domains", len(privileged_domains), "Admin-managed domain access")
 
     with c4:
         _metric_card("Permissions", len(FEATURE_KEYS), "Centralized registry")
@@ -570,9 +594,11 @@ def _render_scope_tab(config: dict, data=None):
         st.json(config[role])
 
 
-def _render_users_tab():
+def _render_users_tab(config: dict):
     st.markdown("### Access identities")
-    st.caption("Admins are configured by email. Privileged users can also be assigned by email domain.")
+    st.caption("Admins are configured by email. Privileged users can be added, edited, or removed by email domain.")
+
+    privileged_domains = _get_config_privileged_domains(config)
 
     rows = []
 
@@ -586,12 +612,12 @@ def _render_users_tab():
             }
         )
 
-    for domain in get_privileged_domains():
+    for domain in privileged_domains:
         rows.append(
             {
                 "Identity": f"*@{domain}",
                 "Effective role": "Privileged",
-                "Source": "[access].privileged_domains",
+                "Source": "Admin-managed access config",
                 "Access type": "Domain rule",
             }
         )
@@ -600,6 +626,73 @@ def _render_users_tab():
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
         st.warning("No admin emails or privileged domains configured.")
+
+    st.markdown("### Manage privileged email domains")
+
+    st.info(
+        "Adding a domain gives Privileged access to users whose email ends with that domain, for example: user@icarda.org."
+    )
+
+    with st.container(border=True):
+        new_domain = st.text_input(
+            "Add privileged domain",
+            placeholder="example: icarda.org",
+            key="new_privileged_domain_input",
+        )
+
+        if st.button("➕ Add privileged domain", type="primary", use_container_width=True):
+            cleaned = _clean_domain(new_domain)
+
+            if not cleaned or "." not in cleaned:
+                st.error("Enter a valid domain, for example: icarda.org")
+            elif cleaned in privileged_domains:
+                st.warning(f"{cleaned} is already assigned as privileged.")
+            else:
+                privileged_domains.append(cleaned)
+
+                if _save_config_privileged_domains(config, privileged_domains):
+                    _clear_app_cache()
+                    st.success(f"{cleaned} added as a privileged domain.")
+                    st.rerun()
+
+    if privileged_domains:
+        st.markdown("#### Edit or remove existing domains")
+
+        for idx, domain in enumerate(privileged_domains):
+            c1, c2, c3 = st.columns([3, 1, 1])
+
+            with c1:
+                edited_domain = st.text_input(
+                    "Domain",
+                    value=domain,
+                    label_visibility="collapsed",
+                    key=f"edit_privileged_domain_{idx}",
+                )
+
+            with c2:
+                if st.button("Save", key=f"save_privileged_domain_{idx}", use_container_width=True):
+                    cleaned = _clean_domain(edited_domain)
+
+                    if not cleaned or "." not in cleaned:
+                        st.error("Enter a valid domain.")
+                    else:
+                        updated_domains = privileged_domains.copy()
+                        updated_domains[idx] = cleaned
+                        updated_domains = sorted(set(updated_domains))
+
+                        if _save_config_privileged_domains(config, updated_domains):
+                            _clear_app_cache()
+                            st.success("Privileged domain updated.")
+                            st.rerun()
+
+            with c3:
+                if st.button("Remove", key=f"remove_privileged_domain_{idx}", use_container_width=True):
+                    updated_domains = [d for d in privileged_domains if d != domain]
+
+                    if _save_config_privileged_domains(config, updated_domains):
+                        _clear_app_cache()
+                        st.success(f"{domain} removed.")
+                        st.rerun()
 
     st.markdown("### Current session")
     st.json(
@@ -710,7 +803,7 @@ def render_admin_page(data=None):
         _render_scope_tab(config, data=data)
 
     with tab_users:
-        _render_users_tab()
+        _render_users_tab(config)
 
     with tab_system:
         _render_system_tab(config)
