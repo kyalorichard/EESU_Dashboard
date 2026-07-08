@@ -54,13 +54,23 @@ CHAT_HISTORY_DIR = Path(
 )
 
 
+@st.cache_resource(show_spinner=False)
+def _get_cached_cookie_manager():
+    return stx.CookieManager(key="eusee_cookie_manager_main")
+
+
 def get_cookie_manager():
+    """Return one shared CookieManager instance.
+
+    Creating CookieManager more than once with the same Streamlit key during
+    one render causes StreamlitDuplicateElementKey. This cached wrapper makes
+    sure the component is instantiated only once and reused by _read_cookie,
+    _write_cookie, and _delete_cookie.
+    """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    return stx.CookieManager(
-        key="eusee_cookie_manager_main"
-    )
+    return _get_cached_cookie_manager()
 
 
 def init_firebase_admin():
@@ -460,6 +470,12 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
 
 def restore_session():
     init_session()
+
+    if st.session_state.get("restored"):
+        return bool(
+            st.session_state.get("user")
+            and st.session_state.get("email_verified")
+        )
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
