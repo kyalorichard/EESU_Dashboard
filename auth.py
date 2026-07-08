@@ -84,14 +84,10 @@ def get_cookie_manager():
 def _cookies_ready():
     manager = get_cookie_manager()
     if manager is None:
-        st.error(
-            "❌ Persistent login requires `streamlit-cookies-manager`. "
-            "Add `streamlit-cookies-manager` to requirements.txt and redeploy."
-        )
         return None
 
     if not manager.ready():
-        st.stop()
+        return None
 
     return manager
 
@@ -462,8 +458,6 @@ def _read_persistent_auth() -> dict:
             return {}
 
     return payload
-
-
 def _delete_persistent_auth():
     manager = get_cookie_manager()
     if manager is None:
