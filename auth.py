@@ -55,21 +55,17 @@ CHAT_HISTORY_DIR = Path(
 
 
 def get_cookie_manager():
-    """Return one CookieManager per Streamlit browser session.
+    """Create exactly one CookieManager component per Streamlit render.
 
-    Do NOT use st.cache_resource here. Authentication cookies are browser/session
-    specific. A globally cached CookieManager can leak or reuse stale cookie state
-    across users.
+    Important:
+    - Do not cache this with st.cache_resource. Cookies are browser-specific.
+    - Do not create it inside _read_cookie/_write_cookie/_delete_cookie repeatedly.
+    - Create it once in auth_ui(), then pass it to restore/read/write/delete helpers.
     """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if "_eusee_cookie_manager" not in st.session_state:
-        st.session_state["_eusee_cookie_manager"] = stx.CookieManager(
-            key="eusee_cookie_manager_main"
-        )
-
-    return st.session_state["_eusee_cookie_manager"]
+    return stx.CookieManager(key="eusee_cookie_manager_main")
 
 
 def init_firebase_admin():
@@ -369,8 +365,10 @@ def _session_payload(email, name, verified, role, id_token, refresh_token):
     }
 
 
-def _write_cookie(payload: dict):
-    manager = get_cookie_manager()
+def _write_cookie(payload: dict, manager=None):
+    if manager is None:
+        manager = get_cookie_manager()
+
     if manager is None:
         st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
         return
@@ -382,12 +380,18 @@ def _write_cookie(payload: dict):
     )
 
 
-def _read_cookie() -> dict:
-    manager = get_cookie_manager()
+def _read_cookie(manager=None) -> dict:
+    if manager is None:
+        manager = get_cookie_manager()
+
     if manager is None:
         return {}
 
-    raw = manager.get(COOKIE_NAME)
+    try:
+        raw = manager.get(COOKIE_NAME)
+    except Exception:
+        return {}
+
     if not raw:
         return {}
 
@@ -397,8 +401,10 @@ def _read_cookie() -> dict:
         return {}
 
 
-def _delete_cookie():
-    manager = get_cookie_manager()
+def _delete_cookie(manager=None):
+    if manager is None:
+        manager = get_cookie_manager()
+
     if manager is not None:
         try:
             manager.delete(COOKIE_NAME)
@@ -467,21 +473,18 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     ensure_user_chat_history_loaded()
 
 
-def restore_session():
+def restore_session(manager=None):
     init_session()
-
-    if st.session_state.get("restored"):
-        return bool(
-            st.session_state.get("user")
-            and st.session_state.get("email_verified")
-        )
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
         return True
 
-    cookie_data = _read_cookie()
+    cookie_data = _read_cookie(manager)
     if not cookie_data:
+        # Do not delete anything here. On hard refresh, the CookieManager can return
+        # empty before the browser cookie is available. We simply mark restoration
+        # attempted for this render and show the login page if no cookie is found.
         st.session_state.restored = True
         return False
 
@@ -492,13 +495,13 @@ def restore_session():
     refresh_token = cookie_data.get("refresh_token") or ""
 
     if not email or not verified or not refresh_token:
-        _delete_cookie()
+        _delete_cookie(manager)
         st.session_state.restored = True
         return False
 
     refreshed = refresh_firebase_token(refresh_token)
     if not refreshed:
-        _delete_cookie()
+        _delete_cookie(manager)
         st.session_state.restored = True
         return False
 
@@ -506,7 +509,7 @@ def restore_session():
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
 
     if not _verify_firebase_email(id_token, email):
-        _delete_cookie()
+        _delete_cookie(manager)
         st.session_state.restored = True
         return False
 
@@ -527,7 +530,8 @@ def restore_session():
             role=role,
             id_token=id_token,
             refresh_token=new_refresh_token,
-        )
+        ),
+        manager,
     )
 
     return True
@@ -558,9 +562,9 @@ def is_privileged():
     )
 
 
-def logout():
+def logout(manager=None):
     save_user_chat_history()
-    _delete_cookie()
+    _delete_cookie(manager)
 
     for key in [
         "user",
@@ -741,7 +745,7 @@ def _auth_page_css():
     )
 
 
-def _login_form():
+def _login_form(manager=None):
     with st.form("eusee_login_form"):
         email = st.text_input(
             "Email address",
@@ -805,7 +809,8 @@ def _login_form():
                     role=role,
                     id_token=user.get("idToken"),
                     refresh_token=user.get("refreshToken"),
-                )
+                ),
+                manager,
             )
 
             st.session_state.auth_view = False
@@ -903,7 +908,7 @@ def _reset_form():
             st.error(parse_error(e))
 
 
-def _render_premium_auth_page():
+def _render_premium_auth_page(manager=None):
     _auth_page_css()
 
     mode = st.session_state.get("auth_mode", "Login")
@@ -929,7 +934,7 @@ def _render_premium_auth_page():
                     '<div class="mode-card"><div class="mode-active">Sign in</div></div>',
                     unsafe_allow_html=True,
                 )
-                _login_form()
+                _login_form(manager)
 
             elif mode == "Register":
                 st.markdown(
@@ -963,11 +968,12 @@ def _render_premium_auth_page():
 
 def auth_ui():
     init_session()
-    restore_session()
+    manager = get_cookie_manager()
+    restore_session(manager)
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         ensure_user_chat_history_loaded()
         st.session_state.auth_view = False
         return
 
-    _render_premium_auth_page()
+    _render_premium_auth_page(manager)
