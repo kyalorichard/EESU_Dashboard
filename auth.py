@@ -64,33 +64,30 @@ def _cookie_password() -> str:
     )
 
 
-#@st.cache_resource(show_spinner=False)
 def get_cookie_manager():
     if not HAS_COOKIE_MANAGER:
         return None
 
-    manager = st.session_state.get("_eusee_cookie_manager")
-
-    if manager is None:
-        manager = EncryptedCookieManager(
+    if "_eusee_cookie_manager" not in st.session_state:
+        st.session_state["_eusee_cookie_manager"] = EncryptedCookieManager(
             prefix="eusee_auth_cookie/",
             password=_cookie_password(),
         )
-        st.session_state["_eusee_cookie_manager"] = manager
 
-    return manager
+    return st.session_state["_eusee_cookie_manager"]
 
 
 def _cookies_ready():
     manager = get_cookie_manager()
+
     if manager is None:
-        return None
+        st.error("Persistent login requires streamlit-cookies-manager.")
+        st.stop()
 
     if not manager.ready():
-        return None
+        st.stop()
 
     return manager
-
 
 def init_firebase_admin():
     if not HAS_FIREBASE_ADMIN:
@@ -598,12 +595,8 @@ def restore_session():
 
     return True
 
-
 def is_authenticated():
     init_session()
-
-    if not st.session_state.get("restored"):
-        restore_session()
 
     return bool(
         st.session_state.get("user")
@@ -614,15 +607,11 @@ def is_authenticated():
 def is_privileged():
     init_session()
 
-    if not st.session_state.get("restored"):
-        restore_session()
-
     return bool(
         st.session_state.get("user")
         and st.session_state.get("email_verified")
         and st.session_state.get("role") in ["privileged", "admin"]
     )
-
 
 def logout():
     save_user_chat_history()
