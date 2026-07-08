@@ -462,38 +462,25 @@ def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> p
 
     return mask
 
+from io import BytesIO
+
 def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
-    """Render a clean, fast, searchable table with controlled scrolling and row limits.
+    """Render a clean, searchable table with one vertical and one horizontal scrollbar."""
 
-
-    Notes:
-    - The dataframe passed into this component is already filtered by the
-      dashboard/sidebar/tab filters.
-    - The table search is applied on top of those filters.
-    - The Rows shown selector controls only the visible preview rows.
-    - CSV download keeps the full searched/filtered table, not just the preview.
-    - Overview and Negative Alerts Analysis use the same table dimensions,
-      bounded height, and scroll behavior for a consistent UX.
-    - remove_vertical_scroll is retained only for backward compatibility; it no
-      longer changes sizing because all Data Preview tables must match.
-    """
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
         return
 
-    
     DATA_PREVIEW_STANDARD_HEIGHT = 460
 
     display_df = df.copy()
 
-    # Preserve content, only improve display formatting for date-like columns.
     for date_col in ["Date of submission", "creation_date"]:
         if date_col in display_df.columns:
             display_df[date_col] = pd.to_datetime(
                 display_df[date_col], errors="coerce"
             ).dt.strftime("%Y-%m-%d")
 
-    # Detect the alert-impact column before/after user-facing renaming.
     impact_col = None
     for candidate in ["alert-impact", "Impact of alert", "Alert impact"]:
         if candidate in display_df.columns:
@@ -517,33 +504,42 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             font-weight: 550;
             box-shadow: 0 6px 16px rgba(16,24,40,.045);
         }
+
         .eusee-data-preview-note strong {
             color: #23152F;
             font-weight: 900;
         }
-        /* Data Preview table: controlled vertical + horizontal scrolls for easy access. */
+
+        /* Data Preview shell: no outer scrollbar */
         div[data-testid="stDataFrame"] {
             width: 100% !important;
             max-width: 100% !important;
             border: 1px solid #E6E8EF !important;
             border-radius: 16px !important;
-            overflow: auto !important;
+            overflow: hidden !important;
             box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
             background: #FFFFFF !important;
             font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
         }
+
         div[data-testid="stDataFrame"] > div {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+
+        /* The grid is the only scrollable element */
+        div[data-testid="stDataFrame"] div[role="grid"] {
             width: 100% !important;
             max-width: 100% !important;
             overflow: auto !important;
         }
-        div[data-testid="stDataFrame"] div[role="grid"] {
-            min-width: max-content !important;
-            overflow: auto !important;
-        }
+
+        /* Prevent nested scrollbars */
         div[data-testid="stDataFrame"] [data-testid="stTable"] {
-            overflow: auto !important;
+            overflow: visible !important;
         }
+
         div[data-testid="stDataFrame"] [role="columnheader"],
         div[data-testid="stDataFrame"] [role="columnheader"] * {
             background: #F4EAF8 !important;
@@ -554,6 +550,7 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             border-bottom: 1px solid #E7D4F1 !important;
             line-height: 1.25 !important;
         }
+
         div[data-testid="stDataFrame"] [role="gridcell"],
         div[data-testid="stDataFrame"] [role="gridcell"] * {
             color: #344054 !important;
@@ -562,94 +559,68 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             line-height: 1.35 !important;
             font-weight: 500 !important;
         }
-        div[data-testid="stDataFrame"] ::-webkit-scrollbar {
-            height: 10px !important;
+
+        div[data-testid="stDataFrame"] div[role="grid"]::-webkit-scrollbar {
             width: 10px !important;
+            height: 10px !important;
         }
-        div[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb {
+
+        div[data-testid="stDataFrame"] div[role="grid"]::-webkit-scrollbar-thumb {
             background: #D6BBE5 !important;
             border-radius: 999px !important;
             border: 2px solid #FFFFFF !important;
         }
-        div[data-testid="stDataFrame"] ::-webkit-scrollbar-track {
+
+        div[data-testid="stDataFrame"] div[role="grid"]::-webkit-scrollbar-track {
             background: #F8FAFC !important;
             border-radius: 999px !important;
         }
         </style>
+
         <div class="eusee-data-preview-note">
-            <strong>Filtered data preview:</strong> Review a sample of the filtered data and download the full dataset based on the filters currently applied
+            <strong>Filtered data preview:</strong> Review a sample of the filtered data and download the full dataset based on the filters currently applied.
         </div>
         """, unsafe_allow_html=True)
 
-        control_col1, control_col2 = st.columns([1.7, 0.7])
-
-        with control_col1:
-            search_text = st.text_input(
-                "Search table",
-                value="",
-                placeholder='Use Boolean search, e.g. Kenya AND negative, Uganda OR Kenya, "civil society" NOT positive.',                
-                key=f"{key}_search",
-            )
-
-        #with control_col2:
-         #   max_rows = st.selectbox(
-          #      "Rows shown",
-           #     options=[25, 50, 100, 250, 500, "All"],
-            #    index=1,
-             #   key=f"{key}_row_limit",
-            #)
+        search_text = st.text_input(
+            "Search table",
+            value="",
+            placeholder='Use Boolean search, e.g. Kenya AND negative, Uganda OR Kenya, "civil society" NOT positive.',
+            key=f"{key}_search",
+        )
 
         table_df = display_df.copy()
         active_filter_rows = len(table_df)
 
-        # Fast search across all display columns. The search is applied after
-        # dashboard/sidebar filters, so the user sees and downloads only records
-        # from the active filtered subset. Multiple words are treated as AND terms.
         search_text_clean = " ".join(str(search_text or "").split()).strip()
         if search_text_clean:
             table_df = table_df.loc[
                 _build_fast_table_search_mask(table_df, search_text_clean)
             ].copy()
 
-        #if max_rows != "All":
-         #   table_view = table_df.head(int(max_rows)).copy()
-        #else:
         table_view = table_df.copy()
 
-        #selected_row_limit_label = "All" if max_rows == "All" else f"{int(max_rows):,}"
-        #st.caption(
-         #   f"Rows shown: {selected_row_limit_label}. Displaying {len(table_view):,} of "
-          #  f"{len(table_df):,} matching records from {active_filter_rows:,} active-filter records."
-        #)
+        st.caption(
+            f"Displaying {len(table_view):,} matching records from "
+            f"{active_filter_rows:,} active-filter records."
+        )
 
-        # Style the alert impact column using professional status colors.
         def style_alert_impact(value):
             value_clean = str(value).strip().lower()
 
             if value_clean == "negative":
-                return (
-                    "background-color:#FEE4E2;"
-                    "color:#B42318;"
-                    "font-weight:800;"
-                )
+                return "background-color:#FEE4E2;color:#B42318;font-weight:800;"
 
             if value_clean == "positive":
-                return (
-                    "background-color:#DCFAE6;"
-                    "color:#067647;"
-                    "font-weight:800;"
-                )
+                return "background-color:#DCFAE6;color:#067647;font-weight:800;"
 
             if value_clean == "context to watch":
-                return (
-                    "background-color:#FEF0C7;"
-                    "color:#B54708;"
-                    "font-weight:800;"
-                )
+                return "background-color:#FEF0C7;color:#B54708;font-weight:800;"
 
             return ""
 
         table_to_render = table_view
+
         if impact_col and impact_col in table_view.columns:
             try:
                 table_to_render = table_view.style.map(
@@ -657,17 +628,11 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                     subset=[impact_col],
                 )
             except AttributeError:
-                # Compatibility fallback for older pandas versions.
                 table_to_render = table_view.style.applymap(
                     style_alert_impact,
                     subset=[impact_col],
                 )
 
-        # Standard compact Data Preview height.
-        # All rows selected by the Rows shown control remain available inside
-        # the dataframe through its internal vertical scrollbar, while wide
-        # tables keep the horizontal scrollbar. This prevents the Overview
-        # Data Preview panel from becoming too long.
         st.dataframe(
             table_to_render,
             use_container_width=True,
@@ -676,9 +641,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             key=key,
         )
 
-     
-
-        # Create Excel file in memory
         excel_buffer = BytesIO()
 
         with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
@@ -708,7 +670,6 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             positive alerts in green, and context-to-watch records in amber.
         </div>
         """, unsafe_allow_html=True)
-
 inject_classic_dashboard_css()
 
 
