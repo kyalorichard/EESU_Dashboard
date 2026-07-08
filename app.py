@@ -611,16 +611,16 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                 _build_fast_table_search_mask(table_df, search_text_clean)
             ].copy()
 
-        if max_rows != "All":
-            table_view = table_df.head(int(max_rows)).copy()
-        else:
-            table_view = table_df.copy()
+        #if max_rows != "All":
+         #   table_view = table_df.head(int(max_rows)).copy()
+        #else:
+        table_view = table_df.copy()
 
-        selected_row_limit_label = "All" if max_rows == "All" else f"{int(max_rows):,}"
-        st.caption(
-            f"Rows shown: {selected_row_limit_label}. Displaying {len(table_view):,} of "
-            f"{len(table_df):,} matching records from {active_filter_rows:,} active-filter records."
-        )
+        #selected_row_limit_label = "All" if max_rows == "All" else f"{int(max_rows):,}"
+        #st.caption(
+         #   f"Rows shown: {selected_row_limit_label}. Displaying {len(table_view):,} of "
+          #  f"{len(table_df):,} matching records from {active_filter_rows:,} active-filter records."
+        #)
 
         # Style the alert impact column using professional status colors.
         def style_alert_impact(value):
