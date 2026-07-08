@@ -64,15 +64,17 @@ def _cookie_password() -> str:
     )
 
 
-@st.cache_resource(show_spinner=False)
 def get_cookie_manager():
     if not HAS_COOKIE_MANAGER:
         return None
 
-    return EncryptedCookieManager(
-        prefix="eusee/",
-        password=_cookie_password(),
-    )
+    if "_eusee_cookie_manager" not in st.session_state:
+        st.session_state["_eusee_cookie_manager"] = EncryptedCookieManager(
+            prefix="eusee/",
+            password=_cookie_password(),
+        )
+
+    return st.session_state["_eusee_cookie_manager"]
 
 
 def _cookies_ready():
