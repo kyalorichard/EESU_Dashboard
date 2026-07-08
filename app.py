@@ -793,63 +793,8 @@ if is_authenticated():
     st.session_state.auth_view = False
 
 if st.session_state.get("auth_view", False) and not is_authenticated():
-    st.markdown("""
-    <style>
-    html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container {
-        filter: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        pointer-events: auto !important;
-        opacity: 1 !important;
-    }
-    .eusee-login-route-shell {
-        max-width: 760px;
-        margin: 24px auto 18px auto;
-        padding: 18px 20px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
-        border: 1px solid rgba(102,0,148,.14);
-        box-shadow: 0 14px 34px rgba(16,24,40,.08);
-        font-family: "Inter", "Segoe UI", Arial, sans-serif;
-    }
-    .eusee-login-route-eyebrow {
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-        color: #660094;
-        margin-bottom: 5px;
-    }
-    .eusee-login-route-title {
-        font-size: 24px;
-        font-weight: 950;
-        color: #23152F;
-        line-height: 1.15;
-        margin-bottom: 6px;
-    }
-    .eusee-login-route-note {
-        font-size: 12.5px;
-        color: #667085;
-        line-height: 1.45;
-    }
-    </style>
-
-    <div class="eusee-login-route-shell">
-        <div class="eusee-login-route-eyebrow">Privileged access</div>
-        <div class="eusee-login-route-title">EUSEE Dashboard Sign in / Register</div>
-        <div class="eusee-login-route-note">
-            Sign in to access advanced features and analyses available to EUSEE partners.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
     auth_ui()
-
-    if st.button("← Back to dashboard", use_container_width=True, key="back_to_dashboard_from_sidebar_auth"):
-        st.session_state.auth_view = False
-        st.rerun()
-
-    st.stop()
+    st.rerun()
 
 
 # ---------------- LOAD DATA ----------------
