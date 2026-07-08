@@ -591,13 +591,13 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
                 key=f"{key}_search",
             )
 
-        with control_col2:
-            max_rows = st.selectbox(
-                "Rows shown",
-                options=[25, 50, 100, 250, 500, "All"],
-                index=1,
-                key=f"{key}_row_limit",
-            )
+        #with control_col2:
+         #   max_rows = st.selectbox(
+          #      "Rows shown",
+           #     options=[25, 50, 100, 250, 500, "All"],
+            #    index=1,
+             #   key=f"{key}_row_limit",
+            #)
 
         table_df = display_df.copy()
         active_filter_rows = len(table_df)
