@@ -723,12 +723,6 @@ def monitored_countries_display_value(value) -> str:
         return "0"
 
 
-# ---------------- AUTH STATE NOTES ----------------
-# Authentication is handled by the existing sidebar/auth components.
-# Restricted feature cards intentionally do not route users to a separate auth view.
-st.session_state.setdefault("auth_mode", "Login")
-st.session_state.setdefault("auth_reset_open", False)
-
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
