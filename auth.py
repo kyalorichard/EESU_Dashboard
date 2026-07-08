@@ -69,10 +69,16 @@ def get_cookie_manager():
     if not HAS_COOKIE_MANAGER:
         return None
 
-    return EncryptedCookieManager(
-        prefix="eusee/",
-        password=_cookie_password(),
-    )
+    manager = st.session_state.get("_eusee_cookie_manager")
+
+    if manager is None:
+        manager = EncryptedCookieManager(
+            prefix="eusee_auth_cookie/",
+            password=_cookie_password(),
+        )
+        st.session_state["_eusee_cookie_manager"] = manager
+
+    return manager
 
 
 def _cookies_ready():
