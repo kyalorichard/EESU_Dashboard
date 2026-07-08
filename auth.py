@@ -6,6 +6,7 @@ import hashlib
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
+import time
 
 import requests
 import streamlit as st
@@ -55,21 +56,24 @@ CHAT_HISTORY_DIR = Path(
 
 
 def get_cookie_manager():
-    """Return one CookieManager instance per Streamlit user session.
+    """Create one CookieManager component per Streamlit browser session.
 
-    extra_streamlit_components.CookieManager renders a Streamlit component
-    during __init__. Creating it more than once in the same script run with
-    the same key causes StreamlitDuplicateElementKey.
+    Important:
+    extra_streamlit_components.CookieManager is a Streamlit component.
+    Creating it more than once in the same run with the same key causes
+    StreamlitDuplicateElementKey. Storing it in session_state avoids that.
     """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    manager = st.session_state.get("_eusee_cookie_manager")
-    if manager is None:
-        manager = stx.CookieManager(key="eusee_cookie_manager_main")
-        st.session_state["_eusee_cookie_manager"] = manager
+    if "_eusee_cookie_manager" not in st.session_state:
+        st.session_state["_eusee_cookie_manager"] = stx.CookieManager(
+            key="eusee_cookie_manager_main"
+        )
+        # Give the browser component a short moment to hydrate cookies on refresh.
+        time.sleep(0.25)
 
-    return manager
+    return st.session_state["_eusee_cookie_manager"]
 
 
 def init_firebase_admin():
@@ -370,8 +374,9 @@ def _session_payload(email, name, verified, role, id_token, refresh_token):
 
 
 def _write_cookie(payload: dict, manager=None):
-    manager = manager or st.session_state.get("_eusee_cookie_manager")
+    manager = manager or get_cookie_manager()
     if manager is None:
+        st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
         return
 
     manager.set(
@@ -382,7 +387,7 @@ def _write_cookie(payload: dict, manager=None):
 
 
 def _read_cookie(manager=None) -> dict:
-    manager = manager or st.session_state.get("_eusee_cookie_manager")
+    manager = manager or get_cookie_manager()
     if manager is None:
         return {}
 
@@ -397,7 +402,7 @@ def _read_cookie(manager=None) -> dict:
 
 
 def _delete_cookie(manager=None):
-    manager = manager or st.session_state.get("_eusee_cookie_manager")
+    manager = manager or get_cookie_manager()
     if manager is not None:
         try:
             manager.delete(COOKIE_NAME)
@@ -521,7 +526,7 @@ def restore_session(manager=None):
             id_token=id_token,
             refresh_token=new_refresh_token,
         ),
-        manager,
+        manager=manager,
     )
 
     return True
@@ -531,7 +536,7 @@ def is_authenticated():
     init_session()
 
     if not st.session_state.get("restored"):
-        restore_session()
+        restore_session(get_cookie_manager())
 
     return bool(
         st.session_state.get("user")
@@ -543,7 +548,7 @@ def is_privileged():
     init_session()
 
     if not st.session_state.get("restored"):
-        restore_session()
+        restore_session(get_cookie_manager())
 
     return bool(
         st.session_state.get("user")
@@ -554,7 +559,7 @@ def is_privileged():
 
 def logout():
     save_user_chat_history()
-    _delete_cookie()
+    _delete_cookie(get_cookie_manager())
 
     for key in [
         "user",
@@ -800,7 +805,7 @@ def _login_form(manager=None):
                     id_token=user.get("idToken"),
                     refresh_token=user.get("refreshToken"),
                 ),
-                manager,
+                manager=manager,
             )
 
             st.session_state.auth_view = False
@@ -958,14 +963,11 @@ def _render_premium_auth_page(manager=None):
 
 def auth_ui():
     init_session()
-    manager = get_cookie_manager()
-
-    if not st.session_state.get("restored"):
-        restore_session(manager)
+    restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         ensure_user_chat_history_loaded()
         st.session_state.auth_view = False
         return
 
-    _render_premium_auth_page(manager)
+    _render_premium_auth_page()
