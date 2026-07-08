@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import base64
 import hashlib
 from datetime import datetime
-#from auth import auth_ui, is_privileged, is_authenticated, init_session, logout
+#from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 import math
 import paramiko
 import logging
@@ -723,6 +723,11 @@ def monitored_countries_display_value(value) -> str:
         return "0"
 
 
+# ---------------- AUTH STATE NOTES ----------------
+# Authentication is handled by the existing sidebar/auth components.
+# Restricted feature cards intentionally do not route users to a separate auth view.
+st.session_state.setdefault("auth_mode", "Login")
+st.session_state.setdefault("auth_reset_open", False)
 
 ## ---------------- BASE DIRECTORIES ----------------
 BASE_DIR = Path(__file__).resolve().parent
