@@ -6,7 +6,6 @@ import hashlib
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
-import time
 
 import requests
 import streamlit as st
@@ -28,15 +27,18 @@ except ImportError:
     HAS_FIREBASE_ADMIN = False
 
 try:
-    import extra_streamlit_components as stx
-    HAS_COOKIE_MANAGER = True
+    from streamlit_js_eval import streamlit_js_eval
+    HAS_BROWSER_STORAGE = True
 except ImportError:
-    stx = None
-    HAS_COOKIE_MANAGER = False
+    streamlit_js_eval = None
+    HAS_BROWSER_STORAGE = False
 
 
-COOKIE_NAME = "eusee_auth_session_v2"
-COOKIE_DAYS = 30
+# Browser persistence key. This replaces extra_streamlit_components.CookieManager.
+# The stored value is a Firebase refresh-token payload used only to restore the
+# Streamlit session after page refresh.
+AUTH_STORAGE_KEY = "eusee_auth_session_v3"
+AUTH_STORAGE_DAYS = 30
 DEBUG = False
 
 CHAT_HISTORY_KEY = "eusee_chat_history"
@@ -55,25 +57,108 @@ CHAT_HISTORY_DIR = Path(
 )
 
 
-def get_cookie_manager():
-    """Create one CookieManager component per Streamlit browser session.
-
-    Important:
-    extra_streamlit_components.CookieManager is a Streamlit component.
-    Creating it more than once in the same run with the same key causes
-    StreamlitDuplicateElementKey. Storing it in session_state avoids that.
-    """
-    if not HAS_COOKIE_MANAGER:
-        return None
-
-    if "_eusee_cookie_manager" not in st.session_state:
-        st.session_state["_eusee_cookie_manager"] = stx.CookieManager(
-            key="eusee_cookie_manager_main"
+def _storage_error_once():
+    if not st.session_state.get("_browser_storage_error_shown"):
+        st.session_state["_browser_storage_error_shown"] = True
+        st.error(
+            "❌ Persistent login requires `streamlit-js-eval`. "
+            "Add `streamlit-js-eval` to requirements.txt and redeploy."
         )
-        # Give the browser component a short moment to hydrate cookies on refresh.
-        time.sleep(0.25)
 
-    return st.session_state["_eusee_cookie_manager"]
+
+def _safe_js_string(value: str) -> str:
+    return json.dumps(str(value or ""))
+
+
+def _read_browser_auth() -> dict:
+    if not HAS_BROWSER_STORAGE:
+        _storage_error_once()
+        return {}
+
+    try:
+        raw = streamlit_js_eval(
+            js_expressions=(
+                "window.localStorage.getItem("
+                + _safe_js_string(AUTH_STORAGE_KEY)
+                + ")"
+            ),
+            key="eusee_auth_storage_read",
+        )
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Could not read browser auth storage: {e}")
+        return {}
+
+    if not raw:
+        return {}
+
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else {}
+    except Exception:
+        return {}
+
+    # Optional local expiry check. Firebase refresh itself remains the source of truth.
+    expires_at = payload.get("expires_at")
+    if expires_at:
+        try:
+            if datetime.fromisoformat(expires_at) < datetime.utcnow():
+                _delete_browser_auth()
+                return {}
+        except Exception:
+            pass
+
+    return payload if isinstance(payload, dict) else {}
+
+
+def _write_browser_auth(payload: dict):
+    if not HAS_BROWSER_STORAGE:
+        _storage_error_once()
+        return
+
+    safe_payload = dict(payload or {})
+    safe_payload["expires_at"] = (
+        datetime.utcnow() + timedelta(days=AUTH_STORAGE_DAYS)
+    ).isoformat(timespec="seconds")
+
+    raw = json.dumps(safe_payload)
+
+    try:
+        streamlit_js_eval(
+            js_expressions=(
+                "window.localStorage.setItem("
+                + _safe_js_string(AUTH_STORAGE_KEY)
+                + ", "
+                + _safe_js_string(raw)
+                + "); true;"
+            ),
+            key=f"eusee_auth_storage_write_{st.session_state.get('_auth_write_counter', 0)}",
+        )
+        st.session_state["_auth_write_counter"] = (
+            st.session_state.get("_auth_write_counter", 0) + 1
+        )
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Could not write browser auth storage: {e}")
+
+
+def _delete_browser_auth():
+    if not HAS_BROWSER_STORAGE:
+        return
+
+    try:
+        streamlit_js_eval(
+            js_expressions=(
+                "window.localStorage.removeItem("
+                + _safe_js_string(AUTH_STORAGE_KEY)
+                + "); true;"
+            ),
+            key=f"eusee_auth_storage_delete_{st.session_state.get('_auth_delete_counter', 0)}",
+        )
+        st.session_state["_auth_delete_counter"] = (
+            st.session_state.get("_auth_delete_counter", 0) + 1
+        )
+    except Exception:
+        pass
 
 
 def init_firebase_admin():
@@ -373,41 +458,21 @@ def _session_payload(email, name, verified, role, id_token, refresh_token):
     }
 
 
-def _write_cookie(payload: dict, manager=None):
-    manager = manager or get_cookie_manager()
-    if manager is None:
-        st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
-        return
+def _write_persistent_auth(payload: dict):
+    """Persist minimal Firebase session data in browser localStorage.
 
-    manager.set(
-        COOKIE_NAME,
-        json.dumps(payload),
-        expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
-    )
+    We intentionally avoid extra_streamlit_components.CookieManager because it
+    can create duplicate Streamlit component keys on refresh/rerun.
+    """
+    _write_browser_auth(payload)
 
 
-def _read_cookie(manager=None) -> dict:
-    manager = manager or get_cookie_manager()
-    if manager is None:
-        return {}
-
-    raw = manager.get(COOKIE_NAME)
-    if not raw:
-        return {}
-
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {}
+def _read_persistent_auth() -> dict:
+    return _read_browser_auth()
 
 
-def _delete_cookie(manager=None):
-    manager = manager or get_cookie_manager()
-    if manager is not None:
-        try:
-            manager.delete(COOKIE_NAME)
-        except Exception:
-            pass
+def _delete_persistent_auth():
+    _delete_browser_auth()
 
 
 def refresh_firebase_token(refresh_token: str):
@@ -471,14 +536,14 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     ensure_user_chat_history_loaded()
 
 
-def restore_session(manager=None):
+def restore_session():
     init_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
         return True
 
-    cookie_data = _read_cookie(manager)
+    cookie_data = _read_persistent_auth()
     if not cookie_data:
         st.session_state.restored = True
         return False
@@ -490,13 +555,13 @@ def restore_session(manager=None):
     refresh_token = cookie_data.get("refresh_token") or ""
 
     if not email or not verified or not refresh_token:
-        _delete_cookie(manager)
+        _delete_persistent_auth()
         st.session_state.restored = True
         return False
 
     refreshed = refresh_firebase_token(refresh_token)
     if not refreshed:
-        _delete_cookie(manager)
+        _delete_persistent_auth()
         st.session_state.restored = True
         return False
 
@@ -504,7 +569,7 @@ def restore_session(manager=None):
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
 
     if not _verify_firebase_email(id_token, email):
-        _delete_cookie(manager)
+        _delete_persistent_auth()
         st.session_state.restored = True
         return False
 
@@ -517,7 +582,7 @@ def restore_session(manager=None):
         refresh_token=new_refresh_token,
     )
 
-    _write_cookie(
+    _write_persistent_auth(
         _session_payload(
             email=email,
             name=st.session_state.name,
@@ -525,8 +590,7 @@ def restore_session(manager=None):
             role=role,
             id_token=id_token,
             refresh_token=new_refresh_token,
-        ),
-        manager=manager,
+        )
     )
 
     return True
@@ -536,7 +600,7 @@ def is_authenticated():
     init_session()
 
     if not st.session_state.get("restored"):
-        restore_session(get_cookie_manager())
+        restore_session()
 
     return bool(
         st.session_state.get("user")
@@ -548,7 +612,7 @@ def is_privileged():
     init_session()
 
     if not st.session_state.get("restored"):
-        restore_session(get_cookie_manager())
+        restore_session()
 
     return bool(
         st.session_state.get("user")
@@ -559,7 +623,7 @@ def is_privileged():
 
 def logout():
     save_user_chat_history()
-    _delete_cookie(get_cookie_manager())
+    _delete_persistent_auth()
 
     for key in [
         "user",
@@ -740,7 +804,7 @@ def _auth_page_css():
     )
 
 
-def _login_form(manager=None):
+def _login_form():
     with st.form("eusee_login_form"):
         email = st.text_input(
             "Email address",
@@ -796,7 +860,7 @@ def _login_form(manager=None):
                 refresh_token=user.get("refreshToken"),
             )
 
-            _write_cookie(
+            _write_persistent_auth(
                 _session_payload(
                     email=email,
                     name=name,
@@ -804,8 +868,7 @@ def _login_form(manager=None):
                     role=role,
                     id_token=user.get("idToken"),
                     refresh_token=user.get("refreshToken"),
-                ),
-                manager=manager,
+                )
             )
 
             st.session_state.auth_view = False
@@ -903,7 +966,7 @@ def _reset_form():
             st.error(parse_error(e))
 
 
-def _render_premium_auth_page(manager=None):
+def _render_premium_auth_page():
     _auth_page_css()
 
     mode = st.session_state.get("auth_mode", "Login")
@@ -929,7 +992,7 @@ def _render_premium_auth_page(manager=None):
                     '<div class="mode-card"><div class="mode-active">Sign in</div></div>',
                     unsafe_allow_html=True,
                 )
-                _login_form(manager)
+                _login_form()
 
             elif mode == "Register":
                 st.markdown(
