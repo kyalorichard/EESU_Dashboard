@@ -34,17 +34,9 @@ except ImportError:
     HAS_COOKIE_MANAGER = False
 
 
-COOKIE_NAME = "eusee_auth_session"
+COOKIE_NAME = "eusee_auth_session_v2"
 COOKIE_DAYS = 30
 DEBUG = False
-
-# -----------------------------------------------------------------------------
-# Per-user chatbot history persistence
-# -----------------------------------------------------------------------------
-# Streamlit session_state is lost on browser refresh/new session. These helpers
-# persist chatbot messages on the server, separated by authenticated user email.
-# Use append_user_chat_message() whenever the chatbot adds a message, or call
-# save_user_chat_history() after updating st.session_state[CHAT_HISTORY_KEY].
 
 CHAT_HISTORY_KEY = "eusee_chat_history"
 CHAT_HISTORY_ALIASES = [
@@ -62,22 +54,13 @@ CHAT_HISTORY_DIR = Path(
 )
 
 
-
-#@st.cache_resource(show_spinner=False)
-_COOKIE_MANAGER = None
-
 def get_cookie_manager():
-    global _COOKIE_MANAGER
-
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if _COOKIE_MANAGER is None:
-        _COOKIE_MANAGER = stx.CookieManager(
-            key="eusee_cookie_manager_main"
-        )
-
-    return _COOKIE_MANAGER
+    return stx.CookieManager(
+        key="eusee_cookie_manager_main"
+    )
 
 
 def init_firebase_admin():
@@ -189,7 +172,12 @@ def _normalise_chat_message(message: dict) -> dict | None:
         return None
 
     role = str(message.get("role") or message.get("sender") or "").strip().lower()
-    content = str(message.get("content") or message.get("message") or message.get("text") or "").strip()
+    content = str(
+        message.get("content")
+        or message.get("message")
+        or message.get("text")
+        or ""
+    ).strip()
 
     if role not in {"user", "assistant", "system"} or not content:
         return None
@@ -225,6 +213,7 @@ def _get_current_session_chat_history() -> list[dict]:
         value = st.session_state.get(key)
         if isinstance(value, list) and value:
             return _normalise_chat_history(value)
+
     return []
 
 
@@ -232,16 +221,14 @@ def _sync_chat_history_aliases(messages: list[dict]):
     cleaned = _normalise_chat_history(messages)
     st.session_state[CHAT_HISTORY_KEY] = cleaned
 
-    # Keep common existing chatbot keys synchronized so the rest of app.py can
-    # continue using its current variable name without breaking.
     for key in CHAT_HISTORY_ALIASES:
         if key in st.session_state:
             st.session_state[key] = cleaned
 
 
 def load_user_chat_history(email: str | None = None) -> list[dict]:
-    """Load saved chatbot history for the authenticated user into session_state."""
     path = _chat_history_path(email)
+
     if path is None:
         _sync_chat_history_aliases([])
         return []
@@ -264,8 +251,10 @@ def load_user_chat_history(email: str | None = None) -> list[dict]:
         return []
 
 
-def save_user_chat_history(messages: list[dict] | None = None, email: str | None = None) -> bool:
-    """Save chatbot history for the authenticated user."""
+def save_user_chat_history(
+    messages: list[dict] | None = None,
+    email: str | None = None,
+) -> bool:
     target_email = str(email or st.session_state.get("email") or "").strip().lower()
     if not target_email:
         return False
@@ -285,7 +274,12 @@ def save_user_chat_history(messages: list[dict] | None = None, email: str | None
             "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "messages": cleaned,
         }
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
         _sync_chat_history_aliases(cleaned)
         return True
 
@@ -296,7 +290,6 @@ def save_user_chat_history(messages: list[dict] | None = None, email: str | None
 
 
 def append_user_chat_message(role: str, content: str) -> list[dict]:
-    """Append one chatbot message and persist it immediately."""
     current = _get_current_session_chat_history()
     item = _normalise_chat_message({"role": role, "content": content})
 
@@ -310,7 +303,6 @@ def append_user_chat_message(role: str, content: str) -> list[dict]:
 
 
 def clear_user_chat_history(email: str | None = None):
-    """Clear the current user's saved chatbot history."""
     _sync_chat_history_aliases([])
 
     path = _chat_history_path(email)
@@ -322,7 +314,6 @@ def clear_user_chat_history(email: str | None = None):
 
 
 def ensure_user_chat_history_loaded():
-    """Call this once after authentication to restore the user's chatbot memory."""
     if not st.session_state.get("user") or not st.session_state.get("email_verified"):
         return []
 
@@ -432,7 +423,28 @@ def refresh_firebase_token(refresh_token: str):
         return None
 
 
+def _verify_firebase_email(id_token: str, expected_email: str) -> bool:
+    if not firebase_auth or not id_token or not expected_email:
+        return False
+
+    try:
+        info = firebase_auth.get_account_info(id_token)
+        firebase_email = (
+            info.get("users", [{}])[0]
+            .get("email", "")
+            .lower()
+            .strip()
+        )
+
+        return firebase_email == str(expected_email or "").lower().strip()
+
+    except Exception:
+        return False
+
+
 def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
+    email = str(email or "").lower().strip()
+
     st.session_state.user = bool(email and verified)
     st.session_state.email = email
     st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
@@ -442,6 +454,7 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
+
     ensure_user_chat_history_loaded()
 
 
@@ -476,6 +489,11 @@ def restore_session():
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
+
+    if not _verify_firebase_email(id_token, email):
+        _delete_cookie()
+        st.session_state.restored = True
+        return False
 
     _apply_authenticated_state(
         email=email,
@@ -523,6 +541,8 @@ def is_privileged():
         and st.session_state.get("email_verified")
         and st.session_state.get("role") in ["privileged", "admin"]
     )
+
+
 def logout():
     save_user_chat_history()
     _delete_cookie()
@@ -744,7 +764,10 @@ def _login_form():
             verified = bool(info["users"][0].get("emailVerified", False))
 
             if not verified:
-                st.warning("Your account exists, but the email is not verified. Please verify your email first.")
+                st.warning(
+                    "Your account exists, but the email is not verified. "
+                    "Please verify your email first."
+                )
                 return
 
             role = "privileged"
@@ -822,7 +845,9 @@ def _register_form():
         try:
             user = firebase_auth.create_user_with_email_and_password(email, password)
             firebase_auth.send_email_verification(user["idToken"])
-            st.success("Registration successful. Check your email to verify your account, then sign in.")
+            st.success(
+                "Registration successful. Check your email to verify your account, then sign in."
+            )
             st.session_state.auth_mode = "Login"
 
         except Exception as e:
