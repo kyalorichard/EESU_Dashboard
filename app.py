@@ -794,7 +794,10 @@ if is_authenticated():
 
 if st.session_state.get("auth_view", False) and not is_authenticated():
     auth_ui()
-    st.rerun()
+
+    if st.button("← Back to dashboard", use_container_width=True, key="back_to_dashboard_from_sidebar_auth"):
+        st.session_state.auth_view = False
+        st.rerun()
 
 
 # ---------------- LOAD DATA ----------------
