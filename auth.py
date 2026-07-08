@@ -864,7 +864,7 @@ def _login_form():
 
             st.session_state.auth_view = False
             st.success("Signed in successfully.")
-            st.rerun()
+            st.stop()
 
         except Exception as e:
             st.error(parse_error(e))
