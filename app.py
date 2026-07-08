@@ -24,6 +24,7 @@ import uuid
 import warnings
 from streamlit.elements.lib.policies import CachedWidgetWarning
 import streamlit.components.v1 as components
+from io import BytesIO
 
 warnings.filterwarnings(
     "ignore",
@@ -675,18 +676,31 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
             key=key,
         )
 
-        csv = table_df.to_csv(index=False).encode("utf-8")
+     
+
+        # Create Excel file in memory
+        excel_buffer = BytesIO()
+
+        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+            table_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Filtered Data"
+            )
+
+        excel_buffer.seek(0)
+
         if has_permission("download_data"):
             st.download_button(
-                "⬇️ Download filtered table as CSV",
-                data=csv,
-                file_name=f"{key}.csv",
-                mime="text/csv",
+                label="⬇️ Download filtered table as Excel",
+                data=excel_buffer,
+                file_name=f"{key}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
-                key=f"{key}_download",
+                key=f"{key}_download_excel",
             )
         else:
-            st.caption("CSV download is disabled for your access level.")
+            st.caption("Excel download is disabled for your access level.")
 
         st.markdown("""
         <div class="data-preview-footnote">

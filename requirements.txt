@@ -44,3 +44,5 @@ extra-streamlit-components
 streamlit-javascript
 
 streamlit-js-eval
+
+openpyxl
