@@ -30,13 +30,13 @@ warnings.filterwarnings(
     category=CachedWidgetWarning
 )
 
-from auth import auth_ui, is_privileged, is_authenticated, init_session, logout
+from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 init_session()
-#restore_session()
+restore_session()
 
 # ------------------------------------------------------------------
 # HIDE GITHUB / SOURCE CODE ACCESS
