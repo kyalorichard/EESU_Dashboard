@@ -37,7 +37,7 @@ except ImportError:
 COOKIE_NAME = "eusee_auth_session"
 COOKIE_DAYS = 30
 DEBUG = False
-COOKIE_RESTORE_MAX_ATTEMPTS = 2
+COOKIE_RESTORE_MAX_ATTEMPTS = 8
 
 
 # -----------------------------------------------------------------------------
@@ -574,9 +574,8 @@ def restore_session():
 
     refreshed = refresh_firebase_token(refresh_token)
     if not refreshed:
-        _delete_cookie()
-        st.session_state.restored = True
-        return False
+        st.session_state.restored = False
+        st.stop()
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
