@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 
 import pandas as pd
@@ -26,6 +27,21 @@ from authz import (
 )
 
 
+ANALYTICAL_FLOW_PARENT = "view_analytical_flow_panel"
+
+ANALYTICAL_FLOW_CHILDREN = [
+    "view_chart_heatmap_actor_mechanism",
+    "view_chart_heatmap_subject_mechanism",
+    "view_chart_heatmap_actor_subject",
+    "view_chart_sankey_flow",
+    "view_chart_negative_flow_diagram",
+    "view_chart_negative_key_links",
+    "view_chart_negative_follow_pathway",
+    "view_chart_negative_top_n_selector",
+    "view_chart_negative_detail_level",
+]
+
+
 def _clear_app_cache():
     try:
         st.cache_data.clear()
@@ -40,10 +56,25 @@ def _clear_app_cache():
 
 def _clean_domain(domain: str) -> str:
     domain = str(domain or "").strip().lower()
-    domain = domain.replace("@", "")
     domain = domain.replace("https://", "").replace("http://", "")
+    domain = domain.replace("www.", "")
+    domain = domain.replace("@", "")
     domain = domain.split("/")[0].strip()
     return domain
+
+
+def _is_valid_domain(domain: str) -> bool:
+    if not domain:
+        return False
+
+    if " " in domain:
+        return False
+
+    if domain.startswith(".") or domain.endswith("."):
+        return False
+
+    pattern = r"^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$"
+    return bool(re.match(pattern, domain))
 
 
 def _get_config_privileged_domains(config: dict) -> list[str]:
@@ -142,6 +173,16 @@ def inject_admin_css():
             margin: 12px 0 14px 0;
         }
 
+        .admin-warning {
+            background: #fff8e6;
+            border: 1px solid #fedf89;
+            border-radius: 13px;
+            padding: 11px 13px;
+            color: #93370d;
+            font-size: 12px;
+            margin: 12px 0 14px 0;
+        }
+
         .admin-footer {
             text-align: center;
             font-size: 11px;
@@ -234,7 +275,7 @@ def _render_header():
             <div class="admin-eyebrow">Admin workspace</div>
             <div class="admin-title">EU SEE Dashboard Administration</div>
             <div class="admin-subtitle">
-                Manage access roles, feature visibility, data scope, users and dashboard governance from one professional control center.
+                Manage role permissions, data scope, privileged domains and dashboard governance from one control center.
                 <br>
                 Saved config: <code>{get_access_config_path()}</code>
             </div>
@@ -291,11 +332,24 @@ def _build_permission_matrix(config: dict) -> pd.DataFrame:
         }
 
         for role in ROLES:
-            row[role.capitalize()] = "✅" if config.get(role, {}).get("features", {}).get(key, False) else "—"
+            row[role.capitalize()] = (
+                "✅" if config.get(role, {}).get("features", {}).get(key, False) else "—"
+            )
 
         rows.append(row)
 
     return pd.DataFrame(rows)
+
+
+def _enforce_analytical_flow_dependency(features: dict) -> dict:
+    parent_enabled = bool(features.get(ANALYTICAL_FLOW_PARENT, False))
+
+    if not parent_enabled:
+        for child_key in ANALYTICAL_FLOW_CHILDREN:
+            if child_key in FEATURE_KEYS:
+                features[child_key] = False
+
+    return features
 
 
 def _render_overview_tab(config: dict):
@@ -334,7 +388,7 @@ def _render_overview_tab(config: dict):
     st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
 
     st.markdown("### Permission matrix")
-    st.caption("This matrix gives a quick professional overview of Guest, Viewer and Privileged access.")
+    st.caption("This matrix gives a quick overview of Guest, Viewer and Privileged access.")
 
     matrix_df = _build_permission_matrix(config)
     st.dataframe(matrix_df, use_container_width=True, hide_index=True)
@@ -352,11 +406,13 @@ def _render_roles_tab(config: dict):
 
     config = normalize_access_config(config)
     features = config[role]["features"]
+    features = _enforce_analytical_flow_dependency(features)
 
     st.markdown(
         """
         <div class="admin-info">
-            Permissions are grouped from a single central registry. This avoids duplicate definitions across the admin page and access-control backend.
+            Roles are now the single editable source of truth for dashboard visibility and functionality.
+            Dashboard visibility is no longer edited separately to avoid conflicting controls.
         </div>
         """,
         unsafe_allow_html=True,
@@ -368,6 +424,8 @@ def _render_roles_tab(config: dict):
         if st.button("Enable default preset", use_container_width=True):
             default_config = default_access_config()
             config[role]["features"] = default_config[role]["features"]
+            config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+
             if save_access_config(config):
                 _clear_app_cache()
                 st.success(f"{role.capitalize()} preset restored.")
@@ -377,8 +435,12 @@ def _render_roles_tab(config: dict):
         if role != "guest":
             if st.button("Enable all permissions", use_container_width=True):
                 config[role]["features"] = {key: True for key in FEATURE_KEYS}
+
                 for locked_key in LOCKED_FALSE.get(role, set()):
                     config[role]["features"][locked_key] = False
+
+                config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+
                 if save_access_config(config):
                     _clear_app_cache()
                     st.success(f"All allowed permissions enabled for {role}.")
@@ -389,8 +451,10 @@ def _render_roles_tab(config: dict):
     with col_c:
         if st.button("Disable all optional permissions", use_container_width=True):
             config[role]["features"] = {key: False for key in FEATURE_KEYS}
+
             for locked_key in LOCKED_FALSE.get(role, set()):
                 config[role]["features"][locked_key] = False
+
             if save_access_config(config):
                 _clear_app_cache()
                 st.success(f"Permissions disabled for {role}.")
@@ -401,29 +465,89 @@ def _render_roles_tab(config: dict):
     for group_name, keys in groups.items():
         enabled_in_group = sum(1 for key in keys if features.get(key, False))
 
-        with st.expander(f"{group_name} ({enabled_in_group}/{len(keys)} enabled)", expanded=group_name == "Core access"):
-            group_cols = st.columns(2)
+        with st.expander(
+            f"{group_name} ({enabled_in_group}/{len(keys)} enabled)",
+            expanded=group_name in ["Core access", "Analytical Flow Panels"],
+        ):
+            if group_name == "Analytical Flow Panels":
+                parent_disabled = ANALYTICAL_FLOW_PARENT in LOCKED_FALSE.get(role, set())
 
-            for index, feature_key in enumerate(keys):
-                with group_cols[index % 2]:
-                    disabled = feature_key in LOCKED_FALSE.get(role, set())
+                parent_enabled = st.checkbox(
+                    _feature_label(ANALYTICAL_FLOW_PARENT),
+                    value=bool(features.get(ANALYTICAL_FLOW_PARENT, False)),
+                    key=f"feature_{role}_{ANALYTICAL_FLOW_PARENT}",
+                    disabled=parent_disabled,
+                    help="This is the master switch. If unchecked, no analytical chart or flow panel can be selected.",
+                )
 
-                    features[feature_key] = st.checkbox(
-                        _feature_label(feature_key),
-                        value=bool(features.get(feature_key, False)),
-                        key=f"feature_{role}_{feature_key}",
-                        disabled=disabled,
-                    )
+                if parent_disabled:
+                    parent_enabled = False
 
-                    if disabled:
-                        features[feature_key] = False
+                features[ANALYTICAL_FLOW_PARENT] = parent_enabled
 
+                st.markdown(
+                    """
+                    <div class="admin-warning">
+                        Analytical charts are controlled by the parent permission above.
+                        If Analytical Flow Panels is unchecked, all heatmaps, Sankey, flow diagram and related controls are disabled.
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                child_keys = [k for k in keys if k != ANALYTICAL_FLOW_PARENT]
+                child_keys = [k for k in child_keys if k not in ANALYTICAL_FLOW_CHILDREN] + [
+                    k for k in ANALYTICAL_FLOW_CHILDREN if k in FEATURE_KEYS
+                ]
+
+                group_cols = st.columns(2)
+
+                for index, feature_key in enumerate(child_keys):
+                    with group_cols[index % 2]:
+                        disabled = (
+                            not parent_enabled
+                            or feature_key in LOCKED_FALSE.get(role, set())
+                        )
+
+                        features[feature_key] = st.checkbox(
+                            _feature_label(feature_key),
+                            value=bool(features.get(feature_key, False)) if parent_enabled else False,
+                            key=f"feature_{role}_{feature_key}",
+                            disabled=disabled,
+                        )
+
+                        if disabled:
+                            features[feature_key] = False
+
+            else:
+                group_cols = st.columns(2)
+
+                for index, feature_key in enumerate(keys):
+                    if feature_key in ANALYTICAL_FLOW_CHILDREN or feature_key == ANALYTICAL_FLOW_PARENT:
+                        continue
+
+                    with group_cols[index % 2]:
+                        disabled = feature_key in LOCKED_FALSE.get(role, set())
+
+                        features[feature_key] = st.checkbox(
+                            _feature_label(feature_key),
+                            value=bool(features.get(feature_key, False)),
+                            key=f"feature_{role}_{feature_key}",
+                            disabled=disabled,
+                        )
+
+                        if disabled:
+                            features[feature_key] = False
+
+    features = _enforce_analytical_flow_dependency(features)
     config[role]["features"] = features
 
     save_col, reset_col, download_col = st.columns(3)
 
     with save_col:
         if st.button("💾 Save role permissions", type="primary", use_container_width=True):
+            config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+
             if save_access_config(config):
                 _clear_app_cache()
                 st.success("Role permissions saved.")
@@ -446,19 +570,23 @@ def _render_roles_tab(config: dict):
         )
 
 
-def _render_dashboard_tab(config: dict):
-    st.markdown("### Dashboard visibility manager")
-    st.caption("Quickly control major dashboard areas without scrolling through every chart permission.")
-    st.info("Visualization Map is locked to Admin users only and is intentionally not configurable for Guest, Viewer, or Privileged roles.")
+def _render_dashboard_visibility_tab(config: dict):
+    st.markdown("### Dashboard visibility overview")
+    st.caption("Read-only view. Edit permissions from the Roles tab only.")
+
+    st.info(
+        "Dashboard visibility is now controlled only from Roles to avoid conflicting functionality."
+    )
 
     role = st.selectbox(
-        "Configure dashboard visibility for role",
+        "View dashboard visibility for role",
         ROLES,
         format_func=lambda x: x.capitalize(),
-        key="dashboard_visibility_role",
+        key="dashboard_visibility_readonly_role",
     )
 
     features = config[role]["features"]
+    features = _enforce_analytical_flow_dependency(features)
 
     section_map = {
         "Overview": [
@@ -485,6 +613,11 @@ def _render_dashboard_tab(config: dict):
             "view_chart_heatmap_subject_mechanism",
             "view_chart_heatmap_actor_subject",
             "view_chart_sankey_flow",
+            "view_chart_negative_flow_diagram",
+            "view_chart_negative_key_links",
+            "view_chart_negative_follow_pathway",
+            "view_chart_negative_top_n_selector",
+            "view_chart_negative_detail_level",
         ],
         "Data and exports": [
             "view_data_table",
@@ -499,38 +632,21 @@ def _render_dashboard_tab(config: dict):
         ],
     }
 
-    cols = st.columns(2)
+    rows = []
 
-    for idx, (section, keys) in enumerate(section_map.items()):
-        with cols[idx % 2]:
-            with st.container(border=True):
-                enabled_count = sum(1 for key in keys if features.get(key, False))
-                st.markdown(f"#### {section}")
-                st.caption(f"{enabled_count}/{len(keys)} permissions enabled")
-
-                enable_all = st.checkbox(
-                    f"Enable {section}",
-                    value=enabled_count == len(keys),
-                    key=f"section_toggle_{role}_{section}",
+    for section, keys in section_map.items():
+        for key in keys:
+            if key in FEATURE_KEYS:
+                rows.append(
+                    {
+                        "Section": section,
+                        "Permission": _feature_label(key),
+                        "Key": key,
+                        "Enabled": "✅ Yes" if features.get(key, False) else "— No",
+                    }
                 )
 
-                for key in keys:
-                    if key in LOCKED_FALSE.get(role, set()):
-                        features[key] = False
-                    else:
-                        features[key] = bool(enable_all)
-
-                with st.expander("Included permissions", expanded=False):
-                    for key in keys:
-                        st.write(("✅ " if features.get(key, False) else "— ") + _feature_label(key))
-
-    config[role]["features"] = features
-
-    if st.button("💾 Save dashboard visibility", type="primary", use_container_width=True):
-        if save_access_config(config):
-            _clear_app_cache()
-            st.success("Dashboard visibility saved.")
-            st.rerun()
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
 def _render_scope_tab(config: dict, data=None):
@@ -556,7 +672,9 @@ def _render_scope_tab(config: dict, data=None):
             countries = sorted(data["alert-country"].dropna().astype(str).unique())
 
         if "year" in data.columns:
-            years = sorted([int(y) for y in pd.to_numeric(data["year"], errors="coerce").dropna().unique()])
+            years = sorted(
+                [int(y) for y in pd.to_numeric(data["year"], errors="coerce").dropna().unique()]
+            )
 
     c1, c2, c3 = st.columns(3)
 
@@ -596,8 +714,9 @@ def _render_scope_tab(config: dict, data=None):
 
 def _render_users_tab(config: dict):
     st.markdown("### Access identities")
-    st.caption("Admins are configured by email. Privileged users can be added, edited, or removed by email domain.")
+    st.caption("Admins are configured by email. Privileged users can be added, edited or removed by email domain.")
 
+    config = normalize_access_config(config)
     privileged_domains = _get_config_privileged_domains(config)
 
     rows = []
@@ -643,14 +762,14 @@ def _render_users_tab(config: dict):
         if st.button("➕ Add privileged domain", type="primary", use_container_width=True):
             cleaned = _clean_domain(new_domain)
 
-            if not cleaned or "." not in cleaned:
+            if not _is_valid_domain(cleaned):
                 st.error("Enter a valid domain, for example: icarda.org")
             elif cleaned in privileged_domains:
                 st.warning(f"{cleaned} is already assigned as privileged.")
             else:
-                privileged_domains.append(cleaned)
+                updated_domains = sorted(set(privileged_domains + [cleaned]))
 
-                if _save_config_privileged_domains(config, privileged_domains):
+                if _save_config_privileged_domains(config, updated_domains):
                     _clear_app_cache()
                     st.success(f"{cleaned} added as a privileged domain.")
                     st.rerun()
@@ -666,18 +785,23 @@ def _render_users_tab(config: dict):
                     "Domain",
                     value=domain,
                     label_visibility="collapsed",
-                    key=f"edit_privileged_domain_{idx}",
+                    key=f"edit_privileged_domain_{domain}_{idx}",
                 )
 
             with c2:
-                if st.button("Save", key=f"save_privileged_domain_{idx}", use_container_width=True):
+                if st.button("Save", key=f"save_privileged_domain_{domain}_{idx}", use_container_width=True):
                     cleaned = _clean_domain(edited_domain)
 
-                    if not cleaned or "." not in cleaned:
+                    if not _is_valid_domain(cleaned):
                         st.error("Enter a valid domain.")
+                    elif cleaned != domain and cleaned in privileged_domains:
+                        st.warning(f"{cleaned} already exists. Use a unique domain.")
                     else:
-                        updated_domains = privileged_domains.copy()
-                        updated_domains[idx] = cleaned
+                        updated_domains = [
+                            cleaned if existing_domain == domain else existing_domain
+                            for existing_domain in privileged_domains
+                        ]
+
                         updated_domains = sorted(set(updated_domains))
 
                         if _save_config_privileged_domains(config, updated_domains):
@@ -686,8 +810,12 @@ def _render_users_tab(config: dict):
                             st.rerun()
 
             with c3:
-                if st.button("Remove", key=f"remove_privileged_domain_{idx}", use_container_width=True):
-                    updated_domains = [d for d in privileged_domains if d != domain]
+                if st.button("Remove", key=f"remove_privileged_domain_{domain}_{idx}", use_container_width=True):
+                    updated_domains = [
+                        existing_domain
+                        for existing_domain in privileged_domains
+                        if existing_domain != domain
+                    ]
 
                     if _save_config_privileged_domains(config, updated_domains):
                         _clear_app_cache()
@@ -777,6 +905,9 @@ def render_admin_page(data=None):
 
     config = normalize_access_config(load_access_config())
 
+    for role in ROLES:
+        config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+
     _render_header()
 
     tab_overview, tab_roles, tab_dashboard, tab_scope, tab_users, tab_system = st.tabs(
@@ -797,7 +928,7 @@ def render_admin_page(data=None):
         _render_roles_tab(config)
 
     with tab_dashboard:
-        _render_dashboard_tab(config)
+        _render_dashboard_visibility_tab(config)
 
     with tab_scope:
         _render_scope_tab(config, data=data)
