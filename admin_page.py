@@ -412,7 +412,7 @@ def _render_roles_tab(config: dict):
         """
         <div class="admin-info">
             Roles are the single editable source of truth for dashboard visibility and functionality.
-            Analytical charts can only be selected after Analytical Flow Panels is enabled.
+            Analytical Flow Panels is available for all roles. Analytical charts can only be selected after Analytical Flow Panels is enabled.
         </div>
         """,
         unsafe_allow_html=True,
@@ -463,74 +463,82 @@ def _render_roles_tab(config: dict):
                 st.success(f"Permissions disabled for {role}.")
                 st.rerun()
 
+    analytical_keys = [
+        ANALYTICAL_FLOW_PARENT,
+        *[key for key in ANALYTICAL_FLOW_CHILDREN if key in FEATURE_KEYS],
+    ]
+
+    with st.expander("Analytical Flow Panels", expanded=True):
+        parent_enabled = st.checkbox(
+            _feature_label(ANALYTICAL_FLOW_PARENT),
+            value=bool(features.get(ANALYTICAL_FLOW_PARENT, False)),
+            key=f"feature_{role}_{ANALYTICAL_FLOW_PARENT}",
+            disabled=False,
+            help="Enable this first before selecting any analytical chart.",
+        )
+
+        features[ANALYTICAL_FLOW_PARENT] = parent_enabled
+
+        st.markdown(
+            """
+            <div class="admin-warning">
+                Analytical charts are selectable only after Analytical Flow Panels is enabled.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        chart_cols = st.columns(2)
+
+        for index, feature_key in enumerate(ANALYTICAL_FLOW_CHILDREN):
+            if feature_key not in FEATURE_KEYS:
+                continue
+
+            with chart_cols[index % 2]:
+                features[feature_key] = st.checkbox(
+                    _feature_label(feature_key),
+                    value=bool(features.get(feature_key, False)) if parent_enabled else False,
+                    key=f"feature_{role}_{feature_key}",
+                    disabled=not parent_enabled,
+                    help="Enable Analytical Flow Panels first." if not parent_enabled else None,
+                )
+
+                if not parent_enabled:
+                    features[feature_key] = False
+
     groups = _feature_groups()
 
     for group_name, keys in groups.items():
-        enabled_in_group = sum(1 for key in keys if features.get(key, False))
+        normal_keys = [
+            key
+            for key in keys
+            if key not in analytical_keys
+        ]
+
+        if not normal_keys:
+            continue
+
+        enabled_in_group = sum(1 for key in normal_keys if features.get(key, False))
 
         with st.expander(
-            f"{group_name} ({enabled_in_group}/{len(keys)} enabled)",
-            expanded=group_name in ["Core access", "Analytical Flow Panels"],
+            f"{group_name} ({enabled_in_group}/{len(normal_keys)} enabled)",
+            expanded=group_name == "Core access",
         ):
-            if group_name == "Analytical Flow Panels":
-                parent_enabled = st.checkbox(
-                    _feature_label(ANALYTICAL_FLOW_PARENT),
-                    value=bool(features.get(ANALYTICAL_FLOW_PARENT, False)),
-                    key=f"feature_{role}_{ANALYTICAL_FLOW_PARENT}",
-                    disabled=False,
-                    help="Enable this first before selecting any analytical chart.",
-                )
+            group_cols = st.columns(2)
 
-                features[ANALYTICAL_FLOW_PARENT] = parent_enabled
+            for index, feature_key in enumerate(normal_keys):
+                with group_cols[index % 2]:
+                    disabled = feature_key in LOCKED_FALSE.get(role, set())
 
-                st.markdown(
-                    """
-                    <div class="admin-warning">
-                        Enable Analytical Flow Panels first. Once enabled, you can select individual analytical charts.
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                    features[feature_key] = st.checkbox(
+                        _feature_label(feature_key),
+                        value=bool(features.get(feature_key, False)),
+                        key=f"feature_{role}_{feature_key}",
+                        disabled=disabled,
+                    )
 
-                child_keys = [k for k in keys if k != ANALYTICAL_FLOW_PARENT]
-                child_keys = [k for k in child_keys if k not in ANALYTICAL_FLOW_CHILDREN] + [
-                    k for k in ANALYTICAL_FLOW_CHILDREN if k in FEATURE_KEYS
-                ]
-
-                group_cols = st.columns(2)
-
-                for index, feature_key in enumerate(child_keys):
-                    with group_cols[index % 2]:
-                        features[feature_key] = st.checkbox(
-                            _feature_label(feature_key),
-                            value=bool(features.get(feature_key, False)) if parent_enabled else False,
-                            key=f"feature_{role}_{feature_key}",
-                            disabled=not parent_enabled,
-                            help="Enable Analytical Flow Panels first." if not parent_enabled else None,
-                        )
-
-                        if not parent_enabled:
-                            features[feature_key] = False
-
-            else:
-                group_cols = st.columns(2)
-
-                for index, feature_key in enumerate(keys):
-                    if feature_key in ANALYTICAL_FLOW_CHILDREN or feature_key == ANALYTICAL_FLOW_PARENT:
-                        continue
-
-                    with group_cols[index % 2]:
-                        disabled = feature_key in LOCKED_FALSE.get(role, set())
-
-                        features[feature_key] = st.checkbox(
-                            _feature_label(feature_key),
-                            value=bool(features.get(feature_key, False)),
-                            key=f"feature_{role}_{feature_key}",
-                            disabled=disabled,
-                        )
-
-                        if disabled:
-                            features[feature_key] = False
+                    if disabled:
+                        features[feature_key] = False
 
     features = _enforce_analytical_flow_dependency(features)
     config[role]["features"] = features
