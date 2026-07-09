@@ -166,9 +166,28 @@ PRIVILEGED_DOMAINS = set(
     if str(d).strip()
 )
 
+def _secret_list(section: str, key: str) -> list:
+    """Safely read a list-like value from Streamlit secrets."""
+    value = st.secrets.get(section, {}).get(key, [])
+
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        return [value]
+
+    try:
+        return list(value)
+    except Exception:
+        return []
+
+
 ADMIN_EMAILS = set(
     str(e).lower().strip()
-    for e in st.secrets.get("access", {}).get("admin_emails", [])
+    for e in (
+        _secret_list("auth", "admin_emails")
+        + _secret_list("access", "admin_emails")
+    )
     if str(e).strip()
 )
 
@@ -177,11 +196,41 @@ def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
 
 
-def _role_for_email(email: str) -> str:
+def _email_allowed_to_authenticate(email: str) -> bool:
+    """Allow configured admin emails and, when domain rules exist, approved domains.
+
+    If PRIVILEGED_DOMAINS is empty, Firebase-authenticated users are allowed and
+    their role falls back to viewer unless they are an admin.
+    """
     clean_email = str(email or "").strip().lower()
+    if not clean_email:
+        return False
+
+    if clean_email in ADMIN_EMAILS:
+        return True
+
+    if not PRIVILEGED_DOMAINS:
+        return True
+
+    return get_domain(clean_email) in PRIVILEGED_DOMAINS
+
+
+def _role_for_email(email: str) -> str:
+    """Resolve role from the verified Firebase email only.
+
+    Never derive role from browser cookies or previously stored Streamlit state.
+    Admin is email-based. Privileged is domain-based. Everyone else is viewer.
+    """
+    clean_email = str(email or "").strip().lower()
+    domain = get_domain(clean_email)
+
     if clean_email in ADMIN_EMAILS:
         return "admin"
-    return "privileged"
+
+    if domain in PRIVILEGED_DOMAINS:
+        return "privileged"
+
+    return "viewer"
 
 
 def _safe_user_key(email: str) -> str:
@@ -553,7 +602,7 @@ def restore_session():
         st.session_state.restored = True
         return False
 
-    if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+    if not _email_allowed_to_authenticate(email):
         _delete_cookie()
         _clear_auth_state_only()
         st.session_state.restored = True
@@ -818,7 +867,7 @@ def _login_form():
             st.error("Enter email and password.")
             return
 
-        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+        if not _email_allowed_to_authenticate(email):
             st.error("Access is restricted to approved EUSEE partner accounts.")
             return
 
@@ -900,7 +949,7 @@ def _register_form():
             st.error("Enter email and password.")
             return
 
-        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+        if not _email_allowed_to_authenticate(email):
             st.error("Registration is restricted to approved EUSEE partner accounts.")
             return
 
@@ -935,7 +984,7 @@ def _reset_form():
             st.warning("Enter your email first.")
             return
 
-        if PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
+        if not _email_allowed_to_authenticate(reset_email):
             st.error("Password reset is restricted to approved EUSEE partner accounts.")
             return
 
