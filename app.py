@@ -175,7 +175,6 @@ except Exception:
             "view_monitored_countries_value",
             "view_maps",
             "view_negative_alerts",
-            "view_analytical_flow_panel",
             "view_data_table",
             "download_data",
             "use_ai_copilot",
@@ -2321,8 +2320,6 @@ def render_top_feedback_bar():
 
 render_top_feedback_bar()  # Single-button floating dashboard feedback overlay.
 
-
-
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
 reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
@@ -2794,8 +2791,6 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
         """, unsafe_allow_html=True)
 
-
-
 def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
     """Return the most frequent comma-separated item for a negative-alert intelligence card."""
     if df is None or df.empty or col not in df.columns:
@@ -2817,11 +2812,9 @@ def _top_split_item_for_negative_card(df, col, protected_label="Journalists, med
     counts = exploded.value_counts()
     return str(counts.index[0]), int(counts.iloc[0])
 
-
 def _compact_text_for_card(value, max_len=42):
     value = str(value or "Not available").strip()
     return value if len(value) <= max_len else value[: max_len - 1].rstrip() + "…"
-
 
 def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None, card_key="negative_intelligence"):
     """Render a Negative Alerts-specific KPI/intelligence row.
@@ -2972,7 +2965,6 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         </div>
         """, unsafe_allow_html=True)
 
-
 def normalize_label(label: str) -> str:
     """
     Capitalize first character only, lowercase remaining characters.
@@ -3081,7 +3073,6 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
     )
     return fig
-
 
 def render_chart_shell():
     """Global chart container polish: subtle cards, spacing and consistent dashboard feel."""
@@ -3454,7 +3445,6 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
 
     return fig
 
-
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
     """
@@ -3487,7 +3477,6 @@ def _safe_chart_label(label, words_per_line=3, max_chars=42):
     if len(text) > max_chars:
         text = text[: max_chars - 1].rstrip() + "…"
     return wrap_label_by_words(text, words_per_line=words_per_line)
-
 
 def render_analytics_module_header(title, subtitle, badges=None):
     """Consistent executive-style header for complex analytical modules."""
@@ -3554,7 +3543,6 @@ def render_analytics_module_header(title, subtitle, badges=None):
         <div>{badge_html}</div>
     </div>
     """, unsafe_allow_html=True)
-
 
 def create_heatmap(pivot_df, title="Heatmap", x_label="", y_label=""):
     """Professional Plotly heatmap for relationship matrices."""
@@ -3644,7 +3632,6 @@ def create_heatmap(pivot_df, title="Heatmap", x_label="", y_label=""):
         title_font=dict(size=10.5, family=CHART_FONT, color="#64748B"),
     )
     return fig
-
 
 # ---------------- HELPER: Get Top-N Items ----------------
 def get_top_n_items(df, col, top_n):
@@ -3912,7 +3899,26 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
 
 # ---------------- HIGH-END ANALYTICAL FLOW PANEL ----------------
 def render_analytical_flow_panel(df):
-    """Unified panel combining relationship heatmaps and Sankey flow."""
+    """Unified panel combining relationship heatmaps and Sankey flow.
+
+    Permission grouping:
+    - view_chart_sankey_flow controls the Sankey/flow diagram and its pathway guidance.
+    - Heatmap permissions control the heatmaps, Top-N selector, and detail-control guidance.
+    - The old view_analytical_flow_panel permission is intentionally no longer used here.
+    """
+    can_view_sankey = bool(has_permission("view_chart_sankey_flow"))
+    can_view_actor_mechanism_heatmap = bool(has_permission("view_chart_heatmap_actor_mechanism"))
+    can_view_subject_mechanism_heatmap = bool(has_permission("view_chart_heatmap_subject_mechanism"))
+    can_view_actor_subject_heatmap = bool(has_permission("view_chart_heatmap_actor_subject"))
+    can_view_any_heatmap = (
+        can_view_actor_mechanism_heatmap
+        or can_view_subject_mechanism_heatmap
+        or can_view_actor_subject_heatmap
+    )
+
+    if not can_view_sankey and not can_view_any_heatmap:
+        return
+
     if "top_n_option" not in st.session_state:
         st.session_state.top_n_option = "Top 5"
 
@@ -3994,53 +4000,73 @@ def render_analytical_flow_panel(df):
 
     g1, g2, g3 = st.columns(3, gap="medium")
     with g1:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">1. Identify key links</div><div class="flow-guide-text">Use the heatmaps to see which restrictive actors, mechanisms, and affected civil society groups appear most frequently together. Darker cells indicate stronger links.</div></div>', unsafe_allow_html=True)
+        if can_view_sankey:
+            st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">1. Identify key links</div><div class="flow-guide-text">Use the Sankey flow to identify the strongest actor, mechanism, and affected civil society group links.</div></div>', unsafe_allow_html=True)
     with g2:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">2. Follow the pathway</div><div class="flow-guide-text">Use the flow diagram to see how restrictive actors are connected to specific mechanisms, and how these mechanisms affect different civil society groups.</div></div>', unsafe_allow_html=True)
+        if can_view_sankey:
+            st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">2. Follow the pathway</div><div class="flow-guide-text">Use the flow diagram to follow the pathway from restrictive actor to restrictive mechanism to affected civil society group.</div></div>', unsafe_allow_html=True)
     with g3:
-        st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">3. Adjust the level of detail</div><div class="flow-guide-text">Use the Top-N selector to choose how many restrictive actors, mechanisms, and affected civil society groups are shown. Lower values simplify the view; higher values provide a more detailed analysis.</div></div>', unsafe_allow_html=True)
+        if can_view_any_heatmap:
+            st.markdown('<div class="flow-guide-card"><div class="flow-guide-title">3. Adjust the level of detail</div><div class="flow-guide-text">Use the Top-N selector to control how many restrictive actors, mechanisms, and affected civil society groups appear in the heatmaps.</div></div>', unsafe_allow_html=True)
 
-    ctrl_left, ctrl_right = st.columns([1.15, 2.85], gap="large")
-    with ctrl_left:
-        selected = st.selectbox(
-            "Top-N selector",
-            options=list(top_n_map.keys()),
-            index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
-            help="Select how many top restrictive actors, mechanisms, and affected civil society groups are shown in the heatmaps and flow diagram.",
-            key="flow_panel_top_n_select",
-        )
-        st.session_state.top_n_option = selected
-        top_n = top_n_map[selected]
-        st.session_state.top_n = top_n
-    with ctrl_right:
-        st.markdown(f"""
-        <div class="flow-panel-badges" style="margin-top: 27px;">
-            <span class="flow-panel-badge">View: {'All categories' if top_n is None else 'Top ' + str(top_n)}</span>
-            <span class="flow-panel-badge">Tip: Hover over the heatmap squares and flow lines to see the number of alerts</span>
-        </div>
-        """, unsafe_allow_html=True)
+    selected = st.session_state.get("top_n_option", "Top 5")
+    top_n = top_n_map[selected]
+    st.session_state.top_n = top_n
 
-    st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-label">Heatmaps</div>', unsafe_allow_html=True)
-    st.markdown('<div class="flow-section-note">Use these matrices to see which restrictive actors, mechanisms, and affected civil society groups appear most frequently together. Darker cells indicate stronger links.</div>', unsafe_allow_html=True)
-    render_heatmaps(df, top_n=top_n)
-
-    st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div class="flow-info-panel">
-            <div class="flow-section-label">Flow diagram</div>
-            <div class="flow-section-note">
-                Use the flow diagram to see how restrictive actors are connected to specific mechanisms,
-                and how these mechanisms affect different civil society groups.<br>
-                Wider lines show where more alerts connect restrictive actors, restrictive mechanisms,
-                and affected civil society groups under the selected filters.
+    if can_view_any_heatmap:
+        ctrl_left, ctrl_right = st.columns([1.15, 2.85], gap="large")
+        with ctrl_left:
+            selected = st.selectbox(
+                "Top-N selector",
+                options=list(top_n_map.keys()),
+                index=list(top_n_map.keys()).index(st.session_state.get("top_n_option", "Top 5")),
+                help="Select how many top restrictive actors, mechanisms, and affected civil society groups are shown in the heatmaps.",
+                key="flow_panel_top_n_select",
+            )
+            st.session_state.top_n_option = selected
+            top_n = top_n_map[selected]
+            st.session_state.top_n = top_n
+        with ctrl_right:
+            st.markdown(f"""
+            <div class="flow-panel-badges" style="margin-top: 27px;">
+                <span class="flow-panel-badge">Heatmap detail: Top {top_n}</span>
+                <span class="flow-panel-badge">Tip: Hover over heatmap squares to see the number of alerts</span>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    render_dashboard_plotly_chart(render_sankey(df, top_n=top_n), plot_df=df, visual_type="sankey flow diagram", x_col="Actor of repression", group_col="Mechanism of repression", dashboard_df=df, config={"displayModeBar": False}, key="negative_events_analytical_flow_panel_sankey", permission_key="view_chart_sankey_flow", permission_label="Analytical Sankey flow")
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="flow-section-label">Heatmaps</div>', unsafe_allow_html=True)
+        st.markdown('<div class="flow-section-note">Use these matrices to see which restrictive actors, mechanisms, and affected civil society groups appear most frequently together. Darker cells indicate stronger links.</div>', unsafe_allow_html=True)
+        render_heatmaps(df, top_n=top_n)
+
+    if can_view_sankey:
+        st.markdown('<div class="flow-divider"></div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="flow-info-panel">
+                <div class="flow-section-label">Flow diagram</div>
+                <div class="flow-section-note">
+                    Use the flow diagram to see how restrictive actors are connected to specific mechanisms,
+                    and how these mechanisms affect different civil society groups.<br>
+                    Wider lines show where more alerts connect restrictive actors, restrictive mechanisms,
+                    and affected civil society groups under the selected filters.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_dashboard_plotly_chart(
+            render_sankey(df, top_n=top_n),
+            plot_df=df,
+            visual_type="sankey flow diagram",
+            x_col="Actor of repression",
+            group_col="Mechanism of repression",
+            dashboard_df=df,
+            config={"displayModeBar": False},
+            key="negative_events_analytical_flow_panel_sankey",
+            permission_key="view_chart_sankey_flow",
+            permission_label="Analytical Sankey flow",
+        )
 
 # ---------------- TOP-N BAR HELPER ----------------
 def top_n_bar(df, col, top_n=None):
@@ -4312,7 +4338,6 @@ def render_access_locked(section_title: str, required_level: str = "logged-in us
         feature_description="This section is not available for your current access level. Use the sidebar access controls or contact an administrator if this feature should be enabled for your account.",
         compact=False,
     )
-
 
 def can_render_feature(permission_key: str) -> bool:
     """Safe wrapper around admin-configured permissions. Admins are allowed by authz.has_permission."""
@@ -5885,13 +5910,19 @@ if tab_negative is not None:
                     permission_label="Negative enabling-principle distribution",
                 )
 
-                #r2c3.plotly_chart(create_bar_chart(m6, "enabling-principle", "count",title="Negative alert distribution across enabling principles", horizontal=True), use_container_width=True, key="tab2_chart6")
-
-                # ---------------- ANALYTICAL FLOW PANEL ----------------
-                if has_permission("view_analytical_flow_panel"):
+              
+                # ---------------- NEGATIVE EVENTS RELATIONSHIP ANALYSIS ----------------
+                # Relationship Explorer is no longer controlled by the old
+                # view_analytical_flow_panel permission.
+                # - view_chart_sankey_flow controls the flow diagram and pathway guide.
+                # - Heatmap permissions control heatmaps, detail guidance, and the Top-N selector.
+                if (
+                    has_permission("view_chart_sankey_flow")
+                    or has_permission("view_chart_heatmap_actor_mechanism")
+                    or has_permission("view_chart_heatmap_subject_mechanism")
+                    or has_permission("view_chart_heatmap_actor_subject")
+                ):
                     render_analytical_flow_panel(filtered_df)
-                #else:
-                    #st.info("Analytical Flow Panel is disabled for your current access level.")
 
                 cols_to_keep = {
                     "post_title": "Title of post",
