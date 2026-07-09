@@ -411,8 +411,8 @@ def _render_roles_tab(config: dict):
     st.markdown(
         """
         <div class="admin-info">
-            Roles are now the single editable source of truth for dashboard visibility and functionality.
-            Dashboard visibility is no longer edited separately to avoid conflicting controls.
+            Roles are the single editable source of truth for dashboard visibility and functionality.
+            Analytical charts can only be selected after Analytical Flow Panels is enabled.
         </div>
         """,
         unsafe_allow_html=True,
@@ -432,28 +432,31 @@ def _render_roles_tab(config: dict):
                 st.rerun()
 
     with col_b:
-        if role != "guest":
-            if st.button("Enable all permissions", use_container_width=True):
-                config[role]["features"] = {key: True for key in FEATURE_KEYS}
+        if st.button("Enable all permissions", use_container_width=True):
+            config[role]["features"] = {key: True for key in FEATURE_KEYS}
 
-                for locked_key in LOCKED_FALSE.get(role, set()):
+            for locked_key in LOCKED_FALSE.get(role, set()):
+                if locked_key not in [ANALYTICAL_FLOW_PARENT, *ANALYTICAL_FLOW_CHILDREN]:
                     config[role]["features"][locked_key] = False
 
-                config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+            config[role]["features"][ANALYTICAL_FLOW_PARENT] = True
 
-                if save_access_config(config):
-                    _clear_app_cache()
-                    st.success(f"All allowed permissions enabled for {role}.")
-                    st.rerun()
-        else:
-            st.button("Enable all permissions", disabled=True, use_container_width=True)
+            for child_key in ANALYTICAL_FLOW_CHILDREN:
+                if child_key in FEATURE_KEYS:
+                    config[role]["features"][child_key] = True
+
+            if save_access_config(config):
+                _clear_app_cache()
+                st.success(f"All allowed permissions enabled for {role}.")
+                st.rerun()
 
     with col_c:
         if st.button("Disable all optional permissions", use_container_width=True):
             config[role]["features"] = {key: False for key in FEATURE_KEYS}
 
             for locked_key in LOCKED_FALSE.get(role, set()):
-                config[role]["features"][locked_key] = False
+                if locked_key not in [ANALYTICAL_FLOW_PARENT, *ANALYTICAL_FLOW_CHILDREN]:
+                    config[role]["features"][locked_key] = False
 
             if save_access_config(config):
                 _clear_app_cache()
@@ -470,26 +473,20 @@ def _render_roles_tab(config: dict):
             expanded=group_name in ["Core access", "Analytical Flow Panels"],
         ):
             if group_name == "Analytical Flow Panels":
-                parent_disabled = ANALYTICAL_FLOW_PARENT in LOCKED_FALSE.get(role, set())
-
                 parent_enabled = st.checkbox(
                     _feature_label(ANALYTICAL_FLOW_PARENT),
                     value=bool(features.get(ANALYTICAL_FLOW_PARENT, False)),
                     key=f"feature_{role}_{ANALYTICAL_FLOW_PARENT}",
-                    disabled=parent_disabled,
-                    help="This is the master switch. If unchecked, no analytical chart or flow panel can be selected.",
+                    disabled=False,
+                    help="Enable this first before selecting any analytical chart.",
                 )
-
-                if parent_disabled:
-                    parent_enabled = False
 
                 features[ANALYTICAL_FLOW_PARENT] = parent_enabled
 
                 st.markdown(
                     """
                     <div class="admin-warning">
-                        Analytical charts are controlled by the parent permission above.
-                        If Analytical Flow Panels is unchecked, all heatmaps, Sankey, flow diagram and related controls are disabled.
+                        Enable Analytical Flow Panels first. Once enabled, you can select individual analytical charts.
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -504,19 +501,15 @@ def _render_roles_tab(config: dict):
 
                 for index, feature_key in enumerate(child_keys):
                     with group_cols[index % 2]:
-                        disabled = (
-                            not parent_enabled
-                            or feature_key in LOCKED_FALSE.get(role, set())
-                        )
-
                         features[feature_key] = st.checkbox(
                             _feature_label(feature_key),
                             value=bool(features.get(feature_key, False)) if parent_enabled else False,
                             key=f"feature_{role}_{feature_key}",
-                            disabled=disabled,
+                            disabled=not parent_enabled,
+                            help="Enable Analytical Flow Panels first." if not parent_enabled else None,
                         )
 
-                        if disabled:
+                        if not parent_enabled:
                             features[feature_key] = False
 
             else:
@@ -568,7 +561,6 @@ def _render_roles_tab(config: dict):
             mime="application/json",
             use_container_width=True,
         )
-
 
 def _render_dashboard_visibility_tab(config: dict):
     st.markdown("### Dashboard visibility overview")
