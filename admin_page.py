@@ -88,6 +88,7 @@ def _get_config_privileged_domains(config: dict) -> list[str]:
 
 def _save_config_privileged_domains(config: dict, domains: list[str]) -> bool:
     config["privileged_domains"] = sorted({_clean_domain(d) for d in domains if _clean_domain(d)})
+    config = _sanitize_access_config(config) if "_sanitize_access_config" in globals() else config
     return save_access_config(config)
 
 
@@ -316,8 +317,66 @@ def _feature_groups() -> dict[str, list[str]]:
     return groups
 
 
+def _analytical_keys() -> set[str]:
+    return {ANALYTICAL_FLOW_PARENT, *[key for key in ANALYTICAL_FLOW_CHILDREN if key in FEATURE_KEYS]}
+
+
+def _analytical_child_keys() -> list[str]:
+    return [key for key in ANALYTICAL_FLOW_CHILDREN if key in FEATURE_KEYS]
+
+
+def _is_locked_for_role(role: str, feature_key: str) -> bool:
+    # Analytical Flow Panels and its children are intentionally available to every role.
+    # Children are controlled only by the parent dependency, not by LOCKED_FALSE.
+    if feature_key in _analytical_keys():
+        return False
+
+    return feature_key in LOCKED_FALSE.get(role, set())
+
+
+def _sanitize_role_features(role: str, features: dict | None) -> dict:
+    raw_features = features if isinstance(features, dict) else {}
+
+    clean_features = {
+        key: bool(raw_features.get(key, False))
+        for key in FEATURE_KEYS
+    }
+
+    # Enforce locked permissions for ordinary permissions only. Analytical permissions
+    # remain selectable for all roles, subject to the parent being enabled first.
+    for locked_key in LOCKED_FALSE.get(role, set()):
+        if locked_key in clean_features and locked_key not in _analytical_keys():
+            clean_features[locked_key] = False
+
+    parent_enabled = bool(clean_features.get(ANALYTICAL_FLOW_PARENT, False))
+
+    if not parent_enabled:
+        for child_key in _analytical_child_keys():
+            clean_features[child_key] = False
+
+    return clean_features
+
+
+def _sanitize_access_config(config: dict) -> dict:
+    config = normalize_access_config(config)
+
+    for role in ROLES:
+        config.setdefault(role, {})
+        config[role]["features"] = _sanitize_role_features(
+            role,
+            config.get(role, {}).get("features", {}),
+        )
+        config[role]["regions"] = list(config[role].get("regions", []) or [])
+        config[role]["countries"] = list(config[role].get("countries", []) or [])
+        config[role]["years"] = list(config[role].get("years", []) or [])
+
+    config["privileged_domains"] = _get_config_privileged_domains(config)
+
+    return config
+
+
 def _role_enabled_count(config: dict, role: str) -> int:
-    features = config.get(role, {}).get("features", {})
+    features = _sanitize_role_features(role, config.get(role, {}).get("features", {}))
     return sum(1 for key in FEATURE_KEYS if bool(features.get(key, False)))
 
 
@@ -332,9 +391,8 @@ def _build_permission_matrix(config: dict) -> pd.DataFrame:
         }
 
         for role in ROLES:
-            row[role.capitalize()] = (
-                "✅" if config.get(role, {}).get("features", {}).get(key, False) else "—"
-            )
+            features = _sanitize_role_features(role, config.get(role, {}).get("features", {}))
+            row[role.capitalize()] = "✅" if features.get(key, False) else "—"
 
         rows.append(row)
 
@@ -342,14 +400,14 @@ def _build_permission_matrix(config: dict) -> pd.DataFrame:
 
 
 def _enforce_analytical_flow_dependency(features: dict) -> dict:
-    parent_enabled = bool(features.get(ANALYTICAL_FLOW_PARENT, False))
+    # Backward-compatible wrapper used by existing app imports/calls.
+    clean_features = dict(features or {})
 
-    if not parent_enabled:
-        for child_key in ANALYTICAL_FLOW_CHILDREN:
-            if child_key in FEATURE_KEYS:
-                features[child_key] = False
+    if not bool(clean_features.get(ANALYTICAL_FLOW_PARENT, False)):
+        for child_key in _analytical_child_keys():
+            clean_features[child_key] = False
 
-    return features
+    return clean_features
 
 
 def _render_overview_tab(config: dict):
@@ -404,9 +462,8 @@ def _render_roles_tab(config: dict):
         key="admin_role_selector",
     )
 
-    config = normalize_access_config(config)
-    features = config[role]["features"]
-    features = _enforce_analytical_flow_dependency(features)
+    config = _sanitize_access_config(config)
+    features = _sanitize_role_features(role, config[role]["features"])
 
     st.markdown(
         """
@@ -423,8 +480,9 @@ def _render_roles_tab(config: dict):
     with col_a:
         if st.button("Enable default preset", use_container_width=True):
             default_config = default_access_config()
-            config[role]["features"] = default_config[role]["features"]
-            config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+            config[role]["features"] = _sanitize_role_features(role, default_config[role]["features"])
+
+            config = _sanitize_access_config(config)
 
             if save_access_config(config):
                 _clear_app_cache()
@@ -436,7 +494,7 @@ def _render_roles_tab(config: dict):
             config[role]["features"] = {key: True for key in FEATURE_KEYS}
 
             for locked_key in LOCKED_FALSE.get(role, set()):
-                if locked_key not in [ANALYTICAL_FLOW_PARENT, *ANALYTICAL_FLOW_CHILDREN]:
+                if locked_key in FEATURE_KEYS and locked_key not in _analytical_keys():
                     config[role]["features"][locked_key] = False
 
             config[role]["features"][ANALYTICAL_FLOW_PARENT] = True
@@ -444,6 +502,8 @@ def _render_roles_tab(config: dict):
             for child_key in ANALYTICAL_FLOW_CHILDREN:
                 if child_key in FEATURE_KEYS:
                     config[role]["features"][child_key] = True
+
+            config = _sanitize_access_config(config)
 
             if save_access_config(config):
                 _clear_app_cache()
@@ -455,8 +515,10 @@ def _render_roles_tab(config: dict):
             config[role]["features"] = {key: False for key in FEATURE_KEYS}
 
             for locked_key in LOCKED_FALSE.get(role, set()):
-                if locked_key not in [ANALYTICAL_FLOW_PARENT, *ANALYTICAL_FLOW_CHILDREN]:
+                if locked_key in FEATURE_KEYS and locked_key not in _analytical_keys():
                     config[role]["features"][locked_key] = False
+
+            config = _sanitize_access_config(config)
 
             if save_access_config(config):
                 _clear_app_cache()
@@ -489,7 +551,7 @@ def _render_roles_tab(config: dict):
 
         for index, feature_key in enumerate(core_keys):
             with core_cols[index % 2]:
-                disabled = feature_key in LOCKED_FALSE.get(role, set())
+                disabled = _is_locked_for_role(role, feature_key)
 
                 features[feature_key] = st.checkbox(
                     _feature_label(feature_key),
@@ -590,7 +652,7 @@ def _render_roles_tab(config: dict):
 
             for index, feature_key in enumerate(normal_keys):
                 with group_cols[index % 2]:
-                    disabled = feature_key in LOCKED_FALSE.get(role, set())
+                    disabled = _is_locked_for_role(role, feature_key)
 
                     features[feature_key] = st.checkbox(
                         _feature_label(feature_key),
@@ -609,7 +671,8 @@ def _render_roles_tab(config: dict):
 
     with save_col:
         if st.button("💾 Save role permissions", type="primary", use_container_width=True):
-            config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+            config[role]["features"] = _sanitize_role_features(role, config[role]["features"])
+            config = _sanitize_access_config(config)
 
             if save_access_config(config):
                 _clear_app_cache()
@@ -648,8 +711,7 @@ def _render_dashboard_visibility_tab(config: dict):
         key="dashboard_visibility_readonly_role",
     )
 
-    features = config[role]["features"]
-    features = _enforce_analytical_flow_dependency(features)
+    features = _sanitize_role_features(role, config[role]["features"])
 
     section_map = {
         "Overview": [
@@ -723,7 +785,7 @@ def _render_scope_tab(config: dict, data=None):
         key="scope_role",
     )
 
-    config = normalize_access_config(config)
+    config = _sanitize_access_config(config)
 
     regions, countries, years = [], [], []
 
@@ -766,6 +828,8 @@ def _render_scope_tab(config: dict, data=None):
         )
 
     if st.button("💾 Save data scope", use_container_width=True, type="primary"):
+        config = _sanitize_access_config(config)
+
         if save_access_config(config):
             _clear_app_cache()
             st.success("Data scope saved.")
@@ -779,7 +843,7 @@ def _render_users_tab(config: dict):
     st.markdown("### Access identities")
     st.caption("Admins are configured by email. Privileged users can be added, edited or removed by email domain.")
 
-    config = normalize_access_config(config)
+    config = _sanitize_access_config(config)
     privileged_domains = _get_config_privileged_domains(config)
 
     rows = []
@@ -966,10 +1030,7 @@ def render_admin_page(data=None):
 
     inject_admin_css()
 
-    config = normalize_access_config(load_access_config())
-
-    for role in ROLES:
-        config[role]["features"] = _enforce_analytical_flow_dependency(config[role]["features"])
+    config = _sanitize_access_config(load_access_config())
 
     _render_header()
 
