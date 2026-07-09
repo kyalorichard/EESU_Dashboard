@@ -25,6 +25,13 @@ import warnings
 from streamlit.elements.lib.policies import CachedWidgetWarning
 import streamlit.components.v1 as components
 from io import BytesIO
+import json
+import uuid
+import requests
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
 
 warnings.filterwarnings(
@@ -5440,19 +5447,7 @@ def inject_plotly_legend_color_spacing_fix():
     """, unsafe_allow_html=True)
 inject_plotly_legend_color_spacing_fix()
 
-# ---------------- CHATBOT-ONLY CHART / MAP EXPLANATION SUPPORT ----------------
-import html
-import re
 
-def _strip_plotly_html(value):
-    value = "" if value is None else str(value)
-    value = re.sub(r"<br\s*/?>", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"<[^>]+>", "", value)
-    return " ".join(value.split()).strip()
-
-
-def _escape_chart_header_html(value):
-    return html.escape("" if value is None else str(value), quote=True)
 
 
 def render_dashboard_plotly_chart(
@@ -7333,13 +7328,7 @@ if tab_manual is not None:
 # LangFlow-only brain: answers + plots + memory + filtered data
 # ============================================================
 
-import json
-import uuid
-import requests
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import streamlit as st
+
 
 LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
 LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
@@ -7373,11 +7362,9 @@ def _current_chat_user_key() -> str:
 
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
-
 def _chat_history_path(user_key: str | None = None) -> Path:
     user_key = user_key or _current_chat_user_key()
     return CHAT_HISTORY_DIR / f"{user_key}.json"
-
 
 def _normalise_chat_messages(messages) -> list[dict]:
     clean_messages = []
@@ -7405,7 +7392,6 @@ def _normalise_chat_messages(messages) -> list[dict]:
         })
 
     return clean_messages[-CHAT_HISTORY_LIMIT:]
-
 
 def load_user_chat_history(force: bool = False) -> list[dict]:
     """Load the current user's saved Copilot history into session state."""
@@ -7435,7 +7421,6 @@ def load_user_chat_history(force: bool = False) -> list[dict]:
 
     return messages
 
-
 def save_user_chat_history() -> None:
     """Persist the active user's Copilot history to disk."""
     user_key = st.session_state.get("eusee_chat_user_key") or _current_chat_user_key()
@@ -7459,7 +7444,6 @@ def save_user_chat_history() -> None:
         if st.secrets.get("debug", {}).get("show_chat_history_errors", False):
             st.warning(f"Chat history could not be saved: {exc}")
 
-
 def append_user_chat_message(role: str, content: str) -> None:
     """Append one Copilot message and immediately save the user's history."""
     load_user_chat_history()
@@ -7476,7 +7460,6 @@ def append_user_chat_message(role: str, content: str) -> None:
     )
     save_user_chat_history()
 
-
 def clear_user_chat_history() -> None:
     """Clear the current user's saved Copilot history."""
     user_key = st.session_state.get("eusee_chat_user_key") or _current_chat_user_key()
@@ -7490,9 +7473,7 @@ def clear_user_chat_history() -> None:
     except Exception:
         pass
 
-
 load_user_chat_history(force=True)
-
 
 def _clean_df(df):
     if df is None or df.empty:
@@ -7507,7 +7488,6 @@ def _clean_df(df):
 
     return work
 
-
 def _find_col(df, possible_names):
     lookup = {str(c).lower().strip(): c for c in df.columns}
     for name in possible_names:
@@ -7515,7 +7495,6 @@ def _find_col(df, possible_names):
         if key in lookup:
             return lookup[key]
     return None
-
 
 def _counts(series, top_n=10):
     if series is None:
@@ -7532,7 +7511,6 @@ def _counts(series, top_n=10):
 
     return {str(k): int(v) for k, v in counts.items()}
 
-
 def _direct_top(ranking, label):
     if not ranking:
         return {}
@@ -7542,7 +7520,6 @@ def _direct_top(ranking, label):
         "count": int(ranking[first_key])
     }
 
-
 def build_filter_summary(df):
     work = _clean_df(df)
 
@@ -7551,7 +7528,6 @@ def build_filter_summary(df):
         "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
         "basis": "Current active dashboard/sidebar filters"
     }, indent=2, default=str)
-
 
 def build_lookup_context(df, top_n=15):
     work = _clean_df(df)
@@ -7702,7 +7678,6 @@ def build_lookup_context(df, top_n=15):
 
     return json.dumps(lookup, indent=2, default=str)
 
-
 def build_dashboard_context(df, top_n=10):
     work = _clean_df(df)
 
@@ -7756,13 +7731,11 @@ def build_dashboard_context(df, top_n=10):
 
     return json.dumps(context, indent=2, default=str)
 
-
 def extract_langflow_text(response_json):
     try:
         return response_json["outputs"][0]["outputs"][0]["results"]["message"]["text"]
     except Exception:
         return json.dumps(response_json, indent=2, default=str)
-
 
 def ask_langflow(user_question, lookup_context, dashboard_context, filter_summary):
     if not LANGFLOW_API_URL:
@@ -7855,13 +7828,11 @@ def ask_langflow(user_question, lookup_context, dashboard_context, filter_summar
             "follow_up_suggestions": []
         })
 
-
 EUSEE_WEBSITE_REDIRECT_TEXT = (
     "\n\n---\n"
     "🌐 For a broader overview and additional qualitative insights, "
     "please visit the EUSEE website at https://eusee.org"
 )
-
 
 def _append_eusee_website_redirect(answer: str, result: dict) -> str:
     """Append the EUSEE website redirect only for dashboard-derived chatbot answers.
@@ -8386,9 +8357,6 @@ render_eusee_ai_copilot_popover()
 
 # ---------------- FOOTER ----------------
 # Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
-
-
-# OpenAI test UI is now integrated inside the AI Copilot drawer.
 
 # --- Load image and convert to base64 ---
 footer_image_path = "assets/footer_logo.png"
