@@ -412,7 +412,7 @@ def _render_roles_tab(config: dict):
         """
         <div class="admin-info">
             Roles are the single editable source of truth for dashboard visibility and functionality.
-            Analytical Flow Panels is available for all roles. Analytical charts can only be selected after Analytical Flow Panels is enabled.
+            Analytical Flow Panels is placed under Core access. Analytical charts remain disabled until that parent permission is enabled.
         </div>
         """,
         unsafe_allow_html=True,
@@ -463,57 +463,119 @@ def _render_roles_tab(config: dict):
                 st.success(f"Permissions disabled for {role}.")
                 st.rerun()
 
-    analytical_keys = [
-        ANALYTICAL_FLOW_PARENT,
-        *[key for key in ANALYTICAL_FLOW_CHILDREN if key in FEATURE_KEYS],
+    groups = _feature_groups()
+    analytical_set = {ANALYTICAL_FLOW_PARENT, *ANALYTICAL_FLOW_CHILDREN}
+
+    # ------------------------------------------------------------------
+    # CORE ACCESS
+    # Analytical Flow Panels parent is rendered here for every role.
+    # It is intentionally NOT controlled by LOCKED_FALSE so every role can
+    # enable the parent before selecting analytical charts.
+    # ------------------------------------------------------------------
+    core_keys = [
+        key for key in groups.get("Core access", [])
+        if key not in analytical_set
     ]
 
-    with st.expander("Analytical Flow Panels", expanded=True):
-        parent_enabled = st.checkbox(
-            _feature_label(ANALYTICAL_FLOW_PARENT),
-            value=bool(features.get(ANALYTICAL_FLOW_PARENT, False)),
-            key=f"feature_{role}_{ANALYTICAL_FLOW_PARENT}",
-            disabled=False,
-            help="Enable this first before selecting any analytical chart.",
-        )
+    core_enabled_count = sum(1 for key in core_keys if features.get(key, False))
+    if features.get(ANALYTICAL_FLOW_PARENT, False):
+        core_enabled_count += 1
+
+    with st.expander(
+        f"Core access ({core_enabled_count}/{len(core_keys) + 1} enabled)",
+        expanded=True,
+    ):
+        core_cols = st.columns(2)
+
+        for index, feature_key in enumerate(core_keys):
+            with core_cols[index % 2]:
+                disabled = feature_key in LOCKED_FALSE.get(role, set())
+
+                features[feature_key] = st.checkbox(
+                    _feature_label(feature_key),
+                    value=bool(features.get(feature_key, False)),
+                    key=f"feature_{role}_{feature_key}",
+                    disabled=disabled,
+                )
+
+                if disabled:
+                    features[feature_key] = False
+
+        parent_col_index = len(core_keys) % 2
+        with core_cols[parent_col_index]:
+            parent_enabled = st.checkbox(
+                _feature_label(ANALYTICAL_FLOW_PARENT),
+                value=bool(features.get(ANALYTICAL_FLOW_PARENT, False)),
+                key=f"feature_{role}_{ANALYTICAL_FLOW_PARENT}",
+                disabled=False,
+                help="Enable this parent permission before selecting any analytical chart.",
+            )
 
         features[ANALYTICAL_FLOW_PARENT] = parent_enabled
 
-        st.markdown(
-            """
-            <div class="admin-warning">
-                Analytical charts are selectable only after Analytical Flow Panels is enabled.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    # ------------------------------------------------------------------
+    # ANALYTICAL CHARTS
+    # Child analytical chart permissions are rendered in their own pane.
+    # They remain disabled until the Core access parent is enabled.
+    # ------------------------------------------------------------------
+    analytical_chart_keys = [
+        key for key in ANALYTICAL_FLOW_CHILDREN
+        if key in FEATURE_KEYS
+    ]
 
-        chart_cols = st.columns(2)
+    enabled_analytical_count = sum(
+        1 for key in analytical_chart_keys
+        if features.get(key, False) and features.get(ANALYTICAL_FLOW_PARENT, False)
+    )
 
-        for index, feature_key in enumerate(ANALYTICAL_FLOW_CHILDREN):
-            if feature_key not in FEATURE_KEYS:
-                continue
+    with st.expander(
+        f"Analytical Charts ({enabled_analytical_count}/{len(analytical_chart_keys)} enabled)",
+        expanded=True,
+    ):
+        if not features.get(ANALYTICAL_FLOW_PARENT, False):
+            st.markdown(
+                """
+                <div class="admin-warning">
+                    Analytical chart permissions are disabled. Enable Analytical Flow Panels under Core access first.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div class="admin-info">
+                    Analytical Flow Panels is enabled. You can now select individual analytical charts.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-            with chart_cols[index % 2]:
-                features[feature_key] = st.checkbox(
+        analytical_cols = st.columns(2)
+
+        for index, feature_key in enumerate(analytical_chart_keys):
+            with analytical_cols[index % 2]:
+                child_enabled = st.checkbox(
                     _feature_label(feature_key),
-                    value=bool(features.get(feature_key, False)) if parent_enabled else False,
+                    value=bool(features.get(feature_key, False)) if features.get(ANALYTICAL_FLOW_PARENT, False) else False,
                     key=f"feature_{role}_{feature_key}",
-                    disabled=not parent_enabled,
-                    help="Enable Analytical Flow Panels first." if not parent_enabled else None,
+                    disabled=not features.get(ANALYTICAL_FLOW_PARENT, False),
+                    help="Enable Analytical Flow Panels under Core access first."
+                    if not features.get(ANALYTICAL_FLOW_PARENT, False)
+                    else None,
                 )
 
-                if not parent_enabled:
-                    features[feature_key] = False
+                features[feature_key] = child_enabled if features.get(ANALYTICAL_FLOW_PARENT, False) else False
 
-    groups = _feature_groups()
-
+    # ------------------------------------------------------------------
+    # OTHER PERMISSION GROUPS
+    # Render all remaining groups, excluding Core access and analytical keys.
+    # ------------------------------------------------------------------
     for group_name, keys in groups.items():
-        normal_keys = [
-            key
-            for key in keys
-            if key not in analytical_keys
-        ]
+        if group_name == "Core access":
+            continue
+
+        normal_keys = [key for key in keys if key not in analytical_set]
 
         if not normal_keys:
             continue
@@ -522,7 +584,7 @@ def _render_roles_tab(config: dict):
 
         with st.expander(
             f"{group_name} ({enabled_in_group}/{len(normal_keys)} enabled)",
-            expanded=group_name == "Core access",
+            expanded=False,
         ):
             group_cols = st.columns(2)
 
@@ -569,6 +631,7 @@ def _render_roles_tab(config: dict):
             mime="application/json",
             use_container_width=True,
         )
+
 
 def _render_dashboard_visibility_tab(config: dict):
     st.markdown("### Dashboard visibility overview")
