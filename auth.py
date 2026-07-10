@@ -37,8 +37,6 @@ except ImportError:
 COOKIE_NAME = "eusee_auth_session"
 COOKIE_DAYS = 30
 DEBUG = False
-COOKIE_RESTORE_MAX_ATTEMPTS = 8
-
 
 # -----------------------------------------------------------------------------
 # Per-user chatbot history persistence
@@ -65,24 +63,21 @@ CHAT_HISTORY_DIR = Path(
 
 
 
-def get_cookie_manager():
-    """
-    Return one CookieManager per Streamlit browser session.
+#@st.cache_resource(show_spinner=False)
+_COOKIE_MANAGER = None
 
-    Do NOT cache this object globally with @st.cache_resource or a module-level
-    singleton. Streamlit server globals are shared by all connected users, and a
-    globally cached CookieManager can cause one browser session to reuse another
-    user's authentication cookie/state.
-    """
+def get_cookie_manager():
+    global _COOKIE_MANAGER
+
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if "_eusee_cookie_manager" not in st.session_state:
-        st.session_state["_eusee_cookie_manager"] = stx.CookieManager(
+    if _COOKIE_MANAGER is None:
+        _COOKIE_MANAGER = stx.CookieManager(
             key="eusee_cookie_manager_main"
         )
 
-    return st.session_state["_eusee_cookie_manager"]
+    return _COOKIE_MANAGER
 
 
 def init_firebase_admin():
@@ -166,71 +161,9 @@ PRIVILEGED_DOMAINS = set(
     if str(d).strip()
 )
 
-def _secret_list(section: str, key: str) -> list:
-    """Safely read a list-like value from Streamlit secrets."""
-    value = st.secrets.get(section, {}).get(key, [])
-
-    if value is None:
-        return []
-
-    if isinstance(value, str):
-        return [value]
-
-    try:
-        return list(value)
-    except Exception:
-        return []
-
-
-ADMIN_EMAILS = set(
-    str(e).lower().strip()
-    for e in (
-        _secret_list("auth", "admin_emails")
-        + _secret_list("access", "admin_emails")
-    )
-    if str(e).strip()
-)
-
 
 def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
-
-
-def _email_allowed_to_authenticate(email: str) -> bool:
-    """Allow configured admin emails and, when domain rules exist, approved domains.
-
-    If PRIVILEGED_DOMAINS is empty, Firebase-authenticated users are allowed and
-    their role falls back to viewer unless they are an admin.
-    """
-    clean_email = str(email or "").strip().lower()
-    if not clean_email:
-        return False
-
-    if clean_email in ADMIN_EMAILS:
-        return True
-
-    if not PRIVILEGED_DOMAINS:
-        return True
-
-    return get_domain(clean_email) in PRIVILEGED_DOMAINS
-
-
-def _role_for_email(email: str) -> str:
-    """Resolve role from the verified Firebase email only.
-
-    Never derive role from browser cookies or previously stored Streamlit state.
-    Admin is email-based. Privileged is domain-based. Everyone else is viewer.
-    """
-    clean_email = str(email or "").strip().lower()
-    domain = get_domain(clean_email)
-
-    if clean_email in ADMIN_EMAILS:
-        return "admin"
-
-    if domain in PRIVILEGED_DOMAINS:
-        return "privileged"
-
-    return "viewer"
 
 
 def _safe_user_key(email: str) -> str:
@@ -419,7 +352,6 @@ def init_session():
         CHAT_HISTORY_KEY: [],
         "chat_history_loaded": False,
         "chat_history_loaded_for": None,
-        "cookie_restore_attempts": 0,
     }
 
     for key, value in defaults.items():
@@ -448,7 +380,6 @@ def _write_cookie(payload: dict):
         json.dumps(payload),
         expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
     )
-    st.session_state.cookie_restore_attempts = 0
 
 
 def _read_cookie() -> dict:
@@ -501,45 +432,16 @@ def refresh_firebase_token(refresh_token: str):
         return None
 
 
-def _clear_auth_state_only():
-    """Clear only authentication/user-scoped keys before applying another user."""
-    for key in [
-        "user",
-        "email",
-        "name",
-        "role",
-        "email_verified",
-        "id_token",
-        "refresh_token",
-        CHAT_HISTORY_KEY,
-        "chat_history_loaded",
-        "chat_history_loaded_for",
-        "cookie_restore_attempts",
-        *CHAT_HISTORY_ALIASES,
-    ]:
-        st.session_state.pop(key, None)
-
-
 def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
-    clean_email = str(email or "").lower().strip()
-
-    # If a different account signs in in the same browser tab, remove all
-    # previous user-scoped state first so names, roles, permissions and chatbot
-    # memory cannot bleed into the new account.
-    previous_email = str(st.session_state.get("email") or "").lower().strip()
-    if previous_email and previous_email != clean_email:
-        _clear_auth_state_only()
-
-    st.session_state.user = bool(clean_email and verified)
-    st.session_state.email = clean_email
-    st.session_state.name = name or clean_email.split("@")[0].replace(".", " ").title()
+    st.session_state.user = bool(email and verified)
+    st.session_state.email = email
+    st.session_state.name = name or email.split("@")[0].replace(".", " ").title()
     st.session_state.email_verified = bool(verified)
-    st.session_state.role = role or _role_for_email(clean_email)
+    st.session_state.role = role or "privileged"
     st.session_state.id_token = id_token
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
-    st.session_state.cookie_restore_attempts = 0
     ensure_user_chat_history_loaded()
 
 
@@ -552,62 +454,28 @@ def restore_session():
 
     cookie_data = _read_cookie()
     if not cookie_data:
-        # On a hard browser refresh, extra_streamlit_components.CookieManager
-        # may need one or two Streamlit reruns before browser cookies are
-        # available to Python. Do not finalize the user as logged out on the
-        # first empty read; otherwise the login page appears even though the
-        # Firebase refresh token cookie still exists.
-        attempts = int(st.session_state.get("cookie_restore_attempts", 0))
-        if attempts < COOKIE_RESTORE_MAX_ATTEMPTS:
-            st.session_state.cookie_restore_attempts = attempts + 1
-            st.session_state.restored = False
-            st.rerun()
-
         st.session_state.restored = True
         return False
 
+    email = str(cookie_data.get("email") or "").lower().strip()
+    name = cookie_data.get("name") or ""
+    role = cookie_data.get("role") or "privileged"
+    verified = bool(cookie_data.get("email_verified"))
     refresh_token = cookie_data.get("refresh_token") or ""
-    if not refresh_token:
+
+    if not email or not verified or not refresh_token:
         _delete_cookie()
         st.session_state.restored = True
         return False
 
     refreshed = refresh_firebase_token(refresh_token)
     if not refreshed:
-        st.session_state.restored = False
-        st.stop()
+        _delete_cookie()
+        st.session_state.restored = True
+        return False
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token", refresh_token)
-
-    # Critical: never trust email/name/role from the browser cookie. The cookie is
-    # client-side and can be stale or tampered with. After refreshing the token,
-    # ask Firebase which user this token belongs to, then apply that user only.
-    try:
-        info = firebase_auth.get_account_info(id_token)
-        firebase_user = info["users"][0]
-        email = str(firebase_user.get("email") or "").lower().strip()
-        verified = bool(firebase_user.get("emailVerified", False))
-        name = firebase_user.get("displayName") or email.split("@")[0].replace(".", " ").title()
-    except Exception:
-        _delete_cookie()
-        _clear_auth_state_only()
-        st.session_state.restored = True
-        return False
-
-    if not email or not verified:
-        _delete_cookie()
-        _clear_auth_state_only()
-        st.session_state.restored = True
-        return False
-
-    if not _email_allowed_to_authenticate(email):
-        _delete_cookie()
-        _clear_auth_state_only()
-        st.session_state.restored = True
-        return False
-
-    role = _role_for_email(email)
 
     _apply_authenticated_state(
         email=email,
@@ -673,7 +541,6 @@ def logout():
         CHAT_HISTORY_KEY,
         "chat_history_loaded",
         "chat_history_loaded_for",
-        "cookie_restore_attempts",
         *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
@@ -866,7 +733,7 @@ def _login_form():
             st.error("Enter email and password.")
             return
 
-        if not _email_allowed_to_authenticate(email):
+        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Access is restricted to approved EUSEE partner accounts.")
             return
 
@@ -880,7 +747,7 @@ def _login_form():
                 st.warning("Your account exists, but the email is not verified. Please verify your email first.")
                 return
 
-            role = _role_for_email(email)
+            role = "privileged"
             name = email.split("@")[0].replace(".", " ").title()
 
             _apply_authenticated_state(
@@ -948,7 +815,7 @@ def _register_form():
             st.error("Enter email and password.")
             return
 
-        if not _email_allowed_to_authenticate(email):
+        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
             st.error("Registration is restricted to approved EUSEE partner accounts.")
             return
 
@@ -983,7 +850,7 @@ def _reset_form():
             st.warning("Enter your email first.")
             return
 
-        if not _email_allowed_to_authenticate(reset_email):
+        if PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
             st.error("Password reset is restricted to approved EUSEE partner accounts.")
             return
 
@@ -1056,8 +923,7 @@ def _render_premium_auth_page():
 
 def auth_ui():
     init_session()
-    if not st.session_state.get("restored"):
-        restore_session()
+    restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         ensure_user_chat_history_loaded()
