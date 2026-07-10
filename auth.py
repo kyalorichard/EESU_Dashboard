@@ -64,20 +64,21 @@ CHAT_HISTORY_DIR = Path(
 
 
 #@st.cache_resource(show_spinner=False)
-_COOKIE_MANAGER = None
+_COOKIE_MANAGER_STATE_KEY = "_eusee_cookie_manager_instance"
 
 def get_cookie_manager():
-    global _COOKIE_MANAGER
-
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if _COOKIE_MANAGER is None:
-        _COOKIE_MANAGER = stx.CookieManager(
+    manager = st.session_state.get(_COOKIE_MANAGER_STATE_KEY)
+
+    if manager is None:
+        manager = stx.CookieManager(
             key="eusee_cookie_manager_main"
         )
+        st.session_state[_COOKIE_MANAGER_STATE_KEY] = manager
 
-    return _COOKIE_MANAGER
+    return manager
 
 
 def init_firebase_admin():
