@@ -69,25 +69,20 @@ CHAT_HISTORY_DIR = Path(
 # CookieManager is a browser component. The Python object does not contain a
 # user's authentication cookie; each visitor's browser supplies its own value.
 # Keep one component instance to avoid duplicate Streamlit component keys.
-COOKIE_MANAGER_STATE_KEY = "_eusee_cookie_manager_instance"
-
+_COOKIE_MANAGER = None
 
 def get_cookie_manager():
-    """
-    Return a CookieManager isolated to the current Streamlit browser session.
+    global _COOKIE_MANAGER
 
-    Never store CookieManager in a module-level global variable because imported
-    modules are shared by all Streamlit users running in the same server process.
-    """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if COOKIE_MANAGER_STATE_KEY not in st.session_state:
-        st.session_state[COOKIE_MANAGER_STATE_KEY] = stx.CookieManager(
+    if _COOKIE_MANAGER is None:
+        _COOKIE_MANAGER = stx.CookieManager(
             key="eusee_cookie_manager_main"
         )
 
-    return st.session_state[COOKIE_MANAGER_STATE_KEY]
+    return _COOKIE_MANAGER
 
 
 def init_firebase_admin():
@@ -577,7 +572,6 @@ def logout():
         CHAT_HISTORY_KEY,
         "chat_history_loaded",
         "chat_history_loaded_for",
-        COOKIE_MANAGER_STATE_KEY,
         *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
