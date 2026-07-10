@@ -37,8 +37,6 @@ except ImportError:
 
 COOKIE_NAME = "eusee_auth_session"
 COOKIE_DAYS = 30
-COOKIE_BOOTSTRAP_MAX_ATTEMPTS = 3
-COOKIE_BOOTSTRAP_WAIT_SECONDS = 0.50
 COOKIE_WRITE_WAIT_SECONDS = 1.20
 TOKEN_REFRESH_ATTEMPTS = 3
 DEBUG = False
@@ -68,23 +66,23 @@ CHAT_HISTORY_DIR = Path(
 
 
 
-# CookieManager must be scoped to the current Streamlit browser session.
-# Never keep it in a module-level global because module globals are shared by
-# every connected user running in the same Streamlit server process.
-_COOKIE_MANAGER_STATE_KEY = "_eusee_cookie_manager_instance"
+# CookieManager is a browser component. The Python object does not contain a
+# user's authentication cookie; each visitor's browser supplies its own value.
+# Keep one component instance to avoid duplicate Streamlit component keys.
+_COOKIE_MANAGER = None
 
 def get_cookie_manager():
+    global _COOKIE_MANAGER
+
     if not HAS_COOKIE_MANAGER:
         return None
 
-    manager = st.session_state.get(_COOKIE_MANAGER_STATE_KEY)
-    if manager is None:
-        manager = stx.CookieManager(
+    if _COOKIE_MANAGER is None:
+        _COOKIE_MANAGER = stx.CookieManager(
             key="eusee_cookie_manager_main"
         )
-        st.session_state[_COOKIE_MANAGER_STATE_KEY] = manager
 
-    return manager
+    return _COOKIE_MANAGER
 
 
 def init_firebase_admin():
@@ -359,7 +357,6 @@ def init_session():
         CHAT_HISTORY_KEY: [],
         "chat_history_loaded": False,
         "chat_history_loaded_for": None,
-        "cookie_bootstrap_attempts": 0,
     }
 
     for key, value in defaults.items():
@@ -471,7 +468,6 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
-    st.session_state.cookie_bootstrap_attempts = 0
     ensure_user_chat_history_loaded()
 
 
@@ -484,21 +480,12 @@ def restore_session():
 
     cookie_data = _read_cookie()
     if not cookie_data:
-        # CookieManager is a frontend component. On a hard browser refresh its
-        # first Python call can occur before the component has returned the
-        # browser cookies. Perform a small, bounded bootstrap rerun instead of
-        # immediately deciding that the user is logged out.
-        attempts = int(st.session_state.get("cookie_bootstrap_attempts", 0))
-        if attempts < COOKIE_BOOTSTRAP_MAX_ATTEMPTS:
-            st.session_state.cookie_bootstrap_attempts = attempts + 1
-            time.sleep(COOKIE_BOOTSTRAP_WAIT_SECONDS)
-            st.rerun()
-
-        st.session_state.cookie_bootstrap_attempts = 0
+        # This is a normal logged-out browser. Allow the login page to render.
+        # On a hard refresh CookieManager may trigger its own frontend rerun;
+        # auth_ui() calls restore_session() again on that rerun.
         st.session_state.restored = True
         return False
 
-    st.session_state.cookie_bootstrap_attempts = 0
 
     email = str(cookie_data.get("email") or "").lower().strip()
     name = cookie_data.get("name") or ""
@@ -585,7 +572,6 @@ def logout():
         CHAT_HISTORY_KEY,
         "chat_history_loaded",
         "chat_history_loaded_for",
-        "cookie_bootstrap_attempts",
         *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
