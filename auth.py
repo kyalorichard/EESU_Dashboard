@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+import time
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -36,6 +37,10 @@ except ImportError:
 
 COOKIE_NAME = "eusee_auth_session"
 COOKIE_DAYS = 30
+COOKIE_BOOTSTRAP_MAX_ATTEMPTS = 3
+COOKIE_BOOTSTRAP_WAIT_SECONDS = 0.50
+COOKIE_WRITE_WAIT_SECONDS = 1.20
+TOKEN_REFRESH_ATTEMPTS = 3
 DEBUG = False
 
 # -----------------------------------------------------------------------------
@@ -63,7 +68,9 @@ CHAT_HISTORY_DIR = Path(
 
 
 
-#@st.cache_resource(show_spinner=False)
+# CookieManager must be scoped to the current Streamlit browser session.
+# Never keep it in a module-level global because module globals are shared by
+# every connected user running in the same Streamlit server process.
 _COOKIE_MANAGER_STATE_KEY = "_eusee_cookie_manager_instance"
 
 def get_cookie_manager():
@@ -71,7 +78,6 @@ def get_cookie_manager():
         return None
 
     manager = st.session_state.get(_COOKIE_MANAGER_STATE_KEY)
-
     if manager is None:
         manager = stx.CookieManager(
             key="eusee_cookie_manager_main"
@@ -353,6 +359,7 @@ def init_session():
         CHAT_HISTORY_KEY: [],
         "chat_history_loaded": False,
         "chat_history_loaded_for": None,
+        "cookie_bootstrap_attempts": 0,
     }
 
     for key, value in defaults.items():
@@ -370,17 +377,29 @@ def _session_payload(email, name, verified, role, id_token, refresh_token):
     }
 
 
-def _write_cookie(payload: dict):
+def _write_cookie(payload: dict) -> bool:
+    """Write the browser cookie and allow the frontend component to commit it."""
     manager = get_cookie_manager()
     if manager is None:
         st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
-        return
+        return False
 
-    manager.set(
-        COOKIE_NAME,
-        json.dumps(payload),
-        expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
-    )
+    try:
+        manager.set(
+            COOKIE_NAME,
+            json.dumps(payload),
+            expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
+        )
+
+        # CookieManager writes in the browser through a Streamlit component.
+        # An immediate st.rerun() can cancel that frontend write. Give the
+        # component enough time to commit the cookie before rerunning.
+        time.sleep(COOKIE_WRITE_WAIT_SECONDS)
+        return True
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Cookie write failed: {e}")
+        return False
 
 
 def _read_cookie() -> dict:
@@ -414,23 +433,32 @@ def refresh_firebase_token(refresh_token: str):
 
     url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
 
-    try:
-        response = requests.post(
-            url,
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-            },
-            timeout=15,
-        )
+    for attempt in range(TOKEN_REFRESH_ATTEMPTS):
+        try:
+            response = requests.post(
+                url,
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                },
+                timeout=15,
+            )
 
-        if response.status_code != 200:
-            return None
+            if response.status_code == 200:
+                return response.json()
 
-        return response.json()
+            # Retry only server/rate-limit failures. A 400 response generally
+            # means the refresh token is genuinely invalid or revoked.
+            if response.status_code < 500 and response.status_code != 429:
+                return None
 
-    except Exception:
-        return None
+        except requests.RequestException:
+            pass
+
+        if attempt + 1 < TOKEN_REFRESH_ATTEMPTS:
+            time.sleep(0.5 * (attempt + 1))
+
+    return None
 
 
 def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
@@ -443,6 +471,7 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
+    st.session_state.cookie_bootstrap_attempts = 0
     ensure_user_chat_history_loaded()
 
 
@@ -455,8 +484,21 @@ def restore_session():
 
     cookie_data = _read_cookie()
     if not cookie_data:
+        # CookieManager is a frontend component. On a hard browser refresh its
+        # first Python call can occur before the component has returned the
+        # browser cookies. Perform a small, bounded bootstrap rerun instead of
+        # immediately deciding that the user is logged out.
+        attempts = int(st.session_state.get("cookie_bootstrap_attempts", 0))
+        if attempts < COOKIE_BOOTSTRAP_MAX_ATTEMPTS:
+            st.session_state.cookie_bootstrap_attempts = attempts + 1
+            time.sleep(COOKIE_BOOTSTRAP_WAIT_SECONDS)
+            st.rerun()
+
+        st.session_state.cookie_bootstrap_attempts = 0
         st.session_state.restored = True
         return False
+
+    st.session_state.cookie_bootstrap_attempts = 0
 
     email = str(cookie_data.get("email") or "").lower().strip()
     name = cookie_data.get("name") or ""
@@ -471,7 +513,8 @@ def restore_session():
 
     refreshed = refresh_firebase_token(refresh_token)
     if not refreshed:
-        _delete_cookie()
+        # Do not erase a valid long-lived cookie because of a temporary network
+        # or Firebase endpoint failure. The next reload can try restoration again.
         st.session_state.restored = True
         return False
 
@@ -542,6 +585,7 @@ def logout():
         CHAT_HISTORY_KEY,
         "chat_history_loaded",
         "chat_history_loaded_for",
+        "cookie_bootstrap_attempts",
         *CHAT_HISTORY_ALIASES,
     ]:
         st.session_state.pop(key, None)
