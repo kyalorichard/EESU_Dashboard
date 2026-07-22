@@ -2024,8 +2024,9 @@ def _inject_cfr_dashboard_css():
         .cfr-hero-badge {white-space:nowrap;background:#EFFBFE;color:#008CAA;border:1px solid rgba(0,140,170,.16);border-radius:999px;padding:7px 10px;font-size:10px;font-weight:900;}
 
         .cfr-kpi-grid {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:2px 0 14px 0;}
+        div[data-testid="column"] .cfr-kpi-card {width:100%;margin:2px 0 14px 0;}
         .cfr-kpi-card {
-            min-height:158px;box-sizing:border-box;padding:14px 15px 13px;
+            min-height:148px;height:148px;box-sizing:border-box;padding:13px 14px 12px;
             background:radial-gradient(circle at 100% 0%,rgba(102,0,148,.055),transparent 34%),linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
             border:1px solid rgba(102,0,148,.115);border-radius:18px;
             box-shadow:0 12px 26px rgba(17,24,39,.07),inset 0 1px 0 rgba(255,255,255,.95);
@@ -2066,16 +2067,20 @@ def _inject_cfr_dashboard_css():
 
 
 def _cfr_kpi_card(title, value, note, icon, value_class=""):
-    return f"""
-    <div class="cfr-kpi-card">
-      <div>
-        <div class="cfr-kpi-top"><div class="cfr-kpi-title">{title}</div><div class="cfr-kpi-icon">{icon}</div></div>
-        <div class="cfr-kpi-value {value_class}">{value}</div>
-        <div class="cfr-kpi-note">{note}</div>
-      </div>
-      <div class="cfr-kpi-line"></div>
-    </div>
-    """
+    """Return one self-contained CFR KPI card for safe Streamlit HTML rendering."""
+    return (
+        f'<div class="cfr-kpi-card">'
+        f'<div>'
+        f'<div class="cfr-kpi-top">'
+        f'<div class="cfr-kpi-title">{title}</div>'
+        f'<div class="cfr-kpi-icon">{icon}</div>'
+        f'</div>'
+        f'<div class="cfr-kpi-value {value_class}">{value}</div>'
+        f'<div class="cfr-kpi-note">{note}</div>'
+        f'</div>'
+        f'<div class="cfr-kpi-line"></div>'
+        f'</div>'
+    )
 
 
 def _style_cfr_figure(fig, title, height=390, legend=False, margin=None):
@@ -2111,7 +2116,7 @@ def _cfr_radar(row, title, color=CFR_PURPLE):
             angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=9, color="#344054")),
         )
     )
-    return _style_cfr_figure(fig, title, height=382, legend=False, margin=dict(l=38, r=38, t=68, b=25))
+    return _style_cfr_figure(fig, title, height=390, legend=False, margin=dict(l=38, r=38, t=68, b=25))
 
 
 def render_cfr_analysis():
@@ -2150,14 +2155,22 @@ def render_cfr_analysis():
         unsafe_allow_html=True,
     )
 
-    cards = "".join([
-        _cfr_kpi_card("Countries with CFR", f"{valid['Country'].nunique():,}", "Countries represented in the current CFR export.", "🌍"),
-        _cfr_kpi_card("Average overall CFR", f"{valid['Overall CFR'].mean():.2f}", "Mean score across all countries and six principles, out of 7.", "◉"),
-        _cfr_kpi_card("Highest scoring country", str(highest["Country"]), f"Overall CFR {highest['Overall CFR']:.2f} / 7.", "↗", "text"),
-        _cfr_kpi_card("Lowest scoring country", str(lowest["Country"]), f"Overall CFR {lowest['Overall CFR']:.2f} / 7.", "↘", "text"),
-        _cfr_kpi_card("Latest data update", latest.strftime("%d %b %Y") if pd.notna(latest) else "Unknown", source.name, "◷", "text"),
-    ])
-    st.markdown(f'<div class="cfr-kpi-grid">{cards}</div>', unsafe_allow_html=True)
+    # Render cards independently in Streamlit columns. This avoids Markdown
+    # displaying the concatenated HTML as plain text and matches other dashboard cards.
+    card_specs = [
+        ("Countries with CFR", f"{valid['Country'].nunique():,}", "Countries represented in the current CFR export.", "🌍", ""),
+        ("Average overall CFR", f"{valid['Overall CFR'].mean():.2f}", "Mean score across all countries and six principles, out of 7.", "◉", ""),
+        ("Highest scoring country", str(highest["Country"]), f"Overall CFR {highest['Overall CFR']:.2f} / 7.", "↗", "text"),
+        ("Lowest scoring country", str(lowest["Country"]), f"Overall CFR {lowest['Overall CFR']:.2f} / 7.", "↘", "text"),
+        ("Latest data update", latest.strftime("%d %b %Y") if pd.notna(latest) else "Unknown", source.name, "◷", "text"),
+    ]
+    card_columns = st.columns(len(card_specs), gap="small")
+    for card_column, (title, value, note, icon, value_class) in zip(card_columns, card_specs):
+        with card_column:
+            st.markdown(
+                _cfr_kpi_card(title, value, note, icon, value_class),
+                unsafe_allow_html=True,
+            )
 
     st.markdown('<div class="cfr-panel-label">Analysis controls</div>', unsafe_allow_html=True)
     f1, f2, f3 = st.columns([1.65, 1, .85])
@@ -2195,14 +2208,14 @@ def render_cfr_analysis():
     ranking_fig.update_traces(marker_color=CFR_PURPLE, textposition="outside", cliponaxis=False, hovertemplate="<b>%{y}</b><br>Overall CFR: %{x:.2f} / 7<extra></extra>")
     ranking_fig.update_yaxes(categoryorder="array", categoryarray=ranking_plot["Country"].tolist(), title="")
     ranking_fig.update_xaxes(title="Overall CFR score (0–7)", dtick=1)
-    ranking_fig = _style_cfr_figure(ranking_fig, "Overall CFR country ranking", height=max(390, 25 * len(ranking_plot) + 145), margin=dict(l=20, r=45, t=68, b=45))
+    ranking_fig = _style_cfr_figure(ranking_fig, "Overall CFR country ranking", height=390, margin=dict(l=20, r=45, t=68, b=45))
     render_dashboard_plotly_chart(ranking_fig, key="cfr_overall_ranking", container=r1c1, config={"displayModeBar": False})
 
     hist = px.histogram(filtered, x="Overall CFR", nbins=12, range_x=[1, 7])
     hist.update_traces(marker_color=CFR_TEAL, marker_line_color="#FFFFFF", marker_line_width=1, hovertemplate="CFR band: %{x}<br>Countries: %{y}<extra></extra>")
     hist.update_xaxes(title="Overall CFR score", dtick=1)
     hist.update_yaxes(title="Number of countries", rangemode="tozero")
-    hist = _style_cfr_figure(hist, "Distribution of overall CFR scores", height=max(390, 25 * len(ranking_plot) + 145))
+    hist = _style_cfr_figure(hist, "Distribution of overall CFR scores", height=390)
     render_dashboard_plotly_chart(hist, key="cfr_distribution", container=r1c2, config={"displayModeBar": False})
 
     # Second row: country profile and country comparison.
@@ -2255,7 +2268,7 @@ def render_cfr_analysis():
         polar=dict(bgcolor="#FFFFFF", radialaxis=dict(visible=True, range=[0, 7], dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8)), angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=9))),
         legend=dict(orientation="h", y=1.07, x=.5, xanchor="center", font=dict(size=10)),
     )
-    compare_fig = _style_cfr_figure(compare_fig, "Country comparison by principle", height=472, legend=True, margin=dict(l=38, r=38, t=82, b=25))
+    compare_fig = _style_cfr_figure(compare_fig, "Country comparison by principle", height=390, legend=True, margin=dict(l=38, r=38, t=82, b=25))
     render_dashboard_plotly_chart(compare_fig, key="cfr_compare_radar", container=ccol, config={"displayModeBar": False})
 
     # Third row: heatmap and principle averages.
@@ -2269,7 +2282,7 @@ def render_cfr_analysis():
     heat_fig.update_traces(hovertemplate="<b>%{y}</b><br>%{x}: %{z:.2f} / 7<extra></extra>")
     heat_fig.update_xaxes(title="", side="bottom", tickangle=-24)
     heat_fig.update_yaxes(title="")
-    heat_fig = _style_cfr_figure(heat_fig, "CFR score heatmap by principle", height=max(430, 27 * len(heat) + 160), margin=dict(l=25, r=20, t=68, b=100))
+    heat_fig = _style_cfr_figure(heat_fig, "CFR score heatmap by principle", height=430, margin=dict(l=25, r=20, t=68, b=100))
     render_dashboard_plotly_chart(heat_fig, key="cfr_heatmap", container=h1, config={"displayModeBar": False})
 
     averages = pd.DataFrame({
@@ -2280,7 +2293,7 @@ def render_cfr_analysis():
     avg_fig.update_traces(marker_color=CFR_PURPLE, textposition="outside", cliponaxis=False, hovertemplate="<b>%{y}</b><br>Average: %{x:.2f} / 7<extra></extra>")
     avg_fig.update_xaxes(title="Average CFR score (0–7)", dtick=1)
     avg_fig.update_yaxes(title="")
-    avg_fig = _style_cfr_figure(avg_fig, "Average score by CFR principle", height=max(430, 27 * len(heat) + 160), margin=dict(l=20, r=48, t=68, b=45))
+    avg_fig = _style_cfr_figure(avg_fig, "Average score by CFR principle", height=430, margin=dict(l=20, r=48, t=68, b=45))
     render_dashboard_plotly_chart(avg_fig, key="cfr_principle_average", container=h2, config={"displayModeBar": False})
 
     st.markdown('<div class="cfr-section-heading">CFR country detail</div>', unsafe_allow_html=True)
