@@ -2172,12 +2172,16 @@ def render_cfr_analysis():
     st.markdown('<div class="cfr-panel-label">Analysis controls</div>', unsafe_allow_html=True)
     f1, f2 = st.columns([1.65, 1], gap="small")
     with f1:
-        country_filter = st.selectbox(
+        selected_countries = st.multiselect(
             "Search country",
-            ["All countries"] + valid["Country"].tolist(),
-            index=0,
-            key="cfr_country_search_dropdown",
-            help="Type inside the dropdown to quickly search for a country.",
+            options=valid["Country"].tolist(),
+            default=[],
+            key="cfr_country_search_multiselect",
+            placeholder="All countries",
+            help=(
+                "Select one or more countries. Leave the field empty to include all countries. "
+                "The comparison panel becomes available when at least two countries are selected."
+            ),
         )
     with f2:
         score_band = st.selectbox(
@@ -2187,8 +2191,8 @@ def render_cfr_analysis():
         )
 
     filtered = valid.copy()
-    if country_filter != "All countries":
-        filtered = filtered[filtered["Country"].eq(country_filter)]
+    if selected_countries:
+        filtered = filtered[filtered["Country"].isin(selected_countries)]
 
     band_bounds = {
         "1.0–1.9": (1.0, 1.9999),
@@ -2306,90 +2310,121 @@ def render_cfr_analysis():
 
     with compare_col:
         st.markdown('<div class="cfr-section-heading">Compare countries</div>', unsafe_allow_html=True)
-        first = default_country
-        second = "Uganda" if "Uganda" in country_options and "Uganda" != first else country_options[min(1, len(country_options) - 1)]
 
-        compare_a_col, compare_vs_col, compare_b_col = st.columns([1, .18, 1], gap="small")
-        with compare_a_col:
-            country_a = st.selectbox(
-                "Country A",
-                country_options,
-                index=country_options.index(first),
-                key="cfr_compare_a",
+        # Comparison is intentionally inactive until the user explicitly selects
+        # at least two countries in the main country multiselect.
+        if len(selected_countries) < 2:
+            selected_count = len(selected_countries)
+            comparison_message = (
+                "Select at least two countries in the Search country control to activate comparison."
+                if selected_count == 0
+                else f"{selected_countries[0]} is selected. Add one more country to activate comparison."
             )
-        with compare_vs_col:
             st.markdown(
-                '<div style="height:67px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:11px;font-size:10px;font-weight:950;color:#667085;">VS</div>',
+                f"""
+                <div class="cfr-profile-shell" style="min-height:390px;display:flex;align-items:center;justify-content:center;text-align:center;padding:26px;">
+                    <div style="max-width:320px;">
+                        <div style="width:52px;height:52px;margin:0 auto 14px auto;border-radius:16px;display:flex;align-items:center;justify-content:center;background:#F4EAF8;color:#660094;font-size:22px;font-weight:950;border:1px solid #E7D4F1;">⇄</div>
+                        <div style="font-size:15px;font-weight:950;color:#23152F;line-height:1.25;">Country comparison is inactive</div>
+                        <div style="font-size:11px;font-weight:650;color:#667085;line-height:1.5;margin-top:8px;">{comparison_message}</div>
+                    </div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
-        with compare_b_col:
-            country_b = st.selectbox(
-                "Country B",
-                country_options,
-                index=country_options.index(second),
-                key="cfr_compare_b",
-            )
+        else:
+            compare_options = [country for country in selected_countries if country in country_options]
+            first = compare_options[0]
 
-        row_a = filtered.loc[filtered["Country"].eq(country_a)].iloc[0]
-        row_b = filtered.loc[filtered["Country"].eq(country_b)].iloc[0]
-        score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
-        delta = score_a - score_b
+            if st.session_state.get("cfr_compare_a") not in compare_options:
+                st.session_state["cfr_compare_a"] = first
 
-        summary_a, summary_delta, summary_b = st.columns([1, .72, 1], gap="small")
-        with summary_a:
-            st.markdown(
-                f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_a}</div><div style="font-size:22px;font-weight:950;color:#660094;margin-top:4px;">{score_a:.2f}</div></div>',
-                unsafe_allow_html=True,
-            )
-        with summary_delta:
-            st.markdown(
-                f'<div class="cfr-profile-shell" style="padding:10px 8px;margin-bottom:7px;text-align:center;"><div style="font-size:9px;font-weight:900;color:#667085;">Difference</div><div style="font-size:18px;font-weight:950;color:#23152F;margin-top:6px;">{abs(delta):.2f}</div></div>',
-                unsafe_allow_html=True,
-            )
-        with summary_b:
-            st.markdown(
-                f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_b}</div><div style="font-size:22px;font-weight:950;color:#008CAA;margin-top:4px;">{score_b:.2f}</div></div>',
-                unsafe_allow_html=True,
-            )
+            compare_a_col, compare_vs_col, compare_b_col = st.columns([1, .18, 1], gap="small")
+            with compare_a_col:
+                country_a = st.selectbox(
+                    "Country A",
+                    compare_options,
+                    index=compare_options.index(st.session_state.get("cfr_compare_a", first)),
+                    key="cfr_compare_a",
+                )
 
-        compare_fig = go.Figure()
-        labels = list(CFR_PRINCIPLES.values())
-        for country, comp_row, color, fill in [
-            (country_a, row_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
-            (country_b, row_b, CFR_TEAL, "rgba(0,140,170,.10)"),
-        ]:
-            vals = [float(comp_row[col]) if pd.notna(comp_row[col]) else 0 for col in CFR_PRINCIPLES]
-            compare_fig.add_trace(go.Scatterpolar(
-                r=vals + vals[:1],
-                theta=labels + labels[:1],
-                fill="toself",
-                name=country,
-                line=dict(color=color, width=2.2),
-                fillcolor=fill,
-                marker=dict(size=4),
-                hovertemplate=f"%{{theta}}<br><b>%{{r:.2f}}</b> / 7<extra>{country}</extra>",
-            ))
-        compare_fig.update_layout(
-            polar=dict(
-                bgcolor="#FFFFFF",
-                radialaxis=dict(visible=True, range=[0, 7], dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8)),
-                angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=8)),
-            ),
-            legend=dict(orientation="h", y=1.08, x=.5, xanchor="center", font=dict(size=10)),
-        )
-        compare_fig = _style_cfr_figure(
-            compare_fig,
-            "Principle comparison",
-            height=355,
-            legend=True,
-            margin=dict(l=28, r=28, t=68, b=18),
-        )
-        render_dashboard_plotly_chart(
-            compare_fig,
-            key="cfr_compare_radar",
-            container=compare_col,
-            config={"displayModeBar": False},
-        )
+            country_b_options = [country for country in compare_options if country != country_a]
+            if st.session_state.get("cfr_compare_b") not in country_b_options:
+                st.session_state["cfr_compare_b"] = country_b_options[0]
+
+            with compare_vs_col:
+                st.markdown(
+                    '<div style="height:67px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:11px;font-size:10px;font-weight:950;color:#667085;">VS</div>',
+                    unsafe_allow_html=True,
+                )
+            with compare_b_col:
+                country_b = st.selectbox(
+                    "Country B",
+                    country_b_options,
+                    index=country_b_options.index(st.session_state.get("cfr_compare_b", country_b_options[0])),
+                    key="cfr_compare_b",
+                )
+
+            row_a = filtered.loc[filtered["Country"].eq(country_a)].iloc[0]
+            row_b = filtered.loc[filtered["Country"].eq(country_b)].iloc[0]
+            score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
+            delta = score_a - score_b
+
+            summary_a, summary_delta, summary_b = st.columns([1, .72, 1], gap="small")
+            with summary_a:
+                st.markdown(
+                    f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_a}</div><div style="font-size:22px;font-weight:950;color:#660094;margin-top:4px;">{score_a:.2f}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            with summary_delta:
+                st.markdown(
+                    f'<div class="cfr-profile-shell" style="padding:10px 8px;margin-bottom:7px;text-align:center;"><div style="font-size:9px;font-weight:900;color:#667085;">Difference</div><div style="font-size:18px;font-weight:950;color:#23152F;margin-top:6px;">{abs(delta):.2f}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            with summary_b:
+                st.markdown(
+                    f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_b}</div><div style="font-size:22px;font-weight:950;color:#008CAA;margin-top:4px;">{score_b:.2f}</div></div>',
+                    unsafe_allow_html=True,
+                )
+
+            compare_fig = go.Figure()
+            labels = list(CFR_PRINCIPLES.values())
+            for country, comp_row, color, fill in [
+                (country_a, row_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
+                (country_b, row_b, CFR_TEAL, "rgba(0,140,170,.10)"),
+            ]:
+                vals = [float(comp_row[col]) if pd.notna(comp_row[col]) else 0 for col in CFR_PRINCIPLES]
+                compare_fig.add_trace(go.Scatterpolar(
+                    r=vals + vals[:1],
+                    theta=labels + labels[:1],
+                    fill="toself",
+                    name=country,
+                    line=dict(color=color, width=2.2),
+                    fillcolor=fill,
+                    marker=dict(size=4),
+                    hovertemplate=f"%{{theta}}<br><b>%{{r:.2f}}</b> / 7<extra>{country}</extra>",
+                ))
+            compare_fig.update_layout(
+                polar=dict(
+                    bgcolor="#FFFFFF",
+                    radialaxis=dict(visible=True, range=[0, 7], dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8)),
+                    angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=8)),
+                ),
+                legend=dict(orientation="h", y=1.08, x=.5, xanchor="center", font=dict(size=10)),
+            )
+            compare_fig = _style_cfr_figure(
+                compare_fig,
+                "Principle comparison",
+                height=355,
+                legend=True,
+                margin=dict(l=28, r=28, t=68, b=18),
+            )
+            render_dashboard_plotly_chart(
+                compare_fig,
+                key="cfr_compare_radar",
+                container=compare_col,
+                config={"displayModeBar": False},
+            )
 
     # ------------------------------------------------------------------
     # ROW 2: paginated heatmap, fixed-band distribution, principle averages
@@ -2590,13 +2625,19 @@ def render_cfr_analysis():
             "Principle": list(CFR_PRINCIPLES.values()),
             "Average score": [filtered[col].mean() for col in CFR_PRINCIPLES],
         }).sort_values("Average score", ascending=True)
+        max_principle_average = float(averages["Average score"].max()) if not averages.empty else 0.0
+        # Use a compact data-driven upper bound rather than always showing the full
+        # seven-point scale. A small headroom preserves outside value labels.
+        dynamic_x_max = min(7.0, max(1.0, math.ceil((max_principle_average + 0.35) * 2) / 2))
+        dynamic_dtick = 0.5 if dynamic_x_max <= 4.0 else 1.0
+
         avg_fig = px.bar(
             averages,
             x="Average score",
             y="Principle",
             orientation="h",
             text=averages["Average score"].map(lambda x: f"{x:.2f}"),
-            range_x=[0, 7],
+            range_x=[0, dynamic_x_max],
         )
         avg_fig.update_traces(
             marker_color=CFR_PURPLE,
@@ -2604,7 +2645,11 @@ def render_cfr_analysis():
             cliponaxis=False,
             hovertemplate="<b>%{y}</b><br>Average: %{x:.2f} / 7<extra></extra>",
         )
-        avg_fig.update_xaxes(title="Average CFR score", dtick=1)
+        avg_fig.update_xaxes(
+            title="Average CFR score",
+            range=[0, dynamic_x_max],
+            dtick=dynamic_dtick,
+        )
         avg_fig.update_yaxes(title="", tickfont=dict(size=9))
         avg_fig = _style_cfr_figure(avg_fig, "", height=410, margin=dict(l=15, r=45, t=35, b=55))
         render_dashboard_plotly_chart(avg_fig, key="cfr_principle_average", container=avg_col, config={"displayModeBar": False})
