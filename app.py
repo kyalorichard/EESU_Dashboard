@@ -4002,7 +4002,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor="black", title=None)
         fig.update_xaxes(
-            title="Percent of total",
+            title="",
             ticksuffix="%",
             range=[0, axis_max],
             showgrid=True,
@@ -4012,7 +4012,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title=None)
         fig.update_yaxes(
-            title="Percent of total",
+            title="",
             ticksuffix="%",
             range=[0, axis_max],
             showgrid=True,
@@ -4174,7 +4174,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     if horizontal:
         fig.update_yaxes(showline=True, linewidth=2, linecolor="black", title=None)
         fig.update_xaxes(
-            title="Percent of total",
+            title="",
             ticksuffix="%",
             range=[0, axis_max],
             showgrid=True,
@@ -4184,7 +4184,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title=None)
         fig.update_yaxes(
-            title="Percent of total",
+            title="",
             ticksuffix="%",
             range=[0, axis_max],
             showgrid=True,
@@ -4203,9 +4203,9 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     fig.update_layout(barmode="stack")
 
     if horizontal:
-        fig.update_xaxes(title="Percent of total", ticksuffix="%", range=[0, axis_max])
+        fig.update_xaxes(title="", ticksuffix="%", range=[0, axis_max])
     else:
-        fig.update_yaxes(title="Percent of total", ticksuffix="%", range=[0, axis_max])
+        fig.update_yaxes(title="", ticksuffix="%", range=[0, axis_max])
 
     fig.add_annotation(
         text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
