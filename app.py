@@ -2365,27 +2365,6 @@ def render_cfr_analysis():
                     key="cfr_compare_b",
                 )
 
-            row_a = filtered.loc[filtered["Country"].eq(country_a)].iloc[0]
-            row_b = filtered.loc[filtered["Country"].eq(country_b)].iloc[0]
-            score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
-            delta = score_a - score_b
-
-            summary_a, summary_delta, summary_b = st.columns([1, .72, 1], gap="small")
-            with summary_a:
-                st.markdown(
-                    f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_a}</div><div style="font-size:22px;font-weight:950;color:#660094;margin-top:4px;">{score_a:.2f}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with summary_delta:
-                st.markdown(
-                    f'<div class="cfr-profile-shell" style="padding:10px 8px;margin-bottom:7px;text-align:center;"><div style="font-size:9px;font-weight:900;color:#667085;">Difference</div><div style="font-size:18px;font-weight:950;color:#23152F;margin-top:6px;">{abs(delta):.2f}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with summary_b:
-                st.markdown(
-                    f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_b}</div><div style="font-size:22px;font-weight:950;color:#008CAA;margin-top:4px;">{score_b:.2f}</div></div>',
-                    unsafe_allow_html=True,
-                )
 
             compare_fig = go.Figure()
             labels = list(CFR_PRINCIPLES.values())
