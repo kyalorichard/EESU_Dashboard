@@ -3517,7 +3517,8 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         st.markdown(f"""
         <div class="eusee-kpi-card">
             <div>
-                <div class="eusee-kpi-top">                    
+                <div class="eusee-kpi-top">
+                    <div><div class="eusee-kpi-title">Total Alerts </div></div>
                     <div class="eusee-kpi-icon">⚠️</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
