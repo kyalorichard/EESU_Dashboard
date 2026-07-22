@@ -2365,8 +2365,12 @@ def render_cfr_analysis():
                     key="cfr_compare_b",
                 )
 
+            row_a = filtered.loc[filtered["Country"].eq(country_a)].iloc[0]
+            row_b = filtered.loc[filtered["Country"].eq(country_b)].iloc[0]
+            score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
+            delta = score_a - score_b
 
-            compare_fig = go.Figure()
+                       compare_fig = go.Figure()
             labels = list(CFR_PRINCIPLES.values())
             for country, comp_row, color, fill in [
                 (country_a, row_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
