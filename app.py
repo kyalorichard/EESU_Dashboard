@@ -998,13 +998,13 @@ def load_data():
 data = apply_data_scope(load_data())
 
 #### --------prepare enabling principles to be ordered-------------------------------------------
-ENABLING_PRINCIPLE_ORDER = [
-    "1. Respect and protection of fundamental freedoms",
-    "2. Supportive legal and regulatory framework",
-    "3. Accessible and sustainable resources",
-    "4. Open and responsive State",
+ENABLING_PRINCIPLE_ORDER = [          
+    "6. Access to a secure digital environment",
     "5. Supportive public culture and discourses on civil society",
-    "6. Access to a secure digital environment"
+    "4. Open and responsive State",
+    "3. Accessible and sustainable resources",
+    "2. Supportive legal and regulatory framework",
+    "1. Respect and protection of fundamental freedoms"
 ]
 
 ENABLING_PRINCIPLE_LABEL_MAP = {
@@ -6308,7 +6308,7 @@ if tab_overview is not None:
             a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
             df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
             df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-            df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=False)
+            df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
             a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
             a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
             #a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
