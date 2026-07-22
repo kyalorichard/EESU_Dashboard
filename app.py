@@ -1598,13 +1598,13 @@ def render_sidebar_access_settings_profile():
     with panel:
         st.markdown('<span class="eusee-privilege-marker"></span>', unsafe_allow_html=True)
         st.markdown("### 🔐 User Privilege Center")
-        st.caption("Central access, role, navigation, and feature availability.")
+        #st.caption("Central access, role, navigation, and feature availability.")
 
         st.markdown(f"**{display_name}**")
         st.caption(
             "Your dashboard permissions are controlled by your approved EUSEE role."
             if signed_in
-            else "Sign in to access advanced features and analyses available to EUSEE partners."
+            else "Sign in to access advanced features."
         )
 
            
@@ -1876,9 +1876,10 @@ st.markdown(f"""
 <div class="animated-divider"></div>
 
 <div class="animated-subtitle">
-    This interactive dashboard allows exploration and analysis of data produced by the EU SEE project.
-    It aggregates information reported by Network Members across 86 countries to document trends 
-    in the enabling environment for civil society.
+    Explore and analyse EU SEE data! This dashboard reflects the documentation of changes to the enabling environment for civil society, as reported by our network members in 80+ countries. We recommend complementing the data here with the primary source research available on the EU SEE website. Please consider: 
+•	Due to differences in partner reporting practices by country, direct country comparisons are not recommended when using this data.  
+•	Some alerts fall under more than one enabling environment principle. 
+
 </div>
 
 </div>
