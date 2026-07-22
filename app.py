@@ -3517,8 +3517,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         st.markdown(f"""
         <div class="eusee-kpi-card">
             <div>
-                <div class="eusee-kpi-top">
-                    <div><div class="eusee-kpi-title">Total Alerts <span class="eusee-tooltip" tabindex="0" aria-label="Total alerts interpretation note" data-tooltip="Higher numbers of alerts do not always indicate a worse situation; they may reflect better reporting or different thresholds across countries.">?</span></div></div>
+                <div class="eusee-kpi-top">                    
                     <div class="eusee-kpi-icon">⚠️</div>
                 </div>
                 <div class="eusee-kpi-value" style="color:#FF6F61;">{total_alerts:,}</div><div class="eusee-microline" style="color:#FF6F61;"></div>
