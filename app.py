@@ -2138,6 +2138,9 @@ def render_cfr_analysis():
         st.info("The CFR export contains no valid principle scores.")
         return
 
+    valid = valid.sort_values("Overall CFR", ascending=False).reset_index(drop=True)
+    valid["Rank"] = np.arange(1, len(valid) + 1)
+
     latest = valid["Last Modified"].max()
     highest, lowest = valid.iloc[0], valid.iloc[-1]
 
@@ -2155,8 +2158,6 @@ def render_cfr_analysis():
         unsafe_allow_html=True,
     )
 
-    # Render cards independently in Streamlit columns. This avoids Markdown
-    # displaying the concatenated HTML as plain text and matches other dashboard cards.
     card_specs = [
         ("Countries with CFR", f"{valid['Country'].nunique():,}", "Countries represented in the current CFR export.", "🌍", ""),
         ("Average overall CFR", f"{valid['Overall CFR'].mean():.2f}", "Mean score across all countries and six principles, out of 7.", "◉", ""),
@@ -2167,29 +2168,48 @@ def render_cfr_analysis():
     card_columns = st.columns(len(card_specs), gap="small")
     for card_column, (title, value, note, icon, value_class) in zip(card_columns, card_specs):
         with card_column:
-            st.markdown(
-                _cfr_kpi_card(title, value, note, icon, value_class),
-                unsafe_allow_html=True,
-            )
+            st.markdown(_cfr_kpi_card(title, value, note, icon, value_class), unsafe_allow_html=True)
 
     st.markdown('<div class="cfr-panel-label">Analysis controls</div>', unsafe_allow_html=True)
     f1, f2, f3 = st.columns([1.65, 1, .85])
     with f1:
         search = st.text_input("Search country", placeholder="Type a country name...", key="cfr_country_search")
     with f2:
-        score_band = st.selectbox("Overall CFR range", ["All scores", "1.0–2.9", "3.0–3.9", "4.0–4.9", "5.0–7.0"], key="cfr_score_band")
+        score_band = st.selectbox(
+            "Overall CFR range",
+            ["All scores", "1.0–1.9", "2.0–2.9", "3.0–3.9", "4.0–4.9", "5.0–5.9", "6.0–7.0"],
+            key="cfr_score_band",
+        )
     with f3:
-        st.download_button("⬇ Download CFR data", cfr.to_csv(index=False).encode("utf-8"), "eusee_cfr_analysis.csv", "text/csv", use_container_width=True, key="download_cfr_data")
+        st.download_button(
+            "⬇ Download CFR data",
+            cfr.to_csv(index=False).encode("utf-8"),
+            "eusee_cfr_analysis.csv",
+            "text/csv",
+            use_container_width=True,
+            key="download_cfr_data",
+        )
 
     filtered = valid.copy()
     if search.strip():
         filtered = filtered[filtered["Country"].str.contains(search.strip(), case=False, na=False)]
-    band_bounds = {"1.0–2.9": (1, 2.9999), "3.0–3.9": (3, 3.9999), "4.0–4.9": (4, 4.9999), "5.0–7.0": (5, 7)}
+
+    band_bounds = {
+        "1.0–1.9": (1.0, 1.9999),
+        "2.0–2.9": (2.0, 2.9999),
+        "3.0–3.9": (3.0, 3.9999),
+        "4.0–4.9": (4.0, 4.9999),
+        "5.0–5.9": (5.0, 5.9999),
+        "6.0–7.0": (6.0, 7.0),
+    }
     if score_band in band_bounds:
         lo, hi = band_bounds[score_band]
         filtered = filtered[filtered["Overall CFR"].between(lo, hi)]
 
-    st.markdown(f'<div class="cfr-filter-note">Showing {len(filtered):,} of {len(valid):,} CFR countries under the active filters.</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="cfr-filter-note">Showing {len(filtered):,} of {len(valid):,} CFR countries under the active filters.</div>',
+        unsafe_allow_html=True,
+    )
     if filtered.empty:
         st.info("No CFR countries match the selected filters.")
         return
@@ -2197,104 +2217,181 @@ def render_cfr_analysis():
     country_options = filtered["Country"].tolist()
     default_country = "Kenya" if "Kenya" in country_options else country_options[0]
 
-    # First row: ranked overview and distribution, matching dashboard two-column plot rows.
-    r1c1, r1c2 = st.columns(2)
-    ranking_plot = filtered.head(20).sort_values("Overall CFR", ascending=True)
-    ranking_fig = px.bar(
-        ranking_plot, x="Overall CFR", y="Country", orientation="h",
-        text=ranking_plot["Overall CFR"].map(lambda x: f"{x:.2f}"),
-        range_x=[0, 7],
-    )
-    ranking_fig.update_traces(marker_color=CFR_PURPLE, textposition="outside", cliponaxis=False, hovertemplate="<b>%{y}</b><br>Overall CFR: %{x:.2f} / 7<extra></extra>")
-    ranking_fig.update_yaxes(categoryorder="array", categoryarray=ranking_plot["Country"].tolist(), title="")
-    ranking_fig.update_xaxes(title="Overall CFR score (0–7)", dtick=1)
-    ranking_fig = _style_cfr_figure(ranking_fig, "Overall CFR country ranking", height=390, margin=dict(l=20, r=45, t=68, b=45))
-    render_dashboard_plotly_chart(ranking_fig, key="cfr_overall_ranking", container=r1c1, config={"displayModeBar": False})
+    # ------------------------------------------------------------------
+    # ROW 1: ranking, country profile, and country comparison
+    # ------------------------------------------------------------------
+    ranking_col, profile_col, compare_col = st.columns([1.05, 1.18, 1.18], gap="small")
 
-    hist = px.histogram(filtered, x="Overall CFR", nbins=12, range_x=[1, 7])
-    hist.update_traces(marker_color=CFR_TEAL, marker_line_color="#FFFFFF", marker_line_width=1, hovertemplate="CFR band: %{x}<br>Countries: %{y}<extra></extra>")
-    hist.update_xaxes(title="Overall CFR score", dtick=1)
-    hist.update_yaxes(title="Number of countries", rangemode="tozero")
-    hist = _style_cfr_figure(hist, "Distribution of overall CFR scores", height=390)
-    render_dashboard_plotly_chart(hist, key="cfr_distribution", container=r1c2, config={"displayModeBar": False})
-
-    # Second row: country profile and country comparison.
-    pcol, ccol = st.columns(2)
-    with pcol:
-        st.markdown('<div class="cfr-section-heading">Country profile</div>', unsafe_allow_html=True)
-        selected_country = st.selectbox("Select country", country_options, index=country_options.index(default_country), key="cfr_profile_country")
-        row = filtered.loc[filtered["Country"].eq(selected_country)].iloc[0]
-        rank_lookup = valid.reset_index(drop=True)
-        rank_value = int(rank_lookup.index[rank_lookup["Country"].eq(selected_country)][0]) + 1
-        score_rows = "".join(
-            f'<div class="cfr-score-row"><span>{short}</span><strong>{row[col]:.2f}</strong></div>' if pd.notna(row[col])
-            else f'<div class="cfr-score-row"><span>{short}</span><strong>—</strong></div>'
-            for col, short in CFR_PRINCIPLES.items()
+    with ranking_col:
+        st.markdown('<div class="cfr-section-heading">Overall CFR ranking</div>', unsafe_allow_html=True)
+        rank_page_size = 10
+        rank_pages = max(1, math.ceil(len(filtered) / rank_page_size))
+        rank_page = st.selectbox(
+            "Ranking page",
+            list(range(1, rank_pages + 1)),
+            format_func=lambda x: f"Page {x} of {rank_pages}",
+            key="cfr_ranking_page",
+            label_visibility="collapsed",
         )
+        rank_start = (rank_page - 1) * rank_page_size
+        rank_view = filtered.iloc[rank_start:rank_start + rank_page_size][["Rank", "Country", "Overall CFR", "Last Modified"]].copy()
+        rank_view["Overall CFR"] = rank_view["Overall CFR"].round(2)
+        rank_view["Last Modified"] = rank_view["Last Modified"].dt.strftime("%d %b %Y")
+        st.dataframe(
+            rank_view,
+            use_container_width=True,
+            hide_index=True,
+            height=390,
+            column_config={
+                "Rank": st.column_config.NumberColumn("Rank", format="%d", width="small"),
+                "Country": st.column_config.TextColumn("Country", width="medium"),
+                "Overall CFR": st.column_config.ProgressColumn("Overall CFR", min_value=0, max_value=7, format="%.2f"),
+                "Last Modified": st.column_config.TextColumn("Updated", width="small"),
+            },
+            key="cfr_ranking_table",
+        )
+        st.caption(f"Showing ranks {rank_start + 1}–{min(rank_start + rank_page_size, len(filtered))} of {len(filtered)}.")
+
+    with profile_col:
+        st.markdown('<div class="cfr-section-heading">Country profile</div>', unsafe_allow_html=True)
+        selected_country = st.selectbox(
+            "Select country",
+            country_options,
+            index=country_options.index(default_country),
+            key="cfr_profile_country",
+        )
+        row = filtered.loc[filtered["Country"].eq(selected_country)].iloc[0]
+        rank_value = int(valid.loc[valid["Country"].eq(selected_country), "Rank"].iloc[0])
         st.markdown(
-            f'<div class="cfr-profile-shell"><div class="cfr-profile-score">{row["Overall CFR"]:.2f} <span style="font-size:13px;color:#667085;font-family:Arial;letter-spacing:0;">/ 7</span></div><div class="cfr-profile-rank">Rank {rank_value} of {len(valid)} countries</div><div style="margin-top:9px;">{score_rows}</div></div>',
+            f'<div class="cfr-profile-shell"><div class="cfr-profile-score">{row["Overall CFR"]:.2f} '
+            f'<span style="font-size:13px;color:#667085;font-family:Arial;letter-spacing:0;">/ 7</span></div>'
+            f'<div class="cfr-profile-rank">Rank {rank_value} of {len(valid)} countries</div></div>',
             unsafe_allow_html=True,
         )
+        profile_fig = _cfr_radar(row, f"{selected_country}: score by principle")
+        profile_fig = _style_cfr_figure(profile_fig, "Principle scores", height=350, margin=dict(l=30, r=30, t=60, b=20))
+        render_dashboard_plotly_chart(profile_fig, key="cfr_profile_radar", container=profile_col, config={"displayModeBar": False})
         if row["Permalink"]:
             st.link_button("Open full CFR report ↗", row["Permalink"], use_container_width=True)
 
-    profile_fig = _cfr_radar(row, f"{selected_country}: score by principle")
-    render_dashboard_plotly_chart(profile_fig, key="cfr_profile_radar", container=pcol, config={"displayModeBar": False})
-
-    with ccol:
+    with compare_col:
         st.markdown('<div class="cfr-section-heading">Compare countries</div>', unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
+        ca, cb = st.columns(2)
         first = default_country
         second = "Uganda" if "Uganda" in country_options and "Uganda" != first else country_options[min(1, len(country_options) - 1)]
-        with c1:
+        with ca:
             country_a = st.selectbox("Country A", country_options, index=country_options.index(first), key="cfr_compare_a")
-        with c2:
+        with cb:
             country_b = st.selectbox("Country B", country_options, index=country_options.index(second), key="cfr_compare_b")
 
-    compare_fig = go.Figure()
-    labels = list(CFR_PRINCIPLES.values())
-    for idx, (country, color, fill) in enumerate([
-        (country_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
-        (country_b, CFR_TEAL, "rgba(0,140,170,.10)"),
-    ]):
-        comp_row = filtered.loc[filtered["Country"].eq(country)].iloc[0]
-        vals = [float(comp_row[col]) if pd.notna(comp_row[col]) else 0 for col in CFR_PRINCIPLES]
-        compare_fig.add_trace(go.Scatterpolar(
-            r=vals + vals[:1], theta=labels + labels[:1], fill="toself", name=country,
-            line=dict(color=color, width=2.3), fillcolor=fill, marker=dict(size=4),
-            hovertemplate=f"%{{theta}}<br><b>%{{r:.2f}}</b> / 7<extra>{country}</extra>",
-        ))
-    compare_fig.update_layout(
-        polar=dict(bgcolor="#FFFFFF", radialaxis=dict(visible=True, range=[0, 7], dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8)), angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=9))),
-        legend=dict(orientation="h", y=1.07, x=.5, xanchor="center", font=dict(size=10)),
-    )
-    compare_fig = _style_cfr_figure(compare_fig, "Country comparison by principle", height=390, legend=True, margin=dict(l=38, r=38, t=82, b=25))
-    render_dashboard_plotly_chart(compare_fig, key="cfr_compare_radar", container=ccol, config={"displayModeBar": False})
+        compare_fig = go.Figure()
+        labels = list(CFR_PRINCIPLES.values())
+        for country, color, fill in [
+            (country_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
+            (country_b, CFR_TEAL, "rgba(0,140,170,.10)"),
+        ]:
+            comp_row = filtered.loc[filtered["Country"].eq(country)].iloc[0]
+            vals = [float(comp_row[col]) if pd.notna(comp_row[col]) else 0 for col in CFR_PRINCIPLES]
+            compare_fig.add_trace(go.Scatterpolar(
+                r=vals + vals[:1],
+                theta=labels + labels[:1],
+                fill="toself",
+                name=country,
+                line=dict(color=color, width=2.2),
+                fillcolor=fill,
+                marker=dict(size=4),
+                hovertemplate=f"%{{theta}}<br><b>%{{r:.2f}}</b> / 7<extra>{country}</extra>",
+            ))
+        compare_fig.update_layout(
+            polar=dict(
+                bgcolor="#FFFFFF",
+                radialaxis=dict(visible=True, range=[0, 7], dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8)),
+                angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=8)),
+            ),
+            legend=dict(orientation="h", y=1.06, x=.5, xanchor="center", font=dict(size=10)),
+        )
+        compare_fig = _style_cfr_figure(compare_fig, "Country comparison", height=350, legend=True, margin=dict(l=30, r=30, t=70, b=20))
+        render_dashboard_plotly_chart(compare_fig, key="cfr_compare_radar", container=compare_col, config={"displayModeBar": False})
 
-    # Third row: heatmap and principle averages.
-    h1, h2 = st.columns([1.35, 1])
-    heat = filtered.head(25).set_index("Country")[list(CFR_PRINCIPLES)].rename(columns=CFR_PRINCIPLES)
-    heat_fig = px.imshow(
-        heat, text_auto=".1f", aspect="auto", zmin=1, zmax=7,
-        color_continuous_scale=[[0, "#FEE4E2"], [.5, "#FFDB58"], [1, "#008CAA"]],
-        labels=dict(color="CFR score"),
-    )
-    heat_fig.update_traces(hovertemplate="<b>%{y}</b><br>%{x}: %{z:.2f} / 7<extra></extra>")
-    heat_fig.update_xaxes(title="", side="bottom", tickangle=-24)
-    heat_fig.update_yaxes(title="")
-    heat_fig = _style_cfr_figure(heat_fig, "CFR score heatmap by principle", height=430, margin=dict(l=25, r=20, t=68, b=100))
-    render_dashboard_plotly_chart(heat_fig, key="cfr_heatmap", container=h1, config={"displayModeBar": False})
+    # ------------------------------------------------------------------
+    # ROW 2: paginated heatmap, fixed-band distribution, principle averages
+    # ------------------------------------------------------------------
+    heat_col, dist_col, avg_col = st.columns([1.3, 1, 1], gap="small")
 
-    averages = pd.DataFrame({
-        "Principle": list(CFR_PRINCIPLES.values()),
-        "Average score": [filtered[col].mean() for col in CFR_PRINCIPLES],
-    }).sort_values("Average score", ascending=True)
-    avg_fig = px.bar(averages, x="Average score", y="Principle", orientation="h", text=averages["Average score"].map(lambda x: f"{x:.2f}"), range_x=[0, 7])
-    avg_fig.update_traces(marker_color=CFR_PURPLE, textposition="outside", cliponaxis=False, hovertemplate="<b>%{y}</b><br>Average: %{x:.2f} / 7<extra></extra>")
-    avg_fig.update_xaxes(title="Average CFR score (0–7)", dtick=1)
-    avg_fig.update_yaxes(title="")
-    avg_fig = _style_cfr_figure(avg_fig, "Average score by CFR principle", height=430, margin=dict(l=20, r=48, t=68, b=45))
-    render_dashboard_plotly_chart(avg_fig, key="cfr_principle_average", container=h2, config={"displayModeBar": False})
+    with heat_col:
+        st.markdown('<div class="cfr-section-heading">CFR heatmap by principle</div>', unsafe_allow_html=True)
+        hp1, hp2 = st.columns([1, 1])
+        with hp1:
+            heat_page_size = st.selectbox("Countries per page", [6, 8, 10, 12], index=1, key="cfr_heat_page_size")
+        heat_pages = max(1, math.ceil(len(filtered) / heat_page_size))
+        with hp2:
+            heat_page = st.selectbox(
+                "Heatmap page",
+                list(range(1, heat_pages + 1)),
+                format_func=lambda x: f"Page {x} of {heat_pages}",
+                key="cfr_heat_page",
+            )
+        heat_start = (heat_page - 1) * heat_page_size
+        heat_slice = filtered.iloc[heat_start:heat_start + heat_page_size]
+        heat = heat_slice.set_index("Country")[list(CFR_PRINCIPLES)].rename(columns=CFR_PRINCIPLES)
+        heat_fig = px.imshow(
+            heat,
+            text_auto=".1f",
+            aspect="auto",
+            zmin=1,
+            zmax=7,
+            color_continuous_scale=[[0, "#F04438"], [.35, "#FFB547"], [.65, "#A6DCC8"], [1, "#2E9B63"]],
+            labels=dict(color="CFR score"),
+        )
+        heat_fig.update_traces(hovertemplate="<b>%{y}</b><br>%{x}: %{z:.2f} / 7<extra></extra>")
+        heat_fig.update_xaxes(title="", side="top", tickangle=-22, tickfont=dict(size=9))
+        heat_fig.update_yaxes(title="", tickfont=dict(size=10))
+        heat_fig = _style_cfr_figure(heat_fig, "", height=360, margin=dict(l=20, r=10, t=60, b=25))
+        render_dashboard_plotly_chart(heat_fig, key="cfr_heatmap", container=heat_col, config={"displayModeBar": False})
+        st.caption(f"Countries {heat_start + 1}–{min(heat_start + heat_page_size, len(filtered))} of {len(filtered)}, ordered by overall CFR rank.")
+
+    with dist_col:
+        st.markdown('<div class="cfr-section-heading">Overall CFR distribution</div>', unsafe_allow_html=True)
+        bins = [1, 2, 3, 4, 5, 6, 7.0001]
+        labels_band = ["1–2", "2–3", "3–4", "4–5", "5–6", "6–7"]
+        band_series = pd.cut(filtered["Overall CFR"], bins=bins, labels=labels_band, right=False, include_lowest=True)
+        dist_df = band_series.value_counts(sort=False).reindex(labels_band, fill_value=0).rename_axis("Score range").reset_index(name="Countries")
+        dist_fig = px.bar(dist_df, x="Score range", y="Countries", text="Countries")
+        dist_fig.update_traces(
+            marker_color=CFR_PURPLE,
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="Score range %{x}<br>Countries: %{y}<extra></extra>",
+        )
+        dist_fig.update_xaxes(title="Overall CFR score range", categoryorder="array", categoryarray=labels_band)
+        dist_fig.update_yaxes(title="Number of countries", rangemode="tozero", dtick=1)
+        dist_fig = _style_cfr_figure(dist_fig, "", height=410, margin=dict(l=45, r=20, t=35, b=55))
+        render_dashboard_plotly_chart(dist_fig, key="cfr_distribution", container=dist_col, config={"displayModeBar": False})
+
+    with avg_col:
+        st.markdown('<div class="cfr-section-heading">Average score by principle</div>', unsafe_allow_html=True)
+        averages = pd.DataFrame({
+            "Principle": list(CFR_PRINCIPLES.values()),
+            "Average score": [filtered[col].mean() for col in CFR_PRINCIPLES],
+        }).sort_values("Average score", ascending=True)
+        avg_fig = px.bar(
+            averages,
+            x="Average score",
+            y="Principle",
+            orientation="h",
+            text=averages["Average score"].map(lambda x: f"{x:.2f}"),
+            range_x=[0, 7],
+        )
+        avg_fig.update_traces(
+            marker_color=CFR_PURPLE,
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="<b>%{y}</b><br>Average: %{x:.2f} / 7<extra></extra>",
+        )
+        avg_fig.update_xaxes(title="Average CFR score", dtick=1)
+        avg_fig.update_yaxes(title="", tickfont=dict(size=9))
+        avg_fig = _style_cfr_figure(avg_fig, "", height=410, margin=dict(l=15, r=45, t=35, b=55))
+        render_dashboard_plotly_chart(avg_fig, key="cfr_principle_average", container=avg_col, config={"displayModeBar": False})
 
     st.markdown('<div class="cfr-section-heading">CFR country detail</div>', unsafe_allow_html=True)
     detail = filtered[["Country", "Overall CFR", *CFR_PRINCIPLES.keys(), "Last Modified", "Permalink"]].copy().rename(columns=CFR_PRINCIPLES)
@@ -2303,7 +2400,10 @@ def render_cfr_analysis():
         detail[col] = detail[col].round(2)
     detail["Last Modified"] = detail["Last Modified"].dt.strftime("%d %b %Y")
     st.dataframe(
-        detail, use_container_width=True, hide_index=True, height=430,
+        detail,
+        use_container_width=True,
+        hide_index=True,
+        height=390,
         column_config={"Permalink": st.column_config.LinkColumn("Full report", display_text="Open report")},
         key="cfr_country_detail_table",
     )
