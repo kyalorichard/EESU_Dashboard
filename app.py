@@ -2163,7 +2163,6 @@ def render_cfr_analysis():
         ("Average overall CFR", f"{valid['Overall CFR'].mean():.2f}", "Mean score across all countries and six principles, out of 7.", "◉", ""),
         ("Highest scoring country", str(highest["Country"]), f"Overall CFR {highest['Overall CFR']:.2f} / 7.", "↗", "text"),
         ("Lowest scoring country", str(lowest["Country"]), f"Overall CFR {lowest['Overall CFR']:.2f} / 7.", "↘", "text"),
-        ("Latest data update", latest.strftime("%d %b %Y") if pd.notna(latest) else "Unknown", source.name, "◷", "text"),
     ]
     card_columns = st.columns(len(card_specs), gap="small")
     for card_column, (title, value, note, icon, value_class) in zip(card_columns, card_specs):
@@ -2173,7 +2172,13 @@ def render_cfr_analysis():
     st.markdown('<div class="cfr-panel-label">Analysis controls</div>', unsafe_allow_html=True)
     f1, f2, f3 = st.columns([1.65, 1, .85])
     with f1:
-        search = st.text_input("Search country", placeholder="Type a country name...", key="cfr_country_search")
+        country_filter = st.selectbox(
+            "Search country",
+            ["All countries"] + valid["Country"].tolist(),
+            index=0,
+            key="cfr_country_search_dropdown",
+            help="Type inside the dropdown to quickly search for a country.",
+        )
     with f2:
         score_band = st.selectbox(
             "Overall CFR range",
@@ -2191,8 +2196,8 @@ def render_cfr_analysis():
         )
 
     filtered = valid.copy()
-    if search.strip():
-        filtered = filtered[filtered["Country"].str.contains(search.strip(), case=False, na=False)]
+    if country_filter != "All countries":
+        filtered = filtered[filtered["Country"].eq(country_filter)]
 
     band_bounds = {
         "1.0–1.9": (1.0, 1.9999),
@@ -2320,53 +2325,191 @@ def render_cfr_analysis():
 
     with heat_col:
         st.markdown('<div class="cfr-section-heading">CFR heatmap by principle</div>', unsafe_allow_html=True)
-        hp1, hp2 = st.columns([1, 1])
-        with hp1:
-            heat_page_size = st.selectbox("Countries per page", [6, 8, 10, 12], index=1, key="cfr_heat_page_size")
+
+        # Keep pagination state stable when filters or page-size selections change.
+        heat_page_size = st.session_state.get("cfr_heat_page_size", 10)
+        if heat_page_size not in [10, 15, 20]:
+            heat_page_size = 10
         heat_pages = max(1, math.ceil(len(filtered) / heat_page_size))
-        with hp2:
-            heat_page = st.selectbox(
-                "Heatmap page",
-                list(range(1, heat_pages + 1)),
-                format_func=lambda x: f"Page {x} of {heat_pages}",
-                key="cfr_heat_page",
-            )
-        heat_start = (heat_page - 1) * heat_page_size
+        current_heat_page = int(st.session_state.get("cfr_heat_current_page", 1))
+        current_heat_page = max(1, min(current_heat_page, heat_pages))
+        st.session_state["cfr_heat_current_page"] = current_heat_page
+
+        heat_start = (current_heat_page - 1) * heat_page_size
         heat_slice = filtered.iloc[heat_start:heat_start + heat_page_size]
         heat = heat_slice.set_index("Country")[list(CFR_PRINCIPLES)].rename(columns=CFR_PRINCIPLES)
+
         heat_fig = px.imshow(
             heat,
             text_auto=".1f",
             aspect="auto",
             zmin=1,
             zmax=7,
-            color_continuous_scale=[[0, "#F04438"], [.35, "#FFB547"], [.65, "#A6DCC8"], [1, "#2E9B63"]],
+            color_continuous_scale=[
+                [0.00, "#F04438"],
+                [0.24, "#F79009"],
+                [0.48, "#FEC84B"],
+                [0.72, "#75C5AE"],
+                [1.00, "#218C5A"],
+            ],
             labels=dict(color="CFR score"),
         )
-        heat_fig.update_traces(hovertemplate="<b>%{y}</b><br>%{x}: %{z:.2f} / 7<extra></extra>")
-        heat_fig.update_xaxes(title="", side="top", tickangle=-22, tickfont=dict(size=9))
-        heat_fig.update_yaxes(title="", tickfont=dict(size=10))
-        heat_fig = _style_cfr_figure(heat_fig, "", height=360, margin=dict(l=20, r=10, t=60, b=25))
+        heat_fig.update_traces(
+            hovertemplate="<b>%{y}</b><br>%{x}: <b>%{z:.2f}</b> / 7<extra></extra>",
+            xgap=1.5,
+            ygap=1.5,
+        )
+        heat_fig.update_xaxes(title="", side="top", tickangle=-20, tickfont=dict(size=9))
+        heat_fig.update_yaxes(title="", tickfont=dict(size=10), autorange="reversed")
+        heat_fig.update_coloraxes(
+            colorbar=dict(
+                title="Score",
+                tickvals=[1, 2, 3, 4, 5, 6, 7],
+                thickness=10,
+                len=.82,
+                outlinewidth=0,
+            )
+        )
+        heat_height = max(330, min(500, 155 + len(heat_slice) * 29))
+        heat_fig = _style_cfr_figure(heat_fig, "", height=heat_height, margin=dict(l=20, r=12, t=62, b=20))
         render_dashboard_plotly_chart(heat_fig, key="cfr_heatmap", container=heat_col, config={"displayModeBar": False})
-        st.caption(f"Countries {heat_start + 1}–{min(heat_start + heat_page_size, len(filtered))} of {len(filtered)}, ordered by overall CFR rank.")
+
+        # Advanced pagination is intentionally positioned below the heatmap.
+        p_prev, p_page, p_size, p_next = st.columns([.72, 1.35, 1.15, .72], gap="small")
+        with p_prev:
+            if st.button(
+                "← Previous",
+                key="cfr_heat_prev",
+                use_container_width=True,
+                disabled=current_heat_page <= 1,
+            ):
+                st.session_state["cfr_heat_current_page"] = current_heat_page - 1
+                st.rerun()
+        with p_page:
+            selected_heat_page = st.selectbox(
+                "Page",
+                list(range(1, heat_pages + 1)),
+                index=current_heat_page - 1,
+                format_func=lambda x: f"Page {x} of {heat_pages}",
+                key="cfr_heat_page_selector",
+                label_visibility="collapsed",
+            )
+            if selected_heat_page != current_heat_page:
+                st.session_state["cfr_heat_current_page"] = selected_heat_page
+                st.rerun()
+        with p_size:
+            selected_page_size = st.selectbox(
+                "Countries per page",
+                [10, 15, 20],
+                index=[10, 15, 20].index(heat_page_size),
+                key="cfr_heat_page_size_selector",
+                format_func=lambda x: f"{x} countries",
+                label_visibility="collapsed",
+            )
+            if selected_page_size != heat_page_size:
+                st.session_state["cfr_heat_page_size"] = selected_page_size
+                st.session_state["cfr_heat_current_page"] = 1
+                st.rerun()
+        with p_next:
+            if st.button(
+                "Next →",
+                key="cfr_heat_next",
+                use_container_width=True,
+                disabled=current_heat_page >= heat_pages,
+            ):
+                st.session_state["cfr_heat_current_page"] = current_heat_page + 1
+                st.rerun()
+
+        st.caption(
+            f"Showing countries {heat_start + 1}–{min(heat_start + heat_page_size, len(filtered))} "
+            f"of {len(filtered)}, ordered by overall CFR rank."
+        )
 
     with dist_col:
         st.markdown('<div class="cfr-section-heading">Overall CFR distribution</div>', unsafe_allow_html=True)
+
         bins = [1, 2, 3, 4, 5, 6, 7.0001]
         labels_band = ["1–2", "2–3", "3–4", "4–5", "5–6", "6–7"]
-        band_series = pd.cut(filtered["Overall CFR"], bins=bins, labels=labels_band, right=False, include_lowest=True)
-        dist_df = band_series.value_counts(sort=False).reindex(labels_band, fill_value=0).rename_axis("Score range").reset_index(name="Countries")
-        dist_fig = px.bar(dist_df, x="Score range", y="Countries", text="Countries")
-        dist_fig.update_traces(
-            marker_color=CFR_PURPLE,
+        centers = [1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
+        band_series = pd.cut(
+            filtered["Overall CFR"],
+            bins=bins,
+            labels=labels_band,
+            right=False,
+            include_lowest=True,
+        )
+        dist_df = (
+            band_series.value_counts(sort=False)
+            .reindex(labels_band, fill_value=0)
+            .rename_axis("Score range")
+            .reset_index(name="Countries")
+        )
+        dist_df["Share"] = np.where(
+            len(filtered) > 0,
+            dist_df["Countries"] / len(filtered) * 100,
+            0,
+        )
+        dist_df["Centre"] = centers
+
+        dist_colors = ["#D92D20", "#F97066", "#F79009", "#FEC84B", "#75C5AE", "#218C5A"]
+        dist_fig = go.Figure()
+        dist_fig.add_trace(go.Bar(
+            x=dist_df["Centre"],
+            y=dist_df["Countries"],
+            width=.84,
+            marker=dict(color=dist_colors, line=dict(color="#FFFFFF", width=1.3)),
+            customdata=np.column_stack([dist_df["Score range"], dist_df["Share"]]),
+            text=[f"{int(n)}<br><span style='font-size:9px'>{p:.0f}%</span>" for n, p in zip(dist_df["Countries"], dist_df["Share"])],
             textposition="outside",
             cliponaxis=False,
-            hovertemplate="Score range %{x}<br>Countries: %{y}<extra></extra>",
+            hovertemplate=(
+                "<b>CFR %{customdata[0]}</b><br>"
+                "Countries: %{y}<br>"
+                "Share: %{customdata[1]:.1f}%<extra></extra>"
+            ),
+        ))
+
+        mean_score = float(filtered["Overall CFR"].mean())
+        dist_fig.add_vline(
+            x=mean_score,
+            line_width=1.6,
+            line_dash="dot",
+            line_color=CFR_PURPLE,
+            annotation_text=f"Mean {mean_score:.2f}",
+            annotation_position="top",
+            annotation_font=dict(size=10, color=CFR_PURPLE),
         )
-        dist_fig.update_xaxes(title="Overall CFR score range", categoryorder="array", categoryarray=labels_band)
-        dist_fig.update_yaxes(title="Number of countries", rangemode="tozero", dtick=1)
-        dist_fig = _style_cfr_figure(dist_fig, "", height=410, margin=dict(l=45, r=20, t=35, b=55))
-        render_dashboard_plotly_chart(dist_fig, key="cfr_distribution", container=dist_col, config={"displayModeBar": False})
+        dist_fig.update_xaxes(
+            title="Overall CFR score",
+            range=[1, 7],
+            tickmode="array",
+            tickvals=centers,
+            ticktext=labels_band,
+            showgrid=False,
+        )
+        dist_fig.update_yaxes(
+            title="Number of countries",
+            rangemode="tozero",
+            dtick=1,
+            gridcolor="#EEF0F4",
+        )
+        dist_fig.update_layout(
+            bargap=.12,
+            hovermode="x unified",
+        )
+        dist_fig = _style_cfr_figure(
+            dist_fig,
+            "",
+            height=410,
+            margin=dict(l=48, r=18, t=48, b=58),
+        )
+        render_dashboard_plotly_chart(
+            dist_fig,
+            key="cfr_distribution",
+            container=dist_col,
+            config={"displayModeBar": False},
+        )
+        st.caption("Fixed one-point CFR bands show both country counts and percentage share; the dotted line marks the filtered mean.")
 
     with avg_col:
         st.markdown('<div class="cfr-section-heading">Average score by principle</div>', unsafe_allow_html=True)
