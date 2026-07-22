@@ -2380,21 +2380,48 @@ def render_cfr_analysis():
             score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
             delta = score_a - score_b
 
-            summary_a, summary_delta, summary_b = st.columns([1, .72, 1], gap="small")
-            with summary_a:
+            rank_a = int(valid.loc[valid["Country"].eq(country_a), "Rank"].iloc[0])
+            rank_b = int(valid.loc[valid["Country"].eq(country_b), "Rank"].iloc[0])
+            principles_a = {
+                label: float(row_a[col])
+                for col, label in CFR_PRINCIPLES.items()
+                if pd.notna(row_a[col])
+            }
+            principles_b = {
+                label: float(row_b[col])
+                for col, label in CFR_PRINCIPLES.items()
+                if pd.notna(row_b[col])
+            }
+            strongest_a = max(principles_a, key=principles_a.get) if principles_a else "—"
+            strongest_b = max(principles_b, key=principles_b.get) if principles_b else "—"
+            leader = country_a if delta > 0 else country_b if delta < 0 else "Equal scores"
+
+            compare_metric_col, compare_chart_col = st.columns([0.82, 2.18], gap="small")
+            with compare_metric_col:
                 st.markdown(
-                    f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_a}</div><div style="font-size:22px;font-weight:950;color:#660094;margin-top:4px;">{score_a:.2f}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with summary_delta:
-                leader = country_a if delta > 0 else country_b if delta < 0 else "Equal"
-                st.markdown(
-                    f'<div class="cfr-profile-shell" style="padding:10px 8px;margin-bottom:7px;text-align:center;"><div style="font-size:9px;font-weight:900;color:#667085;">Difference</div><div style="font-size:18px;font-weight:950;color:#23152F;margin-top:4px;">{abs(delta):.2f}</div><div style="font-size:9px;font-weight:750;color:#667085;margin-top:2px;">{leader}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with summary_b:
-                st.markdown(
-                    f'<div class="cfr-profile-shell" style="padding:10px 12px;margin-bottom:7px;text-align:center;"><div style="font-size:10px;font-weight:900;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_b}</div><div style="font-size:22px;font-weight:950;color:#008CAA;margin-top:4px;">{score_b:.2f}</div></div>',
+                    f"""
+                    <div class="cfr-profile-shell" style="min-height:342px;display:flex;flex-direction:column;justify-content:space-between;">
+                        <div>
+                            <div style="font-size:10px;font-weight:900;color:#667085;text-transform:uppercase;letter-spacing:.08em;">Comparison summary</div>
+                            <div style="margin-top:12px;padding:11px 12px;border:1px solid #EEE8F3;border-radius:12px;background:#FBF8FD;">
+                                <div style="font-size:10px;font-weight:900;color:#660094;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_a}</div>
+                                <div style="font-size:25px;font-weight:950;color:#660094;margin-top:3px;">{score_a:.2f}<span style="font-size:12px;color:#667085;font-weight:750;"> / 7</span></div>
+                                <div style="font-size:10px;color:#667085;font-weight:750;margin-top:2px;">Rank {rank_a} of {len(valid)}</div>
+                            </div>
+                            <div style="margin-top:8px;padding:11px 12px;border:1px solid #E2F0F3;border-radius:12px;background:#F6FBFC;">
+                                <div style="font-size:10px;font-weight:900;color:#008CAA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_b}</div>
+                                <div style="font-size:25px;font-weight:950;color:#008CAA;margin-top:3px;">{score_b:.2f}<span style="font-size:12px;color:#667085;font-weight:750;"> / 7</span></div>
+                                <div style="font-size:10px;color:#667085;font-weight:750;margin-top:2px;">Rank {rank_b} of {len(valid)}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:14px;">
+                            <div class="cfr-score-row"><span>Score difference</span><strong>{abs(delta):.2f}</strong></div>
+                            <div class="cfr-score-row"><span>Higher overall score</span><strong>{leader}</strong></div>
+                            <div class="cfr-score-row"><span>{country_a} strongest</span><strong>{strongest_a}</strong></div>
+                            <div class="cfr-score-row"><span>{country_b} strongest</span><strong>{strongest_b}</strong></div>
+                        </div>
+                    </div>
+                    """,
                     unsafe_allow_html=True,
                 )
 
@@ -2430,12 +2457,13 @@ def render_cfr_analysis():
                 legend=True,
                 margin=dict(l=42, r=42, t=70, b=20),
             )
-            render_dashboard_plotly_chart(
-                compare_fig,
-                key="cfr_compare_radar",
-                container=analysis_col,
-                config={"displayModeBar": False},
-            )
+            with compare_chart_col:
+                render_dashboard_plotly_chart(
+                    compare_fig,
+                    key="cfr_compare_radar",
+                    container=compare_chart_col,
+                    config={"displayModeBar": False},
+                )
 
     # ------------------------------------------------------------------
     # ROW 2: paginated heatmap, fixed-band distribution, principle averages
