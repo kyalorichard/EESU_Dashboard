@@ -2796,14 +2796,16 @@ def render_top_feedback_bar():
         style.innerHTML = `
             #eusee-feedback-floating-root {{
                 position: fixed !important;
-                top: clamp(58px, 7vh, 78px) !important;
-                left: 75% !important;
-                transform: translateX(-50%) !important;
+                bottom: 24px !important;
+                right: 24px !important;
+                top: auto !important;
+                left: auto !important;
+                transform: none !important;
                 z-index: 2147482500 !important;
                 font-family: Arial, sans-serif !important;
                 pointer-events: auto !important;
                 width: auto !important;
-                max-width: calc(100vw - 24px) !important;
+                max-width: min(760px, calc(100vw - 32px)) !important;
             }}
 
             #eusee-feedback-floating-root * {{
@@ -2865,6 +2867,7 @@ def render_top_feedback_bar():
             .eusee-feedback-panel {{
                 display: none !important;
                 width: min(760px, calc(100vw - 28px)) !important;
+                transform-origin: bottom right !important;
                 align-items: center !important;
                 justify-content: space-between !important;
                 gap: 12px !important;
@@ -2963,8 +2966,12 @@ def render_top_feedback_bar():
 
             @media (max-width: 900px) {{
                 #eusee-feedback-floating-root {{
-                    top: 62px !important;
-                    max-width: calc(100vw - 20px) !important;
+                    bottom: 18px !important;
+                    right: 18px !important;
+                    top: auto !important;
+                    left: auto !important;
+                    transform: none !important;
+                    max-width: min(640px, calc(100vw - 20px)) !important;
                 }}
 
                 .eusee-feedback-panel {{
@@ -2975,24 +2982,27 @@ def render_top_feedback_bar():
 
             @media (max-width: 700px) {{
                 #eusee-feedback-floating-root {{
-                    top: 58px !important;
-                    left: 50% !important;
-                    width: calc(100vw - 18px) !important;
-                    max-width: calc(100vw - 18px) !important;
+                    bottom: 14px !important;
+                    right: 14px !important;
+                    top: auto !important;
+                    left: auto !important;
+                    transform: none !important;
+                    width: auto !important;
+                    max-width: calc(100vw - 20px) !important;
                 }}
 
                 .eusee-feedback-toggle {{
                     width: fit-content !important;
                     max-width: 92vw !important;
-                    margin: 0 auto !important;
+                    margin: 0 0 0 auto !important;
                     min-height: 36px !important;
                     padding: 7px 12px !important;
                     font-size: 11.5px !important;
                 }}
 
                 .eusee-feedback-panel {{
-                    width: 100% !important;
-                    max-height: calc(100vh - 88px) !important;
+                    width: min(420px, calc(100vw - 28px)) !important;
+                    max-height: calc(100vh - 40px) !important;
                     overflow-y: auto !important;
                     flex-direction: column !important;
                     align-items: stretch !important;
@@ -3087,7 +3097,6 @@ def render_top_feedback_bar():
     """, height=0, width=0)
 
 render_top_feedback_bar()  # Single-button floating dashboard feedback overlay.
-
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
 reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
