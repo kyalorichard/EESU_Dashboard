@@ -366,10 +366,8 @@ div[data-testid="stTabs"]{
 
 def render_classic_filter_header():
     st.sidebar.markdown("""
-    <div class="classic-filter-header">
-        <div class="classic-filter-eyebrow">Dashboard controls</div>
-        <div class="classic-filter-title">🌍 Global Filters</div>
-        <div class="classic-filter-note">Use the filters to narrow the data by region, country, alert type, enabling principle, and time period if needed.</div>
+    <div class="classic-filter-header">        
+        <div class="classic-filter-title">🌍 Global Filters</div>        
     </div>
     """, unsafe_allow_html=True)
 
@@ -1602,7 +1600,7 @@ def render_sidebar_access_settings_profile():
 
         st.markdown(f"**{display_name}**")
         st.caption(
-            "Your dashboard permissions are controlled by your approved EUSEE role."
+            "Welcome."
             if signed_in
             else "Sign in to access advanced features."
         )
