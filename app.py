@@ -1951,7 +1951,9 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------------- CFR ANALYSIS MODULE ----------------
-CFR_SOURCE_FILENAME = "EXPORT_DIR/CFR_Export_2026_07_22.csv"
+
+CFR_SOURCE_FILENAME = "CFR_Export_2026_07_22.csv"
+
 CFR_PRINCIPLES = {
     "Respect and protection of fundamental freedoms": "Fundamental freedoms",
     "Supportive legal and regulatory framework": "Legal framework",
@@ -1963,19 +1965,19 @@ CFR_PRINCIPLES = {
 
 
 def _find_cfr_source():
-    """Resolve CFR CSV without changing the dashboard's existing data pipeline."""
-    candidates = [
-        Path(CFR_SOURCE_FILENAME),
-        Path(__file__).resolve().parent / CFR_SOURCE_FILENAME,
-        #Path("data") / CFR_SOURCE_FILENAME,
-        #Path(__file__).resolve().parent / "data" / CFR_SOURCE_FILENAME,
-    ]
+    """Load CFR CSV from the same export folder used by the dashboard."""
+
     configured = os.getenv("EUSEE_CFR_CSV")
     if configured:
-        candidates.insert(0, Path(configured))
-    for candidate in candidates:
-        if candidate.exists() and candidate.is_file():
-            return candidate
+        path = Path(configured)
+        if path.exists():
+            return path
+
+    cfr_path = EXPORT_DIR / CFR_SOURCE_FILENAME
+
+    if cfr_path.exists():
+        return cfr_path
+
     return None
 
 
@@ -8610,7 +8612,7 @@ st.markdown(f"""
 </style>
 <div class="eusee-fixed-footer">
     <img src="data:image/png;base64,{b64}" alt="EU SEE footer logo">
-    <div class="eusee-fixed-footer-copy">© 2025 EU SEE Dashboard. All rights reserved.</div>
+    <div class="eusee-fixed-footer-copy">© 2026 EU SEE Dashboard. All rights reserved.</div>
 </div>
 """, unsafe_allow_html=True)
 
