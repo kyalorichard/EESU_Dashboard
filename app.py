@@ -2370,7 +2370,8 @@ def render_cfr_analysis():
             score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
             delta = score_a - score_b
 
-                       compare_fig = go.Figure()
+           
+            compare_fig = go.Figure()
             labels = list(CFR_PRINCIPLES.values())
             for country, comp_row, color, fill in [
                 (country_a, row_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
