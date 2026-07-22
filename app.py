@@ -1481,8 +1481,6 @@ def inject_professional_sidebar_filter_css():
     </style>
     """, unsafe_allow_html=True)
 
-
-
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
@@ -1952,12 +1950,216 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- CFR ANALYSIS MODULE ----------------
+CFR_SOURCE_FILENAME = "EXPORT_DIR/CFR_Export_2026_07_22.csv"
+CFR_PRINCIPLES = {
+    "Respect and protection of fundamental freedoms": "Fundamental freedoms",
+    "Supportive legal and regulatory framework": "Legal framework",
+    "Accessible and sustainable resources": "Resources",
+    "Open and responsive State": "State responsiveness",
+    "Supportive public culture and discourses on civil society": "Public culture",
+    "Access to a secure digital environment": "Digital environment",
+}
+
+
+def _find_cfr_source():
+    """Resolve CFR CSV without changing the dashboard's existing data pipeline."""
+    candidates = [
+        Path(CFR_SOURCE_FILENAME),
+        Path(__file__).resolve().parent / CFR_SOURCE_FILENAME,
+        #Path("data") / CFR_SOURCE_FILENAME,
+        #Path(__file__).resolve().parent / "data" / CFR_SOURCE_FILENAME,
+    ]
+    configured = os.getenv("EUSEE_CFR_CSV")
+    if configured:
+        candidates.insert(0, Path(configured))
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file():
+            return candidate
+    return None
+
+
+@st.cache_data(show_spinner=False)
+def load_cfr_data(source_path, source_mtime=None):
+    """Load and validate CFR data; mtime invalidates cache after a file refresh."""
+    del source_mtime
+    cfr = pd.read_csv(source_path)
+    required = ["Country", *CFR_PRINCIPLES.keys(), "Last Modified", "Permalink"]
+    missing = [col for col in required if col not in cfr.columns]
+    if missing:
+        raise ValueError("Missing CFR columns: " + ", ".join(missing))
+    cfr = cfr.copy()
+    cfr["Country"] = cfr["Country"].astype(str).str.strip()
+    for col in CFR_PRINCIPLES:
+        cfr[col] = pd.to_numeric(cfr[col], errors="coerce")
+    cfr["Overall CFR"] = cfr[list(CFR_PRINCIPLES)].mean(axis=1, skipna=True)
+    cfr["Last Modified"] = pd.to_datetime(cfr["Last Modified"], errors="coerce")
+    cfr["Permalink"] = cfr["Permalink"].fillna("").astype(str).str.strip()
+    cfr = cfr[cfr["Country"].ne("")].drop_duplicates("Country", keep="last")
+    return cfr.sort_values("Overall CFR", ascending=False).reset_index(drop=True)
+
+
+def _cfr_metric(label, value, note=""):
+    st.markdown(
+        f"""<div class="metric-card" style="padding:14px 15px; min-height:112px;">
+        <div style="font-size:10px;font-weight:900;color:#667085;text-transform:uppercase;letter-spacing:.06em;">{label}</div>
+        <div style="font-size:24px;font-weight:900;color:#23152F;margin-top:7px;line-height:1.05;">{value}</div>
+        <div style="font-size:10.5px;color:#667085;margin-top:7px;line-height:1.3;">{note}</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+
+def _cfr_radar(row, title, color="#660094"):
+    labels = list(CFR_PRINCIPLES.values())
+    values = [float(row[col]) if pd.notna(row[col]) else 0 for col in CFR_PRINCIPLES]
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=values + values[:1], theta=labels + labels[:1], fill="toself",
+        name=str(row["Country"]), line=dict(color=color, width=2),
+        fillcolor="rgba(102,0,148,0.14)",
+    ))
+    fig.update_layout(
+        title=dict(text=title, x=0.02, font=dict(size=15)),
+        polar=dict(radialaxis=dict(visible=True, range=[0, 7], tick0=0, dtick=1)),
+        margin=dict(l=35, r=35, t=55, b=20), height=390,
+        showlegend=False, template="plotly_white",
+    )
+    return fig
+
+
+def render_cfr_analysis():
+    st.markdown(
+        """
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin:4px 0 14px 0;">
+          <div>
+            <div style="font-size:10px;font-weight:900;color:#660094;letter-spacing:.12em;text-transform:uppercase;">Civil Society Resilience Framework</div>
+            <div style="font-size:22px;font-weight:900;color:#23152F;margin-top:3px;">CFR Analysis</div>
+            <div style="font-size:11px;color:#667085;margin-top:5px;">Explore country rankings, principle-level performance, comparisons, distributions and full CFR reports.</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True,
+    )
+    source = _find_cfr_source()
+    if source is None:
+        st.warning(f"CFR data file not found. Add `{CFR_SOURCE_FILENAME}` beside the app, place it in `data/`, or set `EUSEE_CFR_CSV`. Existing tabs remain unaffected.")
+        return
+    try:
+        cfr = load_cfr_data(str(source), source.stat().st_mtime)
+    except Exception as exc:
+        st.error(f"The CFR export could not be loaded: {exc}")
+        return
+    valid = cfr.dropna(subset=["Overall CFR"])
+    if valid.empty:
+        st.info("The CFR export contains no valid principle scores.")
+        return
+
+    latest = valid["Last Modified"].max()
+    highest, lowest = valid.iloc[0], valid.iloc[-1]
+    k1, k2, k3, k4, k5 = st.columns(5)
+    with k1: _cfr_metric("Countries with CFR", f"{valid['Country'].nunique():,}", "Countries represented in the export")
+    with k2: _cfr_metric("Average overall CFR", f"{valid['Overall CFR'].mean():.2f} / 7", "Mean across the six principles")
+    with k3: _cfr_metric("Highest scoring country", highest["Country"], f"Overall CFR: {highest['Overall CFR']:.2f}")
+    with k4: _cfr_metric("Lowest scoring country", lowest["Country"], f"Overall CFR: {lowest['Overall CFR']:.2f}")
+    with k5: _cfr_metric("Last update", latest.strftime("%d %b %Y") if pd.notna(latest) else "Unknown", source.name)
+
+    st.markdown("---")
+    f1, f2, f3 = st.columns([1.7, 1, 0.8])
+    with f1:
+        search = st.text_input("Search country", placeholder="Type a country name...", key="cfr_country_search")
+    with f2:
+        score_band = st.selectbox("Overall CFR range", ["All scores", "1.0–2.9", "3.0–3.9", "4.0–4.9", "5.0–7.0"], key="cfr_score_band")
+    with f3:
+        st.download_button("Download CFR data", cfr.to_csv(index=False).encode("utf-8"), "eusee_cfr_analysis.csv", "text/csv", use_container_width=True, key="download_cfr_data")
+
+    filtered = valid.copy()
+    if search.strip():
+        filtered = filtered[filtered["Country"].str.contains(search.strip(), case=False, na=False)]
+    band_bounds = {"1.0–2.9": (1, 2.9999), "3.0–3.9": (3, 3.9999), "4.0–4.9": (4, 4.9999), "5.0–7.0": (5, 7)}
+    if score_band in band_bounds:
+        lo, hi = band_bounds[score_band]
+        filtered = filtered[filtered["Overall CFR"].between(lo, hi)]
+    if filtered.empty:
+        st.info("No CFR countries match the selected filters.")
+        return
+
+    left, middle, right = st.columns([1.05, 1.15, 1.15])
+    with left:
+        st.markdown("#### Overall CFR ranking")
+        ranking = filtered[["Country", "Overall CFR", "Last Modified"]].copy()
+        ranking.insert(0, "Rank", np.arange(1, len(ranking) + 1))
+        ranking["Overall CFR"] = ranking["Overall CFR"].round(2)
+        ranking["Last Modified"] = ranking["Last Modified"].dt.strftime("%d %b %Y")
+        st.dataframe(ranking, use_container_width=True, hide_index=True, height=430)
+
+    country_options = filtered["Country"].tolist()
+    default_country = "Kenya" if "Kenya" in country_options else country_options[0]
+    with middle:
+        st.markdown("#### Country profile")
+        selected_country = st.selectbox("Country", country_options, index=country_options.index(default_country), key="cfr_profile_country")
+        row = filtered.loc[filtered["Country"].eq(selected_country)].iloc[0]
+        p1, p2 = st.columns([0.42, 0.58])
+        with p1:
+            st.metric("Overall CFR", f"{row['Overall CFR']:.2f} / 7")
+            rank_value = int(valid.index[valid["Country"].eq(selected_country)][0]) + 1
+            st.caption(f"Rank {rank_value} of {len(valid)}")
+            for col, short in CFR_PRINCIPLES.items():
+                st.markdown(f"**{short}:** {row[col]:.2f}" if pd.notna(row[col]) else f"**{short}:** —")
+            if row["Permalink"]:
+                st.link_button("Open full CFR report", row["Permalink"], use_container_width=True)
+        with p2:
+            st.plotly_chart(_cfr_radar(row, "Principle scores"), use_container_width=True, key="cfr_profile_radar")
+
+    with right:
+        st.markdown("#### Compare countries")
+        c1, c2 = st.columns(2)
+        first = default_country
+        second = "Uganda" if "Uganda" in country_options and "Uganda" != first else country_options[min(1, len(country_options)-1)]
+        with c1: country_a = st.selectbox("Country A", country_options, index=country_options.index(first), key="cfr_compare_a")
+        with c2: country_b = st.selectbox("Country B", country_options, index=country_options.index(second), key="cfr_compare_b")
+        compare_fig = go.Figure()
+        labels, palette = list(CFR_PRINCIPLES.values()), ["#660094", "#008CAA"]
+        for idx, country in enumerate([country_a, country_b]):
+            comp_row = filtered.loc[filtered["Country"].eq(country)].iloc[0]
+            vals = [float(comp_row[col]) if pd.notna(comp_row[col]) else 0 for col in CFR_PRINCIPLES]
+            compare_fig.add_trace(go.Scatterpolar(r=vals + vals[:1], theta=labels + labels[:1], fill="toself", name=country, opacity=.72, line=dict(color=palette[idx], width=2)))
+        compare_fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 7], dtick=1)), height=390, margin=dict(l=30, r=30, t=35, b=20), legend=dict(orientation="h", y=1.12, x=0), template="plotly_white")
+        st.plotly_chart(compare_fig, use_container_width=True, key="cfr_compare_radar")
+
+    st.markdown("---")
+    h1, h2 = st.columns([1.45, 1])
+    with h1:
+        st.markdown("#### CFR heatmap by principle")
+        heat = filtered.head(25).set_index("Country")[list(CFR_PRINCIPLES)].rename(columns=CFR_PRINCIPLES)
+        heat_fig = px.imshow(heat, text_auto=".1f", aspect="auto", zmin=1, zmax=7, color_continuous_scale="RdYlGn", labels=dict(color="CFR score"))
+        heat_fig.update_layout(height=max(360, 30 * len(heat) + 140), margin=dict(l=15, r=15, t=15, b=15))
+        st.plotly_chart(heat_fig, use_container_width=True, key="cfr_heatmap")
+    with h2:
+        st.markdown("#### Overall CFR distribution")
+        hist = px.histogram(filtered, x="Overall CFR", nbins=12, range_x=[1, 7])
+        hist.update_traces(marker_color="#660094")
+        hist.update_layout(height=330, xaxis_title="Overall CFR score", yaxis_title="Countries", showlegend=False, template="plotly_white")
+        st.plotly_chart(hist, use_container_width=True, key="cfr_distribution")
+        st.markdown("#### Average score by principle")
+        averages = pd.DataFrame({"Principle": list(CFR_PRINCIPLES.values()), "Average score": [filtered[col].mean() for col in CFR_PRINCIPLES]}).sort_values("Average score")
+        avg_fig = px.bar(averages, x="Average score", y="Principle", orientation="h", text_auto=".2f", range_x=[0, 7])
+        avg_fig.update_traces(marker_color="#660094")
+        avg_fig.update_layout(height=330, showlegend=False, template="plotly_white", yaxis_title="", margin=dict(l=10, r=15, t=15, b=15))
+        st.plotly_chart(avg_fig, use_container_width=True, key="cfr_principle_average")
+
+    st.markdown("#### CFR country detail")
+    detail = filtered[["Country", "Overall CFR", *CFR_PRINCIPLES.keys(), "Last Modified", "Permalink"]].copy().rename(columns=CFR_PRINCIPLES)
+    detail["Overall CFR"] = detail["Overall CFR"].round(2)
+    for col in CFR_PRINCIPLES.values(): detail[col] = detail[col].round(2)
+    detail["Last Modified"] = detail["Last Modified"].dt.strftime("%d %b %Y")
+    st.dataframe(detail, use_container_width=True, hide_index=True, height=430, column_config={"Permalink": st.column_config.LinkColumn("Full report", display_text="Open report")})
+
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
 #tab_map disabled
 # Build dashboard tabs dynamically from Admin → Visibility permissions.
 # When a permission is unchecked, the entire tab is removed from the tab bar.
-tab_overview = tab_negative = tab_map = tab_manual = None
+tab_overview = tab_negative = tab_map = tab_cfr = tab_manual = None
 
 _dashboard_tab_specs = []
 
@@ -1970,6 +2172,11 @@ if has_permission("view_negative_alerts"):
 if has_permission("view_maps"):
     _dashboard_tab_specs.append(("map", "🗺️ Visualization Map"))
 
+# CFR Analysis follows the same dashboard-access permission as Overview so the
+# existing authz/admin files do not need to change for this update.
+if has_permission("view_overview"):
+    _dashboard_tab_specs.append(("cfr", "📈 CFR Analysis"))
+
 if has_permission("view_user_manual"):
     _dashboard_tab_specs.append(("manual", "📘 User Manual"))
 
@@ -1980,6 +2187,7 @@ if _dashboard_tab_specs:
     tab_overview = _dashboard_tab_lookup.get("overview")
     tab_negative = _dashboard_tab_lookup.get("negative")
     tab_map = _dashboard_tab_lookup.get("map")
+    tab_cfr = _dashboard_tab_lookup.get("cfr")
     tab_manual = _dashboard_tab_lookup.get("manual")
 else:
     st.error("No dashboard tabs are enabled for your role. Please contact the dashboard administrator.")
@@ -6884,6 +7092,15 @@ if tab_map is not None:
 
         else:
             render_access_locked("Visualization Map", "viewer or privileged")
+
+# ---------------- CFR ANALYSIS TAB ----------------
+if tab_cfr is not None:
+    with tab_cfr:
+        if has_permission("view_overview"):
+            render_cfr_analysis()
+        else:
+            render_access_locked("CFR Analysis", "viewer or privileged")
+
 
 if tab_manual is not None:
     with tab_manual:
