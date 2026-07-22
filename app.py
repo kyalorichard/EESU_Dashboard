@@ -4029,9 +4029,9 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     if horizontal:
-        fig.update_xaxes(title="Percent of total", ticksuffix="%", range=[0, axis_max])
+        fig.update_xaxes(title="", ticksuffix="%", range=[0, axis_max])
     else:
-        fig.update_yaxes(title="Percent of total", ticksuffix="%", range=[0, axis_max])
+        fig.update_yaxes(title="", ticksuffix="%", range=[0, axis_max])
 
     fig.add_annotation(
         text="EUSEE Dashboard<br>Data compiled by EUSEE Network",
@@ -7991,11 +7991,7 @@ if tab_manual is not None:
                             for additional analytical exploration.
                         </span>
                         <div>
-                            <span class="manual-access-pill">Privileged access only</span>
-                            <span class="manual-access-note">
-                                Some advanced features, including the AI assistant and the data summary preview,
-                                are available only to authorized EUSEE stakeholders.
-                            </span>
+                           
                         </div>
                     </div>
                     """,
@@ -8026,8 +8022,7 @@ if tab_manual is not None:
                             <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">The scope</div><div class="manual-step-text">Use the global filters to select the region, country, alert impact, nature of alert, enabling principle, year, and month.</div></div></div>
                             <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Start with the overview</div><div class="manual-step-text">Review the main figures and charts to understand the filtered data.</div></div></div>
                             <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Explore alert patterns</div><div class="manual-step-text">Use the Overview and Negative Alerts Analysis sections to examine distributions, trends, affected civil society actors, restrictive actors, and mechanisms.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Use the map for country-level patterns</div><div class="manual-step-text">See where alerts are concentrated and hover over countries for more detail.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Review the data, if available</div><div class="manual-step-text">Privileged users can use the data summary preview to search, review, and export filtered records.</div></div></div>
+                            <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Review the data, if available</div><div class="manual-step-text">Privileged users can use the data summary preview to search, review, and export filtered records.</div></div></div>
                         </div>
                         """,
                         unsafe_allow_html=True,
@@ -8074,16 +8069,7 @@ if tab_manual is not None:
                         icon="📘",
                     )
 
-                    st.markdown(
-                        """
-                        <div class="manual-tip">
-                            <strong>Recommended reporting note:</strong><br>
-                            Dashboard findings should be interpreted as reported monitoring evidence, not as direct prevalence estimates.
-                            Always pair quantitative outputs with contextual review and partner validation.
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                 
 
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
