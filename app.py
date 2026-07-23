@@ -1,28 +1,37 @@
-import base64
-import hashlib
-import json
-import logging
-import math
-import os
-import re
-import tempfile
-import textwrap
-import uuid
-import warnings
-from datetime import datetime
-from io import BytesIO
-from pathlib import Path
-
-import numpy as np
+import streamlit as st
 import pandas as pd
-import paramiko
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import requests
-import streamlit as st
+import json
+from pathlib import Path
 import streamlit.components.v1 as components
+import plotly.graph_objects as go
+import base64
+import hashlib
+from datetime import datetime
+#from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
+import math
+import paramiko
+import logging
+import tempfile  
+import os
+import re
+import requests
+import textwrap
+import uuid
+import warnings
 from streamlit.elements.lib.policies import CachedWidgetWarning
+import streamlit.components.v1 as components
+from io import BytesIO
+import json
+import uuid
+import requests
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import streamlit as st
 
 
 warnings.filterwarnings(
@@ -34,128 +43,6 @@ from auth import auth_ui, is_privileged, is_authenticated, init_session, restore
 
 
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
-
-# ============================================================
-# EU SEE OFFICIAL TYPOGRAPHY
-# Primary font: Anek Devanagari
-# Fallback font: Arial
-# ============================================================
-EUSEE_FONT_FAMILY = '"Anek Devanagari", Arial, sans-serif'
-PLOTLY_FONT_FAMILY = "Anek Devanagari, Arial, sans-serif"
-CHART_FONT = PLOTLY_FONT_FAMILY
-
-
-def inject_eusee_official_typography() -> None:
-    """Apply the official EU SEE font stack to all Streamlit UI elements."""
-    st.markdown(
-        """
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link
-            href="https://fonts.googleapis.com/css2?family=Anek+Devanagari:wdth,wght@75..125,100..800&display=swap"
-            rel="stylesheet"
-        >
-        <style>
-        :root {
-            --eusee-font: "Anek Devanagari", Arial, sans-serif;
-        }
-
-        html,
-        body,
-        .stApp,
-        [data-testid="stApp"],
-        [data-testid="stAppViewContainer"],
-        [data-testid="stHeader"],
-        [data-testid="stSidebar"],
-        [data-testid="stToolbar"],
-        .main,
-        .main .block-container,
-        .stApp * {
-            font-family: var(--eusee-font) !important;
-        }
-
-        button,
-        input,
-        textarea,
-        select,
-        option,
-        label,
-        [role="button"],
-        [role="option"],
-        [role="combobox"],
-        [role="grid"],
-        [role="gridcell"],
-        [role="columnheader"],
-        [data-baseweb],
-        [data-testid="stDataFrame"],
-        [data-testid="stTable"],
-        [data-testid="stMetric"],
-        [data-testid="stTabs"],
-        [data-testid="stExpander"],
-        [data-testid="stMarkdownContainer"],
-        [data-testid="stCaptionContainer"],
-        .js-plotly-plot text,
-        .plotly text,
-        .svg-container text {
-            font-family: var(--eusee-font) !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def configure_eusee_plotly_typography() -> None:
-    """Register a default Plotly template using the EU SEE font stack."""
-    template = go.layout.Template(
-        layout=go.Layout(
-            font=dict(family=PLOTLY_FONT_FAMILY, color="#344054"),
-            title=dict(font=dict(family=PLOTLY_FONT_FAMILY)),
-            legend=dict(font=dict(family=PLOTLY_FONT_FAMILY)),
-            hoverlabel=dict(font=dict(family=PLOTLY_FONT_FAMILY)),
-            xaxis=dict(
-                title_font=dict(family=PLOTLY_FONT_FAMILY),
-                tickfont=dict(family=PLOTLY_FONT_FAMILY),
-            ),
-            yaxis=dict(
-                title_font=dict(family=PLOTLY_FONT_FAMILY),
-                tickfont=dict(family=PLOTLY_FONT_FAMILY),
-            ),
-        )
-    )
-    pio.templates["eusee_official"] = template
-    pio.templates.default = "eusee_official"
-
-
-def apply_eusee_plotly_font(fig):
-    """Apply EU SEE typography to a Plotly figure and return it."""
-    if fig is None:
-        return fig
-
-    fig.update_layout(
-        font=dict(family=PLOTLY_FONT_FAMILY),
-        title_font=dict(family=PLOTLY_FONT_FAMILY),
-        legend_font=dict(family=PLOTLY_FONT_FAMILY),
-        hoverlabel=dict(font_family=PLOTLY_FONT_FAMILY),
-    )
-    fig.update_xaxes(
-        title_font=dict(family=PLOTLY_FONT_FAMILY),
-        tickfont=dict(family=PLOTLY_FONT_FAMILY),
-    )
-    fig.update_yaxes(
-        title_font=dict(family=PLOTLY_FONT_FAMILY),
-        tickfont=dict(family=PLOTLY_FONT_FAMILY),
-    )
-
-    for annotation in fig.layout.annotations or []:
-        annotation.font.family = PLOTLY_FONT_FAMILY
-
-    return fig
-
-
-inject_eusee_official_typography()
-configure_eusee_plotly_typography()
-
 
 init_session()
 
@@ -371,7 +258,7 @@ def inject_classic_dashboard_css():
     section[data-testid="stSidebar"] { background: linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%); border-right: 1px solid var(--eusee-border); }
     section[data-testid="stSidebar"] > div { padding-top: 1rem; }
     section[data-testid="stSidebar"] label {
-        font-family: "Anek Devanagari", Arial, sans-serif !important; font-size: 11px !important; font-weight: 800 !important;
+        font-family: Arial, sans-serif !important; font-size: 11px !important; font-weight: 800 !important;
         color: #344054 !important; letter-spacing: .01em; margin-bottom: 4px !important;
     }
     section[data-testid="stSidebar"] [data-baseweb="select"] > div,
@@ -400,11 +287,11 @@ def inject_classic_dashboard_css():
         background: #FFFFFF; border: 1px solid var(--eusee-border); border-radius: 13px; padding: 10px 11px;
         margin: 10px 0 12px 0; box-shadow: 0 4px 12px rgba(16,24,40,.05);
     }
-    .classic-filter-status .status-row { display:flex; justify-content:space-between; align-items:center; padding: 3px 0; font-family: "Anek Devanagari", Arial, sans-serif; font-size: 10.5px; color: var(--eusee-muted); }
+    .classic-filter-status .status-row { display:flex; justify-content:space-between; align-items:center; padding: 3px 0; font-family: Arial, sans-serif; font-size: 10.5px; color: var(--eusee-muted); }
     .classic-filter-status .status-value { color: var(--eusee-purple); font-weight: 900; }
     div[data-testid="stExpander"] { border: 1px solid var(--eusee-border) !important; border-radius: 16px !important; box-shadow: 0 8px 22px rgba(16,24,40,.06) !important; background: #FFFFFF !important; overflow: hidden !important; }
-    div[data-testid="stExpander"] summary { font-family: "Anek Devanagari", Arial, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #23152F !important; background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important; border-bottom: 1px solid #EEF0F4 !important; padding: 10px 14px !important; }
-    .data-preview-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #EEF0F4; border-radius: 14px; padding: 11px 13px; margin: 4px 0 12px 0; font-family: "Anek Devanagari", Arial, sans-serif; }
+    div[data-testid="stExpander"] summary { font-family: Arial, sans-serif !important; font-size: 13px !important; font-weight: 900 !important; color: #23152F !important; background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important; border-bottom: 1px solid #EEF0F4 !important; padding: 10px 14px !important; }
+    .data-preview-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #EEF0F4; border-radius: 14px; padding: 11px 13px; margin: 4px 0 12px 0; font-family: Arial, sans-serif; }
     .data-preview-title { font-size: 13px; font-weight: 900; color: #23152F; line-height: 1.15; }
     .data-preview-subtitle { font-size: 10.5px; color: var(--eusee-muted); margin-top: 3px; }
     .data-preview-pill-row { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
@@ -418,7 +305,7 @@ def inject_classic_dashboard_css():
         padding: 14px;
         margin: 4px 0 14px 0;
         box-shadow: 0 10px 24px rgba(16,24,40,.06);
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
     }
     .executive-table-header { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:12px; }
     .executive-table-eyebrow { font-size:9.5px; font-weight:900; color:var(--eusee-purple); letter-spacing:.13em; text-transform:uppercase; margin-bottom:4px; }
@@ -429,7 +316,7 @@ def inject_classic_dashboard_css():
     .executive-mini-kpi { background:#FFFFFF; border:1px solid #EEF0F4; border-radius:13px; padding:9px 10px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
     .executive-mini-kpi span { display:block; font-size:10px; color:var(--eusee-muted); font-weight:800; margin-bottom:3px; }
     .executive-mini-kpi strong { font-size:15px; color:#23152F; font-weight:900; }
-    .executive-table-status { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#F9FAFB; border:1px solid #EEF0F4; border-radius:13px; padding:9px 11px; margin:9px 0 10px 0; font-size:11px; color:#344054; font-family:"Anek Devanagari", Arial, sans-serif; }
+    .executive-table-status { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#F9FAFB; border:1px solid #EEF0F4; border-radius:13px; padding:9px 11px; margin:9px 0 10px 0; font-size:11px; color:#344054; font-family:Arial, sans-serif; }
     .executive-table-status strong { color:var(--eusee-purple); font-weight:900; }
     .executive-table-status-note { color:var(--eusee-muted); font-size:10.5px; }
     @media (max-width: 900px) { .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .executive-table-header, .executive-table-status { flex-direction:column; align-items:flex-start; } }
@@ -709,7 +596,13 @@ def render_professional_data_preview(
                 margin: 2px 0 12px 0;
                 color: #667085;
                 font-family:
-                    var(--eusee-font);
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    );
                 font-size: 11.5px;
                 line-height: 1.42;
                 font-weight: 550;
@@ -735,7 +628,13 @@ def render_professional_data_preview(
                     rgba(16,24,40,.06) !important;
                 background: #FFFFFF !important;
                 font-family:
-                    var(--eusee-font) !important;
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    ) !important;
             }
 
             div[data-testid="stDataFrame"] > div {
@@ -763,7 +662,13 @@ def render_professional_data_preview(
                 background: #F4EAF8 !important;
                 color: #23152F !important;
                 font-family:
-                    var(--eusee-font) !important;
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    ) !important;
                 font-size: 11.5px !important;
                 font-weight: 850 !important;
                 border-bottom:
@@ -777,7 +682,13 @@ def render_professional_data_preview(
             [role="gridcell"] * {
                 color: #344054 !important;
                 font-family:
-                    var(--eusee-font) !important;
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    ) !important;
                 font-size: 11.5px !important;
                 line-height: 1.35 !important;
                 font-weight: 500 !important;
@@ -1104,7 +1015,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
         background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
         border: 1px solid rgba(102,0,148,.14);
         box-shadow: 0 14px 34px rgba(16,24,40,.08);
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
     }
     .eusee-login-route-eyebrow {
         font-size: 10px;
@@ -1420,7 +1331,7 @@ def inject_professional_sidebar_filter_css():
         border-radius: 14px;
         padding: 9px 10px;
         box-shadow: 0 6px 16px rgba(16,24,40,.045);
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
     }
 
 
@@ -1431,7 +1342,7 @@ def inject_professional_sidebar_filter_css():
         background: linear-gradient(135deg, #FFFFFF 0%, #FCF7FF 100%);
         border: 1px solid rgba(102,0,148,.16);
         box-shadow: 0 10px 24px rgba(16,24,40,.065);
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         position: relative;
         overflow: hidden;
     }
@@ -1640,7 +1551,7 @@ def inject_professional_sidebar_filter_css():
         padding: 11px 13px;
         margin: 2px 0 13px 0;
         box-shadow: 0 8px 22px rgba(16,24,40,.055);
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
     }
 
     .negative-filter-eyebrow {
@@ -1695,7 +1606,7 @@ def inject_professional_sidebar_filter_css():
     }
 
     .sidebar-filter-section {
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         font-size: 10.5px;
         color: #667085;
         line-height: 1.35;
@@ -1709,7 +1620,7 @@ def inject_professional_sidebar_filter_css():
         padding: 9px 10px;
         margin: 9px 0 12px 0;
         box-shadow: 0 6px 16px rgba(16,24,40,.045);
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
     }
 
     .sidebar-filter-footer-title {
@@ -1740,7 +1651,7 @@ def inject_professional_sidebar_filter_css():
         background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
         border-bottom: 1px solid #EEF0F4 !important;
         color: #23152F !important;
-        font-family: "Anek Devanagari", Arial, sans-serif !important;
+        font-family: Arial, sans-serif !important;
         font-size: 12.5px !important;
         font-weight: 900 !important;
         letter-spacing: -0.01em !important;
@@ -1873,7 +1784,7 @@ def render_sidebar_access_settings_profile():
     /* Description */
     section[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{
         font-size:10px !important;
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         line-height:1.5 !important;
         color:#667085 !important;
     }
@@ -1889,7 +1800,7 @@ def render_sidebar_access_settings_profile():
 
     section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
         font-size:10px !important;
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         font-weight:800 !important;
         color:#667085 !important;
         text-transform:uppercase;
@@ -2213,7 +2124,7 @@ st.markdown(f"""
     line-height: 1.02;
     color: #660094;
     font-size: 48px;
-    font-family: "Anek Devanagari", Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-weight: 700;
     opacity: 0;
     transform: translateY(-20px);
@@ -2247,7 +2158,7 @@ st.markdown(f"""
 
 .animated-subtitle {{
     font-size: 14px;
-    font-family: "Anek Devanagari", Arial, sans-serif;
+    font-family: Arial, sans-serif;
     color: #333333;
     margin-top: 0rem !important;
     margin-bottom: 3px !important;
@@ -2332,7 +2243,7 @@ def _inject_cfr_dashboard_css():
             background:linear-gradient(135deg,#FFFFFF 0%,#FBF7FD 100%);
             border:1px solid #E7D4F1; border-radius:18px;
             box-shadow:0 10px 24px rgba(16,24,40,.055);
-            font-family:"Anek Devanagari", Arial, sans-serif;
+            font-family:Arial,sans-serif;
         }
         .cfr-hero-eyebrow {font-size:9.5px;font-weight:950;color:#660094;letter-spacing:.13em;text-transform:uppercase;}
         .cfr-hero-title {font-size:22px;font-weight:950;color:#23152F;margin-top:3px;line-height:1.1;}
@@ -2346,24 +2257,24 @@ def _inject_cfr_dashboard_css():
             background:radial-gradient(circle at 100% 0%,rgba(102,0,148,.055),transparent 34%),linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
             border:1px solid rgba(102,0,148,.115);border-radius:18px;
             box-shadow:0 12px 26px rgba(17,24,39,.07),inset 0 1px 0 rgba(255,255,255,.95);
-            display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;font-family:"Anek Devanagari", Arial, sans-serif;
+            display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;font-family:Arial,sans-serif;
             transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
         }
         .cfr-kpi-card:hover {transform:translateY(-2px);box-shadow:0 15px 32px rgba(17,24,39,.09);border-color:rgba(102,0,148,.18);}
         .cfr-kpi-top {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
         .cfr-kpi-title {color:#23152F;font-size:12.5px;font-weight:900;line-height:1.12;}
         .cfr-kpi-icon {width:30px;height:30px;min-width:30px;border-radius:12px;background:#F8FAFC;color:#344054;border:1px solid #EEF2F6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;}
-        .cfr-kpi-value {font-size:clamp(21px,2.0vw,34px);line-height:.98;font-weight:950;margin-top:12px;letter-spacing:-.04em;color:#660094;font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif;overflow-wrap:anywhere;}
+        .cfr-kpi-value {font-size:clamp(21px,2.0vw,34px);line-height:.98;font-weight:950;margin-top:12px;letter-spacing:-.04em;color:#660094;font-family:Arial Black,Arial,sans-serif;overflow-wrap:anywhere;}
         .cfr-kpi-value.text {font-size:clamp(16px,1.25vw,22px);line-height:1.08;letter-spacing:-.02em;color:#23152F;}
         .cfr-kpi-note {color:#667085;font-size:10.3px;font-weight:700;line-height:1.28;margin-top:7px;}
         .cfr-kpi-line {height:3px;width:46px;border-radius:999px;background:#E6E8EF;margin-top:9px;}
 
-        .cfr-section-heading {font-family:"Anek Devanagari", Arial, sans-serif;font-size:14px;font-weight:950;color:#23152F;margin:4px 0 8px 0;}
-        .cfr-panel-label {font-family:"Anek Devanagari", Arial, sans-serif;font-size:10px;font-weight:900;color:#660094;letter-spacing:.11em;text-transform:uppercase;margin:0 0 5px 2px;}
+        .cfr-section-heading {font-family:Arial,sans-serif;font-size:14px;font-weight:950;color:#23152F;margin:4px 0 8px 0;}
+        .cfr-panel-label {font-family:Arial,sans-serif;font-size:10px;font-weight:900;color:#660094;letter-spacing:.11em;text-transform:uppercase;margin:0 0 5px 2px;}
         .cfr-profile-shell {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:13px 14px;box-shadow:0 10px 24px rgba(16,24,40,.055);margin-bottom:12px;}
-        .cfr-profile-score {font-size:31px;font-weight:950;color:#660094;letter-spacing:-.04em;line-height:1;font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif;}
+        .cfr-profile-score {font-size:31px;font-weight:950;color:#660094;letter-spacing:-.04em;line-height:1;font-family:Arial Black,Arial,sans-serif;}
         .cfr-profile-rank {font-size:10.5px;font-weight:800;color:#667085;margin-top:5px;}
-        .cfr-score-row {display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:10.5px;color:#667085;font-family:"Anek Devanagari", Arial, sans-serif;}
+        .cfr-score-row {display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:10.5px;color:#667085;font-family:Arial,sans-serif;}
         .cfr-score-row:last-child {border-bottom:0;}
         .cfr-score-row strong {color:#23152F;font-weight:900;}
 
@@ -3119,7 +3030,7 @@ def render_top_feedback_bar():
                 left: auto !important;
                 transform: none !important;
                 z-index: 2147482500 !important;
-                font-family: "Anek Devanagari", Arial, sans-serif !important;
+                font-family: Arial, sans-serif !important;
                 pointer-events: auto !important;
                 width: auto !important;
                 max-width: min(760px, calc(100vw - 32px)) !important;
@@ -3493,7 +3404,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         margin: 2px 0 8px 0;
         box-sizing: border-box;
         overflow: visible;
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -3563,7 +3474,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-weight: 950;
         margin-top: 9px;
         letter-spacing: -0.045em;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial Black, Arial, sans-serif;
     }
 
     .eusee-kpi-note {
@@ -3631,7 +3542,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-weight: 950;
         line-height: 1;
         pointer-events: none;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial Black, Arial, sans-serif;
     }
 
     .eusee-donut-center .num {
@@ -3643,7 +3554,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-size: 7.8px;
         color: #667085;
         margin-top: 2px;
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         font-weight: 800;
     }
 
@@ -3685,7 +3596,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-size: 10.4px;
         font-weight: 950;
         text-align: right;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial Black, Arial, sans-serif;
         letter-spacing: -.035em;
     }
 
@@ -3735,7 +3646,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         background: linear-gradient(135deg, #F4EAF8 0%, #EFFBFE 100%);
         border: 1px solid rgba(102,0,148,.20);
         color: #660094;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         font-size: 10px;
         font-weight: 950;
         line-height: 1;
@@ -3757,7 +3668,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         background: #23152F;
         border: 1px solid rgba(255,255,255,.14);
         color: #FFFFFF;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         font-size: 11px;
         font-weight: 650;
         line-height: 1.42;
@@ -3953,7 +3864,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         margin: 2px 0 8px 0;
         box-sizing: border-box;
         overflow: visible;
-        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -3970,7 +3881,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     .negintel-eyebrow { color:#9A6B66; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
     .negintel-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
     .negintel-icon { width:30px; height:30px; min-width:30px; border-radius:12px; background:linear-gradient(135deg, rgba(180,35,24,.12), rgba(255,219,88,.14)); color:#B42318; border:1px solid rgba(180,35,24,.10); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; }
-    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif; color:#B42318; }
+    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:Arial Black, Arial, sans-serif; color:#B42318; }
     .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
     .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
     .negintel-row-list { display:flex; flex-direction:column; gap:6px; margin-top:7px; }
@@ -3998,7 +3909,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         line-height:1.22;
     }
     .negintel-row-label strong { color:#2D0055; font-weight:950; }
-    .negintel-row-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif; letter-spacing:-.035em; white-space:nowrap; padding-top:1px; }
+    .negintel-row-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:Arial Black, Arial, sans-serif; letter-spacing:-.035em; white-space:nowrap; padding-top:1px; }
     .negintel-row-count { color:#667085; font-size:9.7px; font-weight:850; text-align:right; white-space:nowrap; padding-top:2px; }
     @media (max-width: 900px) {
         .negintel-row { grid-template-columns: minmax(0, 1fr) 50px 42px; }
@@ -4096,7 +4007,7 @@ CHART_COLORS = {
     "Default": "#FFDB58",
 }
 
-CHART_FONT = PLOTLY_FONT_FAMILY
+CHART_FONT = "Inter, Arial, sans-serif"
 CHART_TITLE_COLOR = "#2D0055"
 CHART_TEXT_COLOR = "#263238"
 CHART_GRID_COLOR = "#EEF1F6"
@@ -4587,7 +4498,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
         box-shadow: 0 8px 26px rgba(45, 0, 85, 0.055);
     }}
     .analytics-panel-title {{
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: Inter, Arial, sans-serif;
         font-size: 15px;
         font-weight: 900;
         color: #2D0055;
@@ -4595,7 +4506,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
         letter-spacing: -0.01em;
     }}
     .analytics-panel-subtitle {{
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: Inter, Arial, sans-serif;
         font-size: 11.8px;
         color: #52616B;
         line-height: 1.45;
@@ -4609,12 +4520,12 @@ def render_analytics_module_header(title, subtitle, badges=None):
         border-radius: 999px;
         padding: 4px 9px;
         margin: 7px 6px 0 0;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: Inter, Arial, sans-serif;
         font-size: 10.5px;
         font-weight: 800;
     }}
     .chart-card-caption {{
-        font-family: var(--eusee-font);
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
         font-size: 9.5px;
         font-weight: 550;
         color: var(--eusee-text-muted, #667085);
@@ -5012,16 +4923,16 @@ def render_analytical_flow_panel(df):
         margin: 18px 0 18px 0;
         box-shadow: 0 12px 34px rgba(45, 0, 85, 0.075);
     }
-    .flow-panel-eyebrow {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; color: #008CAA; margin-bottom: 4px;}
-    .flow-panel-title {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 19px; font-weight: 950; color: #2D0055; margin-bottom: 4px;}
-    .flow-panel-subtitle {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.45; max-width: 980px; margin-bottom: 12px;}
+    .flow-panel-eyebrow {font-family: Inter, Arial, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; color: #008CAA; margin-bottom: 4px;}
+    .flow-panel-title {font-family: Inter, Arial, sans-serif; font-size: 19px; font-weight: 950; color: #2D0055; margin-bottom: 4px;}
+    .flow-panel-subtitle {font-family: Inter, Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.45; max-width: 980px; margin-bottom: 12px;}
     .flow-panel-badges {display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 4px 0;}
-    .flow-panel-badge {background: #F3ECF8; border: 1px solid #E1D2EC; border-radius: 999px; padding: 5px 9px; font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 10.8px; font-weight: 800; color: #4B006E;}
+    .flow-panel-badge {background: #F3ECF8; border: 1px solid #E1D2EC; border-radius: 999px; padding: 5px 9px; font-family: Inter, Arial, sans-serif; font-size: 10.8px; font-weight: 800; color: #4B006E;}
     .flow-guide-card {background: #FFFFFF; border: 1px solid #E8EEF3; border-radius: 16px; padding: 11px 13px; min-height: 76px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.045);}
-    .flow-guide-title {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
-    .flow-guide-text {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
+    .flow-guide-title {font-family: Inter, Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
+    .flow-guide-text {font-family: Inter, Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
     .flow-section-label {
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         font-size: 15px;
         font-weight: 850;
         color: #101828;
@@ -5030,7 +4941,7 @@ def render_analytical_flow_panel(df):
         margin: 16px 0 6px 0;
     }
     .flow-section-note {
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         font-size: 12px;
         font-weight: 500;
         color: #667085;
@@ -5045,7 +4956,7 @@ def render_analytical_flow_panel(df):
         padding: 13px 15px;
         margin: 14px 0 12px 0;
         box-shadow: 0 8px 20px rgba(16,24,40,.045);
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
     }
     .flow-info-panel .flow-section-label {
         margin: 0 0 6px 0;
@@ -5168,7 +5079,7 @@ def inject_access_state_card_css():
         padding: 22px;
         margin: 10px 0 18px 0;
         box-shadow: 0 16px 40px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.95);
-        font-family: var(--eusee-font);
+        font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
     }
     .eusee-access-card.compact {
         border-radius: 18px;
@@ -5940,7 +5851,7 @@ def inject_full_tab_responsive_css():
 
     .js-plotly-plot .legend text,
     .js-plotly-plot .legendtext {
-        font-family: "Anek Devanagari", Arial, sans-serif !important;
+        font-family: Arial, sans-serif !important;
         font-size: clamp(8.5px, 0.75vw, 10px) !important;
         font-weight: 750 !important;
         letter-spacing: -0.01em !important;
@@ -5959,7 +5870,7 @@ def inject_full_tab_responsive_css():
     }
 
     .js-plotly-plot .legend text {
-        font-family: "Anek Devanagari", Arial, sans-serif !important;
+        font-family: Arial, sans-serif !important;
         font-size: clamp(9px, 1.1vw, 11px) !important;
     }
 
@@ -6302,7 +6213,7 @@ def inject_final_responsive_tab_text_ux():
         border: 1px solid #E6E8EF !important;
         color: #344054 !important;
         box-shadow: 0 1px 2px rgba(16,24,40,.035) !important;
-        font-family: "Anek Devanagari", Arial, sans-serif !important;
+        font-family: Arial, sans-serif !important;
         font-size: clamp(10.5px, 0.9vw, 12.5px) !important;
         font-weight: 850 !important;
         line-height: 1.16 !important;
@@ -6518,7 +6429,7 @@ def inject_plotly_legend_color_spacing_fix():
     }
     .js-plotly-plot .legend text,
     .js-plotly-plot .legendtext {
-        font-family: "Anek Devanagari", Arial, sans-serif !important;
+        font-family: Arial, sans-serif !important;
         font-size: clamp(8px, .66vw, 9.2px) !important;
         font-weight: 760 !important;
         letter-spacing: -0.025em !important;
@@ -7013,7 +6924,7 @@ if tab_map is not None:
                 if has_permission("view_coverage_monitored_countries"):
                     render_summary_cards(filtered_global, card_key="map_summary")
 
-                MAP_FONT = PLOTLY_FONT_FAMILY
+                MAP_FONT = "Inter, Segoe UI, Arial, sans-serif"
 
                 st.markdown("""
                 <style>
@@ -7024,7 +6935,7 @@ if tab_map is not None:
                     padding: 0;
                     margin: 2px 0 8px 0;
                     box-shadow: none;
-                    font-family: "Anek Devanagari", Arial, sans-serif;
+                    font-family: Arial, sans-serif;
                 }
                 .map-intel-hero {
                     background:
@@ -7044,7 +6955,7 @@ if tab_map is not None:
                     flex-wrap:wrap;
                 }
                 .map-intel-eyebrow {
-                    font-family: var(--eusee-font);
+                    font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
                     font-size: 9.5px;
                     font-weight: 850;
                     letter-spacing: .105em;
@@ -7054,7 +6965,7 @@ if tab_map is not None:
                     line-height: 1.15;
                 }
                 .map-intel-title {
-                    font-family: var(--eusee-font);
+                    font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
                     font-size: 14px;
                     font-weight: 850;
                     color: #101828;
@@ -7063,7 +6974,7 @@ if tab_map is not None:
                     line-height: 1.15;
                 }
                 .map-intel-subtitle {
-                    font-family: var(--eusee-font);
+                    font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
                     font-size: 11.5px;
                     font-weight: 550;
                     color: #667085;
@@ -7102,7 +7013,7 @@ if tab_map is not None:
                     border-radius: 17px;
                     padding: 13px 14px;
                     box-shadow: 0 10px 24px rgba(17,24,39,0.055);
-                    font-family: "Anek Devanagari", Arial, sans-serif;
+                    font-family: Arial, sans-serif;
                     overflow:hidden;
                     position:relative;
                 }
@@ -7173,7 +7084,7 @@ if tab_map is not None:
                     font-size:11.8px;
                     line-height:1.48;
                     margin:12px 0;
-                    font-family:"Anek Devanagari", Arial, sans-serif;
+                    font-family:Arial, sans-serif;
                 }
                 .map-panel-card {
                     background:#FFFFFF;
@@ -7182,7 +7093,7 @@ if tab_map is not None:
                     padding:12px 13px;
                     box-shadow:0 10px 22px rgba(17,24,39,.052);
                     margin: 6px 0 10px 0;
-                    font-family:"Anek Devanagari", Arial, sans-serif;
+                    font-family:Arial, sans-serif;
                 }
                 .map-layout-tight {
                     margin-top: 0;
@@ -7210,7 +7121,7 @@ if tab_map is not None:
                     padding:9px 11px;
                     margin: 8px 0 0 0;
                     box-shadow:0 6px 14px rgba(17,24,39,.04);
-                    font-family:"Anek Devanagari", Arial, sans-serif;
+                    font-family:Arial, sans-serif;
                 }
                 .map-reading-strip span {
                     color:#334155;
@@ -7297,7 +7208,7 @@ if tab_map is not None:
                     padding:12px 14px;
                     box-shadow:0 8px 18px rgba(45,0,85,.065);
                     margin:0;
-                    font-family:"Anek Devanagari", Arial, sans-serif;
+                    font-family:Arial, sans-serif;
                 }
                 .map-guide-title {
                     color:#2D0055;
@@ -7389,7 +7300,7 @@ if tab_map is not None:
                     padding:12px 14px;
                     box-shadow:0 8px 18px rgba(45,0,85,.06);
                     margin:6px 0 10px 0;
-                    font-family:"Anek Devanagari", Arial, sans-serif;
+                    font-family:Arial, sans-serif;
                 }
                 .priority-title {
                     color:#2D0055;
@@ -7604,7 +7515,7 @@ if tab_map is not None:
                             margin: 0;
                             padding: 0;
                             background: transparent;
-                            font-family: "Anek Devanagari", Arial, sans-serif;
+                            font-family: Arial, sans-serif;
                             overflow-x: hidden;
                         }}
 
@@ -7638,7 +7549,7 @@ if tab_map is not None:
 
                         .map-intel-title {{
                             color: #101828;
-                            font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+                            font-family: "Inter", "Segoe UI", Arial, sans-serif;
                             font-size: 14px;
                             font-weight: 850;
                             letter-spacing: -0.02em;
@@ -7800,7 +7711,7 @@ if tab_map is not None:
                         .js-plotly-plot .hoverlayer .hovertext tspan {{
                             fill: #FFFFFF !important;
                             color: #FFFFFF !important;
-                            font-family: var(--eusee-font) !important;
+                            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
                         }}
 
                         </style>
@@ -8022,7 +7933,7 @@ if tab_manual is not None:
                         padding: 18px 20px;
                         box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
                         margin: 0 0 18px 0;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        font-family: Arial, sans-serif;
                     }
                     .manual-eyebrow {
                         display: block;
@@ -8095,7 +8006,7 @@ if tab_manual is not None:
                         padding: 7px 8px;
                         box-shadow: 0 4px 12px rgba(54, 26, 83, 0.045);
                         min-height: 64px;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        font-family: Arial, sans-serif;
                     }
                     .manual-mini-icon {
                         width: 22px;
@@ -8135,7 +8046,7 @@ if tab_manual is not None:
                         padding: 12px 13px;
                         box-shadow: 0 7px 18px rgba(54, 26, 83, 0.06);
                         margin-bottom: 11px;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        font-family: Arial, sans-serif;
                     }
                     .manual-section-title {
                         color: #2D0055;
@@ -8193,7 +8104,7 @@ if tab_manual is not None:
                         padding: 10px;
                         box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
                         margin-bottom: 7px;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        font-family: Arial, sans-serif;
                     }
                     .manual-doc-icon {
                         width: 32px;
@@ -8254,7 +8165,7 @@ if tab_manual is not None:
                         color: #55420A;
                         font-size: 11.5px;
                         line-height: 1.45;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        font-family: Arial, sans-serif;
                     }
 
                     /* Remove internal scrolling from the User Manual tab while preserving normal page scroll. */
@@ -9325,7 +9236,7 @@ def _render_eusee_ai_copilot_body():
             border-bottom:1px solid #EEF0F4;
             padding:14px 14px 12px 14px;
             margin:0;
-            font-family:"Anek Devanagari", Arial, sans-serif;
+            font-family:Arial,sans-serif;
         ">
             <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
                 Dashboard assistant
@@ -9467,7 +9378,7 @@ st.markdown(f"""
     margin: 1px 0 0 0 !important;
     padding: 0 !important;
     color: #667085;
-    font-family: var(--eusee-font);
+    font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
     font-size: 10px;
     line-height: 1.1;
     font-weight: 600;
