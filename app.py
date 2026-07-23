@@ -372,7 +372,6 @@ def render_classic_filter_header():
     """, unsafe_allow_html=True)
 
 
-
 def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> pd.Series:
     """
     Boolean table search across all visible Data Preview columns.
@@ -503,7 +502,22 @@ def render_professional_data_preview(
     # ---------------------------------------------------------
     # CREATE CLICKABLE REPORT LINK
     # ---------------------------------------------------------
-    if "Permalink" in display_df.columns:
+    # Detect the source column even when its case or spacing differs,
+    # for example: Permalink, permalink, " Permalink ", or Report URL.
+    permalink_col = next(
+        (
+            col for col in display_df.columns
+            if str(col).strip().lower() in {
+                "permalink",
+                "permalink url",
+                "report url",
+                "report link",
+            }
+        ),
+        None,
+    )
+
+    if permalink_col is not None:
 
         def clean_permalink(value):
             """Return a usable absolute URL or an empty string."""
@@ -512,23 +526,29 @@ def render_professional_data_preview(
 
             url = str(value).strip()
 
-            if not url or url.lower() in {
-                "nan",
-                "none",
-                "null",
-            }:
+            if not url or url.lower() in {"nan", "none", "null"}:
                 return ""
 
-            if not url.lower().startswith(
-                ("http://", "https://")
-            ):
-                url = f"https://{url.lstrip('/')}"
+            # Convert relative EUSEE paths to full URLs.
+            if url.startswith("/"):
+                return f"https://eusee.hivos.org{url}"
+
+            # Add HTTPS when a complete hostname is stored without a scheme.
+            if not url.lower().startswith(("http://", "https://")):
+                url = f"https://{url}"
 
             return url
 
         display_df["Open report"] = (
-            display_df["Permalink"]
+            display_df[permalink_col]
             .apply(clean_permalink)
+            .astype(str)
+        )
+    else:
+        # Keep the function operational and make the missing source explicit.
+        st.warning(
+            "The report link column was not created because no Permalink "
+            "column was found in the supplied dataframe."
         )
 
     # ---------------------------------------------------------
@@ -781,33 +801,36 @@ def render_professional_data_preview(
         # -----------------------------------------------------
         # COLUMN ORDER
         # -----------------------------------------------------
+        # Put the clickable link first so it is visible without horizontal scrolling.
+        hidden_source_columns = {
+            col for col in table_view.columns
+            if str(col).strip().lower() in {
+                "permalink",
+                "permalink url",
+                "report url",
+                "report link",
+            }
+        }
+
         visible_columns = [
             col
             for col in table_view.columns
-            if col not in {
-                "Permalink",
-                "Open report",
-            }
+            if col != "Open report" and col not in hidden_source_columns
         ]
 
+        # Keep the clickable report link as the final visible column.
         if "Open report" in table_view.columns:
             visible_columns.append("Open report")
 
         column_config = {}
 
-        if "Permalink" in table_view.columns:
-            column_config["Permalink"] = None
-
         if "Open report" in table_view.columns:
             column_config["Open report"] = (
                 st.column_config.LinkColumn(
-                    label="Report",
-                    help=(
-                        "Open the complete report "
-                        "in a new browser tab."
-                    ),
+                    label="Open report",
+                    help="Open the complete report in a new browser tab.",
                     display_text="Open report ↗",
-                    width="small",
+                    width="medium",
                 )
             )
 
