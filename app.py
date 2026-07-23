@@ -7990,9 +7990,7 @@ if tab_manual is not None:
                             explore alert analysis, <br> search the data preview, export filtered results, and use the AI assistant
                             for additional analytical exploration.
                         </span>
-                        <div>
-                           
-                        </div>
+                        
                     </div>
                     """,
                     unsafe_allow_html=True,
