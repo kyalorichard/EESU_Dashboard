@@ -119,12 +119,22 @@ button[data-testid="collapsedControl"] {
 }
 
 /* Filters text beside sidebar icon */
-button[data-testid="collapsedControl"]::after {
-    content: " Filters";
-    font-size: 12px;
-    font-weight: 800;
-    color: #660094;
-    margin-left: 6px;
+button[data-testid="collapsedControl"]::after{
+    content:" Login & Filters";
+    display:block;
+    font-size:13px;
+    font-weight:800;
+    color:#660094;
+}
+
+button[data-testid="collapsedControl"]::before{
+    content:"Access account • Global filters";
+    position:absolute;
+    top:24px;
+    left:36px;
+    font-size:9px;
+    font-weight:600;
+    color:#667085;
 }
 
 /* Hide any GitHub links */
