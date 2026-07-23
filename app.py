@@ -878,8 +878,8 @@ def render_professional_data_preview(
             """,
             unsafe_allow_html=True,
         )
-inject_classic_dashboard_css()
 
+inject_classic_dashboard_css()
 
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
 def can_view_monitored_countries_value() -> bool:
