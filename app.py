@@ -1212,11 +1212,10 @@ def load_data():
         mask = df["alert-type"].astype(str).str.strip().str.lower() == "context to watch"
         df.loc[mask, "alert-impact"] = "Context to watch"
 
-    return df
+    st.dataframe(df)
 
-st.write("Dataset shape:", df.shape)
-st.write("Columns:", df.columns.tolist())
-st.dataframe(df.head(10), use_container_width=True)
+    return df
+    
 
 # --- Load data safely ---
 data = apply_data_scope(load_data())
