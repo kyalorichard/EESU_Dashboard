@@ -474,9 +474,13 @@ def _build_fast_table_search_mask(table_df: pd.DataFrame, search_text: str) -> p
 
     return mask
 
-
-def render_professional_data_preview(df, title="Data Preview and Download", key="summary_data_preview", remove_vertical_scroll=False):
-    """Render a clean, searchable table with one vertical and one horizontal scrollbar."""
+def render_professional_data_preview(
+    df,
+    title="Data Preview and Download",
+    key="summary_data_preview",
+    remove_vertical_scroll=False,
+):
+    """Render a clean, searchable table with clickable report links."""
 
     if df is None or df.empty:
         st.info("No records are available for the current filter selection.")
@@ -486,201 +490,394 @@ def render_professional_data_preview(df, title="Data Preview and Download", key=
 
     display_df = df.copy()
 
+    # ---------------------------------------------------------
+    # FORMAT DATE COLUMNS
+    # ---------------------------------------------------------
     for date_col in ["Date of submission", "creation_date"]:
         if date_col in display_df.columns:
             display_df[date_col] = pd.to_datetime(
-                display_df[date_col], errors="coerce"
+                display_df[date_col],
+                errors="coerce",
             ).dt.strftime("%Y-%m-%d")
 
+    # ---------------------------------------------------------
+    # CREATE CLICKABLE REPORT LINK
+    # ---------------------------------------------------------
+    if "Permalink" in display_df.columns:
+
+        def clean_permalink(value):
+            """Return a usable absolute URL or an empty string."""
+            if pd.isna(value):
+                return ""
+
+            url = str(value).strip()
+
+            if not url or url.lower() in {
+                "nan",
+                "none",
+                "null",
+            }:
+                return ""
+
+            if not url.lower().startswith(
+                ("http://", "https://")
+            ):
+                url = f"https://{url.lstrip('/')}"
+
+            return url
+
+        display_df["Open report"] = (
+            display_df["Permalink"]
+            .apply(clean_permalink)
+        )
+
+    # ---------------------------------------------------------
+    # IDENTIFY ALERT-IMPACT COLUMN
+    # ---------------------------------------------------------
     impact_col = None
-    for candidate in ["alert-impact", "Impact of alert", "Alert impact"]:
+
+    for candidate in [
+        "alert-impact",
+        "Impact of alert",
+        "Alert impact",
+    ]:
         if candidate in display_df.columns:
             impact_col = candidate
             break
 
-    with st.expander(f"📋 {title}", expanded=False):
-        st.markdown("""
-        <style>
-        .eusee-data-preview-note {
-            background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-            border: 1px solid #E6E8EF;
-            border-left: 4px solid #660094;
-            border-radius: 14px;
-            padding: 10px 12px;
-            margin: 2px 0 12px 0;
-            color: #667085;
-            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif);
-            font-size: 11.5px;
-            line-height: 1.42;
-            font-weight: 550;
-            box-shadow: 0 6px 16px rgba(16,24,40,.045);
-        }
+    with st.expander(
+        f"📋 {title}",
+        expanded=False,
+    ):
+        st.markdown(
+            """
+            <style>
+            .eusee-data-preview-note {
+                background:
+                    linear-gradient(
+                        135deg,
+                        #FFFFFF 0%,
+                        #F8FAFC 100%
+                    );
+                border: 1px solid #E6E8EF;
+                border-left: 4px solid #660094;
+                border-radius: 14px;
+                padding: 10px 12px;
+                margin: 2px 0 12px 0;
+                color: #667085;
+                font-family:
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    );
+                font-size: 11.5px;
+                line-height: 1.42;
+                font-weight: 550;
+                box-shadow:
+                    0 6px 16px
+                    rgba(16,24,40,.045);
+            }
 
-        .eusee-data-preview-note strong {
-            color: #23152F;
-            font-weight: 900;
-        }
+            .eusee-data-preview-note strong {
+                color: #23152F;
+                font-weight: 900;
+            }
 
-        /* Data Preview shell: no outer scrollbar */
-        div[data-testid="stDataFrame"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            border: 1px solid #E6E8EF !important;
-            border-radius: 16px !important;
-            overflow: hidden !important;
-            box-shadow: 0 10px 24px rgba(16,24,40,.06) !important;
-            background: #FFFFFF !important;
-            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
-        }
+            div[data-testid="stDataFrame"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                border:
+                    1px solid #E6E8EF !important;
+                border-radius: 16px !important;
+                overflow: hidden !important;
+                box-shadow:
+                    0 10px 24px
+                    rgba(16,24,40,.06) !important;
+                background: #FFFFFF !important;
+                font-family:
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    ) !important;
+            }
 
-        div[data-testid="stDataFrame"] > div {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow: hidden !important;
-        }
+            div[data-testid="stDataFrame"] > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+            }
 
-        /* The grid is the only scrollable element */
-        div[data-testid="stDataFrame"] div[role="grid"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow: auto !important;
-        }
+            div[data-testid="stDataFrame"]
+            div[role="grid"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow: auto !important;
+            }
 
-        /* Prevent nested scrollbars */
-        div[data-testid="stDataFrame"] [data-testid="stTable"] {
-            overflow: visible !important;
-        }
+            div[data-testid="stDataFrame"]
+            [data-testid="stTable"] {
+                overflow: visible !important;
+            }
 
-        div[data-testid="stDataFrame"] [role="columnheader"],
-        div[data-testid="stDataFrame"] [role="columnheader"] * {
-            background: #F4EAF8 !important;
-            color: #23152F !important;
-            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
-            font-size: 11.5px !important;
-            font-weight: 850 !important;
-            border-bottom: 1px solid #E7D4F1 !important;
-            line-height: 1.25 !important;
-        }
+            div[data-testid="stDataFrame"]
+            [role="columnheader"],
+            div[data-testid="stDataFrame"]
+            [role="columnheader"] * {
+                background: #F4EAF8 !important;
+                color: #23152F !important;
+                font-family:
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    ) !important;
+                font-size: 11.5px !important;
+                font-weight: 850 !important;
+                border-bottom:
+                    1px solid #E7D4F1 !important;
+                line-height: 1.25 !important;
+            }
 
-        div[data-testid="stDataFrame"] [role="gridcell"],
-        div[data-testid="stDataFrame"] [role="gridcell"] * {
-            color: #344054 !important;
-            font-family: var(--eusee-font, "Inter", "Segoe UI", Arial, sans-serif) !important;
-            font-size: 11.5px !important;
-            line-height: 1.35 !important;
-            font-weight: 500 !important;
-        }
+            div[data-testid="stDataFrame"]
+            [role="gridcell"],
+            div[data-testid="stDataFrame"]
+            [role="gridcell"] * {
+                color: #344054 !important;
+                font-family:
+                    var(
+                        --eusee-font,
+                        "Inter",
+                        "Segoe UI",
+                        Arial,
+                        sans-serif
+                    ) !important;
+                font-size: 11.5px !important;
+                line-height: 1.35 !important;
+                font-weight: 500 !important;
+            }
 
-        div[data-testid="stDataFrame"] div[role="grid"]::-webkit-scrollbar {
-            width: 10px !important;
-            height: 10px !important;
-        }
+            div[data-testid="stDataFrame"]
+            div[role="grid"]::-webkit-scrollbar {
+                width: 10px !important;
+                height: 10px !important;
+            }
 
-        div[data-testid="stDataFrame"] div[role="grid"]::-webkit-scrollbar-thumb {
-            background: #D6BBE5 !important;
-            border-radius: 999px !important;
-            border: 2px solid #FFFFFF !important;
-        }
+            div[data-testid="stDataFrame"]
+            div[role="grid"]::-webkit-scrollbar-thumb {
+                background: #D6BBE5 !important;
+                border-radius: 999px !important;
+                border:
+                    2px solid #FFFFFF !important;
+            }
 
-        div[data-testid="stDataFrame"] div[role="grid"]::-webkit-scrollbar-track {
-            background: #F8FAFC !important;
-            border-radius: 999px !important;
-        }
-        </style>
+            div[data-testid="stDataFrame"]
+            div[role="grid"]::-webkit-scrollbar-track {
+                background: #F8FAFC !important;
+                border-radius: 999px !important;
+            }
+            </style>
 
-        <div class="eusee-data-preview-note">
-            <strong>Filtered data preview:</strong> Review a sample of the filtered data and download the full dataset based on the filters currently applied.
-        </div>
-        """, unsafe_allow_html=True)
+            <div class="eusee-data-preview-note">
+                <strong>Filtered data preview:</strong>
+                Review the filtered records, open the associated
+                report, or download the complete filtered dataset.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
+        # -----------------------------------------------------
+        # SEARCH
+        # -----------------------------------------------------
         search_text = st.text_input(
             "Search table",
             value="",
-            placeholder='Use Boolean search, e.g. Kenya AND negative, Uganda OR Kenya, "civil society" NOT positive.',
+            placeholder=(
+                'Use Boolean search, e.g. Kenya AND negative, '
+                'Uganda OR Kenya, '
+                '"civil society" NOT positive.'
+            ),
             key=f"{key}_search",
         )
 
         table_df = display_df.copy()
         active_filter_rows = len(table_df)
 
-        search_text_clean = " ".join(str(search_text or "").split()).strip()
+        search_text_clean = " ".join(
+            str(search_text or "").split()
+        ).strip()
+
         if search_text_clean:
             table_df = table_df.loc[
-                _build_fast_table_search_mask(table_df, search_text_clean)
+                _build_fast_table_search_mask(
+                    table_df,
+                    search_text_clean,
+                )
             ].copy()
 
         table_view = table_df.copy()
 
         st.caption(
-            f"Displaying {len(table_view):,} matching records from "
-            f"{active_filter_rows:,} active-filter records."
+            f"Displaying {len(table_view):,} matching records "
+            f"from {active_filter_rows:,} active-filter records."
         )
 
+        # -----------------------------------------------------
+        # ALERT-IMPACT STYLING
+        # -----------------------------------------------------
         def style_alert_impact(value):
             value_clean = str(value).strip().lower()
 
             if value_clean == "negative":
-                return "background-color:#FEE4E2;color:#B42318;font-weight:800;"
+                return (
+                    "background-color:#FEE4E2;"
+                    "color:#B42318;"
+                    "font-weight:800;"
+                )
 
             if value_clean == "positive":
-                return "background-color:#DCFAE6;color:#067647;font-weight:800;"
+                return (
+                    "background-color:#DCFAE6;"
+                    "color:#067647;"
+                    "font-weight:800;"
+                )
 
             if value_clean == "context to watch":
-                return "background-color:#FEF0C7;color:#B54708;font-weight:800;"
+                return (
+                    "background-color:#FEF0C7;"
+                    "color:#B54708;"
+                    "font-weight:800;"
+                )
 
             return ""
 
         table_to_render = table_view
 
-        if impact_col and impact_col in table_view.columns:
+        if (
+            impact_col
+            and impact_col in table_view.columns
+        ):
             try:
                 table_to_render = table_view.style.map(
                     style_alert_impact,
                     subset=[impact_col],
                 )
             except AttributeError:
-                table_to_render = table_view.style.applymap(
-                    style_alert_impact,
-                    subset=[impact_col],
+                table_to_render = (
+                    table_view.style.applymap(
+                        style_alert_impact,
+                        subset=[impact_col],
+                    )
                 )
 
+        # -----------------------------------------------------
+        # COLUMN ORDER
+        # -----------------------------------------------------
+        visible_columns = [
+            col
+            for col in table_view.columns
+            if col not in {
+                "Permalink",
+                "Open report",
+            }
+        ]
+
+        if "Open report" in table_view.columns:
+            visible_columns.append("Open report")
+
+        column_config = {}
+
+        if "Permalink" in table_view.columns:
+            column_config["Permalink"] = None
+
+        if "Open report" in table_view.columns:
+            column_config["Open report"] = (
+                st.column_config.LinkColumn(
+                    label="Report",
+                    help=(
+                        "Open the complete report "
+                        "in a new browser tab."
+                    ),
+                    display_text="Open report ↗",
+                    width="small",
+                )
+            )
+
+        # -----------------------------------------------------
+        # DATAFRAME
+        # -----------------------------------------------------
         st.dataframe(
             table_to_render,
             use_container_width=True,
             hide_index=True,
             height=DATA_PREVIEW_STANDARD_HEIGHT,
             key=key,
+            column_order=visible_columns,
+            column_config=column_config,
         )
 
+        # -----------------------------------------------------
+        # EXCEL DOWNLOAD
+        # -----------------------------------------------------
         excel_buffer = BytesIO()
 
-        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-            table_df.to_excel(
+        with pd.ExcelWriter(
+            excel_buffer,
+            engine="openpyxl",
+        ) as writer:
+            # Preserve the original Permalink in the download.
+            export_df = table_df.drop(
+                columns=["Open report"],
+                errors="ignore",
+            )
+
+            export_df.to_excel(
                 writer,
                 index=False,
-                sheet_name="Filtered Data"
+                sheet_name="Filtered Data",
             )
 
         excel_buffer.seek(0)
 
         if has_permission("download_data"):
             st.download_button(
-                label="⬇️ Download filtered table as Excel",
+                label=(
+                    "⬇️ Download filtered table as Excel"
+                ),
                 data=excel_buffer,
                 file_name=f"{key}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                mime=(
+                    "application/vnd.openxmlformats-"
+                    "officedocument.spreadsheetml.sheet"
+                ),
                 use_container_width=True,
                 key=f"{key}_download_excel",
             )
         else:
-            st.caption("Excel download is disabled for your access level.")
+            st.caption(
+                "Excel download is disabled "
+                "for your access level."
+            )
 
-        st.markdown("""
-        <div class="data-preview-footnote">
-            Interpretation note: this table reflects the active filters. Negative alerts are highlighted in red,
-            positive alerts in green, and context-to-watch records in amber.
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="data-preview-footnote">
+                Interpretation note: this table reflects the
+                active filters. Negative alerts are highlighted
+                in red, positive alerts in green, and
+                context-to-watch records in amber.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 inject_classic_dashboard_css()
 
 
