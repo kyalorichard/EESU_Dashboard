@@ -827,7 +827,7 @@ def render_professional_data_preview(
         if "Open report" in table_view.columns:
             column_config["Open report"] = (
                 st.column_config.LinkColumn(
-                    label="Open report",
+                    label="Full report",
                     help="Open the complete report in a new browser tab.",
                     display_text="Open report ↗",
                     width="medium",
