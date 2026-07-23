@@ -1214,6 +1214,10 @@ def load_data():
 
     return df
 
+st.write("Dataset shape:", df.shape)
+st.write("Columns:", df.columns.tolist())
+st.dataframe(df.head(10), use_container_width=True)
+
 # --- Load data safely ---
 data = apply_data_scope(load_data())
 
