@@ -1212,7 +1212,7 @@ def load_data():
         mask = df["alert-type"].astype(str).str.strip().str.lower() == "context to watch"
         df.loc[mask, "alert-impact"] = "Context to watch"
 
-    st.dataframe(df)
+   
 
     return df
     
@@ -6634,7 +6634,8 @@ if tab_overview is not None:
                 "alert-country": "Country",
                 "enabling-principle": "Enabling principles",
                 "alert-impact": "Impact of alert",
-                "alert-type": "Type of alert"
+                "alert-type": "Type of alert",
+                "Permalink": "Report Link"
             }
                 # keep only existing columns, then rename
             filtered_global_prev = (
@@ -6889,7 +6890,8 @@ if tab_negative is not None:
                     "Actor of repression": "Types of restrictive actors",
                     "Subject of repression": "Types of civil society actors affected",
                     "Mechanism of repression": "Types of restrictive mechanisms",
-                    "Type of event": "Types of negative events"           
+                    "Type of event": "Types of negative events",
+                    "Permalink": "Report Link"          
                 }
                 # keep only existing columns, then rename
                 reactive_df_updated_prev = (
