@@ -12,7 +12,6 @@ import warnings
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import paramiko
@@ -2257,8 +2256,8 @@ st.markdown(f"""
 
 <div class="animated-subtitle">
     Explore and analyse EU SEE data! This dashboard reflects the documentation of changes to the enabling environment for civil society, as reported by our network members in 80+ countries. We recommend complementing the data here with the primary source research available on the EU SEE website. Please consider: 
-•	Due to differences in partner reporting practices by country, direct country comparisons are not recommended when using this data.  
-•	Some alerts fall under more than one enabling environment principle. 
+<br>•	Due to differences in partner reporting practices by country, direct country comparisons are not recommended when using this data.  
+<br>•	Some alerts fall under more than one enabling environment principle. 
 
 </div>
 
