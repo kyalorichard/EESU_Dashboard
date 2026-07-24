@@ -8385,7 +8385,40 @@ if tab_manual is not None:
                         """,
                         unsafe_allow_html=True,
                     )                   
-                 
+
+
+                with docs_col:
+                    footer_image_path = BASE_DIR / "assets" / "footer_logo.png"
+
+                    if footer_image_path.exists():
+                        footer_b64 = base64.b64encode(
+                            footer_image_path.read_bytes()
+                        ).decode("utf-8")
+
+                        st.markdown(
+                            f"""
+                            <div class="manual-section-card manual-brand-panel">
+                                <div class="manual-section-title">EU SEE partnership</div>
+                                <div class="manual-section-note">Organizations supporting the EU SEE Dashboard.</div>
+                                <div style="display:flex; align-items:center; justify-content:center; min-height:260px; padding:18px 10px;">
+                                    <img
+                                        src="data:image/png;base64,{footer_b64}"
+                                        alt="EU SEE partner logos"
+                                        style="width:100%; max-width:620px; height:auto; object-fit:contain;"
+                                    >
+                                </div>
+                                <div style="text-align:center; color:#667085; font-size:10.5px; font-weight:600; margin-top:4px;">
+                                    © 2026 EU SEE Dashboard. All rights reserved.
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.warning(
+                            "Partner logo image not found at assets/footer_logo.png."
+                        )
+
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
                 render_access_locked("User Manual", "guest or higher")
@@ -9422,54 +9455,3 @@ def render_eusee_ai_copilot_popover():
         with st.expander("💬 AI assistant", expanded=False):
             _render_eusee_ai_copilot_body()
 render_eusee_ai_copilot_popover()
-
-# ---------------- FOOTER ----------------
-# Feedback is rendered as a single collapsed responsive floating overlay near the dashboard header.
-
-# --- Load image and convert to base64 ---
-footer_image_path = "assets/footer_logo.png"
-with open(footer_image_path, "rb") as f:
-    data = f.read()
-b64 = base64.b64encode(data).decode()
-
-# --- Render fixed footer without reserving an extra Streamlit iframe spacer ---
-st.markdown(f"""
-<style>
-.eusee-fixed-footer {{
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    text-align: center;
-    padding: 4px 0 3px 0;
-    margin: 0 !important;
-    background: #FFFFFF;
-    border-top: 1px solid rgba(230,232,239,.85);
-    box-shadow: 0 -6px 18px rgba(16,24,40,.045);
-    z-index: 9999;
-}}
-.eusee-fixed-footer img {{
-    display: block;
-    width: min(700px, 82vw);
-    max-width: 82vw;
-    height: auto;
-    margin: 0 auto !important;
-    padding: 0 !important;
-}}
-.eusee-fixed-footer-copy {{
-    margin: 1px 0 0 0 !important;
-    padding: 0 !important;
-    color: #667085;
-    font-family: var(--eusee-font);
-    font-size: 10px;
-    line-height: 1.1;
-    font-weight: 600;
-}}
-</style>
-<div class="eusee-fixed-footer">
-    <img src="data:image/png;base64,{b64}" alt="EU SEE footer logo">
-    <div class="eusee-fixed-footer-copy">© 2026 EU SEE Dashboard. All rights reserved.</div>
-</div>
-""", unsafe_allow_html=True)
-
