@@ -8398,18 +8398,14 @@ if tab_manual is not None:
                         st.markdown(
                             f"""
                             <div class="manual-section-card manual-brand-panel">
-                                <div class="manual-section-title">EU SEE partnership</div>
-                                <div class="manual-section-note">Organizations supporting the EU SEE Dashboard.</div>
-                                <div style="display:flex; align-items:center; justify-content:center; min-height:260px; padding:18px 10px;">
+                                <div style="display:flex; align-items:center; justify-content:center; min-height:360px; padding:18px 10px;">
                                     <img
                                         src="data:image/png;base64,{footer_b64}"
                                         alt="EU SEE partner logos"
                                         style="width:100%; max-width:620px; height:auto; object-fit:contain;"
                                     >
                                 </div>
-                                <div style="text-align:center; color:#667085; font-size:10.5px; font-weight:600; margin-top:4px;">
-                                    © 2026 EU SEE Dashboard. All rights reserved.
-                                </div>
+                              
                             </div>
                             """,
                             unsafe_allow_html=True,
