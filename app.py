@@ -1461,7 +1461,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
         options_with_all,
         key=widget_key,
         placeholder="",
-        help="Leave empty or choose Select all to include all available options.",
+       
     )
 
     if "Select all" in selected or len(selected) == 0:
@@ -6755,10 +6755,7 @@ if tab_overview is not None:
                 normalize_labels=False
             )
 
-            enabling_principle_note = (
-                "Alerts may be classified under more than one enabling principle "
-                "and can therefore be counted in multiple principles."
-            )
+         
 
             # Add source line if needed
             #fig12 = add_source_line(fig12)
@@ -6773,8 +6770,6 @@ if tab_overview is not None:
                 dashboard_df=filtered_global,
                 key="tab1_chart2",
                 container=r1c2,
-                chart_info=enabling_principle_note,
-                show_title_tooltip=True,
                 permission_key="view_chart_overview_enabling_principles",
                 permission_label="Overview enabling-principle distribution",
             )
@@ -7010,11 +7005,7 @@ if tab_negative is not None:
                 fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
 
           
-                negative_enabling_principle_note = (
-                    "Negative alerts may be classified under more than one enabling principle "
-                    "and can therefore be counted in multiple principles."
-                )
-
+                
                 # Render the chart in Streamlit with the info tooltip directly beside the title.
                 render_dashboard_plotly_chart(
                     fig23,
@@ -7025,8 +7016,6 @@ if tab_negative is not None:
                     dashboard_df=reactive_df_updated,
                     key="tab2_chart6",
                     container=r2c3,
-                    chart_info=negative_enabling_principle_note,
-                    show_title_tooltip=True,
                     permission_key="view_chart_negative_enabling_principles",
                     permission_label="Negative enabling-principle distribution",
                 )
