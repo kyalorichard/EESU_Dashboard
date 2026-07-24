@@ -231,99 +231,22 @@ if not st.session_state.get("restored", False):
     st.stop()
 
 # ------------------------------------------------------------------
-# HIDE GITHUB / SOURCE CODE ACCESS
-# KEEP SIDEBAR TOGGLE VISIBLE
+# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
-/*
-ROBUST SIDEBAR SIGNPOST
-This element is independent of Streamlit's internal sidebar-toggle selector.
-It remains visible beside the native arrows across Streamlit versions.
-*/
-.eusee-sidebar-signpost {
-    position: fixed;
-    top: 7px;
-    left: 44px;
-    z-index: 1000002;
-    display: inline-flex;
-    align-items: center;
-    height: 30px;
-    padding: 0 11px;
-    border: 1px solid #E7D4F1;
-    border-radius: 999px;
-    background: #FFFFFF;
-    box-shadow: 0 3px 10px rgba(16,24,40,.08);
-    color: #660094;
-    font-family: "Anek Devanagari", Arial, sans-serif;
-    font-size: 12px;
-    line-height: 1;
-    font-weight: 850;
-    white-space: nowrap;
-    pointer-events: none;
-}
-.eusee-sidebar-signpost::before {
-    content: "Login & Global Filters";
-}
-.eusee-sidebar-signpost::after {
-    content: "  •  click the arrows";
-    margin-left: 4px;
-    color: #667085;
-    font-size: 10px;
-    font-weight: 650;
-}
-@media (max-width: 700px) {
-    .eusee-sidebar-signpost {
-        left: 42px;
-        padding: 0 8px;
-        font-size: 11px;
-    }
-    .eusee-sidebar-signpost::before {
-        content: "Login & Filters";
-    }
-    .eusee-sidebar-signpost::after {
-        content: "";
-        display: none;
-    }
-}
-</style>
-<div class="eusee-sidebar-signpost" aria-hidden="true"></div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-
-/* Streamlit menu */
-#MainMenu {
-    visibility: hidden !important;
-}
-
-/* Footer */
-footer {
-    visibility: hidden !important;
-}
-
-/* Purple top decoration line */
-[data-testid="stDecoration"] {
-    display: none !important;
-}
-
-/* Deploy button */
-[data-testid="stDeployButton"] {
-    display: none !important;
-}
-
-/* Source code / GitHub / toolbar actions */
-[data-testid="stHeaderActionElements"] {
-    display: none !important;
-}
-
-/* Extra toolbar buttons */
+/* Hide Streamlit menu, footer, deployment and source-code actions. */
+#MainMenu,
+footer,
+[data-testid="stDecoration"],
+[data-testid="stDeployButton"],
+[data-testid="stHeaderActionElements"],
 [data-testid="stToolbarActions"] {
     display: none !important;
+    visibility: hidden !important;
 }
 
-/* Keep header visible */
+/* Keep the header and native sidebar arrows available. */
 header[data-testid="stHeader"] {
     visibility: visible !important;
     display: flex !important;
@@ -332,331 +255,155 @@ header[data-testid="stHeader"] {
     background: rgba(247,248,251,0.95) !important;
 }
 
-/* -----------------------------------------------------------
-   COLLAPSED SIDEBAR SIGNPOST
-   Supports both older and newer Streamlit DOM selectors.
-   ----------------------------------------------------------- */
-
-/* New Streamlit versions wrap the toggle in this container. */
-[data-testid="stSidebarCollapsedControl"] {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: auto !important;
-    overflow: visible !important;
-    margin-left: 8px !important;
-}
-
-/* Apply the pill to both the old direct button selector and the
-   newer button nested inside stSidebarCollapsedControl. */
 button[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"] > button,
-[data-testid="stSidebarCollapsedControl"] button {
-    display: inline-flex !important;
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"] button {
     visibility: visible !important;
     opacity: 1 !important;
-    position: relative !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 8px !important;
-
-    width: auto !important;
-    min-width: 166px !important;
-    height: 42px !important;
-
-    border-radius: 999px !important;
-    padding: 6px 14px 6px 11px !important;
-
-    background: #FFFFFF !important;
-    border: 1px solid #CFA8E0 !important;
-    color: #660094 !important;
-    box-shadow: 0 6px 18px rgba(16,24,40,.12) !important;
-    cursor: pointer !important;
-    overflow: visible !important;
 }
 
-button[data-testid="collapsedControl"] svg,
-button[data-testid="collapsedControl"] [data-testid="stIconMaterial"],
-[data-testid="stSidebarCollapsedControl"] button svg,
-[data-testid="stSidebarCollapsedControl"] button [data-testid="stIconMaterial"] {
-    flex: 0 0 auto !important;
-    color: #660094 !important;
-}
-
-/* Visible label: this is the main signpost requested by the reviewer. */
-button[data-testid="collapsedControl"]::after,
-[data-testid="stSidebarCollapsedControl"] button::after {
-    content: "Login & Global Filters" !important;
-    display: inline-block !important;
-    position: static !important;
-    white-space: nowrap !important;
-    font-family: "Anek Devanagari", Arial, sans-serif !important;
-    font-size: 13px !important;
-    line-height: 1 !important;
-    font-weight: 850 !important;
-    letter-spacing: .01em !important;
-    color: #660094 !important;
-}
-
-/* Tooltip-style helper on hover/focus. */
-button[data-testid="collapsedControl"]::before,
-[data-testid="stSidebarCollapsedControl"] button::before {
-    content: "Open this panel to sign in and apply dashboard-wide filters" !important;
-    display: none !important;
-    position: absolute !important;
-    top: calc(100% + 8px) !important;
-    left: 0 !important;
-    width: 255px !important;
-    padding: 8px 10px !important;
-    border-radius: 9px !important;
-    background: #23152F !important;
-    color: #FFFFFF !important;
-    font-family: "Anek Devanagari", Arial, sans-serif !important;
-    font-size: 10.5px !important;
-    line-height: 1.35 !important;
-    font-weight: 650 !important;
-    text-align: left !important;
-    box-shadow: 0 8px 22px rgba(16,24,40,.18) !important;
-    z-index: 1000002 !important;
-}
-
-button[data-testid="collapsedControl"]:hover::before,
-button[data-testid="collapsedControl"]:focus-visible::before,
-[data-testid="stSidebarCollapsedControl"] button:hover::before,
-[data-testid="stSidebarCollapsedControl"] button:focus-visible::before {
-    display: block !important;
-}
-
-button[data-testid="collapsedControl"]:hover,
-button[data-testid="collapsedControl"]:focus-visible,
-[data-testid="stSidebarCollapsedControl"] button:hover,
-[data-testid="stSidebarCollapsedControl"] button:focus-visible {
-    background: #FBF7FD !important;
-    border-color: #660094 !important;
-    box-shadow: 0 8px 24px rgba(102,0,148,.17) !important;
-    transform: translateY(-1px) !important;
-}
-
-@media (max-width: 700px) {
-    button[data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] button {
-        min-width: 138px !important;
-        height: 38px !important;
-        padding-right: 11px !important;
-    }
-
-    button[data-testid="collapsedControl"]::after,
-    [data-testid="stSidebarCollapsedControl"] button::after {
-        content: "Login & Filters" !important;
-        font-size: 12px !important;
-    }
-}
-
-
-/* ===========================================================
-   RELIABLE COLLAPSED-SIDEBAR LABEL
-   The label is attached to Streamlit's OUTER toggle wrapper,
-   because Streamlit can recreate/replace the inner arrow button.
-   =========================================================== */
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"],
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    width: auto !important;
-    min-width: 184px !important;
-    height: 38px !important;
-    padding: 0 12px 0 4px !important;
-    margin: 3px 0 0 4px !important;
-    overflow: visible !important;
-    border: 1px solid #D6BBE5 !important;
-    border-radius: 999px !important;
-    background: #FFFFFF !important;
-    box-shadow: 0 4px 14px rgba(16,24,40,.10) !important;
-    cursor: pointer !important;
-    z-index: 1000001 !important;
-}
-
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"]::after,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"]::after {
-    content: "Login & Global Filters" !important;
-    display: inline-block !important;
-    position: static !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    white-space: nowrap !important;
-    pointer-events: none !important;
-    font-family: "Anek Devanagari", Arial, sans-serif !important;
-    font-size: 13px !important;
-    line-height: 1 !important;
-    font-weight: 850 !important;
-    color: #660094 !important;
-}
-
-/* Keep the native arrow button compact inside the labelled wrapper. */
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] > button,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] button,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] > button,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] button {
-    flex: 0 0 30px !important;
-    min-width: 30px !important;
-    width: 30px !important;
-    height: 30px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: 0 !important;
-    border-radius: 9px !important;
-    background: #F2F4F7 !important;
-    box-shadow: none !important;
-    overflow: hidden !important;
-}
-
-/* Disable earlier button pseudo-labels so there is only one visible label. */
-header[data-testid="stHeader"] button[data-testid="collapsedControl"]::after,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] button::after,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] button::after,
-header[data-testid="stHeader"] button[data-testid="collapsedControl"]::before,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] button::before,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] button::before {
-    content: none !important;
-    display: none !important;
-}
-
-header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"]:hover,
-header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"]:hover {
-    border-color: #660094 !important;
-    background: #FBF7FD !important;
-    box-shadow: 0 6px 18px rgba(102,0,148,.15) !important;
-}
-
-@media (max-width: 700px) {
-    header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"],
-    header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] {
-        min-width: 145px !important;
-        padding-right: 10px !important;
-    }
-
-    header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"]::after,
-    header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"]::after {
-        content: "Login & Filters" !important;
-        font-size: 12px !important;
-    }
-}
-
-/* Hide any GitHub links */
-a[href*="github.com"] {
-    display: none !important;
-}
-
-/* Hide source-code links */
+/* Hide GitHub and source links that may still be injected elsewhere. */
+a[href*="github.com"],
 a[href*="source"] {
     display: none !important;
 }
 
-
-
 .block-container {
     padding-top: 1rem !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
-# Reliably label the collapsed sidebar control after Streamlit renders it.
-# CSS pseudo-elements are not dependable across Streamlit releases because the
-# sidebar toggle DOM can be recreated after page load. This MutationObserver
-# adds a real text node to whichever toggle implementation is present.
+# Add a separate label beside Streamlit's native arrows. The label appears only
+# when the sidebar is collapsed and is removed immediately when it opens.
 components.html(
     r"""
     <script>
     (function () {
         const doc = window.parent.document;
-        const STYLE_ID = "eusee-sidebar-signpost-style";
-        const LABEL_CLASS = "eusee-sidebar-signpost-label";
+        const win = window.parent;
+        const LABEL_ID = "eusee-collapsed-sidebar-label";
+        const STYLE_ID = "eusee-collapsed-sidebar-label-style";
 
         function ensureStyle() {
             if (doc.getElementById(STYLE_ID)) return;
+
             const style = doc.createElement("style");
             style.id = STYLE_ID;
             style.textContent = `
-                [data-testid="stSidebarCollapsedControl"],
-                [data-testid="stSidebarCollapsedControl"] button,
-                button[data-testid="collapsedControl"] {
-                    width: auto !important;
-                    min-width: 178px !important;
-                    height: 42px !important;
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    justify-content: flex-start !important;
-                    gap: 8px !important;
-                    padding: 6px 14px 6px 10px !important;
-                    overflow: visible !important;
-                    border-radius: 999px !important;
-                    background: #ffffff !important;
-                    border: 1px solid #cfa8e0 !important;
-                    box-shadow: 0 6px 18px rgba(16, 24, 40, .12) !important;
-                }
-                .${LABEL_CLASS} {
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    white-space: nowrap !important;
-                    color: #660094 !important;
-                    font-family: "Anek Devanagari", Arial, sans-serif !important;
-                    font-size: 13px !important;
-                    line-height: 1 !important;
-                    font-weight: 800 !important;
-                    pointer-events: none !important;
+                #${LABEL_ID} {
+                    position: fixed;
+                    z-index: 1000002;
+                    display: inline-flex;
+                    align-items: center;
+                    min-height: 30px;
+                    padding: 0 11px;
+                    border: 1px solid #E7D4F1;
+                    border-radius: 999px;
+                    background: #FFFFFF;
+                    box-shadow: 0 3px 10px rgba(16,24,40,.08);
+                    color: #660094;
+                    font-family: "Anek Devanagari", Arial, sans-serif;
+                    font-size: 12px;
+                    line-height: 1;
+                    font-weight: 800;
+                    white-space: nowrap;
+                    pointer-events: none;
                 }
                 @media (max-width: 700px) {
-                    [data-testid="stSidebarCollapsedControl"],
-                    [data-testid="stSidebarCollapsedControl"] button,
-                    button[data-testid="collapsedControl"] {
-                        min-width: 132px !important;
-                    }
-                    .${LABEL_CLASS} {
-                        font-size: 11px !important;
+                    #${LABEL_ID} {
+                        padding: 0 8px;
+                        font-size: 11px;
                     }
                 }
             `;
             doc.head.appendChild(style);
         }
 
-        function findClickableToggle() {
-            return (
-                doc.querySelector('[data-testid="stSidebarCollapsedControl"] button') ||
-                doc.querySelector('button[data-testid="collapsedControl"]') ||
-                doc.querySelector('[data-testid="stSidebarCollapsedControl"]')
-            );
-        }
+        function findToggle() {
+            const selectors = [
+                '[data-testid="stSidebarCollapsedControl"] button',
+                '[data-testid="stSidebarCollapsedControl"]',
+                'button[data-testid="collapsedControl"]',
+                '[data-testid="stSidebarCollapseButton"] button',
+                '[data-testid="stSidebarCollapseButton"]',
+                'button[aria-label*="sidebar" i]',
+                'button[title*="sidebar" i]'
+            ];
 
-        function addLabel() {
-            ensureStyle();
-            const toggle = findClickableToggle();
-            if (!toggle) return;
-
-            toggle.setAttribute(
-                "aria-label",
-                "Open login panel and global dashboard filters"
-            );
-            toggle.setAttribute(
-                "title",
-                "Open the sidebar to sign in or apply global filters"
-            );
-
-            if (!toggle.querySelector('.' + LABEL_CLASS)) {
-                const label = doc.createElement("span");
-                label.className = LABEL_CLASS;
-                label.textContent = "Login & Global Filters";
-                toggle.appendChild(label);
+            for (const selector of selectors) {
+                const nodes = Array.from(doc.querySelectorAll(selector));
+                const visible = nodes.find((node) => {
+                    const rect = node.getBoundingClientRect();
+                    const css = win.getComputedStyle(node);
+                    return rect.width > 0 && rect.height > 0 &&
+                           css.display !== "none" &&
+                           css.visibility !== "hidden";
+                });
+                if (visible) return visible;
             }
+            return null;
         }
 
-        addLabel();
-        const observer = new MutationObserver(addLabel);
-        observer.observe(doc.body, { childList: true, subtree: true });
+        function sidebarIsCollapsed() {
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+            if (!sidebar) return true;
 
-        // Streamlit may rebuild its header during reruns.
-        window.setInterval(addLabel, 1000);
+            const rect = sidebar.getBoundingClientRect();
+            const css = win.getComputedStyle(sidebar);
+            const ariaHidden = sidebar.getAttribute("aria-hidden") === "true";
+
+            return ariaHidden ||
+                   css.display === "none" ||
+                   css.visibility === "hidden" ||
+                   rect.width < 40 ||
+                   rect.right <= 5 ||
+                   rect.left < -(rect.width / 2);
+        }
+
+        function removeLabel() {
+            const label = doc.getElementById(LABEL_ID);
+            if (label) label.remove();
+        }
+
+        function updateLabel() {
+            ensureStyle();
+
+            const toggle = findToggle();
+            if (!toggle || !sidebarIsCollapsed()) {
+                removeLabel();
+                return;
+            }
+
+            let label = doc.getElementById(LABEL_ID);
+            if (!label) {
+                label = doc.createElement("div");
+                label.id = LABEL_ID;
+                label.textContent = "Login & Global Filters • click the arrows";
+                label.setAttribute("aria-hidden", "true");
+                doc.body.appendChild(label);
+            }
+
+            const rect = toggle.getBoundingClientRect();
+            const labelHeight = label.getBoundingClientRect().height || 30;
+            label.style.left = `${Math.max(44, rect.right + 8)}px`;
+            label.style.top = `${Math.max(5, rect.top + (rect.height - labelHeight) / 2)}px`;
+        }
+
+        updateLabel();
+
+        const observer = new MutationObserver(updateLabel);
+        observer.observe(doc.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
+        });
+
+        win.addEventListener("resize", updateLabel);
+        win.setInterval(updateLabel, 500);
     })();
     </script>
     """,
