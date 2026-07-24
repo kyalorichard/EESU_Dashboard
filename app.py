@@ -415,6 +415,108 @@ a[href*="source"] {
 </style>
 """, unsafe_allow_html=True)
 
+# Reliably label the collapsed sidebar control after Streamlit renders it.
+# CSS pseudo-elements are not dependable across Streamlit releases because the
+# sidebar toggle DOM can be recreated after page load. This MutationObserver
+# adds a real text node to whichever toggle implementation is present.
+components.html(
+    r"""
+    <script>
+    (function () {
+        const doc = window.parent.document;
+        const STYLE_ID = "eusee-sidebar-signpost-style";
+        const LABEL_CLASS = "eusee-sidebar-signpost-label";
+
+        function ensureStyle() {
+            if (doc.getElementById(STYLE_ID)) return;
+            const style = doc.createElement("style");
+            style.id = STYLE_ID;
+            style.textContent = `
+                [data-testid="stSidebarCollapsedControl"],
+                [data-testid="stSidebarCollapsedControl"] button,
+                button[data-testid="collapsedControl"] {
+                    width: auto !important;
+                    min-width: 178px !important;
+                    height: 42px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: flex-start !important;
+                    gap: 8px !important;
+                    padding: 6px 14px 6px 10px !important;
+                    overflow: visible !important;
+                    border-radius: 999px !important;
+                    background: #ffffff !important;
+                    border: 1px solid #cfa8e0 !important;
+                    box-shadow: 0 6px 18px rgba(16, 24, 40, .12) !important;
+                }
+                .${LABEL_CLASS} {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    white-space: nowrap !important;
+                    color: #660094 !important;
+                    font-family: "Anek Devanagari", Arial, sans-serif !important;
+                    font-size: 13px !important;
+                    line-height: 1 !important;
+                    font-weight: 800 !important;
+                    pointer-events: none !important;
+                }
+                @media (max-width: 700px) {
+                    [data-testid="stSidebarCollapsedControl"],
+                    [data-testid="stSidebarCollapsedControl"] button,
+                    button[data-testid="collapsedControl"] {
+                        min-width: 132px !important;
+                    }
+                    .${LABEL_CLASS} {
+                        font-size: 11px !important;
+                    }
+                }
+            `;
+            doc.head.appendChild(style);
+        }
+
+        function findClickableToggle() {
+            return (
+                doc.querySelector('[data-testid="stSidebarCollapsedControl"] button') ||
+                doc.querySelector('button[data-testid="collapsedControl"]') ||
+                doc.querySelector('[data-testid="stSidebarCollapsedControl"]')
+            );
+        }
+
+        function addLabel() {
+            ensureStyle();
+            const toggle = findClickableToggle();
+            if (!toggle) return;
+
+            toggle.setAttribute(
+                "aria-label",
+                "Open login panel and global dashboard filters"
+            );
+            toggle.setAttribute(
+                "title",
+                "Open the sidebar to sign in or apply global filters"
+            );
+
+            if (!toggle.querySelector('.' + LABEL_CLASS)) {
+                const label = doc.createElement("span");
+                label.className = LABEL_CLASS;
+                label.textContent = "Login & Global Filters";
+                toggle.appendChild(label);
+            }
+        }
+
+        addLabel();
+        const observer = new MutationObserver(addLabel);
+        observer.observe(doc.body, { childList: true, subtree: true });
+
+        // Streamlit may rebuild its header during reruns.
+        window.setInterval(addLabel, 1000);
+    })();
+    </script>
+    """,
+    height=0,
+    width=0,
+)
+
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
