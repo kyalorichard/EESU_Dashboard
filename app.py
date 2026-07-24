@@ -9436,7 +9436,7 @@ def _render_eusee_ai_copilot_body():
             font-family:"Anek Devanagari", Arial, sans-serif;
         ">
             <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
-               
+                AI assistant
             </div>
             <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
                 🤖 AI Assistant
