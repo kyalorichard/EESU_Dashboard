@@ -6791,7 +6791,7 @@ if tab_overview is not None:
             }
                 # keep only existing columns, then rename
             filtered_global_prev = (
-                filtered_global
+                data
                 .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
                 .rename(columns=cols_rename_map)
             )
