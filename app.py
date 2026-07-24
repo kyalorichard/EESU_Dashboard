@@ -9435,14 +9435,12 @@ def _render_eusee_ai_copilot_body():
             margin:0;
             font-family:"Anek Devanagari", Arial, sans-serif;
         ">
-            <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
-                Dashboard assistant
-            </div>
+            
             <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
-                🤖 EUSEE AI Copilot
+                🤖 AI Assistant
             </div>
             <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
-                Ask about the current filtered dashboard data. Answers and charts use the active dashboard context.
+                Ask me about EU SEE data! For example: What are the trends in digital rights in Southern Africa over the last 3 months?
             </div>
         </div>
         """,
