@@ -8398,21 +8398,27 @@ if tab_manual is not None:
                         st.markdown(
                             f"""
                             <div class="manual-section-card manual-brand-panel">
-                                <div style="display:flex; align-items:center; justify-content:center; min-height:360px; padding:18px 10px;">
+                                <div style="
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    min-height:260px;
+                                    padding:18px 10px;
+                                ">
                                     <img
                                         src="data:image/png;base64,{footer_b64}"
                                         alt="EU SEE partner logos"
-                                        style="width:100%; max-width:620px; height:auto; object-fit:contain;"
+                                        style="
+                                            height:480px;
+                                            width:auto;
+                                            max-width:100%;
+                                            object-fit:contain;
+                                        "
                                     >
                                 </div>
-                              
                             </div>
                             """,
                             unsafe_allow_html=True,
-                        )
-                    else:
-                        st.warning(
-                            "Partner logo image not found at assets/footer_logo.png."
                         )
 
                 st.markdown('</div>', unsafe_allow_html=True)
