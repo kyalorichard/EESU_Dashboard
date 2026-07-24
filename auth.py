@@ -637,22 +637,6 @@ def _auth_page_css():
             padding-bottom: 2.4rem !important;
         }
 
-        .auth-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: linear-gradient(135deg, #f7f0fb, #f4fbfd);
-            color: #4b006d;
-            border: 1px solid rgba(102,0,148,0.16);
-            border-radius: 999px;
-            padding: 8px 13px;
-            font-size: 11.5px;
-            font-weight: 900;
-            font-family: Arial, sans-serif;
-            letter-spacing: 0.15px;
-            white-space: nowrap;
-        }
-
         .mode-card {
             display: flex;
             align-items: flex-end;
@@ -682,16 +666,21 @@ def _auth_page_css():
         }
 
         .auth-note {
-            background: linear-gradient(135deg, #fffaf0, #fffdf7);
-            border: 1px solid rgba(255,219,88,0.58);
-            border-left: 4px solid #FFDB58;
-            border-radius: 16px;
-            padding: 13px 15px;
+            background: rgba(255, 250, 240, 0.72);
+            border-left: 3px solid #FFDB58;
+            border-radius: 6px;
+            padding: 10px 12px;
             color: #4b3b14;
             font-size: 11.8px;
             line-height: 1.5;
             font-family: Arial, sans-serif;
-            margin-top: 16px;
+            margin-top: 18px;
+        }
+
+        .auth-topbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 18px;
         }
 
         label p {
@@ -899,57 +888,55 @@ def _render_premium_auth_page():
 
     mode = st.session_state.get("auth_mode", "Login")
 
-    left_space, center, right_space = st.columns([0.16, 0.68, 0.16])
+    _, center, _ = st.columns([0.18, 0.64, 0.18])
 
     with center:
-        with st.container(border=True):
-            top_a, top_b = st.columns([1.35, 0.65])
+        # Keep the page visually open: no outer bordered container and no
+        # duplicated "Authorized users only" badge.
+        _, dashboard_col = st.columns([1.45, 0.55])
+        with dashboard_col:
+            if st.button(
+                "← Dashboard",
+                use_container_width=True,
+                key="premium_back_dashboard",
+            ):
+                _back_to_dashboard()
 
-            with top_a:
-                st.markdown(
-                    '<div class="auth-pill">🔐 Authorized users only</div>',
-                    unsafe_allow_html=True,
-                )
-
-            with top_b:
-                if st.button("← Dashboard", use_container_width=True, key="premium_back_dashboard"):
-                    _back_to_dashboard()
-
-            if mode == "Login":
-                st.markdown(
-                    '<div class="mode-card"><div class="mode-active">Sign in</div></div>',
-                    unsafe_allow_html=True,
-                )
-                _login_form()
-
-            elif mode == "Register":
-                st.markdown(
-                    '<div class="mode-card"><div class="mode-active">Create account</div></div>',
-                    unsafe_allow_html=True,
-                )
-                _register_form()
-
-            else:
-                st.markdown(
-                    '<div class="mode-card"><div class="mode-active">Password reset</div></div>',
-                    unsafe_allow_html=True,
-                )
-                _reset_form()
-
+        if mode == "Login":
             st.markdown(
-                """
-                <div class="auth-note">
-                    Access is limited to approved EUSEE partner accounts.
-                    After successful sign-in, you will return automatically to the dashboard.
-                </div>
-                """,
+                '<div class="mode-card"><div class="mode-active">Sign in</div></div>',
                 unsafe_allow_html=True,
             )
+            _login_form()
 
+        elif mode == "Register":
             st.markdown(
-                '<div class="small-footer">EUSEE Dashboard · Secure authentication · Protected access</div>',
+                '<div class="mode-card"><div class="mode-active">Create account</div></div>',
                 unsafe_allow_html=True,
             )
+            _register_form()
+
+        else:
+            st.markdown(
+                '<div class="mode-card"><div class="mode-active">Password reset</div></div>',
+                unsafe_allow_html=True,
+            )
+            _reset_form()
+
+        st.markdown(
+            """
+            <div class="auth-note">
+                Access is limited to approved EUSEE partner accounts.
+                After successful sign-in, you will return automatically to the dashboard.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            '<div class="small-footer">EUSEE Dashboard · Secure authentication · Protected access</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def auth_ui():
