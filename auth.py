@@ -893,15 +893,6 @@ def _render_premium_auth_page():
     with center:
         # Keep the page visually open: no outer bordered container and no
         # duplicated "Authorized users only" badge.
-        _, dashboard_col = st.columns([1.45, 0.55])
-        with dashboard_col:
-            if st.button(
-                "← Dashboard",
-                use_container_width=True,
-                key="premium_back_dashboard",
-            ):
-                _back_to_dashboard()
-
         if mode == "Login":
             st.markdown(
                 '<div class="mode-card"><div class="mode-active">Sign in</div></div>',
@@ -932,6 +923,15 @@ def _render_premium_auth_page():
             """,
             unsafe_allow_html=True,
         )
+
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+        if st.button(
+            "← Back to Dashboard",
+            use_container_width=True,
+            key="back_dashboard_bottom",
+        ):
+            _back_to_dashboard()
 
         st.markdown(
             '<div class="small-footer">EUSEE Dashboard · Secure authentication · Protected access</div>',
