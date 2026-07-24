@@ -2317,7 +2317,7 @@ st.markdown(f"""
     margin-top: 0rem !important;
     margin-bottom: 3px !important;
     padding-bottom: 0px !important;
-    max-width: 980px;
+    max-width: 1100px;
     line-height: 1.25;
     opacity: 0;
     animation: subtitleFade 0.8s ease-out forwards;
