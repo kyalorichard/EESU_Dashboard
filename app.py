@@ -8402,14 +8402,14 @@ if tab_manual is not None:
                                     display:flex;
                                     align-items:center;
                                     justify-content:center;
-                                    min-height:260px;
+                                    min-height:150px;
                                     padding:18px 10px;
                                 ">
                                     <img
                                         src="data:image/png;base64,{footer_b64}"
                                         alt="EU SEE partner logos"
                                         style="
-                                            height:280px;
+                                            height:200px;
                                             width:auto;
                                             max-width:100%;
                                             object-fit:contain;
