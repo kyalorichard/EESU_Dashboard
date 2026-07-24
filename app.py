@@ -396,6 +396,97 @@ button[data-testid="collapsedControl"]:focus-visible,
     }
 }
 
+
+/* ===========================================================
+   RELIABLE COLLAPSED-SIDEBAR LABEL
+   The label is attached to Streamlit's OUTER toggle wrapper,
+   because Streamlit can recreate/replace the inner arrow button.
+   =========================================================== */
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"],
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: auto !important;
+    min-width: 184px !important;
+    height: 38px !important;
+    padding: 0 12px 0 4px !important;
+    margin: 3px 0 0 4px !important;
+    overflow: visible !important;
+    border: 1px solid #D6BBE5 !important;
+    border-radius: 999px !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(16,24,40,.10) !important;
+    cursor: pointer !important;
+    z-index: 1000001 !important;
+}
+
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"]::after,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"]::after {
+    content: "Login & Global Filters" !important;
+    display: inline-block !important;
+    position: static !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    font-family: "Anek Devanagari", Arial, sans-serif !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+    color: #660094 !important;
+}
+
+/* Keep the native arrow button compact inside the labelled wrapper. */
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] > button,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] button,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] > button,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] button {
+    flex: 0 0 30px !important;
+    min-width: 30px !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 9px !important;
+    background: #F2F4F7 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+
+/* Disable earlier button pseudo-labels so there is only one visible label. */
+header[data-testid="stHeader"] button[data-testid="collapsedControl"]::after,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] button::after,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] button::after,
+header[data-testid="stHeader"] button[data-testid="collapsedControl"]::before,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"] button::before,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] button::before {
+    content: none !important;
+    display: none !important;
+}
+
+header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"]:hover,
+header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"]:hover {
+    border-color: #660094 !important;
+    background: #FBF7FD !important;
+    box-shadow: 0 6px 18px rgba(102,0,148,.15) !important;
+}
+
+@media (max-width: 700px) {
+    header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"],
+    header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"] {
+        min-width: 145px !important;
+        padding-right: 10px !important;
+    }
+
+    header[data-testid="stHeader"] [data-testid="stSidebarCollapsedControl"]::after,
+    header[data-testid="stHeader"] [data-testid="stSidebarCollapseButton"]::after {
+        content: "Login & Filters" !important;
+        font-size: 12px !important;
+    }
+}
+
 /* Hide any GitHub links */
 a[href*="github.com"] {
     display: none !important;
