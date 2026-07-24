@@ -8377,61 +8377,18 @@ if tab_manual is not None:
                             <div class="manual-section-note">Recommended path for first-time users.</div>
                             <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">The scope</div><div class="manual-step-text">Use the global filters to select the region, country, alert impact, nature of alert, enabling principle, year, and month.</div></div></div>
                             <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Start with the overview</div><div class="manual-step-text">Review the main figures and charts to understand the filtered data.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Explore alert patterns</div><div class="manual-step-text">Use the Overview and Negative Alerts Analysis sections to examine distributions, trends, affected civil society actors, restrictive actors, and mechanisms.</div></div></div>
+                            <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Explore alert patterns</div><div class="manual-step-text">Use the Overview, Negative Alerts Analysis and CFR Scores sections to examine distributions, trends, affected civil society actors, restrictive actors, and mechanisms.</div></div></div>
                             <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Review the data, if available</div><div class="manual-step-text">Privileged users can use the data summary preview to search, review, and export filtered records.</div></div></div>
+                           <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Cite the dashboard</div><div class="manual-step-text">When using data, charts, or findings from this dashboard, always cite the EU SEE Dashboard as follows: EU SEE Dashboard. Name of the graph/data visualization (as provided on the Dashboard website). Date of last update/consultation.</div></div></div>
+                                              
                         </div>
                         """,
                         unsafe_allow_html=True,
-                    )
-
-                    st.markdown(
-                        """
-                        <div class="manual-section-card">
-                            <div class="manual-section-title">How to interpret dashboard findings</div>
-                            <div class="manual-section-note">Keep these principles in mind when using or presenting findings from the dashboard.</div>
-                            <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Counts are monitoring signals</div><div class="manual-step-text">Higher counts may reflect more incidents, stronger reporting, better monitoring coverage, or a combination of these factors.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Use filters transparently</div><div class="manual-step-text">When sharing charts or tables, mention the selected region, period, alert impact, alert type, and other relevant filters.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Compare different views</div><div class="manual-step-text">Use figures, charts, maps, and available data records together before drawing conclusions.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">✓</div><div><div class="manual-step-title">Cite the dashboard</div><div class="manual-step-text">When using data, charts, or findings from this dashboard, always cite the EU SEE Dashboard as follows: EU SEE Dashboard. Name of the graph/data visualization (as provided on the Dashboard website). Date of last update/consultation.</div></div></div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                with docs_col:
-                    st.markdown(
-                        """
-                        <div class="manual-section-card">
-                            <div class="manual-section-title">Full user manual</div>
-                            <div class="manual-section-note">Download the full user manual to understand the dashboard’s goal, indicators, navigation, and how to interpret the data responsibly.</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    _pdf_download_card(
-                        "Executive Brief",
-                        "One-page dashboard overview for senior leadership, donors, and policy reporting.",
-                        "Best for: executives and external briefings",
-                        EXEC_BRIEF_PATH,
-                        icon="📌",
-                    )
-
-                    _pdf_download_card(
-                        "Full User Manual",
-                        "Detailed guide covering navigation, filters, charts, map interpretation, data preview, and exports.",
-                        "Best for: analysts and advanced users",
-                        USER_MANUAL_PATH,
-                        icon="📘",
-                    )
-
+                    )                   
                  
-
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
                 render_access_locked("User Manual", "guest or higher")
-
-
         else:
             render_access_locked("User Manual", "guest or higher")
 
