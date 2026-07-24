@@ -8409,7 +8409,7 @@ if tab_manual is not None:
                                         src="data:image/png;base64,{footer_b64}"
                                         alt="EU SEE partner logos"
                                         style="
-                                            height:480px;
+                                            height:280px;
                                             width:auto;
                                             max-width:100%;
                                             object-fit:contain;
