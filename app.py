@@ -8223,13 +8223,13 @@ if tab_manual is not None:
                     }
                     .manual-step-title {
                         color: #334155;
-                        font-size: 10.8px;
+                        font-size: 11.8px;
                         font-weight: 900;
                         margin-bottom: 1px;
                     }
                     .manual-step-text {
                         color: #64748B;
-                        font-size: 10.3px;
+                        font-size: 11.3px;
                         line-height: 1.25;
                     }
                     .manual-doc-card {
