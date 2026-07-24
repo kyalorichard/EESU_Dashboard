@@ -924,17 +924,9 @@ def _render_premium_auth_page():
             unsafe_allow_html=True,
         )
 
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-
-        if st.button(
-            "← Back to Dashboard",
-            use_container_width=True,
-            key="back_dashboard_bottom",
-        ):
-            _back_to_dashboard()
 
         st.markdown(
-            '<div class="small-footer">EUSEE Dashboard · Secure authentication · Protected access</div>',
+            '<div class="small-footer">EUSEE Dashboard</div>',
             unsafe_allow_html=True,
         )
 
