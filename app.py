@@ -236,6 +236,62 @@ if not st.session_state.get("restored", False):
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
+/*
+ROBUST SIDEBAR SIGNPOST
+This element is independent of Streamlit's internal sidebar-toggle selector.
+It remains visible beside the native arrows across Streamlit versions.
+*/
+.eusee-sidebar-signpost {
+    position: fixed;
+    top: 7px;
+    left: 44px;
+    z-index: 1000002;
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid #E7D4F1;
+    border-radius: 999px;
+    background: #FFFFFF;
+    box-shadow: 0 3px 10px rgba(16,24,40,.08);
+    color: #660094;
+    font-family: "Anek Devanagari", Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 850;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.eusee-sidebar-signpost::before {
+    content: "Login & Global Filters";
+}
+.eusee-sidebar-signpost::after {
+    content: "  •  click the arrows";
+    margin-left: 4px;
+    color: #667085;
+    font-size: 10px;
+    font-weight: 650;
+}
+@media (max-width: 700px) {
+    .eusee-sidebar-signpost {
+        left: 42px;
+        padding: 0 8px;
+        font-size: 11px;
+    }
+    .eusee-sidebar-signpost::before {
+        content: "Login & Filters";
+    }
+    .eusee-sidebar-signpost::after {
+        content: "";
+        display: none;
+    }
+}
+</style>
+<div class="eusee-sidebar-signpost" aria-hidden="true"></div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
 
 /* Streamlit menu */
 #MainMenu {
