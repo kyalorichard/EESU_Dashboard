@@ -9426,32 +9426,23 @@ def _render_eusee_ai_copilot_body():
     st.markdown(
         """
         <div style="
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            background: #FFFFFF;
-            border-bottom: 1px solid #EEF0F4;
-            padding: 14px 14px 12px 14px;
-            margin: 0;
-            font-family: 'Anek Devanagari', Arial, sans-serif;
+            position:sticky;
+            top:0;
+            z-index:2;
+            background:#FFFFFF;
+            border-bottom:1px solid #EEF0F4;
+            padding:14px 14px 12px 14px;
+            margin:0;
+            font-family:"Anek Devanagari", Arial, sans-serif;
         ">
-            <div style="
-                font-size: 16px;
-                font-weight: 950;
-                color: #23152F;
-                margin-top: 4px;
-            ">
-                🤖 AI assistant
+            <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
+                Dashboard assistant
             </div>
-
-            <div style="
-                font-size: 11px;
-                color: #667085;
-                line-height: 1.35;
-                margin-top: 5px;
-            ">
-                Ask me about EU SEE data! For example: What are the trends in
-                digital rights in Southern Africa over the last 3 months?
+            <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
+                🤖 EUSEE AI Copilot
+            </div>
+            <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
+                Ask about the current filtered dashboard data. Answers and charts use the active dashboard context.
             </div>
         </div>
         """,
