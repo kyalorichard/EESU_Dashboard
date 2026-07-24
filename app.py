@@ -276,42 +276,128 @@ header[data-testid="stHeader"] {
     background: rgba(247,248,251,0.95) !important;
 }
 
-/* Keep sidebar toggle visible */
+/* -----------------------------------------------------------
+   COLLAPSED SIDEBAR SIGNPOST
+   Makes login and global filters discoverable when the sidebar
+   is automatically collapsed to maximise chart space.
+   ----------------------------------------------------------- */
 button[data-testid="collapsedControl"] {
-    display: flex !important;
+    display: inline-flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    position: relative !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
 
     width: auto !important;
-    min-width: 92px !important;
-    height: 38px !important;
+    min-width: 154px !important;
+    height: 42px !important;
 
+    margin-left: 8px !important;
     border-radius: 999px !important;
-    padding: 0 12px !important;
+    padding: 5px 14px 5px 11px !important;
 
     background: #FFFFFF !important;
-    border: 1px solid #E7D4F1 !important;
+    border: 1px solid #D6BBE5 !important;
+    color: #660094 !important;
 
     box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
+    cursor: pointer !important;
+    overflow: visible !important;
+    transition:
+        border-color .18s ease,
+        box-shadow .18s ease,
+        background .18s ease,
+        transform .18s ease !important;
 }
 
-/* Filters text beside sidebar icon */
-button[data-testid="collapsedControl"]::after{
-    content:" Login & Filters";
-    display:block;
-    font-size:13px;
-    font-weight:800;
-    color:#660094;
+/* Preserve the native Streamlit sidebar icon. */
+button[data-testid="collapsedControl"] svg,
+button[data-testid="collapsedControl"] [data-testid="stIconMaterial"] {
+    flex: 0 0 auto !important;
+    color: #660094 !important;
 }
 
-button[data-testid="collapsedControl"]::before{
-    content:"Access account • Global filters";
-    position:absolute;
-    top:24px;
-    left:36px;
-    font-size:9px;
-    font-weight:600;
-    color:#667085;
+/* Primary signpost label beside the native icon. */
+button[data-testid="collapsedControl"]::after {
+    content: "Login & Filters";
+    display: block !important;
+    position: static !important;
+    white-space: nowrap !important;
+    font-family: var(--eusee-font) !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+    letter-spacing: .01em !important;
+    color: #660094 !important;
+}
+
+/* Hover/focus helper explains exactly what the panel contains. */
+button[data-testid="collapsedControl"]::before {
+    content: "Open account access and global filters";
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    left: 0 !important;
+    z-index: 1000001 !important;
+
+    width: max-content !important;
+    max-width: 240px !important;
+    padding: 7px 10px !important;
+    border-radius: 9px !important;
+
+    background: #23152F !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 8px 20px rgba(16,24,40,.18) !important;
+
+    font-family: var(--eusee-font) !important;
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    font-weight: 650 !important;
+    white-space: normal !important;
+
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-3px) !important;
+    transition:
+        opacity .16s ease,
+        visibility .16s ease,
+        transform .16s ease !important;
+}
+
+button[data-testid="collapsedControl"]:hover,
+button[data-testid="collapsedControl"]:focus-visible {
+    background: #FBF7FD !important;
+    border-color: #660094 !important;
+    box-shadow: 0 8px 22px rgba(102,0,148,.16) !important;
+    transform: translateY(-1px) !important;
+    outline: none !important;
+}
+
+button[data-testid="collapsedControl"]:hover::before,
+button[data-testid="collapsedControl"]:focus-visible::before {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) !important;
+}
+
+/* Keep the control compact on small screens while retaining the label. */
+@media (max-width: 700px) {
+    button[data-testid="collapsedControl"] {
+        min-width: 136px !important;
+        height: 38px !important;
+        padding: 4px 11px 4px 9px !important;
+    }
+
+    button[data-testid="collapsedControl"]::after {
+        font-size: 12px !important;
+    }
+
+    button[data-testid="collapsedControl"]::before {
+        max-width: 210px !important;
+        font-size: 10px !important;
+    }
 }
 
 /* Hide any GitHub links */
