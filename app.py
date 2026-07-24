@@ -46,7 +46,7 @@ CHART_FONT = PLOTLY_FONT_FAMILY
 
 
 def inject_eusee_official_typography() -> None:
-    """Apply the official EU SEE font stack to all Streamlit UI elements."""
+    """Apply EU SEE typography while preserving Streamlit and BaseWeb icons."""
     st.markdown(
         """
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,61 +55,98 @@ def inject_eusee_official_typography() -> None:
             href="https://fonts.googleapis.com/css2?family=Anek+Devanagari:wdth,wght@75..125,100..800&display=swap"
             rel="stylesheet"
         >
+
         <style>
         :root {
-            --eusee-font: "Anek Devanagari", Arial, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+            --eusee-font:
+                "Anek Devanagari",
+                Arial,
+                "Segoe UI Emoji",
+                "Apple Color Emoji",
+                "Noto Color Emoji",
+                sans-serif;
         }
 
-        /* Apply the EU SEE font only to textual UI elements.
-           Do not use `.stApp *`: it overrides Streamlit's Material Symbols
-           font and makes icon ligature names appear as visible text. */
+        /* Page-level typography */
         html,
         body,
         .stApp,
         [data-testid="stApp"],
         [data-testid="stAppViewContainer"],
-        [data-testid="stHeader"],
-        [data-testid="stSidebar"],
-        [data-testid="stToolbar"],
         .main,
-        .main .block-container,
-        p,
+        .main .block-container {
+            font-family: var(--eusee-font);
+        }
+
+        /* Streamlit text and controls */
         h1, h2, h3, h4, h5, h6,
+        p,
         label,
-        button,
+        small,
+        strong,
+        em,
         input,
         textarea,
         select,
         option,
+        button,
         table,
         th,
         td,
         [role="option"],
         [role="combobox"],
-        [role="grid"],
         [role="gridcell"],
         [role="columnheader"],
-        [data-testid="stDataFrame"],
-        [data-testid="stTable"],
-        [data-testid="stMetric"],
-        [data-testid="stTabs"],
-        [data-testid="stExpander"],
         [data-testid="stMarkdownContainer"],
         [data-testid="stCaptionContainer"],
+        [data-testid="stMetric"],
+        [data-testid="stMetricLabel"],
+        [data-testid="stMetricValue"],
+        [data-testid="stTabs"],
+        [data-testid="stExpander"],
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"],
+        [data-testid="stAlert"],
+        [data-testid="stWidgetLabel"],
+        section[data-testid="stSidebar"] {
+            font-family: var(--eusee-font) !important;
+        }
+
+        /* BaseWeb text-bearing controls */
+        [data-baseweb="select"] input,
+        [data-baseweb="select"] div:not([data-baseweb="icon"]),
+        [data-baseweb="input"] input,
+        [data-baseweb="textarea"] textarea,
+        [data-baseweb="radio"] label,
+        [data-baseweb="checkbox"] label,
+        [data-baseweb="tab"] {
+            font-family: var(--eusee-font) !important;
+        }
+
+        /* Plotly text */
         .js-plotly-plot text,
         .plotly text,
         .svg-container text {
             font-family: var(--eusee-font) !important;
         }
 
-        /* Restore Streamlit Material Symbols icons and ligatures. */
+        /*
+        Preserve Streamlit's Material Symbols ligatures. Without this
+        override, names such as arrow_drop_down can appear as visible text.
+        */
+        .material-icons,
+        .material-icons-round,
         .material-symbols-rounded,
         .material-symbols-outlined,
-        .material-icons,
+        .material-symbols-sharp,
         [data-testid="stIconMaterial"],
-        [data-testid="stIconMaterial"] span,
+        [data-testid="stIconMaterial"] *,
         span[class*="material-symbols"] {
-            font-family: "Material Symbols Rounded", "Material Icons" !important;
+            font-family:
+                "Material Symbols Rounded",
+                "Material Symbols Outlined",
+                "Material Symbols Sharp",
+                "Material Icons" !important;
             font-weight: normal !important;
             font-style: normal !important;
             line-height: 1 !important;
@@ -123,9 +160,7 @@ def inject_eusee_official_typography() -> None:
             -webkit-font-smoothing: antialiased !important;
         }
 
-        /* Keep SVG and BaseWeb icons from inheriting text-font properties. */
-        svg,
-        svg *,
+        /* BaseWeb SVG/icon containers must not receive the dashboard text font. */
         [data-baseweb="icon"],
         [data-baseweb="icon"] * {
             font-family: initial !important;
@@ -134,7 +169,6 @@ def inject_eusee_official_typography() -> None:
         """,
         unsafe_allow_html=True,
     )
-
 
 def configure_eusee_plotly_typography() -> None:
     """Register a default Plotly template using the EU SEE font stack."""
@@ -1135,7 +1169,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
         background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
         border: 1px solid rgba(102,0,148,.14);
         box-shadow: 0 14px 34px rgba(16,24,40,.08);
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
     }
     .eusee-login-route-eyebrow {
         font-size: 10px;
@@ -2384,7 +2418,7 @@ def _inject_cfr_dashboard_css():
         .cfr-kpi-top {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
         .cfr-kpi-title {color:#23152F;font-size:12.5px;font-weight:900;line-height:1.12;}
         .cfr-kpi-icon {width:30px;height:30px;min-width:30px;border-radius:12px;background:#F8FAFC;color:#344054;border:1px solid #EEF2F6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;}
-        .cfr-kpi-value {font-size:clamp(21px,2.0vw,34px);line-height:.98;font-weight:950;margin-top:12px;letter-spacing:-.04em;color:#660094;font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif;overflow-wrap:anywhere;}
+        .cfr-kpi-value {font-size:clamp(21px,2.0vw,34px);line-height:.98;font-weight:950;margin-top:12px;letter-spacing:-.04em;color:#660094;font-family:"Anek Devanagari", Arial, sans-serif;overflow-wrap:anywhere;}
         .cfr-kpi-value.text {font-size:clamp(16px,1.25vw,22px);line-height:1.08;letter-spacing:-.02em;color:#23152F;}
         .cfr-kpi-note {color:#667085;font-size:10.3px;font-weight:700;line-height:1.28;margin-top:7px;}
         .cfr-kpi-line {height:3px;width:46px;border-radius:999px;background:#E6E8EF;margin-top:9px;}
@@ -2392,7 +2426,7 @@ def _inject_cfr_dashboard_css():
         .cfr-section-heading {font-family:"Anek Devanagari", Arial, sans-serif;font-size:14px;font-weight:950;color:#23152F;margin:4px 0 8px 0;}
         .cfr-panel-label {font-family:"Anek Devanagari", Arial, sans-serif;font-size:10px;font-weight:900;color:#660094;letter-spacing:.11em;text-transform:uppercase;margin:0 0 5px 2px;}
         .cfr-profile-shell {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:13px 14px;box-shadow:0 10px 24px rgba(16,24,40,.055);margin-bottom:12px;}
-        .cfr-profile-score {font-size:31px;font-weight:950;color:#660094;letter-spacing:-.04em;line-height:1;font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif;}
+        .cfr-profile-score {font-size:31px;font-weight:950;color:#660094;letter-spacing:-.04em;line-height:1;font-family:"Anek Devanagari", Arial, sans-serif;}
         .cfr-profile-rank {font-size:10.5px;font-weight:800;color:#667085;margin-top:5px;}
         .cfr-score-row {display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:10.5px;color:#667085;font-family:"Anek Devanagari", Arial, sans-serif;}
         .cfr-score-row:last-child {border-bottom:0;}
@@ -3594,7 +3628,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-weight: 950;
         margin-top: 9px;
         letter-spacing: -0.045em;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
     }
 
     .eusee-kpi-note {
@@ -3662,7 +3696,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-weight: 950;
         line-height: 1;
         pointer-events: none;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
     }
 
     .eusee-donut-center .num {
@@ -3716,7 +3750,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         font-size: 10.4px;
         font-weight: 950;
         text-align: right;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         letter-spacing: -.035em;
     }
 
@@ -3766,7 +3800,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         background: linear-gradient(135deg, #F4EAF8 0%, #EFFBFE 100%);
         border: 1px solid rgba(102,0,148,.20);
         color: #660094;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 10px;
         font-weight: 950;
         line-height: 1;
@@ -3788,7 +3822,7 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         background: #23152F;
         border: 1px solid rgba(255,255,255,.14);
         color: #FFFFFF;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 11px;
         font-weight: 650;
         line-height: 1.42;
@@ -4001,7 +4035,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
     .negintel-eyebrow { color:#9A6B66; font-size:9px; font-weight:900; letter-spacing:.10em; text-transform:uppercase; line-height:1; margin-bottom:4px; }
     .negintel-title { color:#2D0055; font-size:12.5px; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
     .negintel-icon { width:30px; height:30px; min-width:30px; border-radius:12px; background:linear-gradient(135deg, rgba(180,35,24,.12), rgba(255,219,88,.14)); color:#B42318; border:1px solid rgba(180,35,24,.10); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; }
-    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif; color:#B42318; }
+    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:"Anek Devanagari", Arial, sans-serif; color:#B42318; }
     .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
     .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
     .negintel-row-list { display:flex; flex-direction:column; gap:6px; margin-top:7px; }
@@ -4029,7 +4063,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         line-height:1.22;
     }
     .negintel-row-label strong { color:#2D0055; font-weight:950; }
-    .negintel-row-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:"Anek Devanagari", "Anek Devanagari", Arial, sans-serif; letter-spacing:-.035em; white-space:nowrap; padding-top:1px; }
+    .negintel-row-pct { color:#101828; font-size:10.4px; font-weight:950; text-align:right; font-family:"Anek Devanagari", Arial, sans-serif; letter-spacing:-.035em; white-space:nowrap; padding-top:1px; }
     .negintel-row-count { color:#667085; font-size:9.7px; font-weight:850; text-align:right; white-space:nowrap; padding-top:2px; }
     @media (max-width: 900px) {
         .negintel-row { grid-template-columns: minmax(0, 1fr) 50px 42px; }
@@ -4618,7 +4652,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
         box-shadow: 0 8px 26px rgba(45, 0, 85, 0.055);
     }}
     .analytics-panel-title {{
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 15px;
         font-weight: 900;
         color: #2D0055;
@@ -4626,7 +4660,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
         letter-spacing: -0.01em;
     }}
     .analytics-panel-subtitle {{
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 11.8px;
         color: #52616B;
         line-height: 1.45;
@@ -4640,7 +4674,7 @@ def render_analytics_module_header(title, subtitle, badges=None):
         border-radius: 999px;
         padding: 4px 9px;
         margin: 7px 6px 0 0;
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 10.5px;
         font-weight: 800;
     }}
@@ -5043,16 +5077,16 @@ def render_analytical_flow_panel(df):
         margin: 18px 0 18px 0;
         box-shadow: 0 12px 34px rgba(45, 0, 85, 0.075);
     }
-    .flow-panel-eyebrow {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; color: #008CAA; margin-bottom: 4px;}
-    .flow-panel-title {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 19px; font-weight: 950; color: #2D0055; margin-bottom: 4px;}
-    .flow-panel-subtitle {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.45; max-width: 980px; margin-bottom: 12px;}
+    .flow-panel-eyebrow {font-family: "Anek Devanagari", Arial, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; color: #008CAA; margin-bottom: 4px;}
+    .flow-panel-title {font-family: "Anek Devanagari", Arial, sans-serif; font-size: 19px; font-weight: 950; color: #2D0055; margin-bottom: 4px;}
+    .flow-panel-subtitle {font-family: "Anek Devanagari", Arial, sans-serif; font-size: 12px; color: #64748B; line-height: 1.45; max-width: 980px; margin-bottom: 12px;}
     .flow-panel-badges {display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 4px 0;}
-    .flow-panel-badge {background: #F3ECF8; border: 1px solid #E1D2EC; border-radius: 999px; padding: 5px 9px; font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 10.8px; font-weight: 800; color: #4B006E;}
+    .flow-panel-badge {background: #F3ECF8; border: 1px solid #E1D2EC; border-radius: 999px; padding: 5px 9px; font-family: "Anek Devanagari", Arial, sans-serif; font-size: 10.8px; font-weight: 800; color: #4B006E;}
     .flow-guide-card {background: #FFFFFF; border: 1px solid #E8EEF3; border-radius: 16px; padding: 11px 13px; min-height: 76px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.045);}
-    .flow-guide-title {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
-    .flow-guide-text {font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
+    .flow-guide-title {font-family: "Anek Devanagari", Arial, sans-serif; font-size: 11.8px; font-weight: 900; color: #2D0055; margin-bottom: 3px;}
+    .flow-guide-text {font-family: "Anek Devanagari", Arial, sans-serif; font-size: 10.8px; color: #64748B; line-height: 1.35;}
     .flow-section-label {
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 15px;
         font-weight: 850;
         color: #101828;
@@ -5061,7 +5095,7 @@ def render_analytical_flow_panel(df):
         margin: 16px 0 6px 0;
     }
     .flow-section-note {
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
         font-size: 12px;
         font-weight: 500;
         color: #667085;
@@ -5076,7 +5110,7 @@ def render_analytical_flow_panel(df):
         padding: 13px 15px;
         margin: 14px 0 12px 0;
         box-shadow: 0 8px 20px rgba(16,24,40,.045);
-        font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+        font-family: "Anek Devanagari", Arial, sans-serif;
     }
     .flow-info-panel .flow-section-label {
         margin: 0 0 6px 0;
@@ -7669,7 +7703,7 @@ if tab_map is not None:
 
                         .map-intel-title {{
                             color: #101828;
-                            font-family: "Anek Devanagari", "Anek Devanagari", Arial, sans-serif;
+                            font-family: "Anek Devanagari", Arial, sans-serif;
                             font-size: 14px;
                             font-weight: 850;
                             letter-spacing: -0.02em;
