@@ -5797,8 +5797,7 @@ def can_render_feature(permission_key: str) -> bool:
         return False
 
 # Central chart/map privilege catalogue. Every visual listed here is rendered
-# through render_dashboard_plotly_chart() or render_permission_locked_card() so
-# restricted users see the same polished locked-state card instead of a plain message.
+# only when its permission is enabled; restricted visuals are omitted completely.
 RESTRICTED_VISUAL_PERMISSION_LABELS = {
     "view_chart_overview_alert_type": "Overview alert type distribution",
     "view_chart_overview_enabling_principles": "Overview enabling-principle distribution",
@@ -5864,10 +5863,13 @@ def render_permission_locked_card(
 
 
 def render_if_permitted(permission_key: str, section_title: str, render_fn, container=None):
-    """Render any chart/widget only when its admin-configured permission is enabled."""
+    """Render a chart/widget only when permitted; otherwise hide it completely."""
     if can_render_feature(permission_key):
         return render_fn()
-    render_permission_locked_card(section_title, permission_key, container=container)
+
+    # Restricted plots and widgets are intentionally omitted. Do not render a
+    # "Restricted feature" placeholder because it adds visual clutter and
+    # exposes unavailable dashboard components to restricted users.
     return None
 
 # ---------------- TABS ALREADY RENDERED DIRECTLY BELOW SUBTITLE ----------------
@@ -6948,11 +6950,8 @@ def render_dashboard_plotly_chart(
     target = container if container is not None else st
 
     if permission_key and not can_render_feature(permission_key):
-        render_permission_locked_card(
-            permission_label or title or visual_type.title(),
-            permission_key,
-            container=target
-        )
+        # Hide restricted plots completely instead of displaying the
+        # "Restricted feature" access panel.
         return None
 
     # Keep title and info badge inside the Plotly chart area
