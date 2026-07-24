@@ -8366,19 +8366,7 @@ if tab_manual is not None:
                     unsafe_allow_html=True,
                 )
 
-                st.markdown(
-                    """
-                    <div class="manual-kpi-grid">
-                        <div class="manual-mini-card"><div class="manual-mini-icon">🎯</div><div class="manual-mini-title">Purpose</div><div class="manual-mini-text">Understand what the dashboard shows and how each section can support EU SEE monitoring.</div></div>
-                        <div class="manual-mini-card"><div class="manual-mini-icon">🧭</div><div class="manual-mini-title">Navigation</div><div class="manual-mini-text">Find your way across the Overview, Negative Alerts Analysis, Visualization Map, Data Preview, and AI Assistant. 
-                        Please note that privileged users can access the AI assistant and the data summary preview.</div></div>
-                        <div class="manual-mini-card"><div class="manual-mini-icon">🔎</div><div class="manual-mini-title">Analysis</div><div class="manual-mini-text">Use filters, charts, maps, and tables to explore alert trends and country-level patterns.</div></div>
-                        <div class="manual-mini-card"><div class="manual-mini-icon">⬇</div><div class="manual-mini-title">Manual</div><div class="manual-mini-text">Download the full user manual for detailed, step-by-step guidance.</div></div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
+               
                 guide_col, docs_col = st.columns([1.35, 1], gap="large")
 
                 with guide_col:
@@ -9378,14 +9366,12 @@ def _render_eusee_ai_copilot_body():
             margin:0;
             font-family:"Anek Devanagari", Arial, sans-serif;
         ">
-            <div style="font-size:9px;font-weight:950;color:#660094;letter-spacing:.14em;text-transform:uppercase;">
-                Dashboard assistant
-            </div>
+            
             <div style="font-size:16px;font-weight:950;color:#23152F;margin-top:4px;">
-                🤖 EUSEE AI Copilot
+                🤖 AI assistant
             </div>
             <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
-                Ask about the current filtered dashboard data. Answers and charts use the active dashboard context.
+                Ask me about EU SEE data! For example: What are the trends in digital rights in Southern Africa over the last 3 months?.
             </div>
         </div>
         """,
@@ -9473,10 +9459,10 @@ def render_eusee_ai_copilot_popover():
     inject_eusee_ai_popover_css()
 
     try:
-        with st.popover("💬 EUSEE Copilot", use_container_width=False):
+        with st.popover("💬 AI assistant", use_container_width=False):
             _render_eusee_ai_copilot_body()
     except Exception:
-        with st.expander("💬 EUSEE Copilot", expanded=False):
+        with st.expander("💬 AI assistant", expanded=False):
             _render_eusee_ai_copilot_body()
 render_eusee_ai_copilot_popover()
 
