@@ -926,7 +926,7 @@ def _render_premium_auth_page():
 
 
         st.markdown(
-            '<div class="small-footer">EUSEE Dashboard</div>',
+            '<div class="small-footer">EUSEE Dashboard · Secure authentication · Protected access</div>',
             unsafe_allow_html=True,
         )
 
