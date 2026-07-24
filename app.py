@@ -278,54 +278,63 @@ header[data-testid="stHeader"] {
 
 /* -----------------------------------------------------------
    COLLAPSED SIDEBAR SIGNPOST
-   Makes login and global filters discoverable when the sidebar
-   is automatically collapsed to maximise chart space.
+   Supports both older and newer Streamlit DOM selectors.
    ----------------------------------------------------------- */
-button[data-testid="collapsedControl"] {
+
+/* New Streamlit versions wrap the toggle in this container. */
+[data-testid="stSidebarCollapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    overflow: visible !important;
+    margin-left: 8px !important;
+}
+
+/* Apply the pill to both the old direct button selector and the
+   newer button nested inside stSidebarCollapsedControl. */
+button[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"] > button,
+[data-testid="stSidebarCollapsedControl"] button {
     display: inline-flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     position: relative !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 7px !important;
+    gap: 8px !important;
 
     width: auto !important;
-    min-width: 154px !important;
+    min-width: 166px !important;
     height: 42px !important;
 
-    margin-left: 8px !important;
     border-radius: 999px !important;
-    padding: 5px 14px 5px 11px !important;
+    padding: 6px 14px 6px 11px !important;
 
     background: #FFFFFF !important;
-    border: 1px solid #D6BBE5 !important;
+    border: 1px solid #CFA8E0 !important;
     color: #660094 !important;
-
-    box-shadow: 0 6px 18px rgba(16,24,40,.10) !important;
+    box-shadow: 0 6px 18px rgba(16,24,40,.12) !important;
     cursor: pointer !important;
     overflow: visible !important;
-    transition:
-        border-color .18s ease,
-        box-shadow .18s ease,
-        background .18s ease,
-        transform .18s ease !important;
 }
 
-/* Preserve the native Streamlit sidebar icon. */
 button[data-testid="collapsedControl"] svg,
-button[data-testid="collapsedControl"] [data-testid="stIconMaterial"] {
+button[data-testid="collapsedControl"] [data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="stSidebarCollapsedControl"] button [data-testid="stIconMaterial"] {
     flex: 0 0 auto !important;
     color: #660094 !important;
 }
 
-/* Primary signpost label beside the native icon. */
-button[data-testid="collapsedControl"]::after {
-    content: "Login & Filters";
-    display: block !important;
+/* Visible label: this is the main signpost requested by the reviewer. */
+button[data-testid="collapsedControl"]::after,
+[data-testid="stSidebarCollapsedControl"] button::after {
+    content: "Login & Global Filters" !important;
+    display: inline-block !important;
     position: static !important;
     white-space: nowrap !important;
-    font-family: var(--eusee-font) !important;
+    font-family: "Anek Devanagari", Arial, sans-serif !important;
     font-size: 13px !important;
     line-height: 1 !important;
     font-weight: 850 !important;
@@ -333,70 +342,57 @@ button[data-testid="collapsedControl"]::after {
     color: #660094 !important;
 }
 
-/* Hover/focus helper explains exactly what the panel contains. */
-button[data-testid="collapsedControl"]::before {
-    content: "Open account access and global filters";
+/* Tooltip-style helper on hover/focus. */
+button[data-testid="collapsedControl"]::before,
+[data-testid="stSidebarCollapsedControl"] button::before {
+    content: "Open this panel to sign in and apply dashboard-wide filters" !important;
+    display: none !important;
     position: absolute !important;
     top: calc(100% + 8px) !important;
     left: 0 !important;
-    z-index: 1000001 !important;
-
-    width: max-content !important;
-    max-width: 240px !important;
-    padding: 7px 10px !important;
+    width: 255px !important;
+    padding: 8px 10px !important;
     border-radius: 9px !important;
-
     background: #23152F !important;
     color: #FFFFFF !important;
-    box-shadow: 0 8px 20px rgba(16,24,40,.18) !important;
-
-    font-family: var(--eusee-font) !important;
+    font-family: "Anek Devanagari", Arial, sans-serif !important;
     font-size: 10.5px !important;
-    line-height: 1.25 !important;
+    line-height: 1.35 !important;
     font-weight: 650 !important;
-    white-space: normal !important;
-
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    transform: translateY(-3px) !important;
-    transition:
-        opacity .16s ease,
-        visibility .16s ease,
-        transform .16s ease !important;
-}
-
-button[data-testid="collapsedControl"]:hover,
-button[data-testid="collapsedControl"]:focus-visible {
-    background: #FBF7FD !important;
-    border-color: #660094 !important;
-    box-shadow: 0 8px 22px rgba(102,0,148,.16) !important;
-    transform: translateY(-1px) !important;
-    outline: none !important;
+    text-align: left !important;
+    box-shadow: 0 8px 22px rgba(16,24,40,.18) !important;
+    z-index: 1000002 !important;
 }
 
 button[data-testid="collapsedControl"]:hover::before,
-button[data-testid="collapsedControl"]:focus-visible::before {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: translateY(0) !important;
+button[data-testid="collapsedControl"]:focus-visible::before,
+[data-testid="stSidebarCollapsedControl"] button:hover::before,
+[data-testid="stSidebarCollapsedControl"] button:focus-visible::before {
+    display: block !important;
 }
 
-/* Keep the control compact on small screens while retaining the label. */
+button[data-testid="collapsedControl"]:hover,
+button[data-testid="collapsedControl"]:focus-visible,
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="stSidebarCollapsedControl"] button:focus-visible {
+    background: #FBF7FD !important;
+    border-color: #660094 !important;
+    box-shadow: 0 8px 24px rgba(102,0,148,.17) !important;
+    transform: translateY(-1px) !important;
+}
+
 @media (max-width: 700px) {
-    button[data-testid="collapsedControl"] {
-        min-width: 136px !important;
+    button[data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] button {
+        min-width: 138px !important;
         height: 38px !important;
-        padding: 4px 11px 4px 9px !important;
+        padding-right: 11px !important;
     }
 
-    button[data-testid="collapsedControl"]::after {
+    button[data-testid="collapsedControl"]::after,
+    [data-testid="stSidebarCollapsedControl"] button::after {
+        content: "Login & Filters" !important;
         font-size: 12px !important;
-    }
-
-    button[data-testid="collapsedControl"]::before {
-        max-width: 210px !important;
-        font-size: 10px !important;
     }
 }
 
