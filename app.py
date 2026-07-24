@@ -9423,7 +9423,7 @@ def inject_eusee_ai_popover_css():
     )
 
 def _render_eusee_ai_copilot_body():
-     st.markdown(
+    st.markdown(
         """
         <div style="
             position: sticky;
