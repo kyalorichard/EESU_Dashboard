@@ -2805,6 +2805,84 @@ def _inject_cfr_dashboard_css():
             font-weight: 550;
         }
 
+        /*
+        The chart panel uses Streamlit's real bordered container so the
+        heading, selector and Plotly chart remain inside one DOM panel.
+        The hidden marker limits these styles to the CFR chart panel.
+        */
+        .cfr-chart-panel-marker {
+            display: none;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            height: 100%;
+            box-sizing: border-box;
+            padding: 16px 18px 10px 18px !important;
+            background: #FFFFFF !important;
+            border: 1px solid #E1E5ED !important;
+            border-radius: 14px !important;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) > div {
+            gap: 0 !important;
+        }
+
+        .cfr-chart-panel-heading {
+            padding-top: 1px;
+            padding-bottom: 4px;
+        }
+
+        .cfr-chart-panel-selector-label {
+            margin-bottom: 4px;
+            color: #101B57;
+            font-size: 10px;
+            line-height: 1.1;
+            font-weight: 900;
+            text-align: left;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stSelectbox"] {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stSelectbox"] label {
+            display: none !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-baseweb="select"] > div {
+            min-height: 38px !important;
+            border: 1px solid #D8DDE8 !important;
+            border-radius: 9px !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .04) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-baseweb="select"] span {
+            color: #344054 !important;
+            font-size: 11px !important;
+            font-weight: 750 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stPlotlyChart"] {
+            margin-top: 2px !important;
+        }
+
         .cfr-country-table-panel {
             margin-top: 16px;
         }
@@ -3541,58 +3619,79 @@ def render_cfr_analysis():
     )
 
     # --------------------------------------------------------
-    # LEFT: ONE GRAPH + COUNTRY SELECTOR
+    # LEFT: COMBINED GRAPH PANEL + COUNTRY SELECTOR
     # --------------------------------------------------------
     with chart_column:
-        st.markdown(
-            """
-            <div class="cfr-panel">
-                <div class="cfr-panel-title">
-                    Aggregated CFR scores by principle
-                </div>
-                <div class="cfr-panel-note">
-                    Mean score across monitored countries, or the selected
-                    country's score.
-                </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        selector_col_1, selector_col_2 = st.columns(
-            [1.85, 0.75],
-            gap="small",
-        )
-
-        with selector_col_2:
-            selected_country = st.selectbox(
-                "Select country",
-                options=[
-                    "All countries",
-                    *sorted(cfr["Country"].dropna().unique().tolist()),
-                ],
-                index=0,
-                key="cfr_country_selector",
+        with st.container(border=True):
+            # Hidden marker used by the CFR-specific CSS selector.
+            st.markdown(
+                '<span class="cfr-chart-panel-marker"></span>',
+                unsafe_allow_html=True,
             )
 
-        chart_data = (
-            cfr
-            if selected_country == "All countries"
-            else cfr[cfr["Country"].eq(selected_country)]
-        )
+            header_col, selector_col = st.columns(
+                [1.85, 0.75],
+                gap="medium",
+                vertical_alignment="bottom",
+            )
 
-        cfr_figure = _build_aggregated_cfr_figure(chart_data)
+            with header_col:
+                st.markdown(
+                    """
+                    <div class="cfr-chart-panel-heading">
+                        <div class="cfr-panel-title">
+                            Aggregated CFR scores by principle
+                        </div>
+                        <div class="cfr-panel-note">
+                            Mean score across monitored countries, or the
+                            selected country's score.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-        st.plotly_chart(
-            cfr_figure,
-            use_container_width=True,
-            config={
-                "displayModeBar": False,
-                "responsive": True,
-            },
-            key="cfr_aggregated_principle_chart",
-        )
+            with selector_col:
+                st.markdown(
+                    '<div class="cfr-chart-panel-selector-label">'
+                    'Select country'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
 
-        st.markdown("</div>", unsafe_allow_html=True)
+                selected_country = st.selectbox(
+                    "Select country",
+                    options=[
+                        "All countries",
+                        *sorted(
+                            cfr["Country"]
+                            .dropna()
+                            .unique()
+                            .tolist()
+                        ),
+                    ],
+                    index=0,
+                    key="cfr_country_selector",
+                    label_visibility="collapsed",
+                )
+
+            chart_data = (
+                cfr
+                if selected_country == "All countries"
+                else cfr[cfr["Country"].eq(selected_country)]
+            )
+
+            cfr_figure = _build_aggregated_cfr_figure(chart_data)
+
+            st.plotly_chart(
+                cfr_figure,
+                use_container_width=True,
+                config={
+                    "displayModeBar": False,
+                    "responsive": True,
+                },
+                key="cfr_aggregated_principle_chart",
+            )
 
     # --------------------------------------------------------
     # RIGHT: REGIONAL TABLE
