@@ -4207,7 +4207,7 @@ if has_permission("view_maps"):
 # CFR Analysis follows the same dashboard-access permission as Overview so the
 # existing authz/admin files do not need to change for this update.
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("cfr", "📈 CFR Analysis"))
+    _dashboard_tab_specs.append(("cfr", "📈 CFR Score"))
 
 if has_permission("view_user_manual"):
     _dashboard_tab_specs.append(("manual", "📘 User Manual"))
