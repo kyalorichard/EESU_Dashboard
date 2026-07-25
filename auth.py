@@ -161,14 +161,87 @@ firebase_client, firebase_auth = init_firebase_client()
 
 
 PRIVILEGED_DOMAINS = set(
-    str(d).lower().strip()
+    str(d).lower().strip().lstrip("@")
     for d in st.secrets.get("access", {}).get("privileged_domains", [])
     if str(d).strip()
 )
 
 
+def get_temporary_shared_account() -> dict:
+    """
+    Temporary shared-account configuration.
+
+    Add this to .streamlit/secrets.toml:
+
+    [temporary_shared_account]
+    enabled = true
+    email = "dashboard.access@eusee.global"
+    role = "privileged"
+    bypass_email_verification = true
+    """
+    config = st.secrets.get("temporary_shared_account", {})
+
+    role = str(config.get("role", "privileged")).strip().lower()
+    if role not in {"privileged", "viewer"}:
+        role = "privileged"
+
+    return {
+        "enabled": bool(config.get("enabled", False)),
+        "email": str(config.get("email", "")).strip().lower(),
+        "role": role,
+        "bypass_email_verification": bool(
+            config.get("bypass_email_verification", True)
+        ),
+    }
+
+
+def is_temporary_shared_account(email: str | None) -> bool:
+    config = get_temporary_shared_account()
+    candidate = str(email or "").strip().lower()
+
+    return bool(
+        config["enabled"]
+        and config["email"]
+        and candidate == config["email"]
+    )
+
+
+def should_bypass_email_verification(email: str | None) -> bool:
+    config = get_temporary_shared_account()
+    return bool(
+        is_temporary_shared_account(email)
+        and config["bypass_email_verification"]
+    )
+
+
 def get_domain(email: str) -> str:
     return str(email or "").strip().split("@")[-1].lower()
+
+
+def is_approved_login_email(email: str | None) -> bool:
+    """
+    Approve either:
+    - an account from an approved partner domain; or
+    - the explicitly configured temporary shared account.
+    """
+    normalized = str(email or "").strip().lower()
+    if not normalized:
+        return False
+
+    if is_temporary_shared_account(normalized):
+        return True
+
+    return bool(
+        PRIVILEGED_DOMAINS
+        and get_domain(normalized) in PRIVILEGED_DOMAINS
+    )
+
+
+def get_login_role(email: str | None) -> str:
+    if is_temporary_shared_account(email):
+        return get_temporary_shared_account()["role"]
+
+    return "privileged"
 
 
 def _safe_user_key(email: str) -> str:
@@ -753,7 +826,7 @@ def _login_form():
             st.error("Enter email and password.")
             return
 
-        if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
+        if not is_approved_login_email(email):
             st.error("Access is restricted to approved EUSEE partner accounts.")
             return
 
@@ -761,19 +834,30 @@ def _login_form():
             user = firebase_auth.sign_in_with_email_and_password(email, password)
             info = firebase_auth.get_account_info(user["idToken"])
 
-            verified = bool(info["users"][0].get("emailVerified", False))
+            firebase_verified = bool(
+                info["users"][0].get("emailVerified", False)
+            )
+            verification_bypassed = should_bypass_email_verification(email)
 
-            if not verified:
-                st.warning("Your account exists, but the email is not verified. Please verify your email first.")
+            if not firebase_verified and not verification_bypassed:
+                st.warning(
+                    "Your account exists, but the email is not verified. "
+                    "Please verify your email first."
+                )
                 return
 
-            role = "privileged"
+            # Internally mark the session as verified when the explicitly
+            # configured temporary shared account is allowed to bypass
+            # Firebase email verification. Existing session and cookie logic
+            # requires this value to be True.
+            session_verified = firebase_verified or verification_bypassed
+            role = get_login_role(email)
             name = email.split("@")[0].replace(".", " ").title()
 
             _apply_authenticated_state(
                 email=email,
                 name=name,
-                verified=True,
+                verified=session_verified,
                 role=role,
                 id_token=user.get("idToken"),
                 refresh_token=user.get("refreshToken"),
@@ -783,7 +867,7 @@ def _login_form():
                 _session_payload(
                     email=email,
                     name=name,
-                    verified=True,
+                    verified=session_verified,
                     role=role,
                     id_token=user.get("idToken"),
                     refresh_token=user.get("refreshToken"),
@@ -870,8 +954,10 @@ def _reset_form():
             st.warning("Enter your email first.")
             return
 
-        if PRIVILEGED_DOMAINS and get_domain(reset_email) not in PRIVILEGED_DOMAINS:
-            st.error("Password reset is restricted to approved EUSEE partner accounts.")
+        if not is_approved_login_email(reset_email):
+            st.error(
+                "Password reset is restricted to approved EUSEE partner accounts."
+            )
             return
 
         try:
