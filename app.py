@@ -2842,13 +2842,13 @@ def _inject_cfr_dashboard_css():
             .cfr-chart-panel-marker
         ) {
             min-height: 470px;
-            height: 470px;
+            height: 570px;
             overflow: hidden;
         }
 
         .cfr-top-panel-height {
             min-height: 470px;
-            height: 470px;
+            height: 570px;
             box-sizing: border-box;
             overflow: hidden;
         }
