@@ -3131,7 +3131,7 @@ def _inject_cfr_dashboard_css():
         }
 
         table.cfr-region-table tbody tr:last-child td {
-            border-bottom: 0 !important;
+            border-bottom: 1 !important;
         }
 
         table.cfr-region-table th:first-child,
@@ -3155,7 +3155,7 @@ def _inject_cfr_dashboard_css():
 
         table.cfr-region-table th:last-child,
         table.cfr-region-table td:last-child {
-            border-right: 0 !important;
+            border-right: 1 !important;
         }
 
         table.cfr-region-table .cfr-principle-head {
