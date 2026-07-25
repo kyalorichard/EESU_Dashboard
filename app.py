@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import html
 import json
 import logging
 import math
@@ -1288,6 +1289,26 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
     st.stop()
 
 
+# ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
+def continent_to_region(continent):
+    """Map country metadata continents to the dashboard's regional groupings."""
+    if continent == "Africa":
+        return "Africa"
+    elif continent in ["Asia", "Oceania"]:
+        return "Asia and the Pacific"
+    elif continent in ["Europe", "Middle East"]:
+        return "The Middle East"
+    elif continent in [
+        "Americas",
+        "North America",
+        "South America",
+        "Caribbean",
+    ]:
+        return "Americas and the Caribbean"
+    else:
+        return "Unknown"
+
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_data():
@@ -1386,18 +1407,7 @@ def load_data():
     )
 
     # --- Step 7: Map continent to dashboard region ---
-    def continent_to_region(continent):
-        if continent == "Africa":
-            return "Africa"
-        elif continent in ["Asia", "Oceania"]:
-            return "Asia and the Pacific"
-        elif continent in ["Europe", "Middle East"]:
-            return "The Middle East"
-        elif continent in ["Americas", "North America", "South America", "Caribbean"]:
-            return "Americas and the Caribbean"
-        else:
-            return "Unknown"
-
+    # Reuse the shared helper so alert and CFR data use identical categories.
     df["region"] = df["continent"].apply(continent_to_region)
 
     # --- Step 8: Warn about missing ISO codes after normalization ---
@@ -2410,760 +2420,1159 @@ st.markdown(f"""
 
 # ---------------- CFR ANALYSIS MODULE ----------------
 
+# ------------------------------------------------------------
+# CFR CONFIGURATION
+# ------------------------------------------------------------
 CFR_SOURCE_FILENAME = "CFR_Export_2026_07_22.csv"
 
+CFR_SCORE_MIN = 1.0
+CFR_SCORE_MAX = 5.0
+
+# Full source-column name -> compact dashboard name.
 CFR_PRINCIPLES = {
-    "Respect and protection of fundamental freedoms": "Fundamental freedoms",
-    "Supportive legal and regulatory framework": "Legal framework",
-    "Accessible and sustainable resources": "Resources",
-    "Open and responsive State": "State responsiveness",
-    "Supportive public culture and discourses on civil society": "Public culture",
-    "Access to a secure digital environment": "Digital environment",
+    "Respect and protection of fundamental freedoms": "P1",
+    "Supportive legal and regulatory framework": "P2",
+    "Accessible and sustainable resources": "P3",
+    "Open and responsive State": "P4",
+    "Supportive public culture and discourses on civil society": "P5",
+    "Access to a secure digital environment": "P6",
 }
 
-CFR_PURPLE = "#660094"
-CFR_TEAL = "#008CAA"
-CFR_YELLOW = "#FFDB58"
-CFR_TEXT = "#23152F"
+CFR_PRINCIPLE_NAMES = {
+    "P1": "Fundamental Freedoms",
+    "P2": "Legal & Regulatory Framework",
+    "P3": "Financial Sustainability",
+    "P4": "Dialogue & Consultation",
+    "P5": "Governance & Accountability",
+    "P6": "Digital Rights",
+}
+
+# Keep these colours consistent in the graph, badges and tables.
+CFR_PRINCIPLE_COLOURS = {
+    "P1": "#6C4CF1",
+    "P2": "#F2B718",
+    "P3": "#A85D36",
+    "P4": "#39B8B8",
+    "P5": "#FF7A45",
+    "P6": "#DF3585",
+}
+
+CFR_PRINCIPLE_LIGHT_COLOURS = {
+    "P1": "#EDE8FF",
+    "P2": "#FFF0BE",
+    "P3": "#E9D0C1",
+    "P4": "#C8EEEE",
+    "P5": "#FFD5C1",
+    "P6": "#F9C6DC",
+}
+
+CFR_TEXT = "#101B57"
 CFR_MUTED = "#667085"
-CFR_GRID = "#EEF0F4"
+CFR_GRID = "#E7EAF0"
+CFR_PURPLE = "#660094"
+
+CFR_REGION_ORDER = [
+    "Africa",
+    "Americas and the Caribbean",
+    "Asia and the Pacific",
+    "The Middle East",
+    "Unknown",
+]
+
+# Use the same country normalisation applied to the alert dataset.
+CFR_COUNTRY_FIXES = {
+    "Guinea-Bissau": "Guinea Bissau",
+    "Democratic Republic of Congo": "Democratic Republic of the Congo",
+    "Democratic Republic of Congo 2": "Democratic Republic of the Congo",
+    "Congo (Brazzaville)": "Republic of Congo",
+    "Congo Brazzaville": "Republic of Congo",
+    "Congo-Brazzaville": "Republic of Congo",
+    "Congo": "Republic of Congo",
+    "Cote d'Ivoire": "Côte d'Ivoire",
+    "CÃ´te d'Ivoire": "Côte d'Ivoire",
+    "Ivory Coast": "Côte d'Ivoire",
+    "Tanzania, United Republic of": "Tanzania",
+    "United Republic of Tanzania": "Tanzania",
+    "Lao People's Democratic Republic": "Laos",
+    "Lao PDR": "Laos",
+    "Timor-Leste": "Timor Leste",
+    "Gambia": "The Gambia",
+    "Hong Kong SAR": "Hong Kong",
+    "Lebanon NAR": "Lebanon",
+}
 
 
+# ------------------------------------------------------------
+# DATA LOADING
+# ------------------------------------------------------------
 def _find_cfr_source():
-    """Load CFR CSV from the same export folder used by the dashboard."""
+    """Resolve the CFR CSV from an environment variable or exports directory."""
     configured = os.getenv("EUSEE_CFR_CSV")
-    if configured:
-        path = Path(configured)
-        if path.exists():
-            return path
 
-    cfr_path = EXPORT_DIR / CFR_SOURCE_FILENAME
-    return cfr_path if cfr_path.exists() else None
+    if configured:
+        configured_path = Path(configured)
+        if configured_path.exists() and configured_path.is_file():
+            return configured_path
+
+    default_path = EXPORT_DIR / CFR_SOURCE_FILENAME
+    return default_path if default_path.exists() else None
+
+
+def _load_country_metadata():
+    """
+    Load the same countries_metadata.json file used by load_data().
+
+    Expected structure:
+    {
+        "Kenya": {
+            "iso_alpha3": "KEN",
+            "continent": "Africa"
+        }
+    }
+    """
+    metadata_path = EXPORT_DIR / "countries_metadata.json"
+
+    if not metadata_path.exists():
+        return {}, f"Country metadata file not found: {metadata_path}"
+
+    try:
+        with metadata_path.open("r", encoding="utf-8") as metadata_file:
+            metadata = json.load(metadata_file)
+
+        if not isinstance(metadata, dict):
+            return {}, "countries_metadata.json does not contain a JSON object."
+
+        return metadata, ""
+
+    except Exception as exc:
+        return {}, f"Could not load countries_metadata.json: {exc}"
 
 
 @st.cache_data(show_spinner=False)
-def load_cfr_data(source_path, source_mtime=None):
-    """Load and validate CFR data; mtime invalidates cache after a file refresh."""
-    del source_mtime
+def load_cfr_data(
+    source_path: str,
+    source_mtime=None,
+    metadata_mtime=None,
+):
+    """
+    Load, validate and enrich CFR data.
+
+    The modification-time arguments are intentionally included in the
+    function signature so Streamlit invalidates the cache when either
+    input file changes.
+    """
+    del source_mtime, metadata_mtime
+
     cfr = pd.read_csv(source_path)
-    required = ["Country", *CFR_PRINCIPLES.keys(), "Last Modified", "Permalink"]
-    missing = [col for col in required if col not in cfr.columns]
-    if missing:
-        raise ValueError("Missing CFR columns: " + ", ".join(missing))
+
+    required_columns = [
+        "Country",
+        *CFR_PRINCIPLES.keys(),
+        "Last Modified",
+    ]
+
+    missing_columns = [
+        column
+        for column in required_columns
+        if column not in cfr.columns
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            "Missing CFR columns: " + ", ".join(missing_columns)
+        )
 
     cfr = cfr.copy()
-    cfr["Country"] = cfr["Country"].astype(str).str.strip()
-    for col in CFR_PRINCIPLES:
-        cfr[col] = pd.to_numeric(cfr[col], errors="coerce")
 
-    cfr["Overall CFR"] = cfr[list(CFR_PRINCIPLES)].mean(axis=1, skipna=True)
-    cfr["Last Modified"] = pd.to_datetime(cfr["Last Modified"], errors="coerce")
-    cfr["Permalink"] = cfr["Permalink"].fillna("").astype(str).str.strip()
-    cfr = cfr[cfr["Country"].ne("")].drop_duplicates("Country", keep="last")
-    return cfr.sort_values("Overall CFR", ascending=False).reset_index(drop=True)
+    # Country cleaning and normalisation.
+    cfr["Country"] = (
+        cfr["Country"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace(CFR_COUNTRY_FIXES)
+    )
+
+    cfr = cfr[
+        cfr["Country"].ne("")
+        & cfr["Country"].str.lower().ne("nan")
+    ].copy()
+
+    # Convert all six principle scores to numeric values.
+    for source_column in CFR_PRINCIPLES:
+        cfr[source_column] = pd.to_numeric(
+            cfr[source_column],
+            errors="coerce",
+        )
+
+    # Parse the modification date.
+    cfr["Last Modified"] = pd.to_datetime(
+        cfr["Last Modified"],
+        errors="coerce",
+    )
+
+    # Permalink remains optional in the new simplified table.
+    if "Permalink" not in cfr.columns:
+        cfr["Permalink"] = ""
+    else:
+        cfr["Permalink"] = (
+            cfr["Permalink"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+    # Load the same country metadata used by the alerts dataset.
+    country_metadata, metadata_error = _load_country_metadata()
+
+    cfr["continent"] = cfr["Country"].apply(
+        lambda country: country_metadata.get(
+            country,
+            {},
+        ).get(
+            "continent",
+            "Unknown",
+        )
+    )
+
+    # Explicitly use the existing continent_to_region() function.
+    cfr["region"] = cfr["continent"].apply(
+        continent_to_region
+    )
+
+    # Compact principle aliases used by the presentation layer.
+    cfr = cfr.rename(columns=CFR_PRINCIPLES)
+
+    principle_columns = list(CFR_PRINCIPLES.values())
+
+    cfr["Overall CFR"] = cfr[principle_columns].mean(
+        axis=1,
+        skipna=True,
+    )
+
+    # Retain the latest record where a country appears more than once.
+    cfr = (
+        cfr.sort_values(
+            ["Country", "Last Modified"],
+            ascending=[True, True],
+            na_position="first",
+        )
+        .drop_duplicates(
+            subset=["Country"],
+            keep="last",
+        )
+        .sort_values(
+            ["Country"],
+            ascending=True,
+        )
+        .reset_index(drop=True)
+    )
+
+    cfr.attrs["metadata_error"] = metadata_error
+
+    return cfr
 
 
+# ------------------------------------------------------------
+# CFR CSS
+# ------------------------------------------------------------
 def _inject_cfr_dashboard_css():
-    """Match CFR cards, controls, plot panels and tables to the dashboard design system."""
     st.markdown(
         """
         <style>
-        .cfr-hero {
-            display:flex; justify-content:space-between; align-items:flex-start; gap:14px;
-            margin:2px 0 13px 0; padding:14px 16px;
-            background:linear-gradient(135deg,#FFFFFF 0%,#FBF7FD 100%);
-            border:1px solid #E7D4F1; border-radius:18px;
-            box-shadow:0 10px 24px rgba(16,24,40,.055);
-            font-family:"Anek Devanagari", Arial, sans-serif;
+        .cfr-page {
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif;
+            color: #101B57;
         }
-        .cfr-hero-eyebrow {font-size:9.5px;font-weight:950;color:#660094;letter-spacing:.13em;text-transform:uppercase;}
-        .cfr-hero-title {font-size:22px;font-weight:950;color:#23152F;margin-top:3px;line-height:1.1;}
-        .cfr-hero-note {font-size:11px;color:#667085;margin-top:5px;line-height:1.42;}
-        .cfr-hero-badge {white-space:nowrap;background:#EFFBFE;color:#008CAA;border:1px solid rgba(0,140,170,.16);border-radius:999px;padding:7px 10px;font-size:10px;font-weight:900;}
 
-        .cfr-kpi-grid {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:2px 0 14px 0;}
-        div[data-testid="column"] .cfr-kpi-card {width:100%;margin:2px 0 14px 0;}
+        .cfr-page-title {
+            margin: 1px 0 0 0;
+            color: #101B57;
+            font-size: clamp(28px, 3vw, 40px);
+            line-height: 1.05;
+            font-weight: 950;
+            letter-spacing: -.02em;
+        }
+
+        .cfr-page-subtitle {
+            margin-top: 5px;
+            color: #233A7A;
+            font-size: 13px;
+            line-height: 1.38;
+            font-weight: 550;
+        }
+
+        .cfr-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin: 20px 0 18px 0;
+        }
+
         .cfr-kpi-card {
-            min-height:148px;height:148px;box-sizing:border-box;padding:13px 14px 12px;
-            background:radial-gradient(circle at 100% 0%,rgba(102,0,148,.055),transparent 34%),linear-gradient(180deg,#FFFFFF 0%,#FCFAFF 100%);
-            border:1px solid rgba(102,0,148,.115);border-radius:18px;
-            box-shadow:0 12px 26px rgba(17,24,39,.07),inset 0 1px 0 rgba(255,255,255,.95);
-            display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;font-family:"Anek Devanagari", Arial, sans-serif;
-            transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+            min-height: 116px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 17px 20px;
+            box-sizing: border-box;
+            background: #FFFFFF;
+            border: 1px solid #E1E5ED;
+            border-radius: 14px;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035);
         }
-        .cfr-kpi-card:hover {transform:translateY(-2px);box-shadow:0 15px 32px rgba(17,24,39,.09);border-color:rgba(102,0,148,.18);}
-        .cfr-kpi-top {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
-        .cfr-kpi-title {color:#23152F;font-size:12.5px;font-weight:900;line-height:1.12;}
-        .cfr-kpi-icon {width:30px;height:30px;min-width:30px;border-radius:12px;background:#F8FAFC;color:#344054;border:1px solid #EEF2F6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;}
-        .cfr-kpi-value {font-size:clamp(21px,2.0vw,34px);line-height:.98;font-weight:950;margin-top:12px;letter-spacing:-.04em;color:#660094;font-family:"Anek Devanagari", Arial, sans-serif;overflow-wrap:anywhere;}
-        .cfr-kpi-value.text {font-size:clamp(16px,1.25vw,22px);line-height:1.08;letter-spacing:-.02em;color:#23152F;}
-        .cfr-kpi-note {color:#667085;font-size:10.3px;font-weight:700;line-height:1.28;margin-top:7px;}
-        .cfr-kpi-line {height:3px;width:46px;border-radius:999px;background:#E6E8EF;margin-top:9px;}
 
-        .cfr-section-heading {font-family:"Anek Devanagari", Arial, sans-serif;font-size:14px;font-weight:950;color:#23152F;margin:4px 0 8px 0;}
-        .cfr-panel-label {font-family:"Anek Devanagari", Arial, sans-serif;font-size:10px;font-weight:900;color:#660094;letter-spacing:.11em;text-transform:uppercase;margin:0 0 5px 2px;}
-        .cfr-profile-shell {background:#FFFFFF;border:1px solid #E6E8EF;border-radius:18px;padding:13px 14px;box-shadow:0 10px 24px rgba(16,24,40,.055);margin-bottom:12px;}
-        .cfr-profile-score {font-size:31px;font-weight:950;color:#660094;letter-spacing:-.04em;line-height:1;font-family:"Anek Devanagari", Arial, sans-serif;}
-        .cfr-profile-rank {font-size:10.5px;font-weight:800;color:#667085;margin-top:5px;}
-        .cfr-score-row {display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:10.5px;color:#667085;font-family:"Anek Devanagari", Arial, sans-serif;}
-        .cfr-score-row:last-child {border-bottom:0;}
-        .cfr-score-row strong {color:#23152F;font-weight:900;}
+        .cfr-kpi-icon {
+            width: 56px;
+            height: 56px;
+            flex: 0 0 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #F7F2FF 0%,
+                    #EDF7FF 100%
+                );
+            border: 1px solid #D9DDF8;
+            color: #5F24F5;
+            font-size: 28px;
+            line-height: 1;
+        }
+
+        .cfr-kpi-title {
+            color: #101B57;
+            font-size: 13px;
+            line-height: 1.1;
+            font-weight: 900;
+        }
+
+        .cfr-kpi-value {
+            margin-top: 6px;
+            color: #4A20E8;
+            font-size: 28px;
+            line-height: 1;
+            font-weight: 950;
+        }
+
+        .cfr-kpi-note {
+            margin-top: 5px;
+            color: #52628C;
+            font-size: 11px;
+            line-height: 1.2;
+            font-weight: 550;
+        }
+
+        .cfr-panel {
+            height: 100%;
+            box-sizing: border-box;
+            padding: 14px 16px 12px 16px;
+            background: #FFFFFF;
+            border: 1px solid #E1E5ED;
+            border-radius: 14px;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035);
+        }
+
+        .cfr-panel-title {
+            color: #101B57;
+            font-size: 17px;
+            line-height: 1.15;
+            font-weight: 950;
+        }
+
+        .cfr-panel-note {
+            margin-top: 3px;
+            margin-bottom: 10px;
+            color: #52628C;
+            font-size: 11px;
+            line-height: 1.3;
+            font-weight: 550;
+        }
+
+        .cfr-country-table-panel {
+            margin-top: 16px;
+        }
+
+        .cfr-table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: auto;
+            border: 1px solid #EEF0F4;
+            border-radius: 10px;
+            background: #FFFFFF;
+        }
+
+        .cfr-region-scroll {
+            max-height: 430px;
+        }
+
+        .cfr-country-scroll {
+            max-height: 560px;
+        }
+
+        table.cfr-table {
+            width: 100%;
+            min-width: 680px;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            color: #101B57;
+            background: #FFFFFF;
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif;
+            font-size: 11.5px;
+        }
+
+        table.cfr-table th,
+        table.cfr-table td {
+            padding: 10px 11px;
+            border-right: 1px solid #E9ECF2;
+            border-bottom: 1px solid #E9ECF2;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        table.cfr-table th:last-child,
+        table.cfr-table td:last-child {
+            border-right: 0;
+        }
+
+        table.cfr-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        table.cfr-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: #FAFBFC;
+            color: #101B57;
+            font-weight: 900;
+        }
+
+        table.cfr-table th.cfr-left,
+        table.cfr-table td.cfr-left {
+            width: 31%;
+            text-align: left;
+            font-weight: 800;
+        }
+
+        table.cfr-country-table th.cfr-left,
+        table.cfr-country-table td.cfr-left {
+            width: 25%;
+        }
+
+        table.cfr-table tbody tr {
+            transition:
+                background-color .15s ease,
+                box-shadow .15s ease;
+        }
+
+        table.cfr-table tbody tr:hover {
+            background: #FAF8FF;
+            box-shadow:
+                inset 3px 0 0 #6C4CF1;
+        }
+
+        .cfr-principle-head {
+            display: inline-flex;
+            min-width: 54px;
+            height: 28px;
+            padding: 0 12px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            color: #101B57;
+            font-size: 13px;
+            font-weight: 950;
+        }
+
+        .cfr-date-cell {
+            color: #344054;
+            white-space: nowrap;
+        }
+
+        .cfr-empty {
+            padding: 28px 18px;
+            border: 1px dashed #D6DAE4;
+            border-radius: 12px;
+            background: #FAFBFC;
+            color: #667085;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
 
         div[data-testid="stPlotlyChart"] {
-            background:linear-gradient(180deg,#FFFFFF 0%,#FEFCFF 100%);
-            border:1px solid #E6E8EF;border-radius:18px;padding:3px 5px 1px;
-            box-shadow:0 10px 24px rgba(16,24,40,.055);overflow:hidden;margin-bottom:10px;
+            width: 100% !important;
+            overflow: hidden !important;
         }
-        .cfr-filter-note {font-size:10.5px;color:#667085;font-weight:700;margin:0 0 8px 1px;}
-        @media (max-width:1200px){.cfr-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
-        @media (max-width:800px){.cfr-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.cfr-hero{flex-direction:column}.cfr-hero-badge{white-space:normal}}
-        @media (max-width:520px){.cfr-kpi-grid{grid-template-columns:1fr}.cfr-kpi-card{min-height:140px}}
+
+        .cfr-panel div[data-testid="stSelectbox"] {
+            margin-top: -3px;
+            margin-bottom: 2px;
+        }
+
+        .cfr-panel div[data-testid="stSelectbox"] label {
+            color: #101B57 !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+        }
+
+        .cfr-panel div[data-baseweb="select"] > div {
+            min-height: 34px !important;
+            border: 1px solid #D8DDE7 !important;
+            border-radius: 8px !important;
+            background: #FFFFFF !important;
+            box-shadow: none !important;
+        }
+
+        @media (max-width: 900px) {
+            .cfr-kpi-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .cfr-kpi-card {
+                min-height: 100px;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _cfr_kpi_card(title, value, note, icon, value_class=""):
-    """Return one self-contained CFR KPI card for safe Streamlit HTML rendering."""
+# ------------------------------------------------------------
+# HTML HELPERS
+# ------------------------------------------------------------
+def _safe_text(value):
+    if value is None or pd.isna(value):
+        return "—"
+    return html.escape(str(value))
+
+
+def _format_score(value):
+    if value is None or pd.isna(value):
+        return "—"
+    return f"{float(value):.1f}"
+
+
+def _principle_header_html(principle):
+    background = CFR_PRINCIPLE_LIGHT_COLOURS[principle]
     return (
-        f'<div class="cfr-kpi-card">'
-        f'<div>'
-        f'<div class="cfr-kpi-top">'
-        f'<div class="cfr-kpi-title">{title}</div>'
-        f'<div class="cfr-kpi-icon">{icon}</div>'
-        f'</div>'
-        f'<div class="cfr-kpi-value {value_class}">{value}</div>'
-        f'<div class="cfr-kpi-note">{note}</div>'
-        f'</div>'
-        f'<div class="cfr-kpi-line"></div>'
-        f'</div>'
+        f'<span class="cfr-principle-head" '
+        f'style="background:{background};">'
+        f'{principle}'
+        f'</span>'
     )
 
 
-def _style_cfr_figure(fig, title, height=390, legend=False, margin=None):
-    """Apply the same restrained typography and chart canvas used across the dashboard."""
-    fig.update_layout(
-        title=dict(text=title, x=.5, xanchor="center", y=.97, yanchor="top", font=dict(size=14, color=CFR_TEXT, family="Arial")),
-        height=height,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#FFFFFF",
-        font=dict(family="Arial", size=10, color="#344054"),
-        margin=margin or dict(l=45, r=25, t=68, b=45),
-        showlegend=legend,
-        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E6E8EF", font=dict(family="Arial", size=11, color=CFR_TEXT)),
-    )
-    fig.update_xaxes(showgrid=True, gridcolor=CFR_GRID, zeroline=False, linecolor="#D0D5DD", tickfont=dict(size=9))
-    fig.update_yaxes(showgrid=True, gridcolor=CFR_GRID, zeroline=False, linecolor="#D0D5DD", tickfont=dict(size=9))
-    return fig
-
-
-def _cfr_radar(row, title, color=CFR_PURPLE):
-    labels = list(CFR_PRINCIPLES.values())
-    values = [float(row[col]) if pd.notna(row[col]) else 0 for col in CFR_PRINCIPLES]
-    fig = go.Figure(go.Scatterpolar(
-        r=values + values[:1], theta=labels + labels[:1], fill="toself",
-        name=str(row["Country"]), line=dict(color=color, width=2.4),
-        fillcolor="rgba(102,0,148,0.13)", marker=dict(size=5),
-        hovertemplate="%{theta}<br><b>%{r:.2f}</b> / 7<extra></extra>",
-    ))
-    fig.update_layout(
-        polar=dict(
-            bgcolor="#FFFFFF",
-            radialaxis=dict(visible=True, range=[0, 7], tick0=0, dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8, color=CFR_MUTED)),
-            angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=9, color="#344054")),
+def _build_regional_table_html(regional_scores):
+    if regional_scores is None or regional_scores.empty:
+        return (
+            '<div class="cfr-empty">'
+            'No regional scores are available for the selected data.'
+            '</div>'
         )
-    )
-    return _style_cfr_figure(fig, title, height=390, legend=False, margin=dict(l=38, r=38, t=68, b=25))
+
+    principle_columns = list(CFR_PRINCIPLES.values())
+
+    header_cells = [
+        '<th class="cfr-left">Region</th>',
+        *[
+            f"<th>{_principle_header_html(principle)}</th>"
+            for principle in principle_columns
+        ],
+    ]
+
+    body_rows = []
+
+    for _, row in regional_scores.iterrows():
+        cells = [
+            f'<td class="cfr-left">{_safe_text(row["region"])}</td>'
+        ]
+
+        cells.extend(
+            f"<td>{_format_score(row[principle])}</td>"
+            for principle in principle_columns
+        )
+
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+
+    return f"""
+        <div class="cfr-table-scroll cfr-region-scroll">
+            <table class="cfr-table cfr-region-table">
+                <thead>
+                    <tr>{''.join(header_cells)}</tr>
+                </thead>
+                <tbody>
+                    {''.join(body_rows)}
+                </tbody>
+            </table>
+        </div>
+    """
 
 
-def render_cfr_analysis():
-    _inject_cfr_dashboard_css()
+def _build_country_table_html(country_scores):
+    if country_scores is None or country_scores.empty:
+        return (
+            '<div class="cfr-empty">'
+            'No country scores are available.'
+            '</div>'
+        )
 
-    source = _find_cfr_source()
-    if source is None:
-        st.warning(f"CFR data file not found. Add `{CFR_SOURCE_FILENAME}` to the exports folder or set `EUSEE_CFR_CSV`.")
-        return
+    principle_columns = list(CFR_PRINCIPLES.values())
 
-    try:
-        cfr = load_cfr_data(str(source), source.stat().st_mtime)
-    except Exception as exc:
-        st.error(f"The CFR export could not be loaded: {exc}")
-        return
+    header_cells = [
+        '<th class="cfr-left">Country</th>',
+        *[
+            f"<th>{_principle_header_html(principle)}</th>"
+            for principle in principle_columns
+        ],
+        "<th>Last modified</th>",
+    ]
 
-    valid = cfr.dropna(subset=["Overall CFR"]).copy()
-    if valid.empty:
-        st.info("The CFR export contains no valid principle scores.")
-        return
+    body_rows = []
 
-    valid = valid.sort_values("Overall CFR", ascending=False).reset_index(drop=True)
-    valid["Rank"] = np.arange(1, len(valid) + 1)
+    for _, row in country_scores.iterrows():
+        last_modified = (
+            row["Last Modified"].strftime("%b %Y")
+            if pd.notna(row["Last Modified"])
+            else "—"
+        )
 
-    latest = valid["Last Modified"].max()
-    highest, lowest = valid.iloc[0], valid.iloc[-1]
+        cells = [
+            f'<td class="cfr-left">{_safe_text(row["Country"])}</td>'
+        ]
 
+        cells.extend(
+            f"<td>{_format_score(row[principle])}</td>"
+            for principle in principle_columns
+        )
+
+        cells.append(
+            f'<td class="cfr-date-cell">{_safe_text(last_modified)}</td>'
+        )
+
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+
+    return f"""
+        <div class="cfr-table-scroll cfr-country-scroll">
+            <table class="cfr-table cfr-country-table">
+                <thead>
+                    <tr>{''.join(header_cells)}</tr>
+                </thead>
+                <tbody>
+                    {''.join(body_rows)}
+                </tbody>
+            </table>
+        </div>
+    """
+
+
+def _render_cfr_kpis(country_count):
     st.markdown(
         f"""
-        <div class="cfr-hero">
-          <div>
-            <div class="cfr-hero-eyebrow">Civil Society Resilience Framework</div>
-            <div class="cfr-hero-title">CFR Analysis</div>
-            <div class="cfr-hero-note">Compare overall resilience scores, inspect the six enabling principles, identify country-level strengths and gaps, and open the underlying CFR reports.</div>
-          </div>
-          <div class="cfr-hero-badge">Updated {latest.strftime('%d %b %Y') if pd.notna(latest) else 'date unavailable'}</div>
+        <div class="cfr-kpi-grid">
+            <div class="cfr-kpi-card">
+                <div class="cfr-kpi-icon">🌐</div>
+                <div>
+                    <div class="cfr-kpi-title">Monitored countries</div>
+                    <div class="cfr-kpi-value">+{country_count:,}</div>
+                </div>
+            </div>
+
+            <div class="cfr-kpi-card">
+                <div class="cfr-kpi-icon">◎</div>
+                <div>
+                    <div class="cfr-kpi-title">Monitored principles</div>
+                    <div class="cfr-kpi-value">6</div>
+                </div>
+            </div>
+
+            <div class="cfr-kpi-card">
+                <div class="cfr-kpi-icon">📏</div>
+                <div>
+                    <div class="cfr-kpi-title">Scoring scale</div>
+                    <div class="cfr-kpi-value">1–5</div>
+                    <div class="cfr-kpi-note">
+                        Most restricted to most enabling
+                    </div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    card_specs = [
-        ("Countries with CFR", f"{valid['Country'].nunique():,}", "Countries represented in the current CFR export.", "🌍", ""),
-        ("Average overall CFR", f"{valid['Overall CFR'].mean():.2f}", "Mean score across all countries and six principles, out of 7.", "◉", ""),
-        ("Highest scoring country", str(highest["Country"]), f"Overall CFR {highest['Overall CFR']:.2f} / 7.", "↗", "text"),
-        ("Lowest scoring country", str(lowest["Country"]), f"Overall CFR {lowest['Overall CFR']:.2f} / 7.", "↘", "text"),
-    ]
-    card_columns = st.columns(len(card_specs), gap="small")
-    for card_column, (title, value, note, icon, value_class) in zip(card_columns, card_specs):
-        with card_column:
-            st.markdown(_cfr_kpi_card(title, value, note, icon, value_class), unsafe_allow_html=True)
 
-    st.markdown('<div class="cfr-panel-label">Analysis controls</div>', unsafe_allow_html=True)
-    f1, f2 = st.columns([1.65, 1], gap="small")
-    with f1:
-        selected_countries = st.multiselect(
-            "Search country",
-            options=valid["Country"].tolist(),
-            default=[],
-            key="cfr_country_search_multiselect",
-            placeholder="All countries",
-            help=(
-                "Select one or more countries. Leave the field empty to include all countries. "
-                "The comparison panel becomes available when at least two countries are selected."
+# ------------------------------------------------------------
+# SINGLE CFR GRAPH
+# ------------------------------------------------------------
+def _build_aggregated_cfr_figure(chart_data):
+    """
+    Build the single graph used in the CFR tab.
+
+    Each principle is represented by:
+    - a light 1–5 background line;
+    - a coloured line from 1 to the mean score;
+    - a coloured mean-score marker.
+    """
+    principle_columns = list(CFR_PRINCIPLES.values())
+
+    averages = {
+        principle: float(chart_data[principle].mean())
+        if chart_data[principle].notna().any()
+        else np.nan
+        for principle in principle_columns
+    }
+
+    # Reverse display order so P1 appears at the top.
+    display_principles = list(reversed(principle_columns))
+
+    figure = go.Figure()
+
+    for y_position, principle in enumerate(display_principles):
+        score = averages[principle]
+        colour = CFR_PRINCIPLE_COLOURS[principle]
+
+        # Full scale.
+        figure.add_trace(
+            go.Scatter(
+                x=[CFR_SCORE_MIN, CFR_SCORE_MAX],
+                y=[y_position, y_position],
+                mode="lines",
+                line=dict(
+                    color="#E3E5E8",
+                    width=5,
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+        if pd.notna(score):
+            clipped_score = min(
+                max(score, CFR_SCORE_MIN),
+                CFR_SCORE_MAX,
+            )
+
+            # Coloured section from 1 to the average.
+            figure.add_trace(
+                go.Scatter(
+                    x=[CFR_SCORE_MIN, clipped_score],
+                    y=[y_position, y_position],
+                    mode="lines",
+                    line=dict(
+                        color=colour,
+                        width=5,
+                    ),
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+
+            # Mean marker.
+            figure.add_trace(
+                go.Scatter(
+                    x=[clipped_score],
+                    y=[y_position],
+                    mode="markers",
+                    marker=dict(
+                        size=13,
+                        color=colour,
+                        line=dict(
+                            color="#FFFFFF",
+                            width=2,
+                        ),
+                    ),
+                    customdata=[[
+                        principle,
+                        CFR_PRINCIPLE_NAMES[principle],
+                        score,
+                    ]],
+                    hovertemplate=(
+                        "<b>%{customdata[0]} — "
+                        "%{customdata[1]}</b><br>"
+                        "Mean score: %{customdata[2]:.2f}"
+                        "<extra></extra>"
+                    ),
+                    showlegend=False,
+                )
+            )
+
+            # Score shown on the right.
+            figure.add_annotation(
+                x=5.32,
+                y=y_position,
+                text=f"<b>{score:.1f}</b>",
+                showarrow=False,
+                xanchor="left",
+                font=dict(
+                    family=PLOTLY_FONT_FAMILY,
+                    size=14,
+                    color="#4020DD",
+                ),
+            )
+
+        # P-code badge.
+        figure.add_annotation(
+            x=0.76,
+            y=y_position,
+            text=f"<b>{principle}</b>",
+            showarrow=False,
+            xanchor="right",
+            bgcolor=colour,
+            bordercolor=colour,
+            borderpad=4,
+            font=dict(
+                family=PLOTLY_FONT_FAMILY,
+                size=10,
+                color="#FFFFFF",
             ),
         )
-    with f2:
-        score_band = st.selectbox(
-            "Overall CFR range",
-            ["All scores", "1.0–1.9", "2.0–2.9", "3.0–3.9", "4.0–4.9", "5.0–5.9", "6.0–7.0"],
-            key="cfr_score_band",
+
+        # Principle name.
+        figure.add_annotation(
+            x=0.84,
+            y=y_position,
+            text=f"<b>{CFR_PRINCIPLE_NAMES[principle]}</b>",
+            showarrow=False,
+            xanchor="right",
+            xshift=-16,
+            font=dict(
+                family=PLOTLY_FONT_FAMILY,
+                size=10,
+                color=CFR_TEXT,
+            ),
         )
 
-    filtered = valid.copy()
-    if selected_countries:
-        filtered = filtered[filtered["Country"].isin(selected_countries)]
-
-    band_bounds = {
-        "1.0–1.9": (1.0, 1.9999),
-        "2.0–2.9": (2.0, 2.9999),
-        "3.0–3.9": (3.0, 3.9999),
-        "4.0–4.9": (4.0, 4.9999),
-        "5.0–5.9": (5.0, 5.9999),
-        "6.0–7.0": (6.0, 7.0),
-    }
-    if score_band in band_bounds:
-        lo, hi = band_bounds[score_band]
-        filtered = filtered[filtered["Overall CFR"].between(lo, hi)]
-
-    st.markdown(
-        f'<div class="cfr-filter-note">Showing {len(filtered):,} of {len(valid):,} CFR countries under the active filters.</div>',
-        unsafe_allow_html=True,
+    figure.update_layout(
+        height=355,
+        margin=dict(
+            l=248,
+            r=52,
+            t=48,
+            b=30,
+        ),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        font=dict(
+            family=PLOTLY_FONT_FAMILY,
+            color=CFR_TEXT,
+        ),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor="#D9DDE7",
+            font=dict(
+                family=PLOTLY_FONT_FAMILY,
+                size=11,
+                color=CFR_TEXT,
+            ),
+        ),
+        showlegend=False,
+        xaxis=dict(
+            range=[0.70, 5.52],
+            tickmode="array",
+            tickvals=[1, 2, 3, 4, 5],
+            ticktext=["1", "2", "3", "4", "5"],
+            side="top",
+            title=None,
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            tickfont=dict(
+                size=10,
+                color=CFR_TEXT,
+            ),
+            fixedrange=True,
+        ),
+        yaxis=dict(
+            range=[-0.65, 5.65],
+            tickmode="array",
+            tickvals=list(range(6)),
+            ticktext=[""] * 6,
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            fixedrange=True,
+        ),
     )
-    if filtered.empty:
-        st.info("No CFR countries match the selected filters.")
+
+    figure.add_annotation(
+        x=1,
+        y=1.12,
+        xref="x",
+        yref="paper",
+        text="<b>Restricted</b>",
+        showarrow=False,
+        xanchor="center",
+        font=dict(
+            family=PLOTLY_FONT_FAMILY,
+            size=10,
+            color=CFR_TEXT,
+        ),
+    )
+
+    figure.add_annotation(
+        x=5,
+        y=1.12,
+        xref="x",
+        yref="paper",
+        text="<b>Enabling</b>",
+        showarrow=False,
+        xanchor="center",
+        font=dict(
+            family=PLOTLY_FONT_FAMILY,
+            size=10,
+            color=CFR_TEXT,
+        ),
+    )
+
+    figure.add_annotation(
+        x=5.32,
+        y=1.12,
+        xref="x",
+        yref="paper",
+        text="<b>Mean score</b>",
+        showarrow=False,
+        xanchor="left",
+        font=dict(
+            family=PLOTLY_FONT_FAMILY,
+            size=10,
+            color=CFR_TEXT,
+        ),
+    )
+
+    return figure
+
+
+# ------------------------------------------------------------
+# CFR PAGE
+# ------------------------------------------------------------
+def render_cfr_analysis():
+    _inject_cfr_dashboard_css()
+
+    source = _find_cfr_source()
+
+    if source is None:
+        st.warning(
+            f"CFR data file not found. Add `{CFR_SOURCE_FILENAME}` "
+            "to the exports folder or define the EUSEE_CFR_CSV "
+            "environment variable."
+        )
         return
 
-    country_options = filtered["Country"].tolist()
-    default_country = "Kenya" if "Kenya" in country_options else country_options[0]
+    metadata_path = EXPORT_DIR / "countries_metadata.json"
+    metadata_mtime = (
+        metadata_path.stat().st_mtime
+        if metadata_path.exists()
+        else None
+    )
 
-    # ------------------------------------------------------------------
-    # ROW 1: ranking and unified profile/comparison workspace
-    # ------------------------------------------------------------------
-    ranking_col, analysis_col = st.columns([1.0, 2.35], gap="small")
-
-    with ranking_col:
-        st.markdown('<div class="cfr-section-heading">Overall CFR ranking</div>', unsafe_allow_html=True)
-        rank_page_size = 10
-        rank_pages = max(1, math.ceil(len(filtered) / rank_page_size))
-        rank_page = st.selectbox(
-            "Ranking page",
-            list(range(1, rank_pages + 1)),
-            format_func=lambda x: f"Page {x} of {rank_pages}",
-            key="cfr_ranking_page",
-            label_visibility="collapsed",
+    try:
+        cfr = load_cfr_data(
+            str(source),
+            source.stat().st_mtime,
+            metadata_mtime,
         )
-        rank_start = (rank_page - 1) * rank_page_size
-        rank_view = filtered.iloc[rank_start:rank_start + rank_page_size][["Rank", "Country", "Overall CFR", "Last Modified"]].copy()
-        rank_view["Overall CFR"] = rank_view["Overall CFR"].round(2)
-        rank_view["Last Modified"] = rank_view["Last Modified"].dt.strftime("%d %b %Y")
-        st.dataframe(
-            rank_view,
+    except Exception as exc:
+        st.error(f"Could not load CFR data: {exc}")
+        return
+
+    if cfr.empty:
+        st.info("No CFR records are currently available.")
+        return
+
+    metadata_error = cfr.attrs.get("metadata_error", "")
+    if metadata_error:
+        st.warning(metadata_error)
+
+    principle_columns = list(CFR_PRINCIPLES.values())
+
+    # Notify administrators when the export is inconsistent with the
+    # requested 1–5 scoring scale, but do not silently alter the data.
+    score_values = cfr[principle_columns].stack().dropna()
+
+    if not score_values.empty:
+        below_scale = bool((score_values < CFR_SCORE_MIN).any())
+        above_scale = bool((score_values > CFR_SCORE_MAX).any())
+
+        if below_scale or above_scale:
+            st.warning(
+                "Some CFR values fall outside the configured 1–5 scale. "
+                "The graph is displayed on the requested 1–5 axis; check "
+                "the CFR export before publication."
+            )
+
+    st.markdown(
+        """
+        <div class="cfr-page">
+            <div class="cfr-page-title">CFR Scores</div>
+            <div class="cfr-page-subtitle">
+                Explore score patterns across the six EU SEE enabling
+                environment principles.<br>
+                Scores range from 1 (most restricted) to 5 (most enabling).
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    country_count = int(cfr["Country"].nunique())
+    _render_cfr_kpis(country_count)
+
+    chart_column, region_column = st.columns(
+        [1.08, 0.92],
+        gap="medium",
+    )
+
+    # --------------------------------------------------------
+    # LEFT: ONE GRAPH + COUNTRY SELECTOR
+    # --------------------------------------------------------
+    with chart_column:
+        st.markdown(
+            """
+            <div class="cfr-panel">
+                <div class="cfr-panel-title">
+                    Aggregated CFR scores by principle
+                </div>
+                <div class="cfr-panel-note">
+                    Mean score across monitored countries, or the selected
+                    country's score.
+                </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        selector_col_1, selector_col_2 = st.columns(
+            [1.85, 0.75],
+            gap="small",
+        )
+
+        with selector_col_2:
+            selected_country = st.selectbox(
+                "Select country",
+                options=[
+                    "All countries",
+                    *sorted(cfr["Country"].dropna().unique().tolist()),
+                ],
+                index=0,
+                key="cfr_country_selector",
+            )
+
+        chart_data = (
+            cfr
+            if selected_country == "All countries"
+            else cfr[cfr["Country"].eq(selected_country)]
+        )
+
+        cfr_figure = _build_aggregated_cfr_figure(chart_data)
+
+        st.plotly_chart(
+            cfr_figure,
             use_container_width=True,
-            hide_index=True,
-            height=430,
-            column_config={
-                "Rank": st.column_config.NumberColumn("Rank", format="%d", width="small"),
-                "Country": st.column_config.TextColumn("Country", width="medium"),
-                "Overall CFR": st.column_config.ProgressColumn("Overall CFR", min_value=0, max_value=7, format="%.2f"),
-                "Last Modified": st.column_config.TextColumn("Updated", width="small"),
+            config={
+                "displayModeBar": False,
+                "responsive": True,
             },
-            key="cfr_ranking_table",
+            key="cfr_aggregated_principle_chart",
         )
-        st.caption(f"Showing ranks {rank_start + 1}–{min(rank_start + rank_page_size, len(filtered))} of {len(filtered)}.")
 
-    with analysis_col:
-        comparison_available = len(selected_countries) >= 2
-        mode_options = ["Country profile"]
-        if comparison_available:
-            mode_options.append("Compare countries")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        # Reset the workspace safely when comparison becomes unavailable.
-        if st.session_state.get("cfr_unified_view") not in mode_options:
-            st.session_state["cfr_unified_view"] = "Country profile"
-
-        header_left, header_right = st.columns([1.5, 1], gap="small")
-        with header_left:
-            st.markdown('<div class="cfr-section-heading">Country analysis workspace</div>', unsafe_allow_html=True)
-        with header_right:
-            analysis_mode = st.radio(
-                "Analysis mode",
-                options=mode_options,
-                horizontal=True,
-                key="cfr_unified_view",
-                label_visibility="collapsed",
-            )
-
-        if not comparison_available:
-            st.caption("Select at least two countries in Search country to enable the comparison view.")
-
-        if analysis_mode == "Country profile":
-            selector_col, context_col = st.columns([1.25, 1], gap="small")
-            with selector_col:
-                selected_country = st.selectbox(
-                    "Profile country",
-                    country_options,
-                    index=country_options.index(default_country),
-                    key="cfr_profile_country",
-                )
-            with context_col:
-                st.markdown(
-                    '<div style="height:67px;display:flex;align-items:flex-end;padding-bottom:10px;font-size:10.5px;font-weight:750;color:#667085;">Detailed country performance across the six CFR principles.</div>',
-                    unsafe_allow_html=True,
-                )
-
-            row = filtered.loc[filtered["Country"].eq(selected_country)].iloc[0]
-            rank_value = int(valid.loc[valid["Country"].eq(selected_country), "Rank"].iloc[0])
-            principle_scores = {
-                label: float(row[col])
-                for col, label in CFR_PRINCIPLES.items()
-                if pd.notna(row[col])
-            }
-            strongest_principle = max(principle_scores, key=principle_scores.get) if principle_scores else "—"
-            weakest_principle = min(principle_scores, key=principle_scores.get) if principle_scores else "—"
-            modified_text = row["Last Modified"].strftime("%d %b %Y") if pd.notna(row["Last Modified"]) else "—"
-
-            metric_col, chart_col = st.columns([0.82, 2.18], gap="small")
-            with metric_col:
-                st.markdown(
-                    f"""
-                    <div class="cfr-profile-shell" style="min-height:342px;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div>
-                            <div style="font-size:10px;font-weight:900;color:#667085;text-transform:uppercase;letter-spacing:.08em;">Overall CFR</div>
-                            <div class="cfr-profile-score" style="margin-top:8px;">{row['Overall CFR']:.2f}
-                                <span style="font-size:13px;color:#667085;font-family:Arial;letter-spacing:0;">/ 7</span>
-                            </div>
-                            <div class="cfr-profile-rank">Rank {rank_value} of {len(valid)} countries</div>
-                        </div>
-                        <div style="margin-top:14px;">
-                            <div class="cfr-score-row"><span>Strongest principle</span><strong>{strongest_principle}</strong></div>
-                            <div class="cfr-score-row"><span>Lowest principle</span><strong>{weakest_principle}</strong></div>
-                            <div class="cfr-score-row"><span>Last modified</span><strong>{modified_text}</strong></div>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                if row["Permalink"]:
-                    st.link_button("Open full CFR report ↗", row["Permalink"], use_container_width=True)
-
-            with chart_col:
-                profile_fig = _cfr_radar(row, f"{selected_country}: score by principle")
-                profile_fig = _style_cfr_figure(
-                    profile_fig,
-                    "Principle scores",
-                    height=390,
-                    margin=dict(l=42, r=42, t=58, b=20),
-                )
-                render_dashboard_plotly_chart(
-                    profile_fig,
-                    key="cfr_profile_radar",
-                    container=chart_col,
-                    config={"displayModeBar": False},
-                )
-
-        else:
-            compare_options = [country for country in selected_countries if country in country_options]
-            first = compare_options[0]
-
-            if st.session_state.get("cfr_compare_a") not in compare_options:
-                st.session_state["cfr_compare_a"] = first
-
-            compare_a_col, compare_vs_col, compare_b_col = st.columns([1, .16, 1], gap="small")
-            with compare_a_col:
-                country_a = st.selectbox(
-                    "Country A",
-                    compare_options,
-                    index=compare_options.index(st.session_state.get("cfr_compare_a", first)),
-                    key="cfr_compare_a",
-                )
-
-            country_b_options = [country for country in compare_options if country != country_a]
-            if st.session_state.get("cfr_compare_b") not in country_b_options:
-                st.session_state["cfr_compare_b"] = country_b_options[0]
-
-            with compare_vs_col:
-                st.markdown(
-                    '<div style="height:67px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:11px;font-size:10px;font-weight:950;color:#667085;">VS</div>',
-                    unsafe_allow_html=True,
-                )
-            with compare_b_col:
-                country_b = st.selectbox(
-                    "Country B",
-                    country_b_options,
-                    index=country_b_options.index(st.session_state.get("cfr_compare_b", country_b_options[0])),
-                    key="cfr_compare_b",
-                )
-
-            row_a = filtered.loc[filtered["Country"].eq(country_a)].iloc[0]
-            row_b = filtered.loc[filtered["Country"].eq(country_b)].iloc[0]
-            score_a, score_b = float(row_a["Overall CFR"]), float(row_b["Overall CFR"])
-            delta = score_a - score_b
-
-            rank_a = int(valid.loc[valid["Country"].eq(country_a), "Rank"].iloc[0])
-            rank_b = int(valid.loc[valid["Country"].eq(country_b), "Rank"].iloc[0])
-            principles_a = {
-                label: float(row_a[col])
-                for col, label in CFR_PRINCIPLES.items()
-                if pd.notna(row_a[col])
-            }
-            principles_b = {
-                label: float(row_b[col])
-                for col, label in CFR_PRINCIPLES.items()
-                if pd.notna(row_b[col])
-            }
-            strongest_a = max(principles_a, key=principles_a.get) if principles_a else "—"
-            strongest_b = max(principles_b, key=principles_b.get) if principles_b else "—"
-            leader = country_a if delta > 0 else country_b if delta < 0 else "Equal scores"
-
-            compare_metric_col, compare_chart_col = st.columns([0.82, 2.18], gap="small")
-            with compare_metric_col:
-                st.markdown(
-                    f"""
-                    <div class="cfr-profile-shell" style="min-height:342px;display:flex;flex-direction:column;justify-content:space-between;">
-                        <div>
-                            <div style="font-size:10px;font-weight:900;color:#667085;text-transform:uppercase;letter-spacing:.08em;">Comparison summary</div>
-                            <div style="margin-top:12px;padding:11px 12px;border:1px solid #EEE8F3;border-radius:12px;background:#FBF8FD;">
-                                <div style="font-size:10px;font-weight:900;color:#660094;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_a}</div>
-                                <div style="font-size:25px;font-weight:950;color:#660094;margin-top:3px;">{score_a:.2f}<span style="font-size:12px;color:#667085;font-weight:750;"> / 7</span></div>
-                                <div style="font-size:10px;color:#667085;font-weight:750;margin-top:2px;">Rank {rank_a} of {len(valid)}</div>
-                            </div>
-                            <div style="margin-top:8px;padding:11px 12px;border:1px solid #E2F0F3;border-radius:12px;background:#F6FBFC;">
-                                <div style="font-size:10px;font-weight:900;color:#008CAA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{country_b}</div>
-                                <div style="font-size:25px;font-weight:950;color:#008CAA;margin-top:3px;">{score_b:.2f}<span style="font-size:12px;color:#667085;font-weight:750;"> / 7</span></div>
-                                <div style="font-size:10px;color:#667085;font-weight:750;margin-top:2px;">Rank {rank_b} of {len(valid)}</div>
-                            </div>
-                        </div>
-                        <div style="margin-top:14px;">
-                            <div class="cfr-score-row"><span>Score difference</span><strong>{abs(delta):.2f}</strong></div>
-                            <div class="cfr-score-row"><span>Higher overall score</span><strong>{leader}</strong></div>
-                            <div class="cfr-score-row"><span>{country_a} strongest</span><strong>{strongest_a}</strong></div>
-                            <div class="cfr-score-row"><span>{country_b} strongest</span><strong>{strongest_b}</strong></div>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            compare_fig = go.Figure()
-            labels = list(CFR_PRINCIPLES.values())
-            for country, comp_row, color, fill in [
-                (country_a, row_a, CFR_PURPLE, "rgba(102,0,148,.12)"),
-                (country_b, row_b, CFR_TEAL, "rgba(0,140,170,.10)"),
-            ]:
-                vals = [float(comp_row[col]) if pd.notna(comp_row[col]) else 0 for col in CFR_PRINCIPLES]
-                compare_fig.add_trace(go.Scatterpolar(
-                    r=vals + vals[:1],
-                    theta=labels + labels[:1],
-                    fill="toself",
-                    name=country,
-                    line=dict(color=color, width=2.2),
-                    fillcolor=fill,
-                    marker=dict(size=4),
-                    hovertemplate=f"%{{theta}}<br><b>%{{r:.2f}}</b> / 7<extra>{country}</extra>",
-                ))
-            compare_fig.update_layout(
-                polar=dict(
-                    bgcolor="#FFFFFF",
-                    radialaxis=dict(visible=True, range=[0, 7], dtick=1, gridcolor="#E6E8EF", tickfont=dict(size=8)),
-                    angularaxis=dict(gridcolor="#EEF0F4", tickfont=dict(size=9)),
-                ),
-                legend=dict(orientation="h", y=1.08, x=.5, xanchor="center", font=dict(size=10)),
-            )
-            compare_fig = _style_cfr_figure(
-                compare_fig,
-                "Principle comparison",
-                height=390,
-                legend=True,
-                margin=dict(l=42, r=42, t=70, b=20),
-            )
-            with compare_chart_col:
-                render_dashboard_plotly_chart(
-                    compare_fig,
-                    key="cfr_compare_radar",
-                    container=compare_chart_col,
-                    config={"displayModeBar": False},
-                )
-
-    # ------------------------------------------------------------------
-    # ROW 2: paginated heatmap, fixed-band distribution, principle averages
-    # ------------------------------------------------------------------
-    heat_col, dist_col, avg_col = st.columns([1.3, 1, 1], gap="small")
-
-    with heat_col:
-        st.markdown('<div class="cfr-section-heading">CFR heatmap by principle</div>', unsafe_allow_html=True)
-
-        # Keep pagination state stable when filters or page-size selections change.
-        heat_page_size = st.session_state.get("cfr_heat_page_size", 10)
-        if heat_page_size not in [10, 15, 20]:
-            heat_page_size = 10
-        heat_pages = max(1, math.ceil(len(filtered) / heat_page_size))
-        current_heat_page = int(st.session_state.get("cfr_heat_current_page", 1))
-        current_heat_page = max(1, min(current_heat_page, heat_pages))
-        st.session_state["cfr_heat_current_page"] = current_heat_page
-
-        heat_start = (current_heat_page - 1) * heat_page_size
-        heat_slice = filtered.iloc[heat_start:heat_start + heat_page_size]
-        heat = heat_slice.set_index("Country")[list(CFR_PRINCIPLES)].rename(columns=CFR_PRINCIPLES)
-
-        heat_fig = px.imshow(
-            heat,
-            text_auto=".1f",
-            aspect="auto",
-            zmin=1,
-            zmax=7,
-            color_continuous_scale=[
-                [0.00, "#F04438"],
-                [0.24, "#F79009"],
-                [0.48, "#FEC84B"],
-                [0.72, "#75C5AE"],
-                [1.00, "#218C5A"],
-            ],
-            labels=dict(color="CFR score"),
+    # --------------------------------------------------------
+    # RIGHT: REGIONAL TABLE
+    # --------------------------------------------------------
+    with region_column:
+        regional_scores = (
+            cfr.groupby(
+                "region",
+                dropna=False,
+            )[principle_columns]
+            .mean()
+            .reset_index()
         )
-        heat_fig.update_traces(
-            hovertemplate="<b>%{y}</b><br>%{x}: <b>%{z:.2f}</b> / 7<extra></extra>",
-            xgap=1.5,
-            ygap=1.5,
+
+        regional_scores["region"] = (
+            regional_scores["region"]
+            .fillna("Unknown")
+            .astype(str)
         )
-        heat_fig.update_xaxes(title="", side="top", tickangle=-20, tickfont=dict(size=9))
-        heat_fig.update_yaxes(title="", tickfont=dict(size=10), autorange="reversed")
-        heat_fig.update_coloraxes(
-            colorbar=dict(
-                title="Score",
-                tickvals=[1, 2, 3, 4, 5, 6, 7],
-                thickness=10,
-                len=.82,
-                outlinewidth=0,
+
+        regional_scores["_region_order"] = (
+            regional_scores["region"]
+            .apply(
+                lambda region: (
+                    CFR_REGION_ORDER.index(region)
+                    if region in CFR_REGION_ORDER
+                    else len(CFR_REGION_ORDER)
+                )
             )
         )
-        heat_height = max(330, min(500, 155 + len(heat_slice) * 29))
-        heat_fig = _style_cfr_figure(heat_fig, "", height=heat_height, margin=dict(l=20, r=12, t=62, b=20))
-        render_dashboard_plotly_chart(heat_fig, key="cfr_heatmap", container=heat_col, config={"displayModeBar": False})
 
-        # Advanced pagination is intentionally positioned below the heatmap.
-        p_prev, p_page, p_size, p_next = st.columns([.72, 1.35, 1.15, .72], gap="small")
-        with p_prev:
-            if st.button(
-                "← Previous",
-                key="cfr_heat_prev",
-                use_container_width=True,
-                disabled=current_heat_page <= 1,
-            ):
-                st.session_state["cfr_heat_current_page"] = current_heat_page - 1
-                st.rerun()
-        with p_page:
-            selected_heat_page = st.selectbox(
-                "Page",
-                list(range(1, heat_pages + 1)),
-                index=current_heat_page - 1,
-                format_func=lambda x: f"Page {x} of {heat_pages}",
-                key="cfr_heat_page_selector",
-                label_visibility="collapsed",
+        regional_scores = (
+            regional_scores.sort_values(
+                ["_region_order", "region"],
+                ascending=[True, True],
             )
-            if selected_heat_page != current_heat_page:
-                st.session_state["cfr_heat_current_page"] = selected_heat_page
-                st.rerun()
-        with p_size:
-            selected_page_size = st.selectbox(
-                "Countries per page",
-                [10, 15, 20],
-                index=[10, 15, 20].index(heat_page_size),
-                key="cfr_heat_page_size_selector",
-                format_func=lambda x: f"{x} countries",
-                label_visibility="collapsed",
-            )
-            if selected_page_size != heat_page_size:
-                st.session_state["cfr_heat_page_size"] = selected_page_size
-                st.session_state["cfr_heat_current_page"] = 1
-                st.rerun()
-        with p_next:
-            if st.button(
-                "Next →",
-                key="cfr_heat_next",
-                use_container_width=True,
-                disabled=current_heat_page >= heat_pages,
-            ):
-                st.session_state["cfr_heat_current_page"] = current_heat_page + 1
-                st.rerun()
-
-        st.caption(
-            f"Showing countries {heat_start + 1}–{min(heat_start + heat_page_size, len(filtered))} "
-            f"of {len(filtered)}, ordered by overall CFR rank."
+            .drop(columns=["_region_order"])
+            .reset_index(drop=True)
         )
 
-    with dist_col:
-        st.markdown('<div class="cfr-section-heading">Overall CFR distribution</div>', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class="cfr-panel">
+                <div class="cfr-panel-title">
+                    Regional score patterns
+                </div>
+                <div class="cfr-panel-note">
+                    Average score by principle and region.
+                </div>
+                {_build_regional_table_html(regional_scores)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        bins = [1, 2, 3, 4, 5, 6, 7.0001]
-        labels_band = ["1–2", "2–3", "3–4", "4–5", "5–6", "6–7"]
-        centers = [1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
-        band_series = pd.cut(
-            filtered["Overall CFR"],
-            bins=bins,
-            labels=labels_band,
-            right=False,
-            include_lowest=True,
-        )
-        dist_df = (
-            band_series.value_counts(sort=False)
-            .reindex(labels_band, fill_value=0)
-            .rename_axis("Score range")
-            .reset_index(name="Countries")
-        )
-        dist_df["Share"] = np.where(
-            len(filtered) > 0,
-            dist_df["Countries"] / len(filtered) * 100,
-            0,
-        )
-        dist_df["Centre"] = centers
+    # --------------------------------------------------------
+    # BOTTOM: COUNTRY TABLE
+    # --------------------------------------------------------
+    country_table = cfr[
+        [
+            "Country",
+            *principle_columns,
+            "Last Modified",
+        ]
+    ].copy()
 
-        dist_colors = ["#D92D20", "#F97066", "#F79009", "#FEC84B", "#75C5AE", "#218C5A"]
-        dist_fig = go.Figure()
-        dist_fig.add_trace(go.Bar(
-            x=dist_df["Centre"],
-            y=dist_df["Countries"],
-            width=.84,
-            marker=dict(color=dist_colors, line=dict(color="#FFFFFF", width=1.3)),
-            customdata=np.column_stack([dist_df["Score range"], dist_df["Share"]]),
-            text=[f"{int(n)}<br><span style='font-size:9px'>{p:.0f}%</span>" for n, p in zip(dist_df["Countries"], dist_df["Share"])],
-            textposition="outside",
-            cliponaxis=False,
-            hovertemplate=(
-                "<b>CFR %{customdata[0]}</b><br>"
-                "Countries: %{y}<br>"
-                "Share: %{customdata[1]:.1f}%<extra></extra>"
-            ),
-        ))
+    country_table = country_table.sort_values(
+        "Country",
+        ascending=True,
+    ).reset_index(drop=True)
 
-        mean_score = float(filtered["Overall CFR"].mean())
-        dist_fig.add_vline(
-            x=mean_score,
-            line_width=1.6,
-            line_dash="dot",
-            line_color=CFR_PURPLE,
-            annotation_text=f"Mean {mean_score:.2f}",
-            annotation_position="top",
-            annotation_font=dict(size=10, color=CFR_PURPLE),
-        )
-        dist_fig.update_xaxes(
-            title="Overall CFR score",
-            range=[1, 7],
-            tickmode="array",
-            tickvals=centers,
-            ticktext=labels_band,
-            showgrid=False,
-        )
-        dist_fig.update_yaxes(
-            title="Number of countries",
-            rangemode="tozero",
-            dtick=1,
-            gridcolor="#EEF0F4",
-        )
-        dist_fig.update_layout(
-            bargap=.12,
-            hovermode="x unified",
-        )
-        dist_fig = _style_cfr_figure(
-            dist_fig,
-            "",
-            height=410,
-            margin=dict(l=48, r=18, t=48, b=58),
-        )
-        render_dashboard_plotly_chart(
-            dist_fig,
-            key="cfr_distribution",
-            container=dist_col,
-            config={"displayModeBar": False},
-        )
-        st.caption("Fixed one-point CFR bands show both country counts and percentage share; the dotted line marks the filtered mean.")
-
-    with avg_col:
-        st.markdown('<div class="cfr-section-heading">Average score by principle</div>', unsafe_allow_html=True)
-        averages = pd.DataFrame({
-            "Principle": list(CFR_PRINCIPLES.values()),
-            "Average score": [filtered[col].mean() for col in CFR_PRINCIPLES],
-        }).sort_values("Average score", ascending=True)
-        max_principle_average = float(averages["Average score"].max()) if not averages.empty else 0.0
-        # Use a compact data-driven upper bound rather than always showing the full
-        # seven-point scale. A small headroom preserves outside value labels.
-        dynamic_x_max = min(7.0, max(1.0, math.ceil((max_principle_average + 0.35) * 2) / 2))
-        dynamic_dtick = 0.5 if dynamic_x_max <= 4.0 else 1.0
-
-        avg_fig = px.bar(
-            averages,
-            x="Average score",
-            y="Principle",
-            orientation="h",
-            text=averages["Average score"].map(lambda x: f"{x:.2f}"),
-            range_x=[0, dynamic_x_max],
-        )
-        avg_fig.update_traces(
-            marker_color=CFR_PURPLE,
-            textposition="outside",
-            cliponaxis=False,
-            hovertemplate="<b>%{y}</b><br>Average: %{x:.2f} / 7<extra></extra>",
-        )
-        avg_fig.update_xaxes(
-            title="Average CFR score",
-            range=[0, dynamic_x_max],
-            dtick=dynamic_dtick,
-        )
-        avg_fig.update_yaxes(title="", tickfont=dict(size=9))
-        avg_fig = _style_cfr_figure(avg_fig, "", height=410, margin=dict(l=15, r=45, t=35, b=55))
-        render_dashboard_plotly_chart(avg_fig, key="cfr_principle_average", container=avg_col, config={"displayModeBar": False})
-
-    st.markdown('<div class="cfr-section-heading">CFR country detail</div>', unsafe_allow_html=True)
-    detail = filtered[["Country", "Overall CFR", *CFR_PRINCIPLES.keys(), "Last Modified", "Permalink"]].copy().rename(columns=CFR_PRINCIPLES)
-    detail["Overall CFR"] = detail["Overall CFR"].round(2)
-    for col in CFR_PRINCIPLES.values():
-        detail[col] = detail[col].round(2)
-    detail["Last Modified"] = detail["Last Modified"].dt.strftime("%d %b %Y")
-    st.dataframe(
-        detail,
-        use_container_width=True,
-        hide_index=True,
-        height=390,
-        column_config={"Permalink": st.column_config.LinkColumn("Full report", display_text="Open report")},
-        key="cfr_country_detail_table",
+    st.markdown(
+        f"""
+        <div class="cfr-panel cfr-country-table-panel">
+            <div class="cfr-panel-title">
+                CFR scores per country
+            </div>
+            <div class="cfr-panel-note">
+                Country-level scores across the six enabling environment
+                principles.
+            </div>
+            {_build_country_table_html(country_table)}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
