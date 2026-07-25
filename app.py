@@ -3099,13 +3099,28 @@ def _inject_cfr_dashboard_css():
             overflow: visible !important;
         }
 
-        table.cfr-region-table {
-            width: 100% !important;
-            min-width: 0 !important;
-            table-layout: fixed !important;
-            border-collapse: collapse !important;
-            border-spacing: 0 !important;
-            font-size: 11px !important;
+        table.cfr-region-table{
+            width:100%;
+            table-layout:fixed;
+            border-collapse:collapse;
+            border:1px solid #DDE4EE !important;
+            border-radius:12px;
+            overflow:hidden;
+        }
+
+        table.cfr-region-table th,
+        table.cfr-region-table td{
+            border-right:1px solid #DDE4EE !important;
+            border-bottom:1px solid #DDE4EE !important;
+        }
+
+        table.cfr-region-table tr:last-child td{
+            border-bottom:1px solid #DDE4EE !important;
+        }
+
+        table.cfr-region-table th:last-child,
+        table.cfr-region-table td:last-child{
+            border-right:1px solid #DDE4EE !important;
         }
 
         table.cfr-region-table thead th {
