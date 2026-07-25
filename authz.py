@@ -23,6 +23,7 @@ FEATURE_REGISTRY = {
     "view_monitored_countries_value": ("Core access", "Monitored Countries value"),
     "view_maps": ("Core access", "Visualization Map"),
     "view_negative_alerts": ("Core access", "Negative Alerts tab"),
+    "view_negative_alert_filters": ("Administration", "Negative Alerts filter panel"),
     "view_analytical_flow_panel": ("Core access", "Analytical Flow Panels"),
     "view_data_table": ("Core access", "Summary data preview"),
     "download_data": ("Core access", "CSV/XLSX downloads"),
@@ -82,6 +83,7 @@ ROLE_PRESETS = {
 # Admin users still have full access because has_permission() returns True for is_admin().
 ADMIN_ONLY_FEATURES = {
     "view_admin_page",
+    "view_negative_alert_filters",
     "view_maps",
     "view_chart_geospatial_map",
 }
