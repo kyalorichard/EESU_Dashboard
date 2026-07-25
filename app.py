@@ -2905,14 +2905,14 @@ def _inject_cfr_dashboard_css():
         div[data-testid="stVerticalBlockBorderWrapper"]:has(
             .cfr-chart-panel-marker
         ) {
-            min-height: 430px !important;
+            min-height: 470px !important;
             height: auto !important;
             padding: 14px 18px 14px 18px !important;
             overflow: visible !important;
         }
 
         .cfr-top-panel-height {
-            min-height: 430px !important;
+            min-height: 470px !important;
             height: auto !important;
             padding: 14px 18px 14px 18px !important;
             overflow: visible !important;
@@ -3209,7 +3209,7 @@ def _inject_cfr_dashboard_css():
 
         .cfr-region-scroll {
             width: 100%;
-            max-height: 430px;
+            max-height: 470px;
             overflow-x: hidden !important;
             overflow-y: auto;
         }
@@ -7257,7 +7257,7 @@ def inject_full_tab_responsive_css():
     }
 
     /* ---------- Very small phones ---------- */
-    @media (max-width: 430px) {
+    @media (max-width: 470px) {
         .main .block-container {
             padding-left: 0.7rem !important;
             padding-right: 0.7rem !important;
@@ -7403,7 +7403,7 @@ def inject_compact_tabs_and_legend_ux():
     @media (max-width: 640px) {
         .eusee-kpi-card { height: 190px !important; min-height: 190px !important; }
     }
-    @media (max-width: 430px) {
+    @media (max-width: 470px) {
         .eusee-kpi-card { height: 210px !important; min-height: 210px !important; }
     }
     </style>
