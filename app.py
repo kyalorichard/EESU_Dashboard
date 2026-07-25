@@ -10534,13 +10534,6 @@ def _render_eusee_ai_copilot_body():
 
     load_user_chat_history()
 
-    history_count = len(st.session_state.get("eusee_chat_messages", []))
-    st.caption(f"Chat history: {history_count} saved message(s) for this user.")
-
-    if st.button("Clear Chat Memory", use_container_width=True, key="eusee_ai_clear_chat_memory"):
-        clear_user_chat_history()
-        st.rerun()
-
     for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
         if not isinstance(msg, dict):
             continue
@@ -10598,6 +10591,22 @@ def _render_eusee_ai_copilot_body():
         append_user_chat_message("assistant", answer)
 
         st.rerun()
+
+    # Keep memory controls away from the primary chat workflow.
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    with st.expander("⚙️ Chat settings", expanded=False):
+        st.caption(
+            "Conversation history is saved automatically for the signed-in account. "
+            "Clearing it cannot be undone."
+        )
+        if st.button(
+            "Clear conversation history",
+            use_container_width=True,
+            key="eusee_ai_clear_chat_memory",
+            type="secondary",
+        ):
+            clear_user_chat_history()
+            st.rerun()
 
 
 def render_eusee_ai_copilot_popover():
