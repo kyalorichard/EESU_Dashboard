@@ -3612,8 +3612,7 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-icon">🌐</div>'
         '<div class="cfr-kpi-content">'
         '<div class="cfr-kpi-title">Monitored countries</div>'
-        f'<div class="cfr-kpi-value">+{country_count:,}</div>'
-        '<div class="cfr-kpi-note">Countries with CFR records</div>'
+        f'<div class="cfr-kpi-value">+80</div>'
         '</div>'
         '</div>'
 
@@ -3622,7 +3621,6 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-content">'
         '<div class="cfr-kpi-title">Monitored principles</div>'
         '<div class="cfr-kpi-value">6</div>'
-        '<div class="cfr-kpi-note">EU SEE enabling principles</div>'
         '</div>'
         '</div>'
 
@@ -4186,7 +4184,7 @@ if has_permission("view_maps"):
 # CFR Analysis follows the same dashboard-access permission as Overview so the
 # existing authz/admin files do not need to change for this update.
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("cfr", "📈 CFR Analysis"))
+    _dashboard_tab_specs.append(("cfr", "📈 CFR Score"))
 
 if has_permission("view_user_manual"):
     _dashboard_tab_specs.append(("manual", "📘 User Manual"))
