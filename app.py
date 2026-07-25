@@ -2837,6 +2837,22 @@ def _inject_cfr_dashboard_css():
             padding-bottom: 4px;
         }
 
+        /* Keep both upper CFR panels the same height. */
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            min-height: 470px;
+            height: 470px;
+            overflow: hidden;
+        }
+
+        .cfr-top-panel-height {
+            min-height: 470px;
+            height: 470px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
         .cfr-chart-panel-selector-label {
             margin-bottom: 4px;
             color: #101B57;
@@ -2897,11 +2913,54 @@ def _inject_cfr_dashboard_css():
         }
 
         .cfr-region-scroll {
+            width: 100%;
             max-height: 430px;
+            overflow-x: hidden !important;
+            overflow-y: auto;
+        }
+
+        table.cfr-region-table {
+            width: 100% !important;
+            min-width: 0 !important;
+            table-layout: fixed !important;
+        }
+
+        table.cfr-region-table th,
+        table.cfr-region-table td {
+            padding: 9px 5px !important;
+            font-size: 10.5px !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        table.cfr-region-table th:first-child,
+        table.cfr-region-table td:first-child {
+            width: 42%;
+            padding-left: 9px !important;
+            padding-right: 7px !important;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            text-overflow: clip;
+        }
+
+        table.cfr-region-table th:not(:first-child),
+        table.cfr-region-table td:not(:first-child) {
+            width: 9.66%;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        table.cfr-region-table .cfr-principle-head {
+            min-width: 0;
+            width: 27px;
+            height: 24px;
+            padding: 0 !important;
+            border-radius: 6px;
+            font-size: 9.5px;
         }
 
         .cfr-country-scroll {
-            max-height: 560px;
+            max-height: 485px;
         }
 
         table.cfr-table {
@@ -2956,6 +3015,12 @@ def _inject_cfr_dashboard_css():
         table.cfr-country-table th.cfr-left,
         table.cfr-country-table td.cfr-left {
             width: 25%;
+        }
+
+        table.cfr-country-table th,
+        table.cfr-country-table td {
+            padding-top: 8px;
+            padding-bottom: 8px;
         }
 
         table.cfr-table tbody tr {
@@ -3107,6 +3172,7 @@ def _principle_header_html(principle):
 
 
 def _build_regional_table_html(regional_scores):
+    """Build a compact regional table that fits its panel without scrolling."""
     if regional_scores is None or regional_scores.empty:
         return (
             '<div class="cfr-empty">'
@@ -3130,26 +3196,24 @@ def _build_regional_table_html(regional_scores):
         cells = [
             f'<td class="cfr-left">{_safe_text(row["region"])}</td>'
         ]
-
         cells.extend(
             f"<td>{_format_score(row[principle])}</td>"
             for principle in principle_columns
         )
-
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-    return f"""
-        <div class="cfr-table-scroll cfr-region-scroll">
-            <table class="cfr-table cfr-region-table">
-                <thead>
-                    <tr>{''.join(header_cells)}</tr>
-                </thead>
-                <tbody>
-                    {''.join(body_rows)}
-                </tbody>
-            </table>
-        </div>
-    """
+    return (
+        '<div class="cfr-table-scroll cfr-region-scroll">'
+        '<table class="cfr-table cfr-region-table">'
+        '<thead><tr>'
+        + "".join(header_cells)
+        + '</tr></thead>'
+        '<tbody>'
+        + "".join(body_rows)
+        + '</tbody>'
+        '</table>'
+        '</div>'
+    )
 
 
 def _normalise_cfr_permalink(value):
@@ -3302,41 +3366,39 @@ def _render_cfr_kpis(country_count):
 # ------------------------------------------------------------
 def _build_aggregated_cfr_figure(chart_data):
     """
-    Build the single graph used in the CFR tab.
+    Build a compact horizontal CFR score chart.
 
-    Each principle is represented by:
-    - a light 1–5 background line;
-    - a coloured line from 1 to the mean score;
-    - a coloured mean-score marker.
+    The principle names are rendered as aligned y-axis labels, while the
+    original principle colours remain on the score lines and markers.
     """
     principle_columns = list(CFR_PRINCIPLES.values())
 
     averages = {
-        principle: float(chart_data[principle].mean())
-        if chart_data[principle].notna().any()
-        else np.nan
+        principle: (
+            float(chart_data[principle].mean())
+            if chart_data[principle].notna().any()
+            else np.nan
+        )
         for principle in principle_columns
     }
 
-    # Reverse display order so P1 appears at the top.
+    # Plotly displays the final category at the top, so reverse the data.
     display_principles = list(reversed(principle_columns))
+    y_positions = list(range(len(display_principles)))
 
     figure = go.Figure()
 
-    for y_position, principle in enumerate(display_principles):
+    for y_position, principle in zip(y_positions, display_principles):
         score = averages[principle]
         colour = CFR_PRINCIPLE_COLOURS[principle]
 
-        # Full scale.
+        # Neutral full scoring scale.
         figure.add_trace(
             go.Scatter(
                 x=[CFR_SCORE_MIN, CFR_SCORE_MAX],
                 y=[y_position, y_position],
                 mode="lines",
-                line=dict(
-                    color="#E3E5E8",
-                    width=5,
-                ),
+                line=dict(color="#E5E7EB", width=7),
                 hoverinfo="skip",
                 showlegend=False,
             )
@@ -3344,38 +3406,32 @@ def _build_aggregated_cfr_figure(chart_data):
 
         if pd.notna(score):
             clipped_score = min(
-                max(score, CFR_SCORE_MIN),
+                max(float(score), CFR_SCORE_MIN),
                 CFR_SCORE_MAX,
             )
 
-            # Coloured section from 1 to the average.
+            # Coloured achieved score.
             figure.add_trace(
                 go.Scatter(
                     x=[CFR_SCORE_MIN, clipped_score],
                     y=[y_position, y_position],
                     mode="lines",
-                    line=dict(
-                        color=colour,
-                        width=5,
-                    ),
+                    line=dict(color=colour, width=7),
                     hoverinfo="skip",
                     showlegend=False,
                 )
             )
 
-            # Mean marker.
+            # Score marker.
             figure.add_trace(
                 go.Scatter(
                     x=[clipped_score],
                     y=[y_position],
                     mode="markers",
                     marker=dict(
-                        size=13,
+                        size=15,
                         color=colour,
-                        line=dict(
-                            color="#FFFFFF",
-                            width=2,
-                        ),
+                        line=dict(color="#FFFFFF", width=2),
                     ),
                     customdata=[[
                         principle,
@@ -3383,69 +3439,39 @@ def _build_aggregated_cfr_figure(chart_data):
                         score,
                     ]],
                     hovertemplate=(
-                        "<b>%{customdata[0]} — "
-                        "%{customdata[1]}</b><br>"
-                        "Mean score: %{customdata[2]:.2f}"
+                        "<b>%{customdata[0]} — %{customdata[1]}</b><br>"
+                        "Score: %{customdata[2]:.2f}"
                         "<extra></extra>"
                     ),
                     showlegend=False,
                 )
             )
 
-            # Score shown on the right.
             figure.add_annotation(
-                x=5.32,
+                x=5.18,
                 y=y_position,
                 text=f"<b>{score:.1f}</b>",
                 showarrow=False,
                 xanchor="left",
+                yanchor="middle",
                 font=dict(
                     family=PLOTLY_FONT_FAMILY,
-                    size=14,
+                    size=13,
                     color="#4020DD",
                 ),
             )
 
-        # P-code badge.
-        figure.add_annotation(
-            x=0.76,
-            y=y_position,
-            text=f"<b>{principle}</b>",
-            showarrow=False,
-            xanchor="right",
-            bgcolor=colour,
-            bordercolor=colour,
-            borderpad=4,
-            font=dict(
-                family=PLOTLY_FONT_FAMILY,
-                size=10,
-                color="#FFFFFF",
-            ),
+    tick_labels = [
+        (
+            f"<b>{principle}</b>  "
+            f"{CFR_PRINCIPLE_NAMES[principle]}"
         )
-
-        # Principle name.
-        figure.add_annotation(
-            x=0.84,
-            y=y_position,
-            text=f"<b>{CFR_PRINCIPLE_NAMES[principle]}</b>",
-            showarrow=False,
-            xanchor="right",
-            xshift=-16,
-            font=dict(
-                family=PLOTLY_FONT_FAMILY,
-                size=10,
-                color=CFR_TEXT,
-            ),
-        )
+        for principle in display_principles
+    ]
 
     figure.update_layout(
-        height=355,
-        margin=dict(
-            l=248,
-            r=52,
-            t=48,
-            b=30,
-        ),
+        height=390,
+        margin=dict(l=205, r=44, t=54, b=34),
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
         font=dict(
@@ -3463,7 +3489,7 @@ def _build_aggregated_cfr_figure(chart_data):
         ),
         showlegend=False,
         xaxis=dict(
-            range=[0.70, 5.52],
+            range=[0.92, 5.42],
             tickmode="array",
             tickvals=[1, 2, 3, 4, 5],
             ticktext=["1", "2", "3", "4", "5"],
@@ -3472,20 +3498,20 @@ def _build_aggregated_cfr_figure(chart_data):
             showgrid=False,
             zeroline=False,
             showline=False,
-            tickfont=dict(
-                size=10,
-                color=CFR_TEXT,
-            ),
+            tickfont=dict(size=10, color=CFR_TEXT),
             fixedrange=True,
         ),
         yaxis=dict(
-            range=[-0.65, 5.65],
+            range=[-0.55, len(display_principles) - 0.45],
             tickmode="array",
-            tickvals=list(range(6)),
-            ticktext=[""] * 6,
+            tickvals=y_positions,
+            ticktext=tick_labels,
+            tickfont=dict(size=10.5, color=CFR_TEXT),
+            ticks="",
             showgrid=False,
             zeroline=False,
             showline=False,
+            automargin=True,
             fixedrange=True,
         ),
     )
@@ -3501,7 +3527,7 @@ def _build_aggregated_cfr_figure(chart_data):
         font=dict(
             family=PLOTLY_FONT_FAMILY,
             size=10,
-            color=CFR_TEXT,
+            color=CFR_MUTED,
         ),
     )
 
@@ -3516,22 +3542,22 @@ def _build_aggregated_cfr_figure(chart_data):
         font=dict(
             family=PLOTLY_FONT_FAMILY,
             size=10,
-            color=CFR_TEXT,
+            color=CFR_MUTED,
         ),
     )
 
     figure.add_annotation(
-        x=5.32,
+        x=5.18,
         y=1.12,
         xref="x",
         yref="paper",
-        text="<b>Mean score</b>",
+        text="<b>Score</b>",
         showarrow=False,
         xanchor="left",
         font=dict(
             family=PLOTLY_FONT_FAMILY,
             size=10,
-            color=CFR_TEXT,
+            color=CFR_MUTED,
         ),
     )
 
@@ -3614,7 +3640,7 @@ def render_cfr_analysis():
     _render_cfr_kpis(country_count)
 
     chart_column, region_column = st.columns(
-        [1.08, 0.92],
+        [1.12, 1.00],
         gap="medium",
     )
 
@@ -3732,18 +3758,20 @@ def render_cfr_analysis():
             .reset_index(drop=True)
         )
 
+        regional_panel_html = (
+            '<div class="cfr-panel cfr-top-panel-height">'
+            '<div class="cfr-panel-title">'
+            'Regional score patterns'
+            '</div>'
+            '<div class="cfr-panel-note">'
+            'Average score by principle and region.'
+            '</div>'
+            + _build_regional_table_html(regional_scores)
+            + '</div>'
+        )
+
         st.markdown(
-            f"""
-            <div class="cfr-panel">
-                <div class="cfr-panel-title">
-                    Regional score patterns
-                </div>
-                <div class="cfr-panel-note">
-                    Average score by principle and region.
-                </div>
-                {_build_regional_table_html(regional_scores)}
-            </div>
-            """,
+            regional_panel_html,
             unsafe_allow_html=True,
         )
 
