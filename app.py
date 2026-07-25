@@ -2842,13 +2842,13 @@ def _inject_cfr_dashboard_css():
             .cfr-chart-panel-marker
         ) {
             min-height: 470px;
-            height: 570px;
+            height: 470px;
             overflow: hidden;
         }
 
         .cfr-top-panel-height {
             min-height: 470px;
-            height: 570px;
+            height: 470px;
             box-sizing: border-box;
             overflow: hidden;
         }
@@ -2905,17 +2905,17 @@ def _inject_cfr_dashboard_css():
         div[data-testid="stVerticalBlockBorderWrapper"]:has(
             .cfr-chart-panel-marker
         ) {
-            min-height: 386px !important;
-            height: 386px !important;
-            padding: 14px 18px 12px 18px !important;
-            overflow: hidden !important;
+            min-height: 430px !important;
+            height: auto !important;
+            padding: 14px 18px 14px 18px !important;
+            overflow: visible !important;
         }
 
         .cfr-top-panel-height {
-            min-height: 386px !important;
-            height: 386px !important;
-            padding: 14px 18px 12px 18px !important;
-            overflow: hidden !important;
+            min-height: 430px !important;
+            height: auto !important;
+            padding: 14px 18px 14px 18px !important;
+            overflow: visible !important;
         }
 
         .cfr-panel-title {
@@ -3091,11 +3091,12 @@ def _inject_cfr_dashboard_css():
 
         /* Reference-matched regional matrix. */
         .cfr-region-scroll {
-            max-height: 300px !important;
+            width: 100%;
+            max-height: none !important;
             margin-top: 4px;
             border: 0 !important;
             border-radius: 0 !important;
-            overflow: hidden !important;
+            overflow: visible !important;
         }
 
         table.cfr-region-table {
@@ -3118,8 +3119,8 @@ def _inject_cfr_dashboard_css():
         }
 
         table.cfr-region-table tbody td {
-            height: 56px;
-            padding: 8px 8px !important;
+            height: 50px;
+            padding: 7px 8px !important;
             background: #FFFFFF;
             border-right: 1px solid #DDE4EE !important;
             border-bottom: 1px solid #DDE4EE !important;
@@ -3171,6 +3172,26 @@ def _inject_cfr_dashboard_css():
         table.cfr-region-table tbody tr:hover {
             background: transparent !important;
             box-shadow: none !important;
+        }
+
+        /* Stretch both upper-column wrappers to equal height. */
+        div[data-testid="stHorizontalBlock"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            align-items: stretch !important;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(
+            .cfr-chart-panel-marker
+        ) > div[data-testid="stColumn"] {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(
+            .cfr-chart-panel-marker
+        ) > div[data-testid="stColumn"] > div {
+            flex: 1 1 auto;
         }
 
         .cfr-country-table-panel {
@@ -3612,7 +3633,8 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-icon">🌐</div>'
         '<div class="cfr-kpi-content">'
         '<div class="cfr-kpi-title">Monitored countries</div>'
-        f'<div class="cfr-kpi-value">+80</div>'
+        f'<div class="cfr-kpi-value">+{country_count:,}</div>'
+        '<div class="cfr-kpi-note">Countries with CFR records</div>'
         '</div>'
         '</div>'
 
@@ -3621,6 +3643,7 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-content">'
         '<div class="cfr-kpi-title">Monitored principles</div>'
         '<div class="cfr-kpi-value">6</div>'
+        '<div class="cfr-kpi-note">EU SEE enabling principles</div>'
         '</div>'
         '</div>'
 
@@ -4184,7 +4207,7 @@ if has_permission("view_maps"):
 # CFR Analysis follows the same dashboard-access permission as Overview so the
 # existing authz/admin files do not need to change for this update.
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("cfr", "📈 CFR Score"))
+    _dashboard_tab_specs.append(("cfr", "📈 CFR Analysis"))
 
 if has_permission("view_user_manual"):
     _dashboard_tab_specs.append(("manual", "📘 User Manual"))
