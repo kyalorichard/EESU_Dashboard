@@ -8149,29 +8149,13 @@ if tab_negative is not None:
                 r2c1, r2c2, r2c3 = st.columns(3)
 
     
-                render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", normalize_labels=True), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
-                render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", normalize_labels=True), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
-                render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", normalize_labels=True), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
+                render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", horizontal=True, normalize_labels=True), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
+                render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", horizontal=True, normalize_labels=True), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
+                render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
                 render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
-          
-                fig23= (create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False))
-
-          
-                
-                # Render the chart in Streamlit with the info tooltip directly beside the title.
-                render_dashboard_plotly_chart(
-                    fig23,
-                    plot_df=m6,
-                    visual_type="bar chart",
-                    x_col="enabling-principle",
-                    group_col="alert-impact",
-                    dashboard_df=reactive_df_updated,
-                    key="tab2_chart6",
-                    container=r2c3,
-                    permission_key="view_chart_negative_enabling_principles",
-                    permission_label="Negative enabling-principle distribution",
-                )
+                render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
+             
 
               
                 # ---------------- ANALYTICAL FLOW PANEL ----------------
