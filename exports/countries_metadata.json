@@ -122,6 +122,7 @@
   "Paraguay": { "iso_alpha3": "PRY", "continent": "South America" },
   "Peru": { "iso_alpha3": "PER", "continent": "South America" },
   "Philippines": { "iso_alpha3": "PHL", "continent": "Asia" },
+  "Senegal": { "iso_alpha3": "SEN", "continent": "Africa" },
   "Sierra Leone": { "iso_alpha3": "SLE", "continent": "Africa" },
   "Somalia": { "iso_alpha3": "SOM", "continent": "Africa" },
   "South Africa": { "iso_alpha3": "ZAF", "continent": "Africa" },
