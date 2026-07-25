@@ -2713,11 +2713,12 @@ def _inject_cfr_dashboard_css():
         }
 
         .cfr-kpi-card {
-            min-height: 116px;
-            display: flex;
+            min-height: 118px;
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr);
             align-items: center;
-            gap: 18px;
-            padding: 17px 20px;
+            column-gap: 16px;
+            padding: 18px 20px;
             box-sizing: border-box;
             background: #FFFFFF;
             border: 1px solid #E1E5ED;
@@ -2725,10 +2726,18 @@ def _inject_cfr_dashboard_css():
             box-shadow: 0 5px 16px rgba(16, 24, 40, .035);
         }
 
+        .cfr-kpi-content {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            text-align: left;
+        }
+
         .cfr-kpi-icon {
             width: 56px;
             height: 56px;
-            flex: 0 0 56px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2748,16 +2757,18 @@ def _inject_cfr_dashboard_css():
         .cfr-kpi-title {
             color: #101B57;
             font-size: 13px;
-            line-height: 1.1;
+            line-height: 1.15;
             font-weight: 900;
+            white-space: normal;
         }
 
         .cfr-kpi-value {
-            margin-top: 6px;
+            margin-top: 7px;
             color: #4A20E8;
-            font-size: 28px;
+            font-size: 29px;
             line-height: 1;
             font-weight: 950;
+            font-variant-numeric: tabular-nums;
         }
 
         .cfr-kpi-note {
@@ -2817,7 +2828,7 @@ def _inject_cfr_dashboard_css():
 
         table.cfr-table {
             width: 100%;
-            min-width: 680px;
+            min-width: 760px;
             border-collapse: separate;
             border-spacing: 0;
             table-layout: fixed;
@@ -2896,6 +2907,48 @@ def _inject_cfr_dashboard_css():
 
         .cfr-date-cell {
             color: #344054;
+            white-space: nowrap;
+        }
+
+        .cfr-report-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 92px;
+            min-height: 31px;
+            padding: 0 12px;
+            box-sizing: border-box;
+            border: 1px solid #D8C6F0;
+            border-radius: 8px;
+            background: #F8F4FF;
+            color: #5B21B6 !important;
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif;
+            font-size: 10.5px;
+            line-height: 1;
+            font-weight: 900;
+            text-decoration: none !important;
+            white-space: nowrap;
+            transition:
+                background-color .15s ease,
+                border-color .15s ease,
+                transform .15s ease,
+                box-shadow .15s ease;
+        }
+
+        .cfr-report-link:hover {
+            background: #EEE6FF;
+            border-color: #9B7AE0;
+            box-shadow: 0 3px 8px rgba(91, 33, 182, .12);
+            transform: translateY(-1px);
+        }
+
+        .cfr-report-unavailable {
+            color: #98A2B3;
+            font-size: 10.5px;
+            font-weight: 700;
             white-space: nowrap;
         }
 
@@ -3021,6 +3074,24 @@ def _build_regional_table_html(regional_scores):
     """
 
 
+def _normalise_cfr_permalink(value):
+    """Return a safe absolute CFR report URL or an empty string."""
+    if value is None or pd.isna(value):
+        return ""
+
+    url = str(value).strip()
+
+    if not url or url.lower() in {"nan", "none", "null"}:
+        return ""
+
+    if url.startswith("/"):
+        url = f"https://eusee.hivos.org{url}"
+    elif not url.lower().startswith(("http://", "https://")):
+        url = f"https://{url}"
+
+    return html.escape(url, quote=True)
+
+
 def _build_country_table_html(country_scores):
     if country_scores is None or country_scores.empty:
         return (
@@ -3038,6 +3109,7 @@ def _build_country_table_html(country_scores):
             for principle in principle_columns
         ],
         "<th>Last modified</th>",
+        "<th>Report</th>",
     ]
 
     body_rows = []
@@ -3048,6 +3120,26 @@ def _build_country_table_html(country_scores):
             if pd.notna(row["Last Modified"])
             else "—"
         )
+
+        report_url = _normalise_cfr_permalink(
+            row.get("Permalink", "")
+        )
+
+        if report_url:
+            report_html = (
+                '<a class="cfr-report-link" '
+                f'href="{report_url}" '
+                'target="_blank" '
+                'rel="noopener noreferrer">'
+                'Open report ↗'
+                '</a>'
+            )
+        else:
+            report_html = (
+                '<span class="cfr-report-unavailable">'
+                'Not available'
+                '</span>'
+            )
 
         cells = [
             f'<td class="cfr-left">{_safe_text(row["Country"])}</td>'
@@ -3061,55 +3153,68 @@ def _build_country_table_html(country_scores):
         cells.append(
             f'<td class="cfr-date-cell">{_safe_text(last_modified)}</td>'
         )
+        cells.append(f"<td>{report_html}</td>")
 
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-    return f"""
-        <div class="cfr-table-scroll cfr-country-scroll">
-            <table class="cfr-table cfr-country-table">
-                <thead>
-                    <tr>{''.join(header_cells)}</tr>
-                </thead>
-                <tbody>
-                    {''.join(body_rows)}
-                </tbody>
-            </table>
-        </div>
-    """
+    return (
+        '<div class="cfr-table-scroll cfr-country-scroll">'
+        '<table class="cfr-table cfr-country-table">'
+        '<thead><tr>'
+        + "".join(header_cells)
+        + '</tr></thead>'
+        '<tbody>'
+        + "".join(body_rows)
+        + '</tbody>'
+        '</table>'
+        '</div>'
+    )
 
 
 def _render_cfr_kpis(country_count):
+    """
+    Render the three aligned CFR KPI cards.
+
+    HTML is assembled without leading indentation because indented HTML
+    can be interpreted by Markdown as a code block and displayed literally.
+    """
+    kpi_html = (
+        '<div class="cfr-kpi-grid">'
+
+        '<div class="cfr-kpi-card">'
+        '<div class="cfr-kpi-icon">🌐</div>'
+        '<div class="cfr-kpi-content">'
+        '<div class="cfr-kpi-title">Monitored countries</div>'
+        f'<div class="cfr-kpi-value">+{country_count:,}</div>'
+        '<div class="cfr-kpi-note">Countries with CFR records</div>'
+        '</div>'
+        '</div>'
+
+        '<div class="cfr-kpi-card">'
+        '<div class="cfr-kpi-icon">◎</div>'
+        '<div class="cfr-kpi-content">'
+        '<div class="cfr-kpi-title">Monitored principles</div>'
+        '<div class="cfr-kpi-value">6</div>'
+        '<div class="cfr-kpi-note">EU SEE enabling principles</div>'
+        '</div>'
+        '</div>'
+
+        '<div class="cfr-kpi-card">'
+        '<div class="cfr-kpi-icon">📏</div>'
+        '<div class="cfr-kpi-content">'
+        '<div class="cfr-kpi-title">Scoring scale</div>'
+        '<div class="cfr-kpi-value">1–5</div>'
+        '<div class="cfr-kpi-note">'
+        'Most restricted to most enabling'
+        '</div>'
+        '</div>'
+        '</div>'
+
+        '</div>'
+    )
+
     st.markdown(
-        f"""
-        <div class="cfr-kpi-grid">
-            <div class="cfr-kpi-card">
-                <div class="cfr-kpi-icon">🌐</div>
-                <div>
-                    <div class="cfr-kpi-title">Monitored countries</div>
-                    <div class="cfr-kpi-value">+{country_count:,}</div>
-                </div>
-            </div>
-
-            <div class="cfr-kpi-card">
-                <div class="cfr-kpi-icon">◎</div>
-                <div>
-                    <div class="cfr-kpi-title">Monitored principles</div>
-                    <div class="cfr-kpi-value">6</div>
-                </div>
-            </div>
-
-            <div class="cfr-kpi-card">
-                <div class="cfr-kpi-icon">📏</div>
-                <div>
-                    <div class="cfr-kpi-title">Scoring scale</div>
-                    <div class="cfr-kpi-value">1–5</div>
-                    <div class="cfr-kpi-note">
-                        Most restricted to most enabling
-                    </div>
-                </div>
-            </div>
-        </div>
-        """,
+        kpi_html,
         unsafe_allow_html=True,
     )
 
@@ -3551,6 +3656,7 @@ def render_cfr_analysis():
             "Country",
             *principle_columns,
             "Last Modified",
+            "Permalink",
         ]
     ].copy()
 
