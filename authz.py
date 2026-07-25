@@ -120,116 +120,6 @@ def get_privileged_domains() -> list[str]:
     return [x.lower().lstrip("@") for x in _as_list(_secrets_get("access", "privileged_domains", []))]
 
 
-def get_temporary_shared_account() -> dict[str, Any]:
-    """
-    Return the temporary shared-account configuration.
-
-    Add this to .streamlit/secrets.toml:
-
-    [temporary_shared_account]
-    enabled = true
-    email = "dashboard.access@eusee.global"
-    role = "privileged"
-    bypass_email_verification = true
-    """
-    role = str(
-        _secrets_get("temporary_shared_account", "role", "privileged")
-    ).strip().lower()
-
-    if role not in ROLES:
-        role = "privileged"
-
-    return {
-        "enabled": bool(
-            _secrets_get("temporary_shared_account", "enabled", False)
-        ),
-        "email": str(
-            _secrets_get("temporary_shared_account", "email", "")
-        ).strip().lower(),
-        "role": role,
-        "bypass_email_verification": bool(
-            _secrets_get(
-                "temporary_shared_account",
-                "bypass_email_verification",
-                True,
-            )
-        ),
-    }
-
-
-def is_temporary_shared_account(email: str | None = None) -> bool:
-    config = get_temporary_shared_account()
-    candidate = str(
-        email if email is not None else get_current_email()
-    ).strip().lower()
-
-    return bool(
-        config["enabled"]
-        and config["email"]
-        and candidate == config["email"]
-    )
-
-
-def bypass_email_verification(email: str | None = None) -> bool:
-    config = get_temporary_shared_account()
-    return bool(
-        is_temporary_shared_account(email)
-        and config["bypass_email_verification"]
-    )
-
-
-def is_approved_login_email(email: str) -> bool:
-    """
-    Allow login for:
-    1. configured administrators;
-    2. the enabled temporary shared account; or
-    3. users from an approved privileged domain.
-    """
-    normalized_email = str(email or "").strip().lower()
-
-    if not normalized_email:
-        return False
-
-    if normalized_email in get_admin_emails():
-        return True
-
-    if is_temporary_shared_account(normalized_email):
-        return True
-
-    domain = (
-        normalized_email.rsplit("@", 1)[1]
-        if "@" in normalized_email
-        else ""
-    )
-
-    return bool(domain and domain in get_privileged_domains())
-
-
-def validate_authenticated_user(
-    email: str,
-    email_verified: bool,
-) -> tuple[bool, str]:
-    """
-    Apply the approved-account and email-verification checks after Firebase
-    successfully authenticates the supplied email and password.
-    """
-    normalized_email = str(email or "").strip().lower()
-
-    if not is_approved_login_email(normalized_email):
-        return (
-            False,
-            "Access is restricted to approved EUSEE partner accounts.",
-        )
-
-    if not email_verified and not bypass_email_verification(normalized_email):
-        return (
-            False,
-            "Please verify your email address before accessing the dashboard.",
-        )
-
-    return True, ""
-
-
 def get_current_email() -> str:
     user = st.session_state.get("user") or {}
     candidates = [
@@ -256,18 +146,13 @@ def get_current_role() -> str:
 
     email = get_current_email()
 
-    if not email:
-        return "guest"
+    if email:
+        domain = email.split("@")[-1].lower() if "@" in email else ""
+        if domain in get_privileged_domains():
+            return "privileged"
+        return "viewer"
 
-    if is_temporary_shared_account(email):
-        return get_temporary_shared_account()["role"]
-
-    domain = email.split("@")[-1].lower() if "@" in email else ""
-
-    if domain in get_privileged_domains():
-        return "privileged"
-
-    return "viewer"
+    return "guest"
 
 
 def default_access_config() -> dict[str, Any]:
