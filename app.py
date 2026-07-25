@@ -3633,8 +3633,7 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-icon">🌐</div>'
         '<div class="cfr-kpi-content">'
         '<div class="cfr-kpi-title">Monitored countries</div>'
-        f'<div class="cfr-kpi-value">+{country_count:,}</div>'
-        '<div class="cfr-kpi-note">Countries with CFR records</div>'
+        f'<div class="cfr-kpi-value">+80</div>'
         '</div>'
         '</div>'
 
@@ -3643,7 +3642,6 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-content">'
         '<div class="cfr-kpi-title">Monitored principles</div>'
         '<div class="cfr-kpi-value">6</div>'
-        '<div class="cfr-kpi-note">EU SEE enabling principles</div>'
         '</div>'
         '</div>'
 
