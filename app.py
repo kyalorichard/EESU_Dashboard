@@ -5165,6 +5165,23 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         line-height:1;
         flex:0 0 56px;
     }
+    /* Preserve the original icon treatment for the Frequent Restriction Pattern card. */
+    .negintel-icon-original {
+        width:30px;
+        height:30px;
+        min-width:30px;
+        border-radius:12px;
+        background:linear-gradient(135deg, rgba(180,35,24,.12), rgba(255,219,88,.14));
+        color:#B42318;
+        border:1px solid rgba(180,35,24,.10);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:16px;
+        font-weight:900;
+        line-height:1;
+        flex:0 0 30px;
+    }
     .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:"Anek Devanagari", Arial, sans-serif; color:#B42318; }
     .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
     .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
@@ -5238,21 +5255,22 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         </div>
         """, unsafe_allow_html=True)
 
+
     with c3:
         st.markdown(f"""
-        <div class="negintel-card">           
-                <div class="negintel-top">
-                    <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title"></div></div>
-                    <div class="negintel-icon">⛓️</div>
-                </div>
-                <div class="negintel-row-list">
-                    <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label"><strong> Restrictive Actor:</strong> {top_actor}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
-                    <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label"><strong>Restrictive Mechanism:</strong> {top_mechanism}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
-                    <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label"><strong>Civil society actor affected:</strong> {top_subject}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
-                </div>
-            
+        <div class="negintel-card">
+            <div class="negintel-top">
+                <div><div class="negintel-eyebrow">Frequent Restriction Pattern</div><div class="negintel-title"></div></div>
+                <div class="negintel-icon-original">⛓️</div>
+            </div>
+            <div class="negintel-row-list">
+                <div class="negintel-row" title="Top restrictive actor: {top_actor}"><span class="negintel-row-label"><strong>Restrictive Actor:</strong> {top_actor}</span><span class="negintel-row-pct">{actor_pct}%</span><span class="negintel-row-count">{top_actor_count:,}</span></div>
+                <div class="negintel-row" title="Top restrictive mechanism: {top_mechanism}"><span class="negintel-row-label"><strong>Restrictive Mechanism:</strong> {top_mechanism}</span><span class="negintel-row-pct">{mech_pct}%</span><span class="negintel-row-count">{top_mechanism_count:,}</span></div>
+                <div class="negintel-row" title="Top affected civil society actor: {top_subject}"><span class="negintel-row-label"><strong>Civil society actor affected:</strong> {top_subject}</span><span class="negintel-row-pct">{subject_pct}%</span><span class="negintel-row-count">{top_subject_count:,}</span></div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+
 
 def normalize_label(label: str) -> str:
     """
@@ -8175,17 +8193,34 @@ if tab_negative is not None:
                     "Type of event": "Types of negative events",
                     "Permalink": "Report Link"          
                 }
-                # keep only existing columns, then rename
-                reactive_df_updated_prev = (
-                    reactive_df_updated
-                    .loc[:, reactive_df_updated.columns.intersection(cols_to_keep.keys())]
+                # Build the Negative Alerts table independently of all global and
+                # tab-specific filters. The table always loads the full accessible
+                # dataset and applies only the Negative alert-impact condition.
+                negative_table_df = data.copy()
+                if "alert-impact" in negative_table_df.columns:
+                    negative_table_df = negative_table_df[
+                        negative_table_df["alert-impact"]
+                        .astype(str)
+                        .str.strip()
+                        .str.lower()
+                        .eq("negative")
+                    ].copy()
+                else:
+                    negative_table_df = negative_table_df.iloc[0:0].copy()
+
+                negative_table_preview = (
+                    negative_table_df
+                    .loc[:, negative_table_df.columns.intersection(cols_to_keep.keys())]
                     .rename(columns=cols_to_keep)
                 )
         
                 # ---------------- Tab two data preview ----------------
-              
                 if has_permission("view_data_table"):
-                    render_professional_data_preview(reactive_df_updated_prev, title="Search and export EU SEE alerts", key="negative_summary_data_preview")
+                    render_professional_data_preview(
+                        negative_table_preview,
+                        title="Search and export EU SEE alerts",
+                        key="negative_summary_data_preview",
+                    )
            
                 # ---------------- TAB 3 (MAP) ----------------
         else:
