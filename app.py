@@ -2899,8 +2899,282 @@ def _inject_cfr_dashboard_css():
             margin-top: 2px !important;
         }
 
+        /* =====================================================
+           REFERENCE-MATCHED CFR UPPER PANELS
+           ===================================================== */
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            min-height: 386px !important;
+            height: 386px !important;
+            padding: 14px 18px 12px 18px !important;
+            overflow: hidden !important;
+        }
+
+        .cfr-top-panel-height {
+            min-height: 386px !important;
+            height: 386px !important;
+            padding: 14px 18px 12px 18px !important;
+            overflow: hidden !important;
+        }
+
+        .cfr-panel-title {
+            font-size: 16px;
+            line-height: 1.12;
+            letter-spacing: -0.01em;
+        }
+
+        .cfr-panel-note {
+            margin-top: 4px;
+            margin-bottom: 10px;
+            font-size: 10.5px;
+            line-height: 1.25;
+        }
+
+        .cfr-chart-panel-heading {
+            padding: 0;
+        }
+
+        .cfr-chart-panel-selector-label {
+            margin: 0 0 3px 0;
+            font-size: 9.5px;
+            line-height: 1;
+            text-align: left;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-baseweb="select"] > div {
+            min-height: 34px !important;
+            height: 34px !important;
+            border-radius: 7px !important;
+        }
+
+        /* Left principle-score matrix. */
+        .cfr-principle-matrix {
+            width: 100%;
+            margin-top: 3px;
+            color: #101B57;
+            font-family: "Anek Devanagari", Arial, sans-serif;
+        }
+
+        .cfr-principle-grid {
+            display: grid;
+            grid-template-columns:
+                minmax(205px, 1.65fr)
+                minmax(260px, 2.35fr)
+                70px;
+            align-items: center;
+            column-gap: 12px;
+        }
+
+        .cfr-principle-header {
+            min-height: 43px;
+            padding-bottom: 4px;
+            border-bottom: 0;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .cfr-principle-header-left {
+            align-self: end;
+            padding-bottom: 4px;
+        }
+
+        .cfr-scale-header {
+            display: grid;
+            grid-template-rows: 17px 20px;
+            align-items: end;
+        }
+
+        .cfr-scale-ends {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 3px;
+            font-size: 9.8px;
+            font-weight: 900;
+        }
+
+        .cfr-scale-ticks {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            text-align: center;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .cfr-score-header {
+            align-self: end;
+            padding-bottom: 4px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .cfr-principle-row {
+            min-height: 45px;
+        }
+
+        .cfr-principle-label {
+            display: grid;
+            grid-template-columns: 36px minmax(0, 1fr);
+            align-items: center;
+            column-gap: 10px;
+            min-width: 0;
+        }
+
+        .cfr-principle-badge {
+            width: 35px;
+            height: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            color: #FFFFFF;
+            font-size: 13px;
+            line-height: 1;
+            font-weight: 950;
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,.08);
+        }
+
+        .cfr-principle-name {
+            min-width: 0;
+            color: #101B57;
+            font-size: 10.8px;
+            line-height: 1.14;
+            font-weight: 850;
+            white-space: normal;
+        }
+
+        .cfr-score-track-wrap {
+            position: relative;
+            height: 22px;
+            display: flex;
+            align-items: center;
+        }
+
+        .cfr-score-track {
+            position: relative;
+            width: 100%;
+            height: 5px;
+            border-radius: 999px;
+            background: #E4E6E8;
+            overflow: visible;
+        }
+
+        .cfr-score-progress {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 5px;
+            border-radius: 999px;
+        }
+
+        .cfr-score-dot {
+            position: absolute;
+            top: 50%;
+            width: 13px;
+            height: 13px;
+            border: 2px solid #FFFFFF;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .20);
+        }
+
+        .cfr-score-value {
+            color: #2613E8;
+            text-align: center;
+            font-size: 15px;
+            line-height: 1;
+            font-weight: 950;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Reference-matched regional matrix. */
+        .cfr-region-scroll {
+            max-height: 300px !important;
+            margin-top: 4px;
+            border: 0 !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+        }
+
+        table.cfr-region-table {
+            width: 100% !important;
+            min-width: 0 !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            border-spacing: 0 !important;
+            font-size: 11px !important;
+        }
+
+        table.cfr-region-table thead th {
+            position: static !important;
+            height: 48px;
+            padding: 4px 7px 3px 7px !important;
+            background: #FFFFFF !important;
+            border-right: 0 !important;
+            border-bottom: 1px solid #E3E8F0 !important;
+            vertical-align: bottom;
+        }
+
+        table.cfr-region-table tbody td {
+            height: 56px;
+            padding: 8px 8px !important;
+            background: #FFFFFF;
+            border-right: 1px solid #DDE4EE !important;
+            border-bottom: 1px solid #DDE4EE !important;
+            color: #101B57;
+            font-size: 11px !important;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        table.cfr-region-table tbody tr:last-child td {
+            border-bottom: 0 !important;
+        }
+
+        table.cfr-region-table th:first-child,
+        table.cfr-region-table td:first-child {
+            width: 29% !important;
+            padding-left: 10px !important;
+            padding-right: 12px !important;
+            text-align: left !important;
+            white-space: normal !important;
+            overflow-wrap: normal !important;
+            color: #101B57;
+            font-weight: 850;
+        }
+
+        table.cfr-region-table th:not(:first-child),
+        table.cfr-region-table td:not(:first-child) {
+            width: 11.83% !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+        }
+
+        table.cfr-region-table th:last-child,
+        table.cfr-region-table td:last-child {
+            border-right: 0 !important;
+        }
+
+        table.cfr-region-table .cfr-principle-head {
+            width: 64px !important;
+            min-width: 0 !important;
+            height: 30px !important;
+            padding: 0 !important;
+            border-radius: 5px !important;
+            color: #101B57 !important;
+            font-size: 14px !important;
+            font-weight: 950 !important;
+        }
+
+        table.cfr-region-table tbody tr:hover {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
         .cfr-country-table-panel {
-            margin-top: 16px;
+            margin-top: 14px;
         }
 
         .cfr-table-scroll {
@@ -3193,8 +3467,19 @@ def _build_regional_table_html(regional_scores):
     body_rows = []
 
     for _, row in regional_scores.iterrows():
+        region_label = _safe_text(row["region"])
+        region_label = (
+            region_label
+            .replace("Americas and the Caribbean", "Americas and<br>the Caribbean")
+            .replace("Asia and the Pacific", "Asia and<br>the Pacific")
+            .replace(
+                "Middle East and North Africa",
+                "Middle East and<br>North Africa",
+            )
+        )
+
         cells = [
-            f'<td class="cfr-left">{_safe_text(row["region"])}</td>'
+            f'<td class="cfr-left">{region_label}</td>'
         ]
         cells.extend(
             f"<td>{_format_score(row[principle])}</td>"
@@ -3364,6 +3649,85 @@ def _render_cfr_kpis(country_count):
 # ------------------------------------------------------------
 # SINGLE CFR GRAPH
 # ------------------------------------------------------------
+def _build_principle_score_matrix_html(chart_data):
+    """Build the reference-style CFR principle score matrix."""
+    principle_columns = list(CFR_PRINCIPLES.values())
+
+    averages = {
+        principle: (
+            float(chart_data[principle].mean())
+            if chart_data[principle].notna().any()
+            else np.nan
+        )
+        for principle in principle_columns
+    }
+
+    header_html = (
+        '<div class="cfr-principle-grid cfr-principle-header">'
+        '<div class="cfr-principle-header-left">Principle</div>'
+        '<div class="cfr-scale-header">'
+        '<div class="cfr-scale-ends">'
+        '<span>Restricted</span>'
+        '<span>Enabling</span>'
+        '</div>'
+        '<div class="cfr-scale-ticks">'
+        '<span>1</span><span>2</span><span>3</span>'
+        '<span>4</span><span>5</span>'
+        '</div>'
+        '</div>'
+        '<div class="cfr-score-header">Mean score</div>'
+        '</div>'
+    )
+
+    rows = []
+
+    for principle in principle_columns:
+        score = averages[principle]
+        colour = CFR_PRINCIPLE_COLOURS[principle]
+        principle_name = CFR_PRINCIPLE_NAMES[principle]
+
+        if pd.notna(score):
+            clipped_score = min(
+                max(float(score), CFR_SCORE_MIN),
+                CFR_SCORE_MAX,
+            )
+            position = (
+                (clipped_score - CFR_SCORE_MIN)
+                / (CFR_SCORE_MAX - CFR_SCORE_MIN)
+                * 100
+            )
+            score_text = f"{score:.1f}"
+        else:
+            position = 0
+            score_text = "—"
+
+        rows.append(
+            '<div class="cfr-principle-grid cfr-principle-row">'
+            '<div class="cfr-principle-label">'
+            f'<span class="cfr-principle-badge" '
+            f'style="background:{colour};">{principle}</span>'
+            f'<span class="cfr-principle-name">{principle_name}</span>'
+            '</div>'
+            '<div class="cfr-score-track-wrap">'
+            '<div class="cfr-score-track">'
+            f'<div class="cfr-score-progress" '
+            f'style="width:{position:.2f}%;background:{colour};"></div>'
+            f'<div class="cfr-score-dot" '
+            f'style="left:{position:.2f}%;background:{colour};"></div>'
+            '</div>'
+            '</div>'
+            f'<div class="cfr-score-value">{score_text}</div>'
+            '</div>'
+        )
+
+    return (
+        '<div class="cfr-principle-matrix">'
+        + header_html
+        + "".join(rows)
+        + '</div>'
+    )
+
+
 def _build_aggregated_cfr_figure(chart_data):
     """
     Build a compact horizontal CFR score chart.
@@ -3640,7 +4004,7 @@ def render_cfr_analysis():
     _render_cfr_kpis(country_count)
 
     chart_column, region_column = st.columns(
-        [1.12, 1.00],
+        [1.00, 1.00],
         gap="medium",
     )
 
@@ -3669,8 +4033,8 @@ def render_cfr_analysis():
                             Aggregated CFR scores by principle
                         </div>
                         <div class="cfr-panel-note">
-                            Mean score across monitored countries, or the
-                            selected country's score.
+                            Mean score and range (min–max) across all
+                            monitored countries.
                         </div>
                     </div>
                     """,
@@ -3707,16 +4071,9 @@ def render_cfr_analysis():
                 else cfr[cfr["Country"].eq(selected_country)]
             )
 
-            cfr_figure = _build_aggregated_cfr_figure(chart_data)
-
-            st.plotly_chart(
-                cfr_figure,
-                use_container_width=True,
-                config={
-                    "displayModeBar": False,
-                    "responsive": True,
-                },
-                key="cfr_aggregated_principle_chart",
+            st.markdown(
+                _build_principle_score_matrix_html(chart_data),
+                unsafe_allow_html=True,
             )
 
     # --------------------------------------------------------
