@@ -2009,10 +2009,7 @@ def render_sidebar_access_settings_profile():
         unsafe_allow_html=True,
     )
 
-    try:
-        panel = st.sidebar.container(border=True)
-    except TypeError:
-        panel = st.sidebar.container()
+ 
 
     with st.sidebar.expander(
         "🔐 User Privilege Center",
