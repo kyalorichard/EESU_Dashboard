@@ -1956,11 +1956,149 @@ def inject_professional_sidebar_filter_css():
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
-# ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
+# ============================================================
+# SIDEBAR-ONLY AUTHENTICATION ROUTING
+# ============================================================
+# Authentication is initiated only from the sidebar
+# User Privilege Center.
+#
+# Restricted charts, maps, tabs, and cards should remain passive
+# locked-state messages and should not automatically open login.
+# ============================================================
+
+st.session_state.setdefault("auth_view", False)
+st.session_state.setdefault("auth_mode", "Login")
+st.session_state.setdefault("auth_reset_open", False)
+
+# Workspace selection used by administrator accounts.
+st.session_state.setdefault(
+    "eusee_sidebar_workspace",
+    "Dashboard",
+)
+
+# Close the authentication page after successful login.
+if is_authenticated():
+    st.session_state.auth_view = False
+
+
+# ============================================================
+# FULL-PAGE SIGN-IN / REGISTRATION ROUTE
+# ============================================================
+
+if (
+    st.session_state.get("auth_view", False)
+    and not is_authenticated()
+):
+    st.markdown(
+        """
+        <style>
+        html,
+        body,
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        .main,
+        .main .block-container {
+            filter: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            pointer-events: auto !important;
+            opacity: 1 !important;
+        }
+
+        .eusee-login-route-shell {
+            max-width: 760px;
+            margin: 24px auto 18px auto;
+            padding: 18px 20px;
+            border-radius: 20px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #FFFFFF 0%,
+                    #F7ECFB 100%
+                );
+            border: 1px solid rgba(102, 0, 148, 0.14);
+            box-shadow:
+                0 14px 34px rgba(16, 24, 40, 0.08);
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif;
+        }
+
+        .eusee-login-route-eyebrow {
+            margin-bottom: 5px;
+            color: #660094;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .eusee-login-route-title {
+            margin-bottom: 6px;
+            color: #23152F;
+            font-size: 24px;
+            font-weight: 950;
+            line-height: 1.15;
+        }
+
+        .eusee-login-route-note {
+            color: #667085;
+            font-size: 12.5px;
+            line-height: 1.45;
+        }
+        </style>
+
+        <div class="eusee-login-route-shell">
+            <div class="eusee-login-route-eyebrow">
+                Privileged access
+            </div>
+
+            <div class="eusee-login-route-title">
+                EUSEE Dashboard Sign in / Register
+            </div>
+
+            <div class="eusee-login-route-note">
+                Sign in to access advanced features and analyses
+                available to EUSEE partners.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Existing login and registration interface.
+    auth_ui()
+
+    if st.button(
+        "← Back to dashboard",
+        use_container_width=True,
+        key="back_to_dashboard_from_sidebar_auth",
+    ):
+        st.session_state.auth_view = False
+        st.rerun()
+
+    st.stop()
+
+
+# ============================================================
+# SIDEBAR USER PRIVILEGE CENTER
+# ============================================================
+
 def render_sidebar_access_settings_profile():
-    """Render the existing User Privilege Center controls in a clearer order."""
+    """
+    Render the User Privilege Center in the sidebar.
+
+    The layout is deliberately compact to avoid excessive vertical
+    spacing between the username, welcome message, workspace selector,
+    divider, and authentication button.
+    """
+
     signed_in = is_authenticated()
-    is_admin_user = bool(signed_in and admin_is_admin())
+    is_admin_user = bool(
+        signed_in
+        and admin_is_admin()
+    )
 
     display_name = (
         st.session_state.get("name", "User")
@@ -1968,82 +2106,325 @@ def render_sidebar_access_settings_profile():
         else "Guest access"
     )
 
-    st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
+    # Non-admin users must remain on the dashboard workspace.
     if not is_admin_user:
-        st.session_state["eusee_sidebar_workspace"] = "Dashboard"
+        st.session_state[
+            "eusee_sidebar_workspace"
+        ] = "Dashboard"
 
-    # Styling is limited to the existing privilege-center widgets.
+    # --------------------------------------------------------
+    # PRIVILEGE CENTER STYLING
+    # --------------------------------------------------------
+
     st.sidebar.markdown(
         """
         <style>
-        /* ---------- User Privilege Center ---------- */
-        section[data-testid="stSidebar"]
-        div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
-            gap: 0.35rem;
-        }
+        /* ==================================================
+           USER PRIVILEGE CENTER
+           ================================================== */
 
         .eusee-privilege-marker {
-            display: none;
+            display: none !important;
         }
 
-        section[data-testid="stSidebar"] h3 {
-            font-size: 12px !important;
-            font-weight: 900 !important;
-            color: #23152F !important;
-            margin: 0 0 0.15rem 0 !important;
+        /*
+        Target only the Streamlit vertical block containing
+        the privilege-center marker.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker) {
+            gap: 0.10rem !important;
         }
 
-        section[data-testid="stSidebar"] p {
-            font-size: 10px !important;
-            font-weight: 700 !important;
-            color: #23152F !important;
-            line-height: 1.4 !important;
+        /*
+        Remove Streamlit's additional spacing around each
+        element inside the privilege center.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        div[data-testid="stElementContainer"] {
+            margin-top: 0 !important;
             margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+        /*
+        Expander body spacing.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stExpander"]:
+        has(.eusee-privilege-marker)
+        div[data-testid="stExpanderDetails"] {
+            padding-top: 0.55rem !important;
+            padding-bottom: 0.65rem !important;
+        }
+
+        /*
+        Username text.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        [data-testid="stMarkdownContainer"] p {
+            margin: 0 !important;
+            padding: 0 !important;
+            color: #23152F !important;
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif !important;
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            line-height: 1.15 !important;
+        }
+
+        /*
+        Welcome message.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        [data-testid="stCaptionContainer"] {
+            margin: 0 0 0.20rem 0 !important;
+            padding: 0 !important;
+            color: #667085 !important;
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif !important;
+            font-size: 10px !important;
+            line-height: 1.15 !important;
         }
 
         section[data-testid="stSidebar"]
-        [data-testid="stCaptionContainer"] {
-            font-size: 10px !important;
-            font-family: "Anek Devanagari", Arial, sans-serif;
-            line-height: 1.4 !important;
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        [data-testid="stCaptionContainer"] p {
+            margin: 0 !important;
+            padding: 0 !important;
             color: #667085 !important;
-            margin-bottom: 0.15rem !important;
+            font-size: 10px !important;
+            font-weight: 500 !important;
+            line-height: 1.15 !important;
+        }
+
+        /*
+        Radio widget outer wrapper.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        div[data-testid="stRadio"] {
+            min-height: 28px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /*
+        Hide any residual radio label space.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        div[data-testid="stRadio"]
+        > label {
+            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /*
+        Horizontal Dashboard/Admin control.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        div[role="radiogroup"] {
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: nowrap !important;
+            gap: 0.90rem !important;
+            min-height: 27px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /*
+        Individual radio options.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        label[data-baseweb="radio"] {
+            min-height: 24px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        label[data-baseweb="radio"] > div {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        label[data-baseweb="radio"] p {
+            margin: 0 !important;
+            padding: 0 !important;
+            color: #23152F !important;
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+        }
+
+        /*
+        Divider spacing.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        div[data-testid="stDivider"] {
+            margin: 0.30rem 0 !important;
+            padding: 0 !important;
+        }
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        hr {
+            margin: 0.30rem 0 !important;
+            border-color: #D9DCE3 !important;
+        }
+
+        /*
+        Logout/sign-in button wrapper.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        .stButton {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /*
+        Compact authentication button.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        .stButton > button {
+            width: 100% !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            margin: 0 !important;
+            padding: 0 0.75rem !important;
+            border: 1px solid #D0D5DD !important;
+            border-radius: 11px !important;
+            background: #FFFFFF !important;
+            color: #23152F !important;
+            box-shadow:
+                0 1px 2px rgba(16, 24, 40, 0.04) !important;
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif !important;
+            font-size: 10px !important;
+            font-weight: 850 !important;
+            line-height: 1 !important;
+        }
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"]:
+        has(.eusee-privilege-marker)
+        .stButton > button:hover {
+            border-color: #660094 !important;
+            background: #FBF7FD !important;
+            color: #660094 !important;
+        }
+
+        /*
+        Keep the expander heading compact.
+        */
+        section[data-testid="stSidebar"]
+        div[data-testid="stExpander"]:
+        has(.eusee-privilege-marker)
+        summary {
+            min-height: 42px !important;
+            padding: 8px 12px !important;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
- 
+    # --------------------------------------------------------
+    # PRIVILEGE CENTER CONTENT
+    # --------------------------------------------------------
 
     with st.sidebar.expander(
         "🔐 User Privilege Center",
-        expanded=True
+        expanded=True,
     ):
-        st.markdown(f"**{display_name}**")
+        # Marker allows the CSS above to target only this panel.
+        st.markdown(
+            '<span class="eusee-privilege-marker"></span>',
+            unsafe_allow_html=True,
+        )
 
+        # Username or guest label.
+        st.markdown(
+            f"**{display_name}**"
+        )
+
+        # Access status message.
         st.caption(
             "Welcome."
             if signed_in
             else "Sign in to access advanced features."
         )
 
+        # Administrator workspace selector.
         if is_admin_user:
+            current_workspace = st.session_state.get(
+                "eusee_sidebar_workspace",
+                "Dashboard",
+            )
+
             workspace = st.radio(
                 "Workspace",
-                options=["Dashboard", "Admin"],
+                options=[
+                    "Dashboard",
+                    "Admin",
+                ],
                 horizontal=True,
                 key="eusee_sidebar_workspace_radio",
-                index=0 if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else 1,
+                index=(
+                    0
+                    if current_workspace == "Dashboard"
+                    else 1
+                ),
                 label_visibility="collapsed",
             )
 
-            if workspace != st.session_state.get("eusee_sidebar_workspace"):
-                st.session_state["eusee_sidebar_workspace"] = workspace
+            if workspace != current_workspace:
+                st.session_state[
+                    "eusee_sidebar_workspace"
+                ] = workspace
                 st.rerun()
 
+        # Separator between workspace selection and account action.
         st.divider()
 
+        # Signed-in account action.
         if signed_in:
             if st.button(
                 "Logout",
@@ -2051,6 +2432,15 @@ def render_sidebar_access_settings_profile():
                 key="privilege_center_logout_btn",
             ):
                 logout()
+
+                st.session_state[
+                    "eusee_sidebar_workspace"
+                ] = "Dashboard"
+
+                st.session_state.auth_view = False
+                st.rerun()
+
+        # Guest account action.
         else:
             if st.button(
                 "🔐 Sign in / Register",
@@ -2058,9 +2448,21 @@ def render_sidebar_access_settings_profile():
                 key="privilege_center_signin_btn",
             ):
                 st.session_state.auth_view = True
+                st.session_state.auth_mode = "Login"
                 st.rerun()
 
+
+# ============================================================
+# RENDER PRIVILEGE CENTER
+# ============================================================
+
 render_sidebar_access_settings_profile()
+
+
+# ============================================================
+# CONTINUE WITH THE REST OF THE SIDEBAR
+# ============================================================
+# Keep your existing filter header and filter controls below.
 
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
@@ -4167,8 +4569,7 @@ def render_cfr_analysis():
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
 #tab_map disabled
-# Build dashboard tabs dynamically from Admin → Visibility permissions.
-# When a permission is unchecked, the entire tab is removed from the tab bar.
+
 tab_overview = tab_negative = tab_map = tab_cfr = tab_manual = None
 
 _dashboard_tab_specs = []
