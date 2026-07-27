@@ -5700,14 +5700,23 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     if horizontal:
-        fig.update_yaxes(showline=True, linewidth=2, linecolor="black", title=None)
+        fig.update_yaxes(
+            showline=True,
+            linewidth=1.2,
+            linecolor="#B8BFD0",
+            title=None,
+        )
         fig.update_xaxes(
             title="",
             ticksuffix="%",
-            range=[0, axis_max],
+            range=[
+                -(axis_max * 0.025) if show_axis_dots else 0,
+                axis_max,
+            ],
             showgrid=True,
             gridwidth=1,
             gridcolor="lightgray",
+            zeroline=False,
         )
     else:
         fig.update_xaxes(showline=True, linewidth=2, linecolor="black", title=None)
@@ -5729,7 +5738,15 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     if horizontal:
-        fig.update_xaxes(title="", ticksuffix="%", range=[0, axis_max])
+        fig.update_xaxes(
+            title="",
+            ticksuffix="%",
+            range=[
+                -(axis_max * 0.025) if show_axis_dots else 0,
+                axis_max,
+            ],
+            zeroline=False,
+        )
     else:
         fig.update_yaxes(title="", ticksuffix="%", range=[0, axis_max])
 
@@ -5785,7 +5802,16 @@ def readable_stacked_bar_label_color(hex_color):
         return "#111827"
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
+def create_h_stacked_bar(
+    df,
+    y,
+    x="count",
+    color_col="alert-impact",
+    title=None,
+    horizontal=False,
+    normalize_labels=True,
+    show_axis_dots=False,
+):
     """Create a stacked bar chart using percent of grand total with standard height."""
     df = df.copy()
 
@@ -5865,10 +5891,78 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
             ),
         ))
 
+    # ---------------------------------------------------------
+    # OPTIONAL COLORED DOTS ON THE HORIZONTAL CATEGORY AXIS
+    # ---------------------------------------------------------
+    # One dot is drawn for each y-axis category. Its color follows the
+    # alert-impact category represented by that row. For stacked rows with
+    # more than one impact, the color of the largest segment is used.
+    if horizontal and show_axis_dots:
+        dot_summary = (
+            df.groupby([y, color_col], dropna=False)["percent_value"]
+            .sum()
+            .reset_index()
+            .sort_values("percent_value", ascending=False)
+            .drop_duplicates(subset=[y], keep="first")
+        )
+
+        dot_color_lookup = {
+            row[y]: category_colors.get(row[color_col], "#660094")
+            for _, row in dot_summary.iterrows()
+        }
+
+        dot_colors = [
+            dot_color_lookup.get(category, "#660094")
+            for category in ordered_y
+        ]
+
+        # Use a small negative x-position so the dots sit just left of the
+        # zero line without covering the start of each bar.
+        dot_x = -(axis_max * 0.012)
+
+        # Soft halo behind each marker for a polished dashboard effect.
+        fig.add_trace(
+            go.Scatter(
+                x=[dot_x] * len(ordered_y),
+                y=ordered_y,
+                mode="markers",
+                marker=dict(
+                    size=18,
+                    color="rgba(16,24,40,0.10)",
+                    line=dict(width=0),
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+                cliponaxis=False,
+            )
+        )
+
+        # Main colored markers with a clean white outline.
+        fig.add_trace(
+            go.Scatter(
+                x=[dot_x] * len(ordered_y),
+                y=ordered_y,
+                mode="markers",
+                marker=dict(
+                    size=12,
+                    color=dot_colors,
+                    line=dict(color="#FFFFFF", width=2.2),
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+                cliponaxis=False,
+            )
+        )
+
     fig.update_layout(
         barmode="stack",
         height=height,
-        margin=dict(l=120 if horizontal else 20, r=20, t=20, b=20),
+        margin=dict(
+            l=132 if horizontal and show_axis_dots else (120 if horizontal else 20),
+            r=20,
+            t=20,
+            b=20,
+        ),
     )
 
     if horizontal:
@@ -8068,7 +8162,16 @@ if tab_overview is not None:
             r2c1,r2c2 = st.columns(2)
 
 
-            render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1, permission_key="view_chart_overview_alert_type", permission_label="Overview alert type distribution")
+            render_dashboard_plotly_chart(create_h_stacked_bar(
+                    a1,
+                    y="alert-type",
+                    x="count",
+                    color_col="alert-impact",
+                    title="Alert type distribution",
+                    horizontal=True,
+                    normalize_labels=True,
+                    show_axis_dots=True,
+                ), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1, permission_key="view_chart_overview_alert_type", permission_label="Overview alert type distribution")
 
             fig12 = create_h_stacked_bar(
                 a2,
