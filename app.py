@@ -2720,7 +2720,7 @@ def _inject_cfr_dashboard_css():
 
         .cfr-kpi-value {
             margin-top: 7px;
-            color: #5A0A78;
+            color: #008CAA;
             font-size: 29px;
             line-height: 1;
             font-weight: 950;
