@@ -3431,7 +3431,7 @@ def _principle_header_html(principle):
     background = CFR_PRINCIPLE_LIGHT_COLOURS[principle]
     return (
         f'<span class="cfr-principle-head" '
-        f'style="background:{background};">'
+        f'style="background:{background}; color:#FFFFFF;">'
         f'{principle}'
         f'</span>'
     )
