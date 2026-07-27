@@ -5692,7 +5692,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
         ],
         insidetextanchor="end",
         texttemplate="%{text}",
-        textfont=dict(size=8, color="#1F2937", family=CHART_FONT),
+        textfont=dict(size=7, color="#1F2937", family=CHART_FONT),
         marker_line=dict(color="rgba(255,255,255,0.75)", width=0.8),
         hovertemplate=(
             "<b>%{y}</b><br>" if horizontal else "<b>%{x}</b><br>"
