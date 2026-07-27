@@ -5364,10 +5364,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
 
     fig.update_xaxes(
         title=None,
-        showgrid=True,
-        gridwidth=1,
-        gridcolor="#E8EDF4",
-        griddash="dot",
+        showgrid=False,
         zeroline=False,
         showline=True,
         linewidth=1,
@@ -5386,8 +5383,8 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         title=None,
         showgrid=False if horizontal else True,
         gridwidth=1,
-        gridcolor="#F0F3F7",
-        griddash="dot",
+        gridcolor="#F1F4F8",
+        griddash="solid",
         zeroline=False,
         showline=True,
         linewidth=1,
