@@ -5581,8 +5581,8 @@ def render_chart_shell():
 render_chart_shell()
 
 # ---------------- PERCENT AXIS / STANDARD HEIGHT HELPERS ----------------
-CHART_HEIGHT_VERTICAL = 400
-CHART_HEIGHT_HORIZONTAL = 400
+CHART_HEIGHT_VERTICAL = 410
+CHART_HEIGHT_HORIZONTAL = 410
 
 
 def _nice_percent_axis_max(max_pct):
