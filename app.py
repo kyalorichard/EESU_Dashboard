@@ -5280,6 +5280,15 @@ CHART_GRID_COLOR = "#EEF1F6"
 CHART_AXIS_COLOR = "#D8DEE9"
 
 
+DEFAULT_PLOTLY_CONFIG = {
+    "displayModeBar": False,
+    "scrollZoom": False,
+    "doubleClick": False,
+    "responsive": True,
+    "displaylogo": False,
+}
+
+
 def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, showlegend=True):
     """Apply the unified EUSEE premium chart style without changing chart data."""
     if fig is None:
@@ -5300,21 +5309,21 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         ),
         title=dict(
             text=current_title,
-            x=0.025,
+            x=0.018,
             xanchor="left",
-            y=0.975,
+            y=0.955,
             yanchor="top",
-            pad=dict(t=2, b=8),
+            pad=dict(t=0, b=10),
             font=dict(
                 family=CHART_FONT,
-                size=17,
+                size=16,
                 color="#16002B",
             ),
         ),
         margin=dict(
             l=145 if horizontal else 56,
             r=34,
-            t=78,
+            t=94,
             b=62,
         ),
         hoverlabel=dict(
@@ -5330,7 +5339,7 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.035,
+            y=1.075,
             xanchor="right",
             x=1,
             bgcolor="rgba(255,255,255,0.96)",
@@ -5485,19 +5494,6 @@ def render_chart_shell():
                 border-color .20s ease;
         }
 
-        div[data-testid="stPlotlyChart"]::before {
-            content: "";
-            position: absolute;
-            top: 14px;
-            left: 24px;
-            width: 38px;
-            height: 4px;
-            border-radius: 999px;
-            background: #660094;
-            opacity: .96;
-            pointer-events: none;
-            z-index: 2;
-        }
 
         div[data-testid="stPlotlyChart"]:hover {
             transform: translateY(-2px);
@@ -5514,19 +5510,6 @@ def render_chart_shell():
             border-radius: 17px;
         }
 
-        div[data-testid="stPlotlyChart"] .modebar {
-            top: 8px !important;
-            right: 8px !important;
-            border: 1px solid #ECE7F1 !important;
-            border-radius: 10px !important;
-            background: rgba(255,255,255,.94) !important;
-            box-shadow: 0 4px 12px rgba(16,24,40,.06) !important;
-            padding: 2px 4px !important;
-        }
-
-        div[data-testid="stPlotlyChart"] .modebar-btn path {
-            fill: #667085 !important;
-        }
 
         @media (max-width: 700px) {
             div[data-testid="stPlotlyChart"] {
@@ -5534,12 +5517,6 @@ def render_chart_shell():
                 padding: 7px 6px 4px 6px;
             }
 
-            div[data-testid="stPlotlyChart"]::before {
-                left: 18px;
-                top: 11px;
-                width: 30px;
-                height: 3px;
-            }
         }
         </style>
         """,
@@ -7943,24 +7920,34 @@ def render_dashboard_plotly_chart(
         fig.update_layout(
             title=dict(
                 text=current_title,
-                x=0.025,
+                x=0.018,
                 xanchor="left",
-                y=0.975,
+                y=0.955,
                 yanchor="top",
+                pad=dict(t=0, b=10),
                 font=dict(
                     family=CHART_FONT,
-                    size=17,
+                    size=16,
                     color="#16002B",
                 ),
             ),
-            margin=dict(t=82),
+            margin=dict(t=94),
         )
+
+    final_config = DEFAULT_PLOTLY_CONFIG.copy()
+    if config:
+        final_config.update(config)
+
+    # Keep the modebar hidden consistently unless a chart explicitly needs it.
+    final_config["displayModeBar"] = False
+    final_config["scrollZoom"] = False
+    final_config["displaylogo"] = False
 
     target.plotly_chart(
         fig,
         use_container_width=use_container_width,
-        config=config,
-        key=key
+        config=final_config,
+        key=key,
     )
 # ---------------- TAB 1 ------------------------
 if tab_overview is not None:
@@ -10337,7 +10324,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 labels={x_col: x_label, y_col: y_label}
             )
             fig.update_layout(height=430)
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_bar")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_bar", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type in ["horizontal_bar", "hbar"]:
             fig_df = chart_df.sort_values(y_col, ascending=True)
@@ -10351,7 +10338,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 labels={x_col: x_label, y_col: y_label}
             )
             fig.update_layout(height=max(430, 42 * len(fig_df)))
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=max(430, 42 * len(fig_df)), horizontal=True), use_container_width=True, key=f"{base_key}_hbar")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=max(430, 42 * len(fig_df)), horizontal=True), use_container_width=True, key=f"{base_key}_hbar", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "grouped_bar":
             if not series_col or series_col not in chart_df.columns:
@@ -10374,7 +10361,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 }
             )
             fig.update_layout(height=430)
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_grouped_bar")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_grouped_bar", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type in ["stacked_bar", "stacked_100_percent_bar"]:
             if not series_col or series_col not in chart_df.columns:
@@ -10406,7 +10393,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 }
             )
             fig.update_layout(barmode="stack", height=430)
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_{chart_type}")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_{chart_type}", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "pie":
             fig = px.pie(
@@ -10415,7 +10402,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 values=y_col,
                 title=title
             )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_pie")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_pie", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "donut":
             fig = px.pie(
@@ -10425,7 +10412,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 title=title,
                 hole=0.45
             )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_donut")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_donut", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "line":
             fig = px.line(
@@ -10436,7 +10423,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 markers=True,
                 labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_line")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_line", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "area":
             fig = px.area(
@@ -10446,7 +10433,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 title=title,
                 labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_area")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_area", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "scatter":
             fig = px.scatter(
@@ -10456,7 +10443,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 title=title,
                 labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_scatter")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_scatter", config=DEFAULT_PLOTLY_CONFIG)
 
         elif chart_type == "table":
             st.dataframe(chart_df, use_container_width=True)
