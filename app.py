@@ -5281,11 +5281,19 @@ CHART_AXIS_COLOR = "#D8DEE9"
 
 
 DEFAULT_PLOTLY_CONFIG = {
-    "displayModeBar": False,
+    "displayModeBar": "hover",
     "scrollZoom": False,
-    "doubleClick": False,
+    "doubleClick": "reset",
     "responsive": True,
     "displaylogo": False,
+    "modeBarButtonsToRemove": [
+        "select2d",
+        "lasso2d",
+        "autoScale2d",
+        "toggleSpikelines",
+        "hoverClosestCartesian",
+        "hoverCompareCartesian",
+    ],
 }
 
 
@@ -5364,7 +5372,10 @@ def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, sh
 
     fig.update_xaxes(
         title=None,
-        showgrid=False,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="#EEF2F6",
+        griddash="solid",
         zeroline=False,
         showline=True,
         linewidth=1,
@@ -5505,6 +5516,32 @@ def render_chart_shell():
         div[data-testid="stPlotlyChart"] .svg-container,
         div[data-testid="stPlotlyChart"] svg.main-svg {
             border-radius: 17px;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar {
+            top: 10px !important;
+            right: 10px !important;
+            padding: 3px 5px !important;
+            border: 1px solid #E6E8EF !important;
+            border-radius: 10px !important;
+            background: rgba(255,255,255,.96) !important;
+            box-shadow: 0 5px 16px rgba(16,24,40,.08) !important;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar-btn {
+            border-radius: 7px !important;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar-btn:hover {
+            background: #F4EAF8 !important;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar-btn path {
+            fill: #667085 !important;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar-btn:hover path {
+            fill: #660094 !important;
         }
 
 
@@ -7936,7 +7973,7 @@ def render_dashboard_plotly_chart(
         final_config.update(config)
 
     # Keep the modebar hidden consistently unless a chart explicitly needs it.
-    final_config["displayModeBar"] = False
+    final_config["displayModeBar"] = "hover"
     final_config["scrollZoom"] = False
     final_config["displaylogo"] = False
 
