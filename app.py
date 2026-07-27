@@ -3113,7 +3113,7 @@ def _inject_cfr_dashboard_css():
             text-align: left !important;
             white-space: normal !important;
             overflow-wrap: normal !important;
-            color: #101B57;
+            color: #FFFFFF;
             font-weight: 850;
         }
 
