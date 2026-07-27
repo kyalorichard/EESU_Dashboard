@@ -1953,115 +1953,148 @@ st.sidebar.image("assets/eu-see-logo.png", width=230)
 
 # ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
 def render_sidebar_access_settings_profile():
-    """Render the existing User Privilege Center controls in a clearer order."""
+    """Render one clean, native Streamlit sidebar panel for access, account, navigation, and feature status.
+
+    This version intentionally avoids rendering the panel body with raw HTML so users never see
+    HTML tags/scripts if Streamlit sanitization or markdown rendering changes.
+    """
     signed_in = is_authenticated()
     is_admin_user = bool(signed_in and admin_is_admin())
 
-    display_name = (
-        st.session_state.get("name", "User")
-        if signed_in
-        else "Guest access"
-    )
+    role = get_current_role() if callable(get_current_role) else "guest"
+    role_label = (role or "guest").replace("_", " ").title()
+
+    email = get_current_email() if callable(get_current_email) else ""
+    display_email = email or st.session_state.get("email", "Public user")
+    display_name = st.session_state.get("name", "User") if signed_in else "Guest access"
+
+    copilot_status = "Available" if has_permission("use_ai_copilot") else "Limited"
+    export_status = "Enabled" if has_permission("download_data") else "Restricted"
+    admin_status = "Enabled" if is_admin_user else "Not available"
+    access_status = "Signed in" if signed_in else "Public mode"
+
+    # Show the monitored-country value as a first-class item in the
+    # privilege/access list. Use the already scoped dataframe so the value
+    # respects the active role's data scope.
+    try:
+        raw_monitored_countries_value = (
+            int(data["alert-country"].nunique())
+            if "data" in globals()
+            and isinstance(data, pd.DataFrame)
+            and not data.empty
+            and "alert-country" in data.columns
+            else 0
+        )
+        monitored_countries_value = monitored_countries_display_value(raw_monitored_countries_value)
+    except Exception:
+        monitored_countries_value = 0
 
     st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
     if not is_admin_user:
         st.session_state["eusee_sidebar_workspace"] = "Dashboard"
 
-    # Styling is limited to the existing privilege-center widgets.
-    st.sidebar.markdown(
-        """
-        <style>
-        /* ---------- User Privilege Center ---------- */
-        section[data-testid="stSidebar"]
-        div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
-            gap: 0.35rem;
-        }
+    # Small CSS only for Streamlit widgets in the privilege center; no visible HTML content is rendered.
+    st.sidebar.markdown("""
+    <style>
+    /* ---------- User Privilege Center ---------- */
 
-        .eusee-privilege-marker {
-            display: none;
-        }
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker){
+        gap:0.25rem;
+    }
 
-        section[data-testid="stSidebar"] h3 {
-            font-size: 12px !important;
-            font-weight: 900 !important;
-            color: #23152F !important;
-            margin: 0 0 0.15rem 0 !important;
-        }
+    .eusee-privilege-marker{
+        display:none;
+    }
 
-        section[data-testid="stSidebar"] p {
-            font-size: 10px !important;
-            font-weight: 700 !important;
-            color: #23152F !important;
-            line-height: 1.4 !important;
-            margin-bottom: 0 !important;
-        }
+    /* Panel title */
+    section[data-testid="stSidebar"] h3{
+        font-size:12px !important;
+        font-weight:900 !important;
+        color:#23152F !important;
+        margin-bottom:0.4rem !important;
+    }
 
-        section[data-testid="stSidebar"]
-        [data-testid="stCaptionContainer"] {
-            font-size: 10px !important;
-            font-family: "Anek Devanagari", Arial, sans-serif;
-            line-height: 1.4 !important;
-            color: #667085 !important;
-            margin-bottom: 0.15rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    /* Guest access / Logged-in user name */
+    section[data-testid="stSidebar"] p{
+        font-size:10px !important;
+        font-weight:700 !important;
+        color:#23152F !important;
+        line-height:1.45 !important;
+    }
 
+    /* Description */
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{
+        font-size:10px !important;
+        font-family: "Anek Devanagari", Arial, sans-serif;
+        line-height:1.5 !important;
+        color:#667085 !important;
+    }
+
+    /* Metric cards */
+    section[data-testid="stSidebar"] [data-testid="stMetric"]{
+        background:#FFFFFF;
+        border:1px solid #EEF0F4;
+        border-radius:12px;
+        padding:7px 8px;
+        box-shadow:0 2px 8px rgba(16,24,40,.035);
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"]{
+        font-size:10px !important;
+        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-weight:800 !important;
+        color:#667085 !important;
+        text-transform:uppercase;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"]{
+        font-size:12px !important;
+        font-weight:900 !important;
+        color:#23152F !important;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Use a bordered native container where available; fallback gracefully for older Streamlit versions.
     try:
         panel = st.sidebar.container(border=True)
     except TypeError:
         panel = st.sidebar.container()
 
     with panel:
-        st.markdown(
-            '<span class="eusee-privilege-marker"></span>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<span class="eusee-privilege-marker"></span>', unsafe_allow_html=True)
         st.markdown("### 🔐 User Privilege Center")
-
-        if not signed_in:
-            st.markdown(f"**{display_name}**")
-            st.caption("Sign in to access advanced features.")
-
-            if st.button(
-                "🔐 Sign in / Register",
-                use_container_width=True,
-                key="privilege_center_signin_btn",
-            ):
-                st.session_state.auth_view = True
-                st.rerun()
-            return
+        #st.caption("Central access, role, navigation, and feature availability.")
 
         st.markdown(f"**{display_name}**")
-        st.caption("Welcome.")
+        st.caption(
+            "Welcome."
+            if signed_in
+            else "Sign in to access advanced features."
+        )
 
+           
         if is_admin_user:
             workspace = st.radio(
                 "Workspace",
                 options=["Dashboard", "Admin"],
                 horizontal=True,
                 key="eusee_sidebar_workspace_radio",
-                index=(
-                    0
-                    if st.session_state.get("eusee_sidebar_workspace")
-                    == "Dashboard"
-                    else 1
-                ),
+                index=0 if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else 1,
                 label_visibility="collapsed",
             )
-
             if workspace != st.session_state.get("eusee_sidebar_workspace"):
                 st.session_state["eusee_sidebar_workspace"] = workspace
                 st.rerun()
 
-        if st.button(
-            "Logout",
-            use_container_width=True,
-            key="privilege_center_logout_btn",
-        ):
-            logout()
+        if signed_in:
+            if st.button("Logout", use_container_width=True, key="privilege_center_logout_btn"):
+                logout()
+        else:
+            if st.button("🔐 Sign in / Register", use_container_width=True, key="privilege_center_signin_btn"):
+                st.session_state.auth_view = True
+                st.rerun()
 
 render_sidebar_access_settings_profile()
 
