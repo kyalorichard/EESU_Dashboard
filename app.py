@@ -8097,23 +8097,43 @@ if tab_overview is not None:
             render_dashboard_plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False), plot_df=a4, visual_type="stacked bar chart", x_col="alert-country", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart4", container=r2c2, permission_key="view_chart_overview_countries", permission_label="Overview country distribution")
 
     
-            cols_rename_map  = {
+            cols_rename_map = {
                 "post_title": "Title of post",
-                "Summary": "Event Summary",
+                "summary": "Event Summary",
                 "creation_date": "Date of submission",
                 "alert-country": "Country",
                 "enabling-principle": "Enabling principles",
                 "alert-impact": "Impact of alert",
                 "alert-type": "Type of alert",
-                "Permalink": "Report Link"
+                "Permalink": "Report Link",
             }
-                # keep only existing columns, then rename
-            filtered_global_prev = (
-                data
-                .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
-                .rename(columns=cols_rename_map)
+
+            # Keep only required columns
+            filtered_global_prev = data.loc[
+                :,
+                data.columns.intersection(cols_rename_map.keys())
+            ].copy()
+
+            # Remove the leading "Event Summary Event Summary" from the summary text
+            if "summary" in filtered_global_prev.columns:
+                filtered_global_prev["summary"] = (
+                    filtered_global_prev["summary"]
+                    .fillna("")
+                    .astype(str)
+                    .str.replace(
+                        r'^\s*(Event Summary[\s:.-]*){2}',
+                        '',
+                        regex=True
+                    )
+                    .str.strip()
+                )
+
+            # Rename columns
+            filtered_global_prev.rename(
+                columns=cols_rename_map,
+                inplace=True
             )
-   
+            
                 # ---------------- Tab two data preview ------------------
 
             if has_permission("view_data_table"):
@@ -8336,8 +8356,8 @@ if tab_negative is not None:
 
                 cols_to_keep = {
                     "post_title": "Title of post",
-                    "creation_date": "Date of submission",                    
-                    "Summary": "Event Summary",
+                    "creation_date": "Date of submission",
+                    "summary": "Event Summary",
                     "alert-country": "Country",
                     "enabling-principle": "Enabling principles",
                     "alert-impact": "Impact of alert",
@@ -8346,12 +8366,13 @@ if tab_negative is not None:
                     "Subject of repression": "Types of civil society actors affected",
                     "Mechanism of repression": "Types of restrictive mechanisms",
                     "Type of event": "Types of negative events",
-                    "Permalink": "Report Link"          
+                    "Permalink": "Report Link",
                 }
-                # Build the Negative Alerts table independently of all global and
-                # tab-specific filters. The table always loads the full accessible
-                # dataset and applies only the Negative alert-impact condition.
+
+                # Build the Negative Alerts table independently of global and
+                # tab-specific filters.
                 negative_table_df = data.copy()
+
                 if "alert-impact" in negative_table_df.columns:
                     negative_table_df = negative_table_df[
                         negative_table_df["alert-impact"]
@@ -8363,10 +8384,30 @@ if tab_negative is not None:
                 else:
                     negative_table_df = negative_table_df.iloc[0:0].copy()
 
-                negative_table_preview = (
-                    negative_table_df
-                    .loc[:, negative_table_df.columns.intersection(cols_to_keep.keys())]
-                    .rename(columns=cols_to_keep)
+                # Keep only required columns
+                negative_table_preview = negative_table_df.loc[
+                    :,
+                    negative_table_df.columns.intersection(cols_to_keep.keys())
+                ].copy()
+
+                # Remove the first two leading occurrences of "Event Summary"
+                if "summary" in negative_table_preview.columns:
+                    negative_table_preview["summary"] = (
+                        negative_table_preview["summary"]
+                        .fillna("")
+                        .astype(str)
+                        .str.replace(
+                            r"^\s*(?:Event Summary[\s:–—.-]*){2}",
+                            "",
+                            regex=True,
+                        )
+                        .str.strip()
+                    )
+
+                # Rename columns
+                negative_table_preview.rename(
+                    columns=cols_to_keep,
+                    inplace=True,
                 )
         
                 # ---------------- Tab two data preview ----------------
