@@ -743,7 +743,7 @@ def render_professional_data_preview(
     df,
     title="Search and export EU SEE alerts",
     key="summary_data_preview",
-    remove_vertical_scroll=False,
+    remove_vertical_scroll=True,
 ):
     """Render a clean, searchable table with clickable report links."""
 
