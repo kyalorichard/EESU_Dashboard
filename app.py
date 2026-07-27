@@ -5518,12 +5518,33 @@ def render_chart_shell():
             border-radius: 17px;
         }
 
+        /* Keep the Plotly modebar fully hidden until the pointer enters the plot. */
         div[data-testid="stPlotlyChart"] .modebar {
             top: 10px !important;
             right: 10px !important;
             padding: 3px 5px !important;
-            border: 1px solid #E6E8EF !important;
+            border: 1px solid transparent !important;
             border-radius: 10px !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            transition:
+                opacity .16s ease,
+                visibility .16s ease,
+                background-color .16s ease,
+                border-color .16s ease,
+                box-shadow .16s ease !important;
+        }
+
+        /* Reveal controls only while hovering anywhere inside the Plotly canvas. */
+        div[data-testid="stPlotlyChart"] .js-plotly-plot:hover .modebar,
+        div[data-testid="stPlotlyChart"] .plot-container:hover .modebar {
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            border-color: #E6E8EF !important;
             background: rgba(255,255,255,.96) !important;
             box-shadow: 0 5px 16px rgba(16,24,40,.08) !important;
         }
