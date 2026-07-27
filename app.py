@@ -2404,12 +2404,12 @@ CFR_PRINCIPLE_NAMES = {
 
 # Keep these colours consistent in the graph, badges and tables.
 CFR_PRINCIPLE_COLOURS = {
-    "P1": "#6C4CF1",
-    "P2": "#F2B718",
-    "P3": "#A85D36",
-    "P4": "#39B8B8",
-    "P5": "#FF7A45",
-    "P6": "#DF3585",
+    "P1": "#5A0A78",
+    "P2": "#FFB900",
+    "P3": "#642814",
+    "P4": "#008CAA",
+    "P5": "#FF8C00",
+    "P6": "#B40000",
 }
 
 CFR_PRINCIPLE_LIGHT_COLOURS = {
