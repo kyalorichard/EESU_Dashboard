@@ -5686,6 +5686,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     fig.update_traces(
+        width=0.75   # Thick
         textposition=[
             "inside" if val >= (axis_max * 0.12) else "outside"
             for val in df["percent_value"]
