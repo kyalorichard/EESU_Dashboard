@@ -2090,7 +2090,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
     )
 
     selected_alert_impacts = safe_multiselect(
-        "Nature of event / alert",
+        "Nature of event",
         data["alert-impact"].dropna().unique()
         if not data.empty and "alert-impact" in data.columns
         else [],
@@ -2394,12 +2394,12 @@ CFR_PRINCIPLES = {
 }
 
 CFR_PRINCIPLE_NAMES = {
-    "P1": "Fundamental Freedoms",
-    "P2": "Legal & Regulatory Framework",
-    "P3": "Financial Sustainability",
-    "P4": "Dialogue & Consultation",
-    "P5": "Governance & Accountability",
-    "P6": "Digital Rights",
+    "P1": "Respect and protection of fundamental freedoms",
+    "P2": "Supportive legal and regulatory framework",
+    "P3": "Accessible and sustainable resources",
+    "P4": "Open and responsive State",
+    "P5": "Supportive public culture and discourses on civil society",
+    "P6": "Access to a secure digital environment",
 }
 
 # Keep these colours consistent in the graph, badges and tables.
@@ -3979,7 +3979,6 @@ def render_cfr_analysis():
     st.markdown(
         """
         <div class="cfr-page">
-            <div class="cfr-page-title">CFR Scores</div>
             <div class="cfr-page-subtitle">
                 Explore score patterns across the six EU SEE enabling
                 environment principles.<br>
@@ -4170,7 +4169,7 @@ if has_permission("view_overview"):
 # It follows the same dashboard-access permission as Overview so the existing
 # authz/admin files do not need to change for this update.
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("cfr", "📈 CFR Score"))
+    _dashboard_tab_specs.append(("cfr", "📈 CFR Scores"))
 
 if has_permission("view_negative_alerts"):
     _dashboard_tab_specs.append(("negative", "⚠️ Negative Alerts Analysis"))
@@ -10727,7 +10726,7 @@ def _render_eusee_ai_copilot_body():
             key="eusee_ai_popover_question",
         )
 
-        submitted = st.form_submit_button("Ask Copilot", use_container_width=True)
+        submitted = st.form_submit_button("Ask ", use_container_width=True)
 
     if submitted and user_question.strip():
         user_question = user_question.strip()
