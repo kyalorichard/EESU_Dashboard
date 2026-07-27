@@ -753,6 +753,12 @@ def render_professional_data_preview(
 
     DATA_PREVIEW_STANDARD_HEIGHT = 460
 
+    # Use Streamlit's automatic table height when vertical scrolling is disabled.
+    # Horizontal scrolling remains available when the table has many columns.
+    dataframe_height = (
+        "auto" if remove_vertical_scroll else DATA_PREVIEW_STANDARD_HEIGHT
+    )
+
     display_df = df.copy()
 
     # ---------------------------------------------------------
@@ -1078,7 +1084,7 @@ def render_professional_data_preview(
             table_to_render,
             use_container_width=True,
             hide_index=True,
-            height=DATA_PREVIEW_STANDARD_HEIGHT,
+            height=dataframe_height,
             key=key,
             column_order=visible_columns,
             column_config=column_config,
@@ -1140,7 +1146,6 @@ def render_professional_data_preview(
         )
 
 inject_classic_dashboard_css()
-
 # ---------------- MONITORED COUNTRIES ACCESS HELPER ----------------
 def can_view_monitored_countries_value() -> bool:
     """Return True only when the active role can see the Monitored Countries numeric value.
@@ -7907,7 +7912,7 @@ if tab_overview is not None:
                 # ---------------- Tab two data preview ------------------
 
             if has_permission("view_data_table"):
-                render_professional_data_preview(filtered_global_prev, title="Search and export EU SEE alerts", key="overview_summary_data_preview", remove_vertical_scroll=False)  
+                render_professional_data_preview(filtered_global_prev, title="Search and export EU SEE alerts", key="overview_summary_data_preview", remove_vertical_scroll=True)  
             #else:
                 #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
