@@ -18,6 +18,9 @@ from authz import (
     get_current_email,
     get_current_role,
     get_privileged_domains,
+    get_temporary_shared_account,
+    is_temporary_shared_account,
+    can_bypass_email_verification,
     has_permission,
     is_admin,
     load_access_config,
@@ -841,7 +844,10 @@ def _render_scope_tab(config: dict, data=None):
 
 def _render_users_tab(config: dict):
     st.markdown("### Access identities")
-    st.caption("Admins are configured by email. Privileged users can be added, edited or removed by email domain.")
+    st.caption(
+        "Admins and the temporary shared account are configured in secrets. "
+        "Additional privileged users can be managed by email domain."
+    )
 
     config = _sanitize_access_config(config)
     privileged_domains = _get_config_privileged_domains(config)
@@ -855,6 +861,17 @@ def _render_users_tab(config: dict):
                 "Effective role": "Admin",
                 "Source": "[auth].admin_emails",
                 "Access type": "Direct email",
+            }
+        )
+
+    temporary_account = get_temporary_shared_account()
+    if temporary_account.get("enabled") and temporary_account.get("email"):
+        rows.append(
+            {
+                "Identity": temporary_account["email"],
+                "Effective role": temporary_account.get("role", "viewer").capitalize(),
+                "Source": "[temporary_shared_account]",
+                "Access type": "Direct shared account",
             }
         )
 
@@ -955,6 +972,8 @@ def _render_users_tab(config: dict):
             "current_email": get_current_email(),
             "current_role": get_current_role(),
             "is_admin": is_admin(),
+            "temporary_account_match": is_temporary_shared_account(),
+            "bypass_email_verification": can_bypass_email_verification(),
             "timestamp": datetime.now().isoformat(),
         }
     )
@@ -967,6 +986,12 @@ admin_emails = ["kyalorichard11@gmail.com"]
 
 [access]
 privileged_domains = ["cgiar.org", "icarda.org"]
+
+[temporary_shared_account]
+enabled = true
+email = "dashboard.access@eusee.global"
+role = "privileged"
+bypass_email_verification = true
 
 [access_control]
 firestore_collection = "dashboard_settings"

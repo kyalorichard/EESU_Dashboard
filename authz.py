@@ -47,6 +47,11 @@ FEATURE_REGISTRY = {
     "view_chart_heatmap_subject_mechanism": ("Analytical charts", "Affected actor × mechanism heatmap"),
     "view_chart_heatmap_actor_subject": ("Analytical charts", "Actor × affected actor heatmap"),
     "view_chart_sankey_flow": ("Analytical charts", "Analytical Sankey flow"),
+    "view_chart_negative_flow_diagram": ("Analytical charts", "Negative-alert flow diagram"),
+    "view_chart_negative_key_links": ("Analytical charts", "Negative-alert key links"),
+    "view_chart_negative_follow_pathway": ("Analytical charts", "Negative-alert follow pathway"),
+    "view_chart_negative_top_n_selector": ("Analytical charts", "Negative-alert Top-N selector"),
+    "view_chart_negative_detail_level": ("Analytical charts", "Negative-alert detail-level control"),
     "view_chart_geospatial_map": ("Analytical charts", "Geospatial intelligence map"),
     "view_chart_ai_copilot_plots": ("AI Copilot", "AI Copilot generated plots"),
 }
@@ -79,18 +84,27 @@ ROLE_PRESETS = {
     "privileged": set(FEATURE_KEYS),
 }
 
-# Permissions that can never be granted to non-admin roles from Firestore/Admin UI.
-# Admin users still have full access because has_permission() returns True for is_admin().
+# Permissions that are permanently restricted by role. Admin users always have
+# full access because has_permission() returns True for is_admin(). Privileged
+# users are allowed to view every dashboard plot, including the map.
 ADMIN_ONLY_FEATURES = {
     "view_admin_page",
     "view_negative_alert_filters",
-    "view_maps",
-    "view_chart_geospatial_map",
 }
 
 LOCKED_FALSE = {
-    "guest": set(ADMIN_ONLY_FEATURES),
-    "viewer": set(ADMIN_ONLY_FEATURES),
+    "guest": {
+        "view_admin_page",
+        "view_negative_alert_filters",
+        "view_maps",
+        "view_chart_geospatial_map",
+    },
+    "viewer": {
+        "view_admin_page",
+        "view_negative_alert_filters",
+        "view_maps",
+        "view_chart_geospatial_map",
+    },
     "privileged": set(ADMIN_ONLY_FEATURES),
 }
 
@@ -122,6 +136,48 @@ def get_privileged_domains() -> list[str]:
     return [x.lower().lstrip("@") for x in _as_list(_secrets_get("access", "privileged_domains", []))]
 
 
+def get_temporary_shared_account() -> dict[str, Any]:
+    """Return a normalized temporary shared-account configuration."""
+    enabled = bool(_secrets_get("temporary_shared_account", "enabled", False))
+    email = str(_secrets_get("temporary_shared_account", "email", "") or "").strip().lower()
+    role = str(_secrets_get("temporary_shared_account", "role", "viewer") or "viewer").strip().lower()
+    bypass_email_verification = bool(
+        _secrets_get("temporary_shared_account", "bypass_email_verification", False)
+    )
+
+    if role not in ROLES:
+        role = "viewer"
+
+    return {
+        "enabled": enabled,
+        "email": email,
+        "role": role,
+        "bypass_email_verification": bypass_email_verification,
+    }
+
+
+def is_temporary_shared_account(email: str | None = None) -> bool:
+    """Return True when the supplied/current email is the enabled shared account."""
+    account = get_temporary_shared_account()
+    candidate = str(email or get_current_email() or "").strip().lower()
+
+    return bool(
+        account["enabled"]
+        and account["email"]
+        and candidate
+        and candidate == account["email"]
+    )
+
+
+def can_bypass_email_verification(email: str | None = None) -> bool:
+    """Allow verification bypass only for the explicitly configured shared account."""
+    account = get_temporary_shared_account()
+    return bool(
+        account["bypass_email_verification"]
+        and is_temporary_shared_account(email)
+    )
+
+
 def get_current_email() -> str:
     user = st.session_state.get("user") or {}
     candidates = [
@@ -143,18 +199,43 @@ def is_admin() -> bool:
 
 
 def get_current_role() -> str:
+    """Resolve the effective role using admin, shared-account and domain rules."""
     if is_admin():
         return "admin"
 
     email = get_current_email()
+    if not email:
+        return "guest"
 
-    if email:
-        domain = email.split("@")[-1].lower() if "@" in email else ""
-        if domain in get_privileged_domains():
-            return "privileged"
-        return "viewer"
+    # Explicit shared-account assignment takes precedence over domain rules.
+    temporary_account = get_temporary_shared_account()
+    if is_temporary_shared_account(email):
+        return temporary_account["role"]
 
-    return "guest"
+    domain = email.rsplit("@", 1)[-1].strip().lower() if "@" in email else ""
+
+    secret_domains = {
+        str(item).strip().lower().lstrip("@")
+        for item in get_privileged_domains()
+        if str(item).strip()
+    }
+
+    firestore_domains: set[str] = set()
+    try:
+        config = load_access_config()
+        firestore_domains = {
+            str(item).strip().lower().lstrip("@")
+            for item in config.get("privileged_domains", [])
+            if str(item).strip()
+        }
+    except Exception:
+        # Secrets remain a safe fallback when Firestore is unavailable.
+        firestore_domains = set()
+
+    if domain and domain in (secret_domains | firestore_domains):
+        return "privileged"
+
+    return "viewer"
 
 
 def default_access_config() -> dict[str, Any]:
@@ -186,6 +267,12 @@ def normalize_access_config(config: dict[str, Any] | None) -> dict[str, Any]:
 
     if not isinstance(config, dict):
         return base
+
+    config["privileged_domains"] = sorted({
+        str(item).strip().lower().lstrip("@")
+        for item in _as_list(config.get("privileged_domains", get_privileged_domains()))
+        if str(item).strip()
+    })
 
     for role in ROLES:
         config.setdefault(role, {})
@@ -350,6 +437,20 @@ def has_permission(permission: str) -> bool:
     features = config.get(role, {}).get("features", {})
 
     return bool(features.get(permission, False))
+
+
+def get_access_diagnostics() -> dict[str, Any]:
+    """Return a compact runtime snapshot for troubleshooting access problems."""
+    account = get_temporary_shared_account()
+    return {
+        "current_email": get_current_email(),
+        "current_role": get_current_role(),
+        "is_admin": is_admin(),
+        "temporary_account_enabled": account["enabled"],
+        "temporary_account_match": is_temporary_shared_account(),
+        "bypass_email_verification": can_bypass_email_verification(),
+        "permissions": {key: has_permission(key) for key in FEATURE_KEYS},
+    }
 
 
 def apply_data_scope(df: pd.DataFrame) -> pd.DataFrame:
