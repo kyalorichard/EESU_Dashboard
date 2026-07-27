@@ -1296,8 +1296,8 @@ def continent_to_region(continent):
         return "Africa"
     elif continent in ["Asia", "Oceania"]:
         return "Asia and the Pacific"
-    elif continent in ["Europe", "Middle East"]:
-        return "The Middle East"
+    elif continent in ["Europe", "Middle East", "North Africa"]:
+        return "Middle East and North Africa"
     elif continent in [
         "Americas",
         "North America",
@@ -2064,7 +2064,7 @@ inject_professional_sidebar_filter_css()
 
 regions_labels = [
     "Africa",
-    "The Middle East",
+    "Middle East and North Africa",
     "Asia and the Pacific",
     "Americas and the Caribbean",
 ]
@@ -2434,8 +2434,9 @@ CFR_REGION_ORDER = [
     "Africa",
     "Americas and the Caribbean",
     "Asia and the Pacific",
-    "The Middle East",
+    "Middle East and North Africa",
     "Unknown",
+
 ]
 
 # Use the same country normalisation applied to the alert dataset.
@@ -3465,11 +3466,11 @@ def _build_regional_table_html(regional_scores):
         region_label = _safe_text(row["region"])
         region_label = (
             region_label
-            .replace("Americas and the Caribbean", "Americas and<br>the Caribbean")
-            .replace("Asia and the Pacific", "Asia and<br>the Pacific")
+            .replace("Americas and the Caribbean", "Americas and the Caribbean")
+            .replace("Asia and the Pacific", "Asia and the Pacific")
             .replace(
                 "Middle East and North Africa",
-                "Middle East and<br>North Africa",
+                "Middle East and North Africa",
             )
         )
 
