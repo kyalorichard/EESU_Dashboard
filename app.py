@@ -415,6 +415,11 @@ components.html(
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
+# ------------------------------------------------------------------
+# AUTHORIZATION AND ADMIN MODULE LOADING
+# ------------------------------------------------------------------
+# Authorization is security-critical. Never continue with permissive
+# defaults when authz.py is unavailable or fails during import.
 try:
     from authz import (
         is_admin as admin_is_admin,
@@ -423,58 +428,44 @@ try:
         has_permission,
         apply_data_scope,
     )
+except Exception as authz_import_error:
+    logging.exception(
+        "Critical authorization module import failure",
+        exc_info=authz_import_error,
+    )
+    st.error(
+        "Authorization services are currently unavailable. "
+        "For security, the dashboard has stopped instead of granting fallback access."
+    )
+    st.stop()
 
+# The admin interface is optional. Failure to import it must not replace or
+# weaken the valid authorization functions imported above.
+try:
+    # Preferred name used by the optimized admin script.
+    from admin import render_admin_page, render_admin_sidebar_navigation
+except Exception as admin_import_error:
+    logging.warning(
+        "Could not import admin.py; attempting admin_page.py fallback: %s",
+        admin_import_error,
+    )
     try:
-        # Preferred name used by the optimized admin script.
-        from admin import render_admin_page, render_admin_sidebar_navigation
-    except Exception:
-        # Backward-compatible fallback if your file is still named admin_page.py.
+        # Backward-compatible fallback if the file is still named admin_page.py.
         from admin_page import render_admin_page, render_admin_sidebar_navigation
-except Exception:
-    def admin_is_admin():
-        return False
-    def get_current_role():
-        return "guest"
-    def get_current_email():
-        return ""
-    def has_permission(permission):
-        # Fallback used only when authz.py/admin_page.py are unavailable.
-        # Keep it permissive for local debugging, while deployed authz.py remains source of truth.
-        return permission in [
-            "view_dashboard",
-            "view_overview",
-            "view_coverage_monitored_countries",
-            "view_monitored_countries_value",
-            "view_maps",
-            "view_negative_alerts",
-            "view_analytical_flow_panel",
-            "view_data_table",
-            "download_data",
-            "use_ai_copilot",
-            "view_user_manual",
-            "view_chart_overview_alert_type",
-            "view_chart_overview_enabling_principles",
-            "view_chart_overview_regions",
-            "view_chart_overview_countries",
-            "view_chart_negative_restrictive_actors",
-            "view_chart_negative_affected_actors",
-            "view_chart_negative_restrictive_mechanisms",
-            "view_chart_negative_event_types",
-            "view_chart_negative_alert_types",
-            "view_chart_negative_enabling_principles",
-            "view_chart_heatmap_actor_mechanism",
-            "view_chart_heatmap_subject_mechanism",
-            "view_chart_heatmap_actor_subject",
-            "view_chart_sankey_flow",
-            "view_chart_geospatial_map",
-            "view_chart_ai_copilot_plots",
-        ]
-    def apply_data_scope(df):
-        return df
-    def render_admin_page(data=None):
-        st.error("Admin page is not available. Confirm authz.py and admin_page.py are deployed with app.py.")
-    def render_admin_sidebar_navigation():
-        return "Dashboard"
+    except Exception as admin_page_import_error:
+        logging.exception(
+            "Admin interface modules are unavailable",
+            exc_info=admin_page_import_error,
+        )
+
+        def render_admin_page(data=None):
+            st.error(
+                "The admin page is unavailable. Confirm that admin.py or "
+                "admin_page.py is deployed and imports successfully."
+            )
+
+        def render_admin_sidebar_navigation():
+            return "Dashboard"
 
 try:
     from streamlit_plotly_events import plotly_events
