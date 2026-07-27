@@ -2298,7 +2298,7 @@ st.markdown(f"""
 <div class="animated-divider"></div>
 
 <div class="animated-subtitle">
-    Explore and analyse EU SEE data! This dashboard reflects the documentation of changes to the enabling environment for civil society, as reported by our network members in 80+ countries. We recommend complementing the data here with the primary source research available on the EU SEE website. Please consider: 
+    <br>Explore and analyse EU SEE data! This dashboard reflects the documentation of changes to the enabling environment for civil society, as reported by our network members in 80+ countries. We recommend complementing the data here with the primary source research available on the EU SEE website. Please consider: 
 <br>•	Due to differences in partner reporting practices by country, direct country comparisons are not recommended when using this data.  
 <br>•	Some alerts fall under more than one enabling environment principle. 
 
@@ -2413,12 +2413,12 @@ CFR_PRINCIPLE_COLOURS = {
 }
 
 CFR_PRINCIPLE_LIGHT_COLOURS = {
-    "P1": "#EDE8FF",
-    "P2": "#FFF0BE",
-    "P3": "#E9D0C1",
-    "P4": "#C8EEEE",
-    "P5": "#FFD5C1",
-    "P6": "#F9C6DC",
+    "P1": "#5A0A78",
+    "P2": "#FFB900",
+    "P3": "#642814",
+    "P4": "#008CAA",
+    "P5": "#FF8C00",
+    "P6": "#B40000",
 }
 
 CFR_TEXT = "#101B57"
