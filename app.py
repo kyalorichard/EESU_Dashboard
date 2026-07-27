@@ -3113,7 +3113,7 @@ def _inject_cfr_dashboard_css():
             text-align: left !important;
             white-space: normal !important;
             overflow-wrap: normal !important;
-            color: #FFFFFF;
+            color: #101B57;
             font-weight: 850;
         }
 
@@ -3135,7 +3135,7 @@ def _inject_cfr_dashboard_css():
             height: 30px !important;
             padding: 0 !important;
             border-radius: 5px !important;
-            color: #101B57 !important;
+            color: #FFFFFF !important;
             font-size: 14px !important;
             font-weight: 950 !important;
         }
