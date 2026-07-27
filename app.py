@@ -8099,6 +8099,7 @@ if tab_overview is not None:
     
             cols_rename_map  = {
                 "post_title": "Title of post",
+                "Summary": "Event Summary",
                 "creation_date": "Date of submission",
                 "alert-country": "Country",
                 "enabling-principle": "Enabling principles",
@@ -8335,7 +8336,8 @@ if tab_negative is not None:
 
                 cols_to_keep = {
                     "post_title": "Title of post",
-                    "creation_date": "Date of submission",
+                    "creation_date": "Date of submission",                    
+                    "Summary": "Event Summary",
                     "alert-country": "Country",
                     "enabling-principle": "Enabling principles",
                     "alert-impact": "Impact of alert",
