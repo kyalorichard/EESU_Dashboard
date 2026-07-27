@@ -5622,7 +5622,16 @@ def _standard_chart_height(horizontal=False):
 
 
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, normalize_labels=True):
+def create_bar_chart(
+    df,
+    x,
+    y,
+    title=None,
+    horizontal=False,
+    color_col=None,
+    normalize_labels=True,
+    show_axis_dots=True,
+):
     """Create a percentage bar chart with standard height and dynamic percent axis."""
     df = df.copy()
 
@@ -5698,6 +5707,57 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
             "<b>%{y}</b><br>" if horizontal else "<b>%{x}</b><br>"
         ) + "Share: %{customdata[1]:.1f}%<br>Count: %{customdata[0]:,.0f}<extra></extra>",
     )
+
+    # Add polished category dots to every horizontal bar chart.
+    if horizontal and show_axis_dots:
+        dot_x = -(axis_max * 0.012)
+        dot_y = df[x].tolist()
+
+        if color_col and color_col in df.columns:
+            dot_colors = [
+                CHART_COLORS.get(category, CHART_COLORS["Default"])
+                for category in df[color_col].tolist()
+            ]
+        else:
+            dot_colors = [CHART_COLORS["Default"]] * len(df)
+
+        # Soft halo behind the colored marker.
+        fig.add_trace(
+            go.Scatter(
+                x=[dot_x] * len(dot_y),
+                y=dot_y,
+                mode="markers",
+                marker=dict(
+                    size=18,
+                    color="rgba(16,24,40,0.10)",
+                    line=dict(width=0),
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+                cliponaxis=False,
+            )
+        )
+
+        # Main marker matching the associated bar/category color.
+        fig.add_trace(
+            go.Scatter(
+                x=[dot_x] * len(dot_y),
+                y=dot_y,
+                mode="markers",
+                marker=dict(
+                    size=12,
+                    color=dot_colors,
+                    line=dict(color="#FFFFFF", width=2.2),
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+                cliponaxis=False,
+            )
+        )
+
+        fig.update_layout(
+            margin=dict(l=132, r=20, t=20, b=20),
+        )
 
     if horizontal:
         fig.update_yaxes(
@@ -5810,7 +5870,7 @@ def create_h_stacked_bar(
     title=None,
     horizontal=False,
     normalize_labels=True,
-    show_axis_dots=False,
+    show_axis_dots=True,
 ):
     """Create a stacked bar chart using percent of grand total with standard height."""
     df = df.copy()
