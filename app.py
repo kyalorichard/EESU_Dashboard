@@ -5281,91 +5281,265 @@ CHART_AXIS_COLOR = "#D8DEE9"
 
 
 def apply_classic_chart_theme(fig, title=None, height=None, horizontal=False, showlegend=True):
-    """Apply one professional, classic dashboard style without changing chart data."""
+    """Apply the unified EUSEE premium chart style without changing chart data."""
+    if fig is None:
+        return fig
+
+    current_title = title if title is not None else (fig.layout.title.text or "")
+
     fig.update_layout(
         template="plotly_white",
         height=height,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=CHART_FONT, size=11, color=CHART_TEXT_COLOR),
-        title=dict(
-            text=title if title is not None else fig.layout.title.text,
-            x=0.02,
-            xanchor="left",
-            y=0.98,
-            yanchor="top",
-            font=dict(family=CHART_FONT, size=14, color=CHART_TITLE_COLOR),
+        autosize=True,
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        font=dict(
+            family=CHART_FONT,
+            size=11,
+            color=CHART_TEXT_COLOR,
         ),
-        margin=dict(l=135 if horizontal else 46, r=28, t=58, b=58),
+        title=dict(
+            text=current_title,
+            x=0.025,
+            xanchor="left",
+            y=0.975,
+            yanchor="top",
+            pad=dict(t=2, b=8),
+            font=dict(
+                family=CHART_FONT,
+                size=17,
+                color="#16002B",
+            ),
+        ),
+        margin=dict(
+            l=145 if horizontal else 56,
+            r=34,
+            t=78,
+            b=62,
+        ),
         hoverlabel=dict(
             bgcolor="#FFFFFF",
-            bordercolor="#E2E8F0",
-            font=dict(family=CHART_FONT, size=12, color=CHART_TEXT_COLOR),
+            bordercolor="#E6E8EF",
+            font=dict(
+                family=CHART_FONT,
+                size=12,
+                color="#23152F",
+            ),
+            namelength=-1,
         ),
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.035,
             xanchor="right",
             x=1,
-            bgcolor="rgba(255,255,255,0.82)",
-            bordercolor="rgba(230,232,239,0.65)",
+            bgcolor="rgba(255,255,255,0.96)",
+            bordercolor="#E8E2EF",
             borderwidth=1,
-            font=dict(family=CHART_FONT, size=9, color="#344054"),
+            font=dict(
+                family=CHART_FONT,
+                size=10,
+                color="#23152F",
+            ),
             title=None,
-            itemsizing="trace",
-            itemwidth=30,
-            tracegroupgap=0,
+            itemsizing="constant",
+            itemwidth=34,
+            tracegroupgap=4,
         ),
         showlegend=showlegend,
+        bargap=0.34,
+        bargroupgap=0.12,
+        uniformtext_minsize=9,
+        uniformtext_mode="hide",
     )
+
     fig.update_xaxes(
         title=None,
         showgrid=True,
         gridwidth=1,
-        gridcolor=CHART_GRID_COLOR,
+        gridcolor="#E8EDF4",
+        griddash="dot",
         zeroline=False,
         showline=True,
         linewidth=1,
-        linecolor=CHART_AXIS_COLOR,
+        linecolor="#D8DEE9",
         ticks="",
-        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
+        tickfont=dict(
+            family=CHART_FONT,
+            size=10,
+            color="#4B5470",
+        ),
+        automargin=True,
+        title_standoff=10,
     )
+
     fig.update_yaxes(
         title=None,
         showgrid=False if horizontal else True,
         gridwidth=1,
-        gridcolor=CHART_GRID_COLOR,
+        gridcolor="#F0F3F7",
+        griddash="dot",
         zeroline=False,
         showline=True,
         linewidth=1,
-        linecolor=CHART_AXIS_COLOR,
+        linecolor="#D8DEE9",
         ticks="",
-        tickfont=dict(family=CHART_FONT, size=10, color="#52616B"),
+        tickfont=dict(
+            family=CHART_FONT,
+            size=10.5,
+            color="#23152F",
+        ),
+        automargin=True,
+        title_standoff=10,
     )
+
+    # Apply consistent trace polish while preserving all existing values and colors.
+    for trace in fig.data:
+        trace_type = getattr(trace, "type", "")
+
+        if trace_type == "bar":
+            try:
+                trace.update(
+                    marker_line_color="rgba(255,255,255,0.82)",
+                    marker_line_width=0.7,
+                    marker_cornerradius=8,
+                    opacity=0.98,
+                    cliponaxis=False,
+                )
+            except Exception:
+                trace.update(
+                    marker_line_color="rgba(255,255,255,0.82)",
+                    marker_line_width=0.7,
+                    opacity=0.98,
+                    cliponaxis=False,
+                )
+
+        elif trace_type in {"scatter", "scattergl"}:
+            mode = str(getattr(trace, "mode", "") or "")
+            update_args = dict(
+                line=dict(width=3),
+                hoverlabel=dict(bgcolor="#FFFFFF"),
+            )
+            if "markers" in mode:
+                update_args["marker"] = dict(
+                    size=8,
+                    line=dict(width=1.5, color="#FFFFFF"),
+                )
+            try:
+                trace.update(**update_args)
+            except Exception:
+                pass
+
+        elif trace_type == "pie":
+            try:
+                trace.update(
+                    hole=getattr(trace, "hole", 0),
+                    sort=False,
+                    marker=dict(
+                        line=dict(color="#FFFFFF", width=3),
+                    ),
+                    textfont=dict(
+                        family=CHART_FONT,
+                        size=11,
+                        color="#23152F",
+                    ),
+                    hoverlabel=dict(bgcolor="#FFFFFF"),
+                )
+            except Exception:
+                pass
+
+        elif trace_type == "heatmap":
+            try:
+                trace.update(
+                    xgap=2,
+                    ygap=2,
+                    hoverongaps=False,
+                    hoverlabel=dict(bgcolor="#FFFFFF"),
+                )
+            except Exception:
+                pass
+
     return fig
 
 def render_chart_shell():
-    """Global chart container polish: subtle cards, spacing and consistent dashboard feel."""
+    """Apply the premium EUSEE card treatment to every Plotly chart."""
     st.markdown(
         """
         <style>
         div[data-testid="stPlotlyChart"] {
-            background: #FFFFFF;
-            border: 1px solid #E9E2F2;
-            border-radius: 18px;
-            padding: 8px 10px 4px 10px;
-            box-shadow: 0 10px 28px rgba(45, 0, 85, 0.055);
-            margin-bottom: 18px;
-            transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+            position: relative;
+            background:
+                radial-gradient(circle at 8% 0%, rgba(102,0,148,.035), transparent 28%),
+                linear-gradient(180deg, #FFFFFF 0%, #FEFEFF 100%);
+            border: 1px solid #E8E2EF;
+            border-radius: 22px;
+            padding: 10px 12px 7px 12px;
+            box-shadow:
+                0 1px 2px rgba(16,24,40,.025),
+                0 12px 34px rgba(45,0,85,.065);
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition:
+                box-shadow .20s ease,
+                transform .20s ease,
+                border-color .20s ease;
         }
+
+        div[data-testid="stPlotlyChart"]::before {
+            content: "";
+            position: absolute;
+            top: 14px;
+            left: 24px;
+            width: 38px;
+            height: 4px;
+            border-radius: 999px;
+            background: #660094;
+            opacity: .96;
+            pointer-events: none;
+            z-index: 2;
+        }
+
         div[data-testid="stPlotlyChart"]:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
             border-color: #D8C7E6;
-            box-shadow: 0 14px 34px rgba(45, 0, 85, 0.09);
+            box-shadow:
+                0 2px 4px rgba(16,24,40,.035),
+                0 18px 42px rgba(45,0,85,.105);
         }
+
+        div[data-testid="stPlotlyChart"] .js-plotly-plot,
+        div[data-testid="stPlotlyChart"] .plot-container,
+        div[data-testid="stPlotlyChart"] .svg-container,
         div[data-testid="stPlotlyChart"] svg.main-svg {
-            border-radius: 14px;
+            border-radius: 17px;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar {
+            top: 8px !important;
+            right: 8px !important;
+            border: 1px solid #ECE7F1 !important;
+            border-radius: 10px !important;
+            background: rgba(255,255,255,.94) !important;
+            box-shadow: 0 4px 12px rgba(16,24,40,.06) !important;
+            padding: 2px 4px !important;
+        }
+
+        div[data-testid="stPlotlyChart"] .modebar-btn path {
+            fill: #667085 !important;
+        }
+
+        @media (max-width: 700px) {
+            div[data-testid="stPlotlyChart"] {
+                border-radius: 17px;
+                padding: 7px 6px 4px 6px;
+            }
+
+            div[data-testid="stPlotlyChart"]::before {
+                left: 18px;
+                top: 11px;
+                width: 30px;
+                height: 3px;
+            }
         }
         </style>
         """,
@@ -7749,39 +7923,37 @@ def render_dashboard_plotly_chart(
         except Exception:
             pass
 
-    # Keep chart title centered inside Plotly canvas
+    # Apply one consistent premium visual treatment to every dashboard plot.
     current_title = title or fig.layout.title.text or ""
 
-    if current_title:
-        fig.update_layout(
-            title=dict(
-                text=current_title,
-                x=0.5,
-                xanchor="center",
-                y=0.965,
-                yanchor="top"
-            ),
-            margin=dict(
-                t=85
-            )
-        )
+    fig = apply_classic_chart_theme(
+        fig,
+        title=current_title,
+        height=fig.layout.height,
+        horizontal=False,
+        showlegend=bool(fig.layout.showlegend)
+        if fig.layout.showlegend is not None
+        else any(getattr(trace, "showlegend", True) for trace in fig.data),
+    )
 
     fig = apply_responsive_plotly_layout(fig)
 
-    # Re-apply title and top margin after responsive layout,
-    # in case apply_responsive_plotly_layout overrides layout values.
+    # Preserve the left-aligned premium title after responsive adjustments.
     if current_title:
         fig.update_layout(
             title=dict(
                 text=current_title,
-                x=0.5,
-                xanchor="center",
-                y=0.965,
-                yanchor="top"
+                x=0.025,
+                xanchor="left",
+                y=0.975,
+                yanchor="top",
+                font=dict(
+                    family=CHART_FONT,
+                    size=17,
+                    color="#16002B",
+                ),
             ),
-            margin=dict(
-                t=85
-            )
+            margin=dict(t=82),
         )
 
     target.plotly_chart(
@@ -10165,7 +10337,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 labels={x_col: x_label, y_col: y_label}
             )
             fig.update_layout(height=430)
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_bar")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_bar")
 
         elif chart_type in ["horizontal_bar", "hbar"]:
             fig_df = chart_df.sort_values(y_col, ascending=True)
@@ -10179,7 +10351,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 labels={x_col: x_label, y_col: y_label}
             )
             fig.update_layout(height=max(430, 42 * len(fig_df)))
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_hbar")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=max(430, 42 * len(fig_df)), horizontal=True), use_container_width=True, key=f"{base_key}_hbar")
 
         elif chart_type == "grouped_bar":
             if not series_col or series_col not in chart_df.columns:
@@ -10202,7 +10374,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 }
             )
             fig.update_layout(height=430)
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_grouped_bar")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_grouped_bar")
 
         elif chart_type in ["stacked_bar", "stacked_100_percent_bar"]:
             if not series_col or series_col not in chart_df.columns:
@@ -10234,7 +10406,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 }
             )
             fig.update_layout(barmode="stack", height=430)
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_{chart_type}")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_{chart_type}")
 
         elif chart_type == "pie":
             fig = px.pie(
@@ -10243,7 +10415,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 values=y_col,
                 title=title
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_pie")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_pie")
 
         elif chart_type == "donut":
             fig = px.pie(
@@ -10253,7 +10425,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 title=title,
                 hole=0.45
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_donut")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_donut")
 
         elif chart_type == "line":
             fig = px.line(
@@ -10264,7 +10436,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 markers=True,
                 labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_line")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_line")
 
         elif chart_type == "area":
             fig = px.area(
@@ -10274,7 +10446,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 title=title,
                 labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_area")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_area")
 
         elif chart_type == "scatter":
             fig = px.scatter(
@@ -10284,7 +10456,7 @@ def render_langflow_output(raw_answer, chart_instance_key=None):
                 title=title,
                 labels={x_col: x_label, y_col: y_label}
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"{base_key}_scatter")
+            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_scatter")
 
         elif chart_type == "table":
             st.dataframe(chart_df, use_container_width=True)
