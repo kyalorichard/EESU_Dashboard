@@ -2014,28 +2014,17 @@ def render_sidebar_access_settings_profile():
     except TypeError:
         panel = st.sidebar.container()
 
-    with panel:
-        st.markdown(
-            '<span class="eusee-privilege-marker"></span>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("### 🔐 User Privilege Center")
-
-        if not signed_in:
-            st.markdown(f"**{display_name}**")
-            st.caption("Sign in to access advanced features.")
-
-            if st.button(
-                "🔐 Sign in / Register",
-                use_container_width=True,
-                key="privilege_center_signin_btn",
-            ):
-                st.session_state.auth_view = True
-                st.rerun()
-            return
-
+    with st.sidebar.expander(
+        "🔐 User Privilege Center",
+        expanded=True
+    ):
         st.markdown(f"**{display_name}**")
-        st.caption("Welcome.")
+
+        st.caption(
+            "Welcome."
+            if signed_in
+            else "Sign in to access advanced features."
+        )
 
         if is_admin_user:
             workspace = st.radio(
@@ -2043,12 +2032,7 @@ def render_sidebar_access_settings_profile():
                 options=["Dashboard", "Admin"],
                 horizontal=True,
                 key="eusee_sidebar_workspace_radio",
-                index=(
-                    0
-                    if st.session_state.get("eusee_sidebar_workspace")
-                    == "Dashboard"
-                    else 1
-                ),
+                index=0 if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else 1,
                 label_visibility="collapsed",
             )
 
@@ -2056,12 +2040,23 @@ def render_sidebar_access_settings_profile():
                 st.session_state["eusee_sidebar_workspace"] = workspace
                 st.rerun()
 
-        if st.button(
-            "Logout",
-            use_container_width=True,
-            key="privilege_center_logout_btn",
-        ):
-            logout()
+        st.divider()
+
+        if signed_in:
+            if st.button(
+                "Logout",
+                use_container_width=True,
+                key="privilege_center_logout_btn",
+            ):
+                logout()
+        else:
+            if st.button(
+                "🔐 Sign in / Register",
+                use_container_width=True,
+                key="privilege_center_signin_btn",
+            ):
+                st.session_state.auth_view = True
+                st.rerun()
 
 render_sidebar_access_settings_profile()
 
