@@ -634,6 +634,62 @@ def inject_classic_dashboard_css():
         div[data-testid="stDataFrame"] { max-height: 70vh !important; overflow: auto !important; }
     }
 
+    /* Mobile-first dashboard consistency and overflow protection. */
+    img, svg, canvas, video { max-width: 100% !important; height: auto; }
+    [data-testid="stMetric"], [data-testid="stAlert"],
+    div[data-testid="stVerticalBlockBorderWrapper"] { min-width: 0 !important; }
+    [data-testid="stPlotlyChart"] > div,
+    [data-testid="stPlotlyChart"] .plot-container,
+    [data-testid="stPlotlyChart"] .svg-container { width: 100% !important; }
+    .modebar-container { max-width: 100% !important; }
+    .modebar-group { flex-wrap: wrap !important; }
+    table { max-width: 100%; }
+
+    @media (max-width: 768px) {
+        header[data-testid="stHeader"] { height: 44px !important; min-height: 44px !important; }
+        .main .block-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding-left: .65rem !important;
+            padding-right: .65rem !important;
+            padding-bottom: 6.5rem !important;
+        }
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: .65rem !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stPlotlyChart"] { min-height: 280px !important; }
+        .js-plotly-plot .plotly .modebar {
+            right: 4px !important;
+            top: 4px !important;
+            transform: scale(.86);
+            transform-origin: top right;
+        }
+        div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        div[data-testid="stTabs"] [data-baseweb="tab"] {
+            flex: 0 0 auto !important;
+            min-width: max-content !important;
+            white-space: nowrap !important;
+        }
+        .data-preview-toolbar, .executive-table-header,
+        .executive-table-status, .last-updated-badge {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+        }
+        .data-preview-pill-row { justify-content: flex-start !important; }
+    }
+
 /* REMOVE SPACE BELOW SUBTITLE */
 .animated-subtitle{
     margin-top: 0rem !important;
@@ -4535,6 +4591,133 @@ def _build_aggregated_cfr_figure(chart_data):
 # ------------------------------------------------------------
 # CFR PAGE
 # ------------------------------------------------------------
+
+def render_cfr_matrix_zoom_controls():
+    """Add accessible zoom controls for the aggregated CFR principle matrix."""
+    components.html(
+        r"""
+        <script>
+        (function () {
+            const doc = window.parent.document;
+            const ROOT_ID = "eusee-cfr-zoom-controls";
+            const STYLE_ID = "eusee-cfr-zoom-style";
+            const SCALE_MIN = 0.80;
+            const SCALE_MAX = 1.40;
+            const SCALE_STEP = 0.10;
+
+            function getPanel() {
+                const marker = doc.querySelector(".cfr-chart-panel-marker");
+                return marker ? marker.closest('[data-testid="stVerticalBlockBorderWrapper"]') : null;
+            }
+
+            function getMatrix(panel) {
+                return panel ? panel.querySelector(".cfr-principle-matrix") : null;
+            }
+
+            function ensureStyle() {
+                if (doc.getElementById(STYLE_ID)) return;
+                const style = doc.createElement("style");
+                style.id = STYLE_ID;
+                style.textContent = `
+                    #${ROOT_ID} {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: flex-end;
+                        gap: 6px;
+                        width: 100%;
+                        margin: 2px 0 8px 0;
+                        font-family: "Anek Devanagari", Arial, sans-serif;
+                    }
+                    #${ROOT_ID} button {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-width: 34px;
+                        height: 32px;
+                        padding: 0 10px;
+                        border: 1px solid #D6BBE5;
+                        border-radius: 9px;
+                        background: #FFFFFF;
+                        color: #660094;
+                        font: 800 12px/1 "Anek Devanagari", Arial, sans-serif;
+                        cursor: pointer;
+                        box-shadow: 0 2px 6px rgba(16,24,40,.05);
+                    }
+                    #${ROOT_ID} button:hover { background: #FBF7FD; border-color: #660094; }
+                    #${ROOT_ID} button:focus-visible { outline: 3px solid rgba(102,0,148,.18); outline-offset: 1px; }
+                    #${ROOT_ID} .cfr-zoom-value {
+                        min-width: 46px;
+                        text-align: center;
+                        color: #667085;
+                        font-size: 11px;
+                        font-weight: 800;
+                    }
+                    .cfr-principle-matrix {
+                        transform-origin: top left;
+                        transition: transform .16s ease;
+                    }
+                    @media (max-width: 700px) {
+                        #${ROOT_ID} { justify-content: flex-start; overflow-x: auto; }
+                        #${ROOT_ID} button { min-width: 32px; height: 30px; padding: 0 8px; }
+                    }
+                `;
+                doc.head.appendChild(style);
+            }
+
+            function install() {
+                const panel = getPanel();
+                const matrix = getMatrix(panel);
+                if (!panel || !matrix) return false;
+
+                ensureStyle();
+                const old = doc.getElementById(ROOT_ID);
+                if (old) old.remove();
+
+                const controls = doc.createElement("div");
+                controls.id = ROOT_ID;
+                controls.setAttribute("role", "group");
+                controls.setAttribute("aria-label", "CFR chart zoom controls");
+                controls.innerHTML = `
+                    <button type="button" data-action="out" aria-label="Zoom out" title="Zoom out">−</button>
+                    <span class="cfr-zoom-value" aria-live="polite">100%</span>
+                    <button type="button" data-action="in" aria-label="Zoom in" title="Zoom in">+</button>
+                    <button type="button" data-action="reset" aria-label="Reset zoom" title="Reset zoom">Reset</button>
+                `;
+                matrix.parentNode.insertBefore(controls, matrix);
+
+                let scale = 1;
+                const value = controls.querySelector(".cfr-zoom-value");
+                function applyScale(next) {
+                    scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, next));
+                    matrix.style.transform = `scale(${scale})`;
+                    matrix.style.width = `${100 / scale}%`;
+                    value.textContent = `${Math.round(scale * 100)}%`;
+                }
+                controls.addEventListener("click", function (event) {
+                    const button = event.target.closest("button[data-action]");
+                    if (!button) return;
+                    const action = button.dataset.action;
+                    if (action === "in") applyScale(scale + SCALE_STEP);
+                    if (action === "out") applyScale(scale - SCALE_STEP);
+                    if (action === "reset") applyScale(1);
+                });
+                applyScale(1);
+                return true;
+            }
+
+            let attempts = 0;
+            const timer = window.setInterval(function () {
+                attempts += 1;
+                if (install() || attempts > 20) window.clearInterval(timer);
+            }, 150);
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
 def render_cfr_analysis():
     _inject_cfr_dashboard_css()
 
@@ -4662,6 +4845,7 @@ def render_cfr_analysis():
                 else cfr[cfr["Country"].eq(selected_country)]
             )
 
+            render_cfr_matrix_zoom_controls()
             st.markdown(
                 _build_principle_score_matrix_html(chart_data),
                 unsafe_allow_html=True,
@@ -4800,354 +4984,100 @@ else:
 
 # ---------------- COLLAPSED RESPONSIVE FLOATING FEEDBACK OVERLAY ----------------
 def render_top_feedback_bar():
-    """
-    Inject a reliable single-control floating feedback widget.
+    """Render a single-click floating link that opens the feedback form."""
+    feedback_url = (
+        "https://forms.office.com/pages/responsepage.aspx?"
+        "id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u"
+        "&route=shorturl"
+    )
 
-    Fix applied:
-    - Uses one click listener per button only.
-    - Avoids duplicate onclick + addEventListener bindings, which caused the widget
-      to open and immediately close again.
-    - Uses CSS class toggling only; no competing inline display overrides.
-    """
-    feedback_url = "https://forms.office.com/pages/responsepage.aspx?id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u&route=shorturl"
+    components.html(
+        f"""
+        <script>
+        (function () {{
+            const doc = window.parent.document;
+            const ROOT_ID = "eusee-feedback-floating-root";
+            const STYLE_ID = "eusee-feedback-floating-style";
 
-    components.html(f"""
-    <script>
-    (function() {{
-        const doc = window.parent.document;
-        const rootId = "eusee-feedback-floating-root";
-        const styleId = "eusee-feedback-floating-style";
+            const existingRoot = doc.getElementById(ROOT_ID);
+            if (existingRoot) existingRoot.remove();
+            const existingStyle = doc.getElementById(STYLE_ID);
+            if (existingStyle) existingStyle.remove();
 
-        // Remove previous/cached feedback widgets and styles.
-        [
-            "eusee-feedback-floating-root",
-            "eusee-feedback-callout",
-            "eusee-feedback-tab"
-        ].forEach(function(id) {{
-            const el = doc.getElementById(id);
-            if (el) el.remove();
-        }});
-
-        [
-            "eusee-feedback-floating-style",
-            "eusee-feedback-style"
-        ].forEach(function(id) {{
-            const el = doc.getElementById(id);
-            if (el) el.remove();
-        }});
-
-        try {{
-            window.localStorage.removeItem("eusee_feedback_widget_closed");
-            window.localStorage.removeItem("eusee_feedback_widget_dismissed");
-            window.localStorage.removeItem("eusee_feedback_widget_hidden");
-        }} catch (e) {{}}
-
-        const style = doc.createElement("style");
-        style.id = styleId;
-        style.innerHTML = `
-            #eusee-feedback-floating-root {{
-                position: fixed !important;
-                bottom: 24px !important;
-                right: 24px !important;
-                top: auto !important;
-                left: auto !important;
-                transform: none !important;
-                z-index: 2147482500 !important;
-                font-family: "Anek Devanagari", Arial, sans-serif !important;
-                pointer-events: auto !important;
-                width: auto !important;
-                max-width: min(760px, calc(100vw - 32px)) !important;
-            }}
-
-            #eusee-feedback-floating-root * {{
-                box-sizing: border-box !important;
-            }}
-
-            .eusee-feedback-toggle {{
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 8px !important;
-                min-height: 38px !important;
-                padding: 8px 14px !important;
-                border-radius: 999px !important;
-                border: 1px solid rgba(102,0,148,.16) !important;
-                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98)) !important;
-                color: #2D0055 !important;
-                box-shadow: 0 12px 28px rgba(17,24,39,.13), 0 2px 8px rgba(102,0,148,.08) !important;
-                font-size: 12px !important;
-                font-weight: 950 !important;
-                cursor: pointer !important;
-                user-select: none !important;
-                white-space: nowrap !important;
-                backdrop-filter: blur(14px) !important;
-                -webkit-backdrop-filter: blur(14px) !important;
-                transition: transform .16s ease, box-shadow .16s ease, background .16s ease !important;
-                appearance: none !important;
-                -webkit-appearance: none !important;
-            }}
-
-            .eusee-feedback-toggle:hover {{
-                transform: translateY(-1px) !important;
-                background: linear-gradient(135deg, #FFFFFF, #F4EAF8) !important;
-                box-shadow: 0 16px 34px rgba(17,24,39,.16), 0 3px 10px rgba(102,0,148,.10) !important;
-            }}
-
-            .eusee-feedback-toggle-icon {{
-                width: 24px !important;
-                height: 24px !important;
-                min-width: 24px !important;
-                border-radius: 9px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10)) !important;
-                border: 1px solid rgba(102,0,148,.10) !important;
-                color: #660094 !important;
-                font-size: 13px !important;
-                font-weight: 900 !important;
-            }}
-
-            .eusee-feedback-toggle-caret {{
-                color: #667085 !important;
-                font-size: 13px !important;
-                font-weight: 950 !important;
-                line-height: 1 !important;
-            }}
-
-            .eusee-feedback-panel {{
-                display: none !important;
-                width: min(760px, calc(100vw - 28px)) !important;
-                transform-origin: bottom right !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                gap: 12px !important;
-                padding: 12px 12px 12px 14px !important;
-                border-radius: 18px !important;
-                background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,247,255,.98)) !important;
-                border: 1px solid rgba(102,0,148,.14) !important;
-                box-shadow: 0 16px 38px rgba(17,24,39,.14), 0 2px 8px rgba(102,0,148,.08) !important;
-                backdrop-filter: blur(14px) !important;
-                -webkit-backdrop-filter: blur(14px) !important;
-            }}
-
-            #eusee-feedback-floating-root.is-open > #eusee-feedback-toggle {{
-                display: none !important;
-            }}
-
-            #eusee-feedback-floating-root.is-open .eusee-feedback-panel {{
-                display: flex !important;
-            }}
-
-            .eusee-feedback-panel-left {{
-                display: flex !important;
-                align-items: center !important;
-                gap: 10px !important;
-                min-width: 0 !important;
-                flex: 1 !important;
-            }}
-
-            .eusee-feedback-panel-icon {{
-                width: 34px !important;
-                height: 34px !important;
-                min-width: 34px !important;
-                border-radius: 12px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: linear-gradient(135deg, rgba(102,0,148,.13), rgba(0,140,170,.10)) !important;
-                border: 1px solid rgba(102,0,148,.10) !important;
-                color: #660094 !important;
-                font-size: 15px !important;
-                font-weight: 900 !important;
-            }}
-
-            .eusee-feedback-panel-copy {{
-                color: #344054 !important;
-                font-size: 12px !important;
-                line-height: 1.32 !important;
-                font-weight: 750 !important;
-                white-space: normal !important;
-                min-width: 0 !important;
-            }}
-
-            .eusee-feedback-panel-copy strong {{
-                color: #2D0055 !important;
-                font-weight: 950 !important;
-            }}
-
-            .eusee-feedback-panel-actions {{
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: flex-end !important;
-                gap: 8px !important;
-                flex-shrink: 0 !important;
-                align-self: center !important;
-            }}
-
-            .eusee-feedback-panel-button {{
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                min-height: 34px !important;
-                padding: 8px 14px !important;
-                border-radius: 999px !important;
-                background: linear-gradient(90deg, #660094 0%, #008CAA 100%) !important;
-                color: #FFFFFF !important;
-                text-decoration: none !important;
-                font-size: 11px !important;
-                font-weight: 900 !important;
-                white-space: nowrap !important;
-                box-shadow: 0 8px 18px rgba(102,0,148,.18) !important;
-                transition: all .16s ease !important;
-            }}
-
-            .eusee-feedback-panel-button:hover {{
-                transform: translateY(-1px) !important;
-                filter: brightness(1.04) !important;
-            }}
-
-            .eusee-feedback-panel-toggle {{
-                min-height: 34px !important;
-                padding: 8px 12px !important;
-                gap: 6px !important;
-                box-shadow: none !important;
-                background: rgba(255,255,255,.92) !important;
-            }}
-
-            @media (max-width: 900px) {{
-                #eusee-feedback-floating-root {{
-                    bottom: 18px !important;
-                    right: 18px !important;
-                    top: auto !important;
-                    left: auto !important;
-                    transform: none !important;
-                    max-width: min(640px, calc(100vw - 20px)) !important;
+            const style = doc.createElement("style");
+            style.id = STYLE_ID;
+            style.textContent = `
+                #${{ROOT_ID}} {{
+                    position: fixed;
+                    right: 20px;
+                    bottom: 20px;
+                    z-index: 1000001;
+                    font-family: "Anek Devanagari", Arial, sans-serif;
                 }}
-
-                .eusee-feedback-panel {{
-                    width: min(640px, calc(100vw - 20px)) !important;
-                    padding: 11px 12px !important;
+                #${{ROOT_ID}} a {{
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 7px;
+                    min-height: 42px;
+                    padding: 0 15px;
+                    border: 1px solid #660094;
+                    border-radius: 999px;
+                    background: #660094;
+                    color: #FFFFFF;
+                    text-decoration: none;
+                    font-size: 12px;
+                    font-weight: 850;
+                    line-height: 1;
+                    box-shadow: 0 8px 22px rgba(102,0,148,.24);
+                    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
                 }}
-            }}
-
-            @media (max-width: 700px) {{
-                #eusee-feedback-floating-root {{
-                    bottom: 14px !important;
-                    right: 14px !important;
-                    top: auto !important;
-                    left: auto !important;
-                    transform: none !important;
-                    width: auto !important;
-                    max-width: calc(100vw - 20px) !important;
+                #${{ROOT_ID}} a:hover {{
+                    background: #4E0072;
+                    box-shadow: 0 10px 26px rgba(102,0,148,.30);
+                    transform: translateY(-1px);
                 }}
-
-                .eusee-feedback-toggle {{
-                    width: fit-content !important;
-                    max-width: 92vw !important;
-                    margin: 0 0 0 auto !important;
-                    min-height: 36px !important;
-                    padding: 7px 12px !important;
-                    font-size: 11.5px !important;
+                #${{ROOT_ID}} a:focus-visible {{
+                    outline: 3px solid rgba(102,0,148,.22);
+                    outline-offset: 3px;
                 }}
-
-                .eusee-feedback-panel {{
-                    width: min(420px, calc(100vw - 28px)) !important;
-                    max-height: calc(100vh - 40px) !important;
-                    overflow-y: auto !important;
-                    flex-direction: column !important;
-                    align-items: stretch !important;
-                    gap: 10px !important;
-                    padding: 11px !important;
-                    border-radius: 16px !important;
+                #${{ROOT_ID}} .feedback-plus {{
+                    font-size: 17px;
+                    font-weight: 700;
+                    line-height: 1;
                 }}
-
-                .eusee-feedback-panel-left {{
-                    align-items: flex-start !important;
+                @media (max-width: 700px) {{
+                    #${{ROOT_ID}} {{ right: 12px; bottom: 12px; }}
+                    #${{ROOT_ID}} a {{
+                        min-height: 40px;
+                        padding: 0 13px;
+                        font-size: 11.5px;
+                        box-shadow: 0 6px 18px rgba(102,0,148,.22);
+                    }}
                 }}
+            `;
+            doc.head.appendChild(style);
 
-                .eusee-feedback-panel-copy {{
-                    font-size: 11.5px !important;
-                    line-height: 1.35 !important;
-                }}
+            const root = doc.createElement("div");
+            root.id = ROOT_ID;
+            root.innerHTML = `
+                <a href="{feedback_url}" target="_blank" rel="noopener noreferrer"
+                   aria-label="Open feedback form" title="Open feedback form">
+                    <span aria-hidden="true">💬</span>
+                    <span>Feedback</span>
+                    <span class="feedback-plus" aria-hidden="true">+</span>
+                </a>
+            `;
+            doc.body.appendChild(root);
+        }})();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
-                .eusee-feedback-panel-actions {{
-                    width: 100% !important;
-                    gap: 8px !important;
-                    align-items: center !important;
-                    justify-content: space-between !important;
-                }}
 
-                .eusee-feedback-panel-button {{
-                    flex: 1 !important;
-                    width: auto !important;
-                }}
-            }}
-        `;
-        doc.head.appendChild(style);
-
-        const root = doc.createElement("div");
-        root.id = rootId;
-        root.className = "is-collapsed";
-        root.innerHTML = `
-            <button class="eusee-feedback-toggle" id="eusee-feedback-toggle" type="button" aria-label="Open feedback panel" aria-expanded="false" title="Open feedback panel">
-                <span class="eusee-feedback-toggle-icon">💬</span>
-                <span id="eusee-feedback-toggle-label">Feedback</span>
-                <span class="eusee-feedback-toggle-caret" id="eusee-feedback-toggle-caret">+</span>
-            </button>
-
-            <div class="eusee-feedback-panel" id="eusee-feedback-panel" role="dialog" aria-label="Feedback panel">
-                <div class="eusee-feedback-panel-left">
-                    <div class="eusee-feedback-panel-icon">💬</div>
-                    <div class="eusee-feedback-panel-copy">
-                        <strong>Share your feedback</strong> on usability, insights, and dashboard improvements.
-                    </div>
-                </div>
-
-                <div class="eusee-feedback-panel-actions">
-                    <a class="eusee-feedback-panel-button" href="{feedback_url}" target="_blank" rel="noopener noreferrer">
-                        Fill in the form
-                    </a>
-                    <button class="eusee-feedback-toggle eusee-feedback-panel-toggle" id="eusee-feedback-panel-toggle" type="button" aria-label="Collapse feedback panel" title="Collapse feedback panel">
-                        <span>Collapse</span>
-                        <span class="eusee-feedback-toggle-caret">−</span>
-                    </button>
-                </div>
-            </div>
-        `;
-        doc.body.appendChild(root);
-
-        const openButton = doc.getElementById("eusee-feedback-toggle");
-        const closeButton = doc.getElementById("eusee-feedback-panel-toggle");
-
-        function setFeedbackOpen(isOpen) {{
-            root.classList.toggle("is-open", isOpen);
-            root.classList.toggle("is-collapsed", !isOpen);
-            openButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
-        }}
-
-        openButton.addEventListener("click", function(event) {{
-            event.preventDefault();
-            event.stopPropagation();
-            setFeedbackOpen(true);
-        }});
-
-        closeButton.addEventListener("click", function(event) {{
-            event.preventDefault();
-            event.stopPropagation();
-            setFeedbackOpen(false);
-        }});
-
-        doc.addEventListener("keydown", function(event) {{
-            if (event.key === "Escape") setFeedbackOpen(false);
-        }});
-
-        setFeedbackOpen(false);
-    }})();
-    </script>
-    """, height=0, width=0)
-
-render_top_feedback_bar()  # Single-button floating dashboard feedback overlay.
+render_top_feedback_bar()  # One click opens the feedback form directly.
 # ---------------- TAB 2: Negative Events ----------------
 # Filter negative alerts
 reactive_df = filtered_global[filtered_global['alert-impact'] == "Negative"].copy()
