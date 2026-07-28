@@ -311,8 +311,23 @@ components.html(
                     line-height: 1;
                     font-weight: 800;
                     white-space: nowrap;
-                    pointer-events: none;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    user-select: none;
+                    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
                 }
+                #${LABEL_ID}:hover {
+                    border-color: #660094;
+                    background: #FBF7FD;
+                    box-shadow: 0 5px 14px rgba(102,0,148,.14);
+                    transform: translateY(-1px);
+                }
+
+                #${LABEL_ID}:focus-visible {
+                    outline: 3px solid rgba(102,0,148,.18);
+                    outline-offset: 2px;
+                }
+
                 @media (max-width: 700px) {
                     #${LABEL_ID} {
                         padding: 0 8px;
@@ -382,8 +397,27 @@ components.html(
             if (!label) {
                 label = doc.createElement("div");
                 label.id = LABEL_ID;
-                label.textContent = "Login & Global Filters • click the arrows";
-                label.setAttribute("aria-hidden", "true");
+                label.textContent = "Login & Global Filters";
+                label.setAttribute("role", "button");
+                label.setAttribute("tabindex", "0");
+                label.setAttribute("aria-label", "Open Login and Global Filters sidebar");
+                label.setAttribute("title", "Open Login and Global Filters");
+
+                const openSidebar = function () {
+                    const activeToggle = findToggle();
+                    if (activeToggle && sidebarIsCollapsed()) {
+                        activeToggle.click();
+                    }
+                };
+
+                label.addEventListener("click", openSidebar);
+                label.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openSidebar();
+                    }
+                });
+
                 doc.body.appendChild(label);
             }
 
@@ -2925,7 +2959,7 @@ def _inject_cfr_dashboard_css():
 
         .cfr-page-subtitle {
             margin-top: 5px;
-            color: purple;
+            color: black;
             font-size: 13px;
             line-height: 1.38;
             font-weight: 550;
