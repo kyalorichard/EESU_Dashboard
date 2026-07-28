@@ -1327,13 +1327,19 @@ def load_data():
         return df
 
     # --- Step 2: Ensure required columns exist ---
-    for col in ["alert-country", "alert-impact", "alert-type", "Actor of repression"]:
+    for col in [
+        "alert-country",
+        "alert-impact",
+        "alert-type",
+        "Actor of repression",
+    ]:
         if col not in df.columns:
             st.warning(f"Column '{col}' not found in dataset.")
             df[col] = ""
 
     # --- Step 3: Load country metadata BEFORE ISO mapping ---
     country_meta = {}
+
     if meta_file.exists():
         try:
             with open(meta_file, encoding="utf-8") as f:
@@ -1343,20 +1349,36 @@ def load_data():
             country_meta = {}
     else:
         st.warning(f"Countries metadata JSON not found: {meta_file}")
-        country_meta = {}
 
     # --- Step 4: Basic country and alert cleaning ---
-    df["alert-country"] = df["alert-country"].astype(str).str.strip()
-    df = df[df["alert-country"].str.lower() != "jose"]
+    df["alert-country"] = (
+        df["alert-country"]
+        .astype(str)
+        .str.strip()
+    )
 
-    df["alert-impact"] = df["alert-impact"].astype(str).str.strip()
-    df = df[df["alert-impact"].notna() & (df["alert-impact"] != "") & (df["alert-impact"].str.lower() != "nan")]
+    df = df[
+        df["alert-country"].str.lower() != "jose"
+    ].copy()
+
+    df["alert-impact"] = (
+        df["alert-impact"]
+        .astype(str)
+        .str.strip()
+    )
+
+    df = df[
+        (df["alert-impact"] != "")
+        & (df["alert-impact"].str.lower() != "nan")
+    ].copy()
 
     # Normalize country names before ISO mapping.
     COUNTRY_FIXES = {
         "Guinea-Bissau": "Guinea Bissau",
-        "Democratic Republic of Congo": "Democratic Republic of the Congo",
-        "Democratic Republic of Congo 2": "Democratic Republic of the Congo",
+        "Democratic Republic of Congo":
+            "Democratic Republic of the Congo",
+        "Democratic Republic of Congo 2":
+            "Democratic Republic of the Congo",
         "Congo (Brazzaville)": "Republic of Congo",
         "Congo Brazzaville": "Republic of Congo",
         "Congo-Brazzaville": "Republic of Congo",
@@ -1381,83 +1403,190 @@ def load_data():
         .replace(COUNTRY_FIXES)
     )
 
-    # --- Step 5: Clean alert type and remove non-alert event rows ---
-    df["alert-type"] = df["alert-type"].astype(str).str.strip()
+    # --- Step 5: Clean alert type and remove event rows ---
+    df["alert-type"] = (
+        df["alert-type"]
+        .astype(str)
+        .str.strip()
+    )
+
     df = df[
-        (df["alert-type"].str.lower() != "event") &
-        (df["alert-type"] != "") &
-        (df["alert-type"].str.lower() != "nan")
-    ]
+        (df["alert-type"].str.lower() != "event")
+        & (df["alert-type"] != "")
+        & (df["alert-type"].str.lower() != "nan")
+    ].copy()
 
     # Clean Actor of repression.
-    df["Actor of repression"] = df["Actor of repression"].astype(str).str.strip()
-    df["Actor of repression"] = df["Actor of repression"].replace({"VNSAs": "Violent non-state actors"})
+    df["Actor of repression"] = (
+        df["Actor of repression"]
+        .astype(str)
+        .str.strip()
+        .replace({
+            "VNSAs": "Violent non-state actors",
+        })
+    )
 
-    # --- Step 6: Map ISO codes and continent using cleaned country names ---
+    # --- Step 6: Map ISO codes and continent ---
     df["iso_alpha3"] = df["alert-country"].apply(
-        lambda x: country_meta.get(x, {}).get("iso_alpha3", None)
+        lambda x: country_meta.get(
+            x,
+            {},
+        ).get(
+            "iso_alpha3",
+            None,
+        )
     )
 
     df["continent"] = df["alert-country"].apply(
-        lambda x: country_meta.get(x, {}).get("continent", "Unknown")
+        lambda x: country_meta.get(
+            x,
+            {},
+        ).get(
+            "continent",
+            "Unknown",
+        )
     )
 
     # --- Step 7: Map continent to dashboard region ---
-    # Reuse the shared helper so alert and CFR data use identical categories.
-    df["region"] = df["continent"].apply(continent_to_region)
+    df["region"] = df["continent"].apply(
+        continent_to_region
+    )
 
-    # --- Step 8: Warn about missing ISO codes after normalization ---
+    # --- Step 8: Warn about missing ISO codes ---
     missing_countries = (
-        df.loc[df["iso_alpha3"].isna(), "alert-country"]
+        df.loc[
+            df["iso_alpha3"].isna(),
+            "alert-country",
+        ]
         .dropna()
         .astype(str)
         .str.strip()
-        .loc[lambda s: (s.str.lower() != "none") & (s.str.lower() != "nan") & (s != "")]
+        .loc[
+            lambda s:
+                (s.str.lower() != "none")
+                & (s.str.lower() != "nan")
+                & (s != "")
+        ]
         .unique()
     )
 
     if len(missing_countries) > 0:
         st.warning(
-            "Countries missing ISO codes after metadata normalization: "
+            "Countries missing ISO codes after metadata "
+            "normalization: "
             + ", ".join(sorted(missing_countries))
         )
 
-    # --- Step 9: Process dates and expose latest dataset date for the UX badge ---
+    # --- Step 9: Process dates ---
     if "creation_date" in df.columns:
-        df["creation_date"] = pd.to_datetime(df["creation_date"], errors="coerce")
-        df["year"] = df["creation_date"].dt.year
-        df["month_name"] = df["creation_date"].dt.strftime("%B")
+        df["creation_date"] = pd.to_datetime(
+            df["creation_date"],
+            errors="coerce",
+        )
 
-        latest_dataset_date = df["creation_date"].dropna().max()
+        df["year"] = df["creation_date"].dt.year
+        df["month_name"] = (
+            df["creation_date"]
+            .dt.strftime("%B")
+        )
+
+        latest_dataset_date = (
+            df["creation_date"]
+            .dropna()
+            .max()
+        )
 
         if pd.notna(latest_dataset_date):
-            latest_dataset_date_display = latest_dataset_date.strftime("%d %B %Y")
-            latest_dataset_date_iso = latest_dataset_date.strftime("%Y-%m-%d")
+            latest_dataset_date_display = (
+                latest_dataset_date.strftime(
+                    "%d %B %Y"
+                )
+            )
+
+            latest_dataset_date_iso = (
+                latest_dataset_date.strftime(
+                    "%Y-%m-%d"
+                )
+            )
         else:
-            latest_dataset_date_display = "Not available"
+            latest_dataset_date_display = (
+                "Not available"
+            )
             latest_dataset_date_iso = ""
 
-        # Keep the badge metadata tied to the exact dataset ingestion step.
-        st.session_state["latest_dataset_date"] = latest_dataset_date_display
-        st.session_state["latest_dataset_date_iso"] = latest_dataset_date_iso
-        st.session_state["latest_dataset_date_source"] = "Based on latest loaded dataset"
-        df.attrs["latest_dataset_date"] = latest_dataset_date_display
-        df.attrs["latest_dataset_date_iso"] = latest_dataset_date_iso
+        st.session_state[
+            "latest_dataset_date"
+        ] = latest_dataset_date_display
+
+        st.session_state[
+            "latest_dataset_date_iso"
+        ] = latest_dataset_date_iso
+
+        st.session_state[
+            "latest_dataset_date_source"
+        ] = "Based on latest loaded dataset"
+
+        df.attrs[
+            "latest_dataset_date"
+        ] = latest_dataset_date_display
+
+        df.attrs[
+            "latest_dataset_date_iso"
+        ] = latest_dataset_date_iso
+
     else:
-        st.session_state["latest_dataset_date"] = "Not available"
-        st.session_state["latest_dataset_date_iso"] = ""
-        st.session_state["latest_dataset_date_source"] = "creation_date column not found in the loaded dataset"
-        st.warning("No 'creation_date' column found in dataset.")
+        st.session_state[
+            "latest_dataset_date"
+        ] = "Not available"
+
+        st.session_state[
+            "latest_dataset_date_iso"
+        ] = ""
+
+        st.session_state[
+            "latest_dataset_date_source"
+        ] = (
+            "creation_date column not found "
+            "in the loaded dataset"
+        )
+
+        st.warning(
+            "No 'creation_date' column found in dataset."
+        )
 
     # --- Step 10: Update alert-impact based on alert-type ---
-    if "alert-type" in df.columns and "alert-impact" in df.columns:
-        mask = df["alert-type"].astype(str).str.strip().str.lower() == "context to watch"
-        df.loc[mask, "alert-impact"] = "Context to watch"
+    if (
+        "alert-type" in df.columns
+        and "alert-impact" in df.columns
+    ):
+        context_mask = (
+            df["alert-type"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .eq("context to watch")
+        )
 
-   
+        df.loc[
+            context_mask,
+            "alert-impact",
+        ] = "Context to watch"
+
+    # --- Step 11: Clean duplicated Event Summary headings ---
+    if "summary" in df.columns:
+        df["summary"] = (
+            df["summary"]
+            .fillna("")
+            .astype(str)
+            .str.replace(
+                r"^\s*(?:Event\s+Summary[\s:–—.\-]*){2}",
+                "",
+                regex=True,
+            )
+            .str.strip()
+        )
 
     return df
-    
 
 # --- Load data safely ---
 data = apply_data_scope(load_data())
@@ -8097,7 +8226,7 @@ if tab_overview is not None:
             render_dashboard_plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False), plot_df=a4, visual_type="stacked bar chart", x_col="alert-country", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart4", container=r2c2, permission_key="view_chart_overview_countries", permission_label="Overview country distribution")
 
     
-            cols_rename_map = {
+            cols_rename_map  = {
                 "post_title": "Title of post",
                 "summary": "Event Summary",
                 "creation_date": "Date of submission",
@@ -8105,35 +8234,15 @@ if tab_overview is not None:
                 "enabling-principle": "Enabling principles",
                 "alert-impact": "Impact of alert",
                 "alert-type": "Type of alert",
-                "Permalink": "Report Link",
+                "Permalink": "Report Link"
             }
-
-            # Keep only required columns
-            filtered_global_prev = data.loc[
-                :,
-                data.columns.intersection(cols_rename_map.keys())
-            ].copy()
-
-            # Remove the leading "Event Summary Event Summary" from the summary text
-            if "summary" in filtered_global_prev.columns:
-                filtered_global_prev["summary"] = (
-                    filtered_global_prev["summary"]
-                    .fillna("")
-                    .astype(str)
-                    .str.replace(
-                        r'^\s*(Event Summary[\s:.-]*){2}',
-                        '',
-                        regex=True
-                    )
-                    .str.strip()
-                )
-
-            # Rename columns
-            filtered_global_prev.rename(
-                columns=cols_rename_map,
-                inplace=True
+                # keep only existing columns, then rename
+            filtered_global_prev = (
+                data
+                .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+                .rename(columns=cols_rename_map)
             )
-            
+   
                 # ---------------- Tab two data preview ------------------
 
             if has_permission("view_data_table"):
@@ -8356,7 +8465,7 @@ if tab_negative is not None:
 
                 cols_to_keep = {
                     "post_title": "Title of post",
-                    "creation_date": "Date of submission",
+                    "creation_date": "Date of submission",                    
                     "summary": "Event Summary",
                     "alert-country": "Country",
                     "enabling-principle": "Enabling principles",
@@ -8366,13 +8475,12 @@ if tab_negative is not None:
                     "Subject of repression": "Types of civil society actors affected",
                     "Mechanism of repression": "Types of restrictive mechanisms",
                     "Type of event": "Types of negative events",
-                    "Permalink": "Report Link",
+                    "Permalink": "Report Link"          
                 }
-
-                # Build the Negative Alerts table independently of global and
-                # tab-specific filters.
+                # Build the Negative Alerts table independently of all global and
+                # tab-specific filters. The table always loads the full accessible
+                # dataset and applies only the Negative alert-impact condition.
                 negative_table_df = data.copy()
-
                 if "alert-impact" in negative_table_df.columns:
                     negative_table_df = negative_table_df[
                         negative_table_df["alert-impact"]
@@ -8384,30 +8492,10 @@ if tab_negative is not None:
                 else:
                     negative_table_df = negative_table_df.iloc[0:0].copy()
 
-                # Keep only required columns
-                negative_table_preview = negative_table_df.loc[
-                    :,
-                    negative_table_df.columns.intersection(cols_to_keep.keys())
-                ].copy()
-
-                # Remove the first two leading occurrences of "Event Summary"
-                if "summary" in negative_table_preview.columns:
-                    negative_table_preview["summary"] = (
-                        negative_table_preview["summary"]
-                        .fillna("")
-                        .astype(str)
-                        .str.replace(
-                            r"^\s*(?:Event Summary[\s:–—.-]*){2}",
-                            "",
-                            regex=True,
-                        )
-                        .str.strip()
-                    )
-
-                # Rename columns
-                negative_table_preview.rename(
-                    columns=cols_to_keep,
-                    inplace=True,
+                negative_table_preview = (
+                    negative_table_df
+                    .loc[:, negative_table_df.columns.intersection(cols_to_keep.keys())]
+                    .rename(columns=cols_to_keep)
                 )
         
                 # ---------------- Tab two data preview ----------------
