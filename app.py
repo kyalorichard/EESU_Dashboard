@@ -2069,7 +2069,8 @@ st.sidebar.image("assets/eu-see-logo.png", width=230)
 
 # ---------------- SIDEBAR PRIVILEGE ACCESS CENTER ----------------
 def render_sidebar_access_settings_profile():
-    """Render the existing User Privilege Center controls in a clearer order."""
+    """Render the User Privilege Center with button-style workspace tabs."""
+
     signed_in = is_authenticated()
     is_admin_user = bool(signed_in and admin_is_admin())
 
@@ -2079,15 +2080,24 @@ def render_sidebar_access_settings_profile():
         else "Guest access"
     )
 
-    st.session_state.setdefault("eusee_sidebar_workspace", "Dashboard")
+    # Initialise the current workspace.
+    st.session_state.setdefault(
+        "eusee_sidebar_workspace",
+        "Dashboard",
+    )
+
+    # Non-admin users must always remain in the dashboard workspace.
     if not is_admin_user:
         st.session_state["eusee_sidebar_workspace"] = "Dashboard"
 
-    # Styling is limited to the existing privilege-center widgets.
+    # Styling limited to the sidebar privilege centre.
     st.sidebar.markdown(
         """
         <style>
-        /* ---------- User Privilege Center ---------- */
+        /* =========================================================
+           EU SEE USER PRIVILEGE CENTER
+        ========================================================= */
+
         section[data-testid="stSidebar"]
         div[data-testid="stVerticalBlock"]:has(.eusee-privilege-marker) {
             gap: 0.35rem;
@@ -2120,57 +2130,197 @@ def render_sidebar_access_settings_profile():
             color: #667085 !important;
             margin-bottom: 0.15rem !important;
         }
+
+        /* Remove excessive spacing between workspace columns. */
+        section[data-testid="stSidebar"]
+        div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker) {
+            gap: 0.35rem !important;
+        }
+
+        .eusee-workspace-marker {
+            display: none;
+        }
+
+        /* Workspace tab/button styling. */
+        section[data-testid="stSidebar"]
+        div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker)
+        div[data-testid="stButton"] button {
+            min-height: 38px !important;
+            border-radius: 9px !important;
+            padding: 0.35rem 0.45rem !important;
+            font-family: "Anek Devanagari", Arial, sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 850 !important;
+            line-height: 1.1 !important;
+            box-shadow: none !important;
+            transition:
+                background-color 0.18s ease,
+                border-color 0.18s ease,
+                color 0.18s ease,
+                transform 0.18s ease !important;
+        }
+
+        /* Inactive workspace button. */
+        section[data-testid="stSidebar"]
+        div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker)
+        div[data-testid="stButton"] button[kind="secondary"] {
+            background: #FFFFFF !important;
+            border: 1px solid #D9DCE3 !important;
+            color: #667085 !important;
+        }
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker)
+        div[data-testid="stButton"] button[kind="secondary"]:hover {
+            background: #F7F4FA !important;
+            border-color: #8C5A9F !important;
+            color: #5E2A70 !important;
+            transform: translateY(-1px);
+        }
+
+        /* Active workspace button. */
+        section[data-testid="stSidebar"]
+        div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker)
+        div[data-testid="stButton"] button[kind="primary"] {
+            background: linear-gradient(
+                135deg,
+                #23152F 0%,
+                #5E2A70 100%
+            ) !important;
+            border: 1px solid #23152F !important;
+            color: #FFFFFF !important;
+            box-shadow: 0 4px 10px rgba(35, 21, 47, 0.18) !important;
+        }
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker)
+        div[data-testid="stButton"] button[kind="primary"]:hover {
+            background: linear-gradient(
+                135deg,
+                #301B40 0%,
+                #703484 100%
+            ) !important;
+            border-color: #301B40 !important;
+            color: #FFFFFF !important;
+            transform: translateY(-1px);
+        }
+
+        /* Sign-in and logout buttons. */
+        section[data-testid="stSidebar"]
+        div[data-testid="stExpander"]
+        div[data-testid="stButton"] button {
+            border-radius: 9px !important;
+            font-family: "Anek Devanagari", Arial, sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 850 !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
- 
+    # Marker used to isolate privilege-centre styling.
+    st.sidebar.markdown(
+        '<span class="eusee-privilege-marker"></span>',
+        unsafe_allow_html=True,
+    )
 
     with st.sidebar.expander(
         "🔐 Sign in / Register",
-        expanded=True
+        expanded=True,
     ):
         st.markdown(f"**{display_name}**")
 
         st.caption(
             "Welcome."
             if signed_in
-            else "Sign in or register to access advanced features and analyses available to EU SEE partners. "
+            else (
+                "Sign in or register to access advanced features and "
+                "analyses available to EU SEE partners."
+            )
         )
 
+        # ---------------------------------------------------------
+        # ADMIN WORKSPACE BUTTON TABS
+        # ---------------------------------------------------------
         if is_admin_user:
-            workspace = st.radio(
-                "Workspace",
-                options=["Dashboard", "Admin"],
-                horizontal=True,
-                key="eusee_sidebar_workspace_radio",
-                index=0 if st.session_state.get("eusee_sidebar_workspace") == "Dashboard" else 1,
-                label_visibility="collapsed",
+            current_workspace = st.session_state.get(
+                "eusee_sidebar_workspace",
+                "Dashboard",
             )
 
-            if workspace != st.session_state.get("eusee_sidebar_workspace"):
-                st.session_state["eusee_sidebar_workspace"] = workspace
+            workspace_col_1, workspace_col_2 = st.columns(
+                2,
+                gap="small",
+            )
+
+            with workspace_col_1:
+                # Marker allows CSS to target only this button row.
+                st.markdown(
+                    '<span class="eusee-workspace-marker"></span>',
+                    unsafe_allow_html=True,
+                )
+
+                dashboard_clicked = st.button(
+                    "📊 Dashboard",
+                    use_container_width=True,
+                    type=(
+                        "primary"
+                        if current_workspace == "Dashboard"
+                        else "secondary"
+                    ),
+                    key="eusee_dashboard_workspace_btn",
+                )
+
+            with workspace_col_2:
+                st.markdown(
+                    '<span class="eusee-workspace-marker"></span>',
+                    unsafe_allow_html=True,
+                )
+
+                admin_clicked = st.button(
+                    "⚙️ Admin",
+                    use_container_width=True,
+                    type=(
+                        "primary"
+                        if current_workspace == "Admin"
+                        else "secondary"
+                    ),
+                    key="eusee_admin_workspace_btn",
+                )
+
+            if dashboard_clicked and current_workspace != "Dashboard":
+                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
+                st.rerun()
+
+            if admin_clicked and current_workspace != "Admin":
+                st.session_state["eusee_sidebar_workspace"] = "Admin"
                 st.rerun()
 
         st.divider()
 
+        # ---------------------------------------------------------
+        # AUTHENTICATION CONTROLS
+        # ---------------------------------------------------------
         if signed_in:
             if st.button(
                 "Logout",
                 use_container_width=True,
                 key="privilege_center_logout_btn",
             ):
+                # Reset workspace before logging the user out.
+                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
                 logout()
+
         else:
             if st.button(
                 "🔐 Sign in / Register",
                 use_container_width=True,
                 key="privilege_center_signin_btn",
             ):
-                st.session_state.auth_view = True
+                st.session_state["auth_view"] = True
                 st.rerun()
-
+                
 render_sidebar_access_settings_profile()
 
 render_classic_filter_header()
