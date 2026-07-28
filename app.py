@@ -6221,7 +6221,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     fig.update_traces(
-        width=0.95,
+        width=0.85,
         textposition=[
             "inside" if val >= (axis_max * 0.12) else "outside"
             for val in df["percent_value"]
@@ -6382,6 +6382,7 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
         label_color = readable_stacked_bar_label_color(bar_color)
 
         fig.add_trace(go.Bar(
+            width=0.85,
             x=df_cat["percent_value"] if horizontal else df_cat[y],
             y=df_cat[y] if horizontal else df_cat["percent_value"],
             name=cat,
