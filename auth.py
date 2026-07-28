@@ -761,7 +761,7 @@ def _auth_page_css():
             text-align: center;
             color: var(--eusee-ink);
             font-family: Arial, sans-serif;
-            font-size: 18px;
+            font-size: 16px;
             line-height: 1.15;
             font-weight: 800;
             letter-spacing: -0.55px;
@@ -968,7 +968,7 @@ def _auth_page_css():
                 border-radius: 15px !important;
             }
 
-            .auth-title { font-size: 18px; }
+            .auth-title { font-size: 16px; }
         }
         </style>
         """,
@@ -1025,15 +1025,14 @@ def _login_form():
             use_container_width=True,
         )
 
-        remember_col, forgot_space = st.columns([1, 1])
+        remember_col, forgot_col = st.columns([1, 2])
         with remember_col:
             remember_me = st.checkbox("Remember me", value=False)
+        with forgot_col:
+                if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
+                    _set_auth_mode("Reset")
+        
 
-    # Kept outside the form so it works without submitting credentials.
-    _, forgot_col = st.columns([1, 1])
-    with forgot_col:
-        if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
-            _set_auth_mode("Reset")
 
     if submitted:
         if not firebase_auth:
