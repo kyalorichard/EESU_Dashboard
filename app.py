@@ -2184,7 +2184,7 @@ def render_sidebar_access_settings_profile():
         div[data-testid="stButton"] button[kind="primary"] {
             background: linear-gradient(
                 135deg,
-                #23152F 0%,
+                #23152F 80%,
                 #5E2A70 100%
             ) !important;
             border: 1px solid #23152F !important;
@@ -2320,7 +2320,7 @@ def render_sidebar_access_settings_profile():
             ):
                 st.session_state["auth_view"] = True
                 st.rerun()
-                
+
 render_sidebar_access_settings_profile()
 
 render_classic_filter_header()
