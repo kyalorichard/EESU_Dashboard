@@ -9702,7 +9702,7 @@ if tab_manual is not None:
                 ).decode("utf-8")
 
             st.markdown(
-                """
+                textwrap.dedent("""
                 <style>
                 /* =========================================================
                    USER MANUAL — REFERENCE-STYLE QUICK GUIDE
@@ -10000,7 +10000,7 @@ if tab_manual is not None:
                     }
                 }
                 </style>
-                """,
+                """),
                 unsafe_allow_html=True,
             )
 
@@ -10012,7 +10012,7 @@ if tab_manual is not None:
             )
 
             st.markdown(
-                f"""
+                textwrap.dedent(f"""
                 <div class="user-guide-shell">
                     <div class="user-guide-intro">
                         A quick guide to help you navigate the dashboard, apply filters,
@@ -10117,7 +10117,7 @@ if tab_manual is not None:
                         </aside>
                     </div>
                 </div>
-                """,
+                """),
                 unsafe_allow_html=True,
             )
         else:
