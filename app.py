@@ -3944,13 +3944,18 @@ def _render_cfr_kpis(country_count):
 # SINGLE CFR GRAPH
 # ------------------------------------------------------------
 def _build_principle_score_matrix_html(chart_data):
-    """Build the reference-style CFR principle score matrix."""
+    """Build the CFR principle score matrix with zoom and download controls."""
     principle_columns = list(CFR_PRINCIPLES.values())
+    chart_id = f"cfr-principle-chart-{uuid.uuid4().hex}"
 
     averages = {
         principle: (
-            float(chart_data[principle].mean())
-            if chart_data[principle].notna().any()
+            float(pd.to_numeric(chart_data[principle], errors="coerce").mean())
+            if principle in chart_data.columns
+            and pd.to_numeric(
+                chart_data[principle],
+                errors="coerce",
+            ).notna().any()
             else np.nan
         )
         for principle in principle_columns
@@ -3965,8 +3970,11 @@ def _build_principle_score_matrix_html(chart_data):
         '<span>Enabling</span>'
         '</div>'
         '<div class="cfr-scale-ticks">'
-        '<span>1</span><span>2</span><span>3</span>'
-        '<span>4</span><span>5</span>'
+        '<span>1</span>'
+        '<span>2</span>'
+        '<span>3</span>'
+        '<span>4</span>'
+        '<span>5</span>'
         '</div>'
         '</div>'
         '<div class="cfr-score-header">Mean score</div>'
@@ -3977,50 +3985,664 @@ def _build_principle_score_matrix_html(chart_data):
 
     for principle in principle_columns:
         score = averages[principle]
-        colour = CFR_PRINCIPLE_COLOURS[principle]
-        principle_name = CFR_PRINCIPLE_NAMES[principle]
+        colour = CFR_PRINCIPLE_COLOURS.get(principle, "#7B61FF")
+        principle_name = CFR_PRINCIPLE_NAMES.get(principle, principle)
+
+        safe_principle = html.escape(str(principle))
+        safe_principle_name = html.escape(str(principle_name))
+        safe_colour = html.escape(str(colour))
 
         if pd.notna(score):
             clipped_score = min(
                 max(float(score), CFR_SCORE_MIN),
                 CFR_SCORE_MAX,
             )
+
             position = (
                 (clipped_score - CFR_SCORE_MIN)
                 / (CFR_SCORE_MAX - CFR_SCORE_MIN)
                 * 100
             )
-            score_text = f"{score:.1f}"
+
+            score_text = f"{float(score):.1f}"
+            row_class = ""
         else:
             position = 0
             score_text = "—"
+            row_class = " cfr-score-missing"
 
         rows.append(
-            '<div class="cfr-principle-grid cfr-principle-row">'
+            f'<div class="cfr-principle-grid cfr-principle-row{row_class}">'
             '<div class="cfr-principle-label">'
             f'<span class="cfr-principle-badge" '
-            f'style="background:{colour};">{principle}</span>'
-            f'<span class="cfr-principle-name">{principle_name}</span>'
+            f'style="background:{safe_colour};">'
+            f'{safe_principle}'
+            '</span>'
+            f'<span class="cfr-principle-name">{safe_principle_name}</span>'
             '</div>'
             '<div class="cfr-score-track-wrap">'
             '<div class="cfr-score-track">'
             f'<div class="cfr-score-progress" '
-            f'style="width:{position:.2f}%;background:{colour};"></div>'
+            f'style="width:{position:.2f}%;background:{safe_colour};">'
+            '</div>'
             f'<div class="cfr-score-dot" '
-            f'style="left:{position:.2f}%;background:{colour};"></div>'
+            f'style="left:{position:.2f}%;background:{safe_colour};">'
+            '</div>'
             '</div>'
             '</div>'
             f'<div class="cfr-score-value">{score_text}</div>'
             '</div>'
         )
 
-    return (
-        '<div class="cfr-principle-matrix">'
-        + header_html
-        + "".join(rows)
-        + '</div>'
+    toolbar_html = f"""
+    <div class="cfr-chart-toolbar" data-html2canvas-ignore="true">
+        <div class="cfr-zoom-indicator" id="{chart_id}-zoom-label">
+            100%
+        </div>
+
+        <button
+            type="button"
+            class="cfr-tool-button"
+            onclick="zoomCfrChart('{chart_id}', -0.1)"
+            title="Zoom out"
+            aria-label="Zoom out"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6.5"></circle>
+                <line x1="15.2" y1="15.2" x2="21" y2="21"></line>
+                <line x1="7.5" y1="10.5" x2="13.5" y2="10.5"></line>
+            </svg>
+        </button>
+
+        <button
+            type="button"
+            class="cfr-tool-button"
+            onclick="resetCfrChartZoom('{chart_id}')"
+            title="Reset zoom"
+            aria-label="Reset zoom"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 11a8 8 0 1 0-2.3 5.7"></path>
+                <polyline points="20 5 20 11 14 11"></polyline>
+            </svg>
+        </button>
+
+        <button
+            type="button"
+            class="cfr-tool-button"
+            onclick="zoomCfrChart('{chart_id}', 0.1)"
+            title="Zoom in"
+            aria-label="Zoom in"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6.5"></circle>
+                <line x1="15.2" y1="15.2" x2="21" y2="21"></line>
+                <line x1="7.5" y1="10.5" x2="13.5" y2="10.5"></line>
+                <line x1="10.5" y1="7.5" x2="10.5" y2="13.5"></line>
+            </svg>
+        </button>
+
+        <div class="cfr-toolbar-divider"></div>
+
+        <button
+            type="button"
+            class="cfr-tool-button"
+            onclick="downloadCfrChart('{chart_id}')"
+            title="Download chart"
+            aria-label="Download chart"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <path d="M5 20h14"></path>
+            </svg>
+        </button>
+    </div>
+    """
+
+    matrix_html = (
+        f'<div class="cfr-chart-shell" id="{chart_id}-shell">'
+        f'{toolbar_html}'
+        '<div class="cfr-chart-viewport">'
+        f'<div class="cfr-chart-zoom-layer" id="{chart_id}-zoom-layer">'
+        f'<div class="cfr-principle-matrix" id="{chart_id}">'
+        f'{header_html}'
+        f'{"".join(rows)}'
+        '</div>'
+        '</div>'
+        '</div>'
+        '</div>'
     )
 
+    return matrix_html
+
+
+def render_principle_score_matrix(chart_data, height=None):
+    """
+    Render the CFR score matrix with working zoom and PNG download buttons.
+
+    Use this function instead of st.markdown() because the controls require
+    JavaScript.
+    """
+    principle_count = len(CFR_PRINCIPLES)
+
+    if height is None:
+        height = max(390, 175 + principle_count * 68)
+
+    matrix_html = render_principle_score_matrix(chart_data)
+
+    complete_html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        >
+
+        <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+        <style>
+            * {{
+                box-sizing: border-box;
+            }}
+
+            html,
+            body {{
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                background: transparent;
+                font-family:
+                    Inter,
+                    "Segoe UI",
+                    Arial,
+                    sans-serif;
+            }}
+
+            .cfr-chart-shell {{
+                position: relative;
+                width: 100%;
+                padding-top: 48px;
+            }}
+
+            /* Toolbar */
+            .cfr-chart-toolbar {{
+                position: absolute;
+                top: 0;
+                right: 1px;
+                z-index: 50;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                min-height: 38px;
+                padding: 5px 7px;
+                background: rgba(255, 255, 255, 0.96);
+                border: 1px solid #E4E7EC;
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+                backdrop-filter: blur(6px);
+            }}
+
+            .cfr-tool-button {{
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 30px;
+                height: 30px;
+                margin: 0;
+                padding: 0;
+                color: #475467;
+                background: transparent;
+                border: 0;
+                border-radius: 7px;
+                cursor: pointer;
+                transition:
+                    background-color 0.16s ease,
+                    color 0.16s ease,
+                    transform 0.16s ease;
+            }}
+
+            .cfr-tool-button:hover {{
+                color: #23152F;
+                background: #F2F4F7;
+                transform: translateY(-1px);
+            }}
+
+            .cfr-tool-button:active {{
+                transform: translateY(0);
+            }}
+
+            .cfr-tool-button:focus-visible {{
+                outline: 2px solid #7F56D9;
+                outline-offset: 1px;
+            }}
+
+            .cfr-tool-button svg {{
+                width: 17px;
+                height: 17px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 1.9;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                pointer-events: none;
+            }}
+
+            .cfr-toolbar-divider {{
+                width: 1px;
+                height: 20px;
+                margin: 0 2px;
+                background: #E4E7EC;
+            }}
+
+            .cfr-zoom-indicator {{
+                min-width: 40px;
+                padding: 0 4px;
+                color: #667085;
+                font-size: 10px;
+                font-weight: 800;
+                text-align: center;
+                user-select: none;
+            }}
+
+            /* Zoom container */
+            .cfr-chart-viewport {{
+                width: 100%;
+                overflow: auto;
+                border-radius: 16px;
+            }}
+
+            .cfr-chart-zoom-layer {{
+                width: 100%;
+                min-width: 680px;
+                transform: scale(1);
+                transform-origin: top left;
+                transition: transform 0.18s ease;
+            }}
+
+            /* Matrix */
+            .cfr-principle-matrix {{
+                width: 100%;
+                overflow: hidden;
+                background: #FFFFFF;
+                border: 1px solid #E4E7EC;
+                border-radius: 16px;
+                box-shadow: 0 5px 20px rgba(16, 24, 40, 0.06);
+            }}
+
+            .cfr-principle-grid {{
+                display: grid;
+                grid-template-columns:
+                    minmax(220px, 1.25fr)
+                    minmax(320px, 2fr)
+                    100px;
+                align-items: center;
+                column-gap: 24px;
+                padding-right: 22px;
+                padding-left: 22px;
+            }}
+
+            .cfr-principle-header {{
+                min-height: 78px;
+                color: #475467;
+                background:
+                    linear-gradient(
+                        180deg,
+                        #FCFCFD 0%,
+                        #F8F9FB 100%
+                    );
+                border-bottom: 1px solid #E4E7EC;
+            }}
+
+            .cfr-principle-header-left,
+            .cfr-score-header {{
+                color: #344054;
+                font-size: 12px;
+                font-weight: 800;
+                letter-spacing: 0.01em;
+            }}
+
+            .cfr-score-header {{
+                text-align: center;
+            }}
+
+            .cfr-scale-header {{
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }}
+
+            .cfr-scale-ends {{
+                display: flex;
+                justify-content: space-between;
+                color: #667085;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }}
+
+            .cfr-scale-ticks {{
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                color: #98A2B3;
+                font-size: 10px;
+                font-weight: 700;
+            }}
+
+            .cfr-scale-ticks span {{
+                text-align: center;
+            }}
+
+            .cfr-scale-ticks span:first-child {{
+                text-align: left;
+            }}
+
+            .cfr-scale-ticks span:last-child {{
+                text-align: right;
+            }}
+
+            .cfr-principle-row {{
+                min-height: 66px;
+                border-bottom: 1px solid #EAECF0;
+                transition: background-color 0.15s ease;
+            }}
+
+            .cfr-principle-row:last-child {{
+                border-bottom: 0;
+            }}
+
+            .cfr-principle-row:hover {{
+                background: #FCFCFD;
+            }}
+
+            .cfr-principle-label {{
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-width: 0;
+            }}
+
+            .cfr-principle-badge {{
+                display: inline-flex;
+                flex: 0 0 auto;
+                align-items: center;
+                justify-content: center;
+                min-width: 42px;
+                height: 28px;
+                padding: 0 10px;
+                color: #FFFFFF;
+                font-size: 11px;
+                font-weight: 900;
+                line-height: 1;
+                border-radius: 8px;
+                box-shadow: 0 3px 7px rgba(16, 24, 40, 0.10);
+            }}
+
+            .cfr-principle-name {{
+                overflow: hidden;
+                color: #344054;
+                font-size: 12px;
+                font-weight: 700;
+                line-height: 1.35;
+                text-overflow: ellipsis;
+            }}
+
+            .cfr-score-track-wrap {{
+                position: relative;
+                width: 100%;
+                padding: 12px 0;
+            }}
+
+            .cfr-score-track {{
+                position: relative;
+                width: 100%;
+                height: 8px;
+                background:
+                    repeating-linear-gradient(
+                        to right,
+                        #EAECF0 0,
+                        #EAECF0 calc(25% - 1px),
+                        #D0D5DD calc(25% - 1px),
+                        #D0D5DD 25%
+                    );
+                border-radius: 999px;
+            }}
+
+            .cfr-score-track::after {{
+                position: absolute;
+                inset: -8px 0;
+                content: "";
+                background:
+                    repeating-linear-gradient(
+                        to right,
+                        transparent 0,
+                        transparent calc(25% - 1px),
+                        rgba(152, 162, 179, 0.20) calc(25% - 1px),
+                        rgba(152, 162, 179, 0.20) 25%
+                    );
+                pointer-events: none;
+            }}
+
+            .cfr-score-progress {{
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 2;
+                height: 100%;
+                min-width: 0;
+                border-radius: 999px;
+                opacity: 0.92;
+            }}
+
+            .cfr-score-dot {{
+                position: absolute;
+                top: 50%;
+                z-index: 4;
+                width: 16px;
+                height: 16px;
+                border: 3px solid #FFFFFF;
+                border-radius: 50%;
+                box-shadow:
+                    0 0 0 1px rgba(16, 24, 40, 0.08),
+                    0 3px 7px rgba(16, 24, 40, 0.18);
+                transform: translate(-50%, -50%);
+            }}
+
+            .cfr-score-value {{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 60px;
+                min-height: 34px;
+                margin: auto;
+                color: #23152F;
+                font-size: 15px;
+                font-weight: 900;
+                background: #F9FAFB;
+                border: 1px solid #EAECF0;
+                border-radius: 9px;
+            }}
+
+            .cfr-score-missing .cfr-score-progress,
+            .cfr-score-missing .cfr-score-dot {{
+                display: none;
+            }}
+
+            .cfr-score-missing .cfr-score-value {{
+                color: #98A2B3;
+            }}
+
+            @media (max-width: 780px) {{
+                .cfr-chart-zoom-layer {{
+                    min-width: 650px;
+                }}
+
+                .cfr-principle-grid {{
+                    grid-template-columns: 210px 320px 80px;
+                    column-gap: 18px;
+                    padding-right: 16px;
+                    padding-left: 16px;
+                }}
+            }}
+        </style>
+    </head>
+
+    <body>
+        {matrix_html}
+
+        <script>
+            const cfrZoomLevels = {{}};
+
+            function getCfrZoom(chartId) {{
+                if (!(chartId in cfrZoomLevels)) {{
+                    cfrZoomLevels[chartId] = 1;
+                }}
+
+                return cfrZoomLevels[chartId];
+            }}
+
+            function applyCfrZoom(chartId, zoomLevel) {{
+                const zoomLayer = document.getElementById(
+                    chartId + "-zoom-layer"
+                );
+
+                const viewport = zoomLayer
+                    ? zoomLayer.closest(".cfr-chart-viewport")
+                    : null;
+
+                const matrix = document.getElementById(chartId);
+                const zoomLabel = document.getElementById(
+                    chartId + "-zoom-label"
+                );
+
+                if (!zoomLayer || !matrix) {{
+                    return;
+                }}
+
+                const boundedZoom = Math.min(
+                    Math.max(zoomLevel, 0.7),
+                    1.8
+                );
+
+                cfrZoomLevels[chartId] = boundedZoom;
+                zoomLayer.style.transform = `scale(${{boundedZoom}})`;
+
+                /*
+                 * Scaling with CSS does not automatically increase the
+                 * layout height. Update the wrapper dimensions so scrolling
+                 * and component height remain correct.
+                 */
+                zoomLayer.style.width = `${{100 / boundedZoom}}%`;
+                zoomLayer.style.height =
+                    `${{matrix.offsetHeight * boundedZoom}}px`;
+
+                if (viewport) {{
+                    viewport.style.minHeight =
+                        `${{matrix.offsetHeight * boundedZoom}}px`;
+                }}
+
+                if (zoomLabel) {{
+                    zoomLabel.textContent =
+                        `${{Math.round(boundedZoom * 100)}}%`;
+                }}
+
+                resizeStreamlitFrame();
+            }}
+
+            function zoomCfrChart(chartId, amount) {{
+                const currentZoom = getCfrZoom(chartId);
+                applyCfrZoom(chartId, currentZoom + amount);
+            }}
+
+            function resetCfrChartZoom(chartId) {{
+                applyCfrZoom(chartId, 1);
+            }}
+
+            async function downloadCfrChart(chartId) {{
+                const matrix = document.getElementById(chartId);
+
+                if (!matrix) {{
+                    return;
+                }}
+
+                try {{
+                    const canvas = await html2canvas(matrix, {{
+                        backgroundColor: "#FFFFFF",
+                        scale: 3,
+                        useCORS: true,
+                        logging: false,
+                        removeContainer: true
+                    }});
+
+                    const link = document.createElement("a");
+                    link.download = "cfr-principle-scores.png";
+                    link.href = canvas.toDataURL("image/png", 1.0);
+
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }} catch (error) {{
+                    console.error(
+                        "Could not download CFR chart:",
+                        error
+                    );
+
+                    alert(
+                        "The chart could not be downloaded. " +
+                        "Please refresh the page and try again."
+                    );
+                }}
+            }}
+
+            function resizeStreamlitFrame() {{
+                const requiredHeight = Math.ceil(
+                    document.documentElement.scrollHeight
+                );
+
+                window.parent.postMessage(
+                    {{
+                        isStreamlitMessage: true,
+                        type: "streamlit:setFrameHeight",
+                        height: requiredHeight
+                    }},
+                    "*"
+                );
+            }}
+
+            window.addEventListener("load", function () {{
+                document
+                    .querySelectorAll(".cfr-principle-matrix")
+                    .forEach(function (matrix) {{
+                        applyCfrZoom(matrix.id, 1);
+                    }});
+
+                resizeStreamlitFrame();
+            }});
+
+            window.addEventListener("resize", function () {{
+                document
+                    .querySelectorAll(".cfr-principle-matrix")
+                    .forEach(function (matrix) {{
+                        applyCfrZoom(
+                            matrix.id,
+                            getCfrZoom(matrix.id)
+                        );
+                    }});
+            }});
+        </script>
+    </body>
+    </html>
+    """
+
+    components.html(
+        complete_html,
+        height=height,
+        scrolling=True,
+    )
 
 def _build_aggregated_cfr_figure(chart_data):
     """
@@ -4352,10 +4974,7 @@ def render_cfr_analysis():
                 else cfr[cfr["Country"].eq(selected_country)]
             )
 
-            st.markdown(
-                _build_principle_score_matrix_html(chart_data),
-                unsafe_allow_html=True,
-            )
+            render_principle_score_matrix(chart_data)
 
     # --------------------------------------------------------
     # RIGHT: REGIONAL TABLE
