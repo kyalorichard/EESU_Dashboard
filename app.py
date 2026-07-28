@@ -4426,64 +4426,6 @@ def render_cfr_analysis():
 
 
 
-def render_tab_intro(title: str, description: str) -> None:
-    """Render a consistent EU SEE introduction banner at the top of a dashboard tab."""
-    st.markdown(
-        f"""
-        <div class="eusee-tab-intro">
-            <div class="eusee-tab-intro-title">{html.escape(title)}</div>
-            <div class="eusee-tab-intro-text">{html.escape(description)}</div>
-        </div>
-
-        <style>
-        .eusee-tab-intro {{
-            width: 100%;
-            box-sizing: border-box;
-            background: linear-gradient(135deg, #FFFFFF 0%, #F8F4FC 100%);
-            border: 1px solid #E7D4F1;
-            border-left: 5px solid #660094;
-            border-radius: 16px;
-            padding: 14px 18px;
-            margin: 0.15rem 0 1rem 0;
-            box-shadow: 0 6px 18px rgba(16, 24, 40, 0.05);
-            font-family: var(--eusee-font);
-        }}
-
-        .eusee-tab-intro-title {{
-            color: #23152F;
-            font-size: 15px;
-            font-weight: 900;
-            line-height: 1.25;
-            margin: 0 0 4px 0;
-        }}
-
-        .eusee-tab-intro-text {{
-            color: #667085;
-            font-size: 12px;
-            font-weight: 500;
-            line-height: 1.55;
-            margin: 0;
-        }}
-
-        @media (max-width: 700px) {{
-            .eusee-tab-intro {{
-                padding: 12px 14px;
-                border-radius: 14px;
-            }}
-
-            .eusee-tab-intro-title {{
-                font-size: 14px;
-            }}
-
-            .eusee-tab-intro-text {{
-                font-size: 11.5px;
-            }}
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
 # This removes the visible blank space between the dashboard subtitle and the tabs.
 #tab_map disabled
@@ -8468,14 +8410,18 @@ if tab_overview is not None:
 
 if tab_negative is not None:
     with tab_negative:
-        render_tab_intro(
-            "Negative Alerts Analysis",
-            (
-                "Explore patterns across negative alerts, including restrictive actors, "
-                "mechanisms, and affected civil society actors. Use the global filters to "
-                "refine the view and update the dashboard."
-            ),
-        )
+        
+        st.markdown(
+                    """
+                        <div class="cfr-page-subtitle">
+                            "Explore patterns across negative alerts, including restrictive actors,mechanisms, and affected civil society actors. 
+                            Use the global filters to refine the view and update the dashboard."
+                        </div>
+                    
+                    """,
+                    unsafe_allow_html=True,
+           )
+     
 
         if has_permission("view_negative_alerts"):
             #st.subheader("Negative Alerts")
