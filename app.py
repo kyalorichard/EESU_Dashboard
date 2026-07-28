@@ -1267,22 +1267,11 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
     }
     </style>
 
-    <div class="eusee-login-route-shell">
-        <div class="eusee-login-route-eyebrow">Privileged access</div>
-        <div class="eusee-login-route-title">EUSEE Dashboard Sign in / Register</div>
-        <div class="eusee-login-route-note">
-            Sign in to access advanced features and analyses available to EUSEE partners.
-        </div>
-    </div>
+  
     """, unsafe_allow_html=True)
 
     auth_ui()
 
-    if st.button("← Back to dashboard", use_container_width=True, key="back_to_dashboard_from_sidebar_auth"):
-        st.session_state.auth_view = False
-        st.rerun()
-
-    st.stop()
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
