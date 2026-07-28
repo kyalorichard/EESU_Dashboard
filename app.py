@@ -9693,412 +9693,433 @@ if tab_cfr is not None:
 if tab_manual is not None:
     with tab_manual:
         if has_permission("view_user_manual"):
-            if has_permission("view_user_manual"):
-                footer_image_path = BASE_DIR / "assets" / "footer_logo.png"
-                footer_b64 = ""
+            footer_image_path = BASE_DIR / "assets" / "footer_logo.png"
+            footer_b64 = ""
 
-                if footer_image_path.exists():
-                    footer_b64 = base64.b64encode(
-                        footer_image_path.read_bytes()
-                    ).decode("utf-8")
+            if footer_image_path.exists():
+                footer_b64 = base64.b64encode(
+                    footer_image_path.read_bytes()
+                ).decode("utf-8")
 
-                st.markdown(
-                    """
-                    <style>
-                    .user-manual-shell {
-                        --manual-purple: #660094;
-                        --manual-purple-dark: #440066;
-                        --manual-purple-soft: #F8F2FB;
-                        --manual-blue: #3559E8;
-                        --manual-text: #241536;
-                        --manual-muted: #667085;
-                        --manual-border: #E6E8EF;
-                        --manual-bg: #FBFCFE;
-                        width: 100%;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+            st.markdown(
+                """
+                <style>
+                /* =========================================================
+                   USER MANUAL — REFERENCE-STYLE QUICK GUIDE
+                ========================================================= */
+                .user-guide-shell {
+                    width: 100%;
+                    padding: 26px 4px 30px 4px;
+                    font-family: "Anek Devanagari", Arial, sans-serif;
+                }
+
+                .user-guide-intro {
+                    max-width: 760px;
+                    margin: 8px 0 28px 0;
+                    color: #253B80;
+                    font-size: 13px;
+                    line-height: 1.45;
+                    font-weight: 750;
+                }
+
+                .user-guide-grid {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1.48fr) minmax(320px, 1fr);
+                    gap: 20px;
+                    align-items: start;
+                }
+
+                .user-guide-card {
+                    background: #FFFFFF;
+                    border: 1px solid #E7EAF1;
+                    border-radius: 16px;
+                    box-shadow:
+                        0 8px 22px rgba(16, 24, 40, 0.045),
+                        0 1px 3px rgba(16, 24, 40, 0.035);
+                }
+
+                .workflow-card {
+                    padding: 14px 17px 12px 17px;
+                    min-height: 414px;
+                }
+
+                .user-guide-card-title {
+                    color: #182158;
+                    font-size: 17px;
+                    line-height: 1.15;
+                    font-weight: 950;
+                    margin: 0;
+                }
+
+                .user-guide-title-line {
+                    width: 64px;
+                    height: 3px;
+                    margin: 7px 0 6px 0;
+                    border-radius: 999px;
+                    background: #660094;
+                }
+
+                .user-guide-card-note {
+                    color: #6B7280;
+                    font-size: 10.5px;
+                    line-height: 1.35;
+                    margin-bottom: 5px;
+                    font-weight: 550;
+                }
+
+                .workflow-step {
+                    display: grid;
+                    grid-template-columns: 29px 42px minmax(0, 1fr);
+                    gap: 11px;
+                    align-items: center;
+                    min-height: 64px;
+                    padding: 7px 0;
+                    border-bottom: 1px solid #ECEEF4;
+                }
+
+                .workflow-step:last-of-type {
+                    border-bottom: 0;
+                }
+
+                .workflow-number {
+                    width: 25px;
+                    height: 25px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    color: #FFFFFF;
+                    background: #660094;
+                    font-size: 12px;
+                    font-weight: 950;
+                    box-shadow: 0 3px 8px rgba(102, 0, 148, 0.18);
+                }
+
+                .workflow-icon {
+                    width: 38px;
+                    height: 38px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    color: #7A22A1;
+                    background: #F6F0FA;
+                    border: 1px solid #EADCF2;
+                    font-size: 18px;
+                    line-height: 1;
+                }
+
+                .workflow-copy {
+                    min-width: 0;
+                }
+
+                .workflow-title {
+                    color: #222A57;
+                    font-size: 12px;
+                    line-height: 1.2;
+                    font-weight: 900;
+                    margin-bottom: 2px;
+                }
+
+                .workflow-text {
+                    color: #667085;
+                    font-size: 10.7px;
+                    line-height: 1.32;
+                    font-weight: 520;
+                }
+
+                .citation-box {
+                    margin: 8px 73px 0 73px;
+                    padding: 9px 11px;
+                    border-radius: 8px;
+                    background: #F5EEFA;
+                    color: #344054;
+                    font-size: 10.3px;
+                    line-height: 1.35;
+                }
+
+                .citation-box strong {
+                    color: #253B80;
+                    font-weight: 900;
+                }
+
+                .user-guide-side {
+                    display: grid;
+                    gap: 14px;
+                }
+
+                .help-card {
+                    display: grid;
+                    grid-template-columns: 58px minmax(0, 1fr);
+                    gap: 15px;
+                    align-items: center;
+                    min-height: 122px;
+                    padding: 18px 20px;
+                    background:
+                        radial-gradient(circle at 8% 48%, rgba(63, 105, 255, 0.08), transparent 30%),
+                        linear-gradient(135deg, #FFFFFF 0%, #F8FBFF 100%);
+                }
+
+                .help-icon-wrap {
+                    width: 52px;
+                    height: 52px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    background: #EEF4FF;
+                    border: 1px solid #D8E5FF;
+                    box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.65);
+                }
+
+                .help-icon {
+                    width: 27px;
+                    height: 27px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    border: 2px solid #4263EB;
+                    color: #4263EB;
+                    font-size: 17px;
+                    font-weight: 950;
+                    line-height: 1;
+                }
+
+                .help-title {
+                    color: #182158;
+                    font-size: 15px;
+                    line-height: 1.2;
+                    font-weight: 950;
+                    margin-bottom: 5px;
+                }
+
+                .help-text {
+                    color: #667085;
+                    font-size: 10.8px;
+                    line-height: 1.4;
+                }
+
+                .brand-card {
+                    min-height: 203px;
+                    padding: 18px 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .brand-card img {
+                    display: block;
+                    width: 100%;
+                    max-width: 470px;
+                    height: auto;
+                    max-height: 190px;
+                    object-fit: contain;
+                }
+
+                .brand-fallback {
+                    width: 100%;
+                    min-height: 150px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #660094;
+                    font-size: 22px;
+                    font-weight: 950;
+                    text-align: center;
+                }
+
+                @media (max-width: 980px) {
+                    .user-guide-grid {
+                        grid-template-columns: 1fr;
                     }
 
-                    .manual-intro {
-                        margin: 3px 0 15px 0;
-                        padding: 0 2px;
+                    .workflow-card {
+                        min-height: auto;
                     }
 
-                    .manual-intro-text {
-                        max-width: 900px;
-                        color: #4B3B63;
-                        font-size: 11.5px;
-                        line-height: 1.42;
-                        font-weight: 650;
+                    .user-guide-side {
+                        grid-template-columns: 1fr 1fr;
+                    }
+                }
+
+                @media (max-width: 700px) {
+                    .user-guide-shell {
+                        padding-top: 14px;
                     }
 
-                    .manual-layout {
-                        display: grid;
-                        grid-template-columns: minmax(0, 1.48fr) minmax(280px, .95fr);
-                        gap: 14px;
-                        align-items: stretch;
-                    }
-
-                    .manual-right-column {
-                        display: grid;
-                        grid-template-rows: auto 1fr;
-                        gap: 14px;
-                        min-width: 0;
-                    }
-
-                    .manual-card {
-                        background: #FFFFFF;
-                        border: 1px solid var(--manual-border);
-                        border-radius: 16px;
-                        box-shadow: 0 5px 16px rgba(16, 24, 40, .045);
-                        overflow: hidden;
-                    }
-
-                    .manual-workflow-card {
-                        padding: 15px 18px 14px 18px;
-                        min-height: 100%;
-                    }
-
-                    .manual-card-title {
-                        color: var(--manual-text);
-                        font-size: 14px;
-                        line-height: 1.15;
-                        font-weight: 950;
-                        margin: 0 0 3px 0;
-                    }
-
-                    .manual-card-subtitle {
-                        color: var(--manual-muted);
-                        font-size: 10px;
-                        line-height: 1.3;
-                        font-weight: 600;
-                        margin-bottom: 8px;
-                    }
-
-                    .manual-step {
-                        display: grid;
-                        grid-template-columns: 25px 31px minmax(0, 1fr);
-                        gap: 9px;
-                        align-items: center;
-                        min-height: 47px;
-                        padding: 7px 0;
-                        border-bottom: 1px solid #EEEAF2;
-                    }
-
-                    .manual-step:last-of-type {
-                        border-bottom: 0;
-                    }
-
-                    .manual-step-number {
-                        width: 20px;
-                        height: 20px;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: var(--manual-purple);
-                        color: #FFFFFF;
-                        font-size: 9px;
-                        line-height: 1;
-                        font-weight: 950;
-                        box-shadow: 0 3px 8px rgba(102, 0, 148, .18);
-                    }
-
-                    .manual-step-icon {
-                        width: 29px;
-                        height: 29px;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: #F7F1FA;
-                        border: 1px solid #EADCF1;
-                        color: var(--manual-purple);
-                        font-size: 14px;
-                        line-height: 1;
-                    }
-
-                    .manual-step-title {
-                        color: #32243F;
-                        font-size: 10.8px;
-                        line-height: 1.15;
-                        font-weight: 900;
-                        margin-bottom: 2px;
-                    }
-
-                    .manual-step-text {
-                        color: #667085;
-                        font-size: 9.8px;
-                        line-height: 1.32;
-                        font-weight: 550;
-                    }
-
-                    .manual-citation {
-                        margin: 9px 0 0 50px;
-                        padding: 7px 10px;
-                        border-radius: 8px;
-                        background: #F7F2FA;
-                        border: 1px solid #ECE1F1;
-                        color: #675273;
-                        font-size: 9.3px;
-                        line-height: 1.35;
-                    }
-
-                    .manual-citation strong {
-                        color: #4B245F;
-                        font-weight: 900;
-                    }
-
-                    .manual-help-card {
-                        display: grid;
-                        grid-template-columns: 42px minmax(0, 1fr);
-                        gap: 12px;
-                        align-items: center;
-                        min-height: 104px;
-                        padding: 15px 17px;
-                        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFF 100%);
-                    }
-
-                    .manual-help-icon {
-                        width: 39px;
-                        height: 39px;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: #3559E8;
-                        background: #F2F5FF;
-                        border: 1px solid #DDE5FF;
-                        box-shadow: 0 4px 12px rgba(53, 89, 232, .10);
-                        font-size: 20px;
-                        font-weight: 950;
-                    }
-
-                    .manual-help-title {
-                        color: var(--manual-text);
+                    .user-guide-intro {
+                        margin-bottom: 18px;
                         font-size: 12px;
-                        line-height: 1.15;
-                        font-weight: 950;
-                        margin-bottom: 4px;
                     }
 
-                    .manual-help-text {
-                        color: var(--manual-muted);
-                        font-size: 9.7px;
-                        line-height: 1.35;
-                        font-weight: 600;
+                    .user-guide-side {
+                        grid-template-columns: 1fr;
                     }
 
-                    .manual-brand-card {
-                        min-height: 171px;
-                        padding: 15px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-
-                    .manual-brand-card img {
-                        display: block;
-                        width: 100%;
-                        max-width: 470px;
-                        max-height: 180px;
-                        object-fit: contain;
-                    }
-
-                    .manual-brand-placeholder {
-                        text-align: center;
-                        color: #667085;
-                        font-size: 10px;
-                        line-height: 1.4;
-                        padding: 26px 15px;
-                    }
-
-                    .manual-download-row {
-                        display: grid;
-                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    .workflow-step {
+                        grid-template-columns: 27px 38px minmax(0, 1fr);
                         gap: 8px;
-                        margin-top: 13px;
                     }
 
-                    .manual-download-note {
-                        background: #FFFFFF;
-                        border: 1px solid var(--manual-border);
-                        border-radius: 12px;
-                        padding: 9px 11px;
-                        color: #667085;
-                        font-size: 9.6px;
-                        line-height: 1.3;
-                        box-shadow: 0 3px 10px rgba(16, 24, 40, .035);
+                    .workflow-icon {
+                        width: 34px;
+                        height: 34px;
+                        font-size: 16px;
                     }
 
-                    .manual-download-note strong {
-                        display: block;
-                        color: #32243F;
-                        font-size: 10.4px;
-                        font-weight: 900;
-                        margin-bottom: 2px;
+                    .citation-box {
+                        margin-left: 0;
+                        margin-right: 0;
+                    }
+                }
+
+                @media (max-width: 430px) {
+                    .workflow-card,
+                    .help-card,
+                    .brand-card {
+                        padding-left: 12px;
+                        padding-right: 12px;
                     }
 
-                    @media (max-width: 900px) {
-                        .manual-layout {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .manual-right-column {
-                            grid-template-columns: repeat(2, minmax(0, 1fr));
-                            grid-template-rows: auto;
-                        }
+                    .workflow-step {
+                        grid-template-columns: 25px 1fr;
                     }
 
-                    @media (max-width: 620px) {
-                        .manual-right-column,
-                        .manual-download-row {
-                            grid-template-columns: 1fr;
-                        }
-
-                        .manual-workflow-card {
-                            padding: 14px;
-                        }
-
-                        .manual-step {
-                            grid-template-columns: 23px 29px minmax(0, 1fr);
-                            gap: 7px;
-                        }
-
-                        .manual-citation {
-                            margin-left: 0;
-                        }
+                    .workflow-icon {
+                        display: none;
                     }
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
 
-                brand_html = (
-                    f'<img src="data:image/png;base64,{footer_b64}" '
-                    'alt="EU SEE and partner logos">'
-                    if footer_b64
-                    else (
-                        '<div class="manual-brand-placeholder">'
-                        '<strong>EU SEE partner logos</strong><br>'
-                        'Add <code>assets/footer_logo.png</code> to display the branding panel.'
-                        '</div>'
-                    )
-                )
+                    .help-card {
+                        grid-template-columns: 48px 1fr;
+                    }
 
-                st.markdown(
-                    f"""
-                    <div class="user-manual-shell">
-                        <div class="manual-intro">
-                            <div class="manual-intro-text">
-                                A quick guide to help you navigate the dashboard, apply filters,
-                                interpret the visualisations, explore key patterns, review the
-                                underlying data, and export results.
+                    .help-icon-wrap {
+                        width: 44px;
+                        height: 44px;
+                    }
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            logo_html = (
+                f'<img src="data:image/png;base64,{footer_b64}" '
+                'alt="EU SEE and partner logos">'
+                if footer_b64
+                else '<div class="brand-fallback">EU SEE<br>Partner Network</div>'
+            )
+
+            st.markdown(
+                f"""
+                <div class="user-guide-shell">
+                    <div class="user-guide-intro">
+                        A quick guide to help you navigate the dashboard, apply filters,
+                        interpret the visualisations, explore key patterns, review the
+                        underlying data, and export results.
+                    </div>
+
+                    <div class="user-guide-grid">
+                        <section class="user-guide-card workflow-card">
+                            <div class="user-guide-card-title">Quick-start workflow</div>
+                            <div class="user-guide-title-line"></div>
+                            <div class="user-guide-card-note">
+                                Recommended steps for first-time users.
                             </div>
-                        </div>
 
-                        <div class="manual-layout">
-                            <section class="manual-card manual-workflow-card">
-                                <div class="manual-card-title">Quick-start workflow</div>
-                                <div class="manual-card-subtitle">Recommended steps for first-time users.</div>
-
-                                <div class="manual-step">
-                                    <div class="manual-step-number">1</div>
-                                    <div class="manual-step-icon">▽</div>
-                                    <div>
-                                        <div class="manual-step-title">Set your scope</div>
-                                        <div class="manual-step-text">Use the global filters to select the region, country, alert impact, nature of alert, enabling environment, principle, year, and month.</div>
+                            <div class="workflow-step">
+                                <div class="workflow-number">1</div>
+                                <div class="workflow-icon">▽</div>
+                                <div class="workflow-copy">
+                                    <div class="workflow-title">Set your scope</div>
+                                    <div class="workflow-text">
+                                        Use the global filters to select the region, country,
+                                        alert impact, nature of alert, enabling environment
+                                        principle, year, and month.
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="manual-step">
-                                    <div class="manual-step-number">2</div>
-                                    <div class="manual-step-icon">▥</div>
-                                    <div>
-                                        <div class="manual-step-title">Start with the Alerts Overview</div>
-                                        <div class="manual-step-text">Review the main figures and charts to understand the key patterns in the filtered data.</div>
+                            <div class="workflow-step">
+                                <div class="workflow-number">2</div>
+                                <div class="workflow-icon">▥</div>
+                                <div class="workflow-copy">
+                                    <div class="workflow-title">Start with the Alerts Overview</div>
+                                    <div class="workflow-text">
+                                        Review the main figures and charts to understand the
+                                        main patterns in the filtered data.
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="manual-step">
-                                    <div class="manual-step-number">3</div>
-                                    <div class="manual-step-icon">⌁</div>
-                                    <div>
-                                        <div class="manual-step-title">Explore patterns in greater detail</div>
-                                        <div class="manual-step-text">Use the Alerts Overview, CFR Scores, and Negative Alerts Analysis sections to examine patterns, trends, actors, and mechanisms.</div>
+                            <div class="workflow-step">
+                                <div class="workflow-number">3</div>
+                                <div class="workflow-icon">⌁</div>
+                                <div class="workflow-copy">
+                                    <div class="workflow-title">Explore patterns in greater detail</div>
+                                    <div class="workflow-text">
+                                        Use the Alerts Overview, CFR Scores, and Negative Alerts
+                                        Analysis sections to identify trends and better understand
+                                        the filtered data.
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="manual-step">
-                                    <div class="manual-step-number">4</div>
-                                    <div class="manual-step-icon">▤</div>
-                                    <div>
-                                        <div class="manual-step-title">Review the data in detail, if available</div>
-                                        <div class="manual-step-text">Privileged users can use the Data Summary Preview and AI Assistant to search, review, analyse, and export filtered records.</div>
+                            <div class="workflow-step">
+                                <div class="workflow-number">4</div>
+                                <div class="workflow-icon">▤</div>
+                                <div class="workflow-copy">
+                                    <div class="workflow-title">Review the data in detail, if available</div>
+                                    <div class="workflow-text">
+                                        Privileged users can use the Data Summary Preview and AI
+                                        Assistant to search, review, further analyse, and export data.
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="manual-step">
-                                    <div class="manual-step-number">5</div>
-                                    <div class="manual-step-icon">◇</div>
-                                    <div>
-                                        <div class="manual-step-title">Cite the dashboard</div>
-                                        <div class="manual-step-text">When using data, charts, or findings from the dashboard, cite the EU SEE Dashboard and the relevant visualisation. Include the date of access or consultation.</div>
+                            <div class="workflow-step">
+                                <div class="workflow-number">5</div>
+                                <div class="workflow-icon">◌</div>
+                                <div class="workflow-copy">
+                                    <div class="workflow-title">Cite the dashboard</div>
+                                    <div class="workflow-text">
+                                        When using data, charts, or findings from the dashboard,
+                                        cite the EU SEE Dashboard and the relevant visualisation,
+                                        including the date of access or consultation.
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="manual-citation">
-                                    <strong>Suggested citation:</strong>
-                                    EU SEE Dashboard. “Name of visualisation,” accessed [date].
+                            <div class="citation-box">
+                                <strong>Suggested citation:</strong>
+                                EU SEE Dashboard, “[Name of visualisation]”, accessed [date].
+                            </div>
+                        </section>
+
+                        <aside class="user-guide-side">
+                            <section class="user-guide-card help-card">
+                                <div class="help-icon-wrap">
+                                    <div class="help-icon">?</div>
+                                </div>
+                                <div>
+                                    <div class="help-title">Need help?</div>
+                                    <div class="help-text">
+                                        Use the Feedback button to share questions, suggestions,
+                                        or report issues.
+                                    </div>
                                 </div>
                             </section>
 
-                            <aside class="manual-right-column">
-                                <section class="manual-card manual-help-card">
-                                    <div class="manual-help-icon">?</div>
-                                    <div>
-                                        <div class="manual-help-title">Need help?</div>
-                                        <div class="manual-help-text">Use the Feedback button to share questions, suggestions, or report issues.</div>
-                                    </div>
-                                </section>
-
-                                <section class="manual-card manual-brand-card">
-                                    {brand_html}
-                                </section>
-                            </aside>
-                        </div>
-
-                        <div class="manual-download-row">
-                            <div class="manual-download-note">
-                                <strong>Quick-start executive brief</strong>
-                                A concise overview for first-time and executive users.
-                            </div>
-                            <div class="manual-download-note">
-                                <strong>Complete dashboard manual</strong>
-                                Detailed guidance on filters, charts, maps, analysis, and exports.
-                            </div>
-                        </div>
+                            <section class="user-guide-card brand-card">
+                                {logo_html}
+                            </section>
+                        </aside>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-                download_col_1, download_col_2 = st.columns(2, gap="small")
-
-                with download_col_1:
-                    _safe_pdf_download_button(
-                        title="Quick-start executive brief",
-                        pdf_path=EXEC_BRIEF_PATH,
-                        key_prefix="manual_quick_start",
-                    )
-
-                with download_col_2:
-                    _safe_pdf_download_button(
-                        title="Complete dashboard user manual",
-                        pdf_path=USER_MANUAL_PATH,
-                        key_prefix="manual_complete_guide",
-                    )
-            else:
-                render_access_locked("User Manual", "guest or higher")
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         else:
             render_access_locked("User Manual", "guest or higher")
 
