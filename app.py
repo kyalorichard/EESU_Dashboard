@@ -4246,7 +4246,7 @@ def render_cfr_analysis():
                 "the CFR export before publication."
             )
 
-  
+ 
 
     country_count = int(cfr["Country"].nunique())
     _render_cfr_kpis(country_count)
@@ -8318,6 +8318,7 @@ def render_dashboard_plotly_chart(
 if tab_overview is not None:
     with tab_overview:
         render_tab_intro(
+            "Alert Overview",
             (
                 "Explore how alerts are distributed across alert types, enabling "
                 "environment principles, and time. Use the global filters to refine "
@@ -8454,6 +8455,7 @@ if tab_overview is not None:
 if tab_negative is not None:
     with tab_negative:
         render_tab_intro(
+            "Negative Alerts Analysis",
             (
                 "Explore patterns across negative alerts, including restrictive actors, "
                 "mechanisms, and affected civil society actors. Use the global filters to "
@@ -9688,12 +9690,17 @@ if tab_map is not None:
 # ---------------- CFR ANALYSIS TAB ----------------
 if tab_cfr is not None:
     with tab_cfr:
-        render_tab_intro(
-            (
-                "Explore score patterns across the six EU SEE enabling environment principles." 
-                "Scores range from 1 (most restricted) to 5 (most enabling)."
-            ),
-        )
+        st.markdown(
+               """
+                <div class="cfr-page-subtitle">
+                       Explore score patterns across the six EU SEE enabling
+                       environment principles.<br>
+                       Scores range from 1 (most restricted) to 5 (most enabling).
+                </div>
+              
+               """,
+               unsafe_allow_html=True,
+           )
 
         if has_permission("view_overview"):
             render_cfr_analysis()
