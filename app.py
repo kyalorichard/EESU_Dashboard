@@ -2128,7 +2128,7 @@ def render_sidebar_access_settings_profile():
  
 
     with st.sidebar.expander(
-        "🔐 User Privilege Center",
+        "🔐 Sign in / Register",
         expanded=True
     ):
         st.markdown(f"**{display_name}**")
@@ -2136,7 +2136,7 @@ def render_sidebar_access_settings_profile():
         st.caption(
             "Welcome."
             if signed_in
-            else "Sign in to access advanced features."
+            else "Sign in or register to access advanced features and analyses available to EU SEE partners. "
         )
 
         if is_admin_user:
