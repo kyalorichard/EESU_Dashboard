@@ -761,7 +761,7 @@ def _auth_page_css():
             text-align: center;
             color: var(--eusee-ink);
             font-family: Arial, sans-serif;
-            font-size: 27px;
+            font-size: 18px;
             line-height: 1.15;
             font-weight: 800;
             letter-spacing: -0.55px;
@@ -968,7 +968,7 @@ def _auth_page_css():
                 border-radius: 15px !important;
             }
 
-            .auth-title { font-size: 28px; }
+            .auth-title { font-size: 18px; }
         }
         </style>
         """,
