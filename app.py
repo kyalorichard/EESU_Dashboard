@@ -2925,7 +2925,7 @@ def _inject_cfr_dashboard_css():
 
         .cfr-page-subtitle {
             margin-top: 5px;
-            color: #233A7A;
+            color: black;
             font-size: 13px;
             line-height: 1.38;
             font-weight: 550;
