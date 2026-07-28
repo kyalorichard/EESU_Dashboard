@@ -5010,7 +5010,7 @@ def render_top_feedback_bar():
                 #${{ROOT_ID}} {{
                     position: fixed;
                     right: 20px;
-                    bottom: 30px;
+                    bottom: 35px;
                     z-index: 1000001;
                     font-family: "Anek Devanagari", Arial, sans-serif;
                 }}
