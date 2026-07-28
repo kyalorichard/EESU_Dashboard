@@ -968,7 +968,7 @@ def _auth_page_css():
                 border-radius: 15px !important;
             }
 
-            .auth-title { font-size: 24px; }
+            .auth-title { font-size: 28px; }
         }
         </style>
         """,
