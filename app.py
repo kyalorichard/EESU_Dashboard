@@ -7918,6 +7918,339 @@ def inject_compact_tabs_and_legend_ux():
 inject_compact_tabs_and_legend_ux()
 
 
+# ---------------- FINAL MOBILE RESPONSIVE HARDENING ----------------
+def inject_final_mobile_responsive_hardening() -> None:
+    """Final cascade-level safeguards for phones, tablets, and narrow browser windows."""
+    st.markdown(
+        """
+        <style>
+        /* Global sizing and overflow safety */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body, .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stAppViewBlockContainer"],
+        .main, .main .block-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: clip !important;
+        }
+
+        .main .block-container {
+            width: min(100%, 1500px) !important;
+            padding-left: clamp(.70rem, 2.2vw, 1.50rem) !important;
+            padding-right: clamp(.70rem, 2.2vw, 1.50rem) !important;
+        }
+
+        /* Prevent long labels, links and generated text from widening cards */
+        .main p, .main span, .main div, .main a,
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] span,
+        section[data-testid="stSidebar"] div {
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+
+        img, video, canvas, svg, iframe {
+            max-width: 100% !important;
+        }
+
+        img, video {
+            height: auto !important;
+        }
+
+        /* Streamlit rows and columns */
+        div[data-testid="stHorizontalBlock"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            align-items: stretch !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        /* Forms and controls */
+        [data-testid="stTextInput"],
+        [data-testid="stNumberInput"],
+        [data-testid="stSelectbox"],
+        [data-testid="stMultiSelect"],
+        [data-testid="stDateInput"],
+        [data-testid="stTextArea"],
+        [data-testid="stFileUploader"],
+        [data-testid="stDownloadButton"],
+        [data-testid="stButton"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        [data-baseweb="select"],
+        [data-baseweb="input"],
+        [data-baseweb="textarea"],
+        [data-baseweb="popover"] {
+            max-width: 100% !important;
+        }
+
+        .stButton > button,
+        .stDownloadButton > button {
+            max-width: 100% !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            min-height: 38px;
+            height: auto !important;
+        }
+
+        /* Tabs remain usable without forcing the entire page wider */
+        div[data-testid="stTabs"] {
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        div[data-testid="stTabs"] div[role="tablist"] {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        div[data-testid="stTabs"] button[role="tab"] {
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        /* Charts and maps */
+        div[data-testid="stPlotlyChart"],
+        div[data-testid="stVegaLiteChart"],
+        div[data-testid="stDeckGlChart"],
+        div[data-testid="stPydeckChart"],
+        div[data-testid="stMap"],
+        .stPlotlyChart,
+        .js-plotly-plot,
+        .plot-container,
+        .svg-container {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        .js-plotly-plot .plotly .modebar {
+            max-width: calc(100% - 8px) !important;
+            flex-wrap: wrap !important;
+        }
+
+        /* Tables scroll inside their own container */
+        div[data-testid="stDataFrame"],
+        div[data-testid="stTable"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        div[data-testid="stDataFrame"] [role="grid"] {
+            max-width: 100% !important;
+            overflow: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Generic dashboard cards and custom HTML containers */
+        .classic-filter-header,
+        .classic-filter-status,
+        .data-preview-toolbar,
+        .executive-table-shell,
+        .executive-table-header,
+        .executive-table-status,
+        .eusee-login-route-shell,
+        .map-intel-hero,
+        .eusee-kpi-card {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        .executive-table-header,
+        .executive-table-status,
+        .data-preview-toolbar {
+            flex-wrap: wrap !important;
+        }
+
+        .executive-metric-grid {
+            grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr)) !important;
+        }
+
+        /* Tablet */
+        @media (max-width: 900px) {
+            header[data-testid="stHeader"] {
+                height: 44px !important;
+                min-height: 44px !important;
+            }
+
+            .main .block-container {
+                padding-top: .65rem !important;
+            }
+
+            .executive-table-header,
+            .executive-table-status,
+            .data-preview-toolbar {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            .data-preview-pill-row {
+                justify-content: flex-start !important;
+            }
+
+            .eusee-kpi-card {
+                height: auto !important;
+                min-height: 0 !important;
+            }
+        }
+
+        /* Phones */
+        @media (max-width: 640px) {
+            .main .block-container {
+                padding-left: .65rem !important;
+                padding-right: .65rem !important;
+                padding-bottom: 5.5rem !important;
+            }
+
+            section[data-testid="stSidebar"] {
+                width: min(92vw, 360px) !important;
+                max-width: 92vw !important;
+            }
+
+            div[data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
+                flex-wrap: nowrap !important;
+                gap: .70rem !important;
+            }
+
+            div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: 100% !important;
+            }
+
+            /* Collapse custom inline flex/grid layouts that lack dedicated classes */
+            .main [style*="display:flex"],
+            .main [style*="display: flex"] {
+                max-width: 100% !important;
+                flex-wrap: wrap !important;
+            }
+
+            .main [style*="display:grid"],
+            .main [style*="display: grid"] {
+                max-width: 100% !important;
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .main [style*="width:"][style*="px"],
+            .main [style*="min-width:"][style*="px"] {
+                min-width: 0 !important;
+                max-width: 100% !important;
+            }
+
+            div[data-testid="stTabs"] div[role="tablist"] {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            div[data-testid="stTabs"] button[role="tab"] {
+                min-height: 36px !important;
+                height: auto !important;
+                max-height: none !important;
+                padding: 6px 7px !important;
+                white-space: normal !important;
+                line-height: 1.12 !important;
+                text-overflow: clip !important;
+            }
+
+            .animated-title {
+                font-size: clamp(24px, 9vw, 34px) !important;
+                line-height: 1.05 !important;
+            }
+
+            .animated-subtitle {
+                font-size: 12px !important;
+                line-height: 1.35 !important;
+            }
+
+            .executive-metric-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            .executive-table-shell,
+            .map-intel-hero,
+            .eusee-login-route-shell {
+                padding: 12px !important;
+                border-radius: 14px !important;
+            }
+
+            #eusee-collapsed-sidebar-label {
+                max-width: calc(100vw - 90px) !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+        }
+
+        /* Very narrow phones */
+        @media (max-width: 420px) {
+            div[data-testid="stTabs"] div[role="tablist"] {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .executive-metric-grid {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .data-preview-pill-row {
+                display: grid !important;
+                grid-template-columns: minmax(0, 1fr) !important;
+                width: 100% !important;
+            }
+
+            .data-preview-pill,
+            .executive-table-badge {
+                width: 100% !important;
+                white-space: normal !important;
+                text-align: center !important;
+            }
+
+            #eusee-collapsed-sidebar-label {
+                font-size: 0 !important;
+                width: 38px !important;
+                min-width: 38px !important;
+                padding: 0 !important;
+                justify-content: center !important;
+            }
+
+            #eusee-collapsed-sidebar-label::after {
+                content: "☰";
+                font-size: 17px;
+                line-height: 1;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+inject_final_mobile_responsive_hardening()
+
+
 # ---------------- FINAL RESPONSIVE TAB TEXT UX OVERRIDE ----------------
 def inject_final_responsive_tab_text_ux():
     """Final override for responsive Streamlit tabs.
