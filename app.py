@@ -1667,6 +1667,17 @@ def load_data():
             .str.strip()
         )
 
+    if "Permalink" in df.columns:
+        df["Permalink"] = (
+            df["Permalink"]
+            .astype(str)
+            .str.replace(
+                "https://events-eusee.hivos.org/event/",
+                "https://eusee.hivos.org/alerts/",
+                regex=False,
+            )
+        )
+
     return df
 
 # --- Load data safely ---
@@ -6210,7 +6221,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     )
 
     fig.update_traces(
-        width=0.75,
+        width=0.95,
         textposition=[
             "inside" if val >= (axis_max * 0.12) else "outside"
             for val in df["percent_value"]
