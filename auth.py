@@ -1025,7 +1025,7 @@ def _login_form():
             use_container_width=True,
         )
 
-        remember_col, forgot_col = st.columns([1, 1])
+        remember_col, forgot_space = st.columns([1, 1])
         with remember_col:
             remember_me = st.checkbox("Remember me", value=False)
 
