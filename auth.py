@@ -976,18 +976,6 @@ def _auth_page_css():
     )
 
 
-def _render_auth_header():
-    st.markdown(
-        """
-        <div class="auth-shell-marker"></div>
-        <div class="auth-eyebrow">Privileged access</div>
-        <h1 class="auth-title">Sign in / Register</h1>
-        <div class="auth-subtitle">
-            Sign in or register to access advanced features and analyses available to EUSEE partners.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def _render_auth_tabs(mode: str):
@@ -1211,8 +1199,7 @@ def _render_premium_auth_page():
     _, center, _ = st.columns([0.08, 0.84, 0.08])
 
     with center:
-        _render_auth_header()
-
+       
         if mode in {"Login", "Register"}:
             _render_auth_tabs(mode)
 
