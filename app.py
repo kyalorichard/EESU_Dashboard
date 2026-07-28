@@ -10015,7 +10015,7 @@ if tab_manual is not None:
                 <div class="user-guide-shell">
                     <div class="user-guide-intro">
                         A quick guide to help you navigate the dashboard, apply filters,
-                        interpret the visualisations, explore key patterns, review the
+                        interpret the visualisations,<br> explore key patterns, review the
                         underlying data, and export results.
                     </div>
 
