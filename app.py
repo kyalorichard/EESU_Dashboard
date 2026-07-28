@@ -3408,7 +3408,7 @@ def _inject_cfr_dashboard_css():
         }
 
         .cfr-score-value {
-            color: #2613E8;
+            color: #5A0A78;
             text-align: center;
             font-size: 15px;
             line-height: 1;
