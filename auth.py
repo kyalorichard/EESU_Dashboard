@@ -1029,8 +1029,8 @@ def _login_form():
         with remember_col:
             remember_me = st.checkbox("Remember me", value=False)
         with forgot_col:
-                if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
-                    _set_auth_mode("Reset")
+            if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
+                 _set_auth_mode("Reset")
         
 
 
