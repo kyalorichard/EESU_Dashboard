@@ -1272,10 +1272,6 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
     auth_ui()
 
-    if st.button("", use_container_width=False, key="back_to_dashboard_from_sidebar_auth"):
-        st.session_state.auth_view = False
-        st.rerun()
-
     st.stop()
 
 
