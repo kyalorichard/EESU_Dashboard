@@ -2184,8 +2184,8 @@ def render_sidebar_access_settings_profile():
         div[data-testid="stButton"] button[kind="primary"] {
             background: linear-gradient(
                 135deg,
-                #23152F 0%,
-                #5E2A70 20%
+                #F9FAFB 0%,
+                #F9FAFB 20%
             ) !important;
             border: 1px solid #23152F !important;
             color: #FFFFFF !important;
@@ -2197,8 +2197,8 @@ def render_sidebar_access_settings_profile():
         div[data-testid="stButton"] button[kind="primary"]:hover {
             background: linear-gradient(
                 135deg,
-                #301B40 0%,
-                #703484 20%
+                #F9FAFB 0%,
+                #F9FAFB 20%
             ) !important;
             border-color: #301B40 !important;
             color: #FFFFFF !important;
