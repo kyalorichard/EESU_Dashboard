@@ -2958,10 +2958,10 @@ def _inject_cfr_dashboard_css():
         }
 
         .cfr-page-subtitle {
-            margin-top: 5px;
+            margin: 8px 0 28px 0;
             color: black;
             font-size: 13px;
-            line-height: 1.38;
+            line-height: 1.45;
             font-weight: 550;
         }
 
@@ -9719,7 +9719,7 @@ if tab_manual is not None:
                     color: black;
                     font-size: 13px;
                     line-height: 1.45;
-                    font-weight: 750;
+                    font-weight: 550;
                 }
 
                 .user-guide-grid {
