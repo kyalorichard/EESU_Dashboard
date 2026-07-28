@@ -9709,7 +9709,7 @@ if tab_manual is not None:
                 ========================================================= */
                 .user-guide-shell {
                     width: 100%;
-                    padding: 15px 4px 30px 4px;
+                    padding: 5px 4px 10px 4px;
                     font-family: "Anek Devanagari", Arial, sans-serif;
                 }
 
