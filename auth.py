@@ -693,10 +693,12 @@ def _auth_page_css():
         <style>
         :root {
             --eusee-purple: #6f20d9;
-            --eusee-purple-dark: #5815bc;
+            --eusee-purple-dark: #5a13c4;
             --eusee-ink: #241636;
-            --eusee-muted: #73758a;
-            --eusee-line: #e7e2ec;
+            --eusee-muted: #72758a;
+            --eusee-line: #e8e3ee;
+            --eusee-teal: #008caa;
+            --eusee-yellow: #ffdb58;
         }
 
         section[data-testid="stSidebar"],
@@ -715,46 +717,43 @@ def _auth_page_css():
         html, body, .stApp, [data-testid="stAppViewContainer"] {
             min-height: 100vh;
             background:
-                radial-gradient(circle at 7% 5%, rgba(111, 32, 217, 0.10), transparent 28%),
-                radial-gradient(circle at 95% 8%, rgba(0, 140, 170, 0.09), transparent 29%),
-                radial-gradient(circle at 55% 103%, rgba(255, 219, 88, 0.13), transparent 31%),
-                linear-gradient(135deg, #fbf9fd 0%, #f8fbfc 52%, #fffaf3 100%) !important;
+                radial-gradient(circle at 8% 8%, rgba(111, 32, 217, 0.10), transparent 29%),
+                radial-gradient(circle at 94% 11%, rgba(0, 140, 170, 0.10), transparent 28%),
+                radial-gradient(circle at 54% 104%, rgba(255, 219, 88, 0.14), transparent 31%),
+                linear-gradient(135deg, #fbf9fd 0%, #f8fbfc 52%, #fffaf2 100%) !important;
         }
 
         [data-testid="stAppViewBlockContainer"] .block-container,
         .block-container {
             width: 100% !important;
             max-width: 760px !important;
-            padding: 44px 20px 24px !important;
+            padding: 44px 24px 28px !important;
         }
 
-        /* White authentication card */
+        /* Main white authentication card: targets the centre column only. */
         div[data-testid="stHorizontalBlock"]:has(.auth-shell-marker)
         > div[data-testid="stColumn"]:nth-child(2) {
-            background: rgba(255, 255, 255, 0.97) !important;
-            border: 1px solid rgba(217, 212, 226, 0.94) !important;
-            border-radius: 16px !important;
+            background: rgba(255,255,255,0.97) !important;
+            border: 1px solid rgba(218, 212, 227, 0.94) !important;
+            border-radius: 18px !important;
             box-shadow:
-                0 20px 48px rgba(45, 31, 65, 0.09),
-                0 3px 10px rgba(45, 31, 65, 0.04) !important;
-            padding: 30px 26px 23px !important;
+                0 22px 52px rgba(45, 31, 65, 0.10),
+                0 4px 12px rgba(45, 31, 65, 0.05) !important;
+            padding: 31px 34px 25px !important;
         }
 
-        .auth-shell-marker {
-            height: 0;
-            overflow: hidden;
-        }
+        .auth-shell-marker { height: 0; overflow: hidden; }
 
         .auth-eyebrow {
-            margin: 0 0 11px;
             text-align: center;
             color: var(--eusee-purple);
             font-family: Arial, sans-serif;
-            font-size: 9px;
+            font-size: 10px;
             line-height: 1;
-            letter-spacing: 1.05px;
+            letter-spacing: 1.15px;
             font-weight: 900;
             text-transform: uppercase;
+            margin: 0 0 12px;
         }
 
         .auth-title {
@@ -762,41 +761,39 @@ def _auth_page_css():
             text-align: center;
             color: var(--eusee-ink);
             font-family: Arial, sans-serif;
-            font-size: 25px;
+            font-size: 27px;
             line-height: 1.15;
             font-weight: 800;
-            letter-spacing: -0.5px;
+            letter-spacing: -0.55px;
         }
 
         .auth-subtitle {
-            max-width: 440px;
-            margin: 9px auto 21px;
+            max-width: 500px;
+            margin: 10px auto 24px;
             text-align: center;
             color: var(--eusee-muted);
             font-family: Arial, sans-serif;
-            font-size: 10px;
-            line-height: 1.5;
+            font-size: 11.5px;
+            line-height: 1.55;
         }
 
-        /* Sign-in/Register tabs */
+        /* Sign-in/Register tab row */
         div[data-testid="stHorizontalBlock"]:has(.st-key-auth_tab_login),
         div[data-testid="stHorizontalBlock"]:has(.st-key-auth_tab_register) {
             gap: 0 !important;
             border-bottom: 1px solid var(--eusee-line);
-            margin-bottom: 18px;
+            margin-bottom: 19px;
         }
 
         .st-key-auth_tab_login button,
         .st-key-auth_tab_register button {
-            min-height: 42px !important;
-            padding: 0 !important;
+            min-height: 44px !important;
             border: 0 !important;
             border-radius: 0 !important;
             background: transparent !important;
             box-shadow: none !important;
-            color: #747589 !important;
-            font-family: Arial, sans-serif !important;
-            font-size: 11px !important;
+            color: #6e6f82 !important;
+            font-size: 12px !important;
             font-weight: 750 !important;
             position: relative !important;
         }
@@ -804,24 +801,22 @@ def _auth_page_css():
         .st-key-auth_tab_login button:hover,
         .st-key-auth_tab_register button:hover {
             color: var(--eusee-purple) !important;
-            background: rgba(111, 32, 217, 0.025) !important;
+            background: rgba(111,32,217,0.035) !important;
         }
 
-        div:has(> .active-login-marker)
-        + div[data-testid="stHorizontalBlock"]
-        .st-key-auth_tab_login button,
-        div:has(> .active-register-marker)
-        + div[data-testid="stHorizontalBlock"]
-        .st-key-auth_tab_register button {
+        .st-key-auth_tab_login button.auth-active,
+        .st-key-auth_tab_register button.auth-active {
             color: var(--eusee-purple) !important;
         }
 
-        div:has(> .active-login-marker)
-        + div[data-testid="stHorizontalBlock"]
-        .st-key-auth_tab_login button::after,
-        div:has(> .active-register-marker)
-        + div[data-testid="stHorizontalBlock"]
-        .st-key-auth_tab_register button::after {
+        /* Active tab is determined from the marker rendered before the tab row. */
+        div:has(> .active-login-marker) + div[data-testid="stHorizontalBlock"] .st-key-auth_tab_login button,
+        div:has(> .active-register-marker) + div[data-testid="stHorizontalBlock"] .st-key-auth_tab_register button {
+            color: var(--eusee-purple) !important;
+        }
+
+        div:has(> .active-login-marker) + div[data-testid="stHorizontalBlock"] .st-key-auth_tab_login button::after,
+        div:has(> .active-register-marker) + div[data-testid="stHorizontalBlock"] .st-key-auth_tab_register button::after {
             content: "";
             position: absolute;
             left: 0;
@@ -833,32 +828,32 @@ def _auth_page_css():
         }
 
         label p {
-            margin-bottom: 6px !important;
             color: #342744 !important;
             font-family: Arial, sans-serif !important;
-            font-size: 10px !important;
+            font-size: 11px !important;
             font-weight: 800 !important;
+            margin-bottom: 7px !important;
         }
 
         div[data-testid="stTextInput"] {
-            margin-bottom: 2px;
+            margin-bottom: 3px;
         }
 
         div[data-testid="stTextInput"] input {
-            min-height: 40px !important;
-            padding: 0 12px !important;
-            border: 1px solid #dfd9e7 !important;
-            border-radius: 6px !important;
+            min-height: 43px !important;
+            padding: 0 13px !important;
+            border: 1px solid #e2dce9 !important;
+            border-radius: 7px !important;
             background: #ffffff !important;
             color: #241636 !important;
             font-family: Arial, sans-serif !important;
-            font-size: 11px !important;
-            box-shadow: 0 1px 2px rgba(40, 28, 56, 0.02) !important;
+            font-size: 12px !important;
+            box-shadow: 0 1px 2px rgba(40,28,56,0.02) !important;
         }
 
         div[data-testid="stTextInput"] input:focus {
             border-color: rgba(111, 32, 217, 0.72) !important;
-            box-shadow: 0 0 0 3px rgba(111, 32, 217, 0.09) !important;
+            box-shadow: 0 0 0 3px rgba(111, 32, 217, 0.10) !important;
         }
 
         div[data-testid="stTextInput"] input::placeholder {
@@ -868,82 +863,84 @@ def _auth_page_css():
 
         button[kind="primaryFormSubmit"],
         button[kind="formSubmit"] {
-            min-height: 40px !important;
-            margin-top: 7px !important;
+            min-height: 43px !important;
+            margin-top: 8px !important;
             border: 0 !important;
-            border-radius: 5px !important;
+            border-radius: 6px !important;
             background: linear-gradient(90deg, #7b24df 0%, #6217ce 100%) !important;
             color: #ffffff !important;
             font-family: Arial, sans-serif !important;
-            font-size: 11.5px !important;
+            font-size: 12.5px !important;
             font-weight: 800 !important;
-            box-shadow: 0 8px 16px rgba(102, 23, 206, 0.18) !important;
+            box-shadow: 0 9px 18px rgba(102, 23, 206, 0.20) !important;
             transition: transform .15s ease, box-shadow .15s ease !important;
         }
 
         button[kind="primaryFormSubmit"]:hover,
         button[kind="formSubmit"]:hover {
             transform: translateY(-1px);
-            box-shadow: 0 11px 20px rgba(102, 23, 206, 0.23) !important;
-        }
-
-        /* Remember-me and forgot-password row */
-        div[data-testid="stHorizontalBlock"]:has(.st-key-remember_me_login),
-        div[data-testid="stHorizontalBlock"]:has(.st-key-switch_to_reset) {
-            align-items: center !important;
-            margin-top: 3px !important;
+            box-shadow: 0 12px 22px rgba(102, 23, 206, 0.25) !important;
         }
 
         div[data-testid="stCheckbox"] label {
-            gap: 6px !important;
+            gap: 7px !important;
         }
 
         div[data-testid="stCheckbox"] label p {
-            margin: 0 !important;
             color: #626276 !important;
-            font-size: 9.5px !important;
+            font-size: 10.5px !important;
             font-weight: 600 !important;
+            margin: 0 !important;
+        }
+
+        .forgot-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            min-height: 36px;
         }
 
         .card-divider {
             height: 1px;
-            margin: 14px 0 13px;
             background: var(--eusee-line);
+            margin: 16px 0 14px;
         }
 
         .small-footer {
             text-align: center;
             color: #9795a7;
             font-family: Arial, sans-serif;
-            font-size: 8.5px;
+            font-size: 9.5px;
             line-height: 1.4;
         }
 
         .small-footer span {
-            padding: 0 5px;
             color: #c0bdc8;
+            padding: 0 6px;
         }
 
+        .back-row {
+            text-align: center;
+            margin-top: 19px;
+        }
+
+        /* Streamlit secondary buttons used as links. */
         .st-key-switch_to_reset button,
         .st-key-back_to_dashboard button,
         .st-key-back_to_login button {
-            min-height: 28px !important;
-            padding: 0 2px !important;
+            min-height: 30px !important;
+            padding: 0 4px !important;
             border: 0 !important;
             background: transparent !important;
             color: var(--eusee-purple) !important;
             box-shadow: none !important;
             font-family: Arial, sans-serif !important;
-            font-size: 9.5px !important;
+            font-size: 10.5px !important;
             font-weight: 800 !important;
         }
 
-        .st-key-switch_to_reset button {
-            justify-content: flex-end !important;
-        }
-
         .st-key-back_to_dashboard button {
-            font-size: 10px !important;
+            font-size: 11px !important;
         }
 
         .st-key-switch_to_reset button:hover,
@@ -956,13 +953,12 @@ def _auth_page_css():
 
         [data-testid="stAlert"] {
             border-radius: 7px !important;
-            font-size: 10px !important;
+            font-size: 11px !important;
         }
 
         @media (max-width: 720px) {
             [data-testid="stAppViewBlockContainer"] .block-container,
             .block-container {
-                max-width: 470px !important;
                 padding: 20px 12px 18px !important;
             }
 
@@ -972,9 +968,7 @@ def _auth_page_css():
                 border-radius: 15px !important;
             }
 
-            .auth-title {
-                font-size: 23px;
-            }
+            .auth-title { font-size: 24px; }
         }
         </style>
         """,
@@ -1012,7 +1006,6 @@ def _render_auth_tabs(mode: str):
 
 
 def _login_form():
-    # Keep this outside the form so the checkbox and reset button can share one row.
     remember_me = False
 
     with st.form("eusee_login_form"):
@@ -1032,20 +1025,14 @@ def _login_form():
             use_container_width=True,
         )
 
-    remember_col, forgot_col = st.columns([1, 1], gap="small")
-    with remember_col:
-        remember_me = st.checkbox(
-            "Remember me",
-            value=False,
-            key="remember_me_login",
-        )
+        remember_col, forgot_space = st.columns([1, 1])
+        with remember_col:
+            remember_me = st.checkbox("Remember me", value=False)
 
+    # Kept outside the form so it works without submitting credentials.
+    _, forgot_col = st.columns([1, 1])
     with forgot_col:
-        if st.button(
-            "Forgot password?",
-            key="switch_to_reset",
-            use_container_width=True,
-        ):
+        if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
             _set_auth_mode("Reset")
 
     if submitted:
@@ -1221,7 +1208,7 @@ def _render_premium_auth_page():
     _auth_page_css()
     mode = st.session_state.get("auth_mode", "Login")
 
-    _, center, _ = st.columns([0.22, 0.56, 0.22])
+    _, center, _ = st.columns([0.08, 0.84, 0.08])
 
     with center:
         _render_auth_header()
