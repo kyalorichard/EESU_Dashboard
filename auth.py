@@ -1025,14 +1025,15 @@ def _login_form():
             use_container_width=True,
         )
 
-        remember_col, forgot_col = st.columns([1, 2])
+        remember_col, forgot_col = st.columns([1, 1])
         with remember_col:
             remember_me = st.checkbox("Remember me", value=False)
-        with forgot_col:
-            if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
-                 _set_auth_mode("Reset")
-        
 
+    # Kept outside the form so it works without submitting credentials.
+    _, forgot_col = st.columns([1, 1])
+    with forgot_col:
+        if st.button("Forgot password?", key="switch_to_reset", use_container_width=True):
+            _set_auth_mode("Reset")
 
     if submitted:
         if not firebase_auth:
