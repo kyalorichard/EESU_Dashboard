@@ -8328,14 +8328,17 @@ def render_dashboard_plotly_chart(
 # ---------------- TAB 1 ------------------------
 if tab_overview is not None:
     with tab_overview:
-        render_tab_intro(
-            "Alert Overview",
-            (
-                "Explore how alerts are distributed across alert types, enabling "
-                "environment principles, and time. Use the global filters to refine "
-                "the view and update the dashboard."
-            ),
-        )
+        st.markdown(
+               """
+                <div class="cfr-page-subtitle">
+                       Explore how alerts are distributed across alert types, enabling environment principles, and time. Use the global filters to refine 
+                       the view and update the dashboard."
+                </div>
+              
+               """,
+               unsafe_allow_html=True,
+           )
+        
 
         if has_permission("view_overview"):
             #st.subheader("Overview Metrics")
