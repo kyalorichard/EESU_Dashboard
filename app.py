@@ -2172,7 +2172,7 @@ def render_sidebar_access_settings_profile():
         section[data-testid="stSidebar"]
         div[data-testid="stHorizontalBlock"]:has(.eusee-workspace-marker)
         div[data-testid="stButton"] button[kind="secondary"]:hover {
-            background: #F7F4FA !important;
+            background: #F9FAFB !important;
             border-color: #8C5A9F !important;
             color: #5E2A70 !important;
             transform: translateY(-1px);
@@ -2185,7 +2185,7 @@ def render_sidebar_access_settings_profile():
             background: linear-gradient(
                 135deg,
                 #23152F 0%,
-                #5E2A70 10%
+                #5E2A70 20%
             ) !important;
             border: 1px solid #23152F !important;
             color: #FFFFFF !important;
@@ -2198,7 +2198,7 @@ def render_sidebar_access_settings_profile():
             background: linear-gradient(
                 135deg,
                 #301B40 0%,
-                #703484 100%
+                #703484 20%
             ) !important;
             border-color: #301B40 !important;
             color: #FFFFFF !important;
