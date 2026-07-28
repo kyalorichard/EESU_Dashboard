@@ -977,9 +977,17 @@ def _auth_page_css():
 
 
 def _render_auth_header():
-    # Invisible marker retained so the surrounding centre column keeps the
-    # white authentication-card styling, without displaying a header panel.
-    st.markdown('<div class="auth-shell-marker"></div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="auth-shell-marker"></div>
+        <div class="auth-eyebrow">Privileged access</div>
+        <h1 class="auth-title">Sign in / Register</h1>
+        <div class="auth-subtitle">
+            Sign in or register to access advanced features and analyses available to EUSEE partners.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _render_auth_tabs(mode: str):
@@ -1219,7 +1227,7 @@ def _render_premium_auth_page():
 
     _, back_col, _ = st.columns([0.30, 0.40, 0.30])
     with back_col:
-        if st.button("←  Back to dashboard", key="back_to_dashboard"):
+        if st.button("←  Back to dashboard", key="back_to_dashboard", use_container_width=True):
             _back_to_dashboard()
 
 def auth_ui():
