@@ -9692,392 +9692,411 @@ if tab_cfr is not None:
 
 if tab_manual is not None:
     with tab_manual:
-
         if has_permission("view_user_manual"):
-
             if has_permission("view_user_manual"):
-                def _pdf_download_card(title, subtitle, audience, pdf_path: Path, icon="📄"):
-                    """Professional document card for dashboard manuals/briefs."""
-                    st.markdown(
-                        f"""
-                        <div class="manual-doc-card">
-                            <div class="manual-doc-icon">{icon}</div>
-                            <div class="manual-doc-body">
-                                <div class="manual-doc-title">{title}</div>
-                                <div class="manual-doc-subtitle">{subtitle}</div>
-                                <div class="manual-doc-audience">{audience}</div>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                footer_image_path = BASE_DIR / "assets" / "footer_logo.png"
+                footer_b64 = ""
 
-                    _safe_pdf_download_button(
-                        title=title,
-                        pdf_path=pdf_path,
-                        key_prefix="manual_pdf_download",
-                    )
+                if footer_image_path.exists():
+                    footer_b64 = base64.b64encode(
+                        footer_image_path.read_bytes()
+                    ).decode("utf-8")
 
                 st.markdown(
                     """
                     <style>
-                    .manual-hero {
-                        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-                        border: 1px solid #E6E8EF;
-                        border-left: 5px solid #660094;
-                        border-radius: 18px;
-                        padding: 18px 20px;
-                        box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
-                        margin: 0 0 18px 0;
+                    .user-manual-shell {
+                        --manual-purple: #660094;
+                        --manual-purple-dark: #440066;
+                        --manual-purple-soft: #F8F2FB;
+                        --manual-blue: #3559E8;
+                        --manual-text: #241536;
+                        --manual-muted: #667085;
+                        --manual-border: #E6E8EF;
+                        --manual-bg: #FBFCFE;
+                        width: 100%;
                         font-family: "Anek Devanagari", Arial, sans-serif;
                     }
-                    .manual-eyebrow {
-                        display: block;
-                        color: #660094;
-                        background: transparent;
-                        border: 0;
-                        border-radius: 0;
-                        padding: 0;
+
+                    .manual-intro {
+                        margin: 3px 0 15px 0;
+                        padding: 0 2px;
+                    }
+
+                    .manual-intro-text {
+                        max-width: 900px;
+                        color: #4B3B63;
+                        font-size: 11.5px;
+                        line-height: 1.42;
+                        font-weight: 650;
+                    }
+
+                    .manual-layout {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1.48fr) minmax(280px, .95fr);
+                        gap: 14px;
+                        align-items: stretch;
+                    }
+
+                    .manual-right-column {
+                        display: grid;
+                        grid-template-rows: auto 1fr;
+                        gap: 14px;
+                        min-width: 0;
+                    }
+
+                    .manual-card {
+                        background: #FFFFFF;
+                        border: 1px solid var(--manual-border);
+                        border-radius: 16px;
+                        box-shadow: 0 5px 16px rgba(16, 24, 40, .045);
+                        overflow: hidden;
+                    }
+
+                    .manual-workflow-card {
+                        padding: 15px 18px 14px 18px;
+                        min-height: 100%;
+                    }
+
+                    .manual-card-title {
+                        color: var(--manual-text);
+                        font-size: 14px;
+                        line-height: 1.15;
+                        font-weight: 950;
+                        margin: 0 0 3px 0;
+                    }
+
+                    .manual-card-subtitle {
+                        color: var(--manual-muted);
                         font-size: 10px;
-                        font-weight: 950;
-                        letter-spacing: .14em;
-                        text-transform: uppercase;
-                        margin: 0 0 6px 0;
-                        line-height: 1.2;
+                        line-height: 1.3;
+                        font-weight: 600;
+                        margin-bottom: 8px;
                     }
-                    .manual-title {
-                        color: #23152F;
-                        font-size: 18px;
-                        font-weight: 950;
-                        margin: 0 0 10px 0;
-                        line-height: 1.12;
-                    }
-                    .manual-title-divider {
-                        width: 74px;
-                        height: 4px;
-                        border-radius: 999px;
-                        background: linear-gradient(90deg, #660094 0%, #008CAA 100%);
-                        margin: 0 0 14px 0;
-                    }
-                    .manual-lead {
-                        color: #475467;
-                        font-size: 12px;
-                        line-height: 1.5;
-                        max-width: 1150px;
-                        margin: 0;
-                        font-weight: 300;
-                    }
-                    .manual-access-pill {
-                        display: inline-flex;
-                        align-items: center;
-                        padding: 5px 11px;
-                        border-radius: 999px;
-                        background: #F4EAF8;
-                        border: 1px solid #E7D4F1;
-                        color: #660094;
-                        font-size: 11px;
-                        font-weight: 900;
-                        margin: 12px 8px 0 0;
-                        line-height: 1.1;
-                    }
-                    .manual-access-note {
-                        color: #667085;
-                        font-size: 12px;
-                        line-height: 1.5;
-                    }
-                    .manual-kpi-grid {
-                        display: grid;
-                        grid-template-columns: repeat(4, minmax(0, 1fr));
-                        gap: 7px;
-                        margin: 8px 0 11px 0;
-                    }
-                    .manual-mini-card {
-                        display: grid;
-                        grid-template-columns: 24px minmax(0, 1fr);
-                        column-gap: 7px;
-                        align-items: start;
-                        background: #FFFFFF;
-                        border: 1px solid #ECE5F3;
-                        border-radius: 12px;
-                        padding: 7px 8px;
-                        box-shadow: 0 4px 12px rgba(54, 26, 83, 0.045);
-                        min-height: 64px;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
-                    }
-                    .manual-mini-icon {
-                        width: 22px;
-                        height: 22px;
-                        border-radius: 8px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: #F8F3FB;
-                        color: #660094;
-                        font-size: 12px;
-                        margin-bottom: 0;
-                        grid-row: span 2;
-                    }
-                    .manual-mini-title {
-                        color: #2D0055;
-                        font-size: 9.5px;
-                        font-weight: 900;
-                        margin-bottom: 2px;
-                    }
-                    .manual-mini-text {
-                        color: #64748B;
-                        font-size: 9.8px;
-                        line-height: 1.25;
-                    }
-                    @media (max-width: 1050px) {
-                        .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-                    }
-                    @media (max-width: 560px) {
-                        .manual-kpi-grid { grid-template-columns: 1fr; }
-                        .manual-mini-card { min-height: auto; }
-                    }
-                    .manual-section-card {
-                        background: #FFFFFF;
-                        border: 1px solid #ECE5F3;
-                        border-radius: 15px;
-                        padding: 12px 13px;
-                        box-shadow: 0 7px 18px rgba(54, 26, 83, 0.06);
-                        margin-bottom: 11px;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
-                    }
-                    .manual-section-title {
-                        color: #2D0055;
-                        font-size: 13.5px;
-                        font-weight: 900;
-                        margin-bottom: 2px;
-                    }
-                    .manual-section-note {
-                        color: #64748B;
-                        font-size: 10.8px;
-                        line-height: 1.28;
-                        margin-bottom: 7px;
-                    }
+
                     .manual-step {
                         display: grid;
-                        grid-template-columns: 24px 1fr;
-                        gap: 7px;
-                        align-items: start;
-                        padding: 6px 0;
-                        border-bottom: 1px solid #F1EEF5;
-                    }
-                    .manual-step:last-child { border-bottom: none; }
-                    .manual-step-num {
-                        background: #660094;
-                        color: white;
-                        width: 21px;
-                        height: 21px;
-                        border-radius: 999px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 9.5px;
-                        font-weight: 900;
-                    }
-                    .manual-step-title {
-                        color: #334155;
-                        font-size: 11.8px;
-                        font-weight: 900;
-                        margin-bottom: 1px;
-                    }
-                    .manual-step-text {
-                        color: #64748B;
-                        font-size: 11.3px;
-                        line-height: 1.25;
-                    }
-                    .manual-doc-card {
-                        display: grid;
-                        grid-template-columns: 34px 1fr;
+                        grid-template-columns: 25px 31px minmax(0, 1fr);
                         gap: 9px;
                         align-items: center;
-                        background: #FFFFFF;
-                        border: 1px solid #ECE5F3;
-                        border-left: 5px solid #660094;
-                        border-radius: 13px;
-                        padding: 10px;
-                        box-shadow: 0 8px 22px rgba(54, 26, 83, 0.07);
-                        margin-bottom: 7px;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        min-height: 47px;
+                        padding: 7px 0;
+                        border-bottom: 1px solid #EEEAF2;
                     }
-                    .manual-doc-icon {
-                        width: 32px;
-                        height: 32px;
-                        border-radius: 11px;
-                        background: linear-gradient(135deg, #660094, #8A2DB2);
-                        color: #FFFFFF;
+
+                    .manual-step:last-of-type {
+                        border-bottom: 0;
+                    }
+
+                    .manual-step-number {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font-size: 15px;
+                        background: var(--manual-purple);
+                        color: #FFFFFF;
+                        font-size: 9px;
+                        line-height: 1;
+                        font-weight: 950;
+                        box-shadow: 0 3px 8px rgba(102, 0, 148, .18);
                     }
-                    .manual-doc-title {
-                        color: #2D0055;
-                        font-size: 11.8px;
+
+                    .manual-step-icon {
+                        width: 29px;
+                        height: 29px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: #F7F1FA;
+                        border: 1px solid #EADCF1;
+                        color: var(--manual-purple);
+                        font-size: 14px;
+                        line-height: 1;
+                    }
+
+                    .manual-step-title {
+                        color: #32243F;
+                        font-size: 10.8px;
+                        line-height: 1.15;
                         font-weight: 900;
                         margin-bottom: 2px;
                     }
-                    .manual-doc-subtitle {
-                        color: #475569;
-                        font-size: 10.2px;
-                        line-height: 1.24;
+
+                    .manual-step-text {
+                        color: #667085;
+                        font-size: 9.8px;
+                        line-height: 1.32;
+                        font-weight: 550;
+                    }
+
+                    .manual-citation {
+                        margin: 9px 0 0 50px;
+                        padding: 7px 10px;
+                        border-radius: 8px;
+                        background: #F7F2FA;
+                        border: 1px solid #ECE1F1;
+                        color: #675273;
+                        font-size: 9.3px;
+                        line-height: 1.35;
+                    }
+
+                    .manual-citation strong {
+                        color: #4B245F;
+                        font-weight: 900;
+                    }
+
+                    .manual-help-card {
+                        display: grid;
+                        grid-template-columns: 42px minmax(0, 1fr);
+                        gap: 12px;
+                        align-items: center;
+                        min-height: 104px;
+                        padding: 15px 17px;
+                        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFF 100%);
+                    }
+
+                    .manual-help-icon {
+                        width: 39px;
+                        height: 39px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #3559E8;
+                        background: #F2F5FF;
+                        border: 1px solid #DDE5FF;
+                        box-shadow: 0 4px 12px rgba(53, 89, 232, .10);
+                        font-size: 20px;
+                        font-weight: 950;
+                    }
+
+                    .manual-help-title {
+                        color: var(--manual-text);
+                        font-size: 12px;
+                        line-height: 1.15;
+                        font-weight: 950;
                         margin-bottom: 4px;
                     }
-                    .manual-doc-audience {
-                        color: #660094;
-                        font-size: 9.4px;
-                        font-weight: 800;
-                        background: #F8F3FB;
-                        border: 1px solid #E8DFF0;
-                        display: inline-block;
-                        padding: 2px 7px;
-                        border-radius: 999px;
+
+                    .manual-help-text {
+                        color: var(--manual-muted);
+                        font-size: 9.7px;
+                        line-height: 1.35;
+                        font-weight: 600;
                     }
-                    .manual-compact-note {
-                        margin-top: 4px;
-                        color: #64748B;
+
+                    .manual-brand-card {
+                        min-height: 171px;
+                        padding: 15px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .manual-brand-card img {
+                        display: block;
+                        width: 100%;
+                        max-width: 470px;
+                        max-height: 180px;
+                        object-fit: contain;
+                    }
+
+                    .manual-brand-placeholder {
+                        text-align: center;
+                        color: #667085;
                         font-size: 10px;
-                        line-height: 1.25;
+                        line-height: 1.4;
+                        padding: 26px 15px;
                     }
-                    @media (max-width: 760px) {
-                        .manual-hero { padding: 13px 14px; }
-                        .manual-title { font-size: 18px; }
-                        .manual-lead { font-size: 10px; }
-                        .manual-access-note { display: block; margin-top: 7px; }
-                        .manual-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-                        .manual-mini-card { min-height: auto; }
-                        .manual-section-card { padding: 11px; }
+
+                    .manual-download-row {
+                        display: grid;
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        gap: 8px;
+                        margin-top: 13px;
                     }
-                    @media (max-width: 480px) {
-                        .manual-kpi-grid { grid-template-columns: 1fr; }
-                    }
-                    .manual-tip {
-                        background: #FFF9DC;
-                        border: 1px solid #F2E7A8;
+
+                    .manual-download-note {
+                        background: #FFFFFF;
+                        border: 1px solid var(--manual-border);
                         border-radius: 12px;
-                        padding: 9px 10px;
-                        color: #55420A;
-                        font-size: 11.5px;
-                        line-height: 1.45;
-                        font-family: "Anek Devanagari", Arial, sans-serif;
+                        padding: 9px 11px;
+                        color: #667085;
+                        font-size: 9.6px;
+                        line-height: 1.3;
+                        box-shadow: 0 3px 10px rgba(16, 24, 40, .035);
                     }
 
-                    /* Remove internal scrolling from the User Manual tab while preserving normal page scroll. */
-                    .user-manual-shell,
-                    .user-manual-shell * {
-                        scrollbar-width: none !important;
+                    .manual-download-note strong {
+                        display: block;
+                        color: #32243F;
+                        font-size: 10.4px;
+                        font-weight: 900;
+                        margin-bottom: 2px;
                     }
 
-                    .user-manual-shell::-webkit-scrollbar,
-                    .user-manual-shell *::-webkit-scrollbar {
-                        width: 0 !important;
-                        height: 0 !important;
-                        display: none !important;
+                    @media (max-width: 900px) {
+                        .manual-layout {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .manual-right-column {
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
+                            grid-template-rows: auto;
+                        }
                     }
 
-                    .user-manual-shell,
-                    .user-manual-shell div,
-                    .user-manual-shell section,
-                    .user-manual-shell article,
-                    .user-manual-shell [data-testid="stVerticalBlock"],
-                    .user-manual-shell [data-testid="stHorizontalBlock"],
-                    .user-manual-shell [data-testid="stExpander"],
-                    .user-manual-shell [data-testid="stMarkdownContainer"] {
-                        overflow: visible !important;
-                        max-height: none !important;
-                        height: auto !important;
-                    }
+                    @media (max-width: 620px) {
+                        .manual-right-column,
+                        .manual-download-row {
+                            grid-template-columns: 1fr;
+                        }
 
-                    .manual-hero,
-                    .manual-kpi-grid,
-                    .manual-mini-card,
-                    .manual-section-card,
-                    .manual-doc-card,
-                    .manual-tip {
-                        overflow: visible !important;
-                        max-height: none !important;
+                        .manual-workflow-card {
+                            padding: 14px;
+                        }
+
+                        .manual-step {
+                            grid-template-columns: 23px 29px minmax(0, 1fr);
+                            gap: 7px;
+                        }
+
+                        .manual-citation {
+                            margin-left: 0;
+                        }
                     }
                     </style>
                     """,
                     unsafe_allow_html=True,
                 )
 
-                st.markdown('<div class="user-manual-shell">', unsafe_allow_html=True)
+                brand_html = (
+                    f'<img src="data:image/png;base64,{footer_b64}" '
+                    'alt="EU SEE and partner logos">'
+                    if footer_b64
+                    else (
+                        '<div class="manual-brand-placeholder">'
+                        '<strong>EU SEE partner logos</strong><br>'
+                        'Add <code>assets/footer_logo.png</code> to display the branding panel.'
+                        '</div>'
+                    )
+                )
 
                 st.markdown(
-                    """
-                    <div class="manual-hero">
-                        <div class="manual-title">Dashboard User Guide</div>
-                        <div class="manual-title-divider"></div>
-                        <span class="manual-lead">
-                            A quick guide to help you navigate the dashboard, apply filters, interpret charts and maps,
-                            explore alert analysis, <br> search the data preview, export filtered results, and use the AI assistant
-                            for additional analytical exploration.
-                        </span>
-                        
+                    f"""
+                    <div class="user-manual-shell">
+                        <div class="manual-intro">
+                            <div class="manual-intro-text">
+                                A quick guide to help you navigate the dashboard, apply filters,
+                                interpret the visualisations, explore key patterns, review the
+                                underlying data, and export results.
+                            </div>
+                        </div>
+
+                        <div class="manual-layout">
+                            <section class="manual-card manual-workflow-card">
+                                <div class="manual-card-title">Quick-start workflow</div>
+                                <div class="manual-card-subtitle">Recommended steps for first-time users.</div>
+
+                                <div class="manual-step">
+                                    <div class="manual-step-number">1</div>
+                                    <div class="manual-step-icon">▽</div>
+                                    <div>
+                                        <div class="manual-step-title">Set your scope</div>
+                                        <div class="manual-step-text">Use the global filters to select the region, country, alert impact, nature of alert, enabling environment, principle, year, and month.</div>
+                                    </div>
+                                </div>
+
+                                <div class="manual-step">
+                                    <div class="manual-step-number">2</div>
+                                    <div class="manual-step-icon">▥</div>
+                                    <div>
+                                        <div class="manual-step-title">Start with the Alerts Overview</div>
+                                        <div class="manual-step-text">Review the main figures and charts to understand the key patterns in the filtered data.</div>
+                                    </div>
+                                </div>
+
+                                <div class="manual-step">
+                                    <div class="manual-step-number">3</div>
+                                    <div class="manual-step-icon">⌁</div>
+                                    <div>
+                                        <div class="manual-step-title">Explore patterns in greater detail</div>
+                                        <div class="manual-step-text">Use the Alerts Overview, CFR Scores, and Negative Alerts Analysis sections to examine patterns, trends, actors, and mechanisms.</div>
+                                    </div>
+                                </div>
+
+                                <div class="manual-step">
+                                    <div class="manual-step-number">4</div>
+                                    <div class="manual-step-icon">▤</div>
+                                    <div>
+                                        <div class="manual-step-title">Review the data in detail, if available</div>
+                                        <div class="manual-step-text">Privileged users can use the Data Summary Preview and AI Assistant to search, review, analyse, and export filtered records.</div>
+                                    </div>
+                                </div>
+
+                                <div class="manual-step">
+                                    <div class="manual-step-number">5</div>
+                                    <div class="manual-step-icon">◇</div>
+                                    <div>
+                                        <div class="manual-step-title">Cite the dashboard</div>
+                                        <div class="manual-step-text">When using data, charts, or findings from the dashboard, cite the EU SEE Dashboard and the relevant visualisation. Include the date of access or consultation.</div>
+                                    </div>
+                                </div>
+
+                                <div class="manual-citation">
+                                    <strong>Suggested citation:</strong>
+                                    EU SEE Dashboard. “Name of visualisation,” accessed [date].
+                                </div>
+                            </section>
+
+                            <aside class="manual-right-column">
+                                <section class="manual-card manual-help-card">
+                                    <div class="manual-help-icon">?</div>
+                                    <div>
+                                        <div class="manual-help-title">Need help?</div>
+                                        <div class="manual-help-text">Use the Feedback button to share questions, suggestions, or report issues.</div>
+                                    </div>
+                                </section>
+
+                                <section class="manual-card manual-brand-card">
+                                    {brand_html}
+                                </section>
+                            </aside>
+                        </div>
+
+                        <div class="manual-download-row">
+                            <div class="manual-download-note">
+                                <strong>Quick-start executive brief</strong>
+                                A concise overview for first-time and executive users.
+                            </div>
+                            <div class="manual-download-note">
+                                <strong>Complete dashboard manual</strong>
+                                Detailed guidance on filters, charts, maps, analysis, and exports.
+                            </div>
+                        </div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
 
-               
-                guide_col, docs_col = st.columns([1.35, 1], gap="large")
+                download_col_1, download_col_2 = st.columns(2, gap="small")
 
-                with guide_col:
-                    st.markdown(
-                        """
-                        <div class="manual-section-card">
-                            <div class="manual-section-title">Quick-start workflow</div>
-                            <div class="manual-section-note">Recommended path for first-time users.</div>
-                            <div class="manual-step"><div class="manual-step-num">1</div><div><div class="manual-step-title">The scope</div><div class="manual-step-text">Use the global filters to select the region, country, alert impact, nature of alert, enabling principle, year, and month.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">2</div><div><div class="manual-step-title">Start with the overview</div><div class="manual-step-text">Review the main figures and charts to understand the filtered data.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">3</div><div><div class="manual-step-title">Explore alert patterns</div><div class="manual-step-text">Use the Overview, Negative Alerts Analysis and CFR Scores sections to examine distributions, trends, affected civil society actors, restrictive actors, and mechanisms.</div></div></div>
-                            <div class="manual-step"><div class="manual-step-num">4</div><div><div class="manual-step-title">Review the data, if available</div><div class="manual-step-text">Privileged users can use the data summary preview to search, review, and export filtered records.</div></div></div>
-                           <div class="manual-step"><div class="manual-step-num">5</div><div><div class="manual-step-title">Cite the dashboard</div><div class="manual-step-text">When using data, charts, or findings from this dashboard, always cite the EU SEE Dashboard as follows: EU SEE Dashboard. Name of the graph/data visualization (as provided on the Dashboard website). Date of last update/consultation.</div></div></div>
-                                              
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )                   
+                with download_col_1:
+                    _safe_pdf_download_button(
+                        title="Quick-start executive brief",
+                        pdf_path=EXEC_BRIEF_PATH,
+                        key_prefix="manual_quick_start",
+                    )
 
-
-                with docs_col:
-                    footer_image_path = BASE_DIR / "assets" / "footer_logo.png"
-
-                    if footer_image_path.exists():
-                        footer_b64 = base64.b64encode(
-                            footer_image_path.read_bytes()
-                        ).decode("utf-8")
-
-                        st.markdown(
-                            f"""
-                            <div class="manual-section-card manual-brand-panel">
-                                <div style="
-                                    display:flex;
-                                    align-items:center;
-                                    justify-content:center;
-                                    min-height:150px;
-                                    padding:18px 10px;
-                                ">
-                                    <img
-                                        src="data:image/png;base64,{footer_b64}"
-                                        alt="EU SEE partner logos"
-                                        style="
-                                            height:240px;
-                                            width:auto;
-                                            max-width:100%;
-                                            object-fit:contain;
-                                        "
-                                    >
-                                </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
-                st.markdown('</div>', unsafe_allow_html=True)
+                with download_col_2:
+                    _safe_pdf_download_button(
+                        title="Complete dashboard user manual",
+                        pdf_path=USER_MANUAL_PATH,
+                        key_prefix="manual_complete_guide",
+                    )
             else:
                 render_access_locked("User Manual", "guest or higher")
         else:
