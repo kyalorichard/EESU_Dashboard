@@ -976,6 +976,10 @@ def _auth_page_css():
     )
 
 
+def _render_auth_header():
+    # Invisible marker retained so the surrounding centre column keeps the
+    # white authentication-card styling, without displaying a header panel.
+    st.markdown('<div class="auth-shell-marker"></div>', unsafe_allow_html=True)
 
 
 def _render_auth_tabs(mode: str):
@@ -1199,7 +1203,8 @@ def _render_premium_auth_page():
     _, center, _ = st.columns([0.08, 0.84, 0.08])
 
     with center:
-       
+        _render_auth_header()
+
         if mode in {"Login", "Register"}:
             _render_auth_tabs(mode)
 
@@ -1214,7 +1219,7 @@ def _render_premium_auth_page():
 
     _, back_col, _ = st.columns([0.30, 0.40, 0.30])
     with back_col:
-        if st.button("←  Back to dashboard", key="back_to_dashboard", use_container_width=True):
+        if st.button("←  Back to dashboard", key="back_to_dashboard"):
             _back_to_dashboard()
 
 def auth_ui():
