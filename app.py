@@ -9701,7 +9701,7 @@ if tab_manual is not None:
                     footer_image_path.read_bytes()
                 ).decode("utf-8")
 
-            st.markdown(
+            st.html(
                 textwrap.dedent("""
                 <style>
                 /* =========================================================
@@ -10000,8 +10000,7 @@ if tab_manual is not None:
                     }
                 }
                 </style>
-                """),
-                unsafe_allow_html=True,
+                """)
             )
 
             logo_html = (
@@ -10011,7 +10010,7 @@ if tab_manual is not None:
                 else '<div class="brand-fallback">EU SEE<br>Partner Network</div>'
             )
 
-            st.markdown(
+            st.html(
                 textwrap.dedent(f"""
                 <div class="user-guide-shell">
                     <div class="user-guide-intro">
@@ -10117,8 +10116,7 @@ if tab_manual is not None:
                         </aside>
                     </div>
                 </div>
-                """),
-                unsafe_allow_html=True,
+                """)
             )
         else:
             render_access_locked("User Manual", "guest or higher")
