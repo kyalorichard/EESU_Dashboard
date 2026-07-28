@@ -1579,9 +1579,10 @@ def load_data():
             .fillna("")
             .astype(str)
             .str.replace(
-                r"^\s*(?:Event\s+Summary[\s:–—.\-]*){2}",
+                r"^\s*Event\s*Summary\s*",
                 "",
                 regex=True,
+                flags=re.IGNORECASE,
             )
             .str.strip()
         )
