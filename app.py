@@ -9716,7 +9716,7 @@ if tab_manual is not None:
                 .user-guide-intro {
                     max-width: 760px;
                     margin: 8px 0 28px 0;
-                    color: #253B80;
+                    color: black;
                     font-size: 13px;
                     line-height: 1.45;
                     font-weight: 750;
