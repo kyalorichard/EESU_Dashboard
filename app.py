@@ -3700,14 +3700,324 @@ def _inject_cfr_dashboard_css():
             box-shadow: none !important;
         }
 
+        /* =====================================================
+           CFR MOBILE RESPONSIVENESS
+           ===================================================== */
+        .cfr-page,
+        .cfr-panel,
+        .cfr-principle-matrix,
+        .cfr-table-scroll,
+        .cfr-region-scroll,
+        .cfr-country-scroll {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
+        .cfr-table-scroll,
+        .cfr-region-scroll,
+        .cfr-country-scroll {
+            overflow-x: auto !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
+            scrollbar-width: thin;
+        }
+
+        .cfr-table-scroll::after,
+        .cfr-region-scroll::after,
+        .cfr-country-scroll::after {
+            content: "Swipe horizontally to view all columns";
+            display: none;
+            padding: 7px 2px 1px;
+            color: #667085;
+            font-size: 9.5px;
+            line-height: 1.2;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stPlotlyChart"],
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .js-plotly-plot,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .plot-container,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .svg-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+        }
+
         @media (max-width: 900px) {
             .cfr-kpi-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 10px;
+                margin: 14px 0;
             }
 
             .cfr-kpi-card {
-                min-height: 100px;
+                min-height: 96px;
+                grid-template-columns: 46px minmax(0, 1fr);
+                column-gap: 11px;
+                padding: 13px 14px;
+            }
+
+            .cfr-kpi-card:last-child {
+                grid-column: 1 / -1;
+            }
+
+            .cfr-kpi-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 22px;
+            }
+
+            .cfr-kpi-value {
+                font-size: 24px;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ),
+            .cfr-top-panel-height,
+            .cfr-panel {
+                min-height: 0 !important;
+                height: auto !important;
+                padding: 13px !important;
+                overflow: visible !important;
+            }
+
+            /* Stack the CFR panel heading and country selector. */
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ) div[data-testid="stHorizontalBlock"] {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+                width: 100% !important;
+                min-width: 0 !important;
+                flex: 1 1 100% !important;
+            }
+
+            .cfr-chart-panel-selector-label {
+                margin-top: 2px;
+            }
+
+            /* Convert every principle row into a compact two-line mobile card. */
+            .cfr-principle-header {
+                display: none !important;
+            }
+
+            .cfr-principle-matrix {
+                display: grid;
+                gap: 8px;
+                margin-top: 10px;
+            }
+
+            .cfr-principle-grid.cfr-principle-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 48px;
+                grid-template-areas:
+                    "label value"
+                    "track track";
+                column-gap: 10px;
+                row-gap: 8px;
+                min-height: 0;
+                padding: 10px;
+                border: 1px solid #E7EAF0;
+                border-radius: 10px;
+                background: #FCFCFD;
+            }
+
+            .cfr-principle-row .cfr-principle-label {
+                grid-area: label;
+                grid-template-columns: 34px minmax(0, 1fr);
+                column-gap: 8px;
+            }
+
+            .cfr-principle-row .cfr-score-track-wrap {
+                grid-area: track;
+                width: 100%;
+                height: 18px;
+                padding: 0 5px;
+                box-sizing: border-box;
+            }
+
+            .cfr-principle-row .cfr-score-value {
+                grid-area: value;
+                align-self: center;
+                justify-self: end;
+                font-size: 15px;
+            }
+
+            .cfr-principle-name {
+                font-size: 10.5px;
+                line-height: 1.2;
+                overflow-wrap: anywhere;
+            }
+
+            .cfr-principle-badge {
+                width: 33px;
+                height: 24px;
+                font-size: 12px;
+            }
+
+            .cfr-score-track,
+            .cfr-score-progress {
+                height: 6px;
+            }
+
+            .cfr-score-dot {
+                width: 14px;
+                height: 14px;
+            }
+
+            .cfr-table-scroll,
+            .cfr-region-scroll,
+            .cfr-country-scroll {
+                display: block;
+                max-height: min(62vh, 480px) !important;
+                border: 1px solid #E1E5ED !important;
+                border-radius: 10px !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+            }
+
+            .cfr-table-scroll::after,
+            .cfr-region-scroll::after,
+            .cfr-country-scroll::after {
+                display: block;
+                position: sticky;
+                left: 0;
+                background: #FFFFFF;
+            }
+
+            table.cfr-region-table,
+            table.cfr-country-table,
+            table.cfr-table {
+                width: max-content !important;
+                min-width: 700px !important;
+                table-layout: auto !important;
+            }
+
+            table.cfr-region-table th:first-child,
+            table.cfr-region-table td:first-child,
+            table.cfr-country-table th:first-child,
+            table.cfr-country-table td:first-child {
+                position: sticky;
+                left: 0;
+                z-index: 2;
+                min-width: 145px !important;
+                width: 145px !important;
+                background: #FFFFFF;
+                box-shadow: 1px 0 0 #E9ECF2;
+            }
+
+            table.cfr-region-table thead th:first-child,
+            table.cfr-country-table thead th:first-child {
+                z-index: 5;
+                background: #FAFBFC;
+            }
+
+            table.cfr-region-table th,
+            table.cfr-region-table td,
+            table.cfr-country-table th,
+            table.cfr-country-table td {
+                padding: 8px 9px !important;
+                font-size: 10px !important;
+                white-space: nowrap;
+            }
+
+            table.cfr-region-table .cfr-principle-head,
+            table.cfr-country-table .cfr-principle-head {
+                min-width: 38px;
+                height: 24px;
+                padding: 0 7px !important;
+                font-size: 10px;
+            }
+
+            .cfr-report-link {
+                min-width: 82px;
+                min-height: 29px;
+                padding: 0 9px;
+                font-size: 10px;
+            }
+
+            .cfr-country-table-panel {
+                margin-top: 12px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .cfr-page-title {
+                font-size: 25px;
+            }
+
+            .cfr-page-subtitle {
+                margin-bottom: 16px;
+                font-size: 11.5px;
+            }
+
+            .cfr-kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cfr-kpi-card:last-child {
+                grid-column: auto;
+            }
+
+            .cfr-kpi-card {
+                min-height: 84px;
+            }
+
+            .cfr-panel-title {
+                font-size: 14px;
+            }
+
+            .cfr-panel-note {
+                font-size: 10px;
+                line-height: 1.3;
+            }
+
+            table.cfr-region-table,
+            table.cfr-country-table,
+            table.cfr-table {
+                min-width: 660px !important;
+            }
+
+            /* Keep dashboard tabs usable without compressing labels. */
+            div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                flex-wrap: nowrap !important;
+                scrollbar-width: thin;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            div[data-testid="stTabs"] [data-baseweb="tab"] {
+                flex: 0 0 auto !important;
+                min-width: max-content !important;
+                white-space: nowrap !important;
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ) .modebar-container {
+                transform: scale(.82);
+                transform-origin: top right;
             }
         }
         </style>
