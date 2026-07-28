@@ -988,7 +988,9 @@ def _render_auth_header():
         <div class="auth-shell-marker"></div>
         <div class="auth-eyebrow">Privileged access</div>
         <h1 class="auth-title">Sign in / Register</h1>
-       
+        <div class="auth-subtitle">
+            Sign in or register to access advanced features and analyses available to EUSEE partners.
+        </div>
         """,
         unsafe_allow_html=True,
     )
