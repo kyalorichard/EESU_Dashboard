@@ -4246,19 +4246,7 @@ def render_cfr_analysis():
                 "the CFR export before publication."
             )
 
-    st.markdown(
-        """
-        <div class="cfr-page">
-            <div class="cfr-page-subtitle">
-                Explore score patterns across the six EU SEE enabling
-                environment principles.<br>
-                Scores range from 1 (most restricted) to 5 (most enabling).
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    
     country_count = int(cfr["Country"].nunique())
     _render_cfr_kpis(country_count)
 
@@ -8273,8 +8261,8 @@ if tab_overview is not None:
         st.markdown(
                """
                 <div class="cfr-page-subtitle">
-                       Explore how alerts are distributed across alert types, enabling environment principles, and time. Use the global filters to refine 
-                       the view and update the dashboard."
+                       Explore how alerts are distributed across alert types, enabling environment principles, and time. <br> 
+                       Use the global filters to refine the view and update the dashboard.
                 </div>
               
                """,
@@ -8414,8 +8402,8 @@ if tab_negative is not None:
         st.markdown(
                     """
                         <div class="cfr-page-subtitle">
-                            "Explore patterns across negative alerts, including restrictive actors,mechanisms, and affected civil society actors. 
-                            Use the global filters to refine the view and update the dashboard."
+                            Explore patterns across negative alerts, including restrictive actors,mechanisms, and affected civil society actors.<br>
+                            Use the global filters to refine the view and update the dashboard.
                         </div>
                     
                     """,
