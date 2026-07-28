@@ -4246,18 +4246,7 @@ def render_cfr_analysis():
                 "the CFR export before publication."
             )
 
-    st.markdown(
-        """
-        <div class="cfr-page">
-            <div class="cfr-page-subtitle">
-                Explore score patterns across the six EU SEE enabling
-                environment principles.<br>
-                Scores range from 1 (most restricted) to 5 (most enabling).
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+  
 
     country_count = int(cfr["Country"].nunique())
     _render_cfr_kpis(country_count)
@@ -9704,9 +9693,8 @@ if tab_cfr is not None:
         render_tab_intro(
             "CFR Scores",
             (
-                "Explore Civic Freedom and Rights scores across countries, regions, and "
-                "enabling environment principles. Use the global filters to refine the "
-                "view and update the dashboard."
+                "Explore score patterns across the six EU SEE enabling environment principles.<br>" 
+                "Scores range from 1 (most restricted) to 5 (most enabling)."
             ),
         )
 
