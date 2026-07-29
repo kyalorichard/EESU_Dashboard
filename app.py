@@ -6284,7 +6284,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
 
     return fig
 
-# ---------------- STACKED BAR LABEL CONTRAST HELPER ----------------
+# ---------------- STACKED BAR LABEL CONTRAST HELPER --------------
 def readable_stacked_bar_label_color(hex_color):
     """Return readable value-label color for stacked-bar segments."""
     try:
