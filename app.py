@@ -10859,261 +10859,95 @@ def clear_user_chat_history() -> None:
 
 load_user_chat_history(force=True)
 
-def _clean_df(df):
-    if df is None or df.empty:
-        return pd.DataFrame()
+
+def build_llm_context(df, max_rows=None):
+    """
+    Convert the active dashboard dataframe into a generic JSON context.
+
+    No analytical rankings, aliases, summaries, or variable-specific logic are
+    created in Python. LangFlow and the LLM prompt interpret the columns,
+    calculate results, and prepare chart data.
+    """
+    if df is None:
+        df = pd.DataFrame()
 
     work = df.copy()
-    work.columns = [str(c).strip() for c in work.columns]
+    work.columns = [str(column).strip() for column in work.columns]
 
-    for col in work.columns:
-        if pd.api.types.is_object_dtype(work[col]) or pd.api.types.is_string_dtype(work[col]):
-            work[col] = work[col].fillna("").astype(str).str.strip()
+    # Replace values that are unsafe for JSON.
+    work = work.replace([np.inf, -np.inf], np.nan)
 
-    return work
+    for column in work.columns:
+        if pd.api.types.is_datetime64_any_dtype(work[column]):
+            work[column] = work[column].dt.strftime("%Y-%m-%dT%H:%M:%S")
+        elif pd.api.types.is_object_dtype(work[column]) or pd.api.types.is_string_dtype(work[column]):
+            work[column] = work[column].fillna("").astype(str).str.strip()
 
-def _find_col(df, possible_names):
-    lookup = {str(c).lower().strip(): c for c in df.columns}
-    for name in possible_names:
-        key = str(name).lower().strip()
-        if key in lookup:
-            return lookup[key]
-    return None
+    configured_limit = st.secrets.get("langflow", {}).get("MAX_CONTEXT_ROWS", 5000)
 
-def _counts(series, top_n=10):
-    if series is None:
-        return {}
+    try:
+        configured_limit = int(configured_limit)
+    except (TypeError, ValueError):
+        configured_limit = 5000
 
-    counts = (
-        series.astype(str)
-        .str.strip()
-        .replace("", np.nan)
-        .dropna()
-        .value_counts()
-        .head(top_n)
-    )
+    if max_rows is None:
+        max_rows = configured_limit
 
-    return {str(k): int(v) for k, v in counts.items()}
-
-def _direct_top(ranking, label):
-    if not ranking:
-        return {}
-    first_key = next(iter(ranking))
-    return {
-        label: first_key,
-        "count": int(ranking[first_key])
-    }
-
-def build_filter_summary(df):
-    work = _clean_df(df)
-
-    return json.dumps({
-        "filtered_records": int(len(work)),
-        "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
-        "basis": "Current active dashboard/sidebar filters"
-    }, indent=2, default=str)
-
-def build_lookup_context(df, top_n=15):
-    work = _clean_df(df)
-
-    if work.empty:
-        return json.dumps({
-            "available": False,
-            "message": "No records available under current filters."
-        })
-
-    country_col = _find_col(work, ["alert-country", "country", "Country"])
-    region_col = _find_col(work, ["region", "Region"])
-    impact_col = _find_col(work, ["alert-impact", "impact", "Alert impact", "Impact"])
-    type_col = _find_col(work, ["alert-type", "alert type", "type", "Type of alert"])
-    principle_col = _find_col(work, ["enabling-principle", "Enabling principle", "enabling principle"])
-    actor_col = _find_col(work, ["Actor of repression", "actor of repression"])
-    mechanism_col = _find_col(work, ["Mechanism of repression", "mechanism of repression"])
-    affected_col = _find_col(work, ["Affected actor", "affected actor"])
-    subject_col = _find_col(work, ["Subject of repression", "subject of repression"])
-    year_col = _find_col(work, ["year", "Year"])
-    month_col = _find_col(work, ["month_name", "month", "Month"])
-
-    dimensions = {
-        "country": country_col,
-        "region": region_col,
-        "alert_type": type_col,
-        "enabling_principle": principle_col,
-        "actor_of_repression": actor_col,
-        "mechanism_of_repression": mechanism_col,
-        "affected_actor": affected_col,
-        "subject_of_repression": subject_col,
-        "year": year_col,
-        "month": month_col,
-    }
-
-    lookup = {
-        "available": True,
-        "filtered_records": int(len(work)),
-        "columns_available": list(work.columns),
-        "direct_answers": {},
-        "rankings": {},
-        "summaries": {},
-        "natural_language_index": {}
-    }
-
-    # Overall rankings
-    for dim_name, col in dimensions.items():
-        if col and col in work.columns:
-            ranking = _counts(work[col], top_n=top_n)
-            lookup["rankings"][f"top_{dim_name}s"] = ranking
-            lookup["natural_language_index"][f"top {dim_name}s"] = ranking
-            lookup["natural_language_index"][f"distribution of {dim_name}s"] = ranking
-
-            if ranking:
-                lookup["direct_answers"][f"highest_{dim_name}"] = _direct_top(ranking, dim_name)
-
-    # Impact-specific summaries
-    if impact_col and impact_col in work.columns:
-        impact_values = (
-            work[impact_col]
-            .astype(str)
-            .str.strip()
-            .replace("", np.nan)
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-        lookup["impact_values"] = [str(x) for x in impact_values]
-        lookup["rankings"]["alert_impacts"] = _counts(work[impact_col], top_n=top_n)
-
-        for impact_value in impact_values:
-            impact_clean = str(impact_value).lower().strip()
-            impact_key = impact_clean.replace(" ", "_")
-
-            impact_df = work[
-                work[impact_col].astype(str).str.lower().str.strip().eq(impact_clean)
-            ]
-
-            lookup["summaries"][f"{impact_key}_alerts"] = {
-                "total": int(len(impact_df))
-            }
-            lookup["rankings"][f"total_{impact_key}_alerts"] = int(len(impact_df))
-
-            for dim_name, col in dimensions.items():
-                if not col or col not in impact_df.columns:
-                    continue
-
-                ranking = _counts(impact_df[col], top_n=top_n)
-                if not ranking:
-                    continue
-
-                ranking_key = f"top_{dim_name}s_by_{impact_key}_alerts"
-                lookup["rankings"][ranking_key] = ranking
-                lookup["summaries"][f"{impact_key}_alerts"][f"top_{dim_name}s"] = ranking
-
-                lookup["direct_answers"][f"{dim_name}_with_highest_{impact_key}_alerts"] = _direct_top(
-                    ranking,
-                    dim_name
-                )
-
-                lookup["natural_language_index"][f"{dim_name} with highest {impact_clean} alerts"] = ranking
-                lookup["natural_language_index"][f"highest {impact_clean} alerts by {dim_name}"] = ranking
-                lookup["natural_language_index"][f"top {dim_name}s with highest {impact_clean} alerts"] = ranking
-                lookup["natural_language_index"][f"top {dim_name}s by {impact_clean} alerts"] = ranking
-                lookup["natural_language_index"][f"{impact_clean} alerts by {dim_name}"] = ranking
-
-                if dim_name == "country":
-                    lookup["direct_answers"][f"country_with_highest_{impact_key}_alerts"] = _direct_top(ranking, "country")
-                    lookup["natural_language_index"][f"country with highest {impact_clean} alerts"] = ranking
-                    lookup["natural_language_index"][f"countries with highest {impact_clean} alerts"] = ranking
-                    lookup["natural_language_index"][f"top countries with highest {impact_clean} alerts"] = ranking
-
-                if dim_name == "region":
-                    lookup["direct_answers"][f"region_with_highest_{impact_key}_alerts"] = _direct_top(ranking, "region")
-                    lookup["natural_language_index"][f"region with highest {impact_clean} alerts"] = ranking
-                    lookup["natural_language_index"][f"regions with highest {impact_clean} alerts"] = ranking
-                    lookup["natural_language_index"][f"top regions with highest {impact_clean} alerts"] = ranking
-
-            # Region-specific impact summaries, e.g. negative alerts in Africa
-            if region_col and region_col in impact_df.columns:
-                for region_value in impact_df[region_col].dropna().astype(str).str.strip().unique():
-                    region_key = region_value.lower().replace(" ", "_").replace("-", "_")
-                    region_df = impact_df[
-                        impact_df[region_col].astype(str).str.lower().str.strip()
-                        == region_value.lower().strip()
-                    ]
-
-                    summary_key = f"{impact_key}_alerts_in_{region_key}"
-                    lookup["summaries"][summary_key] = {
-                        "region": region_value,
-                        "impact": impact_value,
-                        "total": int(len(region_df)),
-                    }
-
-                    if country_col and country_col in region_df.columns:
-                        lookup["summaries"][summary_key]["top_countries"] = _counts(region_df[country_col], top_n=top_n)
-
-                    if type_col and type_col in region_df.columns:
-                        lookup["summaries"][summary_key]["top_alert_types"] = _counts(region_df[type_col], top_n=top_n)
-
-                    if actor_col and actor_col in region_df.columns:
-                        lookup["summaries"][summary_key]["top_actors_of_repression"] = _counts(region_df[actor_col], top_n=top_n)
-
-                    lookup["natural_language_index"][f"summarise {impact_clean} alerts in {region_value.lower()}"] = lookup["summaries"][summary_key]
-                    lookup["natural_language_index"][f"summary of {impact_clean} alerts in {region_value.lower()}"] = lookup["summaries"][summary_key]
-                    lookup["natural_language_index"][f"{impact_clean} alerts in {region_value.lower()}"] = lookup["summaries"][summary_key]
-
-    return json.dumps(lookup, indent=2, default=str)
-
-def build_dashboard_context(df, top_n=10):
-    work = _clean_df(df)
-
-    if work.empty:
-        return json.dumps({
-            "available": False,
-            "message": "No dashboard records available under the current filters."
-        })
+    max_rows = max(1, int(max_rows))
+    total_records = int(len(work))
+    context_df = work.head(max_rows).copy()
+    records_truncated = total_records > len(context_df)
 
     context = {
-        "available": True,
-        "filtered_records": int(len(work)),
-        "latest_dataset_date": st.session_state.get("latest_dataset_date", "Not available"),
-        "columns_available": list(work.columns),
-        "column_summaries": {}
+        "available": not work.empty,
+        "scope": "Current active dashboard dataframe",
+        "total_records": total_records,
+        "records_sent": int(len(context_df)),
+        "records_truncated": records_truncated,
+        "latest_dataset_date": st.session_state.get(
+            "latest_dataset_date",
+            "Not available",
+        ),
+        "columns": [
+            {
+                "name": str(column),
+                "dtype": str(work[column].dtype),
+                "non_null_records": int(work[column].notna().sum()),
+            }
+            for column in work.columns
+        ],
+        "records": context_df.where(pd.notna(context_df), None).to_dict(
+            orient="records"
+        ),
     }
 
-    for col in work.columns:
-        series = work[col].dropna()
+    if records_truncated:
+        context["limitation"] = (
+            "Only the first "
+            f"{len(context_df):,} of {total_records:,} records were supplied. "
+            "Do not claim complete-dataset counts, percentages, rankings, or "
+            "distributions unless they can be derived from other supplied metadata."
+        )
 
-        if series.empty:
-            context["column_summaries"][col] = {
-                "type": "empty",
-                "non_empty_records": 0
-            }
-            continue
+    return json.dumps(context, ensure_ascii=False, default=str)
 
-        if pd.api.types.is_numeric_dtype(series):
-            context["column_summaries"][col] = {
-                "type": "numeric",
-                "non_empty_records": int(series.count()),
-                "min": float(series.min()),
-                "max": float(series.max()),
-                "mean": float(series.mean()),
-                "median": float(series.median())
-            }
-        else:
-            clean_series = (
-                series.astype(str)
-                .str.strip()
-                .replace("", np.nan)
-                .dropna()
-            )
 
-            context["column_summaries"][col] = {
-                "type": "categorical_text",
-                "non_empty_records": int(clean_series.count()),
-                "unique_values": int(clean_series.nunique()),
-                "top_values": _counts(clean_series, top_n=top_n)
-            }
+def build_filter_summary(df):
+    """Describe the dataframe scope without calculating analytical results."""
+    total_records = 0 if df is None else int(len(df))
 
-    return json.dumps(context, indent=2, default=str)
+    return json.dumps(
+        {
+            "scope": "Current active dashboard/sidebar selection",
+            "records_in_scope": total_records,
+            "latest_dataset_date": st.session_state.get(
+                "latest_dataset_date",
+                "Not available",
+            ),
+        },
+        ensure_ascii=False,
+        default=str,
+    )
 
 def extract_langflow_text(response_json):
     try:
@@ -11121,7 +10955,7 @@ def extract_langflow_text(response_json):
     except Exception:
         return json.dumps(response_json, indent=2, default=str)
 
-def ask_langflow(user_question, lookup_context, dashboard_context, filter_summary):
+def ask_langflow(user_question, data_context, filter_summary):
     if not LANGFLOW_API_URL:
         return json.dumps({
             "answer": "LangFlow API URL is not configured.",
@@ -11156,8 +10990,8 @@ def ask_langflow(user_question, lookup_context, dashboard_context, filter_summar
         "input_type": "chat",
         "tweaks": {
             LANGFLOW_PROMPT_COMPONENT_ID: {
-                "lookup_context": lookup_context,
-                "dashboard_context": dashboard_context,
+                "lookup_context": "{}",
+                "dashboard_context": data_context,
                 "filter_summary": filter_summary,
                 "chat_memory": chat_memory,
                 "question": user_question,
@@ -11691,23 +11525,21 @@ def _render_eusee_ai_copilot_body():
         if active_df is None:
             active_df = filtered_global.copy()
 
-        lookup_context = build_lookup_context(active_df, top_n=15)
-        dashboard_context = build_dashboard_context(active_df, top_n=10)
+        data_context = build_llm_context(active_df)
         filter_summary = build_filter_summary(active_df)
 
-        # Keep debug collapsed and available only during testing.
+        # Optional diagnostic view of the exact generic context sent to LangFlow.
         with st.expander("DEBUG Copilot context", expanded=False):
-            st.caption("If the answer is missing here, the Python context builder is the problem.")
+            st.caption("This is the generic dataframe context sent to the LLM.")
             try:
-                st.json(json.loads(lookup_context))
+                st.json(json.loads(data_context))
             except Exception:
-                st.write(lookup_context[:3000])
+                st.write(data_context[:3000])
 
         with st.spinner("Asking LangFlow..."):
             answer = ask_langflow(
                 user_question=user_question,
-                lookup_context=lookup_context,
-                dashboard_context=dashboard_context,
+                data_context=data_context,
                 filter_summary=filter_summary,
             )
 
