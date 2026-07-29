@@ -10709,7 +10709,7 @@ if tab_manual is not None:
 
 # ============================================================
 # EUSEE LANGFLOW CHATBOT
-# LangFlow-only brain: answers + plots + memory + filtered data
+# LangFlow-only brain: answers + plots + memory + full unfiltered data
 # ============================================================
 
 
@@ -10860,6 +10860,33 @@ def clear_user_chat_history() -> None:
 load_user_chat_history(force=True)
 
 
+def get_full_dashboard_dataframe():
+    """Return the unfiltered EUSEE dataset used by the Copilot.
+
+    The main application should store the original dataframe in
+    ``st.session_state["eusee_full_dataset_df"]`` immediately after loading it.
+    This function intentionally does not use ``eusee_active_filtered_df`` or
+    ``filtered_global`` because those objects may reflect sidebar filters.
+    """
+    full_df = st.session_state.get("eusee_full_dataset_df")
+
+    if isinstance(full_df, pd.DataFrame):
+        return full_df.copy()
+
+    # Optional compatibility with common unfiltered dataframe session keys.
+    for key in (
+        "eusee_original_df",
+        "eusee_unfiltered_df",
+        "eusee_full_df",
+        "raw_eusee_df",
+    ):
+        candidate = st.session_state.get(key)
+        if isinstance(candidate, pd.DataFrame):
+            return candidate.copy()
+
+    return pd.DataFrame()
+
+
 def build_llm_context(df, max_rows=None):
     """
     Convert the active dashboard dataframe into a generic JSON context.
@@ -10900,7 +10927,7 @@ def build_llm_context(df, max_rows=None):
 
     context = {
         "available": not work.empty,
-        "scope": "Current active dashboard dataframe",
+        "scope": "Complete unfiltered EUSEE dataset",
         "total_records": total_records,
         "records_sent": int(len(context_df)),
         "records_truncated": records_truncated,
@@ -11507,7 +11534,7 @@ def _render_eusee_ai_copilot_body():
 
     with st.form("eusee_ai_popover_form", clear_on_submit=True):
         user_question = st.text_area(
-            "Ask about the current dashboard data",
+            "Ask about the complete EUSEE dataset",
             placeholder="Example: summarise the negative alerts in Africa",
             height=90,
             label_visibility="collapsed",
@@ -11521,16 +11548,35 @@ def _render_eusee_ai_copilot_body():
 
         append_user_chat_message("user", user_question)
 
-        active_df = st.session_state.get("eusee_active_filtered_df", None)
-        if active_df is None:
-            active_df = filtered_global.copy()
+        # Always use the original, unfiltered dashboard dataset.
+        full_df = get_full_dashboard_dataframe()
 
-        data_context = build_llm_context(active_df)
-        filter_summary = build_filter_summary(active_df)
+        if full_df.empty:
+            st.error(
+                'The full EUSEE dataset is not available. Store the original '
+                'dataframe in st.session_state["eusee_full_dataset_df"] '
+                'immediately after loading the data.'
+            )
+            return
+
+        # Send every record. No sidebar filtering and no MAX_CONTEXT_ROWS truncation.
+        data_context = build_llm_context(full_df, max_rows=len(full_df))
+        filter_summary = json.dumps(
+            {
+                "scope": "Complete unfiltered EUSEE dataset",
+                "records_in_scope": int(len(full_df)),
+                "filters_applied": False,
+                "latest_dataset_date": st.session_state.get(
+                    "latest_dataset_date", "Not available"
+                ),
+            },
+            ensure_ascii=False,
+            default=str,
+        )
 
         # Optional diagnostic view of the exact generic context sent to LangFlow.
         with st.expander("DEBUG Copilot context", expanded=False):
-            st.caption("This is the generic dataframe context sent to the LLM.")
+            st.caption("This is the complete unfiltered dataframe context sent to the LLM.")
             try:
                 st.json(json.loads(data_context))
             except Exception:
