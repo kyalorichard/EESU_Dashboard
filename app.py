@@ -2932,11 +2932,14 @@ def load_cfr_data(
             errors="coerce",
         )
 
-    # Parse the modification date.
+    # Parse the modification date and derive the CFR reporting year.
+    # The current export does not contain a separate Year field, so the
+    # reporting year is taken from Last Modified.
     cfr["Last Modified"] = pd.to_datetime(
         cfr["Last Modified"],
         errors="coerce",
     )
+    cfr["CFR Year"] = cfr["Last Modified"].dt.year.astype("Int64")
 
     # Permalink remains optional in the new simplified table.
     if "Permalink" not in cfr.columns:
@@ -2977,20 +2980,24 @@ def load_cfr_data(
         skipna=True,
     )
 
-    # Retain the latest record where a country appears more than once.
+    # Retain historical CFR rounds. If the same country has multiple export
+    # rows within one reporting year, keep only the most recently modified
+    # row for that country-year. This preserves first- and second-round CFRs
+    # when they belong to different years.
     cfr = (
         cfr.sort_values(
-            ["Country", "Last Modified"],
-            ascending=[True, True],
+            ["Country", "CFR Year", "Last Modified"],
+            ascending=[True, True, True],
             na_position="first",
         )
         .drop_duplicates(
-            subset=["Country"],
+            subset=["Country", "CFR Year"],
             keep="last",
         )
         .sort_values(
-            ["Country"],
-            ascending=True,
+            ["Country", "CFR Year"],
+            ascending=[True, True],
+            na_position="last",
         )
         .reset_index(drop=True)
     )
@@ -2998,7 +3005,6 @@ def load_cfr_data(
     cfr.attrs["metadata_error"] = metadata_error
 
     return cfr
-
 
 # ------------------------------------------------------------
 # CFR CSS
@@ -3137,8 +3143,54 @@ def _inject_cfr_dashboard_css():
         heading, selector and Plotly chart remain inside one DOM panel.
         The hidden marker limits these styles to the CFR chart panel.
         */
-        .cfr-chart-panel-marker {
+        .cfr-chart-panel-marker,
+        .cfr-region-panel-marker {
             display: none;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) {
+            min-height: 430px !important;
+            height: auto !important;
+            box-sizing: border-box;
+            padding: 14px 18px 14px 18px !important;
+            background: #FFFFFF !important;
+            border: 1px solid #E1E5ED !important;
+            border-radius: 14px !important;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035) !important;
+            overflow: visible !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) > div {
+            gap: 0 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) div[data-testid="stSelectbox"] label {
+            display: none !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) div[data-baseweb="select"] > div {
+            min-height: 34px !important;
+            height: 34px !important;
+            border: 1px solid #D8DDE8 !important;
+            border-radius: 7px !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .04) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) div[data-baseweb="select"] span {
+            color: #344054 !important;
+            font-size: 11px !important;
+            font-weight: 750 !important;
         }
 
         div[data-testid="stVerticalBlockBorderWrapper"]:has(
@@ -4092,7 +4144,6 @@ def _inject_cfr_dashboard_css():
         unsafe_allow_html=True,
     )
 
-
 # ------------------------------------------------------------
 # HTML HELPERS
 # ------------------------------------------------------------
@@ -4101,12 +4152,10 @@ def _safe_text(value):
         return "—"
     return html.escape(str(value))
 
-
 def _format_score(value):
     if value is None or pd.isna(value):
         return "—"
     return f"{float(value):.1f}"
-
 
 def _principle_header_html(principle):
     background = CFR_PRINCIPLE_LIGHT_COLOURS[principle]
@@ -4599,6 +4648,118 @@ def _build_aggregated_cfr_figure(chart_data):
     return figure
 
 
+def _build_cfr_over_time_figure(chart_data):
+    """Build the six-principle CFR trend chart across reporting years."""
+    principle_columns = list(CFR_PRINCIPLES.values())
+
+    yearly_scores = (
+        chart_data.dropna(subset=["CFR Year"])
+        .groupby("CFR Year", as_index=False)[principle_columns]
+        .mean()
+        .sort_values("CFR Year")
+    )
+
+    figure = go.Figure()
+
+    if yearly_scores.empty:
+        figure.add_annotation(
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            text="No CFR year data are available for the selected country.",
+            showarrow=False,
+            font=dict(
+                family=PLOTLY_FONT_FAMILY,
+                size=12,
+                color="#667085",
+            ),
+        )
+    else:
+        for principle in principle_columns:
+            figure.add_trace(
+                go.Scatter(
+                    x=yearly_scores["CFR Year"].astype(int),
+                    y=yearly_scores[principle],
+                    mode="lines+markers",
+                    name=principle,
+                    line=dict(
+                        color=CFR_PRINCIPLE_COLOURS[principle],
+                        width=2.5,
+                    ),
+                    marker=dict(
+                        color=CFR_PRINCIPLE_COLOURS[principle],
+                        size=7,
+                        line=dict(color="#FFFFFF", width=1.2),
+                    ),
+                    customdata=[
+                        [CFR_PRINCIPLE_NAMES[principle]]
+                        for _ in range(len(yearly_scores))
+                    ],
+                    hovertemplate=(
+                        "<b>%{fullData.name} — %{customdata[0]}</b><br>"
+                        "Year: %{x}<br>"
+                        "Mean score: %{y:.2f}"
+                        "<extra></extra>"
+                    ),
+                )
+            )
+
+    figure.update_layout(
+        height=330,
+        margin=dict(l=46, r=18, t=12, b=66),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        font=dict(
+            family=PLOTLY_FONT_FAMILY,
+            color=CFR_TEXT,
+        ),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor="#D9DDE7",
+            font=dict(
+                family=PLOTLY_FONT_FAMILY,
+                size=11,
+                color=CFR_TEXT,
+            ),
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.18,
+            xanchor="left",
+            x=0,
+            font=dict(size=10, color=CFR_TEXT),
+            title=None,
+        ),
+        xaxis=dict(
+            title=None,
+            tickmode="linear",
+            dtick=1,
+            showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="#D9DDE7",
+            tickfont=dict(size=10, color=CFR_TEXT),
+            fixedrange=True,
+        ),
+        yaxis=dict(
+            range=[CFR_SCORE_MIN, CFR_SCORE_MAX],
+            tickmode="array",
+            tickvals=[1, 2, 3, 4, 5],
+            title=None,
+            showgrid=True,
+            gridcolor=CFR_GRID,
+            zeroline=False,
+            showline=False,
+            tickfont=dict(size=10, color=CFR_TEXT),
+            fixedrange=True,
+        ),
+    )
+
+    return figure
+
+
 # ------------------------------------------------------------
 # CFR PAGE
 # ------------------------------------------------------------
@@ -4784,7 +4945,12 @@ def render_cfr_analysis():
                 "the CFR export before publication."
             )
 
-    
+    available_years = sorted(
+        cfr["CFR Year"].dropna().astype(int).unique().tolist(),
+        reverse=True,
+    )
+    year_options = ["All years", *available_years]
+
     country_count = int(cfr["Country"].nunique())
     _render_cfr_kpis(country_count)
 
@@ -4794,7 +4960,7 @@ def render_cfr_analysis():
     )
 
     # --------------------------------------------------------
-    # LEFT: COMBINED GRAPH PANEL + COUNTRY SELECTOR
+    # LEFT: TABBED AGGREGATED + OVER-TIME CFR CHARTS
     # --------------------------------------------------------
     with chart_column:
         with st.container(border=True):
@@ -4804,13 +4970,14 @@ def render_cfr_analysis():
                 unsafe_allow_html=True,
             )
 
-            header_col, selector_col = st.columns(
-                [1.85, 0.75],
-                gap="medium",
-                vertical_alignment="bottom",
+            aggregated_tab, over_time_tab = st.tabs(
+                [
+                    "Aggregated CFR scores by principle",
+                    "Principles over time",
+                ]
             )
 
-            with header_col:
+            with aggregated_tab:
                 st.markdown(
                     """
                     <div class="cfr-chart-panel-heading">
@@ -4818,24 +4985,97 @@ def render_cfr_analysis():
                             Aggregated CFR scores by principle
                         </div>
                         <div class="cfr-panel-note">
-                            Mean score and range (min–max) across all
-                            monitored countries.
+                            Mean score across the selected countries and year.
                         </div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
 
-            with selector_col:
+                country_selector_col, year_selector_col = st.columns(
+                    [1.45, 0.85],
+                    gap="small",
+                )
+
+                with country_selector_col:
+                    st.markdown(
+                        '<div class="cfr-chart-panel-selector-label">'
+                        'Select country'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    selected_country = st.selectbox(
+                        "Select country",
+                        options=[
+                            "All countries",
+                            *sorted(
+                                cfr["Country"]
+                                .dropna()
+                                .unique()
+                                .tolist()
+                            ),
+                        ],
+                        index=0,
+                        key="cfr_country_selector",
+                        label_visibility="collapsed",
+                    )
+
+                with year_selector_col:
+                    st.markdown(
+                        '<div class="cfr-chart-panel-selector-label">'
+                        'Select Year'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    selected_year = st.selectbox(
+                        "Select Year",
+                        options=year_options,
+                        index=0,
+                        key="cfr_year_selector",
+                        label_visibility="collapsed",
+                    )
+
+                chart_data = cfr.copy()
+
+                if selected_country != "All countries":
+                    chart_data = chart_data[
+                        chart_data["Country"].eq(selected_country)
+                    ]
+
+                if selected_year != "All years":
+                    chart_data = chart_data[
+                        chart_data["CFR Year"].eq(int(selected_year))
+                    ]
+
+                render_cfr_matrix_zoom_controls()
+                st.markdown(
+                    _build_principle_score_matrix_html(chart_data),
+                    unsafe_allow_html=True,
+                )
+
+            with over_time_tab:
+                st.markdown(
+                    """
+                    <div class="cfr-chart-panel-heading">
+                        <div class="cfr-panel-title">
+                            Distribution of principles across years
+                        </div>
+                        <div class="cfr-panel-note">
+                            Mean CFR principle scores by reporting year.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
                 st.markdown(
                     '<div class="cfr-chart-panel-selector-label">'
                     'Select country'
                     '</div>',
                     unsafe_allow_html=True,
                 )
-
-                selected_country = st.selectbox(
-                    "Select country",
+                time_country = st.selectbox(
+                    "Select country for principle trends",
                     options=[
                         "All countries",
                         *sorted(
@@ -4846,94 +5086,141 @@ def render_cfr_analysis():
                         ),
                     ],
                     index=0,
-                    key="cfr_country_selector",
+                    key="cfr_time_country_selector",
                     label_visibility="collapsed",
                 )
 
-            chart_data = (
-                cfr
-                if selected_country == "All countries"
-                else cfr[cfr["Country"].eq(selected_country)]
+                time_data = (
+                    cfr
+                    if time_country == "All countries"
+                    else cfr[cfr["Country"].eq(time_country)]
+                )
+
+                st.plotly_chart(
+                    _build_cfr_over_time_figure(time_data),
+                    use_container_width=True,
+                    config={
+                        "displaylogo": False,
+                        "responsive": True,
+                    },
+                    key="cfr_principles_over_time_chart",
+                )
+
+    # --------------------------------------------------------
+    # RIGHT: REGIONAL TABLE + YEAR SELECTOR
+    # --------------------------------------------------------
+    with region_column:
+        with st.container(border=True):
+            st.markdown(
+                '<span class="cfr-region-panel-marker"></span>',
+                unsafe_allow_html=True,
             )
 
-            render_cfr_matrix_zoom_controls()
+            regional_header_col, regional_selector_col = st.columns(
+                [1.85, 0.75],
+                gap="medium",
+                vertical_alignment="bottom",
+            )
+
+            with regional_header_col:
+                st.markdown(
+                    """
+                    <div class="cfr-chart-panel-heading">
+                        <div class="cfr-panel-title">
+                            Regional score patterns
+                        </div>
+                        <div class="cfr-panel-note">
+                            Average score by principle and region.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            with regional_selector_col:
+                st.markdown(
+                    '<div class="cfr-chart-panel-selector-label">'
+                    'Select Year'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                regional_year = st.selectbox(
+                    "Select Year for regional scores",
+                    options=year_options,
+                    index=0,
+                    key="cfr_regional_year_selector",
+                    label_visibility="collapsed",
+                )
+
+            regional_data = cfr.copy()
+            if regional_year != "All years":
+                regional_data = regional_data[
+                    regional_data["CFR Year"].eq(int(regional_year))
+                ]
+
+            regional_scores = (
+                regional_data.groupby(
+                    "region",
+                    dropna=False,
+                )[principle_columns]
+                .mean()
+                .reset_index()
+            )
+
+            regional_scores["region"] = (
+                regional_scores["region"]
+                .fillna("Unknown")
+                .astype(str)
+            )
+
+            regional_scores["_region_order"] = (
+                regional_scores["region"]
+                .apply(
+                    lambda region: (
+                        CFR_REGION_ORDER.index(region)
+                        if region in CFR_REGION_ORDER
+                        else len(CFR_REGION_ORDER)
+                    )
+                )
+            )
+
+            regional_scores = (
+                regional_scores.sort_values(
+                    ["_region_order", "region"],
+                    ascending=[True, True],
+                )
+                .drop(columns=["_region_order"])
+                .reset_index(drop=True)
+            )
+
             st.markdown(
-                _build_principle_score_matrix_html(chart_data),
+                _build_regional_table_html(regional_scores),
                 unsafe_allow_html=True,
             )
 
     # --------------------------------------------------------
-    # RIGHT: REGIONAL TABLE
-    # --------------------------------------------------------
-    with region_column:
-        regional_scores = (
-            cfr.groupby(
-                "region",
-                dropna=False,
-            )[principle_columns]
-            .mean()
-            .reset_index()
-        )
-
-        regional_scores["region"] = (
-            regional_scores["region"]
-            .fillna("Unknown")
-            .astype(str)
-        )
-
-        regional_scores["_region_order"] = (
-            regional_scores["region"]
-            .apply(
-                lambda region: (
-                    CFR_REGION_ORDER.index(region)
-                    if region in CFR_REGION_ORDER
-                    else len(CFR_REGION_ORDER)
-                )
-            )
-        )
-
-        regional_scores = (
-            regional_scores.sort_values(
-                ["_region_order", "region"],
-                ascending=[True, True],
-            )
-            .drop(columns=["_region_order"])
-            .reset_index(drop=True)
-        )
-
-        regional_panel_html = (
-            '<div class="cfr-panel cfr-top-panel-height">'
-            '<div class="cfr-panel-title">'
-            'Regional score patterns'
-            '</div>'
-            '<div class="cfr-panel-note">'
-            'Average score by principle and region.'
-            '</div>'
-            + _build_regional_table_html(regional_scores)
-            + '</div>'
-        )
-
-        st.markdown(
-            regional_panel_html,
-            unsafe_allow_html=True,
-        )
-
-    # --------------------------------------------------------
     # BOTTOM: COUNTRY TABLE
     # --------------------------------------------------------
-    country_table = cfr[
+    # Keep the existing country table as a latest-record snapshot so the
+    # new historical rows do not duplicate countries in this table.
+    country_table = (
+        cfr.sort_values(
+            ["Country", "Last Modified"],
+            ascending=[True, True],
+            na_position="first",
+        )
+        .drop_duplicates(subset=["Country"], keep="last")
         [
-            "Country",
-            *principle_columns,
-            "Last Modified",
-            "Permalink",
+            [
+                "Country",
+                *principle_columns,
+                "Last Modified",
+                "Permalink",
+            ]
         ]
-    ].copy()
-
-    country_table = country_table.sort_values(
-        "Country",
-        ascending=True,
-    ).reset_index(drop=True)
+        .sort_values("Country", ascending=True)
+        .reset_index(drop=True)
+    )
 
     st.markdown(
         f"""
@@ -4950,7 +5237,6 @@ def render_cfr_analysis():
         """,
         unsafe_allow_html=True,
     )
-
 
 
 # ---------------- MAIN TABS - PLACED IMMEDIATELY AFTER SUBTITLE ----------------
@@ -8038,7 +8324,6 @@ def inject_full_tab_responsive_css():
     </style>
     """, unsafe_allow_html=True)
 
-
 def apply_responsive_plotly_layout(fig, *, legend_bottom=False):
     """Make Plotly charts responsive while preserving each chart's original legend location."""
     if fig is None:
@@ -8499,9 +8784,7 @@ def inject_final_mobile_responsive_hardening() -> None:
         unsafe_allow_html=True,
     )
 
-
 inject_final_mobile_responsive_hardening()
-
 
 # ---------------- FINAL RESPONSIVE TAB TEXT UX OVERRIDE ----------------
 def inject_final_responsive_tab_text_ux():
