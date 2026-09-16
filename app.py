@@ -4231,7 +4231,7 @@ def _build_country_table_html(country_scores):
                 f'href="{report_url}" '
                 'target="_blank" '
                 'rel="noopener noreferrer">'
-                'Open alert ↗'
+                'Open report ↗'
                 '</a>'
             )
         else:
