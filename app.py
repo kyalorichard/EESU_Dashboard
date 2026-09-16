@@ -1071,7 +1071,7 @@ def render_professional_data_preview(
 
         st.caption(
             f"Displaying {len(table_view):,} matching records "
-            f"from {active_filter_rows:,} active-filter records."
+            f"from {active_filter_rows:,} active-filter records. (Global filters selected do not affect the records displayed in the table below.)"
         )
 
         # -----------------------------------------------------
