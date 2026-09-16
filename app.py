@@ -892,7 +892,7 @@ def render_professional_data_preview(
 
             return url
 
-        display_df["Open report"] = (
+        display_df["Open alert"] = (
             display_df[permalink_col]
             .apply(clean_permalink)
             .astype(str)
@@ -1139,21 +1139,21 @@ def render_professional_data_preview(
         visible_columns = [
             col
             for col in table_view.columns
-            if col != "Open report" and col not in hidden_source_columns
+            if col != "Open alert" and col not in hidden_source_columns
         ]
 
         # Keep the clickable report link as the final visible column.
-        if "Open report" in table_view.columns:
-            visible_columns.append("Open report")
+        if "Open alert" in table_view.columns:
+            visible_columns.append("Open alert")
 
         column_config = {}
 
-        if "Open report" in table_view.columns:
-            column_config["Open report"] = (
+        if "Open alert" in table_view.columns:
+            column_config["Open alert"] = (
                 st.column_config.LinkColumn(
                     label="Full report",
                     help="Open the complete report in a new browser tab.",
-                    display_text="Open report ↗",
+                    display_text="Open alert ↗",
                     width="medium",
                 )
             )
@@ -1182,7 +1182,7 @@ def render_professional_data_preview(
         ) as writer:
             # Preserve the original Permalink in the download.
             export_df = table_df.drop(
-                columns=["Open report"],
+                columns=["Open alert"],
                 errors="ignore",
             )
 
@@ -2461,7 +2461,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
     )
 
     selected_alert_impacts = safe_multiselect(
-        "Nature of event",
+        "Nature of Alert",
         data["alert-impact"].dropna().unique()
         if not data.empty and "alert-impact" in data.columns
         else [],
@@ -4231,7 +4231,7 @@ def _build_country_table_html(country_scores):
                 f'href="{report_url}" '
                 'target="_blank" '
                 'rel="noopener noreferrer">'
-                'Open report ↗'
+                'Open alert ↗'
                 '</a>'
             )
         else:
@@ -4968,7 +4968,7 @@ if has_permission("view_overview"):
 # It follows the same dashboard-access permission as Overview so the existing
 # authz/admin files do not need to change for this update.
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("cfr", "📈 CFR Scores"))
+    _dashboard_tab_specs.append(("cfr", "📈 Country Focus Report (CFR) Scores"))
 
 if has_permission("view_negative_alerts"):
     _dashboard_tab_specs.append(("negative", "⚠️ Negative Alerts Analysis"))
