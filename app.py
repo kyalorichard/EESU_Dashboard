@@ -10459,7 +10459,7 @@ if tab_map is not None:
                             color="total_alerts",
                             hover_name="alert-country",
                             color_continuous_scale=[[0, "#FFF7D6"], [0.45, "#FFDB58"], [1, "#7A3E00"]],
-                            mapbox_style="carto-positron",
+                            mapbox_style="open-street-map",
                             zoom=zoom,
                             center=center,
                             opacity=0.92,
