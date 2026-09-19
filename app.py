@@ -1436,10 +1436,19 @@ def load_data():
         .astype(str)
         .str.strip()
     )
-
     df = df[
-        df["alert-country"].str.lower() != "jose"
-    ].copy()
+            df["alert-country"].notna()
+            & ~df["alert-country"].str.lower().isin([
+                "",
+                "nan",
+                "none",
+                "null",
+                "na",
+                "n/a",
+            ])
+        ].copy()
+
+  
 
     df["alert-impact"] = (
         df["alert-impact"]
