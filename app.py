@@ -9281,16 +9281,21 @@ if tab_overview is not None:
                 "Permalink": "Report Link"
             }
                 # keep only existing columns, then rename
-            filtered_global_prev = (
+            overview_table_df = (
                 data
-                .loc[:, filtered_global.columns.intersection(cols_rename_map.keys())]
+                .loc[:, [c for c in cols_rename_map.keys() if c in data.columns]]
                 .rename(columns=cols_rename_map)
             )
    
                 # ---------------- Tab two data preview ------------------
 
             if has_permission("view_data_table"):
-                render_professional_data_preview(filtered_global_prev, title="Search and export EU SEE alerts", key="overview_summary_data_preview", remove_vertical_scroll=True)  
+                render_professional_data_preview(
+                    overview_table_df,
+                    title="Search and export EU SEE alerts",
+                    key="overview_summary_data_preview",
+                    remove_vertical_scroll=True,
+                )
             #else:
                 #st.info("Sign in with an authorized account to unlock additional detailed and disaggregated data.")   
         
