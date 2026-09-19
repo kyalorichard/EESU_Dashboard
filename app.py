@@ -11104,7 +11104,7 @@ def _get_eusee_openai_client():
 
     api_key = str(
         st.secrets.get("openai", {}).get(
-            "OPENAIAPI_KEY",
+            "OPENAI_API_KEY",
             "",
         )
     ).strip()
