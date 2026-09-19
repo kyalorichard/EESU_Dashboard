@@ -2625,98 +2625,66 @@ def contains_any(cell_value, selected_values):
         sel in str(cell_value).strip().lower() for sel in selected_norm
     )
 
-filtered_global = data[
-    (data['region'].isin(selected_regions)) &
-    (data['alert-country'].isin(selected_countries)) &
-    (data['alert-type'].isin(selected_alert_types)) &
-    (data['enabling-principle'].apply(lambda x: contains_any(x, selected_enabling_principle))) &
-    (data['alert-impact'].isin(selected_alert_impacts)) &
-    (data['month_name'].isin(selected_months)) &
-    (data['year'].isin(selected_years))
-].copy()
+# ---------------- FILTER DATA ----------------
 
-# -----------------------------------------------------
-# DEBUG: IDENTIFY RECORDS EXCLUDED BY EACH GLOBAL FILTER
-# -----------------------------------------------------
+def _filter_is_unrestricted(session_key):
+    """
+    Returns True when the user has not actively restricted this filter.
 
-debug_base = data.copy()
+    safe_multiselect() uses an empty widget selection to represent
+    'all available values'.
+    """
+    widget_key = f"{session_key}_widget"
+    widget_selection = st.session_state.get(widget_key, [])
 
-debug_region = debug_base[
-    debug_base["region"].isin(selected_regions)
-]
+    return (
+        widget_selection is None
+        or len(widget_selection) == 0
+        or "Select all" in widget_selection
+    )
 
-debug_country = debug_region[
-    debug_region["alert-country"].isin(selected_countries)
-]
 
-debug_alert_type = debug_country[
-    debug_country["alert-type"].isin(selected_alert_types)
-]
+# Start with ALL records included.
+filter_mask = pd.Series(True, index=data.index)
 
-debug_principle = debug_alert_type[
-    debug_alert_type["enabling-principle"].apply(
+
+# ---------------- REGION ----------------
+if not _filter_is_unrestricted("selected_regions"):
+    filter_mask &= data["region"].isin(selected_regions)
+
+# ---------------- COUNTRY ----------------
+if not _filter_is_unrestricted("selected_countries"):
+    filter_mask &= data["alert-country"].isin(selected_countries)
+
+# ---------------- ALERT TYPE ----------------
+if not _filter_is_unrestricted("selected_alert_types"):
+    filter_mask &= data["alert-type"].isin(selected_alert_types)
+
+# ---------------- ENABLING PRINCIPLE ----------------
+if not _filter_is_unrestricted("selected_enabling_principle"):
+    filter_mask &= data["enabling-principle"].apply(
         lambda x: contains_any(
             x,
             selected_enabling_principle
         )
     )
-]
 
-debug_impact = debug_principle[
-    debug_principle["alert-impact"].isin(
-        selected_alert_impacts
-    )
-]
+# ---------------- ALERT IMPACT ----------------
+if not _filter_is_unrestricted("selected_alert_impacts"):
+    filter_mask &= data["alert-impact"].isin(selected_alert_impacts)
 
-debug_month = debug_impact[
-    debug_impact["month_name"].isin(
-        selected_months
-    )
-]
+# ---------------- MONTH ----------------
+if not _filter_is_unrestricted("selected_months"):
+    filter_mask &= data["month_name"].isin(selected_months)
 
-debug_year = debug_month[
-    debug_month["year"].isin(
-        selected_years
-    )
-]
+# ---------------- YEAR ----------------
+if not _filter_is_unrestricted("selected_years"):
+    filter_mask &= data["year"].isin(selected_years)
 
-st.sidebar.markdown("### 🔎 Filter diagnostics")
+# ---------------- FINAL FILTERED DATA ----------------
+filtered_global = data.loc[filter_mask].copy()
 
-st.sidebar.write(
-    f"Raw dataset: **{len(data):,}**"
-)
 
-st.sidebar.write(
-    f"After Region: **{len(debug_region):,}**"
-)
-
-st.sidebar.write(
-    f"After Country: **{len(debug_country):,}**"
-)
-
-st.sidebar.write(
-    f"After Alert Type: **{len(debug_alert_type):,}**"
-)
-
-st.sidebar.write(
-    f"After Enabling Principle: **{len(debug_principle):,}**"
-)
-
-st.sidebar.write(
-    f"After Impact: **{len(debug_impact):,}**"
-)
-
-st.sidebar.write(
-    f"After Month: **{len(debug_month):,}**"
-)
-
-st.sidebar.write(
-    f"After Year: **{len(debug_year):,}**"
-)
-
-st.sidebar.write(
-    f"FINAL filtered_global: **{len(filtered_global):,}**"
-)
 
 st.session_state["eusee_active_filtered_df"] = filtered_global.copy()
 
