@@ -156,5 +156,6 @@
   "Malawi": { "iso_alpha3": "MWI", "continent": "Africa" },
   "Burundi": { "iso_alpha3": "BDI", "continent": "Africa" },
   "Guatemala": { "iso_alpha3": "GTM", "continent": "North America" },
-  "CÃ´te d'Ivoire": { "iso_alpha3": "CIV", "continent": "Africa" }
+  "CÃ´te d'Ivoire": { "iso_alpha3": "CIV", "continent": "Africa" },
+  "Niger": { "iso_alpha3": "NER", "continent": "Africa" }
 }
