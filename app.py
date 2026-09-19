@@ -1712,6 +1712,10 @@ def load_data():
 # --- Load data safely ---
 data = apply_data_scope(load_data())
 
+# Shared cleaned dataset used by both the dashboard and AI Assistant.
+if isinstance(data, pd.DataFrame):
+    st.session_state["eusee_full_dataset_df"] = data.copy()
+
 #### --------prepare enabling principles to be ordered-------------------------------------------
 ENABLING_PRINCIPLE_ORDER = [          
     "6. Access to a secure digital environment",
@@ -9146,7 +9150,6 @@ inject_plotly_legend_color_spacing_fix()
 
 
 
-
 def render_dashboard_plotly_chart(
     fig,
     *,
@@ -11075,25 +11078,47 @@ if tab_manual is not None:
 
 
 # ============================================================
-# EUSEE LANGFLOW CHATBOT
-# LangFlow-only brain: answers + plots + memory + full unfiltered data
+# EU SEE OPENAI AI CHATBOT
+# Lightweight, dataset-grounded Copilot with natural-language filtering.
+# UI remains the existing EU SEE AI Assistant popover.
 # ============================================================
 
+OPENAI_CLIENT = None
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+
+OPENAI_MODEL = str(
+    st.secrets.get("openai", {}).get(
+        "OPENAI_MODEL",
+        "gpt-5.6-luna",
+    )
+).strip() or "gpt-5.6-luna"
 
 
-LANGFLOW_API_URL = st.secrets.get("langflow", {}).get("LANGFLOW_API_URL", "").strip()
-LANGFLOW_API_KEY = st.secrets.get("langflow", {}).get("LANGFLOW_API_KEY", "").strip()
+@st.cache_resource(show_spinner=False)
+def _get_eusee_openai_client():
+    if OpenAI is None:
+        return None
 
-# IMPORTANT: update this if your LangFlow Prompt Template component ID is different.
-LANGFLOW_PROMPT_COMPONENT_ID = st.secrets.get("langflow", {}).get(
-    "LANGFLOW_PROMPT_COMPONENT_ID",
-    "Prompt Template-hiUxU"
-).strip()
+    api_key = str(
+        st.secrets.get("openai", {}).get(
+            "OPENAIAPI_KEY",
+            "",
+        )
+    ).strip()
+
+    if not api_key:
+        return None
+
+    try:
+        return OpenAI(api_key=api_key)
+    except Exception:
+        return None
+
 
 # ---------------- CHAT HISTORY PERSISTENCE ----------------
-# Stores each authenticated user's Copilot history on disk so it survives
-# Streamlit reruns, browser refreshes, logout/login, and app restarts when the
-# project folder or Docker volume is persistent.
 CHAT_HISTORY_DIR = BASE_DIR / "chat_history"
 CHAT_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_HISTORY_LIMIT = 100
@@ -11106,16 +11131,16 @@ def _current_chat_user_key() -> str:
     if email:
         identity = f"user::{email}"
     else:
-        # Public/guest users only get a browser-session-level identity.
-        # Authenticated users get persistent per-email history.
         st.session_state.setdefault("eusee_guest_chat_key", str(uuid.uuid4()))
         identity = f"guest::{st.session_state.eusee_guest_chat_key}"
 
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
+
 def _chat_history_path(user_key: str | None = None) -> Path:
     user_key = user_key or _current_chat_user_key()
     return CHAT_HISTORY_DIR / f"{user_key}.json"
+
 
 def _normalise_chat_messages(messages) -> list[dict]:
     clean_messages = []
@@ -11139,13 +11164,16 @@ def _normalise_chat_messages(messages) -> list[dict]:
             "id": str(msg.get("id") or uuid.uuid4().hex),
             "role": role,
             "content": content,
-            "created_at": str(msg.get("created_at") or datetime.utcnow().isoformat(timespec="seconds") + "Z"),
+            "created_at": str(
+                msg.get("created_at")
+                or datetime.utcnow().isoformat(timespec="seconds") + "Z"
+            ),
         })
 
     return clean_messages[-CHAT_HISTORY_LIMIT:]
 
+
 def load_user_chat_history(force: bool = False) -> list[dict]:
-    """Load the current user's saved Copilot history into session state."""
     user_key = _current_chat_user_key()
 
     if (
@@ -11160,8 +11188,12 @@ def load_user_chat_history(force: bool = False) -> list[dict]:
 
     if history_file.exists():
         try:
-            payload = json.loads(history_file.read_text(encoding="utf-8"))
-            messages = _normalise_chat_messages(payload.get("messages", []))
+            payload = json.loads(
+                history_file.read_text(encoding="utf-8")
+            )
+            messages = _normalise_chat_messages(
+                payload.get("messages", [])
+            )
         except Exception:
             messages = []
 
@@ -11172,16 +11204,30 @@ def load_user_chat_history(force: bool = False) -> list[dict]:
 
     return messages
 
+
 def save_user_chat_history() -> None:
-    """Persist the active user's Copilot history to disk."""
-    user_key = st.session_state.get("eusee_chat_user_key") or _current_chat_user_key()
-    messages = _normalise_chat_messages(st.session_state.get("eusee_chat_messages", []))
+    user_key = (
+        st.session_state.get("eusee_chat_user_key")
+        or _current_chat_user_key()
+    )
+
+    messages = _normalise_chat_messages(
+        st.session_state.get(
+            "eusee_chat_messages",
+            [],
+        )
+    )
+
     st.session_state.eusee_chat_messages = messages
 
     payload = {
         "user_key": user_key,
-        "email": str(st.session_state.get("email") or "").lower().strip(),
-        "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "email": str(
+            st.session_state.get("email") or ""
+        ).lower().strip(),
+        "updated_at": datetime.utcnow().isoformat(
+            timespec="seconds"
+        ) + "Z",
         "message_count": len(messages),
         "messages": messages,
     }
@@ -11189,31 +11235,56 @@ def save_user_chat_history() -> None:
     try:
         history_file = _chat_history_path(user_key)
         tmp_file = history_file.with_suffix(".tmp")
-        tmp_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp_file.write_text(
+            json.dumps(
+                payload,
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         tmp_file.replace(history_file)
     except Exception as exc:
-        if st.secrets.get("debug", {}).get("show_chat_history_errors", False):
-            st.warning(f"Chat history could not be saved: {exc}")
+        if st.secrets.get("debug", {}).get(
+            "show_chat_history_errors",
+            False,
+        ):
+            st.warning(
+                f"Chat history could not be saved: {exc}"
+            )
+
 
 def append_user_chat_message(role: str, content: str) -> None:
-    """Append one Copilot message and immediately save the user's history."""
     load_user_chat_history()
 
     st.session_state.eusee_chat_messages.append({
         "id": uuid.uuid4().hex,
-        "role": str(role or "assistant").lower().strip(),
-        "content": str(content or "").strip(),
-        "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "role": str(
+            role or "assistant"
+        ).lower().strip(),
+        "content": str(
+            content or ""
+        ).strip(),
+        "created_at": datetime.utcnow().isoformat(
+            timespec="seconds"
+        ) + "Z",
     })
 
-    st.session_state.eusee_chat_messages = _normalise_chat_messages(
-        st.session_state.eusee_chat_messages
+    st.session_state.eusee_chat_messages = (
+        _normalise_chat_messages(
+            st.session_state.eusee_chat_messages
+        )
     )
+
     save_user_chat_history()
 
+
 def clear_user_chat_history() -> None:
-    """Clear the current user's saved Copilot history."""
-    user_key = st.session_state.get("eusee_chat_user_key") or _current_chat_user_key()
+    user_key = (
+        st.session_state.get("eusee_chat_user_key")
+        or _current_chat_user_key()
+    )
+
     st.session_state.eusee_chat_messages = []
     st.session_state.eusee_chat_history_loaded = True
 
@@ -11224,23 +11295,25 @@ def clear_user_chat_history() -> None:
     except Exception:
         pass
 
+
 load_user_chat_history(force=True)
 
 
-def get_full_dashboard_dataframe():
-    """Return the unfiltered EUSEE dataset used by the Copilot.
+# ============================================================
+# DATA ACCESS
+# ============================================================
 
-    The main application should store the original dataframe in
-    ``st.session_state["eusee_full_dataset_df"]`` immediately after loading it.
-    This function intentionally does not use ``eusee_active_filtered_df`` or
-    ``filtered_global`` because those objects may reflect sidebar filters.
-    """
-    full_df = st.session_state.get("eusee_full_dataset_df")
+def get_full_dashboard_dataframe() -> pd.DataFrame:
+    """Return the single cleaned dataframe used by the dashboard."""
+
+    full_df = st.session_state.get(
+        "eusee_full_dataset_df"
+    )
 
     if isinstance(full_df, pd.DataFrame):
         return full_df.copy()
 
-    # Optional compatibility with common unfiltered dataframe session keys.
+    # Compatibility fallbacks.
     for key in (
         "eusee_original_df",
         "eusee_unfiltered_df",
@@ -11254,441 +11327,1435 @@ def get_full_dashboard_dataframe():
     return pd.DataFrame()
 
 
-def build_llm_context(df, max_rows=None):
-    """
-    Convert the active dashboard dataframe into a generic JSON context.
+# ============================================================
+# DATASET METADATA
+# ============================================================
 
-    No analytical rankings, aliases, summaries, or variable-specific logic are
-    created in Python. LangFlow and the LLM prompt interpret the columns,
-    calculate results, and prepare chart data.
-    """
-    if df is None:
-        df = pd.DataFrame()
+AI_DIMENSIONS = {
+    "regions": "region",
+    "countries": "alert-country",
+    "alert_types": "alert-type",
+    "alert_impacts": "alert-impact",
+    "enabling_principles": "enabling-principle",
+    "actors": "Actor of repression",
+}
 
-    work = df.copy()
-    work.columns = [str(column).strip() for column in work.columns]
 
-    # Replace values that are unsafe for JSON.
-    work = work.replace([np.inf, -np.inf], np.nan)
+def _clean_ai_text(value) -> str:
+    return re.sub(
+        r"\s+",
+        " ",
+        str(value if value is not None else "")
+        .strip()
+        .lower(),
+    )
 
-    for column in work.columns:
-        if pd.api.types.is_datetime64_any_dtype(work[column]):
-            work[column] = work[column].dt.strftime("%Y-%m-%dT%H:%M:%S")
-        elif pd.api.types.is_object_dtype(work[column]) or pd.api.types.is_string_dtype(work[column]):
-            work[column] = work[column].fillna("").astype(str).str.strip()
 
-    configured_limit = st.secrets.get("langflow", {}).get("MAX_CONTEXT_ROWS", 5000)
+def _actual_values(df: pd.DataFrame, column: str) -> list[str]:
+    if column not in df.columns:
+        return []
 
-    try:
-        configured_limit = int(configured_limit)
-    except (TypeError, ValueError):
-        configured_limit = 5000
+    values = (
+        df[column]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
 
-    if max_rows is None:
-        max_rows = configured_limit
+    values = values[values.ne("")]
+    return sorted(values.unique().tolist())
 
-    max_rows = max(1, int(max_rows))
-    total_records = int(len(work))
-    context_df = work.head(max_rows).copy()
-    records_truncated = total_records > len(context_df)
 
-    context = {
-        "available": not work.empty,
-        "scope": "Complete unfiltered EUSEE dataset",
-        "total_records": total_records,
-        "records_sent": int(len(context_df)),
-        "records_truncated": records_truncated,
-        "latest_dataset_date": st.session_state.get(
-            "latest_dataset_date",
-            "Not available",
-        ),
-        "columns": [
-            {
-                "name": str(column),
-                "dtype": str(work[column].dtype),
-                "non_null_records": int(work[column].notna().sum()),
-            }
-            for column in work.columns
-        ],
-        "records": context_df.where(pd.notna(context_df), None).to_dict(
-            orient="records"
-        ),
+def _dataset_metadata(df: pd.DataFrame) -> dict:
+    metadata = {
+        "record_count": int(len(df)),
+        "columns": [str(c) for c in df.columns],
+        "dimensions": {},
     }
 
-    if records_truncated:
-        context["limitation"] = (
-            "Only the first "
-            f"{len(context_df):,} of {total_records:,} records were supplied. "
-            "Do not claim complete-dataset counts, percentages, rankings, or "
-            "distributions unless they can be derived from other supplied metadata."
+    for key, column in AI_DIMENSIONS.items():
+        # The values are compact and allow OpenAI to select only real values.
+        metadata["dimensions"][key] = _actual_values(
+            df,
+            column,
+        )[:500]
+
+    if "year" in df.columns:
+        years = pd.to_numeric(
+            df["year"],
+            errors="coerce",
+        ).dropna().astype(int).unique().tolist()
+        metadata["years"] = sorted(years)
+
+    if "month_name" in df.columns:
+        metadata["months"] = _actual_values(
+            df,
+            "month_name",
         )
 
-    return json.dumps(context, ensure_ascii=False, default=str)
+    if "creation_date" in df.columns:
+        dates = pd.to_datetime(
+            df["creation_date"],
+            errors="coerce",
+        ).dropna()
+        if not dates.empty:
+            metadata["date_range"] = {
+                "min": dates.min().strftime("%Y-%m-%d"),
+                "max": dates.max().strftime("%Y-%m-%d"),
+            }
+
+    return metadata
 
 
-def build_filter_summary(df):
-    """Describe the dataframe scope without calculating analytical results."""
-    total_records = 0 if df is None else int(len(df))
+# ============================================================
+# AI FILTER STATE
+# ============================================================
 
-    return json.dumps(
+DEFAULT_AI_FILTER_STATE = {
+    "regions": [],
+    "countries": [],
+    "alert_types": [],
+    "alert_impacts": [],
+    "enabling_principles": [],
+    "years": [],
+    "months": [],
+    "date_from": None,
+    "date_to": None,
+}
+
+
+def _get_ai_filter_state() -> dict:
+    state = st.session_state.get(
+        "eusee_ai_filter_state"
+    )
+
+    if not isinstance(state, dict):
+        state = DEFAULT_AI_FILTER_STATE.copy()
+        st.session_state[
+            "eusee_ai_filter_state"
+        ] = state
+
+    result = DEFAULT_AI_FILTER_STATE.copy()
+    result.update(state)
+    return result
+
+
+def _set_ai_filter_state(state: dict) -> None:
+    st.session_state[
+        "eusee_ai_filter_state"
+    ] = state
+
+
+def _clear_ai_filter_state() -> None:
+    _set_ai_filter_state(
+        DEFAULT_AI_FILTER_STATE.copy()
+    )
+
+
+def _current_dashboard_filter_state() -> dict:
+    """Read the actual existing sidebar filter keys."""
+    state = DEFAULT_AI_FILTER_STATE.copy()
+
+    state["regions"] = list(
+        st.session_state.get(
+            "selected_regions",
+            [],
+        ) or []
+    )
+    state["countries"] = list(
+        st.session_state.get(
+            "selected_countries",
+            [],
+        ) or []
+    )
+    state["alert_types"] = list(
+        st.session_state.get(
+            "selected_alert_types",
+            [],
+        ) or []
+    )
+    state["alert_impacts"] = list(
+        st.session_state.get(
+            "selected_alert_impacts",
+            [],
+        ) or []
+    )
+    state["enabling_principles"] = list(
+        st.session_state.get(
+            "selected_enabling_principle",
+            [],
+        ) or []
+    )
+    state["years"] = list(
+        st.session_state.get(
+            "selected_years",
+            [],
+        ) or []
+    )
+    state["months"] = list(
+        st.session_state.get(
+            "selected_months",
+            [],
+        ) or []
+    )
+
+    return state
+
+
+def _merge_filter_states(current: dict, new: dict) -> dict:
+    merged = DEFAULT_AI_FILTER_STATE.copy()
+    merged.update(current or {})
+
+    for key in [
+        "regions",
+        "countries",
+        "alert_types",
+        "alert_impacts",
+        "enabling_principles",
+        "years",
+        "months",
+    ]:
+        if new.get(key):
+            merged[key] = list(new[key])
+
+    for key in [
+        "date_from",
+        "date_to",
+    ]:
+        if new.get(key) is not None:
+            merged[key] = new[key]
+
+    return merged
+
+
+# ============================================================
+# OPENAI NATURAL-LANGUAGE INTERPRETER
+# ============================================================
+
+OPENAI_REQUEST_TOOL = {
+    "type": "function",
+    "name": "interpret_dashboard_request",
+    "description": (
+        "Convert a natural-language EU SEE dashboard request into a "
+        "strict structured request. Never invent values. Only use values "
+        "present in DATASET_METADATA."
+    ),
+    "parameters": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": [
+                    "answer",
+                    "filter_and_answer",
+                    "clear_filters",
+                ],
+            },
+            "analysis_type": {
+                "type": "string",
+                "enum": [
+                    "summary",
+                    "trend",
+                    "distribution",
+                    "compare",
+                    "records",
+                ],
+            },
+            "dimension": {
+                "type": ["string", "null"],
+            },
+            "metric": {
+                "type": "string",
+                "enum": [
+                    "count",
+                    "percentage",
+                ],
+            },
+            "search_text": {
+                "type": ["string", "null"],
+            },
+            "filters": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "regions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "countries": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "alert_types": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "alert_impacts": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "enabling_principles": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "years": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                    },
+                    "months": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "date_from": {
+                        "type": ["string", "null"],
+                    },
+                    "date_to": {
+                        "type": ["string", "null"],
+                    },
+                },
+                "required": [
+                    "regions",
+                    "countries",
+                    "alert_types",
+                    "alert_impacts",
+                    "enabling_principles",
+                    "years",
+                    "months",
+                    "date_from",
+                    "date_to",
+                ],
+            },
+        },
+        "required": [
+            "action",
+            "analysis_type",
+            "dimension",
+            "metric",
+            "search_text",
+            "filters",
+        ],
+    },
+    "strict": True,
+}
+
+
+OPENAI_INTERPRETER_INSTRUCTIONS = """
+You are the natural-language control layer for the EU SEE dashboard.
+
+The dashboard dataset is the ONLY knowledge source.
+
+Your task is to convert the user's request into the supplied function schema.
+Do not answer the user directly.
+
+RULES:
+1. Never invent a country, region, alert type, impact, principle, actor, year or month.
+2. Use only values present in DATASET_METADATA.
+3. Preserve existing conversational context when the user gives a follow-up.
+4. "negative alerts" normally maps to alert_impacts using the actual dataset value.
+5. "positive alerts" normally maps to alert_impacts using the actual dataset value.
+6. "show", "display", "filter", "only show" normally means filter_and_answer.
+7. A pure calculation such as "how many..." normally means answer.
+8. "compare Kenya and Uganda" means countries=[Kenya, Uganda] and analysis_type=compare.
+9. "monthly trend" means analysis_type=trend.
+10. "top countries" means analysis_type=distribution and dimension=country.
+11. "by country" means dimension=country.
+12. "by region" means dimension=region.
+13. "by alert type" means dimension=alert_type.
+14. "by impact" means dimension=alert_impact.
+15. "percentage/share/proportion" means metric=percentage.
+16. Understand Q1-Q4 and half-year language. Convert Q1 to Jan-Mar,
+    Q2 to Apr-Jun, Q3 to Jul-Sep, Q4 to Oct-Dec. Convert H1 to Jan-Jun
+    and H2 to Jul-Dec by putting the corresponding month names in months.
+17. If the user says "clear", "reset", or "remove all filters", use clear_filters.
+18. Never generate Python, SQL, URLs, or web searches.
+19. If a requested value cannot be matched to DATASET_METADATA, leave it out;
+    the local validation layer will report the unmatched request.
+"""
+
+
+def _interpret_dashboard_request(
+    user_question: str,
+    df: pd.DataFrame,
+) -> dict | None:
+
+    client = _get_eusee_openai_client()
+    if client is None:
+        return None
+
+    metadata = _dataset_metadata(df)
+    ai_state = _get_ai_filter_state()
+    sidebar_state = _current_dashboard_filter_state()
+
+    history = [
         {
-            "scope": "Current active dashboard/sidebar selection",
-            "records_in_scope": total_records,
-            "latest_dataset_date": st.session_state.get(
-                "latest_dataset_date",
-                "Not available",
-            ),
+            "role": m.get("role"),
+            "content": m.get("content"),
+        }
+        for m in st.session_state.get(
+            "eusee_chat_messages",
+            [],
+        )[-8:]
+        if m.get("role") in {"user", "assistant"}
+    ]
+
+    input_text = json.dumps(
+        {
+            "DATASET_METADATA": metadata,
+            "CONVERSATIONAL_AI_FILTER_STATE": ai_state,
+            "CURRENT_DASHBOARD_SIDEBAR_FILTER_STATE": sidebar_state,
+            "RECENT_CONVERSATION": history,
+            "USER_REQUEST": user_question,
         },
         ensure_ascii=False,
         default=str,
     )
 
-def extract_langflow_text(response_json):
     try:
-        return response_json["outputs"][0]["outputs"][0]["results"]["message"]["text"]
-    except Exception:
-        return json.dumps(response_json, indent=2, default=str)
-
-def ask_langflow(user_question, data_context, filter_summary):
-    if not LANGFLOW_API_URL:
-        return json.dumps({
-            "answer": "LangFlow API URL is not configured.",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "configuration_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-    if not LANGFLOW_API_KEY:
-        return json.dumps({
-            "answer": "LangFlow API key is not configured.",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "configuration_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-    chat_memory = json.dumps(
-        st.session_state.eusee_chat_messages[-12:],
-        indent=2,
-        default=str
-    )
-
-    payload = {
-        "input_value": user_question,
-        "output_type": "chat",
-        "input_type": "chat",
-        "tweaks": {
-            LANGFLOW_PROMPT_COMPONENT_ID: {
-                "lookup_context": "{}",
-                "dashboard_context": data_context,
-                "filter_summary": filter_summary,
-                "chat_memory": chat_memory,
-                "question": user_question,
+        response = client.responses.create(
+            model=OPENAI_MODEL,
+            instructions=OPENAI_INTERPRETER_INSTRUCTIONS,
+            input=input_text,
+            tools=[OPENAI_REQUEST_TOOL],
+            tool_choice={
+                "type": "function",
+                "name": "interpret_dashboard_request",
             },
-            "ChatInput-0gnCu": {
-                "session_id": st.session_state.eusee_chat_session_id,
-                "context_id": "eusee-dashboard",
-                "should_store_message": True,
-            },
-            "ChatOutput-wP9WA": {
-                "session_id": st.session_state.eusee_chat_session_id,
-                "context_id": "eusee-dashboard",
-                "should_store_message": True,
-            },
-        },
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": LANGFLOW_API_KEY,
-    }
-
-    try:
-        response = requests.post(
-            LANGFLOW_API_URL,
-            json=payload,
-            headers=headers,
-            timeout=90,
+            reasoning={"effort": "none"},
+            max_output_tokens=700,
         )
 
-        if response.status_code == 200:
-            return extract_langflow_text(response.json())
+        for item in response.output:
+            if getattr(item, "type", None) == "function_call":
+                return json.loads(item.arguments)
 
-        return json.dumps({
-            "answer": f"Could not reach the EUSEE Copilot service. LangFlow response: {response.status_code} {response.reason}: {response.text[:700]}",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "langflow_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-    except Exception as e:
-        return json.dumps({
-            "answer": f"Could not reach the EUSEE Copilot service. LangFlow error: {e}",
-            "available_in_context": False,
-            "used_current_filters": False,
-            "analysis_type": "langflow_error",
-            "interpretation_note": "",
-            "chart": {},
-            "follow_up_suggestions": []
-        })
-
-EUSEE_WEBSITE_REDIRECT_TEXT = (
-    "\n\n---\n"
-    "🌐 For a broader overview and additional qualitative insights, "
-    "please visit the EUSEE website at https://eusee.org"
-)
-
-def _append_eusee_website_redirect(answer: str, result: dict) -> str:
-    """Append the EUSEE website redirect only for dashboard-derived chatbot answers.
-
-    The redirect is shown when the LangFlow JSON confirms that the answer is
-    available in the supplied dashboard context and uses the active filters.
-    This avoids adding the link to greetings, configuration errors, or unrelated
-    responses.
-    """
-    answer = str(answer or "").strip()
-
-    dashboard_related = (
-        bool(result.get("available_in_context", False))
-        and bool(result.get("used_current_filters", False))
-    )
-
-    if not dashboard_related:
-        return answer
-
-    if "https://eusee.org" in answer:
-        return answer
-
-    return answer + EUSEE_WEBSITE_REDIRECT_TEXT
-
-def render_langflow_output(raw_answer, chart_instance_key=None):
-    try:
-        result = json.loads(raw_answer)
-    except Exception:
-        st.markdown(str(raw_answer))
-        return
-
-    answer = _append_eusee_website_redirect(result.get("answer", ""), result)
-    if answer:
-        st.markdown(answer)
-
-    chart = result.get("chart", {})
-    if not isinstance(chart, dict) or not chart:
-        return
-
-    chart_type = str(chart.get("type", "")).lower().strip()
-    title = chart.get("title", "") or "Dashboard chart"
-    x_label = chart.get("x_label", "Category") or "Category"
-    y_label = chart.get("y_label", "Count") or "Count"
-    sort_order = str(chart.get("sort_order", "")).lower().strip()
-
-    legend_value = chart.get("legend", "Series")
-    legend_label = "Series" if isinstance(legend_value, bool) else str(legend_value)
-
-    if not chart_type:
-        st.warning("Chart could not be rendered: missing chart type.")
-        st.json(chart)
-        return
-
-    data = chart.get("data", [])
-    if not isinstance(data, list) or not data:
-        st.warning("Chart could not be rendered: missing chart.data.")
-        st.json(chart)
-        return
-
-    chart_df = pd.DataFrame(data)
-
-    x_col = chart.get("x")
-    y_col = chart.get("y")
-    series_col = chart.get("series")
-
-    if not x_col or not y_col:
-        st.warning("Chart could not be rendered: missing x/y field names.")
-        st.json(chart)
-        return
-
-    if x_col not in chart_df.columns or y_col not in chart_df.columns:
-        st.warning(
-            f"Chart could not be rendered: x/y fields not found in chart.data. "
-            f"x={x_col}, y={y_col}, columns={list(chart_df.columns)}"
+    except Exception as exc:
+        st.error(
+            f"OpenAI request failed: {exc}"
         )
-        st.json(chart)
-        return
 
-    chart_df[y_col] = pd.to_numeric(chart_df[y_col], errors="coerce")
-    chart_df = chart_df.dropna(subset=[y_col])
+    return None
 
-    if chart_df.empty:
-        st.warning("Chart could not be rendered: numeric values are empty after conversion.")
-        st.json(chart)
-        return
 
-    if sort_order == "descending":
-        chart_df = chart_df.sort_values(y_col, ascending=False)
-    elif sort_order == "ascending":
-        chart_df = chart_df.sort_values(y_col, ascending=True)
+# ============================================================
+# LOCAL VALIDATION
+# ============================================================
 
-    if chart_instance_key is None:
-        chart_instance_key = uuid.uuid4().hex
+ALIASES = {
+    "negative": "Negative",
+    "negative alerts": "Negative",
+    "positive": "Positive",
+    "positive alerts": "Positive",
+}
 
-    base_key = f"eusee_ai_chart_{chart_instance_key}_{abs(hash(raw_answer))}"
+MONTH_ALIASES = {
+    "jan": "January",
+    "feb": "February",
+    "mar": "March",
+    "apr": "April",
+    "jun": "June",
+    "jul": "July",
+    "aug": "August",
+    "sep": "September",
+    "sept": "September",
+    "oct": "October",
+    "nov": "November",
+    "dec": "December",
+}
 
-    try:
-        if chart_type == "bar":
-            fig = px.bar(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                title=title,
-                text=y_col,
-                labels={x_col: x_label, y_col: y_label}
-            )
-            fig.update_layout(height=430)
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_bar", config=DEFAULT_PLOTLY_CONFIG)
+QUARTER_MONTHS = {
+    1: ["January", "February", "March"],
+    2: ["April", "May", "June"],
+    3: ["July", "August", "September"],
+    4: ["October", "November", "December"],
+}
 
-        elif chart_type in ["horizontal_bar", "hbar"]:
-            fig_df = chart_df.sort_values(y_col, ascending=True)
-            fig = px.bar(
-                fig_df,
-                x=y_col,
-                y=x_col,
-                orientation="h",
-                title=title,
-                text=y_col,
-                labels={x_col: x_label, y_col: y_label}
-            )
-            fig.update_layout(height=max(430, 42 * len(fig_df)))
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=max(430, 42 * len(fig_df)), horizontal=True), use_container_width=True, key=f"{base_key}_hbar", config=DEFAULT_PLOTLY_CONFIG)
 
-        elif chart_type == "grouped_bar":
-            if not series_col or series_col not in chart_df.columns:
-                st.warning("Chart could not be rendered: grouped_bar requires a valid series field.")
-                st.json(chart)
-                return
+def _resolve_values(
+    requested: list,
+    available: list,
+) -> tuple[list, list]:
 
-            fig = px.bar(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                color=series_col,
-                barmode="group",
-                title=title,
-                text=y_col,
-                labels={
-                    x_col: x_label,
-                    y_col: y_label,
-                    series_col: legend_label
-                }
-            )
-            fig.update_layout(height=430)
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_grouped_bar", config=DEFAULT_PLOTLY_CONFIG)
+    if not requested:
+        return [], []
 
-        elif chart_type in ["stacked_bar", "stacked_100_percent_bar"]:
-            if not series_col or series_col not in chart_df.columns:
-                st.warning("Chart could not be rendered: stacked charts require a valid series field.")
-                st.json(chart)
-                return
+    lookup = {
+        _clean_ai_text(value): value
+        for value in available
+    }
 
-            if chart_type == "stacked_100_percent_bar":
-                total_df = chart_df.groupby(x_col)[y_col].transform("sum")
-                chart_df["_percent"] = chart_df[y_col] / total_df.replace(0, pd.NA) * 100
-                chart_df = chart_df.dropna(subset=["_percent"])
-                plot_y = "_percent"
-                y_axis_title = "Percentage"
-            else:
-                plot_y = y_col
-                y_axis_title = y_label
+    resolved = []
+    unresolved = []
 
-            fig = px.bar(
-                chart_df,
-                x=x_col,
-                y=plot_y,
-                color=series_col,
-                title=title,
-                text=plot_y,
-                labels={
-                    x_col: x_label,
-                    plot_y: y_axis_title,
-                    series_col: legend_label
-                }
-            )
-            fig.update_layout(barmode="stack", height=430)
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_{chart_type}", config=DEFAULT_PLOTLY_CONFIG)
+    for raw in requested:
+        text = str(raw or "").strip()
+        if not text:
+            continue
 
-        elif chart_type == "pie":
-            fig = px.pie(
-                chart_df,
-                names=x_col,
-                values=y_col,
-                title=title
-            )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_pie", config=DEFAULT_PLOTLY_CONFIG)
+        key = _clean_ai_text(text)
+        key = _clean_ai_text(
+            ALIASES.get(key, key)
+        )
 
-        elif chart_type == "donut":
-            fig = px.pie(
-                chart_df,
-                names=x_col,
-                values=y_col,
-                title=title,
-                hole=0.45
-            )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_donut", config=DEFAULT_PLOTLY_CONFIG)
+        if key in lookup:
+            resolved.append(lookup[key])
+            continue
 
-        elif chart_type == "line":
-            fig = px.line(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                title=title,
-                markers=True,
-                labels={x_col: x_label, y_col: y_label}
-            )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_line", config=DEFAULT_PLOTLY_CONFIG)
+        # Conservative partial matching. Only accept a single match.
+        matches = [
+            actual
+            for actual_key, actual in lookup.items()
+            if key in actual_key
+            or actual_key in key
+        ]
 
-        elif chart_type == "area":
-            fig = px.area(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                title=title,
-                labels={x_col: x_label, y_col: y_label}
-            )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_area", config=DEFAULT_PLOTLY_CONFIG)
-
-        elif chart_type == "scatter":
-            fig = px.scatter(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                title=title,
-                labels={x_col: x_label, y_col: y_label}
-            )
-            st.plotly_chart(apply_classic_chart_theme(fig, title=fig.layout.title.text, height=430), use_container_width=True, key=f"{base_key}_scatter", config=DEFAULT_PLOTLY_CONFIG)
-
-        elif chart_type == "table":
-            st.dataframe(chart_df, use_container_width=True)
-
+        if len(matches) == 1:
+            resolved.append(matches[0])
         else:
-            st.warning(f"Unsupported chart type returned by LangFlow: {chart_type}")
-            st.json(chart)
+            unresolved.append(text)
 
-    except Exception as e:
-        st.warning(f"Chart could not be rendered: {e}")
-        st.json(chart)
+    return sorted(set(resolved)), sorted(set(unresolved))
+
+
+def _normalise_request_filters(
+    df: pd.DataFrame,
+    requested: dict,
+) -> tuple[dict, list[str]]:
+
+    metadata = _dataset_metadata(df)
+    available = metadata["dimensions"]
+
+    filters = DEFAULT_AI_FILTER_STATE.copy()
+    warnings_out = []
+
+    for key in [
+        "regions",
+        "countries",
+        "alert_types",
+        "alert_impacts",
+        "enabling_principles",
+    ]:
+        resolved, unresolved = _resolve_values(
+            requested.get(key, []) or [],
+            available.get(key, []),
+        )
+        filters[key] = resolved
+
+        if unresolved:
+            warnings_out.append(
+                f"Could not match {key.replace('_', ' ')}: "
+                + ", ".join(unresolved)
+            )
+
+    years = []
+    valid_years = set(metadata.get("years", []))
+
+    for year in requested.get("years", []) or []:
+        try:
+            value = int(year)
+        except Exception:
+            continue
+
+        if not valid_years or value in valid_years:
+            years.append(value)
+        else:
+            warnings_out.append(
+                f"Year {value} is not present in the dataset."
+            )
+
+    filters["years"] = sorted(set(years))
+
+    resolved_months, unresolved_months = _resolve_values(
+        requested.get("months", []) or [],
+        metadata.get("months", []),
+    )
+
+    # Add standard abbreviated month aliases if the model returned them.
+    month_values = []
+    available_month_lookup = {
+        _clean_ai_text(v): v
+        for v in metadata.get("months", [])
+    }
+
+    for month in requested.get("months", []) or []:
+        key = _clean_ai_text(month)
+        alias = MONTH_ALIASES.get(key)
+        if alias:
+            alias_key = _clean_ai_text(alias)
+            if alias_key in available_month_lookup:
+                month_values.append(
+                    available_month_lookup[alias_key]
+                )
+
+    filters["months"] = sorted(
+        set(resolved_months + month_values)
+    )
+
+    if unresolved_months:
+        warnings_out.append(
+            "Could not match months: "
+            + ", ".join(unresolved_months)
+        )
+
+    filters["date_from"] = (
+        requested.get("date_from")
+        or None
+    )
+    filters["date_to"] = (
+        requested.get("date_to")
+        or None
+    )
+
+    # Validate ISO-like dates locally.
+    for date_key in ["date_from", "date_to"]:
+        value = filters[date_key]
+        if value:
+            try:
+                pd.Timestamp(value)
+                filters[date_key] = str(
+                    pd.Timestamp(value).date()
+                )
+            except Exception:
+                warnings_out.append(
+                    f"Invalid {date_key.replace('_', ' ')}: {value}"
+                )
+                filters[date_key] = None
+
+    return filters, warnings_out
+
 
 # ============================================================
-# SAFE EUSEE AI COPILOT POPOVER
-# Opens/closes without rerunning and does not interfere with dashboard tabs/charts.
-# Only submitting a Copilot question triggers the normal Streamlit rerun.
+# LOCAL FILTERING
 # ============================================================
+
+def _apply_local_filters(
+    df: pd.DataFrame,
+    filters: dict,
+) -> pd.DataFrame:
+
+    result = df.copy()
+
+    if "creation_date" in result.columns:
+        result["creation_date"] = pd.to_datetime(
+            result["creation_date"],
+            errors="coerce",
+        )
+
+        if "year" not in result.columns:
+            result["year"] = result[
+                "creation_date"
+            ].dt.year
+
+        if "month_name" not in result.columns:
+            result["month_name"] = result[
+                "creation_date"
+            ].dt.strftime("%B")
+
+    mapping = {
+        "regions": "region",
+        "countries": "alert-country",
+        "alert_types": "alert-type",
+        "alert_impacts": "alert-impact",
+        "enabling_principles": "enabling-principle",
+        "years": "year",
+        "months": "month_name",
+    }
+
+    for filter_key, column in mapping.items():
+        values = filters.get(filter_key) or []
+
+        if values and column in result.columns:
+            if filter_key == "years":
+                numeric_values = [
+                    int(v) for v in values
+                ]
+                result = result[
+                    pd.to_numeric(
+                        result[column],
+                        errors="coerce",
+                    ).isin(numeric_values)
+                ]
+            else:
+                result = result[
+                    result[column]
+                    .astype(str)
+                    .isin(values)
+                ]
+
+    if "creation_date" in result.columns:
+
+        if filters.get("date_from"):
+            result = result[
+                result["creation_date"]
+                >= pd.Timestamp(
+                    filters["date_from"]
+                )
+            ]
+
+        if filters.get("date_to"):
+            result = result[
+                result["creation_date"]
+                <= pd.Timestamp(
+                    filters["date_to"]
+                )
+            ]
+
+    return result
+
+
+# ============================================================
+# LOCAL ANALYTICS
+# ============================================================
+
+def _dimension_column(dimension: str | None) -> str | None:
+    return {
+        "country": "alert-country",
+        "countries": "alert-country",
+        "region": "region",
+        "regions": "region",
+        "alert_type": "alert-type",
+        "alert_types": "alert-type",
+        "alert_impact": "alert-impact",
+        "impact": "alert-impact",
+        "enabling_principle": "enabling-principle",
+        "principle": "enabling-principle",
+        "actor": "Actor of repression",
+    }.get(
+        _clean_ai_text(dimension),
+        dimension,
+    ) if dimension else None
+
+
+def _analysis_result(
+    filtered: pd.DataFrame,
+    request: dict,
+    filters: dict,
+) -> dict:
+
+    analysis_type = request.get(
+        "analysis_type",
+        "summary",
+    )
+
+    metric = request.get(
+        "metric",
+        "count",
+    )
+
+    result = {
+        "records_count": int(len(filtered)),
+        "analysis_type": analysis_type,
+        "metric": metric,
+        "filters": filters,
+        "analysis": {},
+        "chart": None,
+        "records": None,
+    }
+
+    # --------------------------------------------------------
+    # SUMMARY / COUNT / PERCENTAGE
+    # --------------------------------------------------------
+    if analysis_type == "summary":
+
+        total = int(len(filtered))
+        result["analysis"] = {
+            "total_records": total,
+        }
+
+        if metric == "percentage":
+            result["analysis"][
+                "percentage_of_dataset"
+            ] = round(
+                100 * total / max(
+                    len(get_full_dashboard_dataframe()),
+                    1,
+                ),
+                2,
+            )
+
+        return result
+
+    # --------------------------------------------------------
+    # TREND
+    # --------------------------------------------------------
+    if analysis_type == "trend":
+
+        if "creation_date" not in filtered.columns:
+            result["analysis"] = {
+                "message":
+                    "The dataset does not contain usable creation dates."
+            }
+            return result
+
+        temp = filtered.copy()
+        temp["creation_date"] = pd.to_datetime(
+            temp["creation_date"],
+            errors="coerce",
+        )
+        temp = temp.dropna(
+            subset=["creation_date"]
+        )
+
+        if temp.empty:
+            result["analysis"] = {
+                "message": "No dated records match the request."
+            }
+            return result
+
+        grouped = (
+            temp.groupby(
+                temp["creation_date"].dt.to_period("M")
+            )
+            .size()
+            .reset_index(name="records")
+        )
+
+        grouped["period"] = grouped[
+            "creation_date"
+        ].astype(str)
+
+        grouped = grouped[
+            ["period", "records"]
+        ]
+
+        result["analysis"] = {
+            "monthly_counts": grouped.to_dict(
+                "records"
+            )
+        }
+
+        result["chart"] = {
+            "type": "line",
+            "x": "period",
+            "y": "records",
+            "title": "EU SEE Alerts Over Time",
+            "x_label": "Month",
+            "y_label": "Number of alerts",
+            "data": grouped.to_dict("records"),
+        }
+
+        return result
+
+    # --------------------------------------------------------
+    # DISTRIBUTION / TOP
+    # --------------------------------------------------------
+    if analysis_type == "distribution":
+
+        column = _dimension_column(
+            request.get("dimension")
+            or "country"
+        )
+
+        if column not in filtered.columns:
+            result["analysis"] = {
+                "message":
+                    "The requested analysis dimension is not available."
+            }
+            return result
+
+        grouped = (
+            filtered[column]
+            .fillna("Unknown")
+            .astype(str)
+            .value_counts()
+            .reset_index()
+        )
+        grouped.columns = [
+            "category",
+            "records",
+        ]
+        grouped = grouped.head(20)
+
+        result["analysis"] = {
+            "distribution": grouped.to_dict(
+                "records"
+            )
+        }
+
+        result["chart"] = {
+            "type": "bar",
+            "x": "category",
+            "y": "records",
+            "title": (
+                "Alerts by "
+                + str(
+                    request.get("dimension")
+                    or "category"
+                ).replace("_", " ").title()
+            ),
+            "x_label": str(
+                request.get("dimension")
+                or "Category"
+            ).replace("_", " ").title(),
+            "y_label": "Number of alerts",
+            "data": grouped.to_dict("records"),
+        }
+
+        return result
+
+    # --------------------------------------------------------
+    # COMPARISON
+    # --------------------------------------------------------
+    if analysis_type == "compare":
+
+        column = _dimension_column(
+            request.get("dimension")
+            or "country"
+        )
+
+        if column not in filtered.columns:
+            result["analysis"] = {
+                "message":
+                    "The requested comparison dimension is unavailable."
+            }
+            return result
+
+        grouped = (
+            filtered[column]
+            .fillna("Unknown")
+            .astype(str)
+            .value_counts()
+            .reset_index()
+        )
+        grouped.columns = [
+            "category",
+            "records",
+        ]
+
+        result["analysis"] = {
+            "comparison": grouped.to_dict(
+                "records"
+            )
+        }
+
+        result["chart"] = {
+            "type": "bar",
+            "x": "category",
+            "y": "records",
+            "title": (
+                "Comparison by "
+                + str(
+                    request.get("dimension")
+                    or "country"
+                ).replace("_", " ").title()
+            ),
+            "x_label": str(
+                request.get("dimension")
+                or "Country"
+            ).replace("_", " ").title(),
+            "y_label": "Number of alerts",
+            "data": grouped.to_dict("records"),
+        }
+
+        return result
+
+    # --------------------------------------------------------
+    # RECORD SEARCH
+    # --------------------------------------------------------
+    if analysis_type == "records":
+
+        search_text = _clean_ai_text(
+            request.get("search_text")
+        )
+
+        if search_text:
+            searchable_columns = [
+                "alert-country",
+                "alert-type",
+                "alert-impact",
+                "Actor of repression",
+                "enabling-principle",
+            ]
+
+            mask = pd.Series(
+                False,
+                index=filtered.index,
+            )
+
+            for column in searchable_columns:
+                if column in filtered.columns:
+                    mask |= (
+                        filtered[column]
+                        .fillna("")
+                        .astype(str)
+                        .str.lower()
+                        .str.contains(
+                            search_text,
+                            regex=False,
+                        )
+                    )
+
+            filtered = filtered[mask]
+
+        selected_columns = [
+            c
+            for c in [
+                "creation_date",
+                "alert-country",
+                "alert-type",
+                "alert-impact",
+                "Actor of repression",
+                "enabling-principle",
+            ]
+            if c in filtered.columns
+        ]
+
+        records_df = filtered[
+            selected_columns
+        ].head(20).copy()
+
+        for column in records_df.columns:
+            if pd.api.types.is_datetime64_any_dtype(
+                records_df[column]
+            ):
+                records_df[column] = (
+                    records_df[column]
+                    .dt.strftime("%Y-%m-%d")
+                )
+
+        result["records_count"] = int(
+            len(filtered)
+        )
+        result["records"] = (
+            records_df
+            .where(
+                pd.notna(records_df),
+                None,
+            )
+            .to_dict("records")
+        )
+        result["analysis"] = {
+            "returned_records": len(
+                result["records"]
+            )
+        }
+
+        return result
+
+    return result
+
+
+# ============================================================
+# DASHBOARD FILTER SYNCHRONISATION
+# ============================================================
+
+def _sync_ai_filters_to_dashboard(filters: dict) -> list[str]:
+    """Update the dashboard's existing sidebar filter session keys."""
+
+    unsupported = []
+
+    mapping = {
+        "regions": "selected_regions",
+        "countries": "selected_countries",
+        "alert_types": "selected_alert_types",
+        "alert_impacts": "selected_alert_impacts",
+        "enabling_principles": "selected_enabling_principle",
+        "years": "selected_years",
+        "months": "selected_months",
+    }
+
+    for ai_key, dashboard_key in mapping.items():
+        values = list(
+            filters.get(ai_key) or []
+        )
+        if values:
+            st.session_state[
+                dashboard_key
+            ] = values
+
+    if filters.get("date_from") or filters.get("date_to"):
+        unsupported.append(
+            "The exact date range is applied to the AI analysis, "
+            "but the existing dashboard has no dedicated date-range filter."
+        )
+
+    return unsupported
+
+
+def _clear_dashboard_filters() -> None:
+    """Clear only the existing global filter controls."""
+    for key in [
+        "selected_regions",
+        "selected_countries",
+        "selected_alert_types",
+        "selected_enabling_principle",
+        "selected_alert_impacts",
+        "selected_months",
+        "selected_years",
+        "selected_actor_types",
+        "selected_subject_types",
+        "selected_mechanism_types",
+        "selected_event_types",
+    ]:
+        st.session_state[key] = []
+
+
+# ============================================================
+# NATURAL-LANGUAGE PROCESSOR
+# ============================================================
+
+def _process_eusee_ai_request(
+    user_question: str,
+) -> dict:
+
+    df = get_full_dashboard_dataframe()
+
+    if df.empty:
+        return {
+            "answer": (
+                "The EU SEE dashboard dataset is not available "
+                "for the AI Assistant."
+            ),
+            "analysis": None,
+        }
+
+    request = _interpret_dashboard_request(
+        user_question,
+        df,
+    )
+
+    if not request:
+        return {
+            "answer": (
+                "I could not interpret that dashboard request."
+            ),
+            "analysis": None,
+        }
+
+    if request.get("action") == "clear_filters":
+        _clear_ai_filter_state()
+        _clear_dashboard_filters()
+
+        return {
+            "answer": "The dashboard filters have been cleared.",
+            "analysis": None,
+            "filter_updated": True,
+            "clear_filters": True,
+        }
+
+    requested_filters, validation_warnings = (
+        _normalise_request_filters(
+            df,
+            request.get("filters", {}),
+        )
+    )
+
+    # Deterministic temporal aliases. This protects against variations in how
+    # the model expresses Q1-Q4 and H1-H2 in its structured request.
+    question_lower = user_question.lower()
+    temporal_months = None
+    for quarter in range(1, 5):
+        if re.search(rf"\bq{quarter}\b|\bquarter\s*{quarter}\b", question_lower):
+            temporal_months = QUARTER_MONTHS[quarter]
+            break
+
+    if temporal_months is None and re.search(
+        r"\b(h1|first half|first half-year)\b",
+        question_lower,
+    ):
+        temporal_months = QUARTER_MONTHS[1] + QUARTER_MONTHS[2]
+
+    if temporal_months is None and re.search(
+        r"\b(h2|second half|second half-year)\b",
+        question_lower,
+    ):
+        temporal_months = QUARTER_MONTHS[3] + QUARTER_MONTHS[4]
+
+    if temporal_months:
+        available_months = set(
+            _dataset_metadata(df).get("months", [])
+        )
+        requested_filters["months"] = [
+            month
+            for month in temporal_months
+            if month in available_months
+        ]
+
+    # The existing dashboard sidebar is the authoritative visual context.
+    # The AI state preserves conversational context when the sidebar is empty.
+    current_ai_state = _get_ai_filter_state()
+    sidebar_state = _current_dashboard_filter_state()
+
+    def _has_active_filters(state: dict) -> bool:
+        return any(
+            bool(state.get(key))
+            for key in [
+                "regions",
+                "countries",
+                "alert_types",
+                "alert_impacts",
+                "enabling_principles",
+                "years",
+                "months",
+                "date_from",
+                "date_to",
+            ]
+        )
+
+    base_state = (
+        sidebar_state
+        if _has_active_filters(sidebar_state)
+        else current_ai_state
+    )
+
+    merged_filters = _merge_filter_states(
+        base_state,
+        requested_filters,
+    )
+
+    # If the request explicitly contains a filter dimension, it should replace
+    # that dimension rather than accumulate stale values.
+    raw_filters = request.get(
+        "filters",
+        {},
+    )
+
+    for key in [
+        "regions",
+        "countries",
+        "alert_types",
+        "alert_impacts",
+        "enabling_principles",
+        "years",
+        "months",
+    ]:
+        if raw_filters.get(key):
+            merged_filters[key] = requested_filters[key]
+
+    for key in [
+        "date_from",
+        "date_to",
+    ]:
+        if raw_filters.get(key) is not None:
+            merged_filters[key] = requested_filters[key]
+
+    _set_ai_filter_state(
+        merged_filters
+    )
+
+    unsupported_filter_warnings = []
+
+    if request.get("action") == "filter_and_answer":
+        unsupported_filter_warnings = (
+            _sync_ai_filters_to_dashboard(
+                merged_filters
+            )
+        )
+
+    filtered = _apply_local_filters(
+        df,
+        merged_filters,
+    )
+
+    analysis = _analysis_result(
+        filtered,
+        request,
+        merged_filters,
+    )
+
+    analysis["warnings"] = (
+        validation_warnings
+        + unsupported_filter_warnings
+    )
+
+    answer = _generate_eusee_answer(
+        user_question,
+        analysis,
+    )
+
+    return {
+        "answer": answer,
+        "analysis": analysis,
+        "filter_updated": request.get(
+            "action"
+        ) == "filter_and_answer",
+    }
+
+
+# ============================================================
+# OPENAI FINAL RESPONSE
+# ============================================================
+
+def _generate_eusee_answer(
+    user_question: str,
+    analysis: dict,
+) -> str:
+
+    client = _get_eusee_openai_client()
+
+    if client is None:
+        return _deterministic_eusee_answer(
+            analysis
+        )
+
+    compact_result = {
+        "records_count": analysis.get(
+            "records_count",
+            0,
+        ),
+        "analysis_type": analysis.get(
+            "analysis_type"
+        ),
+        "metric": analysis.get(
+            "metric"
+        ),
+        "filters": analysis.get(
+            "filters",
+            {},
+        ),
+        "analysis": analysis.get(
+            "analysis",
+            {},
+        ),
+        "records": analysis.get(
+            "records"
+        ),
+        "warnings": analysis.get(
+            "warnings",
+            [],
+        ),
+    }
+
+    prompt = json.dumps(
+        {
+            "USER_QUESTION": user_question,
+            "LOCAL_DASHBOARD_RESULT": compact_result,
+        },
+        ensure_ascii=False,
+        default=str,
+    )
+
+    try:
+        response = client.responses.create(
+            model=OPENAI_MODEL,
+            instructions="""
+You are the final response writer for the EU SEE dashboard.
+
+Use ONLY LOCAL_DASHBOARD_RESULT.
+Do not use external knowledge.
+Do not invent values.
+Do not make political claims beyond what is explicitly contained in the dashboard result.
+Be concise and professional.
+Mention the number of matching records when useful.
+If no records match, say so clearly.
+If warnings exist, mention the important limitation briefly.
+Do not mention OpenAI, APIs, Python, tools, prompts, or internal implementation.
+""",
+            input=prompt,
+            reasoning={"effort": "none"},
+            max_output_tokens=500,
+        )
+
+        text = str(
+            response.output_text or ""
+        ).strip()
+
+        if text:
+            return text
+
+    except Exception:
+        pass
+
+    return _deterministic_eusee_answer(
+        analysis
+    )
+
+
+def _format_filter_summary(filters: dict) -> str:
+    parts = []
+
+    labels = {
+        "regions": "Regions",
+        "countries": "Countries",
+        "alert_types": "Alert types",
+        "alert_impacts": "Impacts",
+        "enabling_principles": "Enabling principles",
+        "years": "Years",
+        "months": "Months",
+    }
+
+    for key, label in labels.items():
+        values = filters.get(key) or []
+        if values:
+            parts.append(
+                f"{label}: "
+                + ", ".join(map(str, values))
+            )
+
+    if filters.get("date_from"):
+        parts.append(
+            f"From: {filters['date_from']}"
+        )
+
+    if filters.get("date_to"):
+        parts.append(
+            f"To: {filters['date_to']}"
+        )
+
+    return "; ".join(parts)
+
+
+def _deterministic_eusee_answer(
+    analysis: dict,
+) -> str:
+
+    count = int(
+        analysis.get(
+            "records_count",
+            0,
+        )
+        or 0
+    )
+
+    analysis_type = analysis.get(
+        "analysis_type"
+    )
+
+    if analysis_type == "trend":
+        text = (
+            f"The filtered dashboard data contains "
+            f"{count:,} matching records. "
+            "The monthly trend is shown below."
+        )
+    elif analysis_type in {
+        "distribution",
+        "compare",
+    }:
+        text = (
+            f"The filtered dashboard data contains "
+            f"{count:,} matching records. "
+            "The requested breakdown is shown below."
+        )
+    elif analysis_type == "records":
+        text = (
+            f"I found {count:,} matching records. "
+            "A sample of the matching records is shown below."
+        )
+    else:
+        text = (
+            f"The filtered dashboard data contains "
+            f"{count:,} matching records."
+        )
+
+    filter_text = _format_filter_summary(
+        analysis.get("filters", {})
+    )
+
+    if filter_text:
+        text += f"\n\nFilters: {filter_text}."
+
+    warnings_out = analysis.get(
+        "warnings",
+        [],
+    )
+
+    if warnings_out:
+        text += (
+            "\n\nNote: "
+            + " ".join(warnings_out)
+        )
+
+    return text
 
 
 def inject_eusee_ai_popover_css():
@@ -11852,6 +12919,168 @@ def inject_eusee_ai_popover_css():
         unsafe_allow_html=True,
     )
 
+# ============================================================
+# EXISTING CHATBOT CHART RENDERER
+# The visual styling remains aligned with the existing dashboard.
+# ============================================================
+
+def render_openai_output(
+    result: dict,
+    chart_instance_key: str | None = None,
+):
+    if not isinstance(result, dict):
+        return
+
+    answer = str(
+        result.get("answer", "")
+    ).strip()
+
+    if answer:
+        st.markdown(answer)
+
+    analysis = result.get(
+        "analysis"
+    )
+
+    if not isinstance(analysis, dict):
+        return
+
+    chart = analysis.get(
+        "chart"
+    )
+
+    if not isinstance(chart, dict) or not chart:
+        records = analysis.get("records")
+        if isinstance(records, list) and records:
+            st.dataframe(
+                pd.DataFrame(records),
+                use_container_width=True,
+                hide_index=True,
+            )
+        return
+
+    chart_type = str(
+        chart.get("type", "")
+    ).lower().strip()
+
+    chart_df = pd.DataFrame(
+        chart.get("data", [])
+    )
+
+    x_col = chart.get("x")
+    y_col = chart.get("y")
+
+    if chart_df.empty or not x_col or not y_col:
+        return
+
+    if x_col not in chart_df.columns or y_col not in chart_df.columns:
+        return
+
+    try:
+        chart_df[y_col] = pd.to_numeric(
+            chart_df[y_col],
+            errors="coerce",
+        )
+        chart_df = chart_df.dropna(
+            subset=[y_col]
+        )
+
+        title = chart.get(
+            "title",
+            "Dashboard analysis",
+        )
+
+        if chart_type == "line":
+            fig = px.line(
+                chart_df,
+                x=x_col,
+                y=y_col,
+                title=title,
+                markers=True,
+                labels={
+                    x_col: chart.get(
+                        "x_label",
+                        x_col,
+                    ),
+                    y_col: chart.get(
+                        "y_label",
+                        y_col,
+                    ),
+                },
+            )
+
+        elif chart_type == "pie":
+            fig = px.pie(
+                chart_df,
+                names=x_col,
+                values=y_col,
+                title=title,
+            )
+
+        elif chart_type == "donut":
+            fig = px.pie(
+                chart_df,
+                names=x_col,
+                values=y_col,
+                title=title,
+                hole=0.45,
+            )
+
+        else:
+            fig = px.bar(
+                chart_df,
+                x=x_col,
+                y=y_col,
+                title=title,
+                text=y_col,
+                labels={
+                    x_col: chart.get(
+                        "x_label",
+                        x_col,
+                    ),
+                    y_col: chart.get(
+                        "y_label",
+                        y_col,
+                    ),
+                },
+            )
+
+        fig.update_layout(
+            height=430,
+        )
+
+        try:
+            fig = apply_classic_chart_theme(
+                fig,
+                title=fig.layout.title.text,
+                height=430,
+            )
+        except Exception:
+            pass
+
+        key = (
+            f"eusee_openai_chart_"
+            f"{chart_instance_key or uuid.uuid4().hex}"
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key=key,
+            config=DEFAULT_PLOTLY_CONFIG,
+        )
+
+    except Exception as exc:
+        st.warning(
+            f"The AI chart could not be rendered: {exc}"
+        )
+
+
+# ============================================================
+# EXISTING EU SEE AI POPOVER BODY
+# Appearance intentionally preserved.
+# ============================================================
+
 def _render_eusee_ai_copilot_body():
     st.markdown(
         """
@@ -11880,93 +13109,127 @@ def _render_eusee_ai_copilot_body():
     )
 
     if not has_permission("use_ai_copilot"):
-        st.info("AI Copilot is not enabled for your access level.")
+        st.info(
+            "AI Copilot is not enabled for your access level."
+        )
+        return
+
+    if OpenAI is None:
+        st.error(
+            "The OpenAI package is not installed. Add `openai` to requirements.txt."
+        )
+        return
+
+    if _get_eusee_openai_client() is None:
+        st.error(
+            "OpenAI is not configured. Add [openai] API_KEY to Streamlit secrets."
+        )
         return
 
     load_user_chat_history()
 
-    for i, msg in enumerate(st.session_state.eusee_chat_messages[-12:]):
+    for i, msg in enumerate(
+        st.session_state.eusee_chat_messages[-12:]
+    ):
         if not isinstance(msg, dict):
             continue
 
-        role = msg.get("role", "assistant")
-        content = msg.get("content", "")
+        role = msg.get(
+            "role",
+            "assistant",
+        )
+        content = msg.get(
+            "content",
+            "",
+        )
 
         with st.chat_message(role):
             if role == "assistant":
-                chart_key = f"chat_{i}_{msg.get('id', uuid.uuid4().hex)}"
-                render_langflow_output(content, chart_instance_key=chart_key)
+                try:
+                    stored_result = json.loads(
+                        content
+                    )
+                    render_openai_output(
+                        stored_result,
+                        chart_instance_key=(
+                            f"history_{i}_"
+                            f"{msg.get('id', uuid.uuid4().hex)}"
+                        ),
+                    )
+                except Exception:
+                    st.markdown(content)
             else:
                 st.markdown(content)
 
-    with st.form("eusee_ai_popover_form", clear_on_submit=True):
+    with st.form(
+        "eusee_ai_popover_form",
+        clear_on_submit=True,
+    ):
         user_question = st.text_area(
             "Ask about the complete EUSEE dataset",
-            placeholder="Example: summarise the negative alerts in Africa",
+            placeholder=(
+                "Example: summarise the negative alerts in Africa"
+            ),
             height=90,
             label_visibility="collapsed",
             key="eusee_ai_popover_question",
         )
 
-        submitted = st.form_submit_button("Ask ", use_container_width=True)
+        submitted = st.form_submit_button(
+            "Ask ",
+            use_container_width=True,
+        )
 
     if submitted and user_question.strip():
         user_question = user_question.strip()
 
-        append_user_chat_message("user", user_question)
+        append_user_chat_message(
+            "user",
+            user_question,
+        )
 
-        # Always use the original, unfiltered dashboard dataset.
-        full_df = get_full_dashboard_dataframe()
-
-        if full_df.empty:
-            st.error(
-                'The full EUSEE dataset is not available. Store the original '
-                'dataframe in st.session_state["eusee_full_dataset_df"] '
-                'immediately after loading the data.'
+        with st.spinner(
+            "Analysing dashboard data..."
+        ):
+            result = _process_eusee_ai_request(
+                user_question
             )
-            return
 
-        # Send every record. No sidebar filtering and no MAX_CONTEXT_ROWS truncation.
-        data_context = build_llm_context(full_df, max_rows=len(full_df))
-        filter_summary = json.dumps(
-            {
-                "scope": "Complete unfiltered EUSEE dataset",
-                "records_in_scope": int(len(full_df)),
-                "filters_applied": False,
-                "latest_dataset_date": st.session_state.get(
-                    "latest_dataset_date", "Not available"
-                ),
-            },
+        # Store the complete local analytical result with the assistant message.
+        # This guarantees that reopening the chatbot reproduces the same answer
+        # and chart without querying OpenAI again.
+        assistant_payload = json.dumps(
+            result,
             ensure_ascii=False,
             default=str,
         )
 
-        # Optional diagnostic view of the exact generic context sent to LangFlow.
-        with st.expander("DEBUG Copilot context", expanded=False):
-            st.caption("This is the complete unfiltered dataframe context sent to the LLM.")
-            try:
-                st.json(json.loads(data_context))
-            except Exception:
-                st.write(data_context[:3000])
+        append_user_chat_message(
+            "assistant",
+            assistant_payload,
+        )
 
-        with st.spinner("Asking LangFlow..."):
-            answer = ask_langflow(
-                user_question=user_question,
-                data_context=data_context,
-                filter_summary=filter_summary,
-            )
-
-        append_user_chat_message("assistant", answer)
+        # If a natural-language filtering request changed the dashboard filters,
+        # rerun the dashboard so its existing sidebar and visualisations update.
+        if result.get("filter_updated"):
+            st.rerun()
 
         st.rerun()
 
-    # Keep memory controls away from the primary chat workflow.
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    with st.expander("⚙️ Chat settings", expanded=False):
+    st.markdown(
+        "<div style='height:10px'></div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.expander(
+        "⚙️ Chat settings",
+        expanded=False,
+    ):
         st.caption(
             "Conversation history is saved automatically for the signed-in account. "
             "Clearing it cannot be undone."
         )
+
         if st.button(
             "Clear conversation history",
             use_container_width=True,
@@ -11974,21 +13237,29 @@ def _render_eusee_ai_copilot_body():
             type="secondary",
         ):
             clear_user_chat_history()
+            _clear_ai_filter_state()
             st.rerun()
 
 
 def render_eusee_ai_copilot_popover():
-    """Render EUSEE Copilot only when enabled by Admin permissions."""
-
+    """Render the existing EU SEE Copilot launcher without changing its appearance."""
     if not has_permission("use_ai_copilot"):
         return
 
     inject_eusee_ai_popover_css()
 
     try:
-        with st.popover("💬 AI assistant", use_container_width=False):
+        with st.popover(
+            "💬 AI assistant",
+            use_container_width=False,
+        ):
             _render_eusee_ai_copilot_body()
     except Exception:
-        with st.expander("💬 AI assistant", expanded=False):
+        with st.expander(
+            "💬 AI assistant",
+            expanded=False,
+        ):
             _render_eusee_ai_copilot_body()
+
+
 render_eusee_ai_copilot_popover()
