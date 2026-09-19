@@ -1448,7 +1448,9 @@ def load_data():
             ])
         ].copy()
 
-  
+    df = df[
+        df["alert-country"].str.lower() != "jose"
+    ].copy()
 
     df["alert-impact"] = (
         df["alert-impact"]
@@ -1457,9 +1459,16 @@ def load_data():
     )
 
     df = df[
-        (df["alert-impact"] != "")
-        & (df["alert-impact"].str.lower() != "nan")
-    ].copy()
+            df["alert-impact"].notna()
+            & ~df["alert-impact"].str.lower().isin([
+                "",
+                "none",
+                "nan",
+                "null",
+                "n/a",
+                "na",
+            ])
+        ].copy()
 
     # Normalize country names before ISO mapping.
     COUNTRY_FIXES = {
@@ -1500,10 +1509,21 @@ def load_data():
     )
 
     df = df[
-        (df["alert-type"].str.lower() != "event")
-        & (df["alert-type"] != "")
-        & (df["alert-type"].str.lower() != "nan")
-    ].copy()
+            df["alert-type"].notna()
+            & ~df["alert-type"].str.lower().isin([
+                "",
+                "none",
+                "nan",
+                "null",
+                "n/a",
+                "na",
+            ])
+        ].copy()
+
+        # Remove Event records
+    df = df[
+        df["alert-type"].str.lower() != "event"
+        ].copy()
 
     # Clean Actor of repression.
     df["Actor of repression"] = (
