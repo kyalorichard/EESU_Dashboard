@@ -2635,6 +2635,88 @@ filtered_global = data[
     (data['year'].isin(selected_years))
 ].copy()
 
+# -----------------------------------------------------
+# DEBUG: IDENTIFY RECORDS EXCLUDED BY EACH GLOBAL FILTER
+# -----------------------------------------------------
+
+debug_base = data.copy()
+
+debug_region = debug_base[
+    debug_base["region"].isin(selected_regions)
+]
+
+debug_country = debug_region[
+    debug_region["alert-country"].isin(selected_countries)
+]
+
+debug_alert_type = debug_country[
+    debug_country["alert-type"].isin(selected_alert_types)
+]
+
+debug_principle = debug_alert_type[
+    debug_alert_type["enabling-principle"].apply(
+        lambda x: contains_any(
+            x,
+            selected_enabling_principle
+        )
+    )
+]
+
+debug_impact = debug_principle[
+    debug_principle["alert-impact"].isin(
+        selected_alert_impacts
+    )
+]
+
+debug_month = debug_impact[
+    debug_impact["month_name"].isin(
+        selected_months
+    )
+]
+
+debug_year = debug_month[
+    debug_month["year"].isin(
+        selected_years
+    )
+]
+
+st.sidebar.markdown("### 🔎 Filter diagnostics")
+
+st.sidebar.write(
+    f"Raw dataset: **{len(data):,}**"
+)
+
+st.sidebar.write(
+    f"After Region: **{len(debug_region):,}**"
+)
+
+st.sidebar.write(
+    f"After Country: **{len(debug_country):,}**"
+)
+
+st.sidebar.write(
+    f"After Alert Type: **{len(debug_alert_type):,}**"
+)
+
+st.sidebar.write(
+    f"After Enabling Principle: **{len(debug_principle):,}**"
+)
+
+st.sidebar.write(
+    f"After Impact: **{len(debug_impact):,}**"
+)
+
+st.sidebar.write(
+    f"After Month: **{len(debug_month):,}**"
+)
+
+st.sidebar.write(
+    f"After Year: **{len(debug_year):,}**"
+)
+
+st.sidebar.write(
+    f"FINAL filtered_global: **{len(filtered_global):,}**"
+)
 
 st.session_state["eusee_active_filtered_df"] = filtered_global.copy()
 
