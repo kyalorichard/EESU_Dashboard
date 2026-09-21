@@ -11420,6 +11420,8 @@ def _display_column_name(column: str) -> str:
         "Type of event": "Event type",
         "creation_date": "Date",
         "month_name": "Month",
+        "_analysis_period": "Analysis period",
+        "analysis_period": "Analysis period",
     }
     return labels.get(column, str(column).replace("_", " ").replace("-", " ").title())
 
@@ -12503,6 +12505,13 @@ def _metric_series(group: pd.DataFrame, metric: dict, denominator: int | None = 
 def _choose_visualization(plan: dict, result_df: pd.DataFrame) -> str:
     requested = str(plan.get("visualization", "auto")).lower()
     if requested != "auto":
+        if requested in {"line", "area"} and result_df is not None and not result_df.empty:
+            temporal_cols = [
+                c for c in result_df.columns
+                if str(c).strip().lower() in {"analysis period", "_analysis_period"}
+            ]
+            if temporal_cols and result_df[temporal_cols[0]].nunique(dropna=True) <= 1:
+                return "bar"
         return requested
 
     if result_df.empty:
@@ -12515,6 +12524,12 @@ def _choose_visualization(plan: dict, result_df: pd.DataFrame) -> str:
         _clean_ai_text(c) in {"creation_date", "year", "month_name"}
         for c in group_by
     ):
+        temporal_cols = [
+            c for c in result_df.columns
+            if str(c).strip().lower() in {"analysis period", "_analysis_period"}
+        ]
+        if temporal_cols and result_df[temporal_cols[0]].nunique(dropna=True) <= 1:
+            return "bar"
         return "line"
 
     if len(group_by) >= 2:
@@ -12770,13 +12785,52 @@ def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
             }
     elif not chart_df.empty and len(chart_df.columns) >= 2:
         chart_type = _choose_visualization(plan, chart_df)
-        x_col = chart_df.columns[0]
-        numeric_cols = [
-            c for c in chart_df.columns[1:]
-            if pd.api.types.is_numeric_dtype(chart_df[c])
+
+        # CRITICAL CHART INTEGRITY RULE:
+        # Never select a numeric grouping column (for example `year`) as the
+        # y-axis merely because it happens to be numeric. The y-axis must come
+        # from the metric(s) explicitly requested/computed by the plan.
+        metric_aliases = [
+            str(m.get("alias", "")).strip()
+            for m in (plan.get("metrics") or [])
+            if isinstance(m, dict) and str(m.get("alias", "")).strip()
         ]
-        if numeric_cols and chart_type != "none":
-            y_col = numeric_cols[0]
+        metric_columns = [
+            c for c in metric_aliases
+            if c in chart_df.columns and pd.api.types.is_numeric_dtype(chart_df[c])
+        ]
+        if not metric_columns:
+            metric_columns = [
+                c for c in chart_df.columns
+                if c not in {
+                    _display_column_name(g) for g in (plan.get("group_by") or [])
+                }
+                and c not in {_display_column_name("_analysis_period"), "Analysis period"}
+                and pd.api.types.is_numeric_dtype(chart_df[c])
+            ]
+
+        # Temporal analyses should use the generated analysis period as x.
+        # For a multi-region/multi-category trend, retain the second grouping
+        # dimension as a colour series rather than silently discarding it.
+        group_columns = [
+            _display_column_name(c)
+            for c in (plan.get("group_by") or [])
+            if _display_column_name(c) in chart_df.columns
+        ]
+        period_columns = [
+            c for c in chart_df.columns
+            if str(c).strip().lower() in {"analysis period", "_analysis_period"}
+        ]
+
+        if chart_type != "none" and metric_columns:
+            y_col = metric_columns[0]
+            if plan.get("time_granularity") != "none" and period_columns:
+                x_col = period_columns[0]
+            elif group_columns:
+                x_col = group_columns[0]
+            else:
+                x_col = chart_df.columns[0]
+
             chart = {
                 "type": chart_type,
                 "x": x_col,
@@ -12786,6 +12840,14 @@ def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
                 "y_label": _display_column_name(y_col),
                 "data": chart_df.to_dict("records"),
             }
+
+            # Preserve a meaningful comparison dimension for time-series charts.
+            color_candidates = [
+                c for c in group_columns
+                if c != x_col and c in chart_df.columns
+            ]
+            if chart_type in {"line", "area"} and color_candidates:
+                chart["color"] = color_candidates[0]
 
     analysis = {
         "intent": intent,
@@ -12934,28 +12996,68 @@ def _process_eusee_ai_request(user_question: str) -> dict:
     validated_plan, plan_warnings = _validate_plan(df, plan)
 
     # Deterministic Q1-Q4/H1-H2 handling. This is deliberately outside the LLM.
+    # IMPORTANT: month_name is often a derived analysis column, so always work
+    # from the prepared dataframe rather than requiring it to exist in the raw
+    # source dataframe. This guarantees that Q1/Q2/Q3/Q4 and H1/H2 filters are
+    # actually applied to the records used for the answer and chart.
     q = user_question.lower()
     temporal_months = None
+    temporal_label = None
     for quarter, months in QUARTER_MONTHS.items():
         if re.search(rf"\bq{quarter}\b|\bquarter\s*{quarter}\b", q):
             temporal_months = months
+            temporal_label = f"Q{quarter}"
             break
     if temporal_months is None and re.search(r"\b(h1|first half|first half-year)\b", q):
         temporal_months = QUARTER_MONTHS[1] + QUARTER_MONTHS[2]
+        temporal_label = "H1"
     if temporal_months is None and re.search(r"\b(h2|second half|second half-year)\b", q):
         temporal_months = QUARTER_MONTHS[3] + QUARTER_MONTHS[4]
+        temporal_label = "H2"
 
-    if temporal_months and "month_name" in df.columns:
-        available = set(_actual_values(df, "month_name", 50))
-        temporal_filter = {
-            "column": "month_name",
-            "operator": "in",
-            "value": [m for m in temporal_months if m in available],
-        }
-        validated_plan["filters"] = [
-            f for f in validated_plan.get("filters", [])
-            if f.get("column") != "month_name"
-        ] + [temporal_filter]
+    if temporal_months:
+        analysis_df = _prepare_analysis_dataframe(df)
+        if "month_name" in analysis_df.columns:
+            available = set(_actual_values(analysis_df, "month_name", 50))
+            matched_months = [m for m in temporal_months if m in available]
+            if matched_months:
+                temporal_filter = {
+                    "column": "month_name",
+                    "operator": "in",
+                    "value": matched_months,
+                }
+                validated_plan["filters"] = [
+                    f for f in validated_plan.get("filters", [])
+                    if f.get("column") != "month_name"
+                ] + [temporal_filter]
+
+                # A quarter/half-year named together with a specific year is a
+                # bounded period, not a request for the whole multi-period trend.
+                # The filter above is combined with the year filter when present.
+                # If the planner omitted the year, recover it from the question.
+                mentioned_years = [
+                    int(y) for y in re.findall(r"\b(19\d{2}|20\d{2}|21\d{2})\b", q)
+                ]
+                if mentioned_years and "year" in analysis_df.columns:
+                    year_values = [
+                        y for y in mentioned_years
+                        if y in set(pd.to_numeric(analysis_df["year"], errors="coerce").dropna().astype(int))
+                    ]
+                    if year_values:
+                        validated_plan["filters"] = [
+                            f for f in validated_plan.get("filters", [])
+                            if f.get("column") != "year"
+                        ] + [{
+                            "column": "year",
+                            "operator": "in" if len(set(year_values)) > 1 else "eq",
+                            "value": sorted(set(year_values)),
+                        }]
+
+    # A named quarter/half-year used with a trend/change request is a bounded
+    # window. Plot the periods inside that window (e.g. Jul-Aug-Sep for Q3)
+    # rather than accidentally showing Q1-Q3 for the full year.
+    if temporal_label and validated_plan.get("intent") in {"trend", "change"}:
+        validated_plan["time_granularity"] = "month"
 
     analysis = _execute_plan(df, validated_plan)
     analysis.setdefault("analysis", {})["warnings"] = plan_warnings
@@ -13222,11 +13324,15 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
             x_col: chart.get("x_label", x_col),
             y_col: chart.get("y_label", y_col),
         }
+        color_col = chart.get("color")
+        if color_col not in chart_df.columns:
+            color_col = None
 
         if chart_type == "line":
             fig = px.line(
-                chart_df, x=x_col, y=y_col, title=title,
-                markers=True, labels=labels,
+                chart_df, x=x_col, y=y_col,
+                color=color_col,
+                title=title, markers=True, labels=labels,
             )
         elif chart_type == "pie":
             fig = px.pie(
@@ -13238,7 +13344,8 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
             )
         elif chart_type == "area":
             fig = px.area(
-                chart_df, x=x_col, y=y_col, title=title, labels=labels,
+                chart_df, x=x_col, y=y_col, color=color_col,
+                title=title, labels=labels,
             )
         else:
             fig = px.bar(
