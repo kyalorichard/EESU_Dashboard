@@ -3558,13 +3558,13 @@ def _inject_cfr_dashboard_css():
             height: 400px;
             margin-top: 4px;
             border: 0 !important;
+            border-bottom:1px solid #DDE4EE !important;
             border-radius: 0 !important;
             overflow: visible !important;
         }
 
         table.cfr-region-table{
             width:100%;
-            height:70%;
             table-layout:fixed;
             border-collapse:collapse;
             border:1px solid #DDE4EE !important;
