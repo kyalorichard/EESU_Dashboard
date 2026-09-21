@@ -13675,19 +13675,35 @@ def _render_eusee_ai_copilot_body():
 
 
 def render_eusee_ai_copilot_popover():
-    """Render the existing EU SEE Copilot launcher without changing its appearance."""
+    """Render the existing EU SEE Copilot launcher exactly once per run.
+
+    The previous implementation caught ALL exceptions raised inside the
+    popover body and then rendered the body again in an expander. If the first
+    body render had already registered a Streamlit form, the second render
+    reused the same form key and triggered a duplicate-form exception.
+
+    The fallback below is therefore limited to creation of the popover
+    container. Exceptions raised by the chatbot body are allowed to surface
+    normally instead of causing a second widget tree to be rendered.
+    """
     if not has_permission("use_ai_copilot"):
         return
 
     inject_eusee_ai_popover_css()
 
+    popover = None
     try:
-        with st.popover(
+        popover = st.popover(
             "💬 AI assistant",
             use_container_width=False,
-        ):
-            _render_eusee_ai_copilot_body()
+        )
     except Exception:
+        popover = None
+
+    if popover is not None:
+        with popover:
+            _render_eusee_ai_copilot_body()
+    else:
         with st.expander(
             "💬 AI assistant",
             expanded=False,
