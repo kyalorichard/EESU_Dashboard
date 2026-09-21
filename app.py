@@ -3093,659 +3093,1140 @@ def load_cfr_data(
 # CFR CSS
 # ------------------------------------------------------------
 def _inject_cfr_dashboard_css():
-    
     st.markdown(
         """
         <style>
-
-        /* ============================================================
-           CFR DESIGN TOKENS
-           ============================================================ */
-
-        :root {
-            --cfr-purple: #660094;
-            --cfr-purple-light: #F7F0FA;
-            --cfr-purple-border: #D6BBE5;
-            --cfr-text: #1F2937;
-            --cfr-muted: #667085;
-            --cfr-border: #E4E7EC;
-            --cfr-background: #FFFFFF;
-            --cfr-panel-height: 560px;
-            --cfr-content-height: 470px;
-        }
-
-
-        /* ============================================================
-           MAIN CFR PANELS
-           ============================================================ */
-
-        /*
-         * Both top-level CFR bordered containers use the same fixed
-         * height so the left and right panels align perfectly.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ),
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) {
-            height: var(--cfr-panel-height) !important;
-            min-height: var(--cfr-panel-height) !important;
-            max-height: var(--cfr-panel-height) !important;
-
-            box-sizing: border-box !important;
-            overflow: hidden !important;
-        }
-
-
-        /* Keep the inner Streamlit block within the same height */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) > div,
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) > div {
-            min-height: 100% !important;
-            box-sizing: border-box !important;
-        }
-
-
-        /* ============================================================
-           CFR PANEL HEADING
-           ============================================================ */
-
-        .cfr-chart-panel-heading {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-
-            min-height: 58px;
-
-            margin: 0 0 10px 0;
-            padding: 0;
-        }
-
-
-        .cfr-panel-title {
-            color: var(--cfr-text);
-
-            font-size: 16px;
-            line-height: 1.3;
-            font-weight: 750;
-
-            margin: 0;
-            padding: 0;
-        }
-
-
-        .cfr-panel-note {
-            color: var(--cfr-muted);
-
-            font-size: 11px;
-            line-height: 1.45;
-            font-weight: 500;
-
-            margin-top: 4px;
-            padding: 0;
-        }
-
-
-        /* ============================================================
-           SELECTOR LABELS
-           ============================================================ */
-
-        .cfr-chart-panel-selector-label {
-            color: #475467;
-
-            font-size: 11px;
-            line-height: 1.2;
-            font-weight: 700;
-
-            min-height: 17px;
-
-            margin: 0 0 4px 0;
-            padding: 0;
-        }
-
-
-        /* ============================================================
-           LEFT CFR TABBED PANEL
-           ============================================================ */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs {
-            height: var(--cfr-content-height) !important;
-            min-height: var(--cfr-content-height) !important;
-        }
-
-
-        /*
-         * Streamlit tab navigation remains compact and does not
-         * consume unnecessary vertical space.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs [data-baseweb="tab-list"] {
-            gap: 4px;
-
-            border-bottom: 1px solid var(--cfr-border);
-
-            margin-bottom: 10px;
-        }
-
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs [data-baseweb="tab"] {
-            font-size: 12px;
-            font-weight: 650;
-
-            padding: 8px 12px;
-
-            color: #667085;
-        }
-
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs [aria-selected="true"] {
-            color: var(--cfr-purple);
-            font-weight: 750;
-        }
-
-
-        /*
-         * Both tab panels receive the same vertical space.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs [data-baseweb="tab-panel"] {
-            height: 420px !important;
-            min-height: 420px !important;
-
-            padding-top: 0 !important;
-            box-sizing: border-box !important;
-        }
-
-
-        /* ============================================================
-           AGGREGATED CFR PRINCIPLE MATRIX
-           ============================================================ */
-
-        .cfr-principle-matrix {
-            min-height: 360px;
-
-            width: 100%;
-
-            box-sizing: border-box;
-
-            margin-top: 8px;
-        }
-
-
-        /*
-         * Prevent the zoom controls from changing the overall
-         * vertical rhythm of the matrix panel.
-         */
-
-        #eusee-cfr-zoom-controls {
-            height: 32px !important;
-
-            margin: 2px 0 8px 0 !important;
-        }
-
-
-        /* ============================================================
-           PLOTLY — DISTRIBUTION OF PRINCIPLES ACROSS YEARS
-           ============================================================ */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .js-plotly-plot {
-            height: 360px !important;
-            min-height: 360px !important;
-            max-height: 360px !important;
-
-            margin-top: 2px;
-        }
-
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .plot-container {
-            height: 360px !important;
-        }
-
-
-        /*
-         * Make Plotly canvas responsive without allowing it to
-         * expand the parent panel.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .js-plotly-plot .plotly {
-            height: 360px !important;
-        }
-
-
-        /* ============================================================
-           RIGHT — REGIONAL SCORE PATTERNS
-           ============================================================ */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) {
-            display: flex !important;
-            flex-direction: column !important;
-        }
-
-
-        /*
-         * Keep the header + selector compact so that the table has
-         * a predictable amount of vertical space.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) .cfr-chart-panel-heading {
-            min-height: 58px;
-        }
-
-
-        /*
-         * Regional table wrapper.
-         *
-         * The selector is intentionally not forced to fill the
-         * remaining space; the table receives the main visual area.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) table {
-            width: 100% !important;
-            min-height: 360px !important;
-
-            box-sizing: border-box;
-        }
-
-
-        /*
-         * If the regional table has a dedicated wrapper, keep it
-         * aligned with the chart height.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) .cfr-regional-table {
-            min-height: 360px !important;
-            max-height: 360px !important;
-
-            overflow-y: auto;
-        }
-
-
-        /* ============================================================
-           STREAMLIT SELECTBOX CONSISTENCY
-           ============================================================ */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) [data-baseweb="select"],
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) [data-baseweb="select"] {
-            min-height: 36px;
-        }
-
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) [data-baseweb="select"] > div,
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) [data-baseweb="select"] > div {
-            min-height: 36px;
-        }
-
-
-        /* ============================================================
-           PANEL SPACING
-           ============================================================ */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stMarkdown,
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) .stMarkdown {
-            margin-bottom: 0;
-        }
-
-
-        /*
-         * Prevent empty Streamlit blocks from introducing large
-         * unexplained gaps inside the CFR panels.
-         */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) [data-testid="stVerticalBlock"] > div:empty,
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) [data-testid="stVerticalBlock"] > div:empty {
-            display: none !important;
-        }
-
-
-        /* ============================================================
-           CFR PANEL BORDER / VISUAL POLISH
-           ============================================================ */
-
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ),
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) {
-            border: 1px solid var(--cfr-border) !important;
-            border-radius: 12px !important;
-
-            background: var(--cfr-background) !important;
-
-            box-shadow:
-                0 1px 2px rgba(16, 24, 40, 0.03),
-                0 2px 8px rgba(16, 24, 40, 0.03) !important;
-        }
-
-
-        /* ============================================================
-           ZOOM CONTROL STYLING
-           ============================================================ */
-
-        #eusee-cfr-zoom-controls {
-            display: inline-flex;
-
-            align-items: center;
-            justify-content: flex-end;
-
-            gap: 6px;
-
-            width: 100%;
-
-            margin: 2px 0 8px 0;
-
+        .cfr-page {
             font-family:
                 "Anek Devanagari",
                 Arial,
                 sans-serif;
+            color: #101B57;
         }
 
+        .cfr-page-title {
+            margin: 1px 0 0 0;
+            color: #101B57;
+            font-size: clamp(28px, 3vw, 40px);
+            line-height: 1.05;
+            font-weight: 950;
+            letter-spacing: -.02em;
+        }
 
-        #eusee-cfr-zoom-controls button {
-            display: inline-flex;
+        .cfr-page-subtitle {
+            margin: 8px 0 10px 0;
+            color: black;
+            font-size: 13px;
+            line-height: 1.45;
+            font-weight: 550;
+        }
 
+        .cfr-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin: 20px 0 18px 0;
+        }
+
+        .cfr-kpi-card {
+            min-height: 118px;
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr);
+            align-items: center;
+            column-gap: 16px;
+            padding: 18px 20px;
+            box-sizing: border-box;
+            background: #FFFFFF;
+            border: 1px solid #E1E5ED;
+            border-radius: 14px;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035);
+        }
+
+        .cfr-kpi-content {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .cfr-kpi-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 999px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #F7F2FF 0%,
+                    #EDF7FF 100%
+                );
+            border: 1px solid #D9DDF8;
+            color: #5F24F5;
+            font-size: 28px;
+            line-height: 1;
+        }
 
-            min-width: 34px;
-            height: 32px;
+        .cfr-kpi-title {
+            color: #101B57;
+            font-size: 13px;
+            line-height: 1.15;
+            font-weight: 900;
+            white-space: normal;
+        }
 
-            padding: 0 10px;
+        .cfr-kpi-value {
+            margin-top: 7px;
+            color: #008CAA;
+            font-size: 29px;
+            line-height: 1;
+            font-weight: 950;
+            font-variant-numeric: tabular-nums;
+        }
 
-            border: 1px solid var(--cfr-purple-border);
-            border-radius: 9px;
+        .cfr-kpi-note {
+            margin-top: 5px;
+            color: #52628C;
+            font-size: 11px;
+            line-height: 1.2;
+            font-weight: 550;
+        }
 
+        .cfr-panel {
+            height: 100%;
+            box-sizing: border-box;
+            padding: 14px 16px 12px 16px;
             background: #FFFFFF;
-            color: var(--cfr-purple);
+            border: 1px solid #E1E5ED;
+            border-radius: 14px;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035);
+        }
 
-            font:
-                800 12px/1
+        .cfr-panel-title {
+            color: #101B57;
+            font-size: 17px;
+            line-height: 1.15;
+            font-weight: 950;
+        }
+
+        .cfr-panel-note {
+            margin-top: 3px;
+            margin-bottom: 10px;
+            color: #52628C;
+            font-size: 11px;
+            line-height: 1.3;
+            font-weight: 550;
+        }
+
+        /*
+        The chart panel uses Streamlit's real bordered container so the
+        heading, selector and Plotly chart remain inside one DOM panel.
+        The hidden marker limits these styles to the CFR chart panel.
+        */
+        .cfr-chart-panel-marker,
+        .cfr-region-panel-marker {
+            display: none;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) {
+            min-height: 430px !important;
+            height: auto !important;
+            box-sizing: border-box;
+            padding: 14px 18px 14px 18px !important;
+            background: #FFFFFF !important;
+            border: 1px solid #E1E5ED !important;
+            border-radius: 14px !important;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035) !important;
+            overflow: visible !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) > div {
+            gap: 0 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) div[data-testid="stSelectbox"] label {
+            display: none !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) div[data-baseweb="select"] > div {
+            min-height: 34px !important;
+            height: 34px !important;
+            border: 1px solid #D8DDE8 !important;
+            border-radius: 7px !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .04) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) div[data-baseweb="select"] span {
+            color: #344054 !important;
+            font-size: 11px !important;
+            font-weight: 750 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            height: 100%;
+            box-sizing: border-box;
+            padding: 16px 18px 10px 18px !important;
+            background: #FFFFFF !important;
+            border: 1px solid #E1E5ED !important;
+            border-radius: 14px !important;
+            box-shadow: 0 5px 16px rgba(16, 24, 40, .035) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) > div {
+            gap: 0 !important;
+        }
+
+        .cfr-chart-panel-heading {
+            padding-top: 1px;
+            padding-bottom: 4px;
+        }
+
+        /* Keep both upper CFR panels the same height. */
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            min-height: 470px;
+            height: 470px;
+            overflow: hidden;
+        }
+
+        .cfr-top-panel-height {
+            min-height: 470px;
+            height: 470px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .cfr-chart-panel-selector-label {
+            margin-bottom: 4px;
+            color: #101B57;
+            font-size: 10px;
+            line-height: 1.1;
+            font-weight: 900;
+            text-align: left;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stSelectbox"] {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stSelectbox"] label {
+            display: none !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-baseweb="select"] > div {
+            min-height: 38px !important;
+            border: 1px solid #D8DDE8 !important;
+            border-radius: 9px !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .04) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-baseweb="select"] span {
+            color: #344054 !important;
+            font-size: 11px !important;
+            font-weight: 750 !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stPlotlyChart"] {
+            margin-top: 2px !important;
+        }
+
+        /* =====================================================
+           REFERENCE-MATCHED CFR UPPER PANELS
+           ===================================================== */
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            min-height: 430px !important;
+            height: auto !important;
+            padding: 14px 18px 14px 18px !important;
+            overflow: visible !important;
+        }
+
+        .cfr-top-panel-height {
+            min-height: 430px !important;
+            height: auto !important;
+            padding: 14px 18px 14px 18px !important;
+            overflow: visible !important;
+        }
+
+        .cfr-panel-title {
+            font-size: 16px;
+            line-height: 1.12;
+            letter-spacing: -0.01em;
+        }
+
+        .cfr-panel-note {
+            margin-top: 4px;
+            margin-bottom: 10px;
+            font-size: 10.5px;
+            line-height: 1.25;
+        }
+
+        .cfr-chart-panel-heading {
+            padding: 0;
+        }
+
+        .cfr-chart-panel-selector-label {
+            margin: 0 0 3px 0;
+            font-size: 9.5px;
+            line-height: 1;
+            text-align: left;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-baseweb="select"] > div {
+            min-height: 34px !important;
+            height: 34px !important;
+            border-radius: 7px !important;
+        }
+
+        /* Left principle-score matrix. */
+        .cfr-principle-matrix {
+            width: 100%;
+            margin-top: 3px;
+            color: #101B57;
+            font-family: "Anek Devanagari", Arial, sans-serif;
+        }
+
+        .cfr-principle-grid {
+            display: grid;
+            grid-template-columns:
+                minmax(205px, 1.65fr)
+                minmax(260px, 2.35fr)
+                70px;
+            align-items: center;
+            column-gap: 12px;
+        }
+
+        .cfr-principle-header {
+            min-height: 43px;
+            padding-bottom: 4px;
+            border-bottom: 0;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .cfr-principle-header-left {
+            align-self: end;
+            padding-bottom: 4px;
+        }
+
+        .cfr-scale-header {
+            display: grid;
+            grid-template-rows: 17px 20px;
+            align-items: end;
+        }
+
+        .cfr-scale-ends {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 3px;
+            font-size: 9.8px;
+            font-weight: 900;
+        }
+
+        .cfr-scale-ticks {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            text-align: center;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .cfr-score-header {
+            align-self: end;
+            padding-bottom: 4px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .cfr-principle-row {
+            min-height: 45px;
+        }
+
+        .cfr-principle-label {
+            display: grid;
+            grid-template-columns: 36px minmax(0, 1fr);
+            align-items: center;
+            column-gap: 10px;
+            min-width: 0;
+        }
+
+        .cfr-principle-badge {
+            width: 35px;
+            height: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            color: #FFFFFF;
+            font-size: 13px;
+            line-height: 1;
+            font-weight: 950;
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,.08);
+        }
+
+        .cfr-principle-name {
+            min-width: 0;
+            color: #101B57;
+            font-size: 10.8px;
+            line-height: 1.14;
+            font-weight: 850;
+            white-space: normal;
+        }
+
+        .cfr-score-track-wrap {
+            position: relative;
+            height: 22px;
+            display: flex;
+            align-items: center;
+        }
+
+        .cfr-score-track {
+            position: relative;
+            width: 100%;
+            height: 5px;
+            border-radius: 999px;
+            background: #E4E6E8;
+            overflow: visible;
+        }
+
+        .cfr-score-progress {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 5px;
+            border-radius: 999px;
+        }
+
+        .cfr-score-dot {
+            position: absolute;
+            top: 50%;
+            width: 13px;
+            height: 13px;
+            border: 2px solid #FFFFFF;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 1px 3px rgba(16, 24, 40, .20);
+        }
+
+        .cfr-score-value {
+            color: #5A0A78;
+            text-align: center;
+            font-size: 15px;
+            line-height: 1;
+            font-weight: 950;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Reference-matched regional matrix. */
+        .cfr-region-scroll {
+            width: 100%;
+            max-height: none !important;
+            margin-top: 4px;
+            border: 0 !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+        }
+
+        table.cfr-region-table{
+            width:100%;
+            table-layout:fixed;
+            border-collapse:collapse;
+            border:1px solid #DDE4EE !important;
+            border-radius:12px;
+            overflow:hidden;
+        }
+
+        table.cfr-region-table th,
+        table.cfr-region-table td{
+            border-right:1px solid #DDE4EE !important;
+            border-bottom:1px solid #DDE4EE !important;
+        }
+
+        table.cfr-region-table tr:last-child td{
+            border-bottom:1px solid #DDE4EE !important;
+        }
+
+        table.cfr-region-table th:last-child,
+        table.cfr-region-table td:last-child{
+            border-right:1px solid #DDE4EE !important;
+        }
+
+        table.cfr-region-table thead th {
+            position: static !important;
+            height: 48px;
+            padding: 4px 7px 3px 7px !important;
+            background: #FFFFFF !important;
+            border-right: 0 !important;
+            border-bottom: 1px solid #E3E8F0 !important;
+            vertical-align: bottom;
+        }
+
+        table.cfr-region-table tbody td {
+            height: 50px;
+            padding: 7px 8px !important;
+            background: #FFFFFF;
+            border-right: 1px solid #DDE4EE !important;
+            border-bottom: 1px solid #DDE4EE !important;
+            color: #101B57;
+            font-size: 11px !important;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        table.cfr-region-table tbody tr:last-child td {
+            border-bottom: 1 !important;
+        }
+
+        table.cfr-region-table th:first-child,
+        table.cfr-region-table td:first-child {
+            width: 29% !important;
+            padding-left: 10px !important;
+            padding-right: 12px !important;
+            text-align: left !important;
+            white-space: normal !important;
+            overflow-wrap: normal !important;
+            color: #101B57;
+            font-weight: 850;
+        }
+
+        table.cfr-region-table th:not(:first-child),
+        table.cfr-region-table td:not(:first-child) {
+            width: 11.83% !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+        }
+
+        table.cfr-region-table th:last-child,
+        table.cfr-region-table td:last-child {
+            border-right: 1 !important;
+        }
+
+        table.cfr-region-table .cfr-principle-head {
+            width: 64px !important;
+            min-width: 0 !important;
+            height: 30px !important;
+            padding: 0 !important;
+            border-radius: 5px !important;
+            color: #FFFFFF !important;
+            font-size: 14px !important;
+            font-weight: 950 !important;
+        }
+
+        table.cfr-region-table tbody tr:hover {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        /* Stretch both upper-column wrappers to equal height. */
+        div[data-testid="stHorizontalBlock"]:has(
+            .cfr-chart-panel-marker
+        ) {
+            align-items: stretch !important;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(
+            .cfr-chart-panel-marker
+        ) > div[data-testid="stColumn"] {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(
+            .cfr-chart-panel-marker
+        ) > div[data-testid="stColumn"] > div {
+            flex: 1 1 auto;
+        }
+
+        .cfr-country-table-panel {
+            margin-top: 14px;
+        }
+
+        .cfr-table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: auto;
+            border: 1px solid #EEF0F4;
+            border-radius: 10px;
+            background: #FFFFFF;
+        }
+
+        .cfr-region-scroll {
+            width: 100%;
+            max-height: 430px;
+            overflow-x: hidden !important;
+            overflow-y: auto;
+        }
+
+        table.cfr-region-table {
+            width: 100% !important;
+            min-width: 0 !important;
+            table-layout: fixed !important;
+        }
+
+        table.cfr-region-table th,
+        table.cfr-region-table td {
+            padding: 9px 5px !important;
+            font-size: 10.5px !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        table.cfr-region-table th:first-child,
+        table.cfr-region-table td:first-child {
+            width: 42%;
+            padding-left: 9px !important;
+            padding-right: 7px !important;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            text-overflow: clip;
+        }
+
+        table.cfr-region-table th:not(:first-child),
+        table.cfr-region-table td:not(:first-child) {
+            width: 9.66%;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        table.cfr-region-table .cfr-principle-head {
+            min-width: 0;
+            width: 27px;
+            height: 24px;
+            padding: 0 !important;
+            border-radius: 6px;
+            font-size: 9.5px;
+        }
+
+        .cfr-country-scroll {
+            max-height: 485px;
+        }
+
+        table.cfr-table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            color: #101B57;
+            background: #FFFFFF;
+            font-family:
                 "Anek Devanagari",
                 Arial,
                 sans-serif;
-
-            cursor: pointer;
-
-            box-shadow:
-                0 2px 6px rgba(16, 24, 40, 0.05);
-
-            transition:
-                background 0.15s ease,
-                border-color 0.15s ease,
-                box-shadow 0.15s ease;
+            font-size: 11.5px;
         }
 
-
-        #eusee-cfr-zoom-controls button:hover {
-            background: #FBF7FD;
-            border-color: var(--cfr-purple);
-
-            box-shadow:
-                0 3px 8px rgba(16, 24, 40, 0.08);
-        }
-
-
-        #eusee-cfr-zoom-controls button:focus-visible {
-            outline:
-                3px solid
-                rgba(102, 0, 148, 0.18);
-
-            outline-offset: 1px;
-        }
-
-
-        #eusee-cfr-zoom-controls .cfr-zoom-value {
-            min-width: 46px;
-
+        table.cfr-table th,
+        table.cfr-table td {
+            padding: 10px 11px;
+            border-right: 1px solid #E9ECF2;
+            border-bottom: 1px solid #E9ECF2;
             text-align: center;
+            vertical-align: middle;
+        }
 
-            color: var(--cfr-muted);
+        table.cfr-table th:last-child,
+        table.cfr-table td:last-child {
+            border-right: 0;
+        }
 
-            font-size: 11px;
+        table.cfr-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        table.cfr-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: #FAFBFC;
+            color: #101B57;
+            font-weight: 900;
+        }
+
+        table.cfr-table th.cfr-left,
+        table.cfr-table td.cfr-left {
+            width: 31%;
+            text-align: left;
             font-weight: 800;
         }
 
-
-        /* ============================================================
-           PRINCIPLE MATRIX ZOOM
-           ============================================================ */
-
-        .cfr-principle-matrix {
-            transform-origin: top left;
-            transition: transform 0.16s ease;
+        table.cfr-country-table th.cfr-left,
+        table.cfr-country-table td.cfr-left {
+            width: 25%;
         }
 
+        table.cfr-country-table th,
+        table.cfr-country-table td {
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
 
-        /* ============================================================
-           TABLE SCROLLING
-           ============================================================ */
+        table.cfr-table tbody tr {
+            transition:
+                background-color .15s ease,
+                box-shadow .15s ease;
+        }
 
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) {
+        table.cfr-table tbody tr:hover {
+            background: #FAF8FF;
+            box-shadow:
+                inset 3px 0 0 #6C4CF1;
+        }
+
+        .cfr-principle-head {
+            display: inline-flex;
+            min-width: 54px;
+            height: 28px;
+            padding: 0 12px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            color: #101B57;
+            font-size: 13px;
+            font-weight: 950;
+        }
+
+        .cfr-date-cell {
+            color: #344054;
+            white-space: nowrap;
+        }
+
+        .cfr-report-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 92px;
+            min-height: 31px;
+            padding: 0 12px;
+            box-sizing: border-box;
+            border: 1px solid #D8C6F0;
+            border-radius: 8px;
+            background: #F8F4FF;
+            color: #5B21B6 !important;
+            font-family:
+                "Anek Devanagari",
+                Arial,
+                sans-serif;
+            font-size: 10.5px;
+            line-height: 1;
+            font-weight: 900;
+            text-decoration: none !important;
+            white-space: nowrap;
+            transition:
+                background-color .15s ease,
+                border-color .15s ease,
+                transform .15s ease,
+                box-shadow .15s ease;
+        }
+
+        .cfr-report-link:hover {
+            background: #EEE6FF;
+            border-color: #9B7AE0;
+            box-shadow: 0 3px 8px rgba(91, 33, 182, .12);
+            transform: translateY(-1px);
+        }
+
+        .cfr-report-unavailable {
+            color: #98A2B3;
+            font-size: 10.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .cfr-empty {
+            padding: 28px 18px;
+            border: 1px dashed #D6DAE4;
+            border-radius: 12px;
+            background: #FAFBFC;
+            color: #667085;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        div[data-testid="stPlotlyChart"] {
+            width: 100% !important;
             overflow: hidden !important;
         }
 
+        .cfr-panel div[data-testid="stSelectbox"] {
+            margin-top: -3px;
+            margin-bottom: 2px;
+        }
 
-        [data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) .cfr-regional-table {
-            overflow-x: auto;
-            overflow-y: auto;
+        .cfr-panel div[data-testid="stSelectbox"] label {
+            color: #101B57 !important;
+            font-size: 10px !important;
+            font-weight: 900 !important;
+        }
 
+        .cfr-panel div[data-baseweb="select"] > div {
+            min-height: 34px !important;
+            border: 1px solid #D8DDE7 !important;
+            border-radius: 8px !important;
+            background: #FFFFFF !important;
+            box-shadow: none !important;
+        }
+
+        /* =====================================================
+           CFR MOBILE RESPONSIVENESS
+           ===================================================== */
+        .cfr-page,
+        .cfr-panel,
+        .cfr-principle-matrix,
+        .cfr-table-scroll,
+        .cfr-region-scroll,
+        .cfr-country-scroll {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
+        .cfr-table-scroll,
+        .cfr-region-scroll,
+        .cfr-country-scroll {
+            overflow-x: auto !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
             scrollbar-width: thin;
         }
 
-
-        /* ============================================================
-           RESPONSIVE — TABLET
-           ============================================================ */
-
-        @media (max-width: 1100px) {
-
-            :root {
-                --cfr-panel-height: 540px;
-                --cfr-content-height: 450px;
-            }
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ) .js-plotly-plot {
-                height: 340px !important;
-                min-height: 340px !important;
-                max-height: 340px !important;
-            }
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ) .plot-container {
-                height: 340px !important;
-            }
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) table {
-                min-height: 340px !important;
-            }
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) .cfr-regional-table {
-                min-height: 340px !important;
-                max-height: 340px !important;
-            }
+        .cfr-table-scroll::after,
+        .cfr-region-scroll::after,
+        .cfr-country-scroll::after {
+            content: "Swipe horizontally to view all columns";
+            display: none;
+            padding: 7px 2px 1px;
+            color: #667085;
+            font-size: 9.5px;
+            line-height: 1.2;
+            font-weight: 700;
+            text-align: left;
         }
 
-
-        /* ============================================================
-           RESPONSIVE — MOBILE
-           ============================================================ */
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) div[data-testid="stPlotlyChart"],
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .js-plotly-plot,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .plot-container,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .svg-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+        }
 
         @media (max-width: 900px) {
+            .cfr-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+                margin: 14px 0;
+            }
 
-            /*
-             * On narrow screens Streamlit stacks the columns.
-             * Fixed heights are therefore removed so that content
-             * can expand naturally.
-             */
+            .cfr-kpi-card {
+                min-height: 96px;
+                grid-template-columns: 46px minmax(0, 1fr);
+                column-gap: 11px;
+                padding: 13px 14px;
+            }
 
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-kpi-card:last-child {
+                grid-column: 1 / -1;
+            }
+
+            .cfr-kpi-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 22px;
+            }
+
+            .cfr-kpi-value {
+                font-size: 24px;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
                 .cfr-chart-panel-marker
             ),
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) {
-                height: auto !important;
+            .cfr-top-panel-height,
+            .cfr-panel {
                 min-height: 0 !important;
-                max-height: none !important;
-
+                height: auto !important;
+                padding: 13px !important;
                 overflow: visible !important;
             }
 
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
+            /* Stack the CFR panel heading and country selector. */
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
                 .cfr-chart-panel-marker
-            ) .stTabs {
-                height: auto !important;
-                min-height: 0 !important;
+            ) div[data-testid="stHorizontalBlock"] {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
             }
 
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
                 .cfr-chart-panel-marker
-            ) .stTabs [data-baseweb="tab-panel"] {
-                height: auto !important;
-                min-height: 0 !important;
+            ) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+                width: 100% !important;
+                min-width: 0 !important;
+                flex: 1 1 100% !important;
             }
 
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ) .js-plotly-plot {
-                height: 350px !important;
-                min-height: 350px !important;
-                max-height: none !important;
+            .cfr-chart-panel-selector-label {
+                margin-top: 2px;
             }
 
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ) .plot-container {
-                height: 350px !important;
+            /* Convert every principle row into a compact two-line mobile card. */
+            .cfr-principle-header {
+                display: none !important;
             }
 
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) .cfr-regional-table {
-                min-height: 0 !important;
-                max-height: 400px !important;
-
-                overflow-y: auto;
+            .cfr-principle-matrix {
+                display: grid;
+                gap: 8px;
+                margin-top: 10px;
             }
 
+            .cfr-principle-grid.cfr-principle-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 48px;
+                grid-template-areas:
+                    "label value"
+                    "track track";
+                column-gap: 10px;
+                row-gap: 8px;
+                min-height: 0;
+                padding: 10px;
+                border: 1px solid #E7EAF0;
+                border-radius: 10px;
+                background: #FCFCFD;
+            }
 
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) table {
-                min-height: 0 !important;
+            .cfr-principle-row .cfr-principle-label {
+                grid-area: label;
+                grid-template-columns: 34px minmax(0, 1fr);
+                column-gap: 8px;
+            }
+
+            .cfr-principle-row .cfr-score-track-wrap {
+                grid-area: track;
+                width: 100%;
+                height: 18px;
+                padding: 0 5px;
+                box-sizing: border-box;
+            }
+
+            .cfr-principle-row .cfr-score-value {
+                grid-area: value;
+                align-self: center;
+                justify-self: end;
+                font-size: 15px;
+            }
+
+            .cfr-principle-name {
+                font-size: 10.5px;
+                line-height: 1.2;
+                overflow-wrap: anywhere;
+            }
+
+            .cfr-principle-badge {
+                width: 33px;
+                height: 24px;
+                font-size: 12px;
+            }
+
+            .cfr-score-track,
+            .cfr-score-progress {
+                height: 6px;
+            }
+
+            .cfr-score-dot {
+                width: 14px;
+                height: 14px;
+            }
+
+            .cfr-table-scroll,
+            .cfr-region-scroll,
+            .cfr-country-scroll {
+                display: block;
+                max-height: min(62vh, 480px) !important;
+                border: 1px solid #E1E5ED !important;
+                border-radius: 10px !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+            }
+
+            .cfr-table-scroll::after,
+            .cfr-region-scroll::after,
+            .cfr-country-scroll::after {
+                display: block;
+                position: sticky;
+                left: 0;
+                background: #FFFFFF;
+            }
+
+            table.cfr-region-table,
+            table.cfr-country-table,
+            table.cfr-table {
+                width: max-content !important;
+                min-width: 700px !important;
+                table-layout: auto !important;
+            }
+
+            table.cfr-region-table th:first-child,
+            table.cfr-region-table td:first-child,
+            table.cfr-country-table th:first-child,
+            table.cfr-country-table td:first-child {
+                position: sticky;
+                left: 0;
+                z-index: 2;
+                min-width: 145px !important;
+                width: 145px !important;
+                background: #FFFFFF;
+                box-shadow: 1px 0 0 #E9ECF2;
+            }
+
+            table.cfr-region-table thead th:first-child,
+            table.cfr-country-table thead th:first-child {
+                z-index: 5;
+                background: #FAFBFC;
+            }
+
+            table.cfr-region-table th,
+            table.cfr-region-table td,
+            table.cfr-country-table th,
+            table.cfr-country-table td {
+                padding: 8px 9px !important;
+                font-size: 10px !important;
+                white-space: nowrap;
+            }
+
+            table.cfr-region-table .cfr-principle-head,
+            table.cfr-country-table .cfr-principle-head {
+                min-width: 38px;
+                height: 24px;
+                padding: 0 7px !important;
+                font-size: 10px;
+            }
+
+            .cfr-report-link {
+                min-width: 82px;
+                min-height: 29px;
+                padding: 0 9px;
+                font-size: 10px;
+            }
+
+            .cfr-country-table-panel {
+                margin-top: 12px;
             }
         }
 
-
-        /* ============================================================
-           VERY SMALL SCREENS
-           ============================================================ */
-
         @media (max-width: 600px) {
+            .cfr-page-title {
+                font-size: 25px;
+            }
+
+            .cfr-page-subtitle {
+                margin-bottom: 16px;
+                font-size: 11.5px;
+            }
+
+            .cfr-kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cfr-kpi-card:last-child {
+                grid-column: auto;
+            }
+
+            .cfr-kpi-card {
+                min-height: 84px;
+            }
 
             .cfr-panel-title {
-                font-size: 15px;
+                font-size: 14px;
             }
 
             .cfr-panel-note {
                 font-size: 10px;
+                line-height: 1.3;
             }
 
-            .cfr-chart-panel-selector-label {
-                font-size: 10px;
+            table.cfr-region-table,
+            table.cfr-country-table,
+            table.cfr-table {
+                min-width: 660px !important;
             }
 
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
+            /* Keep dashboard tabs usable without compressing labels. */
+            div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                flex-wrap: nowrap !important;
+                scrollbar-width: thin;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            div[data-testid="stTabs"] [data-baseweb="tab"] {
+                flex: 0 0 auto !important;
+                min-width: max-content !important;
+                white-space: nowrap !important;
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(
                 .cfr-chart-panel-marker
-            ) .js-plotly-plot {
-                height: 320px !important;
-                min-height: 320px !important;
-            }
-
-            [data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ) .plot-container {
-                height: 320px !important;
-            }
-
-            #eusee-cfr-zoom-controls {
-                justify-content: flex-start;
-                overflow-x: auto;
-            }
-
-            #eusee-cfr-zoom-controls button {
-                min-width: 32px;
-                height: 30px;
-                padding: 0 8px;
+            ) .modebar-container {
+                transform: scale(.82);
+                transform-origin: top right;
             }
         }
-
         </style>
         """,
         unsafe_allow_html=True,
     )
+
 # ------------------------------------------------------------
 # HTML HELPERS
 # ------------------------------------------------------------
