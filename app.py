@@ -3232,18 +3232,18 @@ def _inject_cfr_dashboard_css():
         }
 
         div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) {
-            min-height: 430px !important;
-            height: 430px !important;
-            box-sizing: border-box;
-            padding: 14px 18px 14px 18px !important;
-            background: #FFFFFF !important;
-            border: 1px solid #E1E5ED !important;
-            border-radius: 14px !important;
-            box-shadow: 0 5px 16px rgba(16, 24, 40, .035) !important;
-            overflow: hidden !important;
-        }
+        .cfr-region-panel-marker
+    ) {
+        min-height: 350px !important;
+        height: 350px !important;
+        box-sizing: border-box;
+        padding: 14px 18px 14px 18px !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E1E5ED !important;
+        border-radius: 14px !important;
+        box-shadow: 0 5px 16px rgba(16, 24, 40, .035) !important;
+        overflow: hidden !important;
+    }
 
         div[data-testid="stVerticalBlockBorderWrapper"]:has(
             .cfr-region-panel-marker
@@ -4220,123 +4220,6 @@ def _inject_cfr_dashboard_css():
             ) .modebar-container {
                 transform: scale(.82);
                 transform-origin: top right;
-            }
-        }
-        /* ============================================================
-        FINAL CFR TOP-PANEL HEIGHT ALIGNMENT
-        Do not modify the existing CFR styling above.
-        This final block intentionally overrides only panel height.
-        ============================================================ */
-
-        /* Left panel:
-        - Aggregated CFR scores by principle
-        - Distribution of principles across years
-        */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) {
-            height: 470px !important;
-            min-height: 470px !important;
-            max-height: 470px !important;
-            box-sizing: border-box !important;
-            overflow: hidden !important;
-        }
-
-
-        /* Right panel:
-        - Regional score patterns
-        */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) {
-            height: 470px !important;
-            min-height: 470px !important;
-            max-height: 470px !important;
-            box-sizing: border-box !important;
-            overflow: hidden !important;
-        }
-
-
-        /* Make the two Streamlit columns stretch equally */
-        div[data-testid="stHorizontalBlock"]:has(
-            .cfr-chart-panel-marker
-        ) {
-            align-items: stretch !important;
-        }
-
-
-        div[data-testid="stHorizontalBlock"]:has(
-            .cfr-chart-panel-marker
-        ) > div[data-testid="stColumn"] {
-            align-self: stretch !important;
-        }
-
-
-        /* Keep the tab area inside the same fixed panel */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs {
-            height: 100% !important;
-            min-height: 0 !important;
-        }
-
-
-        /* Both tab contents use the same available vertical space */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) .stTabs [data-baseweb="tab-panel"] {
-            min-height: 0 !important;
-            box-sizing: border-box !important;
-        }
-
-
-        /* Keep the regional table inside the same panel boundary */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-region-panel-marker
-        ) .cfr-region-scroll {
-            max-height: 360px !important;
-            overflow-y: auto !important;
-        }
-
-
-        /* Plotly chart stays within the same visual footprint */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(
-            .cfr-chart-panel-marker
-        ) div[data-testid="stPlotlyChart"] {
-            max-height: 360px !important;
-            overflow: hidden !important;
-        }
-
-
-        /* ------------------------------------------------------------
-        MOBILE: restore natural height
-        ------------------------------------------------------------ */
-
-        @media (max-width: 900px) {
-
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) {
-                height: auto !important;
-                min-height: 0 !important;
-                max-height: none !important;
-                overflow: visible !important;
-            }
-
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-chart-panel-marker
-            ) .stTabs {
-                height: auto !important;
-                min-height: 0 !important;
-            }
-
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(
-                .cfr-region-panel-marker
-            ) .cfr-region-scroll {
-                max-height: min(62vh, 480px) !important;
             }
         }
         </style>
