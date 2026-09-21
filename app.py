@@ -3555,7 +3555,7 @@ def _inject_cfr_dashboard_css():
         .cfr-region-scroll {
             width: 100%;
             max-height: none !important;
-            height: 600px;
+            height: 430px;
             margin-top: 4px;
             border: 0 !important;
             border-radius: 0 !important;
