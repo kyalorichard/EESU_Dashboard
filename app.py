@@ -11080,7 +11080,6 @@ if tab_manual is not None:
         else:
             render_access_locked("User Manual", "guest or higher")
 
-
 # ============================================================
 # EU SEE OPENAI AI CHATBOT
 # Lightweight, dataset-grounded Copilot with natural-language filtering.
@@ -11332,88 +11331,17 @@ def get_full_dashboard_dataframe() -> pd.DataFrame:
 
 
 # ============================================================
-# DATASET METADATA
+# DATASET INTELLIGENCE + NATURAL-LANGUAGE ANALYTICS ENGINE
 # ============================================================
 
-AI_DIMENSIONS = {
-    "regions": "region",
-    "countries": "alert-country",
-    "alert_types": "alert-type",
-    "alert_impacts": "alert-impact",
-    "enabling_principles": "enabling-principle",
-    "actors": "Actor of repression",
-}
-
-
-def _clean_ai_text(value) -> str:
-    return re.sub(
-        r"\s+",
-        " ",
-        str(value if value is not None else "")
-        .strip()
-        .lower(),
-    )
-
-
-def _actual_values(df: pd.DataFrame, column: str) -> list[str]:
-    if column not in df.columns:
-        return []
-
-    values = (
-        df[column]
-        .dropna()
-        .astype(str)
-        .str.strip()
-    )
-
-    values = values[values.ne("")]
-    return sorted(values.unique().tolist())
-
-
-def _dataset_metadata(df: pd.DataFrame) -> dict:
-    metadata = {
-        "record_count": int(len(df)),
-        "columns": [str(c) for c in df.columns],
-        "dimensions": {},
-    }
-
-    for key, column in AI_DIMENSIONS.items():
-        # The values are compact and allow OpenAI to select only real values.
-        metadata["dimensions"][key] = _actual_values(
-            df,
-            column,
-        )[:500]
-
-    if "year" in df.columns:
-        years = pd.to_numeric(
-            df["year"],
-            errors="coerce",
-        ).dropna().astype(int).unique().tolist()
-        metadata["years"] = sorted(years)
-
-    if "month_name" in df.columns:
-        metadata["months"] = _actual_values(
-            df,
-            "month_name",
-        )
-
-    if "creation_date" in df.columns:
-        dates = pd.to_datetime(
-            df["creation_date"],
-            errors="coerce",
-        ).dropna()
-        if not dates.empty:
-            metadata["date_range"] = {
-                "min": dates.min().strftime("%Y-%m-%d"),
-                "max": dates.max().strftime("%Y-%m-%d"),
-            }
-
-    return metadata
-
-
-# ============================================================
-# AI FILTER STATE
-# ============================================================
+# The chatbot is intentionally dataset-grounded:
+# - OpenAI interprets the user's natural language and proposes an analysis plan.
+# - pandas performs every numerical/filtering operation deterministically.
+# - OpenAI only turns the verified result into a professional response.
+#
+# This replaces the old fixed five-intent interpreter with a general analytical
+# copilot capable of multi-step questions, profiles, comparisons, trends,
+# cross-tabs, rankings, composition, relationships and exploratory analysis.
 
 DEFAULT_AI_FILTER_STATE = {
     "regions": [],
@@ -11427,323 +11355,20 @@ DEFAULT_AI_FILTER_STATE = {
     "date_to": None,
 }
 
-
-def _get_ai_filter_state() -> dict:
-    state = st.session_state.get(
-        "eusee_ai_filter_state"
-    )
-
-    if not isinstance(state, dict):
-        state = DEFAULT_AI_FILTER_STATE.copy()
-        st.session_state[
-            "eusee_ai_filter_state"
-        ] = state
-
-    result = DEFAULT_AI_FILTER_STATE.copy()
-    result.update(state)
-    return result
-
-
-def _set_ai_filter_state(state: dict) -> None:
-    st.session_state[
-        "eusee_ai_filter_state"
-    ] = state
-
-
-def _clear_ai_filter_state() -> None:
-    _set_ai_filter_state(
-        DEFAULT_AI_FILTER_STATE.copy()
-    )
-
-
-def _current_dashboard_filter_state() -> dict:
-    """Read the actual existing sidebar filter keys."""
-    state = DEFAULT_AI_FILTER_STATE.copy()
-
-    state["regions"] = list(
-        st.session_state.get(
-            "selected_regions",
-            [],
-        ) or []
-    )
-    state["countries"] = list(
-        st.session_state.get(
-            "selected_countries",
-            [],
-        ) or []
-    )
-    state["alert_types"] = list(
-        st.session_state.get(
-            "selected_alert_types",
-            [],
-        ) or []
-    )
-    state["alert_impacts"] = list(
-        st.session_state.get(
-            "selected_alert_impacts",
-            [],
-        ) or []
-    )
-    state["enabling_principles"] = list(
-        st.session_state.get(
-            "selected_enabling_principle",
-            [],
-        ) or []
-    )
-    state["years"] = list(
-        st.session_state.get(
-            "selected_years",
-            [],
-        ) or []
-    )
-    state["months"] = list(
-        st.session_state.get(
-            "selected_months",
-            [],
-        ) or []
-    )
-
-    return state
-
-
-def _merge_filter_states(current: dict, new: dict) -> dict:
-    merged = DEFAULT_AI_FILTER_STATE.copy()
-    merged.update(current or {})
-
-    for key in [
-        "regions",
-        "countries",
-        "alert_types",
-        "alert_impacts",
-        "enabling_principles",
-        "years",
-        "months",
-    ]:
-        if new.get(key):
-            merged[key] = list(new[key])
-
-    for key in [
-        "date_from",
-        "date_to",
-    ]:
-        if new.get(key) is not None:
-            merged[key] = new[key]
-
-    return merged
-
-
-# ============================================================
-# OPENAI NATURAL-LANGUAGE INTERPRETER
-# ============================================================
-
-OPENAI_REQUEST_TOOL = {
-    "type": "function",
-    "name": "interpret_dashboard_request",
-    "description": (
-        "Convert a natural-language EU SEE dashboard request into a "
-        "strict structured request. Never invent values. Only use values "
-        "present in DATASET_METADATA."
-    ),
-    "parameters": {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "action": {
-                "type": "string",
-                "enum": [
-                    "answer",
-                    "filter_and_answer",
-                    "clear_filters",
-                ],
-            },
-            "analysis_type": {
-                "type": "string",
-                "enum": [
-                    "summary",
-                    "trend",
-                    "distribution",
-                    "compare",
-                    "records",
-                ],
-            },
-            "dimension": {
-                "type": ["string", "null"],
-            },
-            "metric": {
-                "type": "string",
-                "enum": [
-                    "count",
-                    "percentage",
-                ],
-            },
-            "search_text": {
-                "type": ["string", "null"],
-            },
-            "filters": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "regions": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "countries": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "alert_types": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "alert_impacts": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "enabling_principles": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "years": {
-                        "type": "array",
-                        "items": {"type": "integer"},
-                    },
-                    "months": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "date_from": {
-                        "type": ["string", "null"],
-                    },
-                    "date_to": {
-                        "type": ["string", "null"],
-                    },
-                },
-                "required": [
-                    "regions",
-                    "countries",
-                    "alert_types",
-                    "alert_impacts",
-                    "enabling_principles",
-                    "years",
-                    "months",
-                    "date_from",
-                    "date_to",
-                ],
-            },
-        },
-        "required": [
-            "action",
-            "analysis_type",
-            "dimension",
-            "metric",
-            "search_text",
-            "filters",
-        ],
-    },
-    "strict": True,
+AI_CANONICAL_COLUMNS = {
+    "region": "region",
+    "country": "alert-country",
+    "alert_type": "alert-type",
+    "alert_impact": "alert-impact",
+    "enabling_principle": "enabling-principle",
+    "actor": "Actor of repression",
+    "subject": "Subject",
+    "mechanism": "Mechanism",
+    "event_type": "Type of event",
+    "year": "year",
+    "month": "month_name",
+    "date": "creation_date",
 }
-
-
-OPENAI_INTERPRETER_INSTRUCTIONS = """
-You are the natural-language control layer for the EU SEE dashboard.
-
-The dashboard dataset is the ONLY knowledge source.
-
-Your task is to convert the user's request into the supplied function schema.
-Do not answer the user directly.
-
-RULES:
-1. Never invent a country, region, alert type, impact, principle, actor, year or month.
-2. Use only values present in DATASET_METADATA.
-3. Preserve existing conversational context when the user gives a follow-up.
-4. "negative alerts" normally maps to alert_impacts using the actual dataset value.
-5. "positive alerts" normally maps to alert_impacts using the actual dataset value.
-6. "show", "display", "filter", "only show" normally means filter_and_answer.
-7. A pure calculation such as "how many..." normally means answer.
-8. "compare Kenya and Uganda" means countries=[Kenya, Uganda] and analysis_type=compare.
-9. "monthly trend" means analysis_type=trend.
-10. "top countries" means analysis_type=distribution and dimension=country.
-11. "by country" means dimension=country.
-12. "by region" means dimension=region.
-13. "by alert type" means dimension=alert_type.
-14. "by impact" means dimension=alert_impact.
-15. "percentage/share/proportion" means metric=percentage.
-16. Understand Q1-Q4 and half-year language. Convert Q1 to Jan-Mar,
-    Q2 to Apr-Jun, Q3 to Jul-Sep, Q4 to Oct-Dec. Convert H1 to Jan-Jun
-    and H2 to Jul-Dec by putting the corresponding month names in months.
-17. If the user says "clear", "reset", or "remove all filters", use clear_filters.
-18. Never generate Python, SQL, URLs, or web searches.
-19. If a requested value cannot be matched to DATASET_METADATA, leave it out;
-    the local validation layer will report the unmatched request.
-"""
-
-
-def _interpret_dashboard_request(
-    user_question: str,
-    df: pd.DataFrame,
-) -> dict | None:
-
-    client = _get_eusee_openai_client()
-    if client is None:
-        return None
-
-    metadata = _dataset_metadata(df)
-    ai_state = _get_ai_filter_state()
-    sidebar_state = _current_dashboard_filter_state()
-
-    history = [
-        {
-            "role": m.get("role"),
-            "content": m.get("content"),
-        }
-        for m in st.session_state.get(
-            "eusee_chat_messages",
-            [],
-        )[-8:]
-        if m.get("role") in {"user", "assistant"}
-    ]
-
-    input_text = json.dumps(
-        {
-            "DATASET_METADATA": metadata,
-            "CONVERSATIONAL_AI_FILTER_STATE": ai_state,
-            "CURRENT_DASHBOARD_SIDEBAR_FILTER_STATE": sidebar_state,
-            "RECENT_CONVERSATION": history,
-            "USER_REQUEST": user_question,
-        },
-        ensure_ascii=False,
-        default=str,
-    )
-
-    try:
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            instructions=OPENAI_INTERPRETER_INSTRUCTIONS,
-            input=input_text,
-            tools=[OPENAI_REQUEST_TOOL],
-            tool_choice={
-                "type": "function",
-                "name": "interpret_dashboard_request",
-            },
-            reasoning={"effort": "none"},
-            max_output_tokens=700,
-        )
-
-        for item in response.output:
-            if getattr(item, "type", None) == "function_call":
-                return json.loads(item.arguments)
-
-    except Exception as exc:
-        st.error(
-            f"OpenAI request failed: {exc}"
-        )
-
-    return None
-
-
-# ============================================================
-# LOCAL VALIDATION
-# ============================================================
 
 ALIASES = {
     "negative": "Negative",
@@ -11753,17 +11378,10 @@ ALIASES = {
 }
 
 MONTH_ALIASES = {
-    "jan": "January",
-    "feb": "February",
-    "mar": "March",
-    "apr": "April",
-    "jun": "June",
-    "jul": "July",
-    "aug": "August",
-    "sep": "September",
-    "sept": "September",
-    "oct": "October",
-    "nov": "November",
+    "jan": "January", "feb": "February", "mar": "March",
+    "apr": "April", "may": "May", "jun": "June",
+    "jul": "July", "aug": "August", "sep": "September",
+    "sept": "September", "oct": "October", "nov": "November",
     "dec": "December",
 }
 
@@ -11774,45 +11392,245 @@ QUARTER_MONTHS = {
     4: ["October", "November", "December"],
 }
 
+def get_full_dashboard_dataframe() -> pd.DataFrame:
+    """Return the complete unfiltered EU SEE dataframe."""
+    for key in (
+        "eusee_full_dataset_df",
+        "eusee_original_df",
+        "eusee_unfiltered_df",
+        "eusee_full_df",
+        "raw_eusee_df",
+    ):
+        candidate = st.session_state.get(key)
+        if isinstance(candidate, pd.DataFrame):
+            return candidate.copy()
+    return pd.DataFrame()
 
-def _resolve_values(
-    requested: list,
-    available: list,
-) -> tuple[list, list]:
 
+def _clean_ai_text(value) -> str:
+    return re.sub(r"\s+", " ", str(value if value is not None else "").strip().lower())
+
+
+def _display_column_name(column: str) -> str:
+    labels = {
+        "alert-country": "Country",
+        "alert-type": "Alert type",
+        "alert-impact": "Alert impact",
+        "enabling-principle": "Enabling principle",
+        "Actor of repression": "Actor",
+        "Type of event": "Event type",
+        "creation_date": "Date",
+        "month_name": "Month",
+    }
+    return labels.get(column, str(column).replace("_", " ").replace("-", " ").title())
+
+
+def _prepare_analysis_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Create analysis-only temporal columns without modifying the source dataframe."""
+    result = df.copy()
+
+    if "creation_date" in result.columns:
+        result["creation_date"] = pd.to_datetime(result["creation_date"], errors="coerce")
+        if "year" not in result.columns:
+            result["year"] = result["creation_date"].dt.year
+        if "month_name" not in result.columns:
+            result["month_name"] = result["creation_date"].dt.strftime("%B")
+
+    if "year" in result.columns:
+        result["year"] = pd.to_numeric(result["year"], errors="coerce")
+
+    return result
+
+
+def _actual_values(df: pd.DataFrame, column: str, limit: int = 500) -> list[str]:
+    if column not in df.columns:
+        return []
+    values = df[column].dropna().astype(str).str.strip()
+    values = values[values.ne("")]
+    return sorted(values.unique().tolist())[:limit]
+
+
+def _dataset_schema(df: pd.DataFrame) -> dict:
+    """Compact, complete schema used by the natural-language planner."""
+    work = _prepare_analysis_dataframe(df)
+    schema = {
+        "record_count": int(len(work)),
+        "columns": [],
+        "date_range": None,
+        "dimensions": {},
+        "numeric_columns": [],
+    }
+
+    for column in work.columns:
+        series = work[column]
+        item = {
+            "name": str(column),
+            "dtype": str(series.dtype),
+            "non_null": int(series.notna().sum()),
+            "null_count": int(series.isna().sum()),
+            "unique_count": int(series.nunique(dropna=True)),
+        }
+
+        if pd.api.types.is_numeric_dtype(series):
+            item["kind"] = "numeric"
+            schema["numeric_columns"].append(str(column))
+            clean = pd.to_numeric(series, errors="coerce").dropna()
+            if not clean.empty:
+                item["min"] = float(clean.min())
+                item["max"] = float(clean.max())
+        elif pd.api.types.is_datetime64_any_dtype(series):
+            item["kind"] = "date"
+        else:
+            item["kind"] = "categorical"
+            if series.nunique(dropna=True) <= 500:
+                item["values"] = _actual_values(work, column, 500)
+
+        schema["columns"].append(item)
+
+    for key, column in AI_CANONICAL_COLUMNS.items():
+        if column in work.columns:
+            schema["dimensions"][key] = {
+                "column": column,
+                "values": _actual_values(work, column, 500),
+            }
+
+    if "creation_date" in work.columns:
+        dates = pd.to_datetime(work["creation_date"], errors="coerce").dropna()
+        if not dates.empty:
+            schema["date_range"] = {
+                "min": dates.min().strftime("%Y-%m-%d"),
+                "max": dates.max().strftime("%Y-%m-%d"),
+            }
+
+    if "year" in work.columns:
+        years = pd.to_numeric(work["year"], errors="coerce").dropna().astype(int).unique()
+        schema["dimensions"]["year"] = {
+            "column": "year",
+            "values": sorted(years.tolist()),
+        }
+
+    if "month_name" in work.columns:
+        schema["dimensions"]["month"] = {
+            "column": "month_name",
+            "values": _actual_values(work, "month_name", 50),
+        }
+
+    return schema
+
+
+def _dataset_metadata(df: pd.DataFrame) -> dict:
+    """Backward-compatible metadata wrapper."""
+    return _dataset_schema(df)
+
+
+def _get_ai_filter_state() -> dict:
+    state = st.session_state.get("eusee_ai_filter_state")
+    if not isinstance(state, dict):
+        state = DEFAULT_AI_FILTER_STATE.copy()
+        st.session_state["eusee_ai_filter_state"] = state
+    result = DEFAULT_AI_FILTER_STATE.copy()
+    result.update(state)
+    return result
+
+
+def _set_ai_filter_state(state: dict) -> None:
+    st.session_state["eusee_ai_filter_state"] = state
+
+
+def _clear_ai_filter_state() -> None:
+    _set_ai_filter_state(DEFAULT_AI_FILTER_STATE.copy())
+
+
+def _current_dashboard_filter_state() -> dict:
+    state = DEFAULT_AI_FILTER_STATE.copy()
+    state["regions"] = list(st.session_state.get("selected_regions", []) or [])
+    state["countries"] = list(st.session_state.get("selected_countries", []) or [])
+    state["alert_types"] = list(st.session_state.get("selected_alert_types", []) or [])
+    state["alert_impacts"] = list(st.session_state.get("selected_alert_impacts", []) or [])
+    state["enabling_principles"] = list(
+        st.session_state.get("selected_enabling_principle", []) or []
+    )
+    state["years"] = list(st.session_state.get("selected_years", []) or [])
+    state["months"] = list(st.session_state.get("selected_months", []) or [])
+    return state
+
+
+def _has_active_filter_state(state: dict) -> bool:
+    return any(
+        bool(state.get(k))
+        for k in (
+            "regions", "countries", "alert_types", "alert_impacts",
+            "enabling_principles", "years", "months", "date_from", "date_to",
+        )
+    )
+
+
+def _resolve_column(df: pd.DataFrame, requested: str | None) -> str | None:
+    if not requested:
+        return None
+
+    raw = str(requested).strip()
+    if raw in df.columns:
+        return raw
+
+    key = _clean_ai_text(raw)
+    canonical = {
+        "country": "alert-country",
+        "countries": "alert-country",
+        "nation": "alert-country",
+        "region": "region",
+        "regions": "region",
+        "alert type": "alert-type",
+        "alert types": "alert-type",
+        "impact": "alert-impact",
+        "alert impact": "alert-impact",
+        "principle": "enabling-principle",
+        "principles": "enabling-principle",
+        "enabling principle": "enabling-principle",
+        "actor": "Actor of repression",
+        "actors": "Actor of repression",
+        "event type": "Type of event",
+        "date": "creation_date",
+        "month": "month_name",
+        "year": "year",
+    }
+    candidate = canonical.get(key, raw)
+
+    if candidate in df.columns:
+        return candidate
+
+    normalized = {_clean_ai_text(c): c for c in df.columns}
+    if key in normalized:
+        return normalized[key]
+
+    matches = [
+        col for norm, col in normalized.items()
+        if key in norm or norm in key
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _resolve_values(requested: list, available: list) -> tuple[list, list]:
     if not requested:
         return [], []
 
-    lookup = {
-        _clean_ai_text(value): value
-        for value in available
-    }
-
-    resolved = []
-    unresolved = []
+    lookup = {_clean_ai_text(v): v for v in available}
+    resolved, unresolved = [], []
 
     for raw in requested:
         text = str(raw or "").strip()
         if not text:
             continue
-
-        key = _clean_ai_text(text)
-        key = _clean_ai_text(
-            ALIASES.get(key, key)
-        )
+        key = _clean_ai_text(ALIASES.get(_clean_ai_text(text), text))
 
         if key in lookup:
             resolved.append(lookup[key])
             continue
 
-        # Conservative partial matching. Only accept a single match.
         matches = [
-            actual
-            for actual_key, actual in lookup.items()
-            if key in actual_key
-            or actual_key in key
+            actual for actual_key, actual in lookup.items()
+            if key in actual_key or actual_key in key
         ]
-
         if len(matches) == 1:
             resolved.append(matches[0])
         else:
@@ -11821,139 +11639,70 @@ def _resolve_values(
     return sorted(set(resolved)), sorted(set(unresolved))
 
 
-def _normalise_request_filters(
-    df: pd.DataFrame,
-    requested: dict,
-) -> tuple[dict, list[str]]:
-
-    metadata = _dataset_metadata(df)
-    available = metadata["dimensions"]
-
+def _normalise_request_filters(df: pd.DataFrame, requested: dict) -> tuple[dict, list[str]]:
+    schema = _dataset_schema(df)
+    dimensions = schema.get("dimensions", {})
     filters = DEFAULT_AI_FILTER_STATE.copy()
     warnings_out = []
 
-    for key in [
-        "regions",
-        "countries",
-        "alert_types",
-        "alert_impacts",
-        "enabling_principles",
-    ]:
-        resolved, unresolved = _resolve_values(
-            requested.get(key, []) or [],
-            available.get(key, []),
-        )
-        filters[key] = resolved
-
-        if unresolved:
-            warnings_out.append(
-                f"Could not match {key.replace('_', ' ')}: "
-                + ", ".join(unresolved)
-            )
-
-    years = []
-    valid_years = set(metadata.get("years", []))
-
-    for year in requested.get("years", []) or []:
-        try:
-            value = int(year)
-        except Exception:
-            continue
-
-        if not valid_years or value in valid_years:
-            years.append(value)
-        else:
-            warnings_out.append(
-                f"Year {value} is not present in the dataset."
-            )
-
-    filters["years"] = sorted(set(years))
-
-    resolved_months, unresolved_months = _resolve_values(
-        requested.get("months", []) or [],
-        metadata.get("months", []),
-    )
-
-    # Add standard abbreviated month aliases if the model returned them.
-    month_values = []
-    available_month_lookup = {
-        _clean_ai_text(v): v
-        for v in metadata.get("months", [])
+    dimension_map = {
+        "regions": "region",
+        "countries": "country",
+        "alert_types": "alert_type",
+        "alert_impacts": "alert_impact",
+        "enabling_principles": "enabling_principle",
     }
 
+    for key, dimension in dimension_map.items():
+        available = dimensions.get(dimension, {}).get("values", [])
+        resolved, unresolved = _resolve_values(requested.get(key, []) or [], available)
+        filters[key] = resolved
+        if unresolved:
+            warnings_out.append(
+                f"Could not match {key.replace('_', ' ')}: {', '.join(unresolved)}"
+            )
+
+    valid_years = set(dimensions.get("year", {}).get("values", []))
+    years = []
+    for value in requested.get("years", []) or []:
+        try:
+            year = int(value)
+        except Exception:
+            warnings_out.append(f"Invalid year: {value}")
+            continue
+        if not valid_years or year in valid_years:
+            years.append(year)
+        else:
+            warnings_out.append(f"Year {year} is not present in the dataset.")
+    filters["years"] = sorted(set(years))
+
+    available_months = dimensions.get("month", {}).get("values", [])
+    resolved_months, unresolved_months = _resolve_values(
+        requested.get("months", []) or [], available_months
+    )
+    month_lookup = {_clean_ai_text(v): v for v in available_months}
     for month in requested.get("months", []) or []:
-        key = _clean_ai_text(month)
-        alias = MONTH_ALIASES.get(key)
-        if alias:
-            alias_key = _clean_ai_text(alias)
-            if alias_key in available_month_lookup:
-                month_values.append(
-                    available_month_lookup[alias_key]
-                )
-
-    filters["months"] = sorted(
-        set(resolved_months + month_values)
-    )
-
+        alias = MONTH_ALIASES.get(_clean_ai_text(month))
+        if alias and _clean_ai_text(alias) in month_lookup:
+            resolved_months.append(month_lookup[_clean_ai_text(alias)])
+    filters["months"] = sorted(set(resolved_months))
     if unresolved_months:
-        warnings_out.append(
-            "Could not match months: "
-            + ", ".join(unresolved_months)
-        )
+        warnings_out.append(f"Could not match months: {', '.join(unresolved_months)}")
 
-    filters["date_from"] = (
-        requested.get("date_from")
-        or None
-    )
-    filters["date_to"] = (
-        requested.get("date_to")
-        or None
-    )
-
-    # Validate ISO-like dates locally.
-    for date_key in ["date_from", "date_to"]:
-        value = filters[date_key]
+    for key in ("date_from", "date_to"):
+        value = requested.get(key)
+        filters[key] = None
         if value:
             try:
-                pd.Timestamp(value)
-                filters[date_key] = str(
-                    pd.Timestamp(value).date()
-                )
+                filters[key] = str(pd.Timestamp(value).date())
             except Exception:
-                warnings_out.append(
-                    f"Invalid {date_key.replace('_', ' ')}: {value}"
-                )
-                filters[date_key] = None
+                warnings_out.append(f"Invalid {key.replace('_', ' ')}: {value}")
 
     return filters, warnings_out
 
 
-# ============================================================
-# LOCAL FILTERING
-# ============================================================
-
-def _apply_local_filters(
-    df: pd.DataFrame,
-    filters: dict,
-) -> pd.DataFrame:
-
-    result = df.copy()
-
-    if "creation_date" in result.columns:
-        result["creation_date"] = pd.to_datetime(
-            result["creation_date"],
-            errors="coerce",
-        )
-
-        if "year" not in result.columns:
-            result["year"] = result[
-                "creation_date"
-            ].dt.year
-
-        if "month_name" not in result.columns:
-            result["month_name"] = result[
-                "creation_date"
-            ].dt.strftime("%B")
+def _apply_local_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
+    result = _prepare_analysis_dataframe(df)
 
     mapping = {
         "regions": "region",
@@ -11967,376 +11716,1213 @@ def _apply_local_filters(
 
     for filter_key, column in mapping.items():
         values = filters.get(filter_key) or []
+        if not values or column not in result.columns:
+            continue
 
-        if values and column in result.columns:
-            if filter_key == "years":
-                numeric_values = [
-                    int(v) for v in values
-                ]
-                result = result[
-                    pd.to_numeric(
-                        result[column],
-                        errors="coerce",
-                    ).isin(numeric_values)
-                ]
-            else:
-                result = result[
-                    result[column]
-                    .astype(str)
-                    .isin(values)
-                ]
+        if filter_key == "years":
+            result = result[pd.to_numeric(result[column], errors="coerce").isin([int(v) for v in values])]
+        else:
+            # Exact match is used for structured filters. This prevents accidental
+            # inclusion of similarly named categories.
+            result = result[result[column].astype(str).isin([str(v) for v in values])]
 
-    if "creation_date" in result.columns:
+    if filters.get("date_from") and "creation_date" in result.columns:
+        result = result[result["creation_date"] >= pd.Timestamp(filters["date_from"])]
 
-        if filters.get("date_from"):
-            result = result[
-                result["creation_date"]
-                >= pd.Timestamp(
-                    filters["date_from"]
-                )
-            ]
-
-        if filters.get("date_to"):
-            result = result[
-                result["creation_date"]
-                <= pd.Timestamp(
-                    filters["date_to"]
-                )
-            ]
+    if filters.get("date_to") and "creation_date" in result.columns:
+        # Date-to is inclusive through the end of the specified day.
+        end = pd.Timestamp(filters["date_to"]) + pd.Timedelta(days=1)
+        result = result[result["creation_date"] < end]
 
     return result
 
 
 # ============================================================
-# LOCAL ANALYTICS
+# GENERAL ANALYTICAL PLAN
 # ============================================================
 
-def _dimension_column(dimension: str | None) -> str | None:
-    return {
-        "country": "alert-country",
-        "countries": "alert-country",
-        "region": "region",
-        "regions": "region",
-        "alert_type": "alert-type",
-        "alert_types": "alert-type",
-        "alert_impact": "alert-impact",
-        "impact": "alert-impact",
-        "enabling_principle": "enabling-principle",
-        "principle": "enabling-principle",
-        "actor": "Actor of repression",
-    }.get(
-        _clean_ai_text(dimension),
-        dimension,
-    ) if dimension else None
+OPENAI_ANALYSIS_TOOL = {
+    "type": "function",
+    "name": "plan_dataset_analysis",
+    "description": (
+        "Translate any natural-language question about the EU SEE dataset "
+        "into a safe, structured analytical plan. Never invent dataset values "
+        "or columns. Use only the supplied schema. Do not answer the user."
+    ),
+    "parameters": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["analyze", "filter_and_analyze", "clear_filters"],
+            },
+            "intent": {
+                "type": "string",
+                "enum": [
+                    "summary", "explore", "trend", "distribution", "compare",
+                    "profile", "ranking", "composition", "cross_tab",
+                    "relationship", "change", "records",
+                ],
+            },
+            "filters": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "column": {"type": "string"},
+                        "operator": {
+                            "type": "string",
+                            "enum": [
+                                "eq", "neq", "in", "not_in", "contains",
+                                "gte", "lte", "gt", "lt", "between",
+                            ],
+                        },
+                        "value": {},
+                    },
+                    "required": ["column", "operator", "value"],
+                },
+            },
+            "group_by": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "metrics": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "operation": {
+                            "type": "string",
+                            "enum": [
+                                "count", "nunique", "sum", "mean", "median",
+                                "min", "max", "percentage", "rate",
+                            ],
+                        },
+                        "column": {"type": ["string", "null"]},
+                        "alias": {"type": "string"},
+                    },
+                    "required": ["operation", "column", "alias"],
+                },
+            },
+            "compare_values": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "search_text": {"type": ["string", "null"]},
+            "top_n": {"type": ["integer", "null"]},
+            "sort": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "column": {"type": ["string", "null"]},
+                    "direction": {
+                        "type": "string",
+                        "enum": ["ascending", "descending"],
+                    },
+                },
+                "required": ["column", "direction"],
+            },
+            "time_granularity": {
+                "type": "string",
+                "enum": ["none", "month", "quarter", "year"],
+            },
+            "visualization": {
+                "type": "string",
+                "enum": [
+                    "none", "auto", "bar", "line", "area", "pie",
+                    "donut", "stacked_bar", "heatmap", "table",
+                ],
+            },
+            "limit": {"type": "integer"},
+        },
+        "required": [
+            "action", "intent", "filters", "group_by", "metrics",
+            "compare_values", "search_text", "top_n", "sort",
+            "time_granularity", "visualization", "limit",
+        ],
+    },
+    "strict": True,
+}
 
 
-def _analysis_result(
-    filtered: pd.DataFrame,
-    request: dict,
-    filters: dict,
-) -> dict:
+OPENAI_ANALYSIS_INSTRUCTIONS = """
+You are the analytical planning layer for an EU SEE dataset assistant.
 
-    analysis_type = request.get(
-        "analysis_type",
-        "summary",
-    )
+The supplied DATASET_SCHEMA is the only source of truth about the dataset.
+Translate the user's natural language into an analytical plan.
 
-    metric = request.get(
-        "metric",
-        "count",
-    )
+CORE PRINCIPLES
+1. Understand ordinary natural language, not just predefined question wording.
+2. Never invent a column, category, country, region, principle, year, actor or value.
+3. Use exact dataset column names from DATASET_SCHEMA.
+4. Use values only when they are present in the schema.
+5. If the user asks an open-ended question such as "what are the main patterns",
+   choose intent=explore and create several useful analytical dimensions.
+6. If the user asks "tell me about <country/region>", use intent=profile and
+   group/compare across useful dimensions.
+7. If the user asks about "trends", use time_granularity=month or year as
+   appropriate to the wording and available date information.
+8. If the user asks "top", "largest", "most common", "leading", or "highest",
+   use ranking/distribution and descending sorting.
+9. If the user asks "compare", preserve every explicitly named comparison value.
+10. If the user asks "how did X change", use intent=change and compare time periods.
+11. If the user asks for "by X and Y", use both columns in group_by.
+12. If the user asks for percentages/shares/proportions, include percentage.
+13. If the user asks for a relationship/association between categorical variables,
+    use cross_tab. For numeric variables use relationship where supported.
+14. If the user asks for records/examples/incidents, use intent=records.
+15. Choose a visualization automatically when it adds value.
+16. "clear", "reset", or "remove filters" means clear_filters.
+17. Follow-up questions inherit relevant context from CONVERSATION_CONTEXT unless
+    the new request clearly replaces that context.
+18. Do not write Python, SQL, URLs, web searches, or prose answers.
+19. Keep the plan computationally safe: aggregation, filtering, grouping,
+    sorting and descriptive statistics only.
+20. A single user question may require multiple dimensions and metrics. Build a
+    useful plan rather than forcing it into one simplistic analysis type.
 
-    result = {
-        "records_count": int(len(filtered)),
-        "analysis_type": analysis_type,
-        "metric": metric,
-        "filters": filters,
-        "analysis": {},
-        "chart": None,
-        "records": None,
+EXAMPLES OF INTERPRETATION
+"What are the main trends in West Africa?"
+ -> filter region, intent=trend/explore, time series plus useful composition.
+
+"Which principles are most associated with negative alerts in West Africa?"
+ -> filters region and negative impact, group_by enabling-principle, count, descending.
+
+"Tell me about Kenya."
+ -> filter country=Kenya, intent=profile, summarize time, impacts, alert types,
+    principles and actors where those columns exist.
+
+"Compare Kenya and Uganda from 2023 to 2025."
+ -> filter countries, years, intent=compare/change, group by country and year.
+
+"Show me the records about freedom of expression in Kenya."
+ -> filter country, search_text if applicable, intent=records.
+
+"Give me the main patterns in the dataset."
+ -> intent=explore, no arbitrary filter, multiple descriptive dimensions.
+
+"How has negative activity changed by region?"
+ -> filter negative impact, group by region and time, intent=change/trend.
+"""
+
+
+def _build_conversation_context() -> list[dict]:
+    return [
+        {"role": m.get("role"), "content": m.get("content")}
+        for m in st.session_state.get("eusee_chat_messages", [])[-10:]
+        if isinstance(m, dict) and m.get("role") in {"user", "assistant"}
+    ]
+
+
+def _plan_dashboard_analysis(user_question: str, df: pd.DataFrame) -> dict | None:
+    client = _get_eusee_openai_client()
+    if client is None:
+        return None
+
+    payload = {
+        "DATASET_SCHEMA": _dataset_schema(df),
+        "CURRENT_SIDEBAR_FILTERS": _current_dashboard_filter_state(),
+        "CURRENT_ANALYSIS_CONTEXT": _get_ai_filter_state(),
+        "CONVERSATION_CONTEXT": _build_conversation_context(),
+        "USER_REQUEST": user_question,
     }
 
-    # --------------------------------------------------------
-    # SUMMARY / COUNT / PERCENTAGE
-    # --------------------------------------------------------
-    if analysis_type == "summary":
-
-        total = int(len(filtered))
-        result["analysis"] = {
-            "total_records": total,
-        }
-
-        if metric == "percentage":
-            result["analysis"][
-                "percentage_of_dataset"
-            ] = round(
-                100 * total / max(
-                    len(get_full_dashboard_dataframe()),
-                    1,
-                ),
-                2,
-            )
-
-        return result
-
-    # --------------------------------------------------------
-    # TREND
-    # --------------------------------------------------------
-    if analysis_type == "trend":
-
-        if "creation_date" not in filtered.columns:
-            result["analysis"] = {
-                "message":
-                    "The dataset does not contain usable creation dates."
-            }
-            return result
-
-        temp = filtered.copy()
-        temp["creation_date"] = pd.to_datetime(
-            temp["creation_date"],
-            errors="coerce",
-        )
-        temp = temp.dropna(
-            subset=["creation_date"]
+    try:
+        response = client.responses.create(
+            model=OPENAI_MODEL,
+            instructions=OPENAI_ANALYSIS_INSTRUCTIONS,
+            input=json.dumps(payload, ensure_ascii=False, default=str),
+            tools=[OPENAI_ANALYSIS_TOOL],
+            tool_choice={"type": "function", "name": "plan_dataset_analysis"},
+            reasoning={"effort": "none"},
+            max_output_tokens=1200,
         )
 
-        if temp.empty:
-            result["analysis"] = {
-                "message": "No dated records match the request."
-            }
-            return result
+        for item in response.output:
+            if getattr(item, "type", None) == "function_call":
+                return json.loads(item.arguments)
+    except Exception as exc:
+        if st.secrets.get("debug", {}).get("show_chat_ai_errors", False):
+            st.warning(f"AI planning failed: {exc}")
 
-        grouped = (
-            temp.groupby(
-                temp["creation_date"].dt.to_period("M")
-            )
-            .size()
-            .reset_index(name="records")
-        )
+    return None
 
-        grouped["period"] = grouped[
-            "creation_date"
-        ].astype(str)
 
-        grouped = grouped[
-            ["period", "records"]
-        ]
+# ============================================================
+# GENERIC PLAN VALIDATION + EXECUTION
+# ============================================================
 
-        result["analysis"] = {
-            "monthly_counts": grouped.to_dict(
-                "records"
-            )
-        }
+def _validate_plan(df: pd.DataFrame, plan: dict) -> tuple[dict, list[str]]:
+    work = _prepare_analysis_dataframe(df)
+    warnings_out = []
+    validated = dict(plan or {})
 
-        result["chart"] = {
-            "type": "line",
-            "x": "period",
-            "y": "records",
-            "title": "EU SEE Alerts Over Time",
-            "x_label": "Month",
-            "y_label": "Number of alerts",
-            "data": grouped.to_dict("records"),
-        }
+    valid_columns = set(work.columns)
 
-        return result
+    # Validate filters and resolve category values against the real dataframe.
+    clean_filters = []
+    for item in plan.get("filters", []) or []:
+        if not isinstance(item, dict):
+            continue
 
-    # --------------------------------------------------------
-    # DISTRIBUTION / TOP
-    # --------------------------------------------------------
-    if analysis_type == "distribution":
+        column = _resolve_column(work, item.get("column"))
+        if not column:
+            warnings_out.append(f"Unknown filter column: {item.get('column')}")
+            continue
 
-        column = _dimension_column(
-            request.get("dimension")
-            or "country"
-        )
+        operator = str(item.get("operator", "eq")).lower().strip()
+        value = item.get("value")
 
-        if column not in filtered.columns:
-            result["analysis"] = {
-                "message":
-                    "The requested analysis dimension is not available."
-            }
-            return result
+        if operator in {"eq", "neq", "in", "not_in", "contains"} and column in work.columns:
+            available = _actual_values(work, column, 2000)
+            values = value if isinstance(value, list) else [value]
 
-        grouped = (
-            filtered[column]
-            .fillna("Unknown")
-            .astype(str)
-            .value_counts()
-            .reset_index()
-        )
-        grouped.columns = [
-            "category",
-            "records",
-        ]
-        grouped = grouped.head(20)
+            if operator in {"eq", "neq", "contains"}:
+                values = values[:1]
 
-        result["analysis"] = {
-            "distribution": grouped.to_dict(
-                "records"
-            )
-        }
+            resolved, unresolved = _resolve_values(values, available)
+            if unresolved:
+                # Numeric/date filters should not use categorical matching.
+                if pd.api.types.is_numeric_dtype(work[column]):
+                    try:
+                        resolved = [float(values[0])]
+                        unresolved = []
+                    except Exception:
+                        pass
 
-        result["chart"] = {
-            "type": "bar",
-            "x": "category",
-            "y": "records",
-            "title": (
-                "Alerts by "
-                + str(
-                    request.get("dimension")
-                    or "category"
-                ).replace("_", " ").title()
-            ),
-            "x_label": str(
-                request.get("dimension")
-                or "Category"
-            ).replace("_", " ").title(),
-            "y_label": "Number of alerts",
-            "data": grouped.to_dict("records"),
-        }
-
-        return result
-
-    # --------------------------------------------------------
-    # COMPARISON
-    # --------------------------------------------------------
-    if analysis_type == "compare":
-
-        column = _dimension_column(
-            request.get("dimension")
-            or "country"
-        )
-
-        if column not in filtered.columns:
-            result["analysis"] = {
-                "message":
-                    "The requested comparison dimension is unavailable."
-            }
-            return result
-
-        grouped = (
-            filtered[column]
-            .fillna("Unknown")
-            .astype(str)
-            .value_counts()
-            .reset_index()
-        )
-        grouped.columns = [
-            "category",
-            "records",
-        ]
-
-        result["analysis"] = {
-            "comparison": grouped.to_dict(
-                "records"
-            )
-        }
-
-        result["chart"] = {
-            "type": "bar",
-            "x": "category",
-            "y": "records",
-            "title": (
-                "Comparison by "
-                + str(
-                    request.get("dimension")
-                    or "country"
-                ).replace("_", " ").title()
-            ),
-            "x_label": str(
-                request.get("dimension")
-                or "Country"
-            ).replace("_", " ").title(),
-            "y_label": "Number of alerts",
-            "data": grouped.to_dict("records"),
-        }
-
-        return result
-
-    # --------------------------------------------------------
-    # RECORD SEARCH
-    # --------------------------------------------------------
-    if analysis_type == "records":
-
-        search_text = _clean_ai_text(
-            request.get("search_text")
-        )
-
-        if search_text:
-            searchable_columns = [
-                "alert-country",
-                "alert-type",
-                "alert-impact",
-                "Actor of repression",
-                "enabling-principle",
-            ]
-
-            mask = pd.Series(
-                False,
-                index=filtered.index,
-            )
-
-            for column in searchable_columns:
-                if column in filtered.columns:
-                    mask |= (
-                        filtered[column]
-                        .fillna("")
-                        .astype(str)
-                        .str.lower()
-                        .str.contains(
-                            search_text,
-                            regex=False,
-                        )
-                    )
-
-            filtered = filtered[mask]
-
-        selected_columns = [
-            c
-            for c in [
-                "creation_date",
-                "alert-country",
-                "alert-type",
-                "alert-impact",
-                "Actor of repression",
-                "enabling-principle",
-            ]
-            if c in filtered.columns
-        ]
-
-        records_df = filtered[
-            selected_columns
-        ].head(20).copy()
-
-        for column in records_df.columns:
-            if pd.api.types.is_datetime64_any_dtype(
-                records_df[column]
-            ):
-                records_df[column] = (
-                    records_df[column]
-                    .dt.strftime("%Y-%m-%d")
+            if unresolved:
+                warnings_out.append(
+                    f"Could not match {column}: {', '.join(map(str, unresolved))}"
                 )
+                continue
 
-        result["records_count"] = int(
-            len(filtered)
-        )
-        result["records"] = (
-            records_df
-            .where(
-                pd.notna(records_df),
-                None,
-            )
-            .to_dict("records")
-        )
-        result["analysis"] = {
-            "returned_records": len(
-                result["records"]
-            )
-        }
+            if operator in {"eq", "neq", "contains"}:
+                value = resolved[0] if resolved else value
+            else:
+                value = resolved
 
-        return result
+        if operator == "between":
+            if not isinstance(value, list) or len(value) != 2:
+                warnings_out.append(f"Invalid between filter for {column}.")
+                continue
+
+        clean_filters.append({
+            "column": column,
+            "operator": operator,
+            "value": value,
+        })
+
+    validated["filters"] = clean_filters
+
+    group_by = []
+    for col in plan.get("group_by", []) or []:
+        resolved = _resolve_column(work, col)
+        if resolved and resolved in valid_columns:
+            if resolved not in group_by:
+                group_by.append(resolved)
+        else:
+            warnings_out.append(f"Unknown analysis column: {col}")
+    validated["group_by"] = group_by
+
+    metrics = []
+    for metric in plan.get("metrics", []) or []:
+        if not isinstance(metric, dict):
+            continue
+        operation = str(metric.get("operation", "count")).lower()
+        column = metric.get("column")
+        resolved_column = None if column in (None, "", "null") else _resolve_column(work, column)
+
+        if operation not in {
+            "count", "nunique", "sum", "mean", "median",
+            "min", "max", "percentage", "rate",
+        }:
+            continue
+
+        if operation not in {"count"} and resolved_column is None:
+            warnings_out.append(f"Metric {operation} requires a valid column.")
+            continue
+
+        metrics.append({
+            "operation": operation,
+            "column": resolved_column,
+            "alias": str(metric.get("alias") or operation),
+        })
+    if not metrics:
+        metrics = [{"operation": "count", "column": None, "alias": "records"}]
+    validated["metrics"] = metrics
+
+    sort = plan.get("sort") or {}
+    sort_column = _resolve_column(work, sort.get("column")) if sort.get("column") else None
+    validated["sort"] = {
+        "column": sort_column,
+        "direction": sort.get("direction", "descending"),
+    }
+
+    try:
+        validated["limit"] = max(1, min(int(plan.get("limit", 20)), 100))
+    except Exception:
+        validated["limit"] = 20
+
+    try:
+        top_n = plan.get("top_n")
+        validated["top_n"] = None if top_n is None else max(1, min(int(top_n), 100))
+    except Exception:
+        validated["top_n"] = None
+
+    return validated, warnings_out
+
+
+def _apply_generic_plan_filters(df: pd.DataFrame, filters: list[dict]) -> pd.DataFrame:
+    result = _prepare_analysis_dataframe(df)
+
+    for item in filters:
+        column = item["column"]
+        operator = item["operator"]
+        value = item["value"]
+
+        if column not in result.columns:
+            continue
+
+        series = result[column]
+
+        if operator in {"eq", "neq", "in", "not_in"}:
+            values = value if isinstance(value, list) else [value]
+            if pd.api.types.is_numeric_dtype(series):
+                converted = pd.to_numeric(pd.Series(values), errors="coerce").dropna().tolist()
+                mask = pd.to_numeric(series, errors="coerce").isin(converted)
+            else:
+                compare_values = {str(v).strip().lower() for v in values}
+                mask = series.astype(str).str.strip().str.lower().isin(compare_values)
+
+            if operator in {"neq", "not_in"}:
+                mask = ~mask
+            result = result[mask]
+
+        elif operator == "contains":
+            needle = str(value or "").strip().lower()
+            result = result[
+                series.fillna("").astype(str).str.lower().str.contains(
+                    needle, regex=False
+                )
+            ]
+
+        elif operator in {"gte", "lte", "gt", "lt"}:
+            numeric = pd.to_numeric(series, errors="coerce")
+            try:
+                target = float(value)
+            except Exception:
+                try:
+                    target = pd.Timestamp(value)
+                    numeric = pd.to_datetime(series, errors="coerce")
+                except Exception:
+                    continue
+
+            if operator == "gte":
+                result = result[numeric >= target]
+            elif operator == "lte":
+                result = result[numeric <= target]
+            elif operator == "gt":
+                result = result[numeric > target]
+            else:
+                result = result[numeric < target]
+
+        elif operator == "between":
+            values = value if isinstance(value, list) else []
+            if len(values) != 2:
+                continue
+
+            numeric = pd.to_numeric(series, errors="coerce")
+            if pd.api.types.is_numeric_dtype(series):
+                try:
+                    lo, hi = float(values[0]), float(values[1])
+                    result = result[numeric.between(lo, hi)]
+                except Exception:
+                    continue
+            else:
+                dates = pd.to_datetime(series, errors="coerce")
+                try:
+                    lo, hi = pd.Timestamp(values[0]), pd.Timestamp(values[1])
+                    result = result[dates.between(lo, hi)]
+                except Exception:
+                    continue
 
     return result
+
+
+def _metric_series(group: pd.DataFrame, metric: dict, denominator: int | None = None):
+    op = metric["operation"]
+    column = metric.get("column")
+
+    if op == "count":
+        return len(group)
+    if op == "nunique":
+        return group[column].nunique(dropna=True)
+    if op == "sum":
+        return pd.to_numeric(group[column], errors="coerce").sum()
+    if op == "mean":
+        return pd.to_numeric(group[column], errors="coerce").mean()
+    if op == "median":
+        return pd.to_numeric(group[column], errors="coerce").median()
+    if op == "min":
+        return pd.to_numeric(group[column], errors="coerce").min()
+    if op == "max":
+        return pd.to_numeric(group[column], errors="coerce").max()
+    if op in {"percentage", "rate"}:
+        numerator = len(group)
+        denom = denominator if denominator is not None else max(len(group), 1)
+        return 100.0 * numerator / max(denom, 1)
+    return len(group)
+
+
+def _choose_visualization(plan: dict, result_df: pd.DataFrame) -> str:
+    requested = str(plan.get("visualization", "auto")).lower()
+    if requested != "auto":
+        return requested
+
+    if result_df.empty:
+        return "none"
+
+    group_by = plan.get("group_by", []) or []
+    granularity = plan.get("time_granularity", "none")
+
+    if granularity != "none" or any(
+        _clean_ai_text(c) in {"creation_date", "year", "month_name"}
+        for c in group_by
+    ):
+        return "line"
+
+    if len(group_by) >= 2:
+        return "heatmap"
+
+    if len(result_df) <= 8 and result_df.shape[1] >= 2:
+        return "donut" if plan.get("intent") == "composition" else "bar"
+
+    return "bar"
+
+
+def _execute_grouped_analysis(filtered: pd.DataFrame, plan: dict) -> tuple[pd.DataFrame, dict]:
+    work = filtered.copy()
+    group_by = list(plan.get("group_by", []) or [])
+    metrics = list(plan.get("metrics", []) or [])
+    granularity = plan.get("time_granularity", "none")
+
+    # Automatic temporal grouping when the user asks for a trend/change.
+    if granularity != "none" and "creation_date" in work.columns:
+        dates = pd.to_datetime(work["creation_date"], errors="coerce")
+        if granularity == "month":
+            work["_analysis_period"] = dates.dt.to_period("M").astype(str)
+        elif granularity == "quarter":
+            work["_analysis_period"] = dates.dt.to_period("Q").astype(str)
+        elif granularity == "year":
+            work["_analysis_period"] = dates.dt.year.astype("Int64").astype(str)
+
+        if "_analysis_period" not in group_by:
+            group_by = ["_analysis_period"] + group_by
+
+    if not group_by:
+        values = {}
+        denominator = len(filtered)
+        for metric in metrics:
+            values[metric["alias"]] = _metric_series(
+                filtered, metric, denominator=denominator
+            )
+        out = pd.DataFrame([values])
+        return out, {"group_by": [], "metrics": metrics}
+
+    rows = []
+    grouped = work.groupby(group_by, dropna=False, sort=False)
+
+    for keys, group in grouped:
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        row = {}
+        for col, key in zip(group_by, keys):
+            row[_display_column_name(col)] = "Unknown" if pd.isna(key) else key
+
+        for metric in metrics:
+            value = _metric_series(
+                group,
+                metric,
+                denominator=len(filtered),
+            )
+            if isinstance(value, (np.integer, np.floating)):
+                value = value.item()
+            row[metric["alias"]] = value
+        rows.append(row)
+
+    return pd.DataFrame(rows), {"group_by": group_by, "metrics": metrics}
+
+
+def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
+    filtered = _apply_generic_plan_filters(df, plan.get("filters", []))
+
+    search_text = str(plan.get("search_text") or "").strip()
+    if search_text:
+        searchable = [
+            c for c in df.columns
+            if df[c].dtype == "object" or pd.api.types.is_string_dtype(df[c])
+        ]
+        if searchable:
+            mask = pd.Series(False, index=filtered.index)
+            needle = search_text.lower()
+            for col in searchable:
+                mask |= filtered[col].fillna("").astype(str).str.lower().str.contains(
+                    needle, regex=False
+                )
+            filtered = filtered[mask]
+
+    intent = plan.get("intent", "summary")
+    grouped_df, grouped_meta = _execute_grouped_analysis(filtered, plan)
+
+    sort = plan.get("sort") or {}
+    sort_column = sort.get("column")
+    if sort_column:
+        display_sort = _display_column_name(sort_column)
+        if display_sort in grouped_df.columns:
+            grouped_df = grouped_df.sort_values(
+                display_sort,
+                ascending=sort.get("direction") != "descending",
+            )
+
+    if plan.get("top_n"):
+        grouped_df = grouped_df.head(plan["top_n"])
+
+    limit = int(plan.get("limit", 20))
+    grouped_df = grouped_df.head(limit)
+
+    # Automatic exploration: assemble several deterministic summaries.
+    exploration = {}
+    if intent == "explore":
+        exploration["dataset_records"] = int(len(df))
+        exploration["matching_records"] = int(len(filtered))
+
+        for label, column in (
+            ("regions", "region"),
+            ("countries", "alert-country"),
+            ("alert_impacts", "alert-impact"),
+            ("alert_types", "alert-type"),
+            ("enabling_principles", "enabling-principle"),
+        ):
+            if column in filtered.columns:
+                temp = (
+                    filtered[column]
+                    .fillna("Unknown")
+                    .astype(str)
+                    .value_counts()
+                    .head(10)
+                    .reset_index()
+                )
+                temp.columns = ["category", "records"]
+                exploration[label] = temp.to_dict("records")
+
+        if "creation_date" in filtered.columns:
+            dates = pd.to_datetime(filtered["creation_date"], errors="coerce")
+            trend = (
+                pd.DataFrame({"date": dates})
+                .dropna()
+                .assign(year=lambda x: x["date"].dt.year)
+                .groupby("year")
+                .size()
+                .reset_index(name="records")
+            )
+            exploration["yearly_trend"] = trend.to_dict("records")
+
+    # Profile: deterministic overview across the main analytical dimensions.
+    profile = {}
+    if intent == "profile":
+        profile["records"] = int(len(filtered))
+        for label, column in (
+            ("countries", "alert-country"),
+            ("regions", "region"),
+            ("alert_impacts", "alert-impact"),
+            ("alert_types", "alert-type"),
+            ("enabling_principles", "enabling-principle"),
+            ("actors", "Actor of repression"),
+        ):
+            if column in filtered.columns:
+                temp = (
+                    filtered[column]
+                    .fillna("Unknown")
+                    .astype(str)
+                    .value_counts()
+                    .head(10)
+                    .reset_index()
+                )
+                temp.columns = ["category", "records"]
+                profile[label] = temp.to_dict("records")
+
+        if "creation_date" in filtered.columns:
+            dates = pd.to_datetime(filtered["creation_date"], errors="coerce")
+            trend = (
+                pd.DataFrame({"date": dates})
+                .dropna()
+                .assign(year=lambda x: x["date"].dt.year)
+                .groupby("year")
+                .size()
+                .reset_index(name="records")
+            )
+            profile["yearly_trend"] = trend.to_dict("records")
+
+    # Records request.
+    records = None
+    if intent == "records":
+        selected = [
+            c for c in [
+                "creation_date", "alert-country", "region", "alert-type",
+                "alert-impact", "Actor of repression", "enabling-principle",
+                "Subject", "Mechanism", "Type of event",
+            ] if c in filtered.columns
+        ]
+        records_df = filtered[selected].head(limit).copy()
+        if "creation_date" in records_df.columns:
+            records_df["creation_date"] = pd.to_datetime(
+                records_df["creation_date"], errors="coerce"
+            ).dt.strftime("%Y-%m-%d")
+        records = records_df.where(pd.notna(records_df), None).to_dict("records")
+
+    # Cross-tab / relationship analysis.
+    cross_tab = None
+    group_by = plan.get("group_by", []) or []
+    if intent == "cross_tab" and len(group_by) >= 2:
+        a, b = group_by[:2]
+        if a in filtered.columns and b in filtered.columns:
+            ct = pd.crosstab(
+                filtered[a].fillna("Unknown").astype(str),
+                filtered[b].fillna("Unknown").astype(str),
+            )
+            ct = ct.iloc[:50, :50]
+            cross_tab = {
+                "row_dimension": _display_column_name(a),
+                "column_dimension": _display_column_name(b),
+                "data": ct.reset_index().to_dict("records"),
+            }
+
+    # Change analysis: calculate first-to-last period difference when possible.
+    change = None
+    if intent == "change" and not grouped_df.empty:
+        period_candidates = [
+            c for c in grouped_df.columns
+            if c.lower() in {"date", "year", "month", "period"} or "period" in c.lower()
+        ]
+        if period_candidates:
+            pcol = period_candidates[0]
+            numeric_cols = [
+                c for c in grouped_df.columns
+                if c != pcol and pd.api.types.is_numeric_dtype(grouped_df[c])
+            ]
+            if numeric_cols:
+                temp = grouped_df.copy()
+                temp = temp.sort_values(pcol)
+                first = temp.iloc[0]
+                last = temp.iloc[-1]
+                change = {
+                    "from_period": first[pcol],
+                    "to_period": last[pcol],
+                    "changes": {
+                        c: (
+                            None if pd.isna(first[c]) or pd.isna(last[c])
+                            else float(last[c] - first[c])
+                        )
+                        for c in numeric_cols
+                    },
+                }
+
+    chart = None
+    chart_df = grouped_df.copy()
+
+    if cross_tab:
+        ct_df = pd.DataFrame(cross_tab["data"])
+        if not ct_df.empty:
+            first_col = ct_df.columns[0]
+            value_cols = list(ct_df.columns[1:])
+            chart = {
+                "type": "heatmap",
+                "x": value_cols,
+                "y": first_col,
+                "title": "Cross-dimensional distribution",
+                "data": cross_tab["data"],
+            }
+    elif not chart_df.empty and len(chart_df.columns) >= 2:
+        chart_type = _choose_visualization(plan, chart_df)
+        x_col = chart_df.columns[0]
+        numeric_cols = [
+            c for c in chart_df.columns[1:]
+            if pd.api.types.is_numeric_dtype(chart_df[c])
+        ]
+        if numeric_cols and chart_type != "none":
+            y_col = numeric_cols[0]
+            chart = {
+                "type": chart_type,
+                "x": x_col,
+                "y": y_col,
+                "title": _analysis_title(plan, x_col),
+                "x_label": _display_column_name(x_col),
+                "y_label": _display_column_name(y_col),
+                "data": chart_df.to_dict("records"),
+            }
+
+    analysis = {
+        "intent": intent,
+        "matching_records": int(len(filtered)),
+        "result_rows": int(len(grouped_df)),
+        "grouped_data": grouped_df.to_dict("records"),
+        "exploration": exploration,
+        "profile": profile,
+        "records": records,
+        "cross_tab": cross_tab,
+        "change": change,
+        "chart": chart,
+        "applied_filters": plan.get("filters", []),
+    }
+
+    return {
+        "records_count": int(len(filtered)),
+        "analysis_type": intent,
+        "metric": plan.get("metrics", [{"alias": "records"}])[0].get("alias", "records"),
+        "filters": plan.get("filters", []),
+        "analysis": analysis,
+        "chart": chart,
+        "records": records,
+    }
+
+
+def _analysis_title(plan: dict, x_col: str) -> str:
+    intent = str(plan.get("intent", "analysis")).replace("_", " ").title()
+    return f"{intent} by {_display_column_name(x_col)}"
+
+
+# ============================================================
+# DASHBOARD FILTER SYNCHRONISATION
+# ============================================================
+
+def _sync_ai_filters_to_dashboard(filters: dict) -> list[str]:
+    unsupported = []
+
+    mapping = {
+        "regions": "selected_regions",
+        "countries": "selected_countries",
+        "alert_types": "selected_alert_types",
+        "alert_impacts": "selected_alert_impacts",
+        "enabling_principles": "selected_enabling_principle",
+        "years": "selected_years",
+        "months": "selected_months",
+    }
+
+    for ai_key, dashboard_key in mapping.items():
+        values = list(filters.get(ai_key) or [])
+        if values:
+            st.session_state[dashboard_key] = values
+
+    if filters.get("date_from") or filters.get("date_to"):
+        unsupported.append(
+            "The exact date range is applied to the AI analysis; "
+            "the existing dashboard has no dedicated date-range control."
+        )
+
+    return unsupported
+
+
+def _clear_dashboard_filters() -> None:
+    for key in [
+        "selected_regions",
+        "selected_countries",
+        "selected_alert_types",
+        "selected_enabling_principle",
+        "selected_alert_impacts",
+        "selected_months",
+        "selected_years",
+        "selected_actor_types",
+        "selected_subject_types",
+        "selected_mechanism_types",
+        "selected_event_types",
+    ]:
+        st.session_state[key] = []
+
+
+# ============================================================
+# NATURAL-LANGUAGE PROCESSOR
+# ============================================================
+
+def _extract_simple_filters_for_dashboard(plan: dict, df: pd.DataFrame) -> dict:
+    """Map validated structured filters to the existing sidebar state."""
+    filters = DEFAULT_AI_FILTER_STATE.copy()
+
+    for item in plan.get("filters", []) or []:
+        column = item.get("column")
+        op = item.get("operator")
+        value = item.get("value")
+
+        if op not in {"eq", "in"}:
+            continue
+
+        values = value if isinstance(value, list) else [value]
+
+        if column == "region":
+            filters["regions"] = values
+        elif column == "alert-country":
+            filters["countries"] = values
+        elif column == "alert-type":
+            filters["alert_types"] = values
+        elif column == "alert-impact":
+            filters["alert_impacts"] = values
+        elif column == "enabling-principle":
+            filters["enabling_principles"] = values
+        elif column == "year":
+            filters["years"] = [int(v) for v in values if str(v).isdigit()]
+        elif column == "month_name":
+            filters["months"] = values
+
+    return filters
+
+
+def _process_eusee_ai_request(user_question: str) -> dict:
+    df = get_full_dashboard_dataframe()
+
+    if df.empty:
+        return {
+            "answer": "The complete EU SEE dashboard dataset is not available for the AI Assistant.",
+            "analysis": None,
+        }
+
+    plan = _plan_dashboard_analysis(user_question, df)
+
+    if not plan:
+        return {
+            "answer": (
+                "I could not create a reliable analytical plan for that request. "
+                "Please rephrase the question in terms of the EU SEE dataset."
+            ),
+            "analysis": None,
+        }
+
+    if plan.get("action") == "clear_filters":
+        _clear_ai_filter_state()
+        _clear_dashboard_filters()
+        return {
+            "answer": "The dashboard filters have been cleared.",
+            "analysis": None,
+            "filter_updated": True,
+            "clear_filters": True,
+        }
+
+    validated_plan, plan_warnings = _validate_plan(df, plan)
+
+    # Deterministic Q1-Q4/H1-H2 handling. This is deliberately outside the LLM.
+    q = user_question.lower()
+    temporal_months = None
+    for quarter, months in QUARTER_MONTHS.items():
+        if re.search(rf"\bq{quarter}\b|\bquarter\s*{quarter}\b", q):
+            temporal_months = months
+            break
+    if temporal_months is None and re.search(r"\b(h1|first half|first half-year)\b", q):
+        temporal_months = QUARTER_MONTHS[1] + QUARTER_MONTHS[2]
+    if temporal_months is None and re.search(r"\b(h2|second half|second half-year)\b", q):
+        temporal_months = QUARTER_MONTHS[3] + QUARTER_MONTHS[4]
+
+    if temporal_months and "month_name" in df.columns:
+        available = set(_actual_values(df, "month_name", 50))
+        temporal_filter = {
+            "column": "month_name",
+            "operator": "in",
+            "value": [m for m in temporal_months if m in available],
+        }
+        validated_plan["filters"] = [
+            f for f in validated_plan.get("filters", [])
+            if f.get("column") != "month_name"
+        ] + [temporal_filter]
+
+    analysis = _execute_plan(df, validated_plan)
+    analysis.setdefault("analysis", {})["warnings"] = plan_warnings
+    analysis["warnings"] = plan_warnings
+
+    # Keep conversational state synchronized for follow-up questions.
+    dashboard_like_filters = _extract_simple_filters_for_dashboard(validated_plan, df)
+    if _has_active_filter_state(dashboard_like_filters):
+        _set_ai_filter_state(dashboard_like_filters)
+
+    filter_updated = plan.get("action") == "filter_and_analyze"
+    if filter_updated:
+        unsupported = _sync_ai_filters_to_dashboard(dashboard_like_filters)
+        analysis["warnings"].extend(unsupported)
+
+    answer = _generate_eusee_answer(user_question, analysis)
+
+    return {
+        "answer": answer,
+        "analysis": analysis,
+        "filter_updated": filter_updated,
+    }
+
+
+# ============================================================
+# OPENAI FINAL RESPONSE
+# ============================================================
+
+def _generate_eusee_answer(user_question: str, analysis: dict) -> str:
+    client = _get_eusee_openai_client()
+
+    if client is None:
+        return _deterministic_eusee_answer(analysis)
+
+    compact_result = {
+        "records_count": analysis.get("records_count", 0),
+        "analysis_type": analysis.get("analysis_type"),
+        "filters": analysis.get("filters", {}),
+        "analysis": analysis.get("analysis", {}),
+        "records": analysis.get("records"),
+        "warnings": analysis.get("warnings", []),
+    }
+
+    prompt = json.dumps(
+        {
+            "USER_QUESTION": user_question,
+            "VERIFIED_DATASET_RESULT": compact_result,
+        },
+        ensure_ascii=False,
+        default=str,
+    )
+
+    try:
+        response = client.responses.create(
+            model=OPENAI_MODEL,
+            instructions="""
+You are the final response writer for a professional EU SEE dataset analytics assistant.
+
+Use ONLY VERIFIED_DATASET_RESULT.
+Never invent values, explanations, causes, motives, facts, or categories.
+Do not use external knowledge.
+Do not make political judgments or recommendations.
+Clearly distinguish descriptive findings from interpretation.
+Answer the user's actual question directly.
+Use concise headings and bullets when useful.
+If a chart/table is supplied, refer to it naturally.
+For exploratory/profile questions, synthesize the strongest observed patterns.
+For comparisons, report the observed differences without declaring a political winner.
+For change/trend questions, describe the direction and relevant values contained in
+the verified result.
+If there are no matching records, say so clearly.
+If warnings exist, mention only material limitations.
+Do not mention OpenAI, APIs, Python, tools, prompts, schemas, or internal implementation.
+""",
+            input=prompt,
+            reasoning={"effort": "none"},
+            max_output_tokens=900,
+        )
+
+        output = str(response.output_text or "").strip()
+        if output:
+            return output
+    except Exception as exc:
+        if st.secrets.get("debug", {}).get("show_chat_ai_errors", False):
+            st.warning(f"AI response generation failed: {exc}")
+
+    return _deterministic_eusee_answer(analysis)
+
+
+def _format_plan_filters(filters: list[dict]) -> str:
+    parts = []
+    for item in filters or []:
+        column = _display_column_name(item.get("column", ""))
+        op = item.get("operator", "eq")
+        value = item.get("value")
+        if isinstance(value, list):
+            value = ", ".join(map(str, value))
+        parts.append(f"{column} {op} {value}")
+    return "; ".join(parts)
+
+
+def _deterministic_eusee_answer(analysis: dict) -> str:
+    count = int(analysis.get("records_count", 0) or 0)
+    intent = analysis.get("analysis_type", "analysis")
+
+    if count == 0:
+        text = "No records in the complete EU SEE dataset match the requested analysis."
+    elif intent == "records":
+        returned = len(analysis.get("records") or [])
+        text = f"I found {count:,} matching records and returned {returned:,} records below."
+    elif intent in {"trend", "change"}:
+        text = f"The analysis covers {count:,} matching records. The time pattern is shown below."
+    elif intent in {"explore", "profile"}:
+        text = f"The analysis covers {count:,} matching records and summarizes the main observed patterns below."
+    else:
+        text = f"The analysis covers {count:,} matching records."
+
+    warnings = analysis.get("warnings") or []
+    if warnings:
+        text += "\n\nNote: " + " ".join(map(str, warnings[:3]))
+
+    return text
+
+
+# ============================================================
+# GENERAL OUTPUT RENDERER
+# ============================================================
+
+def render_openai_output(result: dict, chart_instance_key: str | None = None):
+    if not isinstance(result, dict):
+        return
+
+    answer = str(result.get("answer", "")).strip()
+    if answer:
+        st.markdown(answer)
+
+    analysis = result.get("analysis")
+    if not isinstance(analysis, dict):
+        return
+
+    # Exploration/profile summaries.
+    payload = analysis.get("analysis", {})
+    if isinstance(payload, dict):
+        for section_key in ("exploration", "profile"):
+            section = payload.get(section_key)
+            if not isinstance(section, dict):
+                continue
+
+            for key, rows in section.items():
+                if key in {"dataset_records", "matching_records", "records"}:
+                    continue
+                if isinstance(rows, list) and rows:
+                    with st.expander(
+                        key.replace("_", " ").title(),
+                        expanded=False,
+                    ):
+                        st.dataframe(
+                            pd.DataFrame(rows),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+
+        cross_tab = payload.get("cross_tab")
+        if isinstance(cross_tab, dict) and cross_tab.get("data"):
+            st.dataframe(
+                pd.DataFrame(cross_tab["data"]),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        change = payload.get("change")
+        if isinstance(change, dict):
+            st.caption(
+                f"Change from {change.get('from_period')} "
+                f"to {change.get('to_period')}: "
+                + ", ".join(
+                    f"{k}={v}" for k, v in (change.get("changes") or {}).items()
+                )
+            )
+
+    chart = analysis.get("chart")
+    if not isinstance(chart, dict) or not chart:
+        records = analysis.get("records")
+        if isinstance(records, list) and records:
+            st.dataframe(
+                pd.DataFrame(records),
+                use_container_width=True,
+                hide_index=True,
+            )
+        return
+
+    chart_type = str(chart.get("type", "")).lower().strip()
+    chart_data = chart.get("data", [])
+
+    # Heatmap is rendered separately because it requires a matrix.
+    if chart_type == "heatmap":
+        try:
+            chart_df = pd.DataFrame(chart_data)
+            if chart_df.empty or len(chart_df.columns) < 2:
+                return
+
+            z_df = chart_df.set_index(chart_df.columns[0])
+            z_df = z_df.apply(pd.to_numeric, errors="coerce").fillna(0)
+
+            fig = px.imshow(
+                z_df,
+                text_auto=True,
+                aspect="auto",
+                title=chart.get("title", "Cross-dimensional distribution"),
+                labels={"x": z_df.columns.name or "Category", "y": z_df.index.name or "Category"},
+            )
+            fig.update_layout(height=480)
+
+            try:
+                fig = apply_classic_chart_theme(
+                    fig,
+                    title=fig.layout.title.text,
+                    height=480,
+                )
+            except Exception:
+                pass
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"eusee_openai_chart_{chart_instance_key or uuid.uuid4().hex}",
+                config=DEFAULT_PLOTLY_CONFIG,
+            )
+        except Exception as exc:
+            st.warning(f"The AI chart could not be rendered: {exc}")
+        return
+
+    chart_df = pd.DataFrame(chart_data)
+    x_col = chart.get("x")
+    y_col = chart.get("y")
+
+    if chart_df.empty or not x_col or not y_col:
+        return
+    if x_col not in chart_df.columns or y_col not in chart_df.columns:
+        return
+
+    try:
+        chart_df[y_col] = pd.to_numeric(chart_df[y_col], errors="coerce")
+        chart_df = chart_df.dropna(subset=[y_col])
+
+        title = chart.get("title", "Dashboard analysis")
+        labels = {
+            x_col: chart.get("x_label", x_col),
+            y_col: chart.get("y_label", y_col),
+        }
+
+        if chart_type == "line":
+            fig = px.line(
+                chart_df, x=x_col, y=y_col, title=title,
+                markers=True, labels=labels,
+            )
+        elif chart_type == "pie":
+            fig = px.pie(
+                chart_df, names=x_col, values=y_col, title=title,
+            )
+        elif chart_type == "donut":
+            fig = px.pie(
+                chart_df, names=x_col, values=y_col, title=title, hole=0.45,
+            )
+        elif chart_type == "area":
+            fig = px.area(
+                chart_df, x=x_col, y=y_col, title=title, labels=labels,
+            )
+        else:
+            fig = px.bar(
+                chart_df, x=x_col, y=y_col, title=title,
+                text=y_col, labels=labels,
+            )
+
+        fig.update_layout(height=430)
+        try:
+            fig = apply_classic_chart_theme(
+                fig, title=fig.layout.title.text, height=430
+            )
+        except Exception:
+            pass
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key=f"eusee_openai_chart_{chart_instance_key or uuid.uuid4().hex}",
+            config=DEFAULT_PLOTLY_CONFIG,
+        )
+    except Exception as exc:
+        st.warning(f"The AI chart could not be rendered: {exc}")
 
 
 # ============================================================
@@ -12924,163 +13510,6 @@ def inject_eusee_ai_popover_css():
     )
 
 # ============================================================
-# EXISTING CHATBOT CHART RENDERER
-# The visual styling remains aligned with the existing dashboard.
-# ============================================================
-
-def render_openai_output(
-    result: dict,
-    chart_instance_key: str | None = None,
-):
-    if not isinstance(result, dict):
-        return
-
-    answer = str(
-        result.get("answer", "")
-    ).strip()
-
-    if answer:
-        st.markdown(answer)
-
-    analysis = result.get(
-        "analysis"
-    )
-
-    if not isinstance(analysis, dict):
-        return
-
-    chart = analysis.get(
-        "chart"
-    )
-
-    if not isinstance(chart, dict) or not chart:
-        records = analysis.get("records")
-        if isinstance(records, list) and records:
-            st.dataframe(
-                pd.DataFrame(records),
-                use_container_width=True,
-                hide_index=True,
-            )
-        return
-
-    chart_type = str(
-        chart.get("type", "")
-    ).lower().strip()
-
-    chart_df = pd.DataFrame(
-        chart.get("data", [])
-    )
-
-    x_col = chart.get("x")
-    y_col = chart.get("y")
-
-    if chart_df.empty or not x_col or not y_col:
-        return
-
-    if x_col not in chart_df.columns or y_col not in chart_df.columns:
-        return
-
-    try:
-        chart_df[y_col] = pd.to_numeric(
-            chart_df[y_col],
-            errors="coerce",
-        )
-        chart_df = chart_df.dropna(
-            subset=[y_col]
-        )
-
-        title = chart.get(
-            "title",
-            "Dashboard analysis",
-        )
-
-        if chart_type == "line":
-            fig = px.line(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                title=title,
-                markers=True,
-                labels={
-                    x_col: chart.get(
-                        "x_label",
-                        x_col,
-                    ),
-                    y_col: chart.get(
-                        "y_label",
-                        y_col,
-                    ),
-                },
-            )
-
-        elif chart_type == "pie":
-            fig = px.pie(
-                chart_df,
-                names=x_col,
-                values=y_col,
-                title=title,
-            )
-
-        elif chart_type == "donut":
-            fig = px.pie(
-                chart_df,
-                names=x_col,
-                values=y_col,
-                title=title,
-                hole=0.45,
-            )
-
-        else:
-            fig = px.bar(
-                chart_df,
-                x=x_col,
-                y=y_col,
-                title=title,
-                text=y_col,
-                labels={
-                    x_col: chart.get(
-                        "x_label",
-                        x_col,
-                    ),
-                    y_col: chart.get(
-                        "y_label",
-                        y_col,
-                    ),
-                },
-            )
-
-        fig.update_layout(
-            height=430,
-        )
-
-        try:
-            fig = apply_classic_chart_theme(
-                fig,
-                title=fig.layout.title.text,
-                height=430,
-            )
-        except Exception:
-            pass
-
-        key = (
-            f"eusee_openai_chart_"
-            f"{chart_instance_key or uuid.uuid4().hex}"
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            key=key,
-            config=DEFAULT_PLOTLY_CONFIG,
-        )
-
-    except Exception as exc:
-        st.warning(
-            f"The AI chart could not be rendered: {exc}"
-        )
-
-
-# ============================================================
 # EXISTING EU SEE AI POPOVER BODY
 # Appearance intentionally preserved.
 # ============================================================
@@ -13267,3 +13696,4 @@ def render_eusee_ai_copilot_popover():
 
 
 render_eusee_ai_copilot_popover()
+
