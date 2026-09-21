@@ -3564,6 +3564,7 @@ def _inject_cfr_dashboard_css():
 
         table.cfr-region-table{
             width:100%;
+            height:70%;
             table-layout:fixed;
             border-collapse:collapse;
             border:1px solid #DDE4EE !important;
