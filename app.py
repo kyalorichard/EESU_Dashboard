@@ -3234,8 +3234,8 @@ def _inject_cfr_dashboard_css():
         div[data-testid="stVerticalBlockBorderWrapper"]:has(
         .cfr-region-panel-marker
     ) {
-        min-height: 350px !important;
-        height: 350px !important;
+        min-height: 600px !important;
+        height: 600px !important;
         box-sizing: border-box;
         padding: 14px 18px 14px 18px !important;
         background: #FFFFFF !important;
