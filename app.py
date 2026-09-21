@@ -4227,6 +4227,157 @@ def _inject_cfr_dashboard_css():
         unsafe_allow_html=True,
     )
 
+    # ------------------------------------------------------------
+    # CFR TOP-PANEL HEIGHT ALIGNMENT
+    # ------------------------------------------------------------
+    st.markdown(
+        """
+        <style>
+
+        /* =========================================================
+        Shared height for the three main CFR panels
+        ========================================================= */
+
+        /* Outer left and right Streamlit bordered containers */
+        .cfr-chart-panel-marker
+            ~ div[data-testid="stVerticalBlockBorderWrapper"],
+        .cfr-region-panel-marker
+            ~ div[data-testid="stVerticalBlockBorderWrapper"] {
+            min-height: 560px !important;
+        }
+
+        /* More reliable selector: target the bordered wrapper
+        containing each CFR marker */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ),
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) {
+            min-height: 560px !important;
+            height: 560px !important;
+        }
+
+        /* Keep the internal content from collapsing */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) > div,
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) > div {
+            min-height: 100% !important;
+        }
+
+        /* =========================================================
+        Left tabbed CFR panel
+        ========================================================= */
+
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .stTabs {
+            min-height: 485px !important;
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .stTabs [data-baseweb="tab-panel"] {
+            min-height: 425px !important;
+        }
+
+        /* Make both tab panels visually consistent */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .stTabs [data-baseweb="tab-panel"] > div {
+            min-height: 410px !important;
+        }
+
+        /* =========================================================
+        Aggregated CFR matrix
+        ========================================================= */
+
+        .cfr-principle-matrix {
+            min-height: 360px;
+        }
+
+        /* =========================================================
+        Principles across years Plotly chart
+        ========================================================= */
+
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-chart-panel-marker
+        ) .js-plotly-plot {
+            min-height: 360px !important;
+        }
+
+        /* =========================================================
+        Right: Regional score patterns
+        ========================================================= */
+
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) .cfr-regional-table,
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) table {
+            min-height: 360px !important;
+        }
+
+        /* Keep regional content vertically balanced */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(
+            .cfr-region-panel-marker
+        ) {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* =========================================================
+        Panel headings
+        ========================================================= */
+
+        .cfr-chart-panel-heading {
+            min-height: 58px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        /* Consistent selector spacing */
+        .cfr-chart-panel-selector-label {
+            min-height: 18px;
+            margin-bottom: 4px;
+        }
+
+        /* =========================================================
+        Responsive behaviour
+        ========================================================= */
+
+        @media (max-width: 900px) {
+
+            [data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ),
+            [data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-region-panel-marker
+            ) {
+                height: auto !important;
+                min-height: 0 !important;
+            }
+
+            [data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ) .stTabs,
+            [data-testid="stVerticalBlockBorderWrapper"]:has(
+                .cfr-chart-panel-marker
+            ) .stTabs [data-baseweb="tab-panel"] {
+                min-height: 0 !important;
+            }
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 # ------------------------------------------------------------
 # HTML HELPERS
 # ------------------------------------------------------------
