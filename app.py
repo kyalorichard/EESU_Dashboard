@@ -3554,8 +3554,8 @@ def _inject_cfr_dashboard_css():
         /* Reference-matched regional matrix. */
         .cfr-region-scroll {
             width: 100%;
-            max-height: none !important;
-            height: 430px;
+            max-height: 400px !important;
+            height: 400px;
             margin-top: 4px;
             border: 0 !important;
             border-radius: 0 !important;
