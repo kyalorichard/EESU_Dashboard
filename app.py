@@ -11916,38 +11916,354 @@ def _build_conversation_context() -> list[dict]:
     ]
 
 
-def _plan_dashboard_analysis(user_question: str, df: pd.DataFrame) -> dict | None:
-    client = _get_eusee_openai_client()
-    if client is None:
+def _infer_nl_filter_candidates(question: str, df: pd.DataFrame) -> list[dict]:
+    """Infer high-confidence dataset filters directly from natural language.
+
+    This is a safety fallback, not a replacement for the LLM planner. It only
+    creates filters when a phrase has a strong match to an actual dataset value
+    or when a broad geographic term can be represented safely with `contains`.
+    """
+    q = _clean_ai_text(question)
+    work = _prepare_analysis_dataframe(df)
+    filters: list[dict] = []
+
+    dimension_columns = [
+        ("region", "region"),
+        ("country", "alert-country"),
+        ("alert type", "alert-type"),
+        ("alert impact", "alert-impact"),
+        ("impact", "alert-impact"),
+        ("enabling principle", "enabling-principle"),
+        ("principle", "enabling-principle"),
+        ("actor", "Actor of repression"),
+        ("event type", "Type of event"),
+    ]
+
+    used_columns = set()
+
+    # Explicit negative/positive aliases.
+    if "negative alert" in q or "negative alerts" in q:
+        if "alert-impact" in work.columns:
+            filters.append({"column": "alert-impact", "operator": "eq", "value": "Negative"})
+            used_columns.add("alert-impact")
+    elif "positive alert" in q or "positive alerts" in q:
+        if "alert-impact" in work.columns:
+            filters.append({"column": "alert-impact", "operator": "eq", "value": "Positive"})
+            used_columns.add("alert-impact")
+
+    # First look for exact/phrase category mentions, longest first.
+    for _, column in dimension_columns:
+        if column in used_columns or column not in work.columns:
+            continue
+
+        values = _actual_values(work, column, 1000)
+        matches = []
+        for value in values:
+            v = _clean_ai_text(value)
+            if len(v) < 2:
+                continue
+            # Avoid treating generic words such as "type", "region", etc.
+            if v in {"unknown", "none", "other", "all", "total"}:
+                continue
+            if re.search(rf"(?<!\w){re.escape(v)}(?!\w)", q):
+                matches.append(value)
+
+        if matches:
+            # Keep the most specific matches. Multiple explicit values are
+            # represented as an IN filter.
+            matches = sorted(set(matches), key=lambda x: (-len(str(x)), str(x)))
+            filters.append({
+                "column": column,
+                "operator": "in" if len(matches) > 1 else "eq",
+                "value": matches[:20],
+            })
+            used_columns.add(column)
+
+    # Broad geographic wording such as "in Africa" should also work when the
+    # dataset stores sub-regions such as "West Africa", "East Africa", etc.
+    geographic_terms = [
+        "africa", "europe", "asia", "americas", "north america",
+        "south america", "latin america", "middle east",
+    ]
+    if "region" in work.columns and "region" not in used_columns:
+        for term in geographic_terms:
+            if re.search(rf"(?<!\w){re.escape(term)}(?!\w)", q):
+                region_values = _actual_values(work, "region", 1000)
+                containing = [
+                    v for v in region_values
+                    if term in _clean_ai_text(v)
+                ]
+                if len(containing) > 1:
+                    filters.append({
+                        "column": "region",
+                        "operator": "contains",
+                        "value": term,
+                    })
+                    used_columns.add("region")
+                elif len(containing) == 1:
+                    filters.append({
+                        "column": "region",
+                        "operator": "eq",
+                        "value": containing[0],
+                    })
+                    used_columns.add("region")
+                break
+
+    # Years mentioned in the question.
+    if "year" in work.columns:
+        available_years = set(
+            pd.to_numeric(work["year"], errors="coerce").dropna().astype(int).tolist()
+        )
+        mentioned_years = [
+            int(y) for y in re.findall(r"\b(19\d{2}|20\d{2}|21\d{2})\b", q)
+            if int(y) in available_years
+        ]
+        if mentioned_years:
+            filters.append({
+                "column": "year",
+                "operator": "in" if len(set(mentioned_years)) > 1 else "eq",
+                "value": sorted(set(mentioned_years)),
+            })
+
+    return filters
+
+
+def _infer_nl_grouping(question: str, df: pd.DataFrame) -> list[str]:
+    """Infer grouping dimensions from phrases such as 'by region' or 'across countries'."""
+    q = _clean_ai_text(question)
+    work = _prepare_analysis_dataframe(df)
+    candidates = [
+        (["region", "regions", "by region", "across regions", "each region"], "region"),
+        (["country", "countries", "by country", "across countries", "each country"], "alert-country"),
+        (["alert type", "alert types", "by alert type"], "alert-type"),
+        (["impact", "impacts", "by impact", "alert impact"], "alert-impact"),
+        (["principle", "principles", "by principle", "enabling principle"], "enabling-principle"),
+        (["actor", "actors", "by actor"], "Actor of repression"),
+        (["event type", "event types", "by event type"], "Type of event"),
+        (["month", "monthly", "by month"], "month_name"),
+        (["year", "years", "yearly", "annual", "by year"], "year"),
+    ]
+    result = []
+    for phrases, column in candidates:
+        if column not in work.columns:
+            continue
+        if any(re.search(rf"(?<!\w){re.escape(p)}(?!\w)", q) for p in phrases):
+            if column not in result:
+                result.append(column)
+    return result[:3]
+
+
+def _fallback_natural_language_plan(user_question: str, df: pd.DataFrame) -> dict:
+    """Create a safe analytical plan when the LLM planner is unavailable."""
+    q = _clean_ai_text(user_question)
+
+    # Intent classification is deliberately broad.
+    if any(k in q for k in ["record", "records", "incident", "incidents", "example", "examples", "show me"]):
+        intent = "records"
+    elif any(k in q for k in ["correlation", "relationship", "associated", "association", "related to"]):
+        intent = "relationship"
+    elif any(k in q for k in ["cross tab", "cross-tab", "crosstab", "contingency"]):
+        intent = "cross_tab"
+    elif any(k in q for k in ["change", "changed", "increase", "decrease", "growth", "decline", "difference over"]):
+        intent = "change"
+    elif any(k in q for k in ["trend", "trends", "over time", "evolution", "monthly", "quarterly", "yearly", "annual"]):
+        intent = "trend"
+    elif any(k in q for k in ["top ", "highest", "lowest", "largest", "smallest", "most common", "least common", "leading"]):
+        intent = "ranking"
+    elif any(k in q for k in ["compare", "comparison", "versus", " vs ", "difference between"]):
+        intent = "compare"
+    elif any(k in q for k in ["distribution", "breakdown", "share", "proportion", "percentage", "composition"]):
+        intent = "distribution"
+    elif any(k in q for k in ["tell me about", "profile", "overview of"]):
+        intent = "profile"
+    elif any(k in q for k in ["main patterns", "patterns", "overview", "explore", "key findings", "what stands out", "summarise", "summarize"]):
+        intent = "explore"
+    else:
+        intent = "summary"
+
+    filters = _infer_nl_filter_candidates(user_question, df)
+    group_by = _infer_nl_grouping(user_question, df)
+
+    # Open-ended questions should expose multiple dimensions rather than
+    # forcing a single arbitrary grouping.
+    if intent in {"explore", "profile"} and not group_by:
+        group_by = ["region"] if "region" in df.columns else []
+
+    # Time semantics.
+    if any(k in q for k in ["quarter", "q1", "q2", "q3", "q4"]):
+        time_granularity = "quarter"
+    elif any(k in q for k in ["month", "monthly"]):
+        time_granularity = "month"
+    elif any(k in q for k in ["year", "yearly", "annual", "over time"]):
+        time_granularity = "year"
+    else:
+        time_granularity = "year" if intent in {"trend", "change"} and "creation_date" in df.columns else "none"
+
+    if intent in {"trend", "change"} and not group_by:
+        group_by = ["year"] if "year" in df.columns else []
+
+    # Metric selection.
+    if any(k in q for k in ["average", "mean", "avg"]):
+        metric_op = "mean"
+        metric_col = next(
+            (c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])),
+            None,
+        )
+    elif "median" in q:
+        metric_op = "median"
+        metric_col = next(
+            (c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])),
+            None,
+        )
+    elif any(k in q for k in ["percentage", "percent", "share", "proportion", "%"]):
+        metric_op = "percentage"
+        metric_col = None
+    else:
+        metric_op = "count"
+        metric_col = None
+
+    metrics = [{
+        "operation": metric_op,
+        "column": metric_col,
+        "alias": "records" if metric_op == "count" else metric_op,
+    }]
+
+    # Rankings need descending order and a finite top-N.
+    top_n = 10 if intent == "ranking" else None
+    sort = {
+        "column": metrics[0]["alias"],
+        "direction": "descending",
+    }
+
+    if intent == "records":
+        visualization = "table"
+    elif intent in {"trend", "change"}:
+        visualization = "line"
+    elif intent in {"distribution", "ranking", "compare", "summary"}:
+        visualization = "bar"
+    else:
+        visualization = "auto"
+
+    return {
+        "action": "filter_and_analyze" if filters else "analyze",
+        "intent": intent,
+        "filters": filters,
+        "group_by": group_by,
+        "metrics": metrics,
+        "compare_values": [],
+        "search_text": None,
+        "top_n": top_n,
+        "sort": sort,
+        "time_granularity": time_granularity,
+        "visualization": visualization,
+        "limit": 20,
+    }
+
+
+def _parse_json_object(value) -> dict | None:
+    """Parse a JSON object from model output, tolerating fenced JSON."""
+    if isinstance(value, dict):
+        return value
+    raw = str(value or "").strip()
+    if not raw:
         return None
+    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.I)
+    raw = re.sub(r"\s*```$", "", raw)
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        # Recover the first JSON object if the model added prose.
+        match = re.search(r"\{.*\}", raw, flags=re.S)
+        if not match:
+            return None
+        try:
+            parsed = json.loads(match.group(0))
+            return parsed if isinstance(parsed, dict) else None
+        except Exception:
+            return None
+
+
+def _plan_dashboard_analysis(user_question: str, df: pd.DataFrame) -> dict | None:
+    """Translate natural language into a validated-capable analytical plan.
+
+    The planner deliberately has multiple paths. A transient model/API/tool
+    failure must not make an otherwise answerable dataset question fail.
+    """
+    client = _get_eusee_openai_client()
+    schema = _dataset_schema(df)
 
     payload = {
-        "DATASET_SCHEMA": _dataset_schema(df),
+        "DATASET_SCHEMA": schema,
         "CURRENT_SIDEBAR_FILTERS": _current_dashboard_filter_state(),
         "CURRENT_ANALYSIS_CONTEXT": _get_ai_filter_state(),
         "CONVERSATION_CONTEXT": _build_conversation_context(),
         "USER_REQUEST": user_question,
     }
 
-    try:
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            instructions=OPENAI_ANALYSIS_INSTRUCTIONS,
-            input=json.dumps(payload, ensure_ascii=False, default=str),
-            tools=[OPENAI_ANALYSIS_TOOL],
-            tool_choice={"type": "function", "name": "plan_dataset_analysis"},
-            reasoning={"effort": "none"},
-            max_output_tokens=1200,
-        )
+    if client is not None:
+        # Path 1: Responses API + strict function tool.
+        try:
+            response = client.responses.create(
+                model=OPENAI_MODEL,
+                instructions=OPENAI_ANALYSIS_INSTRUCTIONS,
+                input=json.dumps(payload, ensure_ascii=False, default=str),
+                tools=[OPENAI_ANALYSIS_TOOL],
+                tool_choice={"type": "function", "name": "plan_dataset_analysis"},
+                max_output_tokens=1800,
+            )
+            for item in getattr(response, "output", []) or []:
+                if getattr(item, "type", None) == "function_call":
+                    parsed = _parse_json_object(getattr(item, "arguments", None))
+                    if parsed:
+                        return parsed
+        except Exception as exc:
+            if st.secrets.get("debug", {}).get("show_chat_ai_errors", False):
+                st.warning(f"AI analytical planner (Responses API) failed: {exc}")
 
-        for item in response.output:
-            if getattr(item, "type", None) == "function_call":
-                return json.loads(item.arguments)
-    except Exception as exc:
-        if st.secrets.get("debug", {}).get("show_chat_ai_errors", False):
-            st.warning(f"AI planning failed: {exc}")
+        # Path 2: Chat Completions JSON mode. This is intentionally independent
+        # of function-tool support and handles environments where the Responses
+        # tool interface is unavailable or behaves differently.
+        try:
+            chat_prompt = (
+                OPENAI_ANALYSIS_INSTRUCTIONS
+                + "\n\nReturn ONLY one JSON object matching this exact plan shape:\n"
+                + json.dumps({
+                    "action": "analyze",
+                    "intent": "explore",
+                    "filters": [],
+                    "group_by": [],
+                    "metrics": [{"operation": "count", "column": None, "alias": "records"}],
+                    "compare_values": [],
+                    "search_text": None,
+                    "top_n": None,
+                    "sort": {"column": None, "direction": "descending"},
+                    "time_granularity": "none",
+                    "visualization": "auto",
+                    "limit": 20,
+                }, ensure_ascii=False)
+            )
+            response = client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": chat_prompt},
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False, default=str)},
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=1800,
+            )
+            content = response.choices[0].message.content if response.choices else ""
+            parsed = _parse_json_object(content)
+            if parsed:
+                return parsed
+        except Exception as exc:
+            if st.secrets.get("debug", {}).get("show_chat_ai_errors", False):
+                st.warning(f"AI analytical planner (Chat Completions) failed: {exc}")
 
-    return None
+    # Path 3: deterministic natural-language planner. This is always available
+    # and is schema-aware, so questions remain dataset-grounded even when the
+    # LLM service is temporarily unavailable.
+    return _fallback_natural_language_plan(user_question, df)
 
 
 # ============================================================
@@ -11975,11 +12291,19 @@ def _validate_plan(df: pd.DataFrame, plan: dict) -> tuple[dict, list[str]]:
         operator = str(item.get("operator", "eq")).lower().strip()
         value = item.get("value")
 
-        if operator in {"eq", "neq", "in", "not_in", "contains"} and column in work.columns:
+        if operator == "contains" and column in work.columns:
+            # "contains" is intentionally free-text/semantic.  It must NOT
+            # require the requested phrase to be an existing category.
+            value = str(value or "").strip()
+            if not value:
+                warnings_out.append(f"Empty contains filter for {column}.")
+                continue
+
+        elif operator in {"eq", "neq", "in", "not_in"} and column in work.columns:
             available = _actual_values(work, column, 2000)
             values = value if isinstance(value, list) else [value]
 
-            if operator in {"eq", "neq", "contains"}:
+            if operator in {"eq", "neq"}:
                 values = values[:1]
 
             resolved, unresolved = _resolve_values(values, available)
@@ -11998,7 +12322,7 @@ def _validate_plan(df: pd.DataFrame, plan: dict) -> tuple[dict, list[str]]:
                 )
                 continue
 
-            if operator in {"eq", "neq", "contains"}:
+            if operator in {"eq", "neq"}:
                 value = resolved[0] if resolved else value
             else:
                 value = resolved
@@ -12746,6 +13070,22 @@ def _deterministic_eusee_answer(analysis: dict) -> str:
         text = f"The analysis covers {count:,} matching records. The time pattern is shown below."
     elif intent in {"explore", "profile"}:
         text = f"The analysis covers {count:,} matching records and summarizes the main observed patterns below."
+        payload = analysis.get("analysis", {}) or {}
+        sections = payload.get("exploration") or payload.get("profile") or {}
+        highlights = []
+        for label, rows in sections.items():
+            if not isinstance(rows, list) or not rows:
+                continue
+            first = rows[0]
+            if isinstance(first, dict):
+                category = first.get("category")
+                records = first.get("records")
+                if category is not None and records is not None:
+                    highlights.append(
+                        f"{label.replace('_', ' ').title()}: {category} ({records:,} records)"
+                    )
+        if highlights:
+            text += "\n\nKey observed patterns:\n- " + "\n- ".join(highlights[:5])
     else:
         text = f"The analysis covers {count:,} matching records."
 
