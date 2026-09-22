@@ -4736,25 +4736,56 @@ def _build_aggregated_cfr_figure(chart_data):
 
 
 def _build_cfr_over_time_figure(chart_data):
-    """Build the six-principle CFR trend chart across reporting years."""
+    """Build the six-principle CFR trend chart across reporting months and years."""
     principle_columns = list(CFR_PRINCIPLES.values())
 
-    yearly_scores = (
-        chart_data.dropna(subset=["CFR Year"])
-        .groupby("CFR Year", as_index=False)[principle_columns]
-        .mean()
-        .sort_values("CFR Year")
+    # ------------------------------------------------------------
+    # BUILD YEAR-MONTH FROM EXISTING "Last Modified" FIELD
+    # ------------------------------------------------------------
+    time_data = chart_data.copy()
+
+    time_data["_CFR_Date"] = pd.to_datetime(
+        time_data["Last Modified"],
+        errors="coerce"
     )
+
+    time_data = time_data.dropna(subset=["_CFR_Date"])
+
+    if not time_data.empty:
+        # Month-level reporting period
+        time_data["_CFR_YearMonth"] = (
+            time_data["_CFR_Date"].dt.to_period("M")
+        )
+
+        monthly_scores = (
+            time_data
+            .groupby("_CFR_YearMonth", as_index=False)[principle_columns]
+            .mean()
+            .sort_values("_CFR_YearMonth")
+        )
+
+        # Convert Period to timestamp for Plotly
+        monthly_scores["_CFR_Date_Display"] = (
+            monthly_scores["_CFR_YearMonth"].dt.to_timestamp()
+        )
+
+        # Human-readable Year-Month label
+        monthly_scores["_CFR_YearMonth_Label"] = (
+            monthly_scores["_CFR_Date_Display"]
+            .dt.strftime("%b %Y")
+        )
+    else:
+        monthly_scores = pd.DataFrame()
 
     figure = go.Figure()
 
-    if yearly_scores.empty:
+    if monthly_scores.empty:
         figure.add_annotation(
             x=0.5,
             y=0.5,
             xref="paper",
             yref="paper",
-            text="No CFR year data are available for the selected country.",
+            text="No CFR month/year data are available for the selected country.",
             showarrow=False,
             font=dict(
                 family=PLOTLY_FONT_FAMILY,
@@ -4766,8 +4797,8 @@ def _build_cfr_over_time_figure(chart_data):
         for principle in principle_columns:
             figure.add_trace(
                 go.Scatter(
-                    x=yearly_scores["CFR Year"].astype(int),
-                    y=yearly_scores[principle],
+                    x=monthly_scores["_CFR_Date_Display"],
+                    y=monthly_scores[principle],
                     mode="lines+markers",
                     name=principle,
                     line=dict(
@@ -4777,15 +4808,21 @@ def _build_cfr_over_time_figure(chart_data):
                     marker=dict(
                         color=CFR_PRINCIPLE_COLOURS[principle],
                         size=7,
-                        line=dict(color="#FFFFFF", width=1.2),
+                        line=dict(
+                            color="#FFFFFF",
+                            width=1.2,
+                        ),
                     ),
                     customdata=[
-                        [CFR_PRINCIPLE_NAMES[principle]]
-                        for _ in range(len(yearly_scores))
+                        [
+                            CFR_PRINCIPLE_NAMES[principle],
+                            label,
+                        ]
+                        for label in monthly_scores["_CFR_YearMonth_Label"]
                     ],
                     hovertemplate=(
                         "<b>%{fullData.name} — %{customdata[0]}</b><br>"
-                        "Year: %{x}<br>"
+                        "Month: %{customdata[1]}<br>"
                         "Mean score: %{y:.2f}"
                         "<extra></extra>"
                     ),
@@ -4816,18 +4853,25 @@ def _build_cfr_over_time_figure(chart_data):
             y=-0.18,
             xanchor="left",
             x=0,
-            font=dict(size=10, color=CFR_TEXT),
+            font=dict(
+                size=10,
+                color=CFR_TEXT,
+            ),
             title=None,
         ),
         xaxis=dict(
             title=None,
-            tickmode="linear",
-            dtick=1,
+            type="date",
+            tickformat="%b %Y",
+            dtick="M1",
             showgrid=False,
             zeroline=False,
             showline=True,
             linecolor="#D9DDE7",
-            tickfont=dict(size=10, color=CFR_TEXT),
+            tickfont=dict(
+                size=10,
+                color=CFR_TEXT,
+            ),
             fixedrange=True,
         ),
         yaxis=dict(
@@ -4839,13 +4883,15 @@ def _build_cfr_over_time_figure(chart_data):
             gridcolor=CFR_GRID,
             zeroline=False,
             showline=False,
-            tickfont=dict(size=10, color=CFR_TEXT),
+            tickfont=dict(
+                size=10,
+                color=CFR_TEXT,
+            ),
             fixedrange=True,
         ),
     )
 
     return figure
-
 
 # ------------------------------------------------------------
 # CFR PAGE
@@ -4975,7 +5021,6 @@ def render_cfr_matrix_zoom_controls():
         height=0,
         width=0,
     )
-
 
 def render_cfr_analysis():
     _inject_cfr_dashboard_css()
