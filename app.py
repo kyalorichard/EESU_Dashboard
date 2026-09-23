@@ -11564,9 +11564,27 @@ def _dataset_schema(df: pd.DataFrame) -> dict:
     return schema
 
 
+def _principle_tokens(series: pd.Series) -> list[str]:
+    """Return individual enabling-principle labels from multi-value cells."""
+    if series is None:
+        return []
+    tokens = set()
+    for value in series.dropna().astype(str):
+        for part in re.split(r"[;,|\n]+", value):
+            part = str(part).strip()
+            if part:
+                tokens.add(part)
+    return sorted(tokens, key=lambda x: _clean_ai_text(x))
+
+
 def _dataset_metadata(df: pd.DataFrame) -> dict:
-    """Backward-compatible metadata wrapper."""
-    return _dataset_schema(df)
+    """Backward-compatible metadata wrapper with exploded principle values."""
+    schema = _dataset_schema(df)
+    if "enabling-principle" in df.columns:
+        schema.setdefault("dimensions", {}).setdefault("enabling_principle", {})[
+            "values"
+        ] = _principle_tokens(df["enabling-principle"])
+    return schema
 
 
 def _get_ai_filter_state() -> dict:
@@ -12460,12 +12478,29 @@ def _apply_generic_plan_filters(df: pd.DataFrame, filters: list[dict]) -> pd.Dat
 
         if operator in {"eq", "neq", "in", "not_in"}:
             values = value if isinstance(value, list) else [value]
-            if pd.api.types.is_numeric_dtype(series):
-                converted = pd.to_numeric(pd.Series(values), errors="coerce").dropna().tolist()
+
+            if column == "enabling-principle":
+                wanted = {_clean_ai_text(v) for v in values if str(v).strip()}
+
+                def principle_match(cell) -> bool:
+                    if pd.isna(cell):
+                        return False
+                    cell_tokens = {
+                        _clean_ai_text(part)
+                        for part in re.split(r"[;,|\n]+", str(cell))
+                        if str(part).strip()
+                    }
+                    return bool(cell_tokens & wanted)
+
+                mask = series.apply(principle_match)
+            elif pd.api.types.is_numeric_dtype(series):
+                converted = pd.to_numeric(
+                    pd.Series(values), errors="coerce"
+                ).dropna().tolist()
                 mask = pd.to_numeric(series, errors="coerce").isin(converted)
             else:
-                compare_values = {str(v).strip().lower() for v in values}
-                mask = series.astype(str).str.strip().str.lower().isin(compare_values)
+                compare_values = {_clean_ai_text(v) for v in values}
+                mask = series.astype(str).map(_clean_ai_text).isin(compare_values)
 
             if operator in {"neq", "not_in"}:
                 mask = ~mask
@@ -12644,10 +12679,17 @@ def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
 
     search_text = str(plan.get("search_text") or "").strip()
     if search_text:
-        searchable = [
-            c for c in df.columns
-            if df[c].dtype == "object" or pd.api.types.is_string_dtype(df[c])
+        preferred_searchable = [
+            "alert-country", "region", "alert-type", "alert-impact",
+            "Actor of repression", "Subject", "Mechanism", "Type of event",
+            "Alert title", "Description", "enabling-principle",
         ]
+        searchable = [c for c in preferred_searchable if c in filtered.columns]
+        if not searchable:
+            searchable = [
+                c for c in filtered.columns
+                if df[c].dtype == "object" or pd.api.types.is_string_dtype(df[c])
+            ]
         if searchable:
             mask = pd.Series(False, index=filtered.index)
             needle = search_text.lower()
@@ -12897,6 +12939,7 @@ def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
     analysis = {
         "intent": intent,
         "matching_records": int(len(filtered)),
+        "visualization_requested": bool(plan.get("visualization_requested", False)),
         "result_rows": int(len(grouped_df)),
         "grouped_data": grouped_df.to_dict("records"),
         "exploration": exploration,
@@ -13008,6 +13051,141 @@ def _extract_simple_filters_for_dashboard(plan: dict, df: pd.DataFrame) -> dict:
     return filters
 
 
+def _explicit_visualization_requested(question: str) -> bool:
+    """Only return True when the user explicitly asks for a chart/visual."""
+    q = _clean_ai_text(question)
+    patterns = [
+        r"\bshow\s+(?:me\s+)?(?:a\s+)?(?:chart|graph|plot|visualization)\b",
+        r"\b(?:chart|graph|plot|visualization)\s+(?:of|for|showing)\b",
+        r"\bplot\b",
+        r"\bvisuali[sz]e\b",
+        r"\bvisuali[sz]ation\b",
+        r"\bgraphical(?:ly)?\b",
+    ]
+    return any(re.search(p, q) for p in patterns)
+
+
+def _explicit_record_request(question: str) -> bool:
+    """Detect requests for actual alert/case examples."""
+    q = _clean_ai_text(question)
+    patterns = [
+        r"\bshow\s+(?:me\s+)?(?:some\s+)?(?:alerts|cases|records|examples|incidents)\b",
+        r"\bshare\s+(?:some\s+)?(?:alerts|cases|records|examples|incidents)\b",
+        r"\blist\s+(?:some\s+)?(?:alerts|cases|records|examples|incidents)\b",
+        r"\bgive\s+(?:me\s+)?(?:some\s+)?(?:alerts|cases|records|examples|incidents)\b",
+        r"\bexamples?\s+of\b",
+        r"\b(?:cases?|alerts?|records?|incidents?)\s+related\s+to\b",
+        r"\bslapp\b",
+        r"\bstrategic lawsuits? against public participation\b",
+        r"\bfind\s+(?:some\s+)?(?:alerts|cases|records)\b",
+    ]
+    return any(re.search(p, q) for p in patterns)
+
+
+def _infer_explicit_filters(question: str, df: pd.DataFrame) -> list[dict]:
+    """Infer only high-confidence filters from values present in the dataset."""
+    work = _prepare_analysis_dataframe(df)
+    q = _clean_ai_text(question)
+    filters = []
+
+    for column in ("region", "alert-country", "alert-type", "alert-impact"):
+        if column not in work.columns:
+            continue
+        matches = []
+        for value in _actual_values(work, column, 2000):
+            norm = _clean_ai_text(value)
+            if len(norm) < 2 or norm in {"unknown", "none", "all", "total"}:
+                continue
+            if re.search(rf"(?<!\w){re.escape(norm)}(?!\w)", q):
+                matches.append(value)
+        if matches:
+            filters.append({
+                "column": column,
+                "operator": "in" if len(matches) > 1 else "eq",
+                "value": sorted(set(matches), key=lambda x: (-len(str(x)), str(x)))[:20],
+            })
+
+    if "alert-impact" in work.columns and not any(
+        f.get("column") == "alert-impact" for f in filters
+    ):
+        if re.search(r"\bnegative\s+alerts?\b", q):
+            filters.append({"column": "alert-impact", "operator": "eq", "value": "Negative"})
+        elif re.search(r"\bpositive\s+alerts?\b", q):
+            filters.append({"column": "alert-impact", "operator": "eq", "value": "Positive"})
+
+    if "enabling-principle" in work.columns:
+        principles = _principle_tokens(work["enabling-principle"])
+        matches = []
+        for value in principles:
+            norm = _clean_ai_text(value)
+            if norm and re.search(rf"(?<!\w){re.escape(norm)}(?!\w)", q):
+                matches.append(value)
+
+        for number in re.findall(r"\bprinciple\s*(\d{1,2})\b", q):
+            target = f"principle {number}"
+            matches.extend(
+                value for value in principles
+                if _clean_ai_text(value) == target
+            )
+
+        if matches:
+            filters.append({
+                "column": "enabling-principle",
+                "operator": "in",
+                "value": sorted(set(matches)),
+            })
+
+    if "year" in work.columns:
+        available = set(
+            pd.to_numeric(work["year"], errors="coerce").dropna().astype(int)
+        )
+        years = [
+            int(y) for y in re.findall(r"\b(?:19|20|21)\d{2}\b", q)
+            if int(y) in available
+        ]
+        if years:
+            filters.append({
+                "column": "year",
+                "operator": "in" if len(set(years)) > 1 else "eq",
+                "value": sorted(set(years)),
+            })
+
+    return filters
+
+
+def _merge_chatbot_safety_controls(
+    question: str, plan: dict, df: pd.DataFrame
+) -> dict:
+    """Apply deterministic high-confidence user intent/filter semantics."""
+    plan = dict(plan or {})
+
+    explicit_filters = _infer_explicit_filters(question, df)
+    current = list(plan.get("filters", []) or [])
+
+    for item in explicit_filters:
+        column = item["column"]
+        current = [f for f in current if f.get("column") != column]
+        current.append(item)
+
+    plan["filters"] = current
+
+    if _explicit_record_request(question):
+        plan["intent"] = "records"
+        plan["visualization"] = "none"
+        if re.search(
+            r"\bslapp\b|\bstrategic lawsuits? against public participation\b",
+            _clean_ai_text(question),
+        ):
+            plan["search_text"] = "slapp"
+
+    requested_visual = _explicit_visualization_requested(question)
+    plan["visualization_requested"] = requested_visual
+    if not requested_visual:
+        plan["visualization"] = "none"
+
+    return plan
+
+
 def _process_eusee_ai_request(user_question: str) -> dict:
     df = get_full_dashboard_dataframe()
 
@@ -13037,6 +13215,8 @@ def _process_eusee_ai_request(user_question: str) -> dict:
             "filter_updated": True,
             "clear_filters": True,
         }
+
+    plan = _merge_chatbot_safety_controls(user_question, plan, df)
 
     validated_plan, plan_warnings = _validate_plan(df, plan)
 
@@ -13107,6 +13287,11 @@ def _process_eusee_ai_request(user_question: str) -> dict:
     analysis = _execute_plan(df, validated_plan)
     analysis.setdefault("analysis", {})["warnings"] = plan_warnings
     analysis["warnings"] = plan_warnings
+    analysis["visualization_requested"] = bool(
+        validated_plan.get("visualization_requested", False)
+    )
+    if not analysis["visualization_requested"]:
+        analysis["chart"] = None
 
     # Keep conversational state synchronized for follow-up questions.
     dashboard_like_filters = _extract_simple_filters_for_dashboard(validated_plan, df)
@@ -13144,6 +13329,7 @@ def _generate_eusee_answer(user_question: str, analysis: dict) -> str:
         "analysis": analysis.get("analysis", {}),
         "records": analysis.get("records"),
         "warnings": analysis.get("warnings", []),
+        "visualization_requested": bool(analysis.get("visualization_requested", False)),
     }
 
     prompt = json.dumps(
@@ -13159,24 +13345,41 @@ def _generate_eusee_answer(user_question: str, analysis: dict) -> str:
         response = client.responses.create(
             model=OPENAI_MODEL,
             instructions="""
-You are the final response writer for a professional EU SEE dataset analytics assistant.
-
-Use ONLY VERIFIED_DATASET_RESULT.
-Never invent values, explanations, causes, motives, facts, or categories.
-Do not use external knowledge.
-Do not make political judgments or recommendations.
-Clearly distinguish descriptive findings from interpretation.
-Answer the user's actual question directly.
-Use concise headings and bullets when useful.
-If a chart/table is supplied, refer to it naturally.
-For exploratory/profile questions, synthesize the strongest observed patterns.
-For comparisons, report the observed differences without declaring a political winner.
-For change/trend questions, describe the direction and relevant values contained in
-the verified result.
-If there are no matching records, say so clearly.
-If warnings exist, mention only material limitations.
-Do not mention OpenAI, APIs, Python, tools, prompts, schemas, or internal implementation.
-""",
+            You are the final response writer for a professional EU SEE dataset analytics assistant.
+            
+            Use ONLY VERIFIED_DATASET_RESULT. Never invent or infer a number, record, category,
+            country, region, principle, cause, or explanation.
+            
+            COUNT RULES:
+            - records_count is the number of records remaining AFTER every requested filter and
+              any topic/search filter has been applied.
+            - Never substitute the complete dataset count for a narrower country, region,
+              principle, impact, alert-type, or topic count.
+            - If the result is zero, say clearly that no matching alerts were found.
+            - If a country and principle were requested, report their intersection, not the country total.
+            - If actual records are supplied, answer with those records/examples rather than replacing
+              them with a distribution or overall summary.
+            
+            RECORD/EXAMPLE REQUESTS:
+            - Requests such as "share examples", "show cases", "list alerts", or SLAPP examples
+              must be answered from the supplied records.
+            - Keep the answer concise and do not fabricate examples.
+            
+            STYLE:
+            - Answer the user's actual question directly in 1-4 concise paragraphs or bullets.
+            - Prefer natural wording such as: "In our data, there are 27 alerts in Argentina."
+            - For principle intersections, use wording such as: "In our data, there are 8 alerts related
+              to Principle 6 in Argentina."
+            - Do not say "matching records" when a more natural phrase is available.
+            - Do not mention OpenAI, APIs, Python, tools, prompts, schemas, or internal implementation.
+            - Do not use external knowledge.
+            - Do not make political judgments or recommendations.
+            - Do not mention a chart unless visualization_requested is true.
+            - If visualization_requested is false, do not describe or request a chart.
+            
+            End every answer with:
+            "For more information, please visit the EU SEE website: https://eusee.hivos.org/"
+            """,
             input=prompt,
             reasoning={"effort": "none"},
             max_output_tokens=900,
@@ -13205,42 +13408,68 @@ def _format_plan_filters(filters: list[dict]) -> str:
 
 
 def _deterministic_eusee_answer(analysis: dict) -> str:
+    """Safe fallback response using only verified local results."""
     count = int(analysis.get("records_count", 0) or 0)
     intent = analysis.get("analysis_type", "analysis")
+    filters = analysis.get("filters") or []
+
+    countries, regions, principles, impacts, alert_types = [], [], [], [], []
+    for item in filters:
+        column = item.get("column")
+        value = item.get("value")
+        values = value if isinstance(value, list) else [value]
+        if column == "alert-country":
+            countries = [str(v) for v in values]
+        elif column == "region":
+            regions = [str(v) for v in values]
+        elif column == "enabling-principle":
+            principles = [str(v) for v in values]
+        elif column == "alert-impact":
+            impacts = [str(v) for v in values]
+        elif column == "alert-type":
+            alert_types = [str(v) for v in values]
 
     if count == 0:
-        text = "No records in the complete EU SEE dataset match the requested analysis."
+        answer = "In our data, there are no alerts matching that request."
+    elif principles and countries:
+        answer = (
+            f"In our data, there are {count:,} alerts related to "
+            f"{', '.join(principles)} in {', '.join(countries)}."
+        )
+    elif principles:
+        answer = (
+            f"In our data, there are {count:,} alerts related to "
+            f"{', '.join(principles)}."
+        )
+    elif countries:
+        answer = f"In our data, there are {count:,} alerts in {', '.join(countries)}."
+    elif regions:
+        answer = f"In our data, there are {count:,} alerts in {', '.join(regions)}."
+    elif impacts:
+        answer = f"In our data, there are {count:,} {', '.join(impacts).lower()} alerts."
+    elif alert_types:
+        answer = (
+            f"In our data, there are {count:,} alerts of type "
+            f"{', '.join(alert_types)}."
+        )
+    elif intent in {"trend", "change"}:
+        answer = f"In our data, there are {count:,} alerts in the requested period."
     elif intent == "records":
         returned = len(analysis.get("records") or [])
-        text = f"I found {count:,} matching records and returned {returned:,} records below."
-    elif intent in {"trend", "change"}:
-        text = f"The analysis covers {count:,} matching records. The time pattern is shown below."
-    elif intent in {"explore", "profile"}:
-        text = f"The analysis covers {count:,} matching records and summarizes the main observed patterns below."
-        payload = analysis.get("analysis", {}) or {}
-        sections = payload.get("exploration") or payload.get("profile") or {}
-        highlights = []
-        for label, rows in sections.items():
-            if not isinstance(rows, list) or not rows:
-                continue
-            first = rows[0]
-            if isinstance(first, dict):
-                category = first.get("category")
-                records = first.get("records")
-                if category is not None and records is not None:
-                    highlights.append(
-                        f"{label.replace('_', ' ').title()}: {category} ({records:,} records)"
-                    )
-        if highlights:
-            text += "\n\nKey observed patterns:\n- " + "\n- ".join(highlights[:5])
+        answer = f"In our data, there are {count:,} alerts matching that request."
+        if returned:
+            answer += f" I have included {returned:,} examples below."
     else:
-        text = f"The analysis covers {count:,} matching records."
+        answer = f"In our data, there are {count:,} alerts matching the request."
 
     warnings = analysis.get("warnings") or []
     if warnings:
-        text += "\n\nNote: " + " ".join(map(str, warnings[:3]))
+        answer += "\n\nNote: " + " ".join(map(str, warnings[:2]))
 
-    return text
+    return answer + (
+        "\n\nFor more information, please visit the EU SEE website: "
+        "https://eusee.hivos.org/"
+    )
 
 
 # ============================================================
@@ -13300,6 +13529,8 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
             )
 
     chart = analysis.get("chart")
+    if not analysis.get("visualization_requested", False):
+        chart = None
     if not isinstance(chart, dict) or not chart:
         records = analysis.get("records")
         if isinstance(records, list) and records:
@@ -13838,3 +14069,4 @@ def render_eusee_ai_copilot_popover():
 
 
 render_eusee_ai_copilot_popover()
+
