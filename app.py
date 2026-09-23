@@ -2494,7 +2494,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
     )
 
     selected_alert_impacts = safe_multiselect(
-        "Nature of Alert",
+        "Nature of alert",
         data["alert-impact"].dropna().unique()
         if not data.empty and "alert-impact" in data.columns
         else [],
@@ -5190,7 +5190,7 @@ def render_cfr_analysis():
                     """
                     <div class="cfr-chart-panel-heading">
                         <div class="cfr-panel-title">
-                            Distribution of principles across years
+                            Aggregated CFR Scores by Principle Over Time
                         </div>
                         <div class="cfr-panel-note">
                             Mean CFR principle scores by reporting year.
@@ -6099,7 +6099,7 @@ def render_negative_alerts_intelligence_cards(negative_df, all_filtered_df=None,
         line-height:1;
         flex:0 0 30px;
     }
-    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:"Anek Devanagari", Arial, sans-serif; color:#B42318; }
+    .negintel-value { font-size:34px; line-height:.92; font-weight:950; margin-top:8px; letter-spacing:-0.045em; font-family:"Anek Devanagari", Arial, sans-serif; color:#FF6F61; }
     .negintel-note { color:#667085; font-size:10px; font-weight:700; line-height:1.18; margin-top:4px; white-space:normal; }
     .negintel-pill { display:inline-flex; align-items:center; gap:5px; width:fit-content; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:900; background:#FFF4ED; color:#B42318; border:1px solid rgba(180,35,24,.14); margin-top:7px; }
     .negintel-row-list { display:flex; flex-direction:column; gap:6px; margin-top:7px; }
