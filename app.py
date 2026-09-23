@@ -20,6 +20,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 import requests
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 import streamlit as st
 import streamlit.components.v1 as components
 from streamlit.elements.lib.policies import CachedWidgetWarning
@@ -1710,11 +1714,21 @@ def load_data():
     return df
 
 # --- Load data safely ---
-data = apply_data_scope(load_data())
+# IMPORTANT: keep this dataframe BEFORE any sidebar/global UI filters are applied.
+# The AI Assistant reads this same cleaned dashboard dataset.
+_data_loaded = load_data()
 
-# Shared cleaned dataset used by both the dashboard and AI Assistant.
+if isinstance(_data_loaded, pd.DataFrame):
+    data = apply_data_scope(_data_loaded)
+else:
+    data = pd.DataFrame()
+
+# Store the authoritative AI source dataframe immediately after loading.
+# Do not use `filtered_global` or any sidebar-filtered dataframe here.
 if isinstance(data, pd.DataFrame):
     st.session_state["eusee_full_dataset_df"] = data.copy()
+else:
+    st.session_state["eusee_full_dataset_df"] = pd.DataFrame()
 
 #### --------prepare enabling principles to be ordered-------------------------------------------
 ENABLING_PRINCIPLE_ORDER = [          
@@ -2127,6 +2141,72 @@ def inject_professional_sidebar_filter_css():
         line-height: 1.35;
     }
 
+    .sidebar-latest-update {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 2px 0 4px 0;
+        padding: 9px 10px;
+        border: 1px solid #E4E7EC;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        box-shadow: 0 5px 14px rgba(16,24,40,.045);
+        font-family: "Anek Devanagari", Arial, sans-serif;
+    }
+
+    .sidebar-latest-update-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .sidebar-latest-update-icon {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        background: #F4EAF8;
+        color: #660094;
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .sidebar-latest-update-label {
+        font-size: 9.5px;
+        line-height: 1.15;
+        color: #667085;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: .045em;
+    }
+
+    .sidebar-latest-update-date {
+        margin-top: 2px;
+        color: #23152F;
+        font-size: 11px;
+        line-height: 1.2;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .sidebar-latest-update-badge {
+        flex: 0 0 auto;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #ECFDF3;
+        border: 1px solid #ABEFC6;
+        color: #067647;
+        font-size: 8.5px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: .06em;
+    }
+
     div[data-testid="stExpander"] {
         margin-bottom: 10px !important;
         border-radius: 16px !important;
@@ -2494,7 +2574,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
     )
 
     selected_alert_impacts = safe_multiselect(
-        "Nature of alert",
+        "Nature of Alert",
         data["alert-impact"].dropna().unique()
         if not data.empty and "alert-impact" in data.columns
         else [],
@@ -2646,7 +2726,7 @@ st.sidebar.markdown(
             <div class="sidebar-latest-update-icon">↻</div>
             <div>
                 <div class="sidebar-latest-update-label">Latest update</div>
-                <div class="sidebar-latest-update-date">{_html_escape(latest_update)}</div>
+                <div class="sidebar-latest-update-date">{str(latest_update)}</div>
             </div>
         </div>
         <div class="sidebar-latest-update-badge">DATA</div>
