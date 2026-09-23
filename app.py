@@ -2634,6 +2634,27 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+# ---------------- LATEST DATASET UPDATE TAG ----------------
+# The date is calculated from the latest creation_date in the authoritative
+# dataset during load_data(), then displayed here as the final sidebar item.
+latest_update = st.session_state.get("latest_dataset_date", "Not available")
+
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-latest-update" role="status" aria-label="Latest dataset update">
+        <div class="sidebar-latest-update-left">
+            <div class="sidebar-latest-update-icon">↻</div>
+            <div>
+                <div class="sidebar-latest-update-label">Latest update</div>
+                <div class="sidebar-latest-update-date">{_html_escape(latest_update)}</div>
+            </div>
+        </div>
+        <div class="sidebar-latest-update-badge">DATA</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Keep the dataset update status as the final sidebar panel.
 
 
