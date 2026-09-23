@@ -5380,7 +5380,7 @@ tab_overview = tab_negative = tab_map = tab_cfr = tab_manual = None
 _dashboard_tab_specs = []
 
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("overview", "📊 Alert Overview"))
+    _dashboard_tab_specs.append(("overview", "Alert Overview"))
 
 # CFR Score is placed immediately after Overview and before Negative Alerts Analysis.
 # It follows the same dashboard-access permission as Overview so the existing
@@ -5389,13 +5389,13 @@ if has_permission("view_overview"):
     _dashboard_tab_specs.append(("cfr", "📈 Country Focus Report (CFR) Scores"))
 
 if has_permission("view_negative_alerts"):
-    _dashboard_tab_specs.append(("negative", "⚠️ Negative Alerts Analysis"))
+    _dashboard_tab_specs.append(("negative", "Negative Alerts Analysis"))
 
 if has_permission("view_maps"):
-    _dashboard_tab_specs.append(("map", "🗺️ Visualization Map"))
+    _dashboard_tab_specs.append(("map", "Visualization Map"))
 
 if has_permission("view_user_manual"):
-    _dashboard_tab_specs.append(("manual", "📘 User Manual"))
+    _dashboard_tab_specs.append(("manual", "User Manual"))
 
 if _dashboard_tab_specs:
     _dashboard_tabs = st.tabs([label for _, label in _dashboard_tab_specs])
