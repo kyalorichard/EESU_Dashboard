@@ -6615,82 +6615,34 @@ def _standard_chart_height(horizontal=False):
     return CHART_HEIGHT_HORIZONTAL if horizontal else CHART_HEIGHT_VERTICAL
 
 
-# ---------------- PERCENTAGE METHODOLOGY DISCLAIMER ----------------
+# ---------------- PERCENTAGE METHODOLOGY NOTE ----------------
 PERCENTAGE_CHART_DISCLAIMER = (
-    "Percentage note: Percentages are calculated from the category counts "
-    "displayed in the chart. Where a record can be associated with more than "
-    "one category, the same record may contribute to multiple categories; "
-    "therefore, percentages may not sum to 100%."
+    "Percentages are calculated from the category occurrences displayed. "
+    "Where a record can be associated with more than one category, the same "
+    "record may contribute to multiple categories; therefore, percentages "
+    "may not sum to 100%."
 )
 
-
-def add_percentage_methodology_disclaimer(fig, text=None):
-    """Add a consistent, unobtrusive methodology note to percentage charts."""
+def _mark_percentage_chart(fig, disclaimer=PERCENTAGE_CHART_DISCLAIMER):
+    """Mark a figure so the central dashboard renderer displays the methodology badge."""
     if fig is None:
         return fig
-
-    note = text or PERCENTAGE_CHART_DISCLAIMER
-
-    # Reserve a little space below the plotting area for the methodology note.
-    current_margin = fig.layout.margin
-    current_bottom = int(getattr(current_margin, "b", 62) or 62)
-    fig.update_layout(
-        margin=dict(
-            l=getattr(current_margin, "l", 56) or 56,
-            r=getattr(current_margin, "r", 34) or 34,
-            t=getattr(current_margin, "t", 94) or 94,
-            b=max(current_bottom, 88),
-        )
-    )
-
-    # Remove a previous copy if a chart is passed through this helper more than once.
-    existing = list(fig.layout.annotations or [])
-    existing = [
-        a for a in existing
-        if str(getattr(a, "name", "")) != "percentage_methodology_disclaimer"
-    ]
-
-    existing.append(
-        dict(
-            name="percentage_methodology_disclaimer",
-            text=note,
-            xref="paper",
-            yref="paper",
-            x=0,
-            y=-0.19,
-            xanchor="left",
-            yanchor="top",
-            showarrow=False,
-            align="left",
-            font=dict(
-                family=CHART_FONT,
-                size=9.5,
-                color="#667085",
-            ),
-        )
-    )
-    fig.update_layout(annotations=existing)
+    try:
+        meta = dict(fig.layout.meta or {})
+    except Exception:
+        meta = {}
+    meta["eusee_percentage_chart"] = True
+    meta["eusee_percentage_disclaimer"] = disclaimer
+    fig.update_layout(meta=meta)
     return fig
 
 
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(
-    df,
-    x,
-    y,
-    title=None,
-    horizontal=False,
-    color_col=None,
-    normalize_labels=True,
-    percentage_note=None,
-):
-    """Create a percentage bar chart with a standardized methodology note."""
-    if df is None:
-        df = pd.DataFrame()
-    else:
-        df = df.copy()
+def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, normalize_labels=True):
+    """Create a percentage bar chart with standard height and dynamic percent axis."""
+    df = df.copy()
 
-    if df.empty or x not in df.columns or y not in df.columns:
+    if df is None or df.empty or x not in df.columns or y not in df.columns:
         fig = go.Figure()
         fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
         return apply_classic_chart_theme(
@@ -6811,7 +6763,7 @@ def create_bar_chart(
         yanchor="middle",
     )
 
-    return add_percentage_methodology_disclaimer(fig, percentage_note)
+    return _mark_percentage_chart(fig)
 
 # ---------------- STACKED BAR LABEL CONTRAST HELPER --------------
 def readable_stacked_bar_label_color(hex_color):
@@ -6850,23 +6802,11 @@ def readable_stacked_bar_label_color(hex_color):
         return "#111827"
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(
-    df,
-    y,
-    x="count",
-    color_col="alert-impact",
-    title=None,
-    horizontal=False,
-    normalize_labels=True,
-    percentage_note=None,
-):
-    """Create a stacked percentage bar chart with a standardized methodology note."""
-    if df is None:
-        df = pd.DataFrame()
-    else:
-        df = df.copy()
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
+    """Create a stacked bar chart using percent of grand total with standard height."""
+    df = df.copy()
 
-    if df.empty or y not in df.columns or x not in df.columns or color_col not in df.columns:
+    if df is None or df.empty or y not in df.columns or x not in df.columns or color_col not in df.columns:
         fig = go.Figure()
         fig.add_annotation(text="No data available", x=0.5, y=0.5, showarrow=False)
         return apply_classic_chart_theme(
@@ -6998,7 +6938,7 @@ def create_h_stacked_bar(
         yanchor="middle",
     )
 
-    return add_percentage_methodology_disclaimer(fig, percentage_note)
+    return _mark_percentage_chart(fig)
 
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
@@ -9394,6 +9334,29 @@ def render_dashboard_plotly_chart(
             ),
             margin=dict(t=94),
         )
+
+    # Automatically display the percentage methodology for percentage charts.
+    # This is applied after theme/title/layout adjustments so the badge remains visible.
+    try:
+        chart_meta = dict(fig.layout.meta or {})
+    except Exception:
+        chart_meta = {}
+
+    if chart_meta.get("eusee_percentage_chart"):
+        try:
+            fig = add_chart_info_badge(
+                fig,
+                chart_meta.get(
+                    "eusee_percentage_disclaimer",
+                    PERCENTAGE_CHART_DISCLAIMER,
+                ),
+                x=0.72,
+                y=1.065,
+                badge_text="<b>ⓘ Percentage calculation</b>",
+                chart_width_px=chart_width_px,
+            )
+        except Exception:
+            pass
 
     final_config = DEFAULT_PLOTLY_CONFIG.copy()
     if config:
