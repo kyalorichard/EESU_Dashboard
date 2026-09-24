@@ -6763,7 +6763,7 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
         yanchor="middle",
     )
 
-    return _mark_percentage_chart(fig)
+    return fig
 
 # ---------------- STACKED BAR LABEL CONTRAST HELPER --------------
 def readable_stacked_bar_label_color(hex_color):
@@ -6938,7 +6938,9 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
         yanchor="middle",
     )
 
-    return _mark_percentage_chart(fig)
+    # Mark only stacked-bar charts for the percentage methodology note.
+    fig = _mark_percentage_chart(fig)
+    return fig
 
 # ---------------- HELPER FUNCTIONS ----------------
 def filter_top_n(df, row_col, col_col, top_n=None):
@@ -9335,8 +9337,9 @@ def render_dashboard_plotly_chart(
             margin=dict(t=94),
         )
 
-    # Automatically display the percentage methodology for percentage charts.
-    # This is applied after theme/title/layout adjustments so the badge remains visible.
+    # Display the percentage methodology note below stacked bar charts only.
+    # It is added after all theme/title/responsive adjustments so its position
+    # remains stable and does not interfere with the chart title.
     try:
         chart_meta = dict(fig.layout.meta or {})
     except Exception:
@@ -9344,17 +9347,33 @@ def render_dashboard_plotly_chart(
 
     if chart_meta.get("eusee_percentage_chart"):
         try:
-            fig = add_chart_info_badge(
-                fig,
-                chart_meta.get(
-                    "eusee_percentage_disclaimer",
-                    PERCENTAGE_CHART_DISCLAIMER,
-                ),
-                x=0.72,
-                y=1.065,
-                badge_text="<b>ⓘ Percentage calculation</b>",
-                chart_width_px=chart_width_px,
+            disclaimer = chart_meta.get(
+                "eusee_percentage_disclaimer",
+                PERCENTAGE_CHART_DISCLAIMER,
             )
+            fig.add_annotation(
+                x=0,
+                y=-0.16,
+                xref="paper",
+                yref="paper",
+                text=(
+                    "<span style='color:#667085;'>"
+                    "<b>ⓘ</b>&nbsp; " + html.escape(str(disclaimer)) +
+                    "</span>"
+                ),
+                showarrow=False,
+                xanchor="left",
+                yanchor="top",
+                align="left",
+                font=dict(
+                    family=CHART_FONT,
+                    size=10,
+                    color="#667085",
+                ),
+            )
+            current_margin = dict(fig.layout.margin or {})
+            current_margin["b"] = max(int(current_margin.get("b") or 0), 72)
+            fig.update_layout(margin=current_margin)
         except Exception:
             pass
 
