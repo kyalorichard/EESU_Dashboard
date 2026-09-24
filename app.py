@@ -3030,7 +3030,17 @@ def _find_cfr_source():
 
 
 def _load_country_metadata():
-   
+    """
+    Load the same countries_metadata.json file used by load_data().
+
+    Expected structure:
+    {
+        "Kenya": {
+            "iso_alpha3": "KEN",
+            "continent": "Africa"
+        }
+    }
+    """
     metadata_path = EXPORT_DIR / "countries_metadata.json"
 
     if not metadata_path.exists():
@@ -6565,8 +6575,8 @@ def render_chart_shell():
 render_chart_shell()
 
 # ---------------- PERCENT AXIS / STANDARD HEIGHT HELPERS ----------------
-CHART_HEIGHT_VERTICAL = 460
-CHART_HEIGHT_HORIZONTAL = 460
+CHART_HEIGHT_VERTICAL = 410
+CHART_HEIGHT_HORIZONTAL = 410
 
 
 def _nice_percent_axis_max(max_pct):
@@ -9327,9 +9337,9 @@ def render_dashboard_plotly_chart(
             margin=dict(t=94),
         )
 
-    # Display the percentage methodology note below stacked bar charts only.
-    # It is added after all theme/title/responsive adjustments so its position
-    # remains stable and does not interfere with the chart title.
+    # Percentage methodology: show a compact information icon inside the
+    # chart. The full disclaimer appears only while the mouse is over the
+    # icon, then disappears automatically when the mouse leaves.
     try:
         chart_meta = dict(fig.layout.meta or {})
     except Exception:
@@ -9341,29 +9351,60 @@ def render_dashboard_plotly_chart(
                 "eusee_percentage_disclaimer",
                 PERCENTAGE_CHART_DISCLAIMER,
             )
-            fig.add_annotation(
-                x=0,
-                y=-0.16,
-                xref="paper",
-                yref="paper",
-                text=(
-                    "<span style='color:#667085;'>"
-                    "<b>ⓘ</b>&nbsp; " + html.escape(str(disclaimer)) +
-                    "</span>"
-                ),
-                showarrow=False,
-                xanchor="left",
-                yanchor="top",
-                align="left",
-                font=dict(
-                    family=CHART_FONT,
-                    size=10,
-                    color="#667085",
-                ),
+
+            # Remove any previous percentage disclaimer annotation so reruns
+            # never accumulate duplicate icons.
+            existing_annotations = list(fig.layout.annotations or [])
+            existing_annotations = [
+                ann for ann in existing_annotations
+                if "Percentage calculation" not in str(getattr(ann, "hovertext", "") or "")
+            ]
+
+            wrapped_disclaimer = _wrap_chart_tooltip_text(
+                disclaimer,
+                line_length=78,
             )
-            current_margin = dict(fig.layout.margin or {})
-            current_margin["b"] = max(int(current_margin.get("b") or 0), 72)
-            fig.update_layout(margin=current_margin)
+
+            # Small, unobtrusive information icon in the chart title area.
+            # Hovering it opens the methodology note; moving away closes it.
+            existing_annotations.append(
+                dict(
+                    x=0.985,
+                    y=0.965,
+                    xref="paper",
+                    yref="paper",
+                    xanchor="right",
+                    yanchor="top",
+                    text="ⓘ",
+                    hovertext=(
+                        "<b>Percentage calculation</b><br>"
+                        + wrapped_disclaimer
+                    ),
+                    hoverlabel=dict(
+                        bgcolor="#FFFFFF",
+                        bordercolor="#D9DDE7",
+                        font=dict(
+                            family=CHART_FONT,
+                            size=11,
+                            color="#344054",
+                        ),
+                        align="left",
+                    ),
+                    showarrow=False,
+                    bgcolor="rgba(244,234,248,0.96)",
+                    bordercolor="#E7D4F1",
+                    borderwidth=1,
+                    borderpad=4,
+                    font=dict(
+                        family=CHART_FONT,
+                        size=12,
+                        color="#660094",
+                    ),
+                    captureevents=True,
+                )
+            )
+
+            fig.update_layout(annotations=existing_annotations)
         except Exception:
             pass
 
