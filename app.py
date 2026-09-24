@@ -4836,164 +4836,104 @@ def _build_aggregated_cfr_figure(chart_data):
     return figure
 
 
-def _build_cfr_over_time_figure(chart_data):
-    """Build the six-principle CFR trend chart across reporting months and years."""
+def _build_cfr_over_time_figure(data):
+    """Build annual CFR principle trends using year only — no monthly axis."""
+
+    import plotly.graph_objects as go
+
+    if data.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            height=390,
+            margin=dict(l=20, r=20, t=20, b=20),
+        )
+        return fig
+
     principle_columns = list(CFR_PRINCIPLES.values())
 
-    # ------------------------------------------------------------
-    # BUILD YEAR-MONTH FROM EXISTING "Last Modified" FIELD
-    # ------------------------------------------------------------
-    time_data = chart_data.copy()
-
-    time_data["_CFR_Date"] = pd.to_datetime(
-        time_data["Last Modified"],
-        errors="coerce"
+    # Ensure year is numeric
+    trend_data = data.copy()
+    trend_data["CFR Year"] = pd.to_numeric(
+        trend_data["CFR Year"],
+        errors="coerce",
     )
 
-    time_data = time_data.dropna(subset=["_CFR_Date"])
+    trend_data = trend_data.dropna(subset=["CFR Year"])
 
-    if not time_data.empty:
-        # Month-level reporting period
-        time_data["_CFR_YearMonth"] = (
-            time_data["_CFR_Date"].dt.to_period("M")
+    if trend_data.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            height=390,
+            margin=dict(l=20, r=20, t=20, b=20),
         )
+        return fig
 
-        monthly_scores = (
-            time_data
-            .groupby("_CFR_YearMonth", as_index=False)[principle_columns]
-            .mean()
-            .sort_values("_CFR_YearMonth")
-        )
+    # ---------------------------------------------------------
+    # ANNUAL AGGREGATION ONLY
+    # ---------------------------------------------------------
+    annual_scores = (
+        trend_data
+        .groupby("CFR Year")[principle_columns]
+        .mean()
+        .reset_index()
+        .sort_values("CFR Year")
+    )
 
-        # Convert Period to timestamp for Plotly
-        monthly_scores["_CFR_Date_Display"] = (
-            monthly_scores["_CFR_YearMonth"].dt.to_timestamp()
-        )
+    fig = go.Figure()
 
-        # Human-readable Year-Month label
-        monthly_scores["_CFR_YearMonth_Label"] = (
-            monthly_scores["_CFR_Date_Display"]
-            .dt.strftime("%b %Y")
-        )
-    else:
-        monthly_scores = pd.DataFrame()
-
-    figure = go.Figure()
-
-    if monthly_scores.empty:
-        figure.add_annotation(
-            x=0.5,
-            y=0.5,
-            xref="paper",
-            yref="paper",
-            text="No CFR month/year data are available for the selected country.",
-            showarrow=False,
-            font=dict(
-                family=PLOTLY_FONT_FAMILY,
-                size=12,
-                color="#667085",
-            ),
-        )
-    else:
-        for principle in principle_columns:
-            figure.add_trace(
-                go.Scatter(
-                    x=monthly_scores["_CFR_Date_Display"],
-                    y=monthly_scores[principle],
-                    mode="lines+markers",
-                    name=principle,
-                    line=dict(
-                        color=CFR_PRINCIPLE_COLOURS[principle],
-                        width=2.5,
-                    ),
-                    marker=dict(
-                        color=CFR_PRINCIPLE_COLOURS[principle],
-                        size=7,
-                        line=dict(
-                            color="#FFFFFF",
-                            width=1.2,
-                        ),
-                    ),
-                    customdata=[
-                        [
-                            CFR_PRINCIPLE_NAMES[principle],
-                            label,
-                        ]
-                        for label in monthly_scores["_CFR_YearMonth_Label"]
-                    ],
-                    hovertemplate=(
-                        "<b>%{fullData.name} — %{customdata[0]}</b><br>"
-                        "Month: %{customdata[1]}<br>"
-                        "Mean score: %{y:.2f}"
-                        "<extra></extra>"
-                    ),
-                )
+    for principle in principle_columns:
+        fig.add_trace(
+            go.Scatter(
+                x=annual_scores["CFR Year"],
+                y=annual_scores[principle],
+                mode="lines+markers",
+                name=principle,
+                line=dict(width=2),
+                marker=dict(size=7),
+                hovertemplate=(
+                    "<b>%{fullData.name}</b><br>"
+                    "Year: %{x}<br>"
+                    "Mean score: %{y:.2f}"
+                    "<extra></extra>"
+                ),
             )
+        )
 
-    figure.update_layout(
-        height=330,
-        margin=dict(l=46, r=18, t=12, b=66),
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
-        font=dict(
-            family=PLOTLY_FONT_FAMILY,
-            color=CFR_TEXT,
-        ),
-        hoverlabel=dict(
-            bgcolor="#FFFFFF",
-            bordercolor="#D9DDE7",
-            font=dict(
-                family=PLOTLY_FONT_FAMILY,
-                size=11,
-                color=CFR_TEXT,
-            ),
-        ),
+    # ---------------------------------------------------------
+    # AXIS / LAYOUT
+    # ---------------------------------------------------------
+    fig.update_xaxes(
+        title_text="Year",
+        type="linear",
+        tickmode="linear",
+        dtick=1,
+        showgrid=True,
+        zeroline=False,
+    )
+
+    fig.update_yaxes(
+        title_text="Mean CFR score",
+        range=[CFR_SCORE_MIN, CFR_SCORE_MAX],
+        dtick=1,
+        showgrid=True,
+        zeroline=False,
+    )
+
+    fig.update_layout(
+        height=390,
+        margin=dict(l=55, r=20, t=20, b=55),
+        hovermode="x unified",
         legend=dict(
             orientation="h",
-            yanchor="top",
-            y=-0.18,
+            yanchor="bottom",
+            y=1.02,
             xanchor="left",
             x=0,
-            font=dict(
-                size=10,
-                color=CFR_TEXT,
-            ),
-            title=None,
         ),
-        xaxis=dict(
-            title=None,
-            type="date",
-            tickformat="%b %Y",
-            dtick="M1",
-            showgrid=False,
-            zeroline=False,
-            showline=True,
-            linecolor="#D9DDE7",
-            tickfont=dict(
-                size=10,
-                color=CFR_TEXT,
-            ),
-            fixedrange=True,
-        ),
-        yaxis=dict(
-            range=[CFR_SCORE_MIN, CFR_SCORE_MAX],
-            tickmode="array",
-            tickvals=[1, 2, 3, 4, 5],
-            title=None,
-            showgrid=True,
-            gridcolor=CFR_GRID,
-            zeroline=False,
-            showline=False,
-            tickfont=dict(
-                size=10,
-                color=CFR_TEXT,
-            ),
-            fixedrange=True,
-        ),
+        template="plotly_white",
     )
 
-    return figure
-
+    return fig
 # ------------------------------------------------------------
 # CFR PAGE
 # ------------------------------------------------------------
@@ -5487,7 +5427,7 @@ if has_permission("view_overview"):
 # It follows the same dashboard-access permission as Overview so the existing
 # authz/admin files do not need to change for this update.
 if has_permission("view_overview"):
-    _dashboard_tab_specs.append(("cfr", "📈 Country Focus Report (CFR) Scores"))
+    _dashboard_tab_specs.append(("cfr", "Country Focus Report (CFR) Scores"))
 
 if has_permission("view_negative_alerts"):
     _dashboard_tab_specs.append(("negative", "Negative Alerts Analysis"))
