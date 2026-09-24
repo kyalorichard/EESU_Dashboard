@@ -3030,17 +3030,7 @@ def _find_cfr_source():
 
 
 def _load_country_metadata():
-    """
-    Load the same countries_metadata.json file used by load_data().
-
-    Expected structure:
-    {
-        "Kenya": {
-            "iso_alpha3": "KEN",
-            "continent": "Africa"
-        }
-    }
-    """
+   
     metadata_path = EXPORT_DIR / "countries_metadata.json"
 
     if not metadata_path.exists():
@@ -6575,7 +6565,7 @@ def render_chart_shell():
 render_chart_shell()
 
 # ---------------- PERCENT AXIS / STANDARD HEIGHT HELPERS ----------------
-CHART_HEIGHT_VERTICAL = 410
+CHART_HEIGHT_VERTICAL = 550
 CHART_HEIGHT_HORIZONTAL = 410
 
 
