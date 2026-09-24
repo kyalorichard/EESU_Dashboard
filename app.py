@@ -9337,9 +9337,11 @@ def render_dashboard_plotly_chart(
             margin=dict(t=94),
         )
 
-    # Percentage methodology: show a compact information icon inside the
-    # chart. The full disclaimer appears only while the mouse is over the
-    # icon, then disappears automatically when the mouse leaves.
+    # Percentage methodology: show a small Plotly-native information icon.
+    # The disclaimer appears only while the mouse is over the icon and
+    # disappears automatically when the mouse leaves it.  A dedicated
+    # invisible overlay axis is used so this works reliably for both
+    # horizontal and vertical stacked-bar charts.
     try:
         chart_meta = dict(fig.layout.meta or {})
     except Exception:
@@ -9347,38 +9349,72 @@ def render_dashboard_plotly_chart(
 
     if chart_meta.get("eusee_percentage_chart"):
         try:
-            disclaimer = chart_meta.get(
+            disclaimer = str(chart_meta.get(
                 "eusee_percentage_disclaimer",
                 PERCENTAGE_CHART_DISCLAIMER,
-            )
-
-            # Remove any previous percentage disclaimer annotation so reruns
-            # never accumulate duplicate icons.
-            existing_annotations = list(fig.layout.annotations or [])
-            existing_annotations = [
-                ann for ann in existing_annotations
-                if "Percentage calculation" not in str(getattr(ann, "hovertext", "") or "")
-            ]
-
+            ))
             wrapped_disclaimer = _wrap_chart_tooltip_text(
                 disclaimer,
-                line_length=78,
+                line_length=72,
             )
 
-            # Small, unobtrusive information icon in the chart title area.
-            # Hovering it opens the methodology note; moving away closes it.
-            existing_annotations.append(
-                dict(
-                    x=0.985,
-                    y=0.965,
-                    xref="paper",
-                    yref="paper",
-                    xanchor="right",
-                    yanchor="top",
-                    text="ⓘ",
-                    hovertext=(
+            # Use secondary hidden axes so the hover target is positioned in
+            # normalized chart coordinates rather than depending on the
+            # chart's categorical/numeric x/y scales.
+            fig.update_layout(
+                xaxis2=dict(
+                    overlaying="x",
+                    range=[0, 1],
+                    showgrid=False,
+                    zeroline=False,
+                    showticklabels=False,
+                    visible=False,
+                ),
+                yaxis2=dict(
+                    overlaying="y",
+                    range=[0, 1],
+                    showgrid=False,
+                    zeroline=False,
+                    showticklabels=False,
+                    visible=False,
+                ),
+            )
+
+            # Remove a previous tooltip trace if the figure is processed
+            # more than once.
+            tooltip_marker_name = "__eusee_percentage_tooltip__"
+            fig.data = tuple(
+                trace for trace in fig.data
+                if getattr(trace, "name", None) != tooltip_marker_name
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=[0.965],
+                    y=[0.92],
+                    xaxis="x2",
+                    yaxis="y2",
+                    mode="markers+text",
+                    text=["ⓘ"],
+                    textposition="middle center",
+                    textfont=dict(
+                        family=CHART_FONT,
+                        size=13,
+                        color="#660094",
+                    ),
+                    marker=dict(
+                        size=25,
+                        color="rgba(244,234,248,0.98)",
+                        line=dict(
+                            color="#E7D4F1",
+                            width=1.2,
+                        ),
+                    ),
+                    name=tooltip_marker_name,
+                    hovertemplate=(
                         "<b>Percentage calculation</b><br>"
                         + wrapped_disclaimer
+                        + "<extra></extra>"
                     ),
                     hoverlabel=dict(
                         bgcolor="#FFFFFF",
@@ -9389,22 +9425,16 @@ def render_dashboard_plotly_chart(
                             color="#344054",
                         ),
                         align="left",
+                        namelength=0,
                     ),
-                    showarrow=False,
-                    bgcolor="rgba(244,234,248,0.96)",
-                    bordercolor="#E7D4F1",
-                    borderwidth=1,
-                    borderpad=4,
-                    font=dict(
-                        family=CHART_FONT,
-                        size=12,
-                        color="#660094",
-                    ),
-                    captureevents=True,
+                    showlegend=False,
+                    cliponaxis=False,
                 )
             )
 
-            fig.update_layout(annotations=existing_annotations)
+            # Make the information marker a dedicated hover target without
+            # changing the hover behaviour of the actual bars.
+            fig.update_layout(hovermode="closest")
         except Exception:
             pass
 
