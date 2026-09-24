@@ -6802,7 +6802,7 @@ def readable_stacked_bar_label_color(hex_color):
         return "#111827"
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True):
+def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True, show_percentage_disclaimer=True):
     """Create a stacked bar chart using percent of grand total with standard height."""
     df = df.copy()
 
@@ -6938,8 +6938,10 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
         yanchor="middle",
     )
 
-    # Mark only stacked-bar charts for the percentage methodology note.
-    fig = _mark_percentage_chart(fig)
+    # Mark stacked-bar charts for the percentage methodology note,
+    # except where the caller explicitly disables it.
+    if show_percentage_disclaimer:
+        fig = _mark_percentage_chart(fig)
     return fig
 
 # ---------------- HELPER FUNCTIONS ----------------
@@ -9528,7 +9530,7 @@ if tab_overview is not None:
             r2c1,r2c2 = st.columns(2)
 
 
-            render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1, permission_key="view_chart_overview_alert_type", permission_label="Overview alert type distribution")
+            render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True, show_percentage_disclaimer=False), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1, permission_key="view_chart_overview_alert_type", permission_label="Overview alert type distribution")
 
             fig12 = create_h_stacked_bar(
                 a2,
