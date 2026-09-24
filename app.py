@@ -9391,7 +9391,7 @@ def render_dashboard_plotly_chart(
             fig.add_trace(
                 go.Scatter(
                     x=[0.965],
-                    y=[0.92],
+                    y=[0.98],
                     xaxis="x2",
                     yaxis="y2",
                     mode="markers+text",
