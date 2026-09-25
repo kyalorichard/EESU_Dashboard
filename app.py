@@ -5250,12 +5250,7 @@ def render_cfr_analysis():
         )
         return
 
-    # The filename date is displayed beside the CFR tab subtitle below.
-    # Keep the source filename available below the analysis for transparency.
-    st.caption(
-        f"CFR source: `{source.name}`"
-    )
-
+   
     metadata_path = EXPORT_DIR / "countries_metadata.json"
     metadata_mtime = (
         metadata_path.stat().st_mtime
