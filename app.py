@@ -11045,7 +11045,9 @@ if tab_cfr is not None:
         else:
             cfr_last_updated_html = ""
 
-        st.markdown(
+        # Use st.html here rather than st.markdown so the badge is always
+        # rendered as HTML and never displayed as literal markup/code.
+        st.html(
             f"""
             <div class="cfr-page-subtitle-row">
                 <div class="cfr-page-subtitle">
@@ -11055,8 +11057,7 @@ if tab_cfr is not None:
                 </div>
                 {cfr_last_updated_html}
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         if has_permission("view_overview"):
