@@ -2933,6 +2933,9 @@ st.markdown(f"""
 # ------------------------------------------------------------
 # CFR CONFIGURATION
 # ------------------------------------------------------------
+# CFR exports are discovered automatically from filenames matching:
+# CFR_Export_YYYY_MM_DD.csv
+# The newest date in the filename is used by _find_cfr_source().
 CFR_SOURCE_FILENAME = "CFR_Export_2026_07_22.csv"
 
 CFR_SCORE_MIN = 1.0
@@ -3017,16 +3020,116 @@ CFR_COUNTRY_FIXES = {
 # DATA LOADING
 # ------------------------------------------------------------
 def _find_cfr_source():
-    """Resolve the CFR CSV from an environment variable or exports directory."""
+    """
+    Resolve the CFR CSV automatically.
+
+    Priority:
+    1. EUSEE_CFR_CSV environment variable, when configured and valid.
+    2. The newest CFR_Export_YYYY_MM_DD.csv file in EXPORT_DIR.
+
+    The date used for selection comes from the filename, not the file's
+    operating-system modification time.
+
+    Examples:
+        CFR_Export_2026_07_22.csv
+        CFR_Export_2026_08_15.csv
+        CFR_Export_2026_09_24.csv
+
+    The function will select CFR_Export_2026_09_24.csv in the example above.
+    """
+
+    # ------------------------------------------------------------
+    # 1. Explicit environment-variable override
+    # ------------------------------------------------------------
     configured = os.getenv("EUSEE_CFR_CSV")
 
     if configured:
-        configured_path = Path(configured)
+        configured_path = Path(configured).expanduser()
+
         if configured_path.exists() and configured_path.is_file():
             return configured_path
 
-    default_path = EXPORT_DIR / CFR_SOURCE_FILENAME
-    return default_path if default_path.exists() else None
+        logging.warning(
+            "EUSEE_CFR_CSV is configured but the file does not exist: %s",
+            configured_path,
+        )
+
+    # ------------------------------------------------------------
+    # 2. Automatically discover dated CFR exports
+    # ------------------------------------------------------------
+    if not EXPORT_DIR.exists():
+        logging.warning(
+            "CFR export directory does not exist: %s",
+            EXPORT_DIR,
+        )
+        return None
+
+    # Strictly match the expected CFR export naming convention.
+    # Date format: YYYY_MM_DD
+    filename_pattern = re.compile(
+        r"^CFR_Export_(\\d{4})_(\\d{2})_(\\d{2})\\.csv$",
+        re.IGNORECASE,
+    )
+
+    candidates = []
+
+    for path in EXPORT_DIR.glob("CFR_Export_*.csv"):
+        if not path.is_file():
+            continue
+
+        match = filename_pattern.match(path.name)
+
+        if not match:
+            logging.debug(
+                "Ignoring CFR file with unsupported filename format: %s",
+                path.name,
+            )
+            continue
+
+        try:
+            file_date = datetime(
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+        except ValueError:
+            # Ignore impossible dates such as 2026_02_31.
+            logging.warning(
+                "Ignoring CFR file with invalid date in filename: %s",
+                path.name,
+            )
+            continue
+
+        candidates.append((file_date, path))
+
+    # ------------------------------------------------------------
+    # 3. Select the newest date embedded in the filename
+    # ------------------------------------------------------------
+    if candidates:
+        candidates.sort(
+            key=lambda item: (item[0], item[1].name),
+            reverse=True,
+        )
+
+        latest_date, latest_path = candidates[0]
+
+        logging.info(
+            "Using latest CFR export: %s (filename date: %s)",
+            latest_path,
+            latest_date.strftime("%Y-%m-%d"),
+        )
+
+        return latest_path
+
+    # ------------------------------------------------------------
+    # 4. No valid dated CFR export found
+    # ------------------------------------------------------------
+    logging.warning(
+        "No CFR export matching CFR_Export_YYYY_MM_DD.csv was found in %s",
+        EXPORT_DIR,
+    )
+
+    return None
 
 
 def _load_country_metadata():
@@ -5070,11 +5173,17 @@ def render_cfr_analysis():
 
     if source is None:
         st.warning(
-            f"CFR data file not found. Add `{CFR_SOURCE_FILENAME}` "
-            "to the exports folder or define the EUSEE_CFR_CSV "
-            "environment variable."
+            "CFR data file not found. Add a file matching "
+            "`CFR_Export_YYYY_MM_DD.csv` to the exports folder, "
+            "or define the EUSEE_CFR_CSV environment variable."
         )
         return
+
+    # Show the automatically selected CFR source so administrators can
+    # immediately confirm which dated export is driving the analysis.
+    st.caption(
+        f"CFR source: `{source.name}`"
+    )
 
     metadata_path = EXPORT_DIR / "countries_metadata.json"
     metadata_mtime = (
