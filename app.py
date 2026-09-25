@@ -3325,6 +3325,33 @@ def _inject_cfr_dashboard_css():
             font-weight: 550;
         }
 
+        .cfr-last-updated-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin: 2px 0 14px 0;
+            padding: 7px 11px;
+            border: 1px solid #E7D4F1;
+            border-radius: 999px;
+            background: #F9F3FC;
+            color: #660094;
+            font-family: "Anek Devanagari", Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.1;
+            font-weight: 850;
+            box-shadow: 0 2px 7px rgba(102, 0, 148, .06);
+        }
+
+        .cfr-last-updated-badge .cfr-last-updated-label {
+            color: #667085;
+            font-weight: 700;
+        }
+
+        .cfr-last-updated-badge .cfr-last-updated-date {
+            color: #660094;
+            font-weight: 900;
+        }
+
         .cfr-kpi-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5166,6 +5193,30 @@ def render_cfr_matrix_zoom_controls():
         width=0,
     )
 
+def _extract_cfr_filename_date(source_path):
+    """Extract the reporting/update date from a CFR_Export_YYYY_MM_DD.csv filename."""
+    if source_path is None:
+        return None
+
+    match = re.match(
+        r"^CFR_Export_(\d{4})_(\d{2})_(\d{2})\.csv$",
+        Path(source_path).name,
+        flags=re.IGNORECASE,
+    )
+
+    if not match:
+        return None
+
+    try:
+        return datetime(
+            int(match.group(1)),
+            int(match.group(2)),
+            int(match.group(3)),
+        )
+    except ValueError:
+        return None
+
+
 def render_cfr_analysis():
     _inject_cfr_dashboard_css()
 
@@ -5179,8 +5230,28 @@ def render_cfr_analysis():
         )
         return
 
-    # Show the automatically selected CFR source so administrators can
-    # immediately confirm which dated export is driving the analysis.
+    # Extract the update date from the CFR filename rather than using the
+    # operating-system file timestamp or the Last Modified field inside the CSV.
+    cfr_filename_date = _extract_cfr_filename_date(source)
+
+    if cfr_filename_date is not None:
+        cfr_display_date = cfr_filename_date.strftime("%d %B %Y")
+        st.markdown(
+            f"""
+            <div class=\"cfr-last-updated-badge\" role=\"status\" aria-label=\"CFR data last updated {html.escape(cfr_display_date)}\">
+                <span class=\"cfr-last-updated-label\">Last updated</span>
+                <span aria-hidden=\"true\">•</span>
+                <span class=\"cfr-last-updated-date\">{html.escape(cfr_display_date)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.warning(
+            f"CFR source filename does not contain a valid YYYY_MM_DD date: {source.name}"
+        )
+
+    # Keep the source filename available below the badge for transparency.
     st.caption(
         f"CFR source: `{source.name}`"
     )
