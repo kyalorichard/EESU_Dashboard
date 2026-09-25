@@ -3067,7 +3067,7 @@ def _find_cfr_source():
     # Strictly match the expected CFR export naming convention.
     # Date format: YYYY_MM_DD
     filename_pattern = re.compile(
-        r"^CFR_Export_(\\d{4})_(\\d{2})_(\\d{2})\\.csv$",
+        r"^CFR_Export_(\d{4})_(\d{2})_(\d{2})\.csv$",
         re.IGNORECASE,
     )
 
