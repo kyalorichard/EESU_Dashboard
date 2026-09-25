@@ -5250,8 +5250,9 @@ def render_cfr_analysis():
         st.warning(
             f"CFR source filename does not contain a valid YYYY_MM_DD date: {source.name}"
         )
+    
 
-       metadata_path = EXPORT_DIR / "countries_metadata.json"
+    metadata_path = EXPORT_DIR / "countries_metadata.json"
     metadata_mtime = (
         metadata_path.stat().st_mtime
         if metadata_path.exists()
