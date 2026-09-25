@@ -3317,8 +3317,18 @@ def _inject_cfr_dashboard_css():
             letter-spacing: -.02em;
         }
 
-        .cfr-page-subtitle {
+        .cfr-page-subtitle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            width: 100%;
             margin: 8px 0 10px 0;
+        }
+
+        .cfr-page-subtitle {
+            flex: 1 1 auto;
+            margin: 0;
             color: black;
             font-size: 13px;
             line-height: 1.45;
@@ -3328,8 +3338,10 @@ def _inject_cfr_dashboard_css():
         .cfr-last-updated-badge {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
             gap: 7px;
-            margin: 2px 0 14px 0;
+            margin: 0;
             padding: 7px 11px;
             border: 1px solid #E7D4F1;
             border-radius: 999px;
@@ -3350,6 +3362,14 @@ def _inject_cfr_dashboard_css():
         .cfr-last-updated-badge .cfr-last-updated-date {
             color: #660094;
             font-weight: 900;
+        }
+
+        @media (max-width: 700px) {
+            .cfr-page-subtitle-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
         }
 
         .cfr-kpi-grid {
@@ -5230,27 +5250,11 @@ def render_cfr_analysis():
         )
         return
 
-    # Extract the update date from the CFR filename rather than using the
-    # operating-system file timestamp or the Last Modified field inside the CSV.
-    cfr_filename_date = _extract_cfr_filename_date(source)
-
-    if cfr_filename_date is not None:
-        cfr_display_date = cfr_filename_date.strftime("%d %B %Y")
-        st.markdown(
-            f"""
-            <div class=\"cfr-last-updated-badge\" role=\"status\" aria-label=\"CFR data last updated {html.escape(cfr_display_date)}\">
-                <span class=\"cfr-last-updated-label\">Last updated</span>
-                <span aria-hidden=\"true\">•</span>
-                <span class=\"cfr-last-updated-date\">{html.escape(cfr_display_date)}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.warning(
-            f"CFR source filename does not contain a valid YYYY_MM_DD date: {source.name}"
-        )
-    
+    # The filename date is displayed beside the CFR tab subtitle below.
+    # Keep the source filename available below the analysis for transparency.
+    st.caption(
+        f"CFR source: `{source.name}`"
+    )
 
     metadata_path = EXPORT_DIR / "countries_metadata.json"
     metadata_mtime = (
@@ -11019,17 +11023,41 @@ if tab_map is not None:
 # ---------------- CFR ANALYSIS TAB ----------------
 if tab_cfr is not None:
     with tab_cfr:
-        st.markdown(
-               """
-                <div class="cfr-page-subtitle">
-                       Explore score patterns across the six EU SEE enabling
-                       environment principles.<br>
-                       Scores range from 1 (most restricted) to 5 (most enabling).
+        # Resolve the same CFR source used by render_cfr_analysis() so the
+        # badge always reflects the date embedded in the selected filename.
+        cfr_tab_source = _find_cfr_source()
+        cfr_tab_date = (
+            _extract_cfr_filename_date(cfr_tab_source)
+            if cfr_tab_source is not None
+            else None
+        )
+
+        if cfr_tab_date is not None:
+            cfr_tab_display_date = cfr_tab_date.strftime("%d %B %Y")
+            cfr_last_updated_html = f"""
+                <div class="cfr-last-updated-badge" role="status"
+                     aria-label="CFR data last updated {html.escape(cfr_tab_display_date)}">
+                    <span class="cfr-last-updated-label">Last updated</span>
+                    <span aria-hidden="true">•</span>
+                    <span class="cfr-last-updated-date">{html.escape(cfr_tab_display_date)}</span>
                 </div>
-              
-               """,
-               unsafe_allow_html=True,
-           )
+            """
+        else:
+            cfr_last_updated_html = ""
+
+        st.markdown(
+            f"""
+            <div class="cfr-page-subtitle-row">
+                <div class="cfr-page-subtitle">
+                    Explore score patterns across the six EU SEE enabling
+                    environment principles.<br>
+                    Scores range from 1 (most restricted) to 5 (most enabling).
+                </div>
+                {cfr_last_updated_html}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         if has_permission("view_overview"):
             render_cfr_analysis()
