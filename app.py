@@ -1354,6 +1354,15 @@ else:
     # A restored session must never render auth_ui() on F5.
     st.session_state.auth_view = False
 
+# authz.py reads the authenticated identity from session_state.  Keep the
+# authorization layer explicitly synchronized with the Firebase auth state.
+if authenticated_now:
+    st.session_state["authenticated"] = True
+    st.session_state["is_authenticated"] = True
+else:
+    st.session_state["authenticated"] = False
+    st.session_state["is_authenticated"] = False
+
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------

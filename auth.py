@@ -133,10 +133,14 @@ CHAT_HISTORY_DIR = Path(
 # user's browser can restore its own login after a refresh.
 
 def _get_cookie_component_key() -> str:
+    """Return one stable component key for the authentication cookie manager.
 
-    """Stable component key for the CookieManager constructor."""
-
-    return f"eusee_cookie_manager_{st.session_state.get('eusee_browser_session_id') or uuid.uuid4().hex}"
+    CookieManager itself is scoped to the current Streamlit browser session by
+    Streamlit.  The browser cookie must nevertheless have the same component
+    identity after F5 so the component can hydrate its existing cookie instead
+    of appearing as a brand-new cookie manager.
+    """
+    return "eusee_cookie_manager"
 
 def get_cookie_manager():
 
@@ -824,17 +828,9 @@ def _read_cookie() -> dict:
     if manager is None:
         return {}
 
-    try:
-        raw = manager.get(COOKIE_NAME)
-        if raw:
-            if isinstance(raw, dict):
-                return raw
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                return data
-    except Exception:
-        pass
-
+    # CookieManager hydrates asynchronously.  get_all() is generally the most
+    # reliable call after a hard refresh because it asks the browser component
+    # for its complete cookie jar in one operation.
     try:
         cookies = manager.get_all(key="eusee_cookie_get_all")
         if isinstance(cookies, dict):
@@ -845,6 +841,17 @@ def _read_cookie() -> dict:
                 data = json.loads(raw)
                 if isinstance(data, dict):
                     return data
+    except Exception:
+        pass
+
+    try:
+        raw = manager.get(COOKIE_NAME)
+        if raw:
+            if isinstance(raw, dict):
+                return raw
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
     except Exception:
         pass
 
