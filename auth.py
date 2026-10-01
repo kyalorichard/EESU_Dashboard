@@ -5,6 +5,7 @@ import json
 import hashlib
 import re
 import time
+import uuid
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -66,23 +67,36 @@ CHAT_HISTORY_DIR = Path(
 
 
 
-# CookieManager is a browser component. The Python object does not contain a
-# user's authentication cookie; each visitor's browser supplies its own value.
-# Keep one component instance to avoid duplicate Streamlit component keys.
-_COOKIE_MANAGER = None
+# CookieManager is a browser component. The cookie itself is stored in the
+# visitor's browser, but the Streamlit component instance MUST NOT be shared
+# through a module-level Python object across Streamlit sessions.
+#
+# The previous implementation used a module-level `_COOKIE_MANAGER` with one
+# fixed component key. On a multi-user Streamlit deployment this can cause the
+# browser component state to be associated with the wrong Streamlit session.
+# We therefore create one CookieManager per Streamlit session and give it a
+# session-unique component key. The actual cookie name remains the same so the
+# user's browser can restore its own login after a refresh.
+
+def _get_cookie_component_key() -> str:
+    """Return a stable CookieManager component key for this Streamlit session."""
+    session_id = st.session_state.get("eusee_browser_session_id")
+
+    if not session_id:
+        session_id = uuid.uuid4().hex
+        st.session_state.eusee_browser_session_id = session_id
+
+    return f"eusee_cookie_manager_{session_id}"
+
 
 def get_cookie_manager():
-    global _COOKIE_MANAGER
-
     if not HAS_COOKIE_MANAGER:
         return None
 
-    if _COOKIE_MANAGER is None:
-        _COOKIE_MANAGER = stx.CookieManager(
-            key="eusee_cookie_manager_main"
-        )
-
-    return _COOKIE_MANAGER
+    # Each Streamlit session gets a unique component key. The component wrapper
+    # itself is intentionally not stored as a module-level global, because that
+    # can associate one browser's component state with another browser session.
+    return stx.CookieManager(key=_get_cookie_component_key())
 
 
 def init_firebase_admin():
@@ -427,6 +441,9 @@ def init_session():
         "auth_view": False,
         "id_token": None,
         "refresh_token": None,
+        # Unique to the current Streamlit browser session. Used only to give
+        # the CookieManager a unique component key; it is not an auth secret.
+        "eusee_browser_session_id": None,
         CHAT_HISTORY_KEY: [],
         "chat_history_loaded": False,
         "chat_history_loaded_for": None,
@@ -435,8 +452,17 @@ def init_session():
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
 
+    if not st.session_state.get("eusee_browser_session_id"):
+        st.session_state.eusee_browser_session_id = uuid.uuid4().hex
+
 
 def _session_payload(email, name, verified, role, id_token, refresh_token, remember_me=True):
+    """Build the browser-local authentication payload.
+
+    The browser cookie is intentionally scoped to this browser. No global
+    server-side `current_user` is used, so another Streamlit session cannot
+    inherit this user's identity.
+    """
     return {
         "email": str(email or "").lower().strip(),
         "name": str(name or ""),
@@ -449,19 +475,25 @@ def _session_payload(email, name, verified, role, id_token, refresh_token, remem
 
 
 def _write_cookie(payload: dict) -> bool:
-    """Write the browser cookie and allow the frontend component to commit it."""
+    """Write the authentication cookie for the current browser only."""
     manager = get_cookie_manager()
     if manager is None:
         st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
         return False
 
     try:
+        # `remember_me=True` creates a persistent cookie. When it is false,
+        # deliberately create a session cookie instead of keeping the login
+        # alive for one day. This also avoids accidentally restoring an older
+        # persistent login after the user chose not to be remembered.
+        expires_at = None
+        if payload.get("remember_me", True):
+            expires_at = datetime.now() + timedelta(days=COOKIE_DAYS)
+
         manager.set(
             COOKIE_NAME,
             json.dumps(payload),
-            expires_at=datetime.now() + timedelta(
-                days=COOKIE_DAYS if payload.get("remember_me", True) else 1
-            ),
+            expires_at=expires_at,
         )
 
         # CookieManager writes in the browser through a Streamlit component.
@@ -601,6 +633,7 @@ def restore_session():
             role=role,
             id_token=id_token,
             refresh_token=new_refresh_token,
+            remember_me=bool(cookie_data.get("remember_me", True)),
         )
     )
 
