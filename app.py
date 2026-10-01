@@ -1421,6 +1421,9 @@ def load_data():
         "alert-impact",
         "alert-type",
         "Actor of repression",
+        "Subject of repression",
+        "Mechanism of repression",
+        "Type of event",
     ]:
         if col not in df.columns:
             st.warning(f"Column '{col}' not found in dataset.")
@@ -1534,23 +1537,7 @@ def load_data():
         df["alert-type"].str.lower() != "event"
         ].copy()
 
-    # ================================================================
-    # STANDARDIZE CLASSIFICATION LABELS
-    # ================================================================
-    # Applies to:
-    #   - Actor of repression
-    #   - Subject of repression
-    #   - Mechanism of repression
-    #   - Type of event
-    #
-    # Rules:
-    #   1. Capitalize ONLY the first character of each category.
-    #   2. For comma-separated categories, capitalize the first
-    #      character after each comma.
-    #   3. Do NOT use title case.
-    #   4. Preserve the remainder of each category.
-    #   5. Treat "Journalists, media and influencers" as ONE
-    #      Subject of repression category.
+    # Clean Actor of repression.
     # ================================================================
 
     classification_columns = [
@@ -1563,15 +1550,19 @@ def load_data():
     protected_subject = "Journalists, media and influencers"
     protected_placeholder = "__JOURNALISTS_MEDIA_AND_INFLUENCERS__"
 
-    def standardize_classification_value(value, column):
+
+    def clean_classification_value(value, column):
         if pd.isna(value):
             return value
 
         value = str(value).strip()
+
         if not value:
             return value
 
-        # Expand VNSAs before capitalization.
+        # ------------------------------------------------------------
+        # Actor-specific normalization
+        # ------------------------------------------------------------
         if column == "Actor of repression":
             value = re.sub(
                 r"\bVNSAs\b",
@@ -1579,7 +1570,10 @@ def load_data():
                 value,
             )
 
-        # Protect the subject label because it contains commas internally.
+        # ------------------------------------------------------------
+        # Protect "Journalists, media and influencers"
+        # because its internal commas are NOT separators.
+        # ------------------------------------------------------------
         if column == "Subject of repression":
             value = re.sub(
                 re.escape(protected_subject),
@@ -1588,22 +1582,33 @@ def load_data():
                 flags=re.IGNORECASE,
             )
 
+        # ------------------------------------------------------------
+        # Split actual comma-separated categories
+        # ------------------------------------------------------------
         parts = [
             part.strip()
             for part in value.split(",")
             if part.strip()
         ]
 
-        # Capitalize ONLY the first character; do not use .title().
-        parts = [
-            part[0].upper() + part[1:]
-            for part in parts
-            if part
-        ]
+        # ------------------------------------------------------------
+        # Capitalize ONLY first character.
+        # Do not use .title() or .capitalize(), because those
+        # would modify the remainder of the category.
+        # ------------------------------------------------------------
+        cleaned_parts = []
 
-        result = ", ".join(parts)
+        for part in parts:
+            if part:
+                part = part[0].upper() + part[1:]
+                cleaned_parts.append(part)
 
-        # Restore the protected subject using one canonical spelling.
+        result = ", ".join(cleaned_parts)
+
+        # ------------------------------------------------------------
+        # Restore protected Subject of repression category
+        # using the canonical spelling.
+        # ------------------------------------------------------------
         if column == "Subject of repression":
             result = result.replace(
                 protected_placeholder,
@@ -1612,10 +1617,14 @@ def load_data():
 
         return result
 
+
     for col in classification_columns:
         if col in df.columns:
             df[col] = df[col].apply(
-                lambda x, c=col: standardize_classification_value(x, c)
+                lambda x, c=col: clean_classification_value(
+                    x,
+                    c,
+                )
             )
 
     # --- Step 6: Map ISO codes and continent ---
@@ -6283,12 +6292,7 @@ def _top_split_item_for_negative_card(df, col, protected_label="Journalists, med
     placeholder = "Journalists__MEDIA__and__influencers"
     s = df[col].dropna().astype(str).str.strip()
     s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-    s = s.str.replace(
-        re.escape(protected_label),
-        placeholder,
-        regex=True,
-        flags=re.IGNORECASE,
-    )
+    s = s.str.replace(protected_label, placeholder, regex=False)
     exploded = (
         s.str.split(",")
         .explode()
@@ -7406,7 +7410,7 @@ def render_heatmaps(df, top_n=5):
         return
 
     protected_label = "Journalists, media and influencers"
-    placeholder = "__JOURNALISTS_MEDIA_AND_INFLUENCERS__"
+    placeholder = "Journalists__MEDIA__and__influencers"
 
     def safe_split(x):
         if pd.isna(x):
@@ -7414,7 +7418,7 @@ def render_heatmaps(df, top_n=5):
         x = str(x).strip()
         if not x:
             return []
-        x = re.sub(re.escape(protected_label), placeholder, x, flags=re.IGNORECASE)
+        x = x.replace(protected_label, placeholder)
         parts = [i.strip() for i in x.split(",") if str(i).strip()]
         return [p.replace(placeholder, protected_label) for p in parts]
 
@@ -7481,13 +7485,12 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
         return fig
 
     protected_label = "Journalists, media and influencers"
-    placeholder = "__JOURNALISTS_MEDIA_AND_INFLUENCERS__"
+    placeholder = "Journalists__MEDIA__and__influencers"
 
     def split_values(x):
         if pd.isna(x):
             return []
-        x = str(x).strip()
-        x = re.sub(re.escape(protected_label), placeholder, x, flags=re.IGNORECASE)
+        x = str(x).strip().replace(protected_label, placeholder)
         parts = [i.strip() for i in x.split(",") if i.strip()]
         return [p.replace(placeholder, protected_label) for p in parts]
 
@@ -7803,52 +7806,14 @@ def top_n_bar(df, col, top_n=None):
 def explode_multi_valued_columns(df, cols):
     """
     Explodes comma-separated values in specified columns.
-
-    Special case:
-        "Journalists, media and influencers" is treated as one
-        Subject of repression category even though it contains commas.
+    Each comma-separated value becomes a separate row.
     """
     df_exploded = df.copy()
-
-    protected_label = "Journalists, media and influencers"
-    placeholder = "__JOURNALISTS_MEDIA_AND_INFLUENCERS__"
-
     for col in cols:
         if col in df_exploded.columns:
-            def split_value(value):
-                if pd.isna(value):
-                    return []
-
-                value = str(value).strip()
-                if not value:
-                    return []
-
-                if col == "Subject of repression":
-                    value = re.sub(
-                        re.escape(protected_label),
-                        placeholder,
-                        value,
-                        flags=re.IGNORECASE,
-                    )
-
-                parts = [
-                    part.strip()
-                    for part in value.split(",")
-                    if part.strip()
-                ]
-
-                if col == "Subject of repression":
-                    parts = [
-                        part.replace(placeholder, protected_label)
-                        for part in parts
-                    ]
-
-                return parts
-
-            df_exploded[col] = df_exploded[col].apply(split_value)
+            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
             df_exploded = df_exploded.explode(col)
-            df_exploded[col] = df_exploded[col].astype(str).str.strip()
-
+            df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
 
 
@@ -9936,31 +9901,24 @@ if tab_negative is not None:
                 # Show totals BEFORE exploding multi-valued columns
 
                 protected_label = "Journalists, media and influencers"
-                placeholder = "__JOURNALISTS_MEDIA_AND_INFLUENCERS__"
+                placeholder = "Journalists__MEDIA__and__influencers"
     
                 def safe_split(x):
                     if pd.isna(x):
                         return []
 
-                    x = str(x).strip()
-                    if not x:
-                        return []
+                    x = x.strip()
 
-                    # Protect the special Subject of repression category
-                    # because it contains commas internally.
-                    x = re.sub(
-                        re.escape(protected_label),
-                        placeholder,
-                        x,
-                        flags=re.IGNORECASE,
-                    )
+                    # Temporarily replace protected label
+                    x = x.replace(protected_label, placeholder)
 
-                    parts = [i.strip() for i in x.split(",") if i.strip()]
+                    # Split normally
+                    parts = [i.strip() for i in x.split(",")]
 
-                    return [
-                        p.replace(placeholder, protected_label)
-                        for p in parts
-                    ]
+                    # Restore protected label
+                    parts = [p.replace(placeholder, protected_label) for p in parts]
+
+                    return parts
 
         
                 # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
@@ -10072,7 +10030,7 @@ if tab_negative is not None:
                 filtered_df1 = df_exploded.copy()
                 #filtered_df = reactive_df_updated.copy()
     
-                tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].apply(safe_split)}).explode("Actor of repression")
+                tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
     
                 tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
                 m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
@@ -10090,11 +10048,11 @@ if tab_negative is not None:
                 tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
                 m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
 
-                tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].apply(safe_split)}).explode("Mechanism of repression")
+                tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
                 tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
                 m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
 
-                tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].apply(safe_split)}).explode("Type of event")
+                tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
                 tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
                 m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
 
