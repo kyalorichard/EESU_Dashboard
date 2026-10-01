@@ -1709,23 +1709,26 @@ def load_data():
         )
 
     # ================================================================
-    # FINAL CLASSIFICATION LABEL STANDARDIZATION
+    # FINAL CANONICAL CLASSIFICATION LABEL STANDARDIZATION
     # ================================================================
     #
-    # Apply ONLY to:
-    #   - Actor of repression
-    #   - Subject of repression
-    #   - Mechanism of repression
-    #   - Type of event
+    # IMPORTANT:
+    # Equivalent labels must be canonicalized BEFORE any downstream
+    # filtering, exploding, grouping, or chart aggregation.
     #
-    # Rules:
-    #   1. Capitalize only the first character of each category.
-    #   2. For comma-separated categories, capitalize the first
-    #      character after each comma.
-    #   3. Do not use title case.
-    #   4. Preserve the remainder of each category.
-    #   5. "Journalists, media and influencers" is one Subject
-    #      of repression category.
+    # Examples that become ONE category:
+    #   physical violence
+    #   Physical violence
+    #   Physical Violence
+    #   PHYSICAL VIOLENCE
+    #
+    # Result:
+    #   Physical violence
+    #
+    # Special Subject category:
+    #   Journalists, media and influencers
+    #
+    # Its internal commas are protected so it remains ONE category.
     # ================================================================
 
     classification_columns = [
@@ -1738,7 +1741,7 @@ def load_data():
     protected_subject = "Journalists, media and influencers"
     protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
 
-    def standardize_classification(value, column):
+    def canonicalize_classification(value, column):
         if pd.isna(value):
             return value
 
@@ -1747,7 +1750,7 @@ def load_data():
         if not value:
             return value
 
-        # Actor-specific normalization.
+        # Actor-specific canonical replacement.
         if column == "Actor of repression":
             value = re.sub(
                 r"\bVNSAs\b",
@@ -1768,21 +1771,23 @@ def load_data():
         cleaned_parts = []
 
         for part in value.split(","):
-            part = part.strip()
+            part = re.sub(r"\s+", " ", part).strip()
 
             if not part:
                 continue
 
-            # Restore the protected subject as one complete category.
+            # The protected subject is one complete category.
             if part == protected_token:
                 cleaned_parts.append(protected_subject)
                 continue
 
-            # Capitalize ONLY the first character.
-            # Everything after the first character is preserved.
-            cleaned_parts.append(
-                part[0].upper() + part[1:]
-            )
+            # Canonical case:
+            # first character uppercase, remainder lowercase.
+            # This is what merges case variants before groupby().
+            part = part.lower()
+            part = part[0].upper() + part[1:]
+
+            cleaned_parts.append(part)
 
         return ", ".join(cleaned_parts)
 
@@ -1790,7 +1795,7 @@ def load_data():
         if column in df.columns:
             df[column] = df[column].apply(
                 lambda value, c=column:
-                    standardize_classification(value, c)
+                    canonicalize_classification(value, c)
             )
 
     return df
@@ -10024,31 +10029,171 @@ if tab_negative is not None:
                 filtered_df1 = df_exploded.copy()
                 #filtered_df = reactive_df_updated.copy()
     
-                tab2_actor = reactive_df_updated.assign(**{"Actor of repression": reactive_df_updated["Actor of repression"].str.split(",")}).explode("Actor of repression")
-    
-                tab2_actor["Actor of repression"] = tab2_actor["Actor of repression"].str.strip()
-                m1 = tab2_actor.groupby(["Actor of repression","alert-impact"]).size().reset_index(name='count')
+                # ============================================================
+                # CANONICALIZE BEFORE GROUPING
+                # ============================================================
+                #
+                # The labels are normalized BEFORE groupby(), not merely
+                # when displayed by create_bar_chart(). This prevents
+                # duplicate visual categories such as:
+                #   physical violence
+                #   Physical violence
+                #   Physical Violence
+                # from becoming separate groups.
+                # ============================================================
 
-                #tab2_subj = reactive_df_updated.assign(**{"Subject of repression": reactive_df_updated["Subject of repression"].str.split(",")}).explode("Subject of repression")
-    
+                def canonical_chart_label(value, column):
+                    if pd.isna(value):
+                        return ""
+
+                    value = str(value).strip()
+
+                    if not value:
+                        return ""
+
+                    protected_subject = "Journalists, media and influencers"
+                    protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
+
+                    if column == "Subject of repression":
+                        value = re.sub(
+                            re.escape(protected_subject),
+                            protected_token,
+                            value,
+                            flags=re.IGNORECASE,
+                        )
+
+                    if value == protected_token:
+                        return protected_subject
+
+                    value = re.sub(r"\s+", " ", value).strip()
+
+                    if not value:
+                        return ""
+
+                    # Merge case variants while retaining the requested
+                    # display convention: only the first letter uppercase.
+                    value = value.lower()
+                    return value[0].upper() + value[1:]
+
+                # ---------------- ACTOR OF REPRESSION ----------------
+                tab2_actor = reactive_df_updated.assign(
+                    **{
+                        "Actor of repression":
+                            reactive_df_updated["Actor of repression"]
+                            .apply(safe_split)
+                    }
+                ).explode("Actor of repression")
+
+                tab2_actor["Actor of repression"] = (
+                    tab2_actor["Actor of repression"]
+                    .apply(
+                        lambda x:
+                            canonical_chart_label(
+                                x,
+                                "Actor of repression",
+                            )
+                    )
+                )
+
+                m1 = (
+                    tab2_actor
+                    .groupby(
+                        ["Actor of repression", "alert-impact"]
+                    )
+                    .size()
+                    .reset_index(name="count")
+                )
+
+                # ---------------- SUBJECT OF REPRESSION ----------------
                 tab2_subj = (
                     reactive_df_updated
-                    .assign(**{
-                        "Subject of repression": reactive_df_updated["Subject of repression"].apply(safe_split)
-                    })
+                    .assign(
+                        **{
+                            "Subject of repression":
+                                reactive_df_updated["Subject of repression"]
+                                .apply(safe_split)
+                        }
+                    )
                     .explode("Subject of repression")
                 )
-       
-                tab2_subj["Subject of repression"] = tab2_subj["Subject of repression"].str.strip()
-                m2 = tab2_subj.groupby(["Subject of repression","alert-impact"]).size().reset_index(name='count')
 
-                tab2_mech = reactive_df_updated.assign(**{"Mechanism of repression": reactive_df_updated["Mechanism of repression"].str.split(",")}).explode("Mechanism of repression")
-                tab2_mech["Mechanism of repression"] = tab2_mech["Mechanism of repression"].str.strip()
-                m3 = tab2_mech.groupby(["Mechanism of repression","alert-impact"]).size().reset_index(name='count')
+                tab2_subj["Subject of repression"] = (
+                    tab2_subj["Subject of repression"]
+                    .apply(
+                        lambda x:
+                            canonical_chart_label(
+                                x,
+                                "Subject of repression",
+                            )
+                    )
+                )
 
-                tab2_type = reactive_df_updated.assign(**{"Type of event": reactive_df_updated["Type of event"].str.split(",")}).explode("Type of event")
-                tab2_type["Type of event"] = tab2_type["Type of event"].str.strip()
-                m4 = tab2_type.groupby(["Type of event","alert-impact"]).size().reset_index(name='count')
+                m2 = (
+                    tab2_subj
+                    .groupby(
+                        ["Subject of repression", "alert-impact"]
+                    )
+                    .size()
+                    .reset_index(name="count")
+                )
+
+                # ---------------- MECHANISM OF REPRESSION ----------------
+                tab2_mech = reactive_df_updated.assign(
+                    **{
+                        "Mechanism of repression":
+                            reactive_df_updated["Mechanism of repression"]
+                            .apply(safe_split)
+                    }
+                ).explode("Mechanism of repression")
+
+                tab2_mech["Mechanism of repression"] = (
+                    tab2_mech["Mechanism of repression"]
+                    .apply(
+                        lambda x:
+                            canonical_chart_label(
+                                x,
+                                "Mechanism of repression",
+                            )
+                    )
+                )
+
+                m3 = (
+                    tab2_mech
+                    .groupby(
+                        ["Mechanism of repression", "alert-impact"]
+                    )
+                    .size()
+                    .reset_index(name="count")
+                )
+
+                # ---------------- TYPE OF EVENT ----------------
+                tab2_type = reactive_df_updated.assign(
+                    **{
+                        "Type of event":
+                            reactive_df_updated["Type of event"]
+                            .apply(safe_split)
+                    }
+                ).explode("Type of event")
+
+                tab2_type["Type of event"] = (
+                    tab2_type["Type of event"]
+                    .apply(
+                        lambda x:
+                            canonical_chart_label(
+                                x,
+                                "Type of event",
+                            )
+                    )
+                )
+
+                m4 = (
+                    tab2_type
+                    .groupby(
+                        ["Type of event", "alert-impact"]
+                    )
+                    .size()
+                    .reset_index(name="count")
+                )
 
                 tab2_alert = reactive_df_updated.assign(**{"alert-type": reactive_df_updated["alert-type"].str.split(",")}).explode("alert-type")
                 tab2_alert["alert-type"] = tab2_alert["alert-type"].str.strip()
