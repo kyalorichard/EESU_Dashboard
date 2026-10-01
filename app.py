@@ -2691,6 +2691,25 @@ render_sidebar_access_settings_profile()
 render_classic_filter_header()
 inject_professional_sidebar_filter_css()
 
+# ---------------------------------------------------------
+# COUNTRY NAME NORMALIZATION
+# ---------------------------------------------------------
+# Keep historical/duplicate country labels in the source data mapped to the
+# canonical labels used by the fixed EU SEE country selector.
+COUNTRY_NAME_NORMALIZATION = {
+    "Democratic Republic of Congo": "Democratic Republic of the Congo",
+    "Democratic Republic of Congo 2": "Democratic Republic of the Congo",
+    "Democratic Republic of the Congo": "Democratic Republic of the Congo",
+}
+
+if not data.empty and "alert-country" in data.columns:
+    data["alert-country"] = (
+        data["alert-country"]
+        .astype("string")
+        .str.strip()
+        .replace(COUNTRY_NAME_NORMALIZATION)
+    )
+
 # Sidebar compact/responsive override removed to restore the previous sidebar layout.
 
 regions_labels = [
@@ -2709,17 +2728,104 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         container=sidebar_filter_box,
     )
 
-    filtered_countries = (
-        data[data["region"].isin(selected_regions)]
-        if (not data.empty and "region" in data.columns and selected_regions)
-        else data
-    )
+    # ---------------------------------------------------------
+    # FIXED EU SEE COUNTRY FILTER LIST
+    # ---------------------------------------------------------
+    # The country selector intentionally uses this controlled list rather than
+    # deriving its labels from the current dataset. This keeps the filter
+    # stable across dataset refreshes and ensures that "Select all" always
+    # represents the complete EU SEE country list.
+    EUSEE_COUNTRY_FILTER_LIST = [
+        "Afghanistan",
+        "Algeria",
+        "Angola",
+        "Argentina",
+        "Bangladesh",
+        "Benin",
+        "Bhutan",
+        "Bolivia",
+        "Botswana",
+        "Brazil",
+        "Burkina Faso",
+        "Burundi",
+        "Cambodia",
+        "Cameroon",
+        "Chad",
+        "Chile",
+        "Colombia",
+        "Costa Rica",
+        "Côte d’Ivoire",
+        "Democratic Republic of the Congo",
+        "Dominican Republic",
+        "Ecuador",
+        "El Salvador",
+        "Eswatini",
+        "Ethiopia",
+        "Gabon",
+        "Ghana",
+        "Guatemala",
+        "Guinea",
+        "Guinea Bissau",
+        "Haiti",
+        "Honduras",
+        "Hong Kong",
+        "India",
+        "Indonesia",
+        "Israel",
+        "Jamaica",
+        "Jordan",
+        "Kazakhstan",
+        "Kenya",
+        "Kyrgyzstan",
+        "Lebanon",
+        "Lesotho",
+        "Liberia",
+        "Madagascar",
+        "Malawi",
+        "Malaysia",
+        "Mali",
+        "Mauritius",
+        "Mexico",
+        "Mongolia",
+        "Morocco",
+        "Mozambique",
+        "Myanmar",
+        "Namibia",
+        "Nepal",
+        "Niger",
+        "Nigeria",
+        "Pakistan",
+        "Palestine",
+        "Panama",
+        "Papua New Guinea",
+        "Paraguay",
+        "Peru",
+        "Philippines",
+        "Republic of Congo",
+        "Senegal",
+        "Sierra Leone",
+        "Somalia",
+        "South Africa",
+        "South Sudan",
+        "Sri Lanka",
+        "Sudan",
+        "Tajikistan",
+        "Tanzania",
+        "Thailand",
+        "The Gambia",
+        "Timor Leste",
+        "Togo",
+        "Trinidad and Tobago",
+        "Tunisia",
+        "Uganda",
+        "Venezuela",
+        "Zambia",
+        "Zimbabwe",
+    ]
 
     selected_countries = safe_multiselect(
         "Country",
-        filtered_countries["alert-country"].dropna().unique()
-        if not filtered_countries.empty and "alert-country" in filtered_countries.columns
-        else [],
+        EUSEE_COUNTRY_FILTER_LIST,
         "selected_countries",
         container=sidebar_filter_box,
     )
