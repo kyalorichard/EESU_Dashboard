@@ -237,9 +237,8 @@ with st.spinner("Restoring secure session..."):
 # is exposed. If restoration fails, route explicitly to the login UI instead
 # of silently stopping on a blank/guest page.
 if not st.session_state.get("restored", False):
-    # restore_session() should normally set restored=True before returning.
-    # Keep the route deterministic if an unexpected auth exception occurs.
     st.session_state["auth_view"] = True
+    st.stop()
 
 # ------------------------------------------------------------------
 # HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
@@ -1315,80 +1314,15 @@ def _safe_pdf_download_button(title: str, pdf_path: Path, key_prefix: str):
 
 
 # ---------------- SIDEBAR-ONLY AUTH ROUTING ----------------
-# Authentication routing is enabled only from the sidebar User Privilege Center.
-# Restricted chart/map/tab cards remain passive locked-state messages and do not
-# trigger login navigation.
-st.session_state.setdefault("auth_view", False)
-st.session_state.setdefault("auth_mode", "Login")
-st.session_state.setdefault("auth_reset_open", False)
-
-# --------------------------------------------------------------
-# HARD-REFRESH AUTH RESTORATION
-# --------------------------------------------------------------
-# Never rely on the Streamlit session alone. On F5/reload, Streamlit creates
-# a new session_state, so the browser cookie must be restored first.
-# If the cookie/Firebase refresh token cannot restore the session, explicitly
-# show the login page. This also prevents one browser session from inheriting
-# another browser's authenticated state.
-authenticated_now = is_authenticated()
-if authenticated_now:
-    st.session_state.auth_view = False
-else:
-    st.session_state.auth_view = True
-
-if st.session_state.get("auth_view", False) and not authenticated_now:
-    st.markdown("""
-    <style>
-    html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container {
-        filter: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        pointer-events: auto !important;
-        opacity: 1 !important;
-    }
-    .eusee-login-route-shell {
-        max-width: 760px;
-        margin: 24px auto 18px auto;
-        padding: 18px 20px;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #F7ECFB 100%);
-        border: 1px solid rgba(102,0,148,.14);
-        box-shadow: 0 14px 34px rgba(16,24,40,.08);
-        font-family: "Anek Devanagari", Arial, sans-serif;
-    }
-    .eusee-login-route-eyebrow {
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .13em;
-        text-transform: uppercase;
-        color: #660094;
-        margin-bottom: 5px;
-    }
-    .eusee-login-route-title {
-        font-size: 24px;
-        font-weight: 950;
-        color: #23152F;
-        line-height: 1.15;
-        margin-bottom: 6px;
-    }
-    .eusee-login-route-note {
-        font-size: 12.5px;
-        color: #667085;
-        line-height: 1.45;
-    }
-    </style>
-
-  
-    """, unsafe_allow_html=True)
-
+# Restore an existing authenticated session before rendering the login page.
+# auth.py deliberately waits for browser-cookie hydration on F5, so an already
+# logged-in user goes directly back to the dashboard without a login-page flash.
+if not is_authenticated():
     auth_ui()
-
-    # A successful login updates st.session_state immediately. Do not stop the
-    # run in that case; this lets the dashboard render without a forced rerun.
-    # If the user is still unauthenticated (e.g. forgot-password/reset view),
-    # keep the dashboard hidden.
     if not is_authenticated():
         st.stop()
+else:
+    st.session_state["auth_view"] = False
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
@@ -14709,7 +14643,10 @@ def render_eusee_ai_copilot_popover():
     container. Exceptions raised by the chatbot body are allowed to surface
     normally instead of causing a second widget tree to be rendered.
     """
-    if not has_permission("use_ai_copilot"):
+    # Show the launcher to signed-in users. The body still checks the
+    # permission and displays the appropriate access message when AI Copilot
+    # is not enabled for the user's role.
+    if not is_authenticated():
         return
 
     inject_eusee_ai_popover_css()
