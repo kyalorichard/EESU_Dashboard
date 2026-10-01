@@ -231,8 +231,13 @@ init_session()
 with st.spinner("Restoring secure session..."):
     restored = restore_session()
 
-# Do not continue rendering dashboard as Guest while restore is pending
+# Authentication restoration must complete before dashboard rendering.
+# A hard browser refresh creates a new Streamlit session, so an existing
+# Firebase-backed browser cookie must be restored before any dashboard content
+# is exposed. If restoration fails, route explicitly to the login UI instead
+# of silently stopping on a blank/guest page.
 if not st.session_state.get("restored", False):
+    st.session_state["auth_view"] = True
     st.stop()
 
 # ------------------------------------------------------------------
@@ -1316,8 +1321,18 @@ st.session_state.setdefault("auth_view", False)
 st.session_state.setdefault("auth_mode", "Login")
 st.session_state.setdefault("auth_reset_open", False)
 
+# --------------------------------------------------------------
+# HARD-REFRESH AUTH RESTORATION
+# --------------------------------------------------------------
+# Never rely on the Streamlit session alone. On F5/reload, Streamlit creates
+# a new session_state, so the browser cookie must be restored first.
+# If the cookie/Firebase refresh token cannot restore the session, explicitly
+# show the login page. This also prevents one browser session from inheriting
+# another browser's authenticated state.
 if is_authenticated():
     st.session_state.auth_view = False
+else:
+    st.session_state.auth_view = True
 
 if st.session_state.get("auth_view", False) and not is_authenticated():
     st.markdown("""
