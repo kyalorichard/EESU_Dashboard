@@ -2657,6 +2657,9 @@ def render_sidebar_access_settings_profile():
             ):
                 # Reset workspace before logging the user out.
                 st.session_state["eusee_sidebar_workspace"] = "Dashboard"
+                # logout() clears authentication state and deliberately does
+                # not call st.rerun(); the button interaction itself triggers
+                # the required Streamlit rerun.
                 logout()
 
         else:
