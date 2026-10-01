@@ -1810,6 +1810,59 @@ if isinstance(_data_loaded, pd.DataFrame):
 else:
     data = pd.DataFrame()
 
+# ================================================================
+# AUTHORITATIVE LATEST DATASET UPDATE
+# ================================================================
+# load_data() is cached with @st.cache_data. Therefore, do not rely
+# on session_state values that are assigned only inside load_data().
+# Calculate the latest creation_date from the loaded dataframe on
+# every Streamlit rerun.
+# ================================================================
+latest_dataset_date_display = "Not available"
+latest_dataset_date_iso = ""
+
+if (
+    isinstance(_data_loaded, pd.DataFrame)
+    and not _data_loaded.empty
+    and "creation_date" in _data_loaded.columns
+):
+    _creation_dates = pd.to_datetime(
+        _data_loaded["creation_date"],
+        errors="coerce",
+    )
+
+    _latest_dataset_date = (
+        _creation_dates
+        .dropna()
+        .max()
+    )
+
+    if pd.notna(_latest_dataset_date):
+        latest_dataset_date_display = (
+            _latest_dataset_date.strftime(
+                "%d %B %Y"
+            )
+        )
+
+        latest_dataset_date_iso = (
+            _latest_dataset_date.strftime(
+                "%Y-%m-%d"
+            )
+        )
+
+# Session state is now refreshed outside the cached function.
+st.session_state["latest_dataset_date"] = (
+    latest_dataset_date_display
+)
+st.session_state["latest_dataset_date_iso"] = (
+    latest_dataset_date_iso
+)
+st.session_state["latest_dataset_date_source"] = (
+    "Based on latest loaded dataset"
+    if latest_dataset_date_iso
+    else "No valid creation_date values found"
+)
+
 # Store the authoritative AI source dataframe immediately after loading.
 # Do not use `filtered_global` or any sidebar-filtered dataframe here.
 if isinstance(data, pd.DataFrame):
@@ -2802,9 +2855,10 @@ st.sidebar.markdown(
 )
 
 # ---------------- LATEST DATASET UPDATE TAG ----------------
-# The date is calculated from the latest creation_date in the authoritative
-# dataset during load_data(), then displayed here as the final sidebar item.
-latest_update = st.session_state.get("latest_dataset_date", "Not available")
+# Read the authoritative date calculated from _data_loaded above.
+# This avoids intermittent "Not available" values caused by relying
+# on state assignments inside the cached load_data() function.
+latest_update = latest_dataset_date_display
 
 st.sidebar.markdown(
     f"""
