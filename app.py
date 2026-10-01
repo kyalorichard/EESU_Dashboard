@@ -237,8 +237,9 @@ with st.spinner("Restoring secure session..."):
 # is exposed. If restoration fails, route explicitly to the login UI instead
 # of silently stopping on a blank/guest page.
 if not st.session_state.get("restored", False):
+    # restore_session() should normally set restored=True before returning.
+    # Keep the route deterministic if an unexpected auth exception occurs.
     st.session_state["auth_view"] = True
-    st.stop()
 
 # ------------------------------------------------------------------
 # HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
@@ -1314,15 +1315,45 @@ def _safe_pdf_download_button(title: str, pdf_path: Path, key_prefix: str):
 
 
 # ---------------- SIDEBAR-ONLY AUTH ROUTING ----------------
-# Restore an existing authenticated session before rendering the login page.
-# auth.py deliberately waits for browser-cookie hydration on F5, so an already
-# logged-in user goes directly back to the dashboard without a login-page flash.
-if not is_authenticated():
+# Authentication routing is enabled only from the sidebar User Privilege Center.
+# Restricted chart/map/tab cards remain passive locked-state messages and do not
+# trigger login navigation.
+st.session_state.setdefault("auth_view", False)
+st.session_state.setdefault("auth_mode", "Login")
+st.session_state.setdefault("auth_reset_open", False)
+
+# --------------------------------------------------------------
+# HARD-REFRESH AUTH RESTORATION
+# --------------------------------------------------------------
+# Never rely on the Streamlit session alone. On F5/reload, Streamlit creates
+# a new session_state, so the browser cookie must be restored first.
+# If the cookie/Firebase refresh token cannot restore the session, explicitly
+# show the login page. This also prevents one browser session from inheriting
+# another browser's authenticated state.
+authenticated_now = is_authenticated()
+
+# ------------------------------------------------------------------
+# AUTHENTICATION ROUTE
+# ------------------------------------------------------------------
+# Keep the login page completely separate from the dashboard DOM. This prevents
+# the dashboard HTML/CSS shell from appearing above or around the login form.
+# The auth.py module owns the existing EUSEE login-page design.
+if not authenticated_now:
+    st.session_state.auth_view = True
     auth_ui()
+
+    # Login/register/reset remains the only visible page while unauthenticated.
+    # Once authentication succeeds, do not force another rerun here; Streamlit
+    # continues with the dashboard in the same run.
     if not is_authenticated():
         st.stop()
+
+    authenticated_now = True
+    st.session_state.auth_view = False
 else:
-    st.session_state["auth_view"] = False
+    # A restored session must never render auth_ui() on F5.
+    st.session_state.auth_view = False
+
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
@@ -14643,9 +14674,9 @@ def render_eusee_ai_copilot_popover():
     container. Exceptions raised by the chatbot body are allowed to surface
     normally instead of causing a second widget tree to be rendered.
     """
-    # Show the launcher to signed-in users. The body still checks the
-    # permission and displays the appropriate access message when AI Copilot
-    # is not enabled for the user's role.
+    # The launcher itself is visible to authenticated users so that the access
+    # state is understandable. The chatbot body still enforces the configured
+    # use_ai_copilot permission and will show the appropriate access message.
     if not is_authenticated():
         return
 
