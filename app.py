@@ -1338,7 +1338,14 @@ st.session_state.setdefault("auth_reset_open", False)
 # browser behaviour. The Sign in / Register control is rendered later inside
 # the sidebar User Privilege Center.
 authenticated_now = is_authenticated()
-st.session_state["auth_view"] = False
+
+# Authentication is opt-in. A new browser remains a Guest and can use the
+# public dashboard. When the user explicitly selects Sign in / Register,
+# render the authentication UI and pause the dashboard until authentication
+# is completed or the user returns to the dashboard.
+if st.session_state.get("auth_view", False) and not authenticated_now:
+    auth_ui()
+    st.stop()
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
