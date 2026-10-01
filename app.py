@@ -1366,12 +1366,7 @@ if st.session_state.get("auth_view", False) and not is_authenticated():
 
     auth_ui()
 
-    # A successful login updates st.session_state immediately. Do not stop the
-    # run in that case; this lets the dashboard render without a forced rerun.
-    # If the user is still unauthenticated (e.g. forgot-password/reset view),
-    # keep the dashboard hidden.
-    if not is_authenticated():
-        st.stop()
+    st.stop()
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
