@@ -90,13 +90,24 @@ def _get_cookie_component_key() -> str:
 
 
 def get_cookie_manager():
+    """Return exactly one CookieManager instance for the current Streamlit session.
+
+    CookieManager is a Streamlit custom component. Constructing it more than
+    once with the same key during a single script run can raise
+    StreamlitDuplicateElementKey because its constructor immediately creates
+    an internal component instance. Keeping the instance in session_state avoids
+    that duplicate-element problem while still isolating sessions.
+    """
     if not HAS_COOKIE_MANAGER:
         return None
 
-    # Each Streamlit session gets a unique component key. The component wrapper
-    # itself is intentionally not stored as a module-level global, because that
-    # can associate one browser's component state with another browser session.
-    return stx.CookieManager(key=_get_cookie_component_key())
+    manager = st.session_state.get("_eusee_cookie_manager")
+    if manager is not None:
+        return manager
+
+    manager = stx.CookieManager(key=_get_cookie_component_key())
+    st.session_state["_eusee_cookie_manager"] = manager
+    return manager
 
 
 def init_firebase_admin():
