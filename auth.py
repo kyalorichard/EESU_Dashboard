@@ -160,8 +160,13 @@ CHAT_HISTORY_DIR = Path(
 
 
 def _get_cookie_component_key() -> str:
-    """Stable browser-component key."""
-    return "eusee_cookie_manager"
+
+    """Stable component key for the CookieManager constructor."""
+
+    return f"eusee_cookie_manager_{st.session_state.get('eusee_browser_session_id') or uuid.uuid4().hex}"
+
+
+
 
 
 def get_cookie_manager():
@@ -1036,53 +1041,113 @@ def _write_cookie(payload: dict) -> bool:
 
 
 def _read_cookie() -> dict:
-    """Read auth cookie from the initial request or CookieManager.
 
-    An empty CookieManager response is not immediately treated as logout: the
-    browser component may still be completing its asynchronous getAll call.
+    """Read the auth cookie synchronously from the current browser request.
+
+
+
+    Streamlit exposes request cookies through ``st.context.cookies``. This is
+
+    the reliable source during a hard browser refresh because it is populated
+
+    before the Python script starts. CookieManager is retained for writing and
+
+    deleting the cookie, but it is no longer the primary authentication reader.
+
     """
+
     init_session()
+
+
+
+    # Explicit logout must win over any stale cookie value that may still be
+
+    # visible in the current Streamlit request while the browser-side delete
+
+    # operation is being committed.
+
     if st.session_state.get("_eusee_force_logged_out", False):
+
         return {}
+
+
 
     raw = None
+
+
+
+    # Streamlit >= 1.37 exposes browser cookies synchronously.
+
     try:
+
         cookies = st.context.cookies
+
         if cookies is not None:
+
             raw = cookies.get(COOKIE_NAME)
-            if raw:
-                st.session_state["auth_restore_cookie_source"] = "st.context.cookies"
+
     except Exception:
-        pass
+
+        raw = None
+
+
 
     if raw:
+
         try:
+
             data = json.loads(raw)
+
             if isinstance(data, dict):
+
                 return data
+
         except Exception:
+
             return {}
 
+
+
+    # Backward-compatible fallback for older Streamlit versions. This is only
+
+    # used when the native request-cookie API is unavailable.
+
     manager = get_cookie_manager()
+
     if manager is None:
-        st.session_state["auth_restore_cookie_source"] = "CookieManager unavailable"
+
         return {}
 
+
+
     try:
+
         cookies = manager.get_all(key="eusee_cookie_get_all")
+
         if isinstance(cookies, dict):
+
             raw = cookies.get(COOKIE_NAME)
+
             if raw:
+
                 data = json.loads(raw)
+
                 if isinstance(data, dict):
-                    st.session_state["auth_restore_cookie_source"] = "CookieManager.get_all"
+
                     return data
-            st.session_state["auth_restore_cookie_keys"] = sorted(str(k) for k in cookies.keys())
+
     except Exception as e:
-        st.session_state["auth_restore_cookie_source"] = "CookieManager error"
+
         if DEBUG:
+
             st.warning(f"Cookie read failed: {e}")
+
+
+
     return {}
+
+
+
 
 
 def _delete_cookie():
@@ -1238,7 +1303,7 @@ def _show_restore_diagnostic():
 
 
 def restore_session():
-    """Restore Firebase authentication after a new Streamlit session."""
+    """Restore authentication from the browser cookie after a new Streamlit session."""
     init_session()
     st.session_state["auth_restore_diagnostic"] = None
     st.session_state["auth_restore_cookie_source"] = None
@@ -1250,22 +1315,14 @@ def restore_session():
     cookie_data = _read_cookie()
 
     if not cookie_data:
-        probe = int(st.session_state.get("_eusee_cookie_probe_count", 0)) + 1
-        st.session_state["_eusee_cookie_probe_count"] = probe
-        st.session_state.restored = False
-        # Allow the CookieManager frontend to complete. The component normally
-        # triggers a rerun when its response arrives; the explicit rerun below
-        # covers deployments where it does not.
-        if probe <= 3 and not st.session_state.get("_eusee_force_logged_out", False):
-            time.sleep(0.5)
-            st.rerun()
+        st.session_state.restored = True
         st.session_state["auth_restore_diagnostic"] = (
-            "Cookie lookup did not return eusee_auth_session after "
-            f"{probe} browser probe(s)."
+            "No eusee_auth_session cookie was received by Streamlit after the browser refresh."
         )
         return False
 
-    st.session_state["_eusee_cookie_probe_count"] = 0
+    st.session_state["auth_restore_cookie_source"] = "browser request cookie"
+
     email = str(cookie_data.get("email") or "").lower().strip()
     name = cookie_data.get("name") or ""
     role = cookie_data.get("role") or "privileged"
@@ -1276,24 +1333,47 @@ def restore_session():
         st.session_state.restored = True
         st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but contains no email."
         return False
+
     if not verified:
         st.session_state.restored = True
         st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but email_verified is false."
         return False
+
     if not refresh_token:
         st.session_state.restored = True
         st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but contains no Firebase refresh token."
         return False
 
     refreshed = refresh_firebase_token(refresh_token)
+
     if not refreshed:
         st.session_state.restored = True
         return False
 
     id_token = refreshed.get("id_token")
     new_refresh_token = refreshed.get("refresh_token") or refresh_token
-    _apply_authenticated_state(email, name, True, role, id_token, new_refresh_token)
-    _write_cookie(_session_payload(email, st.session_state.name, True, role, id_token, new_refresh_token, bool(cookie_data.get("remember_me", True))))
+
+    _apply_authenticated_state(
+        email=email,
+        name=name,
+        verified=True,
+        role=role,
+        id_token=id_token,
+        refresh_token=new_refresh_token,
+    )
+
+    _write_cookie(
+        _session_payload(
+            email=email,
+            name=st.session_state.name,
+            verified=True,
+            role=role,
+            id_token=id_token,
+            refresh_token=new_refresh_token,
+            remember_me=bool(cookie_data.get("remember_me", True)),
+        )
+    )
+
     st.session_state["auth_restore_diagnostic"] = None
     return True
 
