@@ -13667,6 +13667,77 @@ def _extract_simple_filters_for_dashboard(plan: dict, df: pd.DataFrame) -> dict:
     return filters
 
 
+
+def _requested_dimension_sections(question: str) -> set[str]:
+    """Return only the analytical dimension sections explicitly requested by the user.
+
+    This controls presentation only. The analytical engine may still compute
+    exploration/profile summaries internally so the answer remains grounded.
+    """
+    q = _clean_ai_text(question)
+    requested = set()
+
+    section_patterns = {
+        "regions": [
+            r"\b(?:by|across|per|for each)\s+regions?\b",
+            r"\bregion(?:al)?\s+(?:breakdown|distribution|profile|summary)\b",
+            r"\bdistribution\s+(?:of|across)\s+regions?\b",
+        ],
+        "countries": [
+            r"\b(?:by|across|per|for each)\s+countries?\b",
+            r"\bcountr(?:y|ies)\s+(?:breakdown|distribution|profile|summary)\b",
+            r"\bdistribution\s+(?:of|across)\s+countries?\b",
+        ],
+        "alert_impacts": [
+            r"\b(?:by|across|per|for each)\s+alert\s+impacts?\b",
+            r"\b(?:by|across|per|for each)\s+impacts?\b",
+            r"\balert\s+impact\s+(?:breakdown|distribution|profile|summary)\b",
+            r"\bdistribution\s+(?:of|across)\s+(?:alert\s+)?impacts?\b",
+        ],
+        "alert_types": [
+            r"\b(?:by|across|per|for each)\s+alert\s+types?\b",
+            r"\balert\s+types?\s+(?:breakdown|distribution|profile|summary)\b",
+            r"\bdistribution\s+(?:of|across)\s+alert\s+types?\b",
+            r"\btypes?\s+of\s+(?:negative|positive)\s+alerts?\b",
+        ],
+        "enabling_principles": [
+            r"\b(?:by|across|per|for each)\s+(?:enabling\s+)?principles?\b",
+            r"\b(?:enabling\s+)?principles?\s+(?:breakdown|distribution|profile|summary)\b",
+            r"\bdistribution\s+(?:of|across)\s+(?:enabling\s+)?principles?\b",
+        ],
+        "yearly_trend": [
+            r"\byearly\s+trend\b",
+            r"\btrend\s+by\s+year\b",
+            r"\btrend\s+over\s+years?\b",
+            r"\bannual\s+trend\b",
+            r"\bby\s+year\b",
+            r"\bdistribution\s+by\s+year\b",
+        ],
+    }
+
+    for section, patterns in section_patterns.items():
+        if any(re.search(pattern, q) for pattern in patterns):
+            requested.add(section)
+
+    # A generic explicit exploration/profile request may legitimately ask for
+    # the full dimensional overview. It is the only case where all dimension
+    # tables are intentionally exposed together.
+    generic_full = any(re.search(pattern, q) for pattern in [
+        r"\bexplore\b",
+        r"\bexploration\b",
+        r"\bmain\s+patterns\b",
+        r"\bkey\s+findings\b",
+        r"\bwhat\s+stands\s+out\b",
+        r"\bfull\s+(?:profile|overview)\b",
+        r"\bcomplete\s+(?:profile|overview)\b",
+    ])
+
+    if generic_full and not requested:
+        requested.update(section_patterns.keys())
+
+    return requested
+
+
 def _explicit_visualization_requested(question: str) -> bool:
     """Only return True when the user explicitly asks for a chart/visual."""
     q = _clean_ai_text(question)
@@ -13903,6 +13974,23 @@ def _process_eusee_ai_request(user_question: str) -> dict:
     analysis = _execute_plan(df, validated_plan)
     analysis.setdefault("analysis", {})["warnings"] = plan_warnings
     analysis["warnings"] = plan_warnings
+
+    # Presentation controls: analytical summaries may be computed internally,
+    # but dimension tables are shown only when the user explicitly requests
+    # those dimensions. This prevents every chatbot answer from expanding into
+    # Regions, Countries, Impacts, Alert Types, Principles and Yearly Trend.
+    requested_sections = _requested_dimension_sections(user_question)
+    analysis["requested_dimension_sections"] = sorted(requested_sections)
+    analysis["show_dimension_tables"] = bool(requested_sections)
+    analysis["show_cross_tab"] = (
+        validated_plan.get("intent") == "cross_tab"
+        and bool(_explicit_visualization_requested(user_question))
+    )
+    analysis["show_change"] = (
+        validated_plan.get("intent") == "change"
+        and bool(_explicit_dimension_or_change_request(user_question))
+    )
+
     analysis["visualization_requested"] = bool(
         validated_plan.get("visualization_requested", False)
     )
@@ -14104,20 +14192,42 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
     if not isinstance(analysis, dict):
         return
 
-    # Exploration/profile summaries.
+    # Dimension summaries are intentionally opt-in. The analytical engine may
+    # calculate them, but the UI exposes only the sections explicitly requested
+    # by the user's question.
     payload = analysis.get("analysis", {})
     if isinstance(payload, dict):
-        for section_key in ("exploration", "profile"):
-            section = payload.get(section_key)
-            if not isinstance(section, dict):
-                continue
+        requested_sections = set(
+            analysis.get("requested_dimension_sections", []) or []
+        )
+        show_dimension_tables = bool(
+            analysis.get("show_dimension_tables", False)
+        )
 
-            for key, rows in section.items():
-                if key in {"dataset_records", "matching_records", "records"}:
+        if show_dimension_tables and requested_sections:
+            section_order = (
+                "regions",
+                "countries",
+                "alert_impacts",
+                "alert_types",
+                "enabling_principles",
+                "yearly_trend",
+            )
+
+            for section_key in section_order:
+                if section_key not in requested_sections:
                     continue
-                if isinstance(rows, list) and rows:
+
+                rows = None
+                for source_key in ("exploration", "profile"):
+                    source = payload.get(source_key)
+                    if isinstance(source, dict) and isinstance(source.get(section_key), list):
+                        rows = source.get(section_key)
+                        break
+
+                if rows:
                     with st.expander(
-                        key.replace("_", " ").title(),
+                        section_key.replace("_", " ").title(),
                         expanded=False,
                     ):
                         st.dataframe(
@@ -14127,7 +14237,11 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
                         )
 
         cross_tab = payload.get("cross_tab")
-        if isinstance(cross_tab, dict) and cross_tab.get("data"):
+        if (
+            analysis.get("show_cross_tab", False)
+            and isinstance(cross_tab, dict)
+            and cross_tab.get("data")
+        ):
             st.dataframe(
                 pd.DataFrame(cross_tab["data"]),
                 use_container_width=True,
@@ -14135,7 +14249,7 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
             )
 
         change = payload.get("change")
-        if isinstance(change, dict):
+        if analysis.get("show_change", False) and isinstance(change, dict):
             st.caption(
                 f"Change from {change.get('from_period')} "
                 f"to {change.get('to_period')}: "
