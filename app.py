@@ -2650,17 +2650,19 @@ def render_sidebar_access_settings_profile():
         # AUTHENTICATION CONTROLS
         # ---------------------------------------------------------
         if signed_in:
-            if st.button(
+            # Execute logout as a Streamlit callback. The callback runs before
+            # Streamlit reruns the script, so the next run sees the guest state
+            # immediately instead of reusing the stale `signed_in` snapshot.
+            def _handle_sidebar_logout():
+                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
+                logout()
+
+            st.button(
                 "Logout",
                 use_container_width=True,
                 key="privilege_center_logout_btn",
-            ):
-                # Reset workspace before logging the user out.
-                st.session_state["eusee_sidebar_workspace"] = "Dashboard"
-                # logout() clears authentication state and deliberately does
-                # not call st.rerun(); the button interaction itself triggers
-                # the required Streamlit rerun.
-                logout()
+                on_click=_handle_sidebar_logout,
+            )
 
         else:
             if st.button(
