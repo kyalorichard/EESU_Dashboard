@@ -1448,17 +1448,18 @@ def load_data():
         .astype(str)
         .str.strip()
     )
+
     df = df[
-            df["alert-country"].notna()
-            & ~df["alert-country"].str.lower().isin([
-                "",
-                "nan",
-                "none",
-                "null",
-                "na",
-                "n/a",
-            ])
-        ].copy()
+        df["alert-country"].notna()
+        & ~df["alert-country"].str.lower().isin([
+            "",
+            "nan",
+            "none",
+            "null",
+            "na",
+            "n/a",
+        ])
+    ].copy()
 
     df = df[
         df["alert-country"].str.lower() != "jose"
@@ -1471,16 +1472,16 @@ def load_data():
     )
 
     df = df[
-            df["alert-impact"].notna()
-            & ~df["alert-impact"].str.lower().isin([
-                "",
-                "none",
-                "nan",
-                "null",
-                "n/a",
-                "na",
-            ])
-        ].copy()
+        df["alert-impact"].notna()
+        & ~df["alert-impact"].str.lower().isin([
+            "",
+            "none",
+            "nan",
+            "null",
+            "n/a",
+            "na",
+        ])
+    ].copy()
 
     # Normalize country names before ISO mapping.
     COUNTRY_FIXES = {
@@ -1521,111 +1522,21 @@ def load_data():
     )
 
     df = df[
-            df["alert-type"].notna()
-            & ~df["alert-type"].str.lower().isin([
-                "",
-                "none",
-                "nan",
-                "null",
-                "n/a",
-                "na",
-            ])
-        ].copy()
+        df["alert-type"].notna()
+        & ~df["alert-type"].str.lower().isin([
+            "",
+            "none",
+            "nan",
+            "null",
+            "n/a",
+            "na",
+        ])
+    ].copy()
 
-        # Remove Event records
+    # Remove Event records.
     df = df[
         df["alert-type"].str.lower() != "event"
-        ].copy()
-
-    # Clean Actor of repression.
-    # ================================================================
-
-    classification_columns = [
-        "Actor of repression",
-        "Subject of repression",
-        "Mechanism of repression",
-        "Type of event",
-    ]
-
-    protected_subject = "Journalists, media and influencers"
-    protected_placeholder = "__JOURNALISTS_MEDIA_AND_INFLUENCERS__"
-
-
-    def clean_classification_value(value, column):
-        if pd.isna(value):
-            return value
-
-        value = str(value).strip()
-
-        if not value:
-            return value
-
-        # ------------------------------------------------------------
-        # Actor-specific normalization
-        # ------------------------------------------------------------
-        if column == "Actor of repression":
-            value = re.sub(
-                r"\bVNSAs\b",
-                "Violent non-state actors",
-                value,
-            )
-
-        # ------------------------------------------------------------
-        # Protect "Journalists, media and influencers"
-        # because its internal commas are NOT separators.
-        # ------------------------------------------------------------
-        if column == "Subject of repression":
-            value = re.sub(
-                re.escape(protected_subject),
-                protected_placeholder,
-                value,
-                flags=re.IGNORECASE,
-            )
-
-        # ------------------------------------------------------------
-        # Split actual comma-separated categories
-        # ------------------------------------------------------------
-        parts = [
-            part.strip()
-            for part in value.split(",")
-            if part.strip()
-        ]
-
-        # ------------------------------------------------------------
-        # Capitalize ONLY first character.
-        # Do not use .title() or .capitalize(), because those
-        # would modify the remainder of the category.
-        # ------------------------------------------------------------
-        cleaned_parts = []
-
-        for part in parts:
-            if part:
-                part = part[0].upper() + part[1:]
-                cleaned_parts.append(part)
-
-        result = ", ".join(cleaned_parts)
-
-        # ------------------------------------------------------------
-        # Restore protected Subject of repression category
-        # using the canonical spelling.
-        # ------------------------------------------------------------
-        if column == "Subject of repression":
-            result = result.replace(
-                protected_placeholder,
-                protected_subject,
-            )
-
-        return result
-
-
-    for col in classification_columns:
-        if col in df.columns:
-            df[col] = df[col].apply(
-                lambda x, c=col: clean_classification_value(
-                    x,
-                    c,
-                )
-            )
+    ].copy()
 
     # --- Step 6: Map ISO codes and continent ---
     df["iso_alpha3"] = df["alert-country"].apply(
@@ -1710,9 +1621,7 @@ def load_data():
                 )
             )
         else:
-            latest_dataset_date_display = (
-                "Not available"
-            )
+            latest_dataset_date_display = "Not available"
             latest_dataset_date_iso = ""
 
         st.session_state[
@@ -1798,6 +1707,91 @@ def load_data():
                 regex=False,
             )
         )
+
+    # ================================================================
+    # FINAL CLASSIFICATION LABEL STANDARDIZATION
+    # ================================================================
+    #
+    # Apply ONLY to:
+    #   - Actor of repression
+    #   - Subject of repression
+    #   - Mechanism of repression
+    #   - Type of event
+    #
+    # Rules:
+    #   1. Capitalize only the first character of each category.
+    #   2. For comma-separated categories, capitalize the first
+    #      character after each comma.
+    #   3. Do not use title case.
+    #   4. Preserve the remainder of each category.
+    #   5. "Journalists, media and influencers" is one Subject
+    #      of repression category.
+    # ================================================================
+
+    classification_columns = [
+        "Actor of repression",
+        "Subject of repression",
+        "Mechanism of repression",
+        "Type of event",
+    ]
+
+    protected_subject = "Journalists, media and influencers"
+    protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
+
+    def standardize_classification(value, column):
+        if pd.isna(value):
+            return value
+
+        value = str(value).strip()
+
+        if not value:
+            return value
+
+        # Actor-specific normalization.
+        if column == "Actor of repression":
+            value = re.sub(
+                r"\bVNSAs\b",
+                "Violent non-state actors",
+                value,
+                flags=re.IGNORECASE,
+            )
+
+        # Protect the special Subject category before splitting.
+        if column == "Subject of repression":
+            value = re.sub(
+                re.escape(protected_subject),
+                protected_token,
+                value,
+                flags=re.IGNORECASE,
+            )
+
+        cleaned_parts = []
+
+        for part in value.split(","):
+            part = part.strip()
+
+            if not part:
+                continue
+
+            # Restore the protected subject as one complete category.
+            if part == protected_token:
+                cleaned_parts.append(protected_subject)
+                continue
+
+            # Capitalize ONLY the first character.
+            # Everything after the first character is preserved.
+            cleaned_parts.append(
+                part[0].upper() + part[1:]
+            )
+
+        return ", ".join(cleaned_parts)
+
+    for column in classification_columns:
+        if column in df.columns:
+            df[column] = df[column].apply(
+                lambda value, c=column:
+                    standardize_classification(value, c)
+            )
 
     return df
 
