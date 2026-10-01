@@ -61,6 +61,7 @@ except ImportError:
     HAS_COOKIE_MANAGER = False
 
 COOKIE_NAME = "eusee_auth_session"
+LOGOUT_GUARD_COOKIE_NAME = "eusee_logout_guard"
 
 COOKIE_DAYS = 30
 
@@ -860,6 +861,14 @@ def _read_cookie() -> dict:
 
         return {}
 
+    # Persistent browser-side logout guard takes precedence over the auth cookie.
+    try:
+        request_cookies = st.context.cookies
+        if request_cookies and request_cookies.get(LOGOUT_GUARD_COOKIE_NAME):
+            return {}
+    except Exception:
+        pass
+
     # Preferred path on Streamlit versions exposing request cookies.
 
     try:
@@ -895,6 +904,13 @@ def _read_cookie() -> dict:
     if manager is None:
 
         return {}
+
+    try:
+        browser_cookies = manager.get_all(key="eusee_cookie_guard_probe")
+        if isinstance(browser_cookies, dict) and browser_cookies.get(LOGOUT_GUARD_COOKIE_NAME):
+            return {}
+    except Exception:
+        pass
 
     # CookieManager hydrates asynchronously.  get_all() is generally the most
 
@@ -948,38 +964,48 @@ def _read_cookie() -> dict:
 
     return {}
 
-def _delete_cookie():
-
-    """Delete the persistent browser authentication cookie."""
-
+def _set_logout_guard():
+    """Persist a browser-local logout marker to block stale-cookie restoration."""
     manager = get_cookie_manager()
+    if manager is None:
+        return
+    try:
+        manager.set(
+            LOGOUT_GUARD_COOKIE_NAME,
+            "1",
+            path="/",
+            expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
+            secure=_request_is_https(),
+            same_site="lax",
+        )
+        time.sleep(COOKIE_WRITE_WAIT_SECONDS)
+    except Exception:
+        pass
 
+def _clear_logout_guard():
+    """Remove the browser-local logout marker after a successful login."""
+    manager = get_cookie_manager()
+    if manager is None:
+        return
+    try:
+        manager.delete(LOGOUT_GUARD_COOKIE_NAME)
+        time.sleep(COOKIE_WRITE_WAIT_SECONDS)
+    except Exception:
+        pass
+
+def _delete_cookie():
+    """Delete the persistent authentication cookie and install a logout guard."""
+    manager = get_cookie_manager()
     if manager is not None:
-
         try:
-
-            manager.delete(
-
-                COOKIE_NAME,
-
-                key=f"delete_eusee_auth_session_{st.session_state.get('eusee_browser_session_id', 'default')}",
-
-            )
-
-            # Let the browser receive/commit the deletion before logout() reruns.
-
+            manager.delete(COOKIE_NAME)
             time.sleep(COOKIE_WRITE_WAIT_SECONDS)
-
         except Exception:
-
             pass
-
+    _set_logout_guard()
     st.session_state["_eusee_cookie_probe_count"] = 0
-
     st.session_state["_eusee_refresh_probe_count"] = 0
-
     st.session_state["_eusee_force_logged_out"] = True
-
     st.session_state["_eusee_cookie_written"] = False
 
 def refresh_firebase_token(refresh_token: str):
@@ -2111,6 +2137,7 @@ def _login_form():
             name = email.split("@")[0].replace(".", " ").title()
 
             st.session_state["_eusee_force_logged_out"] = False
+            _clear_logout_guard()
 
             _apply_authenticated_state(
 
@@ -2393,12 +2420,17 @@ def auth_ui():
     # showing the Login page.
 
     if not st.session_state.get("restored"):
+
         restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
+
         ensure_user_chat_history_loaded()
+
         st.session_state.auth_view = False
 
         return
+
     st.session_state.auth_view = True
+
     _render_premium_auth_page()
