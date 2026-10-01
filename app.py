@@ -2664,7 +2664,13 @@ def render_sidebar_access_settings_profile():
                 use_container_width=True,
                 key="privilege_center_signin_btn",
             ):
+                # Explicit login request: do not run cookie restoration again
+                # on the next rerun. The user deliberately asked to see Login.
                 st.session_state["auth_view"] = True
+                st.session_state["auth_mode"] = "Login"
+                st.session_state["restored"] = True
+                st.session_state["user"] = False
+                st.session_state["email_verified"] = False
                 st.rerun()
                 
 render_sidebar_access_settings_profile()
