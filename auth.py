@@ -79,14 +79,11 @@ CHAT_HISTORY_DIR = Path(
 # user's browser can restore its own login after a refresh.
 
 def _get_cookie_component_key() -> str:
-    """Return a stable CookieManager component key for this Streamlit session."""
-    session_id = st.session_state.get("eusee_browser_session_id")
-
-    if not session_id:
-        session_id = uuid.uuid4().hex
-        st.session_state.eusee_browser_session_id = session_id
-
-    return f"eusee_cookie_manager_{session_id}"
+    """Return a fixed component key scoped to the current Streamlit session."""
+    # Streamlit component keys are scoped to a Streamlit session.  Using a
+    # fixed key here is therefore safe across different browsers/sessions and
+    # avoids changing the component identity after a browser refresh.
+    return "eusee_cookie_manager_main"
 
 
 def get_cookie_manager():
@@ -486,30 +483,25 @@ def _session_payload(email, name, verified, role, id_token, refresh_token, remem
 
 
 def _write_cookie(payload: dict) -> bool:
-    """Write the authentication cookie for the current browser only."""
+    """Write a persistent authentication cookie for the current browser."""
     manager = get_cookie_manager()
     if manager is None:
         st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
         return False
 
     try:
-        # `remember_me=True` creates a persistent cookie. When it is false,
-        # deliberately create a session cookie instead of keeping the login
-        # alive for one day. This also avoids accidentally restoring an older
-        # persistent login after the user chose not to be remembered.
-        expires_at = None
-        if payload.get("remember_me", True):
-            expires_at = datetime.now() + timedelta(days=COOKIE_DAYS)
-
+        # EUSEE authentication should survive a normal browser refresh.
+        # The session is terminated by the explicit Logout button, which calls
+        # _delete_cookie(). Therefore we intentionally use a persistent cookie
+        # for all successful logins.
         manager.set(
             COOKIE_NAME,
             json.dumps(payload),
-            expires_at=expires_at,
+            expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
         )
 
-        # CookieManager writes in the browser through a Streamlit component.
-        # An immediate st.rerun() can cancel that frontend write. Give the
-        # component enough time to commit the cookie before rerunning.
+        # CookieManager writes through the browser component. Allow the
+        # frontend enough time to commit the cookie before st.rerun().
         time.sleep(COOKIE_WRITE_WAIT_SECONDS)
         return True
     except Exception as e:
@@ -1050,7 +1042,9 @@ def _render_auth_tabs(mode: str):
 
 
 def _login_form():
-    remember_me = False
+    # Authentication is persistent across normal browser refreshes.
+    # Logout is controlled explicitly by the Logout button.
+    remember_me = True
 
     with st.form("eusee_login_form"):
         email = st.text_input(
@@ -1071,7 +1065,9 @@ def _login_form():
 
         remember_col, forgot_space = st.columns([1, 1])
         with remember_col:
-            remember_me = st.checkbox("Remember me", value=False)
+            # Keep the login across browser refreshes. The explicit Logout
+            # button remains the mechanism for ending the authenticated session.
+            remember_me = st.checkbox("Keep me signed in", value=True)
 
     # Kept outside the form so it works without submitting credentials.
     _, forgot_col = st.columns([1, 1])
