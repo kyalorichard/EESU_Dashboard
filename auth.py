@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-
-
 import json
 
 import hashlib
@@ -18,13 +16,9 @@ from pathlib import Path
 
 from datetime import datetime, timedelta
 
-
-
 import requests
 
 import streamlit as st
-
-
 
 try:
 
@@ -37,8 +31,6 @@ except ImportError:
     pyrebase = None
 
     HAS_PYREBASE = False
-
-
 
 try:
 
@@ -56,8 +48,6 @@ except ImportError:
 
     HAS_FIREBASE_ADMIN = False
 
-
-
 try:
 
     import extra_streamlit_components as stx
@@ -70,10 +60,6 @@ except ImportError:
 
     HAS_COOKIE_MANAGER = False
 
-
-
-
-
 COOKIE_NAME = "eusee_auth_session"
 
 COOKIE_DAYS = 30
@@ -83,9 +69,6 @@ COOKIE_WRITE_WAIT_SECONDS = 1.20
 TOKEN_REFRESH_ATTEMPTS = 3
 
 DEBUG = False
-AUTH_RESTORE_DIAGNOSTICS = True
-
-
 
 # -----------------------------------------------------------------------------
 
@@ -100,8 +83,6 @@ AUTH_RESTORE_DIAGNOSTICS = True
 # Use append_user_chat_message() whenever the chatbot adds a message, or call
 
 # save_user_chat_history() after updating st.session_state[CHAT_HISTORY_KEY].
-
-
 
 CHAT_HISTORY_KEY = "eusee_chat_history"
 
@@ -131,12 +112,6 @@ CHAT_HISTORY_DIR = Path(
 
 )
 
-
-
-
-
-
-
 # CookieManager is a browser component. The cookie itself is stored in the
 
 # visitor's browser, but the Streamlit component instance MUST NOT be shared
@@ -145,7 +120,7 @@ CHAT_HISTORY_DIR = Path(
 
 #
 
-# The previous implementation used a module-level `_COOKIE_MANAGER` with one
+# The previous implementation used a module-level \`_COOKIE_MANAGER\` with one
 
 # fixed component key. On a multi-user Streamlit deployment this can cause the
 
@@ -157,17 +132,11 @@ CHAT_HISTORY_DIR = Path(
 
 # user's browser can restore its own login after a refresh.
 
-
-
 def _get_cookie_component_key() -> str:
 
     """Stable component key for the CookieManager constructor."""
 
     return f"eusee_cookie_manager_{st.session_state.get('eusee_browser_session_id') or uuid.uuid4().hex}"
-
-
-
-
 
 def get_cookie_manager():
 
@@ -177,15 +146,11 @@ def get_cookie_manager():
 
         return None
 
-
-
     manager = st.session_state.get("_eusee_cookie_manager")
 
     if manager is not None:
 
         return manager
-
-
 
     manager = stx.CookieManager(key=_get_cookie_component_key())
 
@@ -193,17 +158,11 @@ def get_cookie_manager():
 
     return manager
 
-
-
-
-
 def init_firebase_admin():
 
     if not HAS_FIREBASE_ADMIN:
 
         return None
-
-
 
     secrets_admin = st.secrets.get("firebase_admin", {})
 
@@ -211,11 +170,9 @@ def init_firebase_admin():
 
         return None
 
-
-
     try:
 
-        private_key = secrets_admin["private_key"].replace("\\\n", "\n")
+        private_key = secrets_admin["private_key"].replace("\\\\\n", "\n")
 
         cred = credentials.Certificate({
 
@@ -243,17 +200,11 @@ def init_firebase_admin():
 
         })
 
-
-
         if not firebase_admin._apps:
 
             firebase_admin.initialize_app(cred)
 
-
-
         return firebase_admin
-
-
 
     except Exception as e:
 
@@ -263,19 +214,13 @@ def init_firebase_admin():
 
         return None
 
-
-
-
-
 def init_firebase_client():
 
     if not HAS_PYREBASE:
 
-        st.error("❌ Add `pyrebase4` to requirements.txt.")
+        st.error("❌ Add \`pyrebase4\` to requirements.txt.")
 
         return None, None
-
-
 
     cfg_raw = st.secrets.get("firebase", {})
 
@@ -285,11 +230,7 @@ def init_firebase_client():
 
         return None, None
 
-
-
     cfg = dict(cfg_raw)
-
-
 
     required = [
 
@@ -307,8 +248,6 @@ def init_firebase_client():
 
     ]
 
-
-
     missing = [k for k in required if not cfg.get(k)]
 
     if missing:
@@ -317,11 +256,7 @@ def init_firebase_client():
 
         return None, None
 
-
-
     cfg.setdefault("databaseURL", "")
-
-
 
     try:
 
@@ -335,17 +270,9 @@ def init_firebase_client():
 
         return None, None
 
-
-
-
-
 firebase_admin_app = init_firebase_admin()
 
 firebase_client, firebase_auth = init_firebase_client()
-
-
-
-
 
 PRIVILEGED_DOMAINS = set(
 
@@ -357,21 +284,13 @@ PRIVILEGED_DOMAINS = set(
 
 )
 
-
-
-
-
 def get_temporary_shared_account() -> dict:
 
     """
 
     Temporary shared-account configuration.
 
-
-
     Add this to .streamlit/secrets.toml:
-
-
 
     [temporary_shared_account]
 
@@ -387,15 +306,11 @@ def get_temporary_shared_account() -> dict:
 
     config = st.secrets.get("temporary_shared_account", {})
 
-
-
     role = str(config.get("role", "privileged")).strip().lower()
 
     if role not in {"privileged", "viewer"}:
 
         role = "privileged"
-
-
 
     return {
 
@@ -413,17 +328,11 @@ def get_temporary_shared_account() -> dict:
 
     }
 
-
-
-
-
 def is_temporary_shared_account(email: str | None) -> bool:
 
     config = get_temporary_shared_account()
 
     candidate = str(email or "").strip().lower()
-
-
 
     return bool(
 
@@ -434,10 +343,6 @@ def is_temporary_shared_account(email: str | None) -> bool:
         and candidate == config["email"]
 
     )
-
-
-
-
 
 def should_bypass_email_verification(email: str | None) -> bool:
 
@@ -451,17 +356,9 @@ def should_bypass_email_verification(email: str | None) -> bool:
 
     )
 
-
-
-
-
 def get_domain(email: str) -> str:
 
     return str(email or "").strip().split("@")[-1].lower()
-
-
-
-
 
 def is_approved_login_email(email: str | None) -> bool:
 
@@ -481,13 +378,9 @@ def is_approved_login_email(email: str | None) -> bool:
 
         return False
 
-
-
     if is_temporary_shared_account(normalized):
 
         return True
-
-
 
     return bool(
 
@@ -497,23 +390,13 @@ def is_approved_login_email(email: str | None) -> bool:
 
     )
 
-
-
-
-
 def get_login_role(email: str | None) -> str:
 
     if is_temporary_shared_account(email):
 
         return get_temporary_shared_account()["role"]
 
-
-
     return "privileged"
-
-
-
-
 
 def _safe_user_key(email: str) -> str:
 
@@ -523,17 +406,11 @@ def _safe_user_key(email: str) -> str:
 
         return "guest"
 
-
-
     readable = re.sub(r"[^a-z0-9]+", "_", clean_email).strip("_")[:42]
 
     digest = hashlib.sha256(clean_email.encode("utf-8")).hexdigest()[:16]
 
     return f"{readable}_{digest}"
-
-
-
-
 
 def _chat_history_path(email: str | None = None) -> Path | None:
 
@@ -543,13 +420,7 @@ def _chat_history_path(email: str | None = None) -> Path | None:
 
         return None
 
-
-
     return CHAT_HISTORY_DIR / f"{_safe_user_key(target_email)}.json"
-
-
-
-
 
 def _normalise_chat_message(message: dict) -> dict | None:
 
@@ -557,19 +428,13 @@ def _normalise_chat_message(message: dict) -> dict | None:
 
         return None
 
-
-
     role = str(message.get("role") or message.get("sender") or "").strip().lower()
 
     content = str(message.get("content") or message.get("message") or message.get("text") or "").strip()
 
-
-
     if role not in {"user", "assistant", "system"} or not content:
 
         return None
-
-
 
     item = {
 
@@ -579,8 +444,6 @@ def _normalise_chat_message(message: dict) -> dict | None:
 
     }
 
-
-
     if message.get("timestamp"):
 
         item["timestamp"] = str(message.get("timestamp"))
@@ -589,21 +452,13 @@ def _normalise_chat_message(message: dict) -> dict | None:
 
         item["timestamp"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
-
-
     return item
-
-
-
-
 
 def _normalise_chat_history(messages) -> list[dict]:
 
     if not isinstance(messages, list):
 
         return []
-
-
 
     cleaned = []
 
@@ -615,13 +470,7 @@ def _normalise_chat_history(messages) -> list[dict]:
 
             cleaned.append(item)
 
-
-
     return cleaned[-CHAT_HISTORY_MAX_MESSAGES:]
-
-
-
-
 
 def _get_current_session_chat_history() -> list[dict]:
 
@@ -635,17 +484,11 @@ def _get_current_session_chat_history() -> list[dict]:
 
     return []
 
-
-
-
-
 def _sync_chat_history_aliases(messages: list[dict]):
 
     cleaned = _normalise_chat_history(messages)
 
     st.session_state[CHAT_HISTORY_KEY] = cleaned
-
-
 
     # Keep common existing chatbot keys synchronized so the rest of app.py can
 
@@ -656,10 +499,6 @@ def _sync_chat_history_aliases(messages: list[dict]):
         if key in st.session_state:
 
             st.session_state[key] = cleaned
-
-
-
-
 
 def load_user_chat_history(email: str | None = None) -> list[dict]:
 
@@ -673,8 +512,6 @@ def load_user_chat_history(email: str | None = None) -> list[dict]:
 
         return []
 
-
-
     try:
 
         if not path.exists():
@@ -682,8 +519,6 @@ def load_user_chat_history(email: str | None = None) -> list[dict]:
             _sync_chat_history_aliases([])
 
             return []
-
-
 
         data = json.loads(path.read_text(encoding="utf-8"))
 
@@ -695,8 +530,6 @@ def load_user_chat_history(email: str | None = None) -> list[dict]:
 
         return messages
 
-
-
     except Exception as e:
 
         if DEBUG:
@@ -706,10 +539,6 @@ def load_user_chat_history(email: str | None = None) -> list[dict]:
         _sync_chat_history_aliases([])
 
         return []
-
-
-
-
 
 def save_user_chat_history(messages: list[dict] | None = None, email: str | None = None) -> bool:
 
@@ -721,15 +550,11 @@ def save_user_chat_history(messages: list[dict] | None = None, email: str | None
 
         return False
 
-
-
     cleaned = _normalise_chat_history(
 
         messages if messages is not None else _get_current_session_chat_history()
 
     )
-
-
 
     try:
 
@@ -740,8 +565,6 @@ def save_user_chat_history(messages: list[dict] | None = None, email: str | None
         if path is None:
 
             return False
-
-
 
         payload = {
 
@@ -759,8 +582,6 @@ def save_user_chat_history(messages: list[dict] | None = None, email: str | None
 
         return True
 
-
-
     except Exception as e:
 
         if DEBUG:
@@ -768,10 +589,6 @@ def save_user_chat_history(messages: list[dict] | None = None, email: str | None
             st.warning(f"Could not save chatbot history: {e}")
 
         return False
-
-
-
-
 
 def append_user_chat_message(role: str, content: str) -> list[dict]:
 
@@ -781,13 +598,9 @@ def append_user_chat_message(role: str, content: str) -> list[dict]:
 
     item = _normalise_chat_message({"role": role, "content": content})
 
-
-
     if item:
 
         current.append(item)
-
-
 
     current = current[-CHAT_HISTORY_MAX_MESSAGES:]
 
@@ -797,17 +610,11 @@ def append_user_chat_message(role: str, content: str) -> list[dict]:
 
     return current
 
-
-
-
-
 def clear_user_chat_history(email: str | None = None):
 
     """Clear the current user's saved chatbot history."""
 
     _sync_chat_history_aliases([])
-
-
 
     path = _chat_history_path(email)
 
@@ -821,10 +628,6 @@ def clear_user_chat_history(email: str | None = None):
 
             pass
 
-
-
-
-
 def ensure_user_chat_history_loaded():
 
     """Call this once after authentication to restore the user's chatbot memory."""
@@ -833,13 +636,9 @@ def ensure_user_chat_history_loaded():
 
         return []
 
-
-
     loaded_for = st.session_state.get("chat_history_loaded_for")
 
     current_email = str(st.session_state.get("email") or "").strip().lower()
-
-
 
     if loaded_for != current_email:
 
@@ -849,13 +648,7 @@ def ensure_user_chat_history_loaded():
 
         return messages
 
-
-
     return st.session_state.get(CHAT_HISTORY_KEY, [])
-
-
-
-
 
 def init_session():
 
@@ -894,8 +687,6 @@ def init_session():
         "_eusee_cookie_probe_count": 0,
 
         "_eusee_force_logged_out": False,
-        "auth_restore_diagnostic": None,
-        "auth_restore_cookie_source": None,
 
         CHAT_HISTORY_KEY: [],
 
@@ -905,31 +696,21 @@ def init_session():
 
     }
 
-
-
     for key, value in defaults.items():
 
         st.session_state.setdefault(key, value)
-
-
 
     if not st.session_state.get("eusee_browser_session_id"):
 
         st.session_state.eusee_browser_session_id = uuid.uuid4().hex
 
-
-
-
-
 def _session_payload(email, name, verified, role, id_token, refresh_token, remember_me=True):
 
     """Build the browser-local authentication payload.
 
-
-
     The browser cookie is intentionally scoped to this browser. No global
 
-    server-side `current_user` is used, so another Streamlit session cannot
+    server-side \`current_user\` is used, so another Streamlit session cannot
 
     inherit this user's identity.
 
@@ -953,296 +734,193 @@ def _session_payload(email, name, verified, role, id_token, refresh_token, remem
 
     }
 
-
-
-
-
-
-
-
-
 def _request_is_https() -> bool:
+    """Return whether the current request is HTTPS.
 
-    """Return whether the current request is HTTPS, with a safe fallback."""
-
+    Local HTTP development must not receive a Secure cookie that the browser
+    silently refuses to store. HTTPS production deployments still get Secure
+    cookies automatically.
+    """
     try:
-
-        return str(getattr(st.context, "url", "")).lower().startswith("https://")
-
+        url = str(getattr(st.context, "url", "") or "").lower()
+        if url.startswith("https://"):
+            return True
+        if url.startswith("http://"):
+            return False
     except Exception:
-
-        return True
-
-
+        pass
+    return False
 
 def _write_cookie(payload: dict) -> bool:
+    """Persist authentication in the visitor's browser.
 
-    """Write a persistent authentication cookie for the current browser."""
-
+    CookieManager is used for the actual browser write.  The cookie is
+    deliberately browser-local; no server-global current-user state is used.
+    """
     manager = get_cookie_manager()
-
     if manager is None:
-
         st.error("❌ Add `extra-streamlit-components` to requirements.txt.")
-
         return False
 
-
-
     try:
-
-        # EUSEE authentication should survive a normal browser refresh.
-
-        # The session is terminated by the explicit Logout button, which calls
-
-        # _delete_cookie(). Therefore we intentionally use a persistent cookie
-
-        # for all successful logins.
-
+        # Do not use a session cookie.  The explicit Logout button is the
+        # mechanism that ends the authenticated session.
         manager.set(
-
             COOKIE_NAME,
-
-            json.dumps(payload),
-
+            json.dumps(payload, separators=(",", ":")),
             path="/",
-
             expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
-
-            secure=False,
-
+            secure=_request_is_https(),
             same_site="lax",
-
         )
 
-        # Allow the browser component to commit the cookie before the run completes.
-        # Do not call st.rerun() here because that can interrupt the write.
+        # Give the browser component time to commit the Set-Cookie operation.
+        # A forced rerun immediately after manager.set() can interrupt the write.
         time.sleep(COOKIE_WRITE_WAIT_SECONDS)
 
-
-
-
         st.session_state["_eusee_cookie_probe_count"] = 0
-
         st.session_state["_eusee_force_logged_out"] = False
-
+        st.session_state["_eusee_cookie_written"] = True
         return True
 
     except Exception as e:
-
+        st.session_state["_eusee_cookie_written"] = False
         if DEBUG:
-
             st.warning(f"Cookie write failed: {e}")
-
         return False
-
-
-
 
 
 def _read_cookie() -> dict:
+    """Read the authentication cookie for the current browser.
 
-    """Read the auth cookie synchronously from the current browser request.
-
-
-
-    Streamlit exposes request cookies through ``st.context.cookies``. This is
-
-    the reliable source during a hard browser refresh because it is populated
-
-    before the Python script starts. CookieManager is retained for writing and
-
-    deleting the cookie, but it is no longer the primary authentication reader.
-
+    The native Streamlit request-cookie API is checked first.  CookieManager
+    is then used as the compatibility path because its browser component can
+    read cookies even when they are not exposed in the Streamlit request
+    context during the first websocket run.
     """
-
     init_session()
 
-
-
-    # Explicit logout must win over any stale cookie value that may still be
-
-    # visible in the current Streamlit request while the browser-side delete
-
-    # operation is being committed.
-
     if st.session_state.get("_eusee_force_logged_out", False):
-
         return {}
 
-
-
-    raw = None
-
-
-
-    # Streamlit >= 1.37 exposes browser cookies synchronously.
-
+    # Preferred path on Streamlit versions exposing request cookies.
     try:
-
         cookies = st.context.cookies
-
-        if cookies is not None:
-
+        if cookies:
             raw = cookies.get(COOKIE_NAME)
-
+            if raw:
+                try:
+                    data = json.loads(raw)
+                    if isinstance(data, dict):
+                        return data
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    pass
     except Exception:
+        pass
 
-        raw = None
-
-
-
-    if raw:
-
-        try:
-
-            data = json.loads(raw)
-
-            if isinstance(data, dict):
-
-                return data
-
-        except Exception:
-
-            return {}
-
-
-
-    # Backward-compatible fallback for older Streamlit versions. This is only
-
-    # used when the native request-cookie API is unavailable.
-
+    # Browser-component path.
     manager = get_cookie_manager()
-
     if manager is None:
-
         return {}
 
-
+    try:
+        raw = manager.get(COOKIE_NAME)
+        if raw:
+            if isinstance(raw, dict):
+                return raw
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
 
     try:
-
         cookies = manager.get_all(key="eusee_cookie_get_all")
-
         if isinstance(cookies, dict):
-
             raw = cookies.get(COOKIE_NAME)
-
             if raw:
-
+                if isinstance(raw, dict):
+                    return raw
                 data = json.loads(raw)
-
                 if isinstance(data, dict):
-
                     return data
-
-    except Exception as e:
-
-        if DEBUG:
-
-            st.warning(f"Cookie read failed: {e}")
-
-
+    except Exception:
+        pass
 
     return {}
 
 
-
-
-
 def _delete_cookie():
-
+    """Delete the persistent browser authentication cookie."""
     manager = get_cookie_manager()
 
     if manager is not None:
-
         try:
-
-            manager.delete(COOKIE_NAME, key="delete_eusee_auth_session")
-
+            manager.delete(
+                COOKIE_NAME,
+                key=f"delete_eusee_auth_session_{st.session_state.get('eusee_browser_session_id', 'default')}",
+            )
+            # Let the browser receive/commit the deletion before logout() reruns.
+            time.sleep(COOKIE_WRITE_WAIT_SECONDS)
         except Exception:
-
             pass
 
-
-
     st.session_state["_eusee_cookie_probe_count"] = 0
-
     st.session_state["_eusee_force_logged_out"] = True
-
-
-
+    st.session_state["_eusee_cookie_written"] = False
 
 
 def refresh_firebase_token(refresh_token: str):
-    """Refresh a Firebase ID token and retain a safe diagnostic on failure.
-
-    Never stores or displays the refresh token itself.
-    """
-    st.session_state["auth_restore_diagnostic"] = None
 
     api_key = st.secrets.get("firebase", {}).get("apiKey")
-    if not api_key:
-        diagnostic = "Firebase API key is missing from secrets.toml."
-        st.session_state["auth_restore_diagnostic"] = diagnostic
-        return None
 
-    if not refresh_token:
-        diagnostic = "The authentication cookie does not contain a Firebase refresh token."
-        st.session_state["auth_restore_diagnostic"] = diagnostic
+    if not api_key or not refresh_token:
+
         return None
 
     url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
-    last_error = None
 
     for attempt in range(TOKEN_REFRESH_ATTEMPTS):
+
         try:
+
             response = requests.post(
+
                 url,
+
                 data={
+
                     "grant_type": "refresh_token",
+
                     "refresh_token": refresh_token,
+
                 },
+
                 timeout=15,
+
             )
 
             if response.status_code == 200:
-                try:
-                    data = response.json()
-                except ValueError:
-                    data = None
 
-                if isinstance(data, dict) and data.get("id_token"):
-                    st.session_state["auth_restore_diagnostic"] = None
-                    return data
+                return response.json()
 
-                last_error = "Firebase returned HTTP 200 but no ID token was returned."
-                break
+            # Retry only server/rate-limit failures. A 400 response generally
 
-            # Safely extract Firebase's error code/message. Never expose tokens.
-            try:
-                body = response.json()
-                firebase_error = body.get("error", {}) if isinstance(body, dict) else {}
-                code = firebase_error.get("message") or "Unknown Firebase error"
-            except Exception:
-                code = (response.text or "Unknown Firebase error")[:300]
+            # means the refresh token is genuinely invalid or revoked.
 
-            last_error = f"Firebase HTTP {response.status_code}: {code}"
-
-            # Invalid/revoked credentials and configuration errors should not be
-            # retried repeatedly. Network/server/rate-limit errors are retried.
             if response.status_code < 500 and response.status_code != 429:
-                break
 
-        except requests.RequestException as exc:
-            last_error = f"Firebase token refresh network error: {type(exc).__name__}"
+                return None
+
+        except requests.RequestException:
+
+            pass
 
         if attempt + 1 < TOKEN_REFRESH_ATTEMPTS:
+
             time.sleep(0.5 * (attempt + 1))
 
-    st.session_state["auth_restore_diagnostic"] = last_error or "Firebase token refresh failed for an unknown reason."
     return None
-
 
 def _apply_authenticated_state(email, name, verified, role, id_token, refresh_token):
 
@@ -1268,45 +946,16 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
 
     ensure_user_chat_history_loaded()
 
-
-
-
-
-def _show_restore_diagnostic():
-    """Show safe diagnostics for a failed hard-refresh restoration."""
-    if not AUTH_RESTORE_DIAGNOSTICS:
-        return
-
-    diagnostic = st.session_state.get("_eusee_auth_restore_diagnostic") or {}
-    if not diagnostic:
-        return
-
-    status = diagnostic.get("status")
-    http_status = diagnostic.get("http_status")
-    firebase_error = diagnostic.get("firebase_error")
-    detail = diagnostic.get("detail")
-
-    if status == "success":
-        return
-
-    parts = [f"restore status: {status}"]
-    if http_status is not None:
-        parts.append(f"HTTP {http_status}")
-    if firebase_error:
-        parts.append(f"Firebase: {firebase_error}")
-
-    message = " | ".join(parts)
-    if detail:
-        message += f" — {detail}"
-
-    st.warning("Authentication restore did not complete. " + message)
-
-
 def restore_session():
-    """Restore authentication from the browser cookie after a new Streamlit session."""
+    """Restore Firebase authentication after a Streamlit session is recreated.
+
+    A hard browser refresh creates a new Streamlit session_state.  The browser
+    cookie therefore has to be read again.  CookieManager is asynchronous:
+    during the first run after F5 its value may not yet have arrived from the
+    browser.  We allow a few controlled reruns for that browser hydration
+    instead of immediately routing the user to Login.
+    """
     init_session()
-    st.session_state["auth_restore_diagnostic"] = None
-    st.session_state["auth_restore_cookie_source"] = None
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
         st.session_state.restored = True
@@ -1315,39 +964,47 @@ def restore_session():
     cookie_data = _read_cookie()
 
     if not cookie_data:
-        st.session_state.restored = True
-        st.session_state["auth_restore_diagnostic"] = (
-            "No eusee_auth_session cookie was received by Streamlit after the browser refresh."
-        )
-        return False
+        probe_count = int(st.session_state.get("_eusee_cookie_probe_count", 0))
 
-    st.session_state["auth_restore_cookie_source"] = "browser request cookie"
+        # Only probe when the browser component exists.  A genuine logged-out
+        # browser should reach the login page after the bounded attempts.
+        if (
+            HAS_COOKIE_MANAGER
+            and not st.session_state.get("_eusee_force_logged_out", False)
+            and probe_count < 4
+        ):
+            st.session_state["_eusee_cookie_probe_count"] = probe_count + 1
+
+            # The component response is delivered on a subsequent Streamlit
+            # run.  A short delay prevents a tight rerun loop.
+            time.sleep(0.25)
+            st.rerun()
+
+        # No cookie means the user is genuinely logged out.
+        st.session_state.restored = True
+        st.session_state.auth_view = True
+        return False
 
     email = str(cookie_data.get("email") or "").lower().strip()
-    name = cookie_data.get("name") or ""
-    role = cookie_data.get("role") or "privileged"
+    name = str(cookie_data.get("name") or "")
+    role = str(cookie_data.get("role") or "privileged")
     verified = bool(cookie_data.get("email_verified"))
-    refresh_token = cookie_data.get("refresh_token") or ""
+    refresh_token = str(cookie_data.get("refresh_token") or "")
 
-    if not email:
+    if not email or not verified or not refresh_token:
+        _delete_cookie()
         st.session_state.restored = True
-        st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but contains no email."
-        return False
-
-    if not verified:
-        st.session_state.restored = True
-        st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but email_verified is false."
-        return False
-
-    if not refresh_token:
-        st.session_state.restored = True
-        st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but contains no Firebase refresh token."
+        st.session_state.auth_view = True
         return False
 
     refreshed = refresh_firebase_token(refresh_token)
 
     if not refreshed:
+        # Keep the browser cookie. A transient Firebase/network failure should
+        # not destroy the only persistent credential that can be retried.
         st.session_state.restored = True
+        st.session_state.auth_view = True
+        st.session_state["_eusee_restore_failed"] = True
         return False
 
     id_token = refreshed.get("id_token")
@@ -1362,6 +1019,8 @@ def restore_session():
         refresh_token=new_refresh_token,
     )
 
+    # Rotate the short-lived ID token while retaining the long-lived refresh
+    # token in the browser cookie.
     _write_cookie(
         _session_payload(
             email=email,
@@ -1374,7 +1033,7 @@ def restore_session():
         )
     )
 
-    st.session_state["auth_restore_diagnostic"] = None
+    st.session_state["_eusee_restore_failed"] = False
     return True
 
 
@@ -1382,13 +1041,9 @@ def is_authenticated():
 
     init_session()
 
-
-
     if not st.session_state.get("restored"):
 
         restore_session()
-
-
 
     return bool(
 
@@ -1398,21 +1053,13 @@ def is_authenticated():
 
     )
 
-
-
-
-
 def is_privileged():
 
     init_session()
 
-
-
     if not st.session_state.get("restored"):
 
         restore_session()
-
-
 
     return bool(
 
@@ -1425,57 +1072,42 @@ def is_privileged():
     )
 
 def logout():
+    """Explicitly terminate the current browser authentication session."""
+    try:
+        save_user_chat_history()
+    except Exception:
+        pass
 
-    save_user_chat_history()
-
+    # This flag prevents any stale cookie value from re-authenticating the
+    # current Streamlit session while the browser deletion is being committed.
     st.session_state["_eusee_force_logged_out"] = True
 
     _delete_cookie()
 
-
-
     for key in [
-
         "user",
-
         "email",
-
         "name",
-
         "role",
-
         "email_verified",
-
         "restored",
-
         "auth_mode",
-
         "auth_view",
-
         "id_token",
-
         "refresh_token",
-
         CHAT_HISTORY_KEY,
-
         "chat_history_loaded",
-
         "chat_history_loaded_for",
-
         *CHAT_HISTORY_ALIASES,
-
     ]:
-
         st.session_state.pop(key, None)
 
-
-
+    # Re-create the session defaults but retain the explicit-logout guard.
     init_session()
-
+    st.session_state["_eusee_force_logged_out"] = True
+    st.session_state["auth_view"] = True
+    st.session_state["restored"] = True
     st.rerun()
-
-
-
 
 
 def parse_error(e):
@@ -1491,8 +1123,6 @@ def parse_error(e):
     except Exception:
 
         msg = str(e)
-
-
 
     friendly = {
 
@@ -1512,13 +1142,7 @@ def parse_error(e):
 
     }
 
-
-
     return friendly.get(msg, msg)
-
-
-
-
 
 def _set_auth_mode(mode: str):
 
@@ -1526,19 +1150,11 @@ def _set_auth_mode(mode: str):
 
     st.rerun()
 
-
-
-
-
 def _back_to_dashboard():
 
     st.session_state.auth_view = False
 
     st.rerun()
-
-
-
-
 
 def _auth_page_css():
 
@@ -1566,8 +1182,6 @@ def _auth_page_css():
 
         }
 
-
-
         section[data-testid="stSidebar"],
 
         div[data-testid="stToolbar"],
@@ -1582,8 +1196,6 @@ def _auth_page_css():
 
         }
 
-
-
         header[data-testid="stHeader"] {
 
             height: 0 !important;
@@ -1591,8 +1203,6 @@ def _auth_page_css():
             background: transparent !important;
 
         }
-
-
 
         html, body, .stApp, [data-testid="stAppViewContainer"] {
 
@@ -1610,8 +1220,6 @@ def _auth_page_css():
 
         }
 
-
-
         [data-testid="stAppViewBlockContainer"] .block-container,
 
         .block-container {
@@ -1623,8 +1231,6 @@ def _auth_page_css():
             padding: 44px 24px 28px !important;
 
         }
-
-
 
         /* Main white authentication card: targets the centre column only. */
 
@@ -1648,11 +1254,7 @@ def _auth_page_css():
 
         }
 
-
-
         .auth-shell-marker { height: 0; overflow: hidden; }
-
-
 
         .auth-eyebrow {
 
@@ -1676,8 +1278,6 @@ def _auth_page_css():
 
         }
 
-
-
         .auth-title {
 
             margin: 0;
@@ -1698,8 +1298,6 @@ def _auth_page_css():
 
         }
 
-
-
         .auth-subtitle {
 
             max-width: 500px;
@@ -1718,8 +1316,6 @@ def _auth_page_css():
 
         }
 
-
-
         /* Sign-in/Register tab row */
 
         div[data-testid="stHorizontalBlock"]:has(.st-key-auth_tab_login),
@@ -1733,8 +1329,6 @@ def _auth_page_css():
             margin-bottom: 19px;
 
         }
-
-
 
         .st-key-auth_tab_login button,
 
@@ -1760,8 +1354,6 @@ def _auth_page_css():
 
         }
 
-
-
         .st-key-auth_tab_login button:hover,
 
         .st-key-auth_tab_register button:hover {
@@ -1772,8 +1364,6 @@ def _auth_page_css():
 
         }
 
-
-
         .st-key-auth_tab_login button.auth-active,
 
         .st-key-auth_tab_register button.auth-active {
@@ -1781,8 +1371,6 @@ def _auth_page_css():
             color: var(--eusee-purple) !important;
 
         }
-
-
 
         /* Active tab is determined from the marker rendered before the tab row. */
 
@@ -1793,8 +1381,6 @@ def _auth_page_css():
             color: var(--eusee-purple) !important;
 
         }
-
-
 
         div:has(> .active-login-marker) + div[data-testid="stHorizontalBlock"] .st-key-auth_tab_login button::after,
 
@@ -1818,8 +1404,6 @@ def _auth_page_css():
 
         }
 
-
-
         label p {
 
             color: #342744 !important;
@@ -1834,15 +1418,11 @@ def _auth_page_css():
 
         }
 
-
-
         div[data-testid="stTextInput"] {
 
             margin-bottom: 3px;
 
         }
-
-
 
         div[data-testid="stTextInput"] input {
 
@@ -1866,8 +1446,6 @@ def _auth_page_css():
 
         }
 
-
-
         div[data-testid="stTextInput"] input:focus {
 
             border-color: rgba(111, 32, 217, 0.72) !important;
@@ -1876,8 +1454,6 @@ def _auth_page_css():
 
         }
 
-
-
         div[data-testid="stTextInput"] input::placeholder {
 
             color: #9a9bae !important;
@@ -1885,8 +1461,6 @@ def _auth_page_css():
             opacity: 1 !important;
 
         }
-
-
 
         button[kind="primaryFormSubmit"],
 
@@ -1916,8 +1490,6 @@ def _auth_page_css():
 
         }
 
-
-
         button[kind="primaryFormSubmit"]:hover,
 
         button[kind="formSubmit"]:hover {
@@ -1928,15 +1500,11 @@ def _auth_page_css():
 
         }
 
-
-
         div[data-testid="stCheckbox"] label {
 
             gap: 7px !important;
 
         }
-
-
 
         div[data-testid="stCheckbox"] label p {
 
@@ -1950,8 +1518,6 @@ def _auth_page_css():
 
         }
 
-
-
         .forgot-wrap {
 
             display: flex;
@@ -1964,8 +1530,6 @@ def _auth_page_css():
 
         }
 
-
-
         .card-divider {
 
             height: 1px;
@@ -1975,8 +1539,6 @@ def _auth_page_css():
             margin: 16px 0 14px;
 
         }
-
-
 
         .small-footer {
 
@@ -1992,8 +1554,6 @@ def _auth_page_css():
 
         }
 
-
-
         .small-footer span {
 
             color: #c0bdc8;
@@ -2002,8 +1562,6 @@ def _auth_page_css():
 
         }
 
-
-
         .back-row {
 
             text-align: center;
@@ -2011,8 +1569,6 @@ def _auth_page_css():
             margin-top: 19px;
 
         }
-
-
 
         /* Streamlit secondary buttons used as links. */
 
@@ -2042,15 +1598,11 @@ def _auth_page_css():
 
         }
 
-
-
         .st-key-back_to_dashboard button {
 
             font-size: 11px !important;
 
         }
-
-
 
         .st-key-switch_to_reset button:hover,
 
@@ -2066,8 +1618,6 @@ def _auth_page_css():
 
         }
 
-
-
         [data-testid="stAlert"] {
 
             border-radius: 7px !important;
@@ -2075,8 +1625,6 @@ def _auth_page_css():
             font-size: 11px !important;
 
         }
-
-
 
         @media (max-width: 720px) {
 
@@ -2088,8 +1636,6 @@ def _auth_page_css():
 
             }
 
-
-
             div[data-testid="stHorizontalBlock"]:has(.auth-shell-marker)
 
             > div[data-testid="stColumn"]:nth-child(2) {
@@ -2099,8 +1645,6 @@ def _auth_page_css():
                 border-radius: 15px !important;
 
             }
-
-
 
             .auth-title { font-size: 16px; }
 
@@ -2113,10 +1657,6 @@ def _auth_page_css():
         unsafe_allow_html=True,
 
     )
-
-
-
-
 
 def _render_auth_header():
 
@@ -2142,17 +1682,11 @@ def _render_auth_header():
 
     )
 
-
-
-
-
 def _render_auth_tabs(mode: str):
 
     marker = "active-login-marker" if mode == "Login" else "active-register-marker"
 
     st.markdown(f'<div class="{marker}"></div>', unsafe_allow_html=True)
-
-
 
     left, right = st.columns(2, gap="small")
 
@@ -2172,10 +1706,6 @@ def _render_auth_tabs(mode: str):
 
                 _set_auth_mode("Register")
 
-
-
-
-
 def _login_form():
 
     # Authentication is persistent across normal browser refreshes.
@@ -2183,8 +1713,6 @@ def _login_form():
     # Logout is controlled explicitly by the Logout button.
 
     remember_me = True
-
-
 
     with st.form("eusee_login_form"):
 
@@ -2196,8 +1724,6 @@ def _login_form():
 
         ).strip().lower()
 
-
-
         password = st.text_input(
 
             "Password",
@@ -2208,8 +1734,6 @@ def _login_form():
 
         )
 
-
-
         submitted = st.form_submit_button(
 
             "Sign in to Dashboard",
@@ -2217,8 +1741,6 @@ def _login_form():
             use_container_width=True,
 
         )
-
-
 
         remember_col, forgot_space = st.columns([1, 1])
 
@@ -2230,8 +1752,6 @@ def _login_form():
 
             remember_me = st.checkbox("Keep me signed in", value=True)
 
-
-
     # Kept outside the form so it works without submitting credentials.
 
     _, forgot_col = st.columns([1, 1])
@@ -2242,8 +1762,6 @@ def _login_form():
 
             _set_auth_mode("Reset")
 
-
-
     if submitted:
 
         if not firebase_auth:
@@ -2252,15 +1770,11 @@ def _login_form():
 
             return
 
-
-
         if not email or not password:
 
             st.error("Enter email and password.")
 
             return
-
-
 
         if not is_approved_login_email(email):
 
@@ -2268,21 +1782,15 @@ def _login_form():
 
             return
 
-
-
         try:
 
             user = firebase_auth.sign_in_with_email_and_password(email, password)
 
             info = firebase_auth.get_account_info(user["idToken"])
 
-
-
             firebase_verified = bool(info["users"][0].get("emailVerified", False))
 
             verification_bypassed = should_bypass_email_verification(email)
-
-
 
             if not firebase_verified and not verification_bypassed:
 
@@ -2296,19 +1804,13 @@ def _login_form():
 
                 return
 
-
-
             session_verified = firebase_verified or verification_bypassed
 
             role = get_login_role(email)
 
             name = email.split("@")[0].replace(".", " ").title()
 
-
-
             st.session_state["_eusee_force_logged_out"] = False
-
-
 
             _apply_authenticated_state(
 
@@ -2325,8 +1827,6 @@ def _login_form():
                 refresh_token=user.get("refreshToken"),
 
             )
-
-
 
             _write_cookie(
 
@@ -2350,21 +1850,13 @@ def _login_form():
 
             )
 
-
-
             st.session_state.auth_view = False
 
             st.success("Signed in successfully.")
 
-
-
         except Exception as e:
 
             st.error(parse_error(e))
-
-
-
-
 
 def _register_form():
 
@@ -2378,8 +1870,6 @@ def _register_form():
 
         ).strip().lower()
 
-
-
         password = st.text_input(
 
             "Password",
@@ -2389,8 +1879,6 @@ def _register_form():
             type="password",
 
         )
-
-
 
         confirm_password = st.text_input(
 
@@ -2402,8 +1890,6 @@ def _register_form():
 
         )
 
-
-
         submitted = st.form_submit_button(
 
             "Register for Dashboard",
@@ -2411,8 +1897,6 @@ def _register_form():
             use_container_width=True,
 
         )
-
-
 
     if submitted:
 
@@ -2422,15 +1906,11 @@ def _register_form():
 
             return
 
-
-
         if not email or not password or not confirm_password:
 
             st.error("Complete all registration fields.")
 
             return
-
-
 
         if password != confirm_password:
 
@@ -2438,15 +1918,11 @@ def _register_form():
 
             return
 
-
-
         if PRIVILEGED_DOMAINS and get_domain(email) not in PRIVILEGED_DOMAINS:
 
             st.error("Registration is restricted to approved EUSEE partner accounts.")
 
             return
-
-
 
         try:
 
@@ -2462,15 +1938,9 @@ def _register_form():
 
             st.session_state.auth_mode = "Login"
 
-
-
         except Exception as e:
 
             st.error(parse_error(e))
-
-
-
-
 
 def _reset_form():
 
@@ -2486,8 +1956,6 @@ def _reset_form():
 
     )
 
-
-
     with st.form("eusee_reset_form"):
 
         reset_email = st.text_input(
@@ -2498,8 +1966,6 @@ def _reset_form():
 
         ).strip().lower()
 
-
-
         submitted = st.form_submit_button(
 
             "Send Password Reset Link",
@@ -2508,13 +1974,9 @@ def _reset_form():
 
         )
 
-
-
     if st.button("← Back to sign in", key="back_to_login", use_container_width=True):
 
         _set_auth_mode("Login")
-
-
 
     if submitted:
 
@@ -2524,23 +1986,17 @@ def _reset_form():
 
             return
 
-
-
         if not reset_email:
 
             st.warning("Enter your email first.")
 
             return
 
-
-
         if not is_approved_login_email(reset_email):
 
             st.error("Password reset is restricted to approved EUSEE partner accounts.")
 
             return
-
-
 
         try:
 
@@ -2550,15 +2006,9 @@ def _reset_form():
 
             st.session_state.auth_mode = "Login"
 
-
-
         except Exception as e:
 
             st.error(parse_error(e))
-
-
-
-
 
 def _render_auth_footer():
 
@@ -2580,33 +2030,21 @@ def _render_auth_footer():
 
     )
 
-
-
-
-
 def _render_premium_auth_page():
 
     _auth_page_css()
 
     mode = st.session_state.get("auth_mode", "Login")
 
-
-
     _, center, _ = st.columns([0.08, 0.84, 0.08])
-
-
 
     with center:
 
         _render_auth_header()
 
-
-
         if mode in {"Login", "Register"}:
 
             _render_auth_tabs(mode)
-
-
 
         if mode == "Login":
 
@@ -2620,11 +2058,7 @@ def _render_premium_auth_page():
 
             _reset_form()
 
-
-
         _render_auth_footer()
-
-
 
     _, back_col, _ = st.columns([0.30, 0.40, 0.30])
 
@@ -2634,29 +2068,19 @@ def _render_premium_auth_page():
 
             _back_to_dashboard()
 
-
-
 def auth_ui():
-
+    """Render authentication only when the current session is not authenticated."""
     init_session()
 
-    restore_session()
-
-
+    if not st.session_state.get("restored"):
+        restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
-
         ensure_user_chat_history_loaded()
-
         st.session_state.auth_view = False
-
         return
 
-
-
-    diagnostic = st.session_state.get("auth_restore_diagnostic")
-    if diagnostic:
-        st.error(f"Authentication restoration failed: {diagnostic}")
-        st.caption("No authentication token or password is displayed here.")
-
+    st.session_state.auth_view = True
     _render_premium_auth_page()
+
+

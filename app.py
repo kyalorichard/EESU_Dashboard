@@ -237,8 +237,9 @@ with st.spinner("Restoring secure session..."):
 # is exposed. If restoration fails, route explicitly to the login UI instead
 # of silently stopping on a blank/guest page.
 if not st.session_state.get("restored", False):
+    # restore_session() should normally set restored=True before returning.
+    # Keep the route deterministic if an unexpected auth exception occurs.
     st.session_state["auth_view"] = True
-    st.stop()
 
 # ------------------------------------------------------------------
 # HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
@@ -1329,12 +1330,13 @@ st.session_state.setdefault("auth_reset_open", False)
 # If the cookie/Firebase refresh token cannot restore the session, explicitly
 # show the login page. This also prevents one browser session from inheriting
 # another browser's authenticated state.
-if is_authenticated():
+authenticated_now = is_authenticated()
+if authenticated_now:
     st.session_state.auth_view = False
 else:
     st.session_state.auth_view = True
 
-if st.session_state.get("auth_view", False) and not is_authenticated():
+if st.session_state.get("auth_view", False) and not authenticated_now:
     st.markdown("""
     <style>
     html, body, .stApp, [data-testid="stAppViewContainer"], .main, .main .block-container {
