@@ -894,6 +894,8 @@ def init_session():
         "_eusee_cookie_probe_count": 0,
 
         "_eusee_force_logged_out": False,
+        "auth_restore_diagnostic": None,
+        "auth_restore_cookie_source": None,
 
         CHAT_HISTORY_KEY: [],
 
@@ -1173,31 +1175,25 @@ def _delete_cookie():
 
 
 def refresh_firebase_token(refresh_token: str):
-    """Exchange a Firebase refresh token for a fresh ID token.
+    """Refresh a Firebase ID token and retain a safe diagnostic on failure.
 
-    Returns a dict on success and None on failure.  Diagnostic information is
-    stored in session_state without ever exposing the refresh token or ID token.
+    Never stores or displays the refresh token itself.
     """
+    st.session_state["auth_restore_diagnostic"] = None
+
     api_key = st.secrets.get("firebase", {}).get("apiKey")
-
-    diagnostic = {
-        "status": "not_attempted",
-        "http_status": None,
-        "firebase_error": None,
-        "detail": None,
-    }
-
     if not api_key:
-        diagnostic.update(status="configuration_error", detail="Firebase apiKey is missing.")
-        st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
+        diagnostic = "Firebase API key is missing from secrets.toml."
+        st.session_state["auth_restore_diagnostic"] = diagnostic
         return None
 
     if not refresh_token:
-        diagnostic.update(status="missing_refresh_token", detail="The auth cookie does not contain a refresh token.")
-        st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
+        diagnostic = "The authentication cookie does not contain a Firebase refresh token."
+        st.session_state["auth_restore_diagnostic"] = diagnostic
         return None
 
     url = f"https://securetoken.googleapis.com/v1/token?key={api_key}"
+    last_error = None
 
     for attempt in range(TOKEN_REFRESH_ATTEMPTS):
         try:
@@ -1210,59 +1206,41 @@ def refresh_firebase_token(refresh_token: str):
                 timeout=15,
             )
 
-            diagnostic["http_status"] = response.status_code
-
             if response.status_code == 200:
                 try:
-                    result = response.json()
+                    data = response.json()
                 except ValueError:
-                    diagnostic.update(status="invalid_response", detail="Firebase returned HTTP 200 with invalid JSON.")
-                    st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
-                    return None
+                    data = None
 
-                if not result.get("id_token"):
-                    diagnostic.update(status="invalid_response", detail="Firebase response did not contain an id_token.")
-                    st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
-                    return None
+                if isinstance(data, dict) and data.get("id_token"):
+                    st.session_state["auth_restore_diagnostic"] = None
+                    return data
 
-                diagnostic.update(status="success", firebase_error=None, detail=None)
-                st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
-                return result
+                last_error = "Firebase returned HTTP 200 but no ID token was returned."
+                break
 
-            # Firebase normally returns JSON such as:
-            # {"error": {"code": 400, "message": "TOKEN_EXPIRED"}}
-            firebase_error = None
+            # Safely extract Firebase's error code/message. Never expose tokens.
             try:
                 body = response.json()
-                firebase_error = body.get("error", {}).get("message")
-            except ValueError:
-                pass
+                firebase_error = body.get("error", {}) if isinstance(body, dict) else {}
+                code = firebase_error.get("message") or "Unknown Firebase error"
+            except Exception:
+                code = (response.text or "Unknown Firebase error")[:300]
 
-            diagnostic["firebase_error"] = firebase_error
+            last_error = f"Firebase HTTP {response.status_code}: {code}"
 
-            # 400-level Firebase auth errors are normally definitive.  Do not
-            # retry them repeatedly, but retain the exact safe error message.
+            # Invalid/revoked credentials and configuration errors should not be
+            # retried repeatedly. Network/server/rate-limit errors are retried.
             if response.status_code < 500 and response.status_code != 429:
-                diagnostic.update(
-                    status="firebase_rejected",
-                    detail=(
-                        f"Firebase rejected the refresh request (HTTP {response.status_code}"
-                        + (f", {firebase_error}" if firebase_error else "")
-                        + ")."
-                    ),
-                )
-                st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
-                return None
+                break
 
-        except requests.Timeout:
-            diagnostic.update(status="timeout", detail=f"Firebase token refresh timed out on attempt {attempt + 1}.")
         except requests.RequestException as exc:
-            diagnostic.update(status="network_error", detail=f"Firebase token refresh network error: {exc.__class__.__name__}.")
+            last_error = f"Firebase token refresh network error: {type(exc).__name__}"
 
         if attempt + 1 < TOKEN_REFRESH_ATTEMPTS:
             time.sleep(0.5 * (attempt + 1))
 
-    st.session_state["_eusee_auth_restore_diagnostic"] = diagnostic
+    st.session_state["auth_restore_diagnostic"] = last_error or "Firebase token refresh failed for an unknown reason."
     return None
 
 
@@ -1325,127 +1303,79 @@ def _show_restore_diagnostic():
 
 
 def restore_session():
-
+    """Restore authentication from the browser cookie after a new Streamlit session."""
     init_session()
-
-
+    st.session_state["auth_restore_diagnostic"] = None
+    st.session_state["auth_restore_cookie_source"] = None
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
-
         st.session_state.restored = True
-
         return True
-
-
 
     cookie_data = _read_cookie()
 
     if not cookie_data:
-
-        st.session_state["_eusee_auth_restore_diagnostic"] = {
-            "status": "cookie_missing",
-            "http_status": None,
-            "firebase_error": None,
-            "detail": "No eusee_auth_session cookie was available to the Python session.",
-            "cookie_source": st.session_state.get("_eusee_cookie_source", "none"),
-        }
         st.session_state.restored = True
+        st.session_state["auth_restore_diagnostic"] = (
+            "No eusee_auth_session cookie was received by Streamlit after the browser refresh."
+        )
         return False
 
-
-
-    st.session_state["_eusee_auth_restore_cookie_present"] = True
-    st.session_state["_eusee_auth_restore_cookie_source"] = st.session_state.get("_eusee_cookie_source", "unknown")
+    st.session_state["auth_restore_cookie_source"] = "browser request cookie"
 
     email = str(cookie_data.get("email") or "").lower().strip()
-
     name = cookie_data.get("name") or ""
-
     role = cookie_data.get("role") or "privileged"
-
     verified = bool(cookie_data.get("email_verified"))
-
     refresh_token = cookie_data.get("refresh_token") or ""
 
-
-
-    if not email or not verified or not refresh_token:
-
-        st.session_state["_eusee_auth_restore_diagnostic"] = {
-            "status": "invalid_cookie_payload",
-            "http_status": None,
-            "firebase_error": None,
-            "detail": "The browser cookie was found, but required authentication fields are missing.",
-        }
-        _delete_cookie()
+    if not email:
         st.session_state.restored = True
-        _show_restore_diagnostic()
+        st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but contains no email."
         return False
 
+    if not verified:
+        st.session_state.restored = True
+        st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but email_verified is false."
+        return False
 
+    if not refresh_token:
+        st.session_state.restored = True
+        st.session_state["auth_restore_diagnostic"] = "Authentication cookie was received but contains no Firebase refresh token."
+        return False
 
     refreshed = refresh_firebase_token(refresh_token)
 
     if not refreshed:
-
         st.session_state.restored = True
-        _show_restore_diagnostic()
         return False
 
-
-
     id_token = refreshed.get("id_token")
-
-    new_refresh_token = refreshed.get("refresh_token", refresh_token)
-
-
+    new_refresh_token = refreshed.get("refresh_token") or refresh_token
 
     _apply_authenticated_state(
-
         email=email,
-
         name=name,
-
         verified=True,
-
         role=role,
-
         id_token=id_token,
-
         refresh_token=new_refresh_token,
-
     )
-
-
 
     _write_cookie(
-
         _session_payload(
-
             email=email,
-
             name=st.session_state.name,
-
             verified=True,
-
             role=role,
-
             id_token=id_token,
-
             refresh_token=new_refresh_token,
-
             remember_me=bool(cookie_data.get("remember_me", True)),
-
         )
-
     )
 
-
-
+    st.session_state["auth_restore_diagnostic"] = None
     return True
-
-
-
 
 
 def is_authenticated():
@@ -2723,5 +2653,10 @@ def auth_ui():
         return
 
 
+
+    diagnostic = st.session_state.get("auth_restore_diagnostic")
+    if diagnostic:
+        st.error(f"Authentication restoration failed: {diagnostic}")
+        st.caption("No authentication token or password is displayed here.")
 
     _render_premium_auth_page()
