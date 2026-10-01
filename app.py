@@ -1830,12 +1830,30 @@ st.session_state["latest_dataset_date_source"] = (
     else "No valid creation_date values found"
 )
 
-# Store the authoritative AI source dataframe immediately after loading.
-# Do not use `filtered_global` or any sidebar-filtered dataframe here.
+# Store the EXACT dataframe used by the dashboard as the single authoritative
+# dataset for both the dashboard and AI Assistant.
+#
+# IMPORTANT:
+# `data` is created from the same `load_data()` result and the same
+# `apply_data_scope()` call that feeds the dashboard. It is intentionally
+# captured BEFORE any sidebar/global UI filters create `filtered_global`.
+# Therefore the chatbot and dashboard always start from the same dataset.
 if isinstance(data, pd.DataFrame):
+    st.session_state["eusee_authoritative_dataset"] = data.copy()
     st.session_state["eusee_full_dataset_df"] = data.copy()
 else:
+    st.session_state["eusee_authoritative_dataset"] = pd.DataFrame()
     st.session_state["eusee_full_dataset_df"] = pd.DataFrame()
+
+# Dataset integrity metadata. This is deliberately derived from the same
+# authoritative dataframe and is used to make accidental dataset divergence
+# visible instead of silently falling back to another dataframe.
+_authoritative_dataset = st.session_state["eusee_authoritative_dataset"]
+st.session_state["eusee_dataset_signature"] = {
+    "rows": int(len(_authoritative_dataset)),
+    "columns": int(len(_authoritative_dataset.columns)),
+    "column_names": list(_authoritative_dataset.columns),
+}
 
 #### --------prepare enabling principles to be ordered-------------------------------------------
 ENABLING_PRINCIPLE_ORDER = [          
@@ -11966,30 +11984,6 @@ load_user_chat_history(force=True)
 # DATA ACCESS
 # ============================================================
 
-def get_full_dashboard_dataframe() -> pd.DataFrame:
-    """Return the single cleaned dataframe used by the dashboard."""
-
-    full_df = st.session_state.get(
-        "eusee_full_dataset_df"
-    )
-
-    if isinstance(full_df, pd.DataFrame):
-        return full_df.copy()
-
-    # Compatibility fallbacks.
-    for key in (
-        "eusee_original_df",
-        "eusee_unfiltered_df",
-        "eusee_full_df",
-        "raw_eusee_df",
-    ):
-        candidate = st.session_state.get(key)
-        if isinstance(candidate, pd.DataFrame):
-            return candidate.copy()
-
-    return pd.DataFrame()
-
-
 # ============================================================
 # DATASET INTELLIGENCE + NATURAL-LANGUAGE ANALYTICS ENGINE
 # ============================================================
@@ -12053,18 +12047,52 @@ QUARTER_MONTHS = {
 }
 
 def get_full_dashboard_dataframe() -> pd.DataFrame:
-    """Return the complete unfiltered EU SEE dataframe."""
-    for key in (
-        "eusee_full_dataset_df",
-        "eusee_original_df",
-        "eusee_unfiltered_df",
-        "eusee_full_df",
-        "raw_eusee_df",
-    ):
-        candidate = st.session_state.get(key)
-        if isinstance(candidate, pd.DataFrame):
-            return candidate.copy()
-    return pd.DataFrame()
+    """
+    Return the EXACT authoritative dataframe used by the dashboard.
+
+    The AI Assistant must never fall back to another dataframe because doing
+    so can make chatbot answers differ from the dashboard. The authoritative
+    dataframe is created immediately after `load_data()` + `apply_data_scope()`
+    and before any sidebar/global filters are applied.
+    """
+    authoritative_df = st.session_state.get(
+        "eusee_authoritative_dataset"
+    )
+
+    if not isinstance(authoritative_df, pd.DataFrame):
+        return pd.DataFrame()
+
+    # Verify the dataframe still matches the recorded authoritative signature.
+    # If another component accidentally replaces it, fail closed rather than
+    # silently answering from a different dataset.
+    signature = st.session_state.get("eusee_dataset_signature", {})
+    expected_rows = signature.get("rows")
+    expected_columns = signature.get("columns")
+    expected_column_names = signature.get("column_names")
+
+    if expected_rows is not None and len(authoritative_df) != expected_rows:
+        logging.error(
+            "Authoritative EU SEE dataset row-count mismatch: expected %s, got %s",
+            expected_rows,
+            len(authoritative_df),
+        )
+        return pd.DataFrame()
+
+    if expected_columns is not None and len(authoritative_df.columns) != expected_columns:
+        logging.error(
+            "Authoritative EU SEE dataset column-count mismatch: expected %s, got %s",
+            expected_columns,
+            len(authoritative_df.columns),
+        )
+        return pd.DataFrame()
+
+    if expected_column_names is not None and list(authoritative_df.columns) != list(expected_column_names):
+        logging.error(
+            "Authoritative EU SEE dataset column-name/order mismatch."
+        )
+        return pd.DataFrame()
+
+    return authoritative_df.copy()
 
 
 def _clean_ai_text(value) -> str:
