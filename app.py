@@ -1337,12 +1337,13 @@ st.session_state.setdefault("auth_reset_open", False)
 # dashboard visit into a mandatory login page and was the cause of the F5/new
 # browser behaviour. The Sign in / Register control is rendered later inside
 # the sidebar User Privilege Center.
+# Authentication state is restored once at the top of every Streamlit run.
+# Explicit login requests are protected by auth.py: when auth_view=True,
+# restore_session() will not consume or override the explicit request.
 authenticated_now = is_authenticated()
 
-# Authentication is opt-in. A new browser remains a Guest and can use the
-# public dashboard. When the user explicitly selects Sign in / Register,
-# render the authentication UI and pause the dashboard until authentication
-# is completed or the user returns to the dashboard.
+# Explicit login request: render the authentication page and stop dashboard
+# execution. This is the only route that displays Login/Register.
 if st.session_state.get("auth_view", False) and not authenticated_now:
     auth_ui()
     st.stop()
@@ -2664,13 +2665,20 @@ def render_sidebar_access_settings_profile():
                 use_container_width=True,
                 key="privilege_center_signin_btn",
             ):
-                # Explicit login request: do not run cookie restoration again
-                # on the next rerun. The user deliberately asked to see Login.
+                # Explicit login request. auth.py recognizes auth_view=True
+                # and bypasses cookie restoration on the next run.
                 st.session_state["auth_view"] = True
                 st.session_state["auth_mode"] = "Login"
+                st.session_state["auth_reset_open"] = False
                 st.session_state["restored"] = True
                 st.session_state["user"] = False
+                st.session_state["email"] = None
+                st.session_state["name"] = None
+                st.session_state["role"] = "guest"
                 st.session_state["email_verified"] = False
+                st.session_state["id_token"] = None
+                st.session_state["refresh_token"] = None
+                st.session_state["_eusee_force_logged_out"] = False
                 st.rerun()
                 
 render_sidebar_access_settings_profile()
