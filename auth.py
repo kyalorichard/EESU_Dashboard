@@ -1009,7 +1009,7 @@ def _write_cookie(payload: dict) -> bool:
 
             expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
 
-            secure=_request_is_https(),
+            secure=False,
 
             same_site="lax",
 
