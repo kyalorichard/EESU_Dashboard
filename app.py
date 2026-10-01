@@ -1323,46 +1323,22 @@ st.session_state.setdefault("auth_mode", "Login")
 st.session_state.setdefault("auth_reset_open", False)
 
 # --------------------------------------------------------------
-# HARD-REFRESH AUTH RESTORATION
+# NON-BLOCKING AUTHENTICATION RESTORATION
 # --------------------------------------------------------------
-# Never rely on the Streamlit session alone. On F5/reload, Streamlit creates
-# a new session_state, so the browser cookie must be restored first.
-# If the cookie/Firebase refresh token cannot restore the session, explicitly
-# show the login page. This also prevents one browser session from inheriting
-# another browser's authenticated state.
+# The EUSEE dashboard is a public-facing dashboard and must render directly
+# in a new browser. Authentication is only required for protected features.
+#
+# On a hard refresh, auth.py attempts to restore the existing browser session
+# from the eusee_auth_session cookie. If restoration succeeds, the signed-in
+# identity and role are available immediately. If there is no cookie (for
+# example, a genuinely new browser), the dashboard still loads as Guest.
+#
+# IMPORTANT: do NOT call auth_ui() or st.stop() here. Doing so turns a normal
+# dashboard visit into a mandatory login page and was the cause of the F5/new
+# browser behaviour. The Sign in / Register control is rendered later inside
+# the sidebar User Privilege Center.
 authenticated_now = is_authenticated()
-
-# ------------------------------------------------------------------
-# AUTHENTICATION ROUTE
-# ------------------------------------------------------------------
-# Keep the login page completely separate from the dashboard DOM. This prevents
-# the dashboard HTML/CSS shell from appearing above or around the login form.
-# The auth.py module owns the existing EUSEE login-page design.
-if not authenticated_now:
-    st.session_state.auth_view = True
-    auth_ui()
-
-    # Login/register/reset remains the only visible page while unauthenticated.
-    # Once authentication succeeds, do not force another rerun here; Streamlit
-    # continues with the dashboard in the same run.
-    if not is_authenticated():
-        st.stop()
-
-    authenticated_now = True
-    st.session_state.auth_view = False
-else:
-    # A restored session must never render auth_ui() on F5.
-    st.session_state.auth_view = False
-
-# authz.py reads the authenticated identity from session_state.  Keep the
-# authorization layer explicitly synchronized with the Firebase auth state.
-if authenticated_now:
-    st.session_state["authenticated"] = True
-    st.session_state["is_authenticated"] = True
-else:
-    st.session_state["authenticated"] = False
-    st.session_state["is_authenticated"] = False
-
+st.session_state["auth_view"] = False
 
 
 # ---------------- SHARED CONTINENT-TO-REGION HELPER ----------------
