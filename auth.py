@@ -2393,17 +2393,12 @@ def auth_ui():
     # showing the Login page.
 
     if not st.session_state.get("restored"):
-
         restore_session()
 
     if st.session_state.get("user") and st.session_state.get("email_verified"):
-
         ensure_user_chat_history_loaded()
-
         st.session_state.auth_view = False
 
         return
-
     st.session_state.auth_view = True
-
     _render_premium_auth_page()
