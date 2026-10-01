@@ -79,22 +79,12 @@ CHAT_HISTORY_DIR = Path(
 # user's browser can restore its own login after a refresh.
 
 def _get_cookie_component_key() -> str:
-    """Return a fixed component key scoped to the current Streamlit session."""
-    # Streamlit component keys are scoped to a Streamlit session.  Using a
-    # fixed key here is therefore safe across different browsers/sessions and
-    # avoids changing the component identity after a browser refresh.
+    """Stable component key for the CookieManager constructor."""
     return "eusee_cookie_manager_main"
 
 
 def get_cookie_manager():
-    """Return exactly one CookieManager instance for the current Streamlit session.
-
-    CookieManager is a Streamlit custom component. Constructing it more than
-    once with the same key during a single script run can raise
-    StreamlitDuplicateElementKey because its constructor immediately creates
-    an internal component instance. Keeping the instance in session_state avoids
-    that duplicate-element problem while still isolating sessions.
-    """
+    """Return one CookieManager object for the current Streamlit session."""
     if not HAS_COOKIE_MANAGER:
         return None
 
@@ -452,6 +442,9 @@ def init_session():
         # Unique to the current Streamlit browser session. Used only to give
         # the CookieManager a unique component key; it is not an auth secret.
         "eusee_browser_session_id": None,
+        # CookieManager is a browser component and can require one or more
+        # frontend reruns before getAll returns the browser cookies.
+        "_eusee_cookie_probe_count": 0,
         CHAT_HISTORY_KEY: [],
         "chat_history_loaded": False,
         "chat_history_loaded_for": None,
@@ -497,8 +490,13 @@ def _write_cookie(payload: dict) -> bool:
         manager.set(
             COOKIE_NAME,
             json.dumps(payload),
+            path="/",
             expires_at=datetime.now() + timedelta(days=COOKIE_DAYS),
+            secure=True,
+            same_site="lax",
         )
+
+        st.session_state["_eusee_cookie_probe_count"] = 0
 
         # CookieManager writes through the browser component. Allow the
         # frontend enough time to commit the cookie before st.rerun().
@@ -511,27 +509,65 @@ def _write_cookie(payload: dict) -> bool:
 
 
 def _read_cookie() -> dict:
+    """Read the authentication cookie from the browser.
+
+    IMPORTANT:
+    CookieManager populates its internal cookie dictionary through a frontend
+    custom-component call. On a hard browser refresh the first Python run can
+    occur before that frontend response has arrived. Calling manager.get()
+    immediately can therefore return None even though the cookie exists.
+
+    get_all() explicitly refreshes the component's cookie dictionary. We allow
+    one controlled rerun when the first probe is empty so a genuine cookie can
+    arrive before authentication is declared absent.
+    """
     manager = get_cookie_manager()
     if manager is None:
         return {}
 
-    raw = manager.get(COOKIE_NAME)
-    if not raw:
+    try:
+        cookies = manager.get_all(key="eusee_cookie_get_all")
+    except Exception as e:
+        if DEBUG:
+            st.warning(f"Cookie read failed: {e}")
         return {}
 
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {}
+    if not isinstance(cookies, dict):
+        cookies = {}
+
+    raw = cookies.get(COOKIE_NAME)
+
+    if raw:
+        # Successful cookie retrieval. Reset the probe counter.
+        st.session_state["_eusee_cookie_probe_count"] = 0
+
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
+
+    # CookieManager may return {} during its first frontend pass even when the
+    # browser already contains the cookie. Give it one additional rerun.
+    probe_count = int(st.session_state.get("_eusee_cookie_probe_count", 0))
+
+    if probe_count < 1:
+        st.session_state["_eusee_cookie_probe_count"] = probe_count + 1
+        st.rerun()
+
+    # A second empty response means there really is no readable auth cookie.
+    st.session_state["_eusee_cookie_probe_count"] = 0
+    return {}
 
 
 def _delete_cookie():
     manager = get_cookie_manager()
     if manager is not None:
         try:
-            manager.delete(COOKIE_NAME)
+            manager.delete(COOKIE_NAME, key="delete_eusee_auth_session")
         except Exception:
             pass
+
+    st.session_state["_eusee_cookie_probe_count"] = 0
 
 
 def refresh_firebase_token(refresh_token: str):
@@ -579,6 +615,7 @@ def _apply_authenticated_state(email, name, verified, role, id_token, refresh_to
     st.session_state.refresh_token = refresh_token
     st.session_state.auth_view = False
     st.session_state.restored = True
+    st.session_state["_eusee_cookie_probe_count"] = 0
     ensure_user_chat_history_loaded()
 
 
@@ -596,7 +633,6 @@ def restore_session():
         # auth_ui() calls restore_session() again on that rerun.
         st.session_state.restored = True
         return False
-
 
     email = str(cookie_data.get("email") or "").lower().strip()
     name = cookie_data.get("name") or ""
