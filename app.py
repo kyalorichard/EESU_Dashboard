@@ -13829,7 +13829,7 @@ def _topic_term_groups(text: str) -> list[list[str]]:
             groups.append(variants)
             consumed.update(re.findall(r"[a-z0-9]+", match.group(0)))
     stopwords = {
-        "i", "we", "you", "they", "it", "a", "an", "the", "to", "for", "of", "in", "on", "at", "by", "from", "with", "and", "or", "is", "are", "was", "were", "be", "been", "being", "can", "could", "would", "should", "please", "share", "show", "find", "give", "tell", "know", "want", "need", "examples", "example", "cases", "case", "alerts", "alert", "records", "record", "related", "relating", "about", "regarding", "where", "have", "has", "had", "that", "this", "what", "which", "how", "many", "much", "any", "all", "data", "dataset", "reported", "report", "reports", "occurred", "happened", "there", "their", "within", "across", "during", "since", "last", "year", "years", "month", "months", "trend", "trends", "compare", "comparison", "country", "countries", "region", "regions", "principle", "principles", "impact", "type", "types", "negative", "positive", "context", "to", "watch"
+        "i", "we", "you", "they", "it", "a", "an", "the", "to", "for", "of", "in", "on", "at", "by", "from", "with", "and", "or", "is", "are", "was", "were", "be", "been", "being", "can", "could", "would", "should", "please", "summarise", "summarize", "summarising", "summarizing", "summary", "summaries", "analyse", "analyze", "analysing", "analyzing", "explain", "describe", "outline", "review", "share", "show", "find", "give", "tell", "know", "want", "need", "examples", "example", "cases", "case", "alerts", "alert", "records", "record", "related", "relating", "about", "regarding", "where", "have", "has", "had", "that", "this", "what", "which", "how", "many", "much", "any", "all", "data", "dataset", "reported", "report", "reports", "occurred", "happened", "there", "their", "within", "across", "during", "since", "last", "year", "years", "month", "months", "trend", "trends", "compare", "comparison", "country", "countries", "region", "regions", "principle", "principles", "impact", "type", "types", "negative", "positive", "context", "to", "watch"
     }
     # Add unconsumed, meaningful terms so topics not covered by the synonym list remain searchable.
     tokens = re.findall(r"[a-z0-9]+", q)
@@ -14646,10 +14646,33 @@ def _process_eusee_ai_request(user_question: str) -> dict:
 
     plan = _merge_chatbot_safety_controls(user_question, plan, df)
 
+    # Broad alert-summary requests describe an action and a dataset subset, not
+    # a topic to search for in each alert's text. The structured impact filter
+    # is applied locally; searching for words such as "summarise" can otherwise
+    # turn a valid set of alerts into a false zero-match result.
+    broad_alert_summary = re.fullmatch(
+        r"\\s*(?:(?:please|can you|could you|would you)\\s+)?"
+        r"(?:summari[sz]e|summari[sz]ing|give me a summary of|provide a summary of|"
+        r"give me an overview of|provide an overview of|overview of|summary of|"
+        r"analyse|analyze|review|describe|explain)\\s+"
+        r"(?:(?:all|the)\\s+)?"
+        r"(?:(?:available|recorded|reported)\\s+)?"
+        r"(?:(?:the)\\s+)?"
+        r"(?:positive|negative|context to watch)\\s+alerts?"
+        r"(?:\\s+(?:in|across)\\s+(?:the\\s+)?(?:dataset|data))?\\s*[?.!]*\\s*",
+        _clean_ai_text(user_question),
+        flags=re.IGNORECASE,
+    )
+    if broad_alert_summary:
+        plan["search_text"] = None
+        plan["intent"] = "explore"
+        plan["visualization"] = "none"
+        plan["visualization_requested"] = False
+
     # If the planner did not create a topic query, derive one generically from
     # the user's wording. Structured country/region/principle filters are kept
     # separate so a prompt can combine categories with event-text search.
-    if not str(plan.get("search_text") or "").strip():
+    if not broad_alert_summary and not str(plan.get("search_text") or "").strip():
         inferred_topic = _infer_topic_search_text(user_question, df)
         if inferred_topic:
             plan["search_text"] = inferred_topic
