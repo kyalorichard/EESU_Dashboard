@@ -615,57 +615,131 @@ def _call_ai(
 
 
 def _render_result(result: dict, key: str) -> None:
+    """Render the answer, compact tables, and standard Plotly charts on request."""
     answer = str(result.get("answer", "")).strip()
     if answer:
         st.markdown(answer)
+
     analysis = result.get("analysis")
     if not isinstance(analysis, dict):
         return
-    if isinstance(analysis, dict) and any(k in analysis for k in ("alerts", "cfr")):
-        for dataset_name, dataset_result in analysis.items():
-            if not isinstance(dataset_result, dict):
-                continue
-            groups = dataset_result.get("groups")
-            records = dataset_result.get("records") or dataset_result.get("examples")
-            if groups:
-                st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alert dataset'} — grouped results")
-                st.dataframe(pd.DataFrame(groups), use_container_width=True, hide_index=True)
-            if records:
-                st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alert dataset'} — records")
-                frame = pd.DataFrame(records)
-                link_config = {}
-                for col in ("Permalink", "Open alert", "Open CFR report", "Report URL"):
-                    if col in frame.columns:
-                        try:
-                            link_config[col] = st.column_config.LinkColumn(label=col, display_text="Open ↗")
-                        except Exception:
-                            pass
-                st.dataframe(frame, use_container_width=True, hide_index=True, column_config=link_config)
-            if groups and any(word in answer.casefold() for word in ("chart", "plot", "graph")):
+
+    question = str(result.get("question", "")).casefold()
+    wants_chart = any(
+        word in question
+        for word in ("chart", "plot", "graph", "visuali", "draw", "show me a figure")
+    ) or any(word in answer.casefold() for word in ("chart", "plot", "graph"))
+
+    def render_dataset_result(dataset_name: str, dataset_result: dict) -> None:
+        groups = dataset_result.get("groups")
+        records = dataset_result.get("records") or dataset_result.get("examples")
+        chart_df = pd.DataFrame(groups) if isinstance(groups, list) and groups else pd.DataFrame()
+
+        if not chart_df.empty:
+            st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alerts'} · grouped results")
+            st.dataframe(
+                chart_df,
+                use_container_width=True,
+                hide_index=True,
+                height=min(260, 42 + 35 * min(len(chart_df), 6)),
+            )
+
+            if wants_chart:
                 try:
                     import plotly.express as px
-                    chart_df = pd.DataFrame(groups)
-                    group_cols = dataset_result.get("group_columns") or []
+
+                    group_cols = [
+                        col for col in (dataset_result.get("group_columns") or [])
+                        if col in chart_df.columns
+                    ]
                     numeric = chart_df.select_dtypes(include="number").columns.tolist()
                     if group_cols and numeric:
-                        fig = px.bar(
-                            chart_df,
-                            x=group_cols[0],
-                            y=numeric[-1],
-                            title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} results",
+                        x_col = group_cols[0]
+                        y_col = numeric[-1]
+                        request = question + " " + answer.casefold()
+
+                        if any(term in request for term in ("pie", "share", "proportion", "percentage", "composition")):
+                            fig = px.pie(
+                                chart_df, names=x_col, values=y_col,
+                                title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}",
+                                hole=0.32,
+                            )
+                        elif any(term in request for term in ("trend", "over time", "time series", "monthly", "yearly", "timeline")):
+                            fig = px.line(
+                                chart_df, x=x_col, y=y_col, markers=True,
+                                title=f"{'CFR score' if dataset_name == 'cfr' else 'Alert'} trend by {x_col}",
+                            )
+                        elif any(term in request for term in ("scatter", "relationship", "correlation", "against", "versus", " vs ")):
+                            numeric_x = numeric[0]
+                            numeric_y = numeric[-1]
+                            if numeric_x != numeric_y:
+                                fig = px.scatter(
+                                    chart_df, x=numeric_x, y=numeric_y,
+                                    title=f"{numeric_y} vs {numeric_x}",
+                                )
+                            else:
+                                fig = px.bar(chart_df, x=x_col, y=y_col, title=f"Results by {x_col}")
+                        elif len(chart_df) > 7 or any(term in request for term in ("rank", "ranking", "top", "bottom", "compare")):
+                            plot_df = chart_df.sort_values(y_col, ascending=True)
+                            fig = px.bar(
+                                plot_df, x=y_col, y=x_col, orientation="h",
+                                title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}",
+                            )
+                        else:
+                            fig = px.bar(
+                                chart_df, x=x_col, y=y_col,
+                                title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}",
+                            )
+
+                        fig.update_layout(
+                            autosize=True,
+                            height=max(300, min(430, 250 + 18 * len(chart_df))),
+                            margin=dict(l=16, r=16, t=58, b=48),
+                            font=dict(size=12),
+                            title=dict(font=dict(size=15)),
+                            legend=dict(font=dict(size=11)),
                         )
-                        st.plotly_chart(fig, use_container_width=True, key=f"eusee_copilot_{key}_{dataset_name}")
-                except Exception:
-                    pass
+                        fig.update_xaxes(automargin=True, tickfont=dict(size=11))
+                        fig.update_yaxes(automargin=True, tickfont=dict(size=11))
+                        st.plotly_chart(
+                            fig, use_container_width=True,
+                            key=f"eusee_copilot_{key}_{dataset_name}",
+                            config={"responsive": True, "displaylogo": False, "scrollZoom": False},
+                        )
+                except Exception as exc:
+                    st.caption(f"Chart could not be rendered for this result: {exc}")
+
+        if isinstance(records, list) and records:
+            frame = pd.DataFrame(records)
+            st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alerts'} · matching records")
+            link_config = {}
+            for col in ("Permalink", "Open alert", "Open CFR report", "Report URL"):
+                if col in frame.columns:
+                    try:
+                        link_config[col] = st.column_config.LinkColumn(label=col, display_text="Open ↗")
+                    except Exception:
+                        pass
+            st.dataframe(
+                frame,
+                use_container_width=True,
+                hide_index=True,
+                column_config=link_config,
+                height=min(300, 42 + 35 * min(len(frame), 7)),
+            )
+
+    if any(k in analysis for k in ("alerts", "cfr")):
+        for dataset_name, dataset_result in analysis.items():
+            if isinstance(dataset_result, dict):
+                render_dataset_result(dataset_name, dataset_result)
         return
 
-    # Backward-compatible rendering if an older single-dataset result is in history.
+    # Backward-compatible rendering for older single-dataset result objects.
     groups = analysis.get("groups")
     if isinstance(groups, list) and groups:
-        st.dataframe(pd.DataFrame(groups), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(groups), use_container_width=True, hide_index=True, height=220)
     records = analysis.get("records") or analysis.get("examples")
     if isinstance(records, list) and records:
-        st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True, height=260)
 
 
 def render_eusee_ai_copilot(
@@ -682,79 +756,137 @@ def render_eusee_ai_copilot(
         # the permission first. The dashboard itself owns login routing.
         pass
 
-    # Keep the launcher fixed on screen and constrain the opened assistant to a
-    # compact, independently scrollable panel (not a full-screen overlay).
+    # Compact assistant typography and two-axis overflow handling.
     st.markdown(
         """
         <style>
-        /* Persistent launcher: bottom-right on desktop and mobile. */
+        /* Floating launcher */
         [data-testid="stPopover"] {
             position: fixed !important;
-            right: max(1rem, env(safe-area-inset-right)) !important;
-            bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+            right: max(16px, env(safe-area-inset-right)) !important;
+            bottom: max(16px, env(safe-area-inset-bottom)) !important;
             left: auto !important;
             top: auto !important;
             z-index: 100000 !important;
             width: auto !important;
-            max-width: calc(100vw - 2rem) !important;
+            max-width: calc(100vw - 24px) !important;
         }
         [data-testid="stPopover"] > button {
-            min-height: 44px !important;
+            min-height: 42px !important;
+            padding: 8px 14px !important;
             border-radius: 999px !important;
-            padding: 0.55rem 1rem !important;
-            font-weight: 750 !important;
-            box-shadow: 0 4px 18px rgba(35, 21, 47, 0.22) !important;
+            font-size: 13px !important;
+            font-weight: 650 !important;
+            line-height: 1.35 !important;
             white-space: nowrap !important;
+            box-shadow: 0 4px 16px rgba(35, 21, 47, 0.20) !important;
         }
 
-        /* Popover panel: small, viewport-aware, and scrollable. */
+        /* A small panel with its own vertical and horizontal scroll behavior. */
         [data-testid="stPopoverBody"],
         [data-testid="stPopover"] [role="dialog"],
         div[data-baseweb="popover"] > div {
-            width: min(390px, calc(100vw - 24px)) !important;
+            width: min(410px, calc(100vw - 24px)) !important;
             max-width: calc(100vw - 24px) !important;
             max-height: min(72vh, 680px) !important;
             overflow-y: auto !important;
-            overflow-x: hidden !important;
-            box-sizing: border-box !important;
+            overflow-x: auto !important;
             overscroll-behavior: contain !important;
+            scrollbar-gutter: stable;
+            box-sizing: border-box !important;
+            font-size: 14px !important;
+            line-height: 1.5 !important;
         }
         [data-testid="stPopoverBody"] > div,
         [data-testid="stPopover"] [role="dialog"] > div {
             max-height: inherit !important;
+            max-width: 100% !important;
             overflow-y: auto !important;
+            overflow-x: auto !important;
             box-sizing: border-box !important;
         }
 
-        /* Keep chat content and result tables within the compact panel. */
+        /* ChatGPT-like hierarchy: readable body, compact metadata and headings. */
+        [data-testid="stPopoverBody"] p,
+        [data-testid="stPopover"] [role="dialog"] p,
+        [data-testid="stPopoverBody"] li,
+        [data-testid="stPopover"] [role="dialog"] li,
+        [data-testid="stPopoverBody"] label,
+        [data-testid="stPopover"] [role="dialog"] label {
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+        }
+        [data-testid="stPopoverBody"] h1,
+        [data-testid="stPopover"] [role="dialog"] h1 {
+            font-size: 20px !important;
+            line-height: 1.3 !important;
+        }
+        [data-testid="stPopoverBody"] h2,
+        [data-testid="stPopover"] [role="dialog"] h2 {
+            font-size: 17px !important;
+            line-height: 1.35 !important;
+        }
+        [data-testid="stPopoverBody"] h3,
+        [data-testid="stPopover"] [role="dialog"] h3 {
+            font-size: 15px !important;
+            line-height: 1.4 !important;
+        }
+        [data-testid="stPopoverBody"] small,
+        [data-testid="stPopover"] [role="dialog"] small,
+        [data-testid="stPopoverBody"] [data-testid="stCaptionContainer"],
+        [data-testid="stPopover"] [role="dialog"] [data-testid="stCaptionContainer"] {
+            font-size: 12px !important;
+            line-height: 1.4 !important;
+        }
         [data-testid="stPopoverBody"] [data-testid="stChatMessage"],
         [data-testid="stPopover"] [role="dialog"] [data-testid="stChatMessage"] {
-            padding: 0.45rem 0.55rem !important;
-        }
-        [data-testid="stPopoverBody"] [data-testid="stDataFrame"],
-        [data-testid="stPopover"] [role="dialog"] [data-testid="stDataFrame"] {
+            padding: 6px 8px !important;
+            min-width: 0 !important;
             max-width: 100% !important;
+            overflow-wrap: anywhere !important;
+        }
+
+        /* Wide tables scroll horizontally within their own wrapper, not the page. */
+        [data-testid="stPopoverBody"] [data-testid="stDataFrame"],
+        [data-testid="stPopover"] [role="dialog"] [data-testid="stDataFrame"],
+        [data-testid="stPopoverBody"] [data-testid="stTable"],
+        [data-testid="stPopover"] [role="dialog"] [data-testid="stTable"] {
+            max-width: 100% !important;
+            min-width: 0 !important;
             overflow-x: auto !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+        [data-testid="stPopoverBody"] [data-testid="stPlotlyChart"],
+        [data-testid="stPopover"] [role="dialog"] [data-testid="stPlotlyChart"],
+        [data-testid="stPopoverBody"] iframe,
+        [data-testid="stPopover"] [role="dialog"] iframe {
+            max-width: 100% !important;
         }
         [data-testid="stPopoverBody"] textarea,
         [data-testid="stPopover"] [role="dialog"] textarea {
-            min-height: 72px !important;
+            font-size: 14px !important;
+            line-height: 1.45 !important;
+            min-height: 78px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        [data-testid="stPopoverBody"] button,
+        [data-testid="stPopover"] [role="dialog"] button,
+        [data-testid="stPopoverBody"] input,
+        [data-testid="stPopover"] [role="dialog"] input {
+            font-size: 13px !important;
         }
 
         @media (max-width: 600px) {
             [data-testid="stPopover"] {
-                right: max(0.65rem, env(safe-area-inset-right)) !important;
-                bottom: max(0.65rem, env(safe-area-inset-bottom)) !important;
-            }
-            [data-testid="stPopover"] > button {
-                min-height: 42px !important;
-                padding: 0.5rem 0.8rem !important;
-                font-size: 0.88rem !important;
+                right: max(8px, env(safe-area-inset-right)) !important;
+                bottom: max(8px, env(safe-area-inset-bottom)) !important;
             }
             [data-testid="stPopoverBody"],
             [data-testid="stPopover"] [role="dialog"],
             div[data-baseweb="popover"] > div {
-                width: min(360px, calc(100vw - 16px)) !important;
+                width: min(380px, calc(100vw - 16px)) !important;
                 max-width: calc(100vw - 16px) !important;
                 max-height: 70vh !important;
             }
@@ -859,6 +991,7 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
                     "analysis": {"total_dataset_records": int(len(dataframe)), "filtered_records": int(len(dataframe))},
                     "error": str(exc),
                 }
+        result["question"] = question
         messages.append({"role": "assistant", "content": json.dumps(result, ensure_ascii=False, default=str), "created_at": datetime.utcnow().isoformat()})
         _save_history(base_dir, messages)
         st.rerun()
