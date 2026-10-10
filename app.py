@@ -12864,6 +12864,10 @@ CORE PRINCIPLES
     sorting and descriptive statistics only.
 20. A single user question may require multiple dimensions and metrics. Build a
     useful plan rather than forcing it into one simplistic analysis type.
+21. For topic questions, populate search_text with the meaningful event/topic terms
+    so the executor can search every available text field, including alert titles,
+    event summaries and descriptions. Do not use only category labels.
+22. Answer the user's specific question and do not add unrelated dimensions or tables.
 
 EXAMPLES OF INTERPRETATION
 "What are the main trends in West Africa?"
@@ -13591,30 +13595,167 @@ def _execute_grouped_analysis(filtered: pd.DataFrame, plan: dict) -> tuple[pd.Da
     return pd.DataFrame(rows), {"group_by": group_by, "metrics": metrics}
 
 
+def _normalise_search_url(value) -> str:
+    """Return a safe absolute URL for an alert/CFR permalink, or an empty string."""
+    if value is None or pd.isna(value):
+        return ""
+    url = str(value).strip()
+    if not url or url.lower() in {"nan", "none", "null", "n/a"}:
+        return ""
+    if url.startswith("/"):
+        url = f"https://eusee.hivos.org{url}"
+    elif not url.lower().startswith(("http://", "https://")):
+        url = f"https://{url}"
+    return url
+
+
+def _find_column_by_aliases(df: pd.DataFrame, aliases: list[str]) -> str | None:
+    """Resolve likely title/summary/description/permalink columns without assuming one schema."""
+    normalised = {
+        re.sub(r"[^a-z0-9]+", " ", str(col).strip().lower()).strip(): col
+        for col in df.columns
+    }
+    for alias in aliases:
+        key = re.sub(r"[^a-z0-9]+", " ", alias.strip().lower()).strip()
+        if key in normalised:
+            return normalised[key]
+    for alias in aliases:
+        key = re.sub(r"[^a-z0-9]+", " ", alias.strip().lower()).strip()
+        matches = [col for norm, col in normalised.items() if key and (key in norm or norm in key)]
+        if len(matches) == 1:
+            return matches[0]
+    return None
+
+
+def _topic_term_groups(text: str) -> list[list[str]]:
+    """Convert a natural-language topic query into AND-ed concepts with safe synonym variants."""
+    q = _clean_ai_text(text)
+    synonym_groups = [
+        (r"\b(elections?|electoral|voting|votes?)\b", ["election", "elections", "electoral", "voting", "vote"]),
+        (r"\b(interfer\w*|meddling|manipulat\w*)\b", ["interference", "interfered", "interfering", "interfere", "meddling", "manipulation", "manipulated"]),
+        (r"\b(cyberlaws?|cyber laws?|cyber legislation)\b", ["cyberlaw", "cyberlaws", "cyber law", "cyber laws", "cyber legislation"]),
+        (r"\b(disinformation|misinformation|fake news)\b", ["disinformation", "misinformation", "fake news"]),
+        (r"\b(digital environment|secure digital environment)\b", ["digital environment", "secure digital environment", "digital"]),
+        (r"\b(online activities|online activity)\b", ["online activities", "online activity", "online"]),
+        (r"\b(civil society)\b", ["civil society", "civic space"]),
+        (r"\b(harass\w*|intimidat\w*)\b", ["harassment", "harassed", "intimidation", "intimidated"]),
+    ]
+    groups: list[list[str]] = []
+    consumed = set()
+    for pattern, variants in synonym_groups:
+        match = re.search(pattern, q)
+        if match:
+            groups.append(variants)
+            consumed.update(re.findall(r"[a-z0-9]+", match.group(0)))
+    stopwords = {
+        "i", "we", "you", "they", "it", "a", "an", "the", "to", "for", "of", "in", "on", "at", "by", "from", "with", "and", "or", "is", "are", "was", "were", "be", "been", "being", "can", "could", "would", "should", "please", "share", "show", "find", "give", "tell", "know", "want", "need", "examples", "example", "cases", "case", "alerts", "alert", "records", "record", "related", "relating", "about", "regarding", "where", "have", "has", "had", "that", "this", "what", "which", "how", "many", "much", "any", "all", "data", "dataset", "reported", "report", "reports", "occurred", "happened", "there", "their", "within", "across", "during", "since", "last", "year", "years", "month", "months", "trend", "trends", "compare", "comparison", "country", "countries", "region", "regions", "principle", "principles", "impact", "type", "types", "negative", "positive", "context", "to", "watch"
+    }
+    # Add unconsumed, meaningful terms so topics not covered by the synonym list remain searchable.
+    tokens = re.findall(r"[a-z0-9]+", q)
+    for token in tokens:
+        if token in consumed or token in stopwords or len(token) < 3 or token.isdigit():
+            continue
+        if any(token in group for group in groups):
+            continue
+        groups.append([token])
+    # Remove duplicate groups while retaining order.
+    unique = []
+    seen = set()
+    for group in groups:
+        key = tuple(group)
+        if key not in seen:
+            seen.add(key)
+            unique.append(group)
+    return unique[:8]
+
+
+def _search_text_mask(df: pd.DataFrame, query: str) -> pd.Series:
+    """Search all meaningful text columns; every concept must match one of its variants."""
+    if df is None or df.empty:
+        return pd.Series(False, index=getattr(df, "index", []), dtype=bool)
+    text_cols = [
+        col for col in df.columns
+        if (pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]))
+    ]
+    if not text_cols:
+        return pd.Series(False, index=df.index)
+    row_text = pd.Series("", index=df.index, dtype="object")
+    for col in text_cols:
+        row_text = row_text + " " + df[col].fillna("").astype(str).str.lower()
+    groups = _topic_term_groups(query)
+    if not groups:
+        return pd.Series(True, index=df.index)
+    mask = pd.Series(True, index=df.index)
+    for variants in groups:
+        concept_mask = pd.Series(False, index=df.index)
+        for term in variants:
+            concept_mask |= row_text.str.contains(str(term).lower(), regex=False, na=False)
+        mask &= concept_mask
+    return mask
+
+
+def _infer_topic_search_text(question: str, df: pd.DataFrame) -> str | None:
+    """Extract topic terms after removing explicit dataset categories, countries, regions and years."""
+    q = _clean_ai_text(question)
+    # Remove explicit values already handled as structured filters.
+    for column in ("alert-country", "region", "alert-type", "alert-impact", "enabling-principle"):
+        if column not in df.columns:
+            continue
+        values = _principle_tokens(df[column]) if column == "enabling-principle" else _actual_values(df, column, 2000)
+        for value in sorted(values, key=lambda x: len(str(x)), reverse=True):
+            val = _clean_ai_text(value)
+            if len(val) >= 2:
+                q = re.sub(rf"(?<!\w){re.escape(val)}(?!\w)", " ", q)
+    q = re.sub(r"\b(?:19|20|21)\d{2}\b", " ", q)
+    groups = _topic_term_groups(q)
+    if not groups:
+        return None
+    return " ".join(group[0] for group in groups)
+
+
+def _select_alert_records(filtered: pd.DataFrame, limit: int) -> list[dict]:
+    """Select useful evidence fields and add a clickable link where the source has one."""
+    if filtered is None or filtered.empty:
+        return []
+    base = [
+        c for c in [
+            "creation_date", "alert-country", "region", "alert-type", "alert-impact",
+            "Actor of repression", "enabling-principle", "Subject", "Mechanism", "Type of event",
+        ] if c in filtered.columns
+    ]
+    title_col = _find_column_by_aliases(filtered, ["Alert title", "Post title", "Title", "Event title", "Name"])
+    summary_col = _find_column_by_aliases(filtered, ["Event Summary", "Event summary", "Summary", "Alert summary", "Post summary"])
+    description_col = _find_column_by_aliases(filtered, ["Description", "Event description", "Alert description", "Content", "Text"])
+    permalink_col = _find_column_by_aliases(filtered, ["Permalink", "Permalink URL", "Report URL", "Report link", "URL", "Link"])
+    for col in (title_col, summary_col, description_col):
+        if col and col not in base:
+            base.append(col)
+    records_df = filtered[base].head(limit).copy()
+    if "creation_date" in records_df.columns:
+        records_df["creation_date"] = pd.to_datetime(records_df["creation_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    if permalink_col:
+        records_df["Open alert"] = filtered.loc[records_df.index, permalink_col].apply(_normalise_search_url)
+    records_df = records_df.rename(columns={
+        "creation_date": "Date",
+        "alert-country": "Country",
+        "region": "Region",
+        "alert-type": "Alert type",
+        "alert-impact": "Alert impact",
+        "enabling-principle": "Enabling principle",
+        "Type of event": "Event type",
+    })
+    return records_df.where(pd.notna(records_df), None).to_dict("records")
+
+
 def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
     filtered = _apply_generic_plan_filters(df, plan.get("filters", []))
 
     search_text = str(plan.get("search_text") or "").strip()
     if search_text:
-        preferred_searchable = [
-            "alert-country", "region", "alert-type", "alert-impact",
-            "Actor of repression", "Subject", "Mechanism", "Type of event",
-            "Alert title", "Description", "enabling-principle",
-        ]
-        searchable = [c for c in preferred_searchable if c in filtered.columns]
-        if not searchable:
-            searchable = [
-                c for c in filtered.columns
-                if df[c].dtype == "object" or pd.api.types.is_string_dtype(df[c])
-            ]
-        if searchable:
-            mask = pd.Series(False, index=filtered.index)
-            needle = search_text.lower()
-            for col in searchable:
-                mask |= filtered[col].fillna("").astype(str).str.lower().str.contains(
-                    needle, regex=False
-                )
-            filtered = filtered[mask]
+        # Search across all available text columns, including titles, summaries,
+        # descriptions and classification fields. Concepts are AND-ed, while
+        # known synonyms are OR-ed within each concept group.
+        filtered = filtered.loc[_search_text_mask(filtered, search_text)].copy()
 
     intent = plan.get("intent", "summary")
     grouped_df, grouped_meta = _execute_grouped_analysis(filtered, plan)
@@ -13708,22 +13849,10 @@ def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
             )
             profile["yearly_trend"] = trend.to_dict("records")
 
-    # Records request.
+    # Records request. Include relevant text fields and a clickable permalink.
     records = None
     if intent == "records":
-        selected = [
-            c for c in [
-                "creation_date", "alert-country", "region", "alert-type",
-                "alert-impact", "Actor of repression", "enabling-principle",
-                "Subject", "Mechanism", "Type of event",
-            ] if c in filtered.columns
-        ]
-        records_df = filtered[selected].head(limit).copy()
-        if "creation_date" in records_df.columns:
-            records_df["creation_date"] = pd.to_datetime(
-                records_df["creation_date"], errors="coerce"
-            ).dt.strftime("%Y-%m-%d")
-        records = records_df.where(pd.notna(records_df), None).to_dict("records")
+        records = _select_alert_records(filtered, limit)
 
     # Cross-tab / relationship analysis.
     cross_tab = None
@@ -14174,7 +14303,105 @@ def _merge_chatbot_safety_controls(
     return plan
 
 
+def _load_cfr_for_chatbot() -> pd.DataFrame:
+    """Load the same latest CFR source and validated data used by the CFR dashboard."""
+    source = _find_cfr_source()
+    if source is None:
+        return pd.DataFrame()
+    metadata_path = EXPORT_DIR / "countries_metadata.json"
+    metadata_mtime = metadata_path.stat().st_mtime if metadata_path.exists() else None
+    try:
+        return load_cfr_data(str(source), source.stat().st_mtime, metadata_mtime)
+    except Exception as exc:
+        logging.warning("CFR chatbot lookup could not load the CFR data: %s", exc)
+        return pd.DataFrame()
+
+
+def _try_process_cfr_question(user_question: str) -> dict | None:
+    """Answer CFR-specific questions from the same validated CFR dataframe as the dashboard."""
+    q = _clean_ai_text(user_question)
+    cfr_terms = ("cfr", "country focus report", "country focus reports", "country score", "principle score", "scores across principles", "digital environment score", "secure digital environment score")
+    score_words = any(term in q for term in ("score", "scores", "scoring", "rated", "rating"))
+    principle_mentioned = any(
+        _clean_ai_text(full_name) in q or re.search(rf"\b{re.escape(code.lower())}\b", q)
+        for code, full_name in CFR_PRINCIPLE_NAMES.items()
+    ) or "digital environment" in q or "fundamental freedoms" in q or "legal and regulatory framework" in q
+    if not any(term in q for term in cfr_terms) and not (score_words and principle_mentioned):
+        return None
+
+    cfr = _load_cfr_for_chatbot()
+    if cfr.empty:
+        return {
+            "answer": "I couldn't retrieve the Country Focus Report scores because the CFR data is not currently available in the dashboard. Please try again later or check the CFR Scores tab.\n\nFor more information, please visit the EU SEE website: https://eusee.hivos.org/",
+            "analysis": None,
+        }
+
+    countries = _actual_values(cfr, "Country", 1000)
+    country_matches = [name for name in countries if re.search(rf"(?<!\w){re.escape(_clean_ai_text(name))}(?!\w)", q)]
+    country_matches = sorted(set(country_matches), key=lambda x: (-len(x), x))
+
+    principle_codes = []
+    for code, full_name in CFR_PRINCIPLE_NAMES.items():
+        if re.search(rf"\b{re.escape(code.lower())}\b", q) or _clean_ai_text(full_name) in q:
+            principle_codes.append(code)
+    if "digital environment" in q or "secure digital environment" in q:
+        principle_codes.append("P6")
+    principle_codes = list(dict.fromkeys(principle_codes))
+
+    requested_years = [int(y) for y in re.findall(r"\b(?:19|20|21)\d{2}\b", q)]
+    work = cfr.copy()
+    if country_matches:
+        work = work[work["Country"].isin(country_matches)]
+    if requested_years and "CFR Year" in work.columns:
+        work = work[pd.to_numeric(work["CFR Year"], errors="coerce").isin(requested_years)]
+
+    if work.empty:
+        return {
+            "answer": "I couldn't find CFR scores for the country or reporting year specified in the available data. Try another country or reporting year, or open the CFR Scores tab.\n\nFor more information, please visit the EU SEE website: https://eusee.hivos.org/",
+            "analysis": None,
+        }
+
+    principle_cols = principle_codes if principle_codes else ["P1", "P2", "P3", "P4", "P5", "P6", "Overall CFR"]
+    display_cols = [c for c in ["Country", "CFR Year", *principle_cols, "Last Modified", "Permalink"] if c in work.columns]
+    records_df = work[display_cols].copy()
+    if "Permalink" in records_df.columns:
+        records_df["Open CFR report"] = records_df["Permalink"].apply(_normalise_search_url)
+        records_df = records_df.drop(columns=["Permalink"])
+    records_df = records_df.rename(columns={code: f"{code} — {CFR_PRINCIPLE_NAMES.get(code, code)}" for code in principle_cols if code in CFR_PRINCIPLE_NAMES})
+    records = records_df.where(pd.notna(records_df), None).to_dict("records")
+
+    # Generate a direct, evidence-grounded answer from the selected score values.
+    if principle_codes and country_matches and len(work) == 1:
+        row = work.iloc[0]
+        code = principle_codes[0]
+        score = row.get(code)
+        if pd.isna(score):
+            score_text = "no score is recorded"
+        else:
+            score_text = f"the score is {float(score):.1f} on the dashboard's {CFR_SCORE_MIN:.0f}–{CFR_SCORE_MAX:.0f} scale"
+        answer = f"For {row['Country']} in {int(row['CFR Year']) if pd.notna(row.get('CFR Year')) else 'the available reporting period'}, {code} ({CFR_PRINCIPLE_NAMES.get(code, code)}): {score_text}."
+    else:
+        score_description = "the requested CFR scores" if principle_codes else "the CFR scores across the six enabling principles and overall score"
+        answer = f"I found {len(work):,} CFR record(s) for the request. The table below shows {score_description} from the dashboard's CFR dataset."
+
+    answer += "\n\nCFR scores are separate from alert counts and describe country-level assessments, not individual alert events.\n\nFor more information, please visit the EU SEE website: https://eusee.hivos.org/"
+    analysis = {
+        "analysis": {"records": records},
+        "records": records,
+        "visualization_requested": False,
+        "requested_dimension_sections": [],
+        "show_dimension_tables": False,
+    }
+    return {"answer": answer, "analysis": analysis, "filter_updated": False}
+
+
 def _process_eusee_ai_request(user_question: str) -> dict:
+    # Route explicit CFR questions to the validated CFR data source; all other
+    # requests use the generic alert-analysis engine below.
+    cfr_result = _try_process_cfr_question(user_question)
+    if cfr_result is not None:
+        return cfr_result
+
     df = get_full_dashboard_dataframe()
 
     if df.empty:
@@ -14205,6 +14432,20 @@ def _process_eusee_ai_request(user_question: str) -> dict:
         }
 
     plan = _merge_chatbot_safety_controls(user_question, plan, df)
+
+    # If the planner did not create a topic query, derive one generically from
+    # the user's wording. Structured country/region/principle filters are kept
+    # separate so a prompt can combine categories with event-text search.
+    if not str(plan.get("search_text") or "").strip():
+        inferred_topic = _infer_topic_search_text(user_question, df)
+        if inferred_topic:
+            plan["search_text"] = inferred_topic
+            if _explicit_record_request(user_question):
+                plan["intent"] = "records"
+
+    # A question asking for examples/cases must return actual source records.
+    if _explicit_record_request(user_question):
+        plan["intent"] = "records"
 
     validated_plan, plan_warnings = _validate_plan(df, plan)
 
@@ -14360,7 +14601,9 @@ def _generate_eusee_answer(user_question: str, analysis: dict) -> str:
               any topic/search filter has been applied.
             - Never substitute the complete dataset count for a narrower country, region,
               principle, impact, alert-type, or topic count.
-            - If the result is zero, say clearly that no matching alerts were found.
+            - If the result is zero, use plain, friendly language: explain that no matching alerts were found in the available dataset, suggest trying related keywords/country/principle, and do not describe internal technical limitations.
+            - Answer the specific question asked; do not add unrelated counts, countries, principles or sections.
+            - The assistant may answer varied questions, but only from VERIFIED_DATASET_RESULT. If the dataset cannot support a claim, say so briefly instead of guessing.
             - If a country and principle were requested, report their intersection, not the country total.
             - If actual records are supplied, answer with those records/examples rather than replacing
               them with a distribution or overall summary.
@@ -14435,7 +14678,12 @@ def _deterministic_eusee_answer(analysis: dict) -> str:
             alert_types = [str(v) for v in values]
 
     if count == 0:
-        answer = "In our data, there are no alerts matching that request."
+        answer = (
+            "I couldn't find alerts matching those terms in the available dataset. "
+            "Try related keywords, a country, or an enabling principle. I can answer "
+            "questions using the alert and Country Focus Report (CFR) information available "
+            "in this dashboard."
+        )
     elif principles and countries:
         answer = (
             f"In our data, there are {count:,} alerts related to "
@@ -14565,10 +14813,24 @@ def render_openai_output(result: dict, chart_instance_key: str | None = None):
     if not isinstance(chart, dict) or not chart:
         records = analysis.get("records")
         if isinstance(records, list) and records:
+            records_df = pd.DataFrame(records)
+            link_config = {}
+            for link_col, label, help_text, display_text in [
+                ("Open alert", "Alert link", "Open the original alert in a new browser tab.", "Open alert ↗"),
+                ("Open CFR report", "CFR report", "Open the original Country Focus Report.", "Open CFR report ↗"),
+            ]:
+                if link_col in records_df.columns:
+                    link_config[link_col] = st.column_config.LinkColumn(
+                        label=label,
+                        help=help_text,
+                        display_text=display_text,
+                        width="medium",
+                    )
             st.dataframe(
-                pd.DataFrame(records),
+                records_df,
                 use_container_width=True,
                 hide_index=True,
+                column_config=link_config,
             )
         return
 
@@ -14922,7 +15184,7 @@ def _render_eusee_ai_copilot_body():
                 🤖 AI Assistant
             </div>
             <div style="font-size:11px;color:#667085;line-height:1.35;margin-top:5px;">
-                Ask me about EU SEE data! For example: What are the trends in digital rights in Southern Africa over the last 3 months?
+                Ask any question about EU SEE alerts, event summaries, enabling principles, countries, trends, comparisons or Country Focus Report scores. Answers are grounded in the data available in this dashboard.
             </div>
         </div>
         """,
