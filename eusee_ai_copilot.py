@@ -635,6 +635,44 @@ def render_eusee_ai_copilot(
         # the permission first. The dashboard itself owns login routing.
         pass
 
+    # Keep the launcher visible while users scroll through the long dashboard.
+    # This targets the Copilot's single Streamlit popover (the module creates no
+    # other popovers) and leaves the dashboard layout/data untouched.
+    st.markdown(
+        """
+        <style>
+        [data-testid="stPopover"] {
+            position: fixed !important;
+            right: max(1rem, env(safe-area-inset-right)) !important;
+            bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+            z-index: 100000 !important;
+            width: auto !important;
+            max-width: calc(100vw - 2rem) !important;
+        }
+        [data-testid="stPopover"] > button {
+            min-height: 44px !important;
+            border-radius: 999px !important;
+            padding: 0.55rem 1rem !important;
+            font-weight: 750 !important;
+            box-shadow: 0 4px 18px rgba(35, 21, 47, 0.22) !important;
+            white-space: nowrap !important;
+        }
+        @media (max-width: 480px) {
+            [data-testid="stPopover"] {
+                right: max(0.65rem, env(safe-area-inset-right)) !important;
+                bottom: max(0.65rem, env(safe-area-inset-bottom)) !important;
+            }
+            [data-testid="stPopover"] > button {
+                min-height: 42px !important;
+                padding: 0.5rem 0.8rem !important;
+                font-size: 0.88rem !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     popover = None
     try:
         popover = st.popover("💬 AI assistant", use_container_width=False)
