@@ -658,16 +658,45 @@ def _render_result(result: dict, key: str) -> None:
                         y_col = numeric[-1]
                         request = question + " " + answer.casefold()
 
+                        chart_title = (
+                            f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}"
+                        )
+                        categorical_count_chart = (
+                            len(numeric) >= 1
+                            and (x_col in chart_df.columns)
+                            and (
+                                any(term in request for term in (
+                                    "region", "country", "principle", "category", "type",
+                                    "impact", "distribution", "breakdown", "count", "number",
+                                    "compare", "comparison", "rank", "ranking", "top", "bottom",
+                                ))
+                                or not any(term in request for term in (
+                                    "trend", "over time", "time series", "monthly", "yearly",
+                                    "timeline", "scatter", "relationship", "correlation",
+                                    "against", "versus", " vs ",
+                                ))
+                            )
+                        )
+
                         if any(term in request for term in ("pie", "share", "proportion", "percentage", "composition")):
                             fig = px.pie(
                                 chart_df, names=x_col, values=y_col,
-                                title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}",
-                                hole=0.32,
+                                title=chart_title, hole=0.42,
+                            )
+                            fig.update_traces(
+                                textposition="inside",
+                                texttemplate="%{label}<br>%{percent}",
+                                hovertemplate="%{label}<br>Count: %{value:,}<br>Share: %{percent}<extra></extra>",
                             )
                         elif any(term in request for term in ("trend", "over time", "time series", "monthly", "yearly", "timeline")):
                             fig = px.line(
                                 chart_df, x=x_col, y=y_col, markers=True,
                                 title=f"{'CFR score' if dataset_name == 'cfr' else 'Alert'} trend by {x_col}",
+                            )
+                            fig.update_traces(
+                                line=dict(width=3),
+                                marker=dict(size=7),
+                                hovertemplate="%{x}<br>%{y:,}<extra></extra>",
                             )
                         elif any(term in request for term in ("scatter", "relationship", "correlation", "against", "versus", " vs ")):
                             numeric_x = numeric[0]
@@ -678,29 +707,61 @@ def _render_result(result: dict, key: str) -> None:
                                     title=f"{numeric_y} vs {numeric_x}",
                                 )
                             else:
-                                fig = px.bar(chart_df, x=x_col, y=y_col, title=f"Results by {x_col}")
-                        elif len(chart_df) > 7 or any(term in request for term in ("rank", "ranking", "top", "bottom", "compare")):
+                                fig = px.bar(chart_df, x=x_col, y=y_col, title=chart_title)
+                        elif categorical_count_chart:
+                            # Horizontal bars are more readable for long labels such as
+                            # "Middle East and North Africa" and prevent text-as-bars output.
                             plot_df = chart_df.sort_values(y_col, ascending=True)
                             fig = px.bar(
                                 plot_df, x=y_col, y=x_col, orientation="h",
-                                title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}",
+                                title=chart_title,
+                                text=y_col,
+                            )
+                            fig.update_traces(
+                                texttemplate="%{x:,.0f}",
+                                textposition="outside",
+                                cliponaxis=False,
+                                hovertemplate="%{y}<br>Alerts: %{x:,.0f}<extra></extra>",
                             )
                         else:
                             fig = px.bar(
                                 chart_df, x=x_col, y=y_col,
-                                title=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}",
+                                title=chart_title,
+                                text=y_col,
+                            )
+                            fig.update_traces(
+                                texttemplate="%{y:,.2f}" if "cfr" in dataset_name else "%{y:,.0f}",
+                                textposition="outside",
+                                cliponaxis=False,
                             )
 
                         fig.update_layout(
+                            template="plotly_white",
                             autosize=True,
-                            height=max(300, min(430, 250 + 18 * len(chart_df))),
-                            margin=dict(l=16, r=16, t=58, b=48),
-                            font=dict(size=12),
-                            title=dict(font=dict(size=15)),
-                            legend=dict(font=dict(size=11)),
+                            height=max(320, min(500, 260 + 26 * len(chart_df))),
+                            margin=dict(l=14, r=32, t=64, b=52),
+                            font=dict(family="Arial, sans-serif", size=12, color="#344054"),
+                            title=dict(font=dict(size=16, color="#23152F"), x=0.02, xanchor="left"),
+                            legend=dict(font=dict(size=11), orientation="h", yanchor="bottom", y=1.02, x=0),
+                            plot_bgcolor="white",
+                            paper_bgcolor="white",
+                            hoverlabel=dict(font_size=12),
                         )
-                        fig.update_xaxes(automargin=True, tickfont=dict(size=11))
-                        fig.update_yaxes(automargin=True, tickfont=dict(size=11))
+                        fig.update_xaxes(
+                            automargin=True,
+                            tickfont=dict(size=11),
+                            showgrid=True,
+                            gridcolor="#EAECF0",
+                            zeroline=False,
+                            title_font=dict(size=12),
+                        )
+                        fig.update_yaxes(
+                            automargin=True,
+                            tickfont=dict(size=11),
+                            showgrid=False,
+                            zeroline=False,
+                            title_font=dict(size=12),
+                        )
                         st.plotly_chart(
                             fig, use_container_width=True,
                             key=f"eusee_copilot_{key}_{dataset_name}",
@@ -764,7 +825,7 @@ def render_eusee_ai_copilot(
         [data-testid="stPopover"] {
             position: fixed !important;
             right: max(16px, env(safe-area-inset-right)) !important;
-            bottom: max(16px, env(safe-area-inset-bottom)) !important;
+            bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
             left: auto !important;
             top: auto !important;
             z-index: 100000 !important;
@@ -881,7 +942,7 @@ def render_eusee_ai_copilot(
         @media (max-width: 600px) {
             [data-testid="stPopover"] {
                 right: max(8px, env(safe-area-inset-right)) !important;
-                bottom: max(8px, env(safe-area-inset-bottom)) !important;
+                bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px)) !important;
             }
             [data-testid="stPopoverBody"],
             [data-testid="stPopover"] [role="dialog"],
