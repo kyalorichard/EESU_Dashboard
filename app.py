@@ -7051,9 +7051,22 @@ def _standard_chart_height(horizontal=False):
 # ---------------- PERCENTAGE METHODOLOGY NOTE ----------------
 PERCENTAGE_CHART_DISCLAIMER = (
     "Percentages are calculated from the category occurrences displayed. "
-    "Where a record can be associated with more than one category, the same "
-    "record may contribute to multiple categories; therefore, percentages "
-    "may not sum to 100%."
+    "Where an alert can be associated with more than one category, it may "
+    "contribute to multiple categories; therefore, percentages may not sum to 100%."
+)
+
+REGION_PERCENTAGE_DISCLAIMER = (
+    "Note: Percentages are calculated against the total number of alerts across all regions."
+)
+
+COUNTRY_PERCENTAGE_DISCLAIMER = (
+    "Note: Percentages are calculated against the total number of alerts across all countries."
+)
+
+NEGATIVE_ALERT_PERCENTAGE_DISCLAIMER = (
+    "Note: Percentages for the indicators below are calculated against the total "
+    "number of negative alerts. Each negative alert may be classified under up to "
+    "two categories per analytical dimension; therefore, category percentages may not sum to 100%."
 )
 
 def _mark_percentage_chart(fig, disclaimer=PERCENTAGE_CHART_DISCLAIMER):
@@ -7071,8 +7084,17 @@ def _mark_percentage_chart(fig, disclaimer=PERCENTAGE_CHART_DISCLAIMER):
 
 
 # ---------------- DYNAMIC BAR CHART ----------------
-def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, normalize_labels=True):
-    """Create a percentage bar chart with standard height and dynamic percent axis."""
+def create_bar_chart(
+    df,
+    x,
+    y,
+    title=None,
+    horizontal=False,
+    color_col=None,
+    normalize_labels=True,
+    percentage_denominator=None,
+):
+    """Create a percentage bar chart using a supplied or displayed-row denominator."""
     df = df.copy()
 
     if df is None or df.empty or x not in df.columns or y not in df.columns:
@@ -7090,9 +7112,18 @@ def create_bar_chart(df, x, y, title=None, horizontal=False, color_col=None, nor
     df["raw_count"] = df[y]
 
     total_count = float(df["raw_count"].sum())
+    denominator = total_count
+    if percentage_denominator is not None:
+        try:
+            denominator = float(percentage_denominator)
+        except (TypeError, ValueError):
+            denominator = total_count
+        if not np.isfinite(denominator) or denominator < 0:
+            denominator = total_count
+
     df["percent_value"] = np.where(
-        total_count > 0,
-        (df["raw_count"] / total_count) * 100,
+        denominator > 0,
+        (df["raw_count"] / denominator) * 100,
         0,
     ).round(1)
 
@@ -7235,8 +7266,24 @@ def readable_stacked_bar_label_color(hex_color):
         return "#111827"
 
 # ---------------- HORIZONTAL STACKED BAR ----------------
-def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None, horizontal=False, normalize_labels=True, show_percentage_disclaimer=True):
-    """Create a stacked bar chart using percent of grand total with standard height."""
+def create_h_stacked_bar(
+    df,
+    y,
+    x="count",
+    color_col="alert-impact",
+    title=None,
+    horizontal=False,
+    normalize_labels=True,
+    show_percentage_disclaimer=True,
+    percentage_denominator=None,
+):
+    """Create a stacked bar chart with percentages based on the chosen denominator.
+
+    If percentage_denominator is provided, segment percentages use that total rather
+    than the sum of the displayed rows. This supports charts showing a subset of
+    categories (for example, the top 15 countries) while retaining the full-dataset
+    denominator.
+    """
     df = df.copy()
 
     if df is None or df.empty or y not in df.columns or x not in df.columns or color_col not in df.columns:
@@ -7254,9 +7301,18 @@ def create_h_stacked_bar(df, y, x="count", color_col="alert-impact", title=None,
     df["raw_count"] = df[x]
 
     grand_total = float(df["raw_count"].sum())
+    denominator = grand_total
+    if percentage_denominator is not None:
+        try:
+            denominator = float(percentage_denominator)
+        except (TypeError, ValueError):
+            denominator = grand_total
+        if not np.isfinite(denominator) or denominator < 0:
+            denominator = grand_total
+
     df["percent_value"] = np.where(
-        grand_total > 0,
-        (df["raw_count"] / grand_total) * 100,
+        denominator > 0,
+        (df["raw_count"] / denominator) * 100,
         0,
     ).round(1)
 
@@ -9914,7 +9970,7 @@ if tab_overview is not None:
             a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
             a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
             #a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
-            # Top 10 countries by total alert count
+            # Top 15 countries by total alert count
             top10_countries = (
                 filtered_global
                 .groupby("alert-country")
@@ -9923,7 +9979,7 @@ if tab_overview is not None:
                 .index
             )
 
-            # Keep only those countries
+            # Keep only those countries; percentages still use all-country total.
             a4 = (
                 filtered_global[
                     filtered_global["alert-country"].isin(top10_countries)
@@ -9933,9 +9989,13 @@ if tab_overview is not None:
                 .reset_index(name="count")
             )
 
-            # Percentage of total alerts within the Top 10 countries
-            a4["percentage"] = (
-                a4["count"] / a4["count"].sum() * 100
+            # Percentage of all alerts across all countries, while displaying only
+            # the 15 countries with the highest alert counts.
+            total_alerts_all_countries = len(filtered_global)
+            a4["percentage"] = np.where(
+                total_alerts_all_countries > 0,
+                a4["count"] / total_alerts_all_countries * 100,
+                0,
             )
 
             # Sort countries by their total counts
@@ -9972,7 +10032,8 @@ if tab_overview is not None:
                 color_col="alert-impact",
                 title="Alert distribution across enabling principles", 
                 horizontal=True,
-                normalize_labels=False
+                normalize_labels=False,
+                show_percentage_disclaimer=False,
             )
 
          
@@ -9997,8 +10058,58 @@ if tab_overview is not None:
             #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
             #if is_privileged():
-            render_dashboard_plotly_chart(create_h_stacked_bar(a3,y="region",x="count",color_col="alert-impact",title="Alert distribution across regions", horizontal=False, normalize_labels=False), plot_df=a3, visual_type="stacked bar chart", x_col="region", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart3", container=r2c1, permission_key="view_chart_overview_regions", permission_label="Overview regional distribution")
-            render_dashboard_plotly_chart(create_h_stacked_bar(a4,y="alert-country",x="count",color_col="alert-impact",title="Alert distribution across countries", horizontal=False, normalize_labels=False), plot_df=a4, visual_type="stacked bar chart", x_col="alert-country", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart4", container=r2c2, permission_key="view_chart_overview_countries", permission_label="Overview country distribution")
+            fig_regions = create_h_stacked_bar(
+                a3,
+                y="region",
+                x="count",
+                color_col="alert-impact",
+                title="Alert distribution across regions",
+                horizontal=False,
+                normalize_labels=False,
+            )
+            fig_regions = _mark_percentage_chart(
+                fig_regions,
+                disclaimer=REGION_PERCENTAGE_DISCLAIMER,
+            )
+            render_dashboard_plotly_chart(
+                fig_regions,
+                plot_df=a3,
+                visual_type="stacked bar chart",
+                x_col="region",
+                group_col="alert-impact",
+                dashboard_df=filtered_global,
+                key="tab1_chart3",
+                container=r2c1,
+                permission_key="view_chart_overview_regions",
+                permission_label="Overview regional distribution",
+            )
+
+            fig_countries = create_h_stacked_bar(
+                a4,
+                y="alert-country",
+                x="count",
+                color_col="alert-impact",
+                title="Alert distribution across countries",
+                horizontal=False,
+                normalize_labels=False,
+                percentage_denominator=len(filtered_global),
+            )
+            fig_countries = _mark_percentage_chart(
+                fig_countries,
+                disclaimer=COUNTRY_PERCENTAGE_DISCLAIMER,
+            )
+            render_dashboard_plotly_chart(
+                fig_countries,
+                plot_df=a4,
+                visual_type="stacked bar chart",
+                x_col="alert-country",
+                group_col="alert-impact",
+                dashboard_df=filtered_global,
+                key="tab1_chart4",
+                container=r2c2,
+                permission_key="view_chart_overview_countries",
+                permission_label="Overview country distribution",
+            )
 
     
             cols_rename_map  = {
@@ -10047,7 +10158,8 @@ if tab_negative is not None:
                     """,
                     unsafe_allow_html=True,
            )
-     
+
+        st.caption(NEGATIVE_ALERT_PERCENTAGE_DISCLAIMER)
 
         if has_permission("view_negative_alerts"):
             #st.subheader("Negative Alerts")
@@ -10380,12 +10492,12 @@ if tab_negative is not None:
                 r2c1, r2c2, r2c3 = st.columns(3)
 
     
-                render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count",title="Types of restrictive actors", horizontal=True, normalize_labels=True), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
-                render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count",title="Types of civil society actors affected", horizontal=True, normalize_labels=True), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
-                render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count",title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
-                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count",title="Types of negative events", horizontal=True, normalize_labels=True), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
-                render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count",title="Distribution of negative alert types", horizontal=True, normalize_labels=True), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
-                render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
+                render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count", title="Types of restrictive actors", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
+                render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count", title="Types of civil society actors affected", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
+                render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count", title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
+                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
+                render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count", title="Distribution of negative alert types", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
+                render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False, percentage_denominator=len(reactive_df_updated)),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
              
 
               
