@@ -173,6 +173,33 @@ def _as_filter_values(value: str) -> list[str]:
     return [part.strip() for part in str(value or "").split(",") if part.strip()]
 
 
+TOPIC_EXPANSIONS = {
+    "social media": [
+        "social media", "social-media", "social network", "social networks",
+        "Facebook", "Twitter", "X.com", "Instagram", "TikTok", "YouTube",
+        "WhatsApp", "Telegram", "LinkedIn", "online platform", "digital platform",
+        "social post", "social posts", "hashtag", "hashtags",
+    ],
+    "online censorship": ["online censorship", "internet censorship", "website blocking", "content moderation", "internet shutdown"],
+    "freedom of expression": ["freedom of expression", "free speech", "freedom of speech", "media freedom", "journalist"],
+}
+
+
+def _topic_terms(topic: str) -> list[str]:
+    """Expand common issue labels to dataset wording and platform names."""
+    cleaned = re.sub(r"\s+", " ", str(topic or "")).strip()
+    key = _clean(cleaned)
+    if key == "oscial media":
+        key = "social media"
+    terms = TOPIC_EXPANSIONS.get(key, [cleaned])
+    unique = {}
+    for term in terms:
+        term = str(term).strip()
+        if term:
+            unique[_clean(term)] = term
+    return sorted(unique.values(), key=len, reverse=True)
+
+
 def _apply_filters(df: pd.DataFrame, filters: list[dict], search_text: str | None) -> tuple[pd.DataFrame, list[str]]:
     result = df.copy()
     notes = []
@@ -235,13 +262,21 @@ def _apply_filters(df: pd.DataFrame, filters: list[dict], search_text: str | Non
             c for c in result.columns
             if pd.api.types.is_object_dtype(result[c])
             or pd.api.types.is_string_dtype(result[c])
-            or pd.api.types.is_categorical_dtype(result[c])
+            or isinstance(result[c].dtype, pd.CategoricalDtype)
         ]
         if text_columns:
+            terms = _topic_terms(topic)
             mask = pd.Series(False, index=result.index)
             for col in text_columns:
-                mask |= result[col].astype(str).str.contains(re.escape(topic), case=False, na=False)
+                values = result[col].astype(str)
+                for term in terms:
+                    mask |= values.str.contains(re.escape(term), case=False, na=False)
             result = result.loc[mask]
+            if _clean(topic) in TOPIC_EXPANSIONS or _clean(topic) == "oscial media":
+                notes.append(
+                    f"Topic search expanded '{topic}' to related terms and platform names; "
+                    f"matched {len(result)} records."
+                )
     return result, notes
 
 
@@ -560,11 +595,13 @@ def _call_ai(
     answer = str(getattr(final, "output_text", "") or "").strip()
     if not answer:
         raise RuntimeError("The assistant returned an empty answer.")
+    # Strip model-generated copies; the application adds one canonical footer.
     answer = re.sub(
-        r"\\n*\\s*For more information, please visit the EU SEE website:\\s*https?://eusee\\.hivos\\.org/\\s*$",
-        "", answer, flags=re.IGNORECASE,
+        r"(?im)^\s*For more information, please visit the EU SEE website:.*$",
+        "", answer,
     ).strip()
-    return {"answer": answer + "\\n\\n" + FOOTER, "analysis": evidence_by_dataset}
+    answer = re.sub(r"(?i)https?://eusee\.hivos\.org/?", "", answer).strip()
+    return {"answer": answer + "\n\n" + FOOTER, "analysis": evidence_by_dataset}
 
 
 def _render_result(result: dict, key: str) -> None:
