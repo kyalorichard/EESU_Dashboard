@@ -14186,9 +14186,12 @@ def _execute_plan(df: pd.DataFrame, plan: dict) -> dict:
             if chart_type in {"line", "area"} and color_candidates:
                 chart["color"] = color_candidates[0]
 
-    search_metadata["examples_returned"] = len(records)
+    # `records` is only populated for record/example intents. For aggregate
+    # questions it may be None, so normalise it before computing search metadata.
+    returned_records = records if isinstance(records, list) else []
+    search_metadata["examples_returned"] = len(returned_records)
     search_metadata["results_limited"] = bool(
-        len(filtered) > len(records) and intent == "records"
+        intent == "records" and len(filtered) > len(returned_records)
     )
 
     analysis = {
