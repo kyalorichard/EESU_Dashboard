@@ -10159,7 +10159,38 @@ if tab_negative is not None:
                     unsafe_allow_html=True,
            )
 
-        st.caption(NEGATIVE_ALERT_PERCENTAGE_DISCLAIMER)
+        
+        st.markdown(
+            f"""
+            <div style="
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 12px 16px;
+                margin: 8px 0 16px 0;
+                background: #FBF7FD;
+                border: 1px solid #E7D4F1;
+                border-left: 4px solid #660094;
+                border-radius: 10px;
+                color: #475467;
+                font-family: 'Anek Devanagari', Arial, sans-serif;
+                font-size: 13px;
+                line-height: 1.55;
+            ">
+                <span style="
+                    font-size: 17px;
+                    line-height: 1.4;
+                    flex-shrink: 0;
+                ">ⓘ</span>
+                <div>
+                    <strong style="color: #660094;">Percentage calculation:</strong>
+                    {NEGATIVE_ALERT_PERCENTAGE_DISCLAIMER.replace("Note: ", "")}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 
         if has_permission("view_negative_alerts"):
             #st.subheader("Negative Alerts")
