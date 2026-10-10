@@ -682,16 +682,18 @@ def render_eusee_ai_copilot(
         # the permission first. The dashboard itself owns login routing.
         pass
 
-    # Keep the launcher visible while users scroll through the long dashboard.
-    # This targets the Copilot's single Streamlit popover (the module creates no
-    # other popovers) and leaves the dashboard layout/data untouched.
+    # Keep the launcher fixed on screen and constrain the opened assistant to a
+    # compact, independently scrollable panel (not a full-screen overlay).
     st.markdown(
         """
         <style>
+        /* Persistent launcher: bottom-right on desktop and mobile. */
         [data-testid="stPopover"] {
             position: fixed !important;
             right: max(1rem, env(safe-area-inset-right)) !important;
             bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+            left: auto !important;
+            top: auto !important;
             z-index: 100000 !important;
             width: auto !important;
             max-width: calc(100vw - 2rem) !important;
@@ -704,7 +706,42 @@ def render_eusee_ai_copilot(
             box-shadow: 0 4px 18px rgba(35, 21, 47, 0.22) !important;
             white-space: nowrap !important;
         }
-        @media (max-width: 480px) {
+
+        /* Popover panel: small, viewport-aware, and scrollable. */
+        [data-testid="stPopoverBody"],
+        [data-testid="stPopover"] [role="dialog"],
+        div[data-baseweb="popover"] > div {
+            width: min(390px, calc(100vw - 24px)) !important;
+            max-width: calc(100vw - 24px) !important;
+            max-height: min(72vh, 680px) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+            overscroll-behavior: contain !important;
+        }
+        [data-testid="stPopoverBody"] > div,
+        [data-testid="stPopover"] [role="dialog"] > div {
+            max-height: inherit !important;
+            overflow-y: auto !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Keep chat content and result tables within the compact panel. */
+        [data-testid="stPopoverBody"] [data-testid="stChatMessage"],
+        [data-testid="stPopover"] [role="dialog"] [data-testid="stChatMessage"] {
+            padding: 0.45rem 0.55rem !important;
+        }
+        [data-testid="stPopoverBody"] [data-testid="stDataFrame"],
+        [data-testid="stPopover"] [role="dialog"] [data-testid="stDataFrame"] {
+            max-width: 100% !important;
+            overflow-x: auto !important;
+        }
+        [data-testid="stPopoverBody"] textarea,
+        [data-testid="stPopover"] [role="dialog"] textarea {
+            min-height: 72px !important;
+        }
+
+        @media (max-width: 600px) {
             [data-testid="stPopover"] {
                 right: max(0.65rem, env(safe-area-inset-right)) !important;
                 bottom: max(0.65rem, env(safe-area-inset-bottom)) !important;
@@ -714,6 +751,13 @@ def render_eusee_ai_copilot(
                 padding: 0.5rem 0.8rem !important;
                 font-size: 0.88rem !important;
             }
+            [data-testid="stPopoverBody"],
+            [data-testid="stPopover"] [role="dialog"],
+            div[data-baseweb="popover"] > div {
+                width: min(360px, calc(100vw - 16px)) !important;
+                max-width: calc(100vw - 16px) !important;
+                max-height: 70vh !important;
+            }
         }
         </style>
         """,
@@ -722,7 +766,7 @@ def render_eusee_ai_copilot(
 
     popover = None
     try:
-        popover = st.popover("💬 AI assistant", use_container_width=False)
+        popover = st.popover("💬 Ask EU SEE", use_container_width=False)
     except Exception:
         popover = None
 
@@ -732,7 +776,7 @@ def render_eusee_ai_copilot(
         with popover:
             _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
     else:
-        with st.expander("💬 AI assistant", expanded=False):
+        with st.expander("💬 Ask EU SEE", expanded=False):
             _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
 
 
