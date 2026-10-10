@@ -5889,9 +5889,7 @@ else:
 def render_top_feedback_bar():
     """Render a single-click floating link that opens the feedback form."""
     feedback_url = (
-        "https://forms.office.com/pages/responsepage.aspx?"
-        "id=aFcOUAlSoUeqnjS7rLiI3i2QH6350xBGsugTt9B-i59URUk5UEFTV0VKSDRaU0lXTEc1S1g1M0hYTi4u"
-        "&route=shorturl"
+        "https://forms.gle/XGbyegQ16LFPeckt7"
     )
 
     components.html(
