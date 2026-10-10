@@ -1,3 +1,28 @@
+"""
+EU SEE Dashboard
+================
+
+Main Streamlit application entry point.
+
+MAINTENANCE GUIDE
+-----------------
+1. Imports and application configuration
+2. Typography and Plotly defaults
+3. Authentication and authorization
+4. Global CSS and responsive layout
+5. Searchable data preview and export helpers
+6. File paths and PDF downloads
+7. Data loading and normalization
+8. Global filters and dashboard navigation
+9. Dashboard views, charts, tables, and maps
+10. AI Copilot and chart rendering
+
+Keep data processing, authorization checks, and UI rendering separate when
+adding features. Preserve unique Streamlit widget keys and permission checks.
+Mobile styles are centralized in `inject_classic_dashboard_css()`; chart
+containers should use responsive Plotly configuration.
+"""
+
 import base64
 import hashlib
 import html
@@ -715,6 +740,141 @@ div[data-testid="stTabs"]{
     padding-top: 0rem !important;
     margin-bottom: 0rem !important;
     padding-bottom: 0rem !important;
+}
+
+/* ---------------- CONSOLIDATED RESPONSIVE COMPONENT LAYER ---------------- */
+/* Prevent long labels, widgets, and embedded content from forcing page overflow. */
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stMainBlockContainer"], .main, .block-container {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+[data-testid="stWidget"], [data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"], [data-testid="column"],
+[data-testid="stForm"], [data-testid="stFormSubmitButton"],
+[data-testid="stMetric"], [data-testid="stAlert"],
+[data-testid="stExpander"], [data-testid="stPopover"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+[data-testid="stWidget"] input,
+[data-testid="stWidget"] textarea,
+[data-testid="stWidget"] [data-baseweb="select"],
+[data-testid="stWidget"] [data-baseweb="input"],
+[data-testid="stWidget"] button {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    font-size: clamp(1.15rem, 3.2vw, 2rem) !important;
+}
+[data-testid="stMetric"] [data-testid="stMetricLabel"] {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+[data-testid="stDataFrame"], [data-testid="stTable"] {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+[data-testid="stDataFrame"] [role="grid"] {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+[data-testid="stPlotlyChart"], [data-testid="stVegaLiteChart"],
+[data-testid="stArrowVegaLiteChart"], .stPlotlyChart,
+.js-plotly-plot, .plot-container, .svg-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+[data-testid="stTabs"] [role="tab"] {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+[data-testid="stMarkdownContainer"] img,
+[data-testid="stImage"] img, video, iframe {
+    max-width: 100% !important;
+}
+[data-testid="stMarkdownContainer"] pre,
+[data-testid="stCode"] pre {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+}
+.stDownloadButton, .stButton, [data-testid="stFormSubmitButton"] {
+    min-width: 0 !important;
+}
+.stDownloadButton button, .stButton button,
+[data-testid="stFormSubmitButton"] button {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+
+@media (max-width: 768px) {
+    .main .block-container, [data-testid="stMainBlockContainer"] {
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+        padding-top: 0.65rem !important;
+        padding-bottom: 5rem !important;
+    }
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 0.65rem !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    [data-testid="stPlotlyChart"] {
+        min-height: 260px !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        flex: 0 0 auto !important;
+        min-width: max-content !important;
+    }
+    [data-testid="stMetric"] {
+        padding: 0.5rem !important;
+    }
+    [data-testid="stExpander"] summary {
+        padding: 0.7rem 0.8rem !important;
+        white-space: normal !important;
+    }
+    section[data-testid="stSidebar"] {
+        max-width: 92vw !important;
+    }
+    .executive-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .executive-mini-kpi strong {
+        overflow-wrap: anywhere !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .main .block-container, [data-testid="stMainBlockContainer"] {
+        padding-left: 0.45rem !important;
+        padding-right: 0.45rem !important;
+    }
+    .executive-metric-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    [data-testid="stPlotlyChart"] {
+        min-height: 230px !important;
+    }
+    .last-updated-badge, .data-preview-toolbar,
+    .executive-table-status, .executive-table-header {
+        align-items: stretch !important;
+        overflow-wrap: anywhere !important;
+    }
 }
 
 </style>
@@ -15365,4 +15525,3 @@ def render_eusee_ai_copilot_popover():
 
 
 render_eusee_ai_copilot_popover()
-
