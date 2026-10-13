@@ -1835,7 +1835,7 @@ def render_eusee_ai_copilot(
             position: fixed !important;
             right: max(16px, env(safe-area-inset-right)) !important;
             bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
-            z-index: 100000 !important;
+            z-index: 2147483000 !important;
             width: auto !important;
         }
         .st-key-eusee_copilot_launcher button {
@@ -1863,8 +1863,9 @@ def render_eusee_ai_copilot(
         .st-key-eusee_copilot_panel {
             position: fixed !important;
             right: max(16px, env(safe-area-inset-right)) !important;
-            bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
-            z-index: 99999 !important;
+            /* Keep the purple launcher visible and clickable beneath the panel. */
+            bottom: max(128px, calc(env(safe-area-inset-bottom) + 112px)) !important;
+            z-index: 2147482000 !important;
             width: min(410px, calc(100vw - 24px)) !important;
             max-height: min(72vh, 680px) !important;
             overflow-y: auto !important;
@@ -1912,7 +1913,7 @@ def render_eusee_ai_copilot(
             }
             .st-key-eusee_copilot_panel {
                 right: max(8px, env(safe-area-inset-right)) !important;
-                bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px)) !important;
+                bottom: max(108px, calc(env(safe-area-inset-bottom) + 96px)) !important;
                 width: calc(100vw - 16px) !important;
                 max-height: 70vh !important;
                 padding: 9px !important;
