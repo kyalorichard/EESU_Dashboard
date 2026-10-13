@@ -455,15 +455,24 @@ def _history_path(base_dir: Path) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     return folder / f"{_user_key()}.json"
 def _load_history(base_dir: Path) -> list[dict]:
+    """Load per-user history once per session and reuse it on UI-only reruns."""
     path = _history_path(base_dir)
+    cache_key = f"eusee_chat_history::{path}"
     try:
-        payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        stat = path.stat() if path.exists() else None
+        mtime = stat.st_mtime_ns if stat else None
+        cached = st.session_state.get(cache_key)
+        if cached and cached.get("mtime") == mtime:
+            return list(cached.get("messages", []))
+        payload = json.loads(path.read_text(encoding="utf-8")) if stat else {}
         messages = payload.get("messages", [])
-        if isinstance(messages, list):
-            return [m for m in messages if isinstance(m, dict) and m.get("role") in {"user", "assistant"}][-100:]
+        if not isinstance(messages, list):
+            messages = []
+        clean = [m for m in messages if isinstance(m, dict) and m.get("role") in {"user", "assistant"}][-100:]
+        st.session_state[cache_key] = {"mtime": mtime, "messages": clean}
+        return list(clean)
     except Exception:
-        pass
-    return []
+        return []
 def _save_history(base_dir: Path, messages: list[dict]) -> None:
     path = _history_path(base_dir)
     payload = {
@@ -473,6 +482,10 @@ def _save_history(base_dir: Path, messages: list[dict]) -> None:
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     temp.replace(path)
+    try:
+        st.session_state[f"eusee_chat_history::{path}"] = {"mtime": path.stat().st_mtime_ns, "messages": messages[-100:]}
+    except Exception:
+        pass
 def _call_ai(
     client,
     model: str,
@@ -777,7 +790,7 @@ def render_eusee_ai_copilot(
     st.markdown(
         """
         <style>
-        /* Floating launcher stays available when the panel is minimized. */
+        /* Floating launcher stays available only while the chat panel is hidden. */
         .st-key-eusee_copilot_launcher {
             position: fixed !important;
             right: max(16px, env(safe-area-inset-right)) !important;
@@ -812,7 +825,8 @@ def render_eusee_ai_copilot(
         }
         /* Small, restrained header controls rather than default oversized buttons. */
         .st-key-eusee_copilot_minimize button,
-        .st-key-eusee_copilot_toggle_size button {
+        .st-key-eusee_copilot_toggle_size button,
+        .st-key-eusee_copilot_close button {
             min-width: 34px !important;
             width: 34px !important;
             min-height: 34px !important;
@@ -822,13 +836,19 @@ def render_eusee_ai_copilot(
             border-radius: 9px !important;
             background: #FFFFFF !important;
             color: #5B2674 !important;
-            font-size: 17px !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            font-family: Arial, sans-serif !important;
             font-weight: 600 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             line-height: 1 !important;
             box-shadow: none !important;
         }
         .st-key-eusee_copilot_minimize button:hover,
-        .st-key-eusee_copilot_toggle_size button:hover {
+        .st-key-eusee_copilot_toggle_size button:hover,
+        .st-key-eusee_copilot_close button:hover {
             background: #F7F0FA !important;
             border-color: #CDA9DF !important;
             color: #4E006F !important;
@@ -931,32 +951,42 @@ def render_eusee_ai_copilot(
     st.session_state.setdefault("eusee_copilot_open", False)
     st.session_state.setdefault("eusee_copilot_maximized", False)
 
-    # Keep the launcher in the viewport and show the panel only when requested.
-    with st.container(key="eusee_copilot_launcher"):
-        if st.button("💬 Ask EU SEE", key="eusee_copilot_open_button", use_container_width=False):
-            st.session_state["eusee_copilot_open"] = not st.session_state["eusee_copilot_open"]
-            st.rerun()
+    # Render the launcher only when the panel is closed. This prevents the
+    # floating launcher from sitting on top of the open chat and stealing clicks.
+    is_open = bool(st.session_state.get("eusee_copilot_open", False))
+    if not is_open:
+        with st.container(key="eusee_copilot_launcher"):
+            if st.button("💬 Ask EU SEE", key="eusee_copilot_open_button", use_container_width=False):
+                st.session_state["eusee_copilot_open"] = True
+                st.rerun()
 
     if st.session_state.get("eusee_copilot_open", False):
         maximized = bool(st.session_state.get("eusee_copilot_maximized", False))
         panel_key = "eusee_copilot_panel_max" if maximized else "eusee_copilot_panel_normal"
         with st.container(key=panel_key):
-            title_col, minimize_col, maximize_col = st.columns([8, 1, 1], vertical_alignment="center")
+            title_col, minimize_col, maximize_col, close_col = st.columns(
+                [7, 1, 1, 1], vertical_alignment="center"
+            )
             with title_col:
                 st.markdown(
                     "<div style='font-size:15px;font-weight:750;color:#23152F;line-height:1.25;'>EU SEE AI Copilot</div>",
                     unsafe_allow_html=True,
                 )
             with minimize_col:
-                if st.button("−", key="eusee_copilot_minimize", help="Minimize chatbot"):
+                if st.button("−", key="eusee_copilot_minimize", help="Hide chatbot"):
                     st.session_state["eusee_copilot_open"] = False
                     st.session_state["eusee_copilot_maximized"] = False
                     st.rerun()
             with maximize_col:
-                button_label = "⛶" if not maximized else "↙"
-                button_help = "Expand chatbot" if not maximized else "Restore compact size"
+                button_label = "↗" if not maximized else "↙"
+                button_help = "Expand to large view" if not maximized else "Restore compact view"
                 if st.button(button_label, key="eusee_copilot_toggle_size", help=button_help):
                     st.session_state["eusee_copilot_maximized"] = not maximized
+                    st.rerun()
+            with close_col:
+                if st.button("×", key="eusee_copilot_close", help="Close chatbot"):
+                    st.session_state["eusee_copilot_open"] = False
+                    st.session_state["eusee_copilot_maximized"] = False
                     st.rerun()
             st.divider()
             _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
@@ -986,12 +1016,24 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
         return
     if not isinstance(cfr_dataframe, pd.DataFrame):
         cfr_dataframe = pd.DataFrame()
-    client = _get_client(api_key)
+    client_cache_key = "eusee_copilot_openai_client"
+    api_key_fingerprint = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    cached_client = st.session_state.get(client_cache_key)
+    if not cached_client or cached_client.get("fingerprint") != api_key_fingerprint:
+        client = _get_client(api_key)
+        if client is not None:
+            st.session_state[client_cache_key] = {"fingerprint": api_key_fingerprint, "client": client}
+    else:
+        client = cached_client.get("client")
     if client is None:
         st.error("The OpenAI client could not be initialized.")
         return
     messages = _load_history(base_dir)
-    for index, message in enumerate(messages[-12:]):
+    # Render only the latest six turns; older turns remain saved and can be
+    # retrieved from the JSON history. This avoids replaying many Plotly charts
+    # and large tables every time the launcher or size controls trigger a rerun.
+    recent_messages = messages[-6:]
+    for index, message in enumerate(recent_messages):
         role = message.get("role", "assistant")
         content = str(message.get("content", ""))
         with st.chat_message(role):
@@ -1019,8 +1061,8 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
                 result = _call_ai(
                     client,
                     model,
-                    dataframe.copy(),
-                    cfr_dataframe.copy(),
+                    dataframe,
+                    cfr_dataframe,
                     messages[:-1],
                     question,
                 )
