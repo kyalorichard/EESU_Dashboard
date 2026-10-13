@@ -714,7 +714,7 @@ def _render_result(result: dict, key: str) -> None:
                             height=max(320, min(500, 260 + 26 * len(chart_df))),
                             margin=dict(l=14, r=32, t=64, b=52),
                             font=dict(family="Arial, sans-serif", size=12, color="#344054"),
-                            title=dict(font=dict(size=16, color="#23152F"), x=0.02, xanchor="left"),
+                            title=dict(font=dict(size=12, color="#23152F"), x=0.02, xanchor="left"),
                             legend=dict(font=dict(size=11), orientation="h", yanchor="bottom", y=1.02, x=0),
                             plot_bgcolor="white",
                             paper_bgcolor="white",
@@ -806,7 +806,7 @@ def render_eusee_ai_copilot(
             border-radius: 999px !important;
             background: #660094 !important;
             color: #FFFFFF !important;
-            font-size: 13px !important;
+            font-size: 12px !important;
             font-weight: 700 !important;
             letter-spacing: .01em !important;
             white-space: nowrap !important;
@@ -837,7 +837,7 @@ def render_eusee_ai_copilot(
             background: #FFFFFF !important;
             color: #5B2674 !important;
             cursor: pointer !important;
-            font-size: 16px !important;
+            font-size: 12px !important;
             font-family: Arial, sans-serif !important;
             font-weight: 600 !important;
             display: inline-flex !important;
@@ -914,7 +914,7 @@ def render_eusee_ai_copilot(
         }
         .st-key-eusee_copilot_panel_normal textarea,
         .st-key-eusee_copilot_panel_max textarea {
-            font-size: 14px !important;
+            font-size: 12px !important;
             line-height: 1.45 !important;
             min-height: 78px !important;
             overflow-y: auto !important;
@@ -969,7 +969,7 @@ def render_eusee_ai_copilot(
             )
             with title_col:
                 st.markdown(
-                    "<div style='font-size:15px;font-weight:750;color:#23152F;line-height:1.25;'>EU SEE AI Copilot</div>",
+                    "<div style='font-size:12px;font-weight:750;color:#23152F;line-height:1.25;'>EU SEE AI Copilot</div>",
                     unsafe_allow_html=True,
                 )
             with minimize_col:
@@ -996,7 +996,7 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
         """
         <div style="padding:12px 8px;border-bottom:1px solid #EEF0F4;">
           <div style="font-size:10px;font-weight:900;letter-spacing:.12em;color:#660094;">EU SEE AI</div>
-          <div style="font-size:17px;font-weight:900;color:#23152F;">Dataset assistant</div>
+          <div style="font-size:12px;font-weight:900;color:#23152F;">Dataset assistant</div>
           <div style="font-size:12px;color:#667085;">Ask questions, summarise alerts, compare countries, explore trends, or find records.</div>
         </div>
         """,
