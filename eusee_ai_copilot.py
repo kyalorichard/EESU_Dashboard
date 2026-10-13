@@ -773,154 +773,148 @@ def render_eusee_ai_copilot(
         # The caller may have a different auth-state representation; check only
         # the permission first. The dashboard itself owns login routing.
         pass
-    # Compact assistant typography and two-axis overflow handling.
+    # Responsive floating chatbot with minimize and maximize controls.
     st.markdown(
         """
         <style>
-        /* Floating launcher */
-        [data-testid="stPopover"] {
+        /* Floating launcher stays available when the panel is minimized. */
+        .st-key-eusee_copilot_launcher {
             position: fixed !important;
             right: max(16px, env(safe-area-inset-right)) !important;
-            bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
-            left: auto !important;
-            top: auto !important;
-            z-index: 100000 !important;
+            bottom: max(16px, env(safe-area-inset-bottom)) !important;
+            z-index: 1000001 !important;
             width: auto !important;
-            max-width: calc(100vw - 24px) !important;
         }
-        [data-testid="stPopover"] > button {
-            min-height: 42px !important;
-            padding: 8px 14px !important;
+        .st-key-eusee_copilot_launcher button {
+            min-height: 44px !important;
+            padding: 8px 16px !important;
             border-radius: 999px !important;
             font-size: 13px !important;
-            font-weight: 650 !important;
-            line-height: 1.35 !important;
+            font-weight: 700 !important;
             white-space: nowrap !important;
-            box-shadow: 0 4px 16px rgba(35, 21, 47, 0.20) !important;
+            box-shadow: 0 4px 16px rgba(35, 21, 47, .22) !important;
         }
-        /* A small panel with its own vertical and horizontal scroll behavior. */
-        [data-testid="stPopoverBody"],
-        [data-testid="stPopover"] [role="dialog"],
-        div[data-baseweb="popover"] > div {
-            width: min(410px, calc(100vw - 24px)) !important;
+        /* Compact mode: independent scrolling, without changing the dashboard layout. */
+        .st-key-eusee_copilot_panel_normal {
+            position: fixed !important;
+            right: max(16px, env(safe-area-inset-right)) !important;
+            bottom: max(72px, calc(env(safe-area-inset-bottom) + 60px)) !important;
+            top: auto !important;
+            left: auto !important;
+            width: min(420px, calc(100vw - 24px)) !important;
             max-width: calc(100vw - 24px) !important;
-            max-height: min(72vh, 680px) !important;
+            max-height: min(74vh, 720px) !important;
             overflow-y: auto !important;
-            overflow-x: auto !important;
+            overflow-x: hidden !important;
             overscroll-behavior: contain !important;
-            scrollbar-gutter: stable;
             box-sizing: border-box !important;
-            font-size: 14px !important;
-            line-height: 1.5 !important;
+            padding: 8px 12px 12px !important;
+            border: 1px solid #E4E7EC !important;
+            border-radius: 16px !important;
+            background: var(--background-color, white) !important;
+            box-shadow: 0 12px 40px rgba(16, 24, 40, .24) !important;
+            z-index: 1000000 !important;
         }
-        [data-testid="stPopoverBody"] > div,
-        [data-testid="stPopover"] [role="dialog"] > div {
-            max-height: inherit !important;
-            max-width: 100% !important;
+        /* Expanded mode uses most of the viewport; the dashboard remains underneath. */
+        .st-key-eusee_copilot_panel_max {
+            position: fixed !important;
+            top: max(12px, env(safe-area-inset-top)) !important;
+            right: max(12px, env(safe-area-inset-right)) !important;
+            bottom: max(12px, env(safe-area-inset-bottom)) !important;
+            left: auto !important;
+            width: min(1200px, calc(100vw - 24px)) !important;
+            max-width: calc(100vw - 24px) !important;
+            max-height: calc(100vh - 24px) !important;
             overflow-y: auto !important;
-            overflow-x: auto !important;
+            overflow-x: hidden !important;
+            overscroll-behavior: contain !important;
             box-sizing: border-box !important;
+            padding: 10px 16px 16px !important;
+            border: 1px solid #E4E7EC !important;
+            border-radius: 16px !important;
+            background: var(--background-color, white) !important;
+            box-shadow: 0 12px 40px rgba(16, 24, 40, .28) !important;
+            z-index: 1000000 !important;
         }
-        /* ChatGPT-like hierarchy: readable body, compact metadata and headings. */
-        [data-testid="stPopoverBody"] p,
-        [data-testid="stPopover"] [role="dialog"] p,
-        [data-testid="stPopoverBody"] li,
-        [data-testid="stPopover"] [role="dialog"] li,
-        [data-testid="stPopoverBody"] label,
-        [data-testid="stPopover"] [role="dialog"] label {
-            font-size: 14px !important;
-            line-height: 1.5 !important;
-        }
-        [data-testid="stPopoverBody"] h1,
-        [data-testid="stPopover"] [role="dialog"] h1 {
-            font-size: 20px !important;
-            line-height: 1.3 !important;
-        }
-        [data-testid="stPopoverBody"] h2,
-        [data-testid="stPopover"] [role="dialog"] h2 {
-            font-size: 17px !important;
-            line-height: 1.35 !important;
-        }
-        [data-testid="stPopoverBody"] h3,
-        [data-testid="stPopover"] [role="dialog"] h3 {
-            font-size: 15px !important;
-            line-height: 1.4 !important;
-        }
-        [data-testid="stPopoverBody"] small,
-        [data-testid="stPopover"] [role="dialog"] small,
-        [data-testid="stPopoverBody"] [data-testid="stCaptionContainer"],
-        [data-testid="stPopover"] [role="dialog"] [data-testid="stCaptionContainer"] {
-            font-size: 12px !important;
-            line-height: 1.4 !important;
-        }
-        [data-testid="stPopoverBody"] [data-testid="stChatMessage"],
-        [data-testid="stPopover"] [role="dialog"] [data-testid="stChatMessage"] {
-            padding: 6px 8px !important;
+        .st-key-eusee_copilot_panel_normal [data-testid="stChatMessage"],
+        .st-key-eusee_copilot_panel_max [data-testid="stChatMessage"] {
             min-width: 0 !important;
             max-width: 100% !important;
             overflow-wrap: anywhere !important;
         }
-        /* Wide tables scroll horizontally within their own wrapper, not the page. */
-        [data-testid="stPopoverBody"] [data-testid="stDataFrame"],
-        [data-testid="stPopover"] [role="dialog"] [data-testid="stDataFrame"],
-        [data-testid="stPopoverBody"] [data-testid="stTable"],
-        [data-testid="stPopover"] [role="dialog"] [data-testid="stTable"] {
+        .st-key-eusee_copilot_panel_normal [data-testid="stDataFrame"],
+        .st-key-eusee_copilot_panel_max [data-testid="stDataFrame"],
+        .st-key-eusee_copilot_panel_normal [data-testid="stPlotlyChart"],
+        .st-key-eusee_copilot_panel_max [data-testid="stPlotlyChart"] {
             max-width: 100% !important;
             min-width: 0 !important;
-            overflow-x: auto !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
         }
-        [data-testid="stPopoverBody"] [data-testid="stPlotlyChart"],
-        [data-testid="stPopover"] [role="dialog"] [data-testid="stPlotlyChart"],
-        [data-testid="stPopoverBody"] iframe,
-        [data-testid="stPopover"] [role="dialog"] iframe {
-            max-width: 100% !important;
-        }
-        [data-testid="stPopoverBody"] textarea,
-        [data-testid="stPopover"] [role="dialog"] textarea {
+        .st-key-eusee_copilot_panel_normal textarea,
+        .st-key-eusee_copilot_panel_max textarea {
             font-size: 14px !important;
             line-height: 1.45 !important;
             min-height: 78px !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
         }
-        [data-testid="stPopoverBody"] button,
-        [data-testid="stPopover"] [role="dialog"] button,
-        [data-testid="stPopoverBody"] input,
-        [data-testid="stPopover"] [role="dialog"] input {
-            font-size: 13px !important;
-        }
         @media (max-width: 600px) {
-            [data-testid="stPopover"] {
+            .st-key-eusee_copilot_launcher {
                 right: max(8px, env(safe-area-inset-right)) !important;
-                bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px)) !important;
+                bottom: max(8px, env(safe-area-inset-bottom)) !important;
             }
-            [data-testid="stPopoverBody"],
-            [data-testid="stPopover"] [role="dialog"],
-            div[data-baseweb="popover"] > div {
-                width: min(380px, calc(100vw - 16px)) !important;
+            .st-key-eusee_copilot_panel_normal {
+                right: 8px !important;
+                bottom: max(64px, calc(env(safe-area-inset-bottom) + 56px)) !important;
+                width: calc(100vw - 16px) !important;
                 max-width: calc(100vw - 16px) !important;
-                max-height: 70vh !important;
+                max-height: 76vh !important;
+                padding: 8px !important;
+            }
+            .st-key-eusee_copilot_panel_max {
+                top: max(8px, env(safe-area-inset-top)) !important;
+                right: 8px !important;
+                bottom: max(8px, env(safe-area-inset-bottom)) !important;
+                width: calc(100vw - 16px) !important;
+                max-width: calc(100vw - 16px) !important;
+                max-height: calc(100vh - 16px) !important;
+                padding: 8px !important;
             }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    popover = None
-    try:
-        popover = st.popover("💬 Ask EU SEE", use_container_width=False)
-    except Exception:
-        popover = None
-    # Catch only failure to create the popover container. Do not catch errors
-    # raised while rendering its body, which could create duplicate widgets.
-    if popover is not None:
-        with popover:
+
+    st.session_state.setdefault("eusee_copilot_open", False)
+    st.session_state.setdefault("eusee_copilot_maximized", False)
+
+    # Keep the launcher in the viewport and show the panel only when requested.
+    with st.container(key="eusee_copilot_launcher"):
+        if st.button("💬 Ask EU SEE", key="eusee_copilot_open_button", use_container_width=False):
+            st.session_state["eusee_copilot_open"] = not st.session_state["eusee_copilot_open"]
+            st.rerun()
+
+    if st.session_state.get("eusee_copilot_open", False):
+        maximized = bool(st.session_state.get("eusee_copilot_maximized", False))
+        panel_key = "eusee_copilot_panel_max" if maximized else "eusee_copilot_panel_normal"
+        with st.container(key=panel_key):
+            title_col, minimize_col, maximize_col = st.columns([8, 1, 1], vertical_alignment="center")
+            with title_col:
+                st.markdown("**EU SEE AI Copilot**")
+            with minimize_col:
+                if st.button("−", key="eusee_copilot_minimize", help="Minimize chatbot"):
+                    st.session_state["eusee_copilot_open"] = False
+                    st.session_state["eusee_copilot_maximized"] = False
+                    st.rerun()
+            with maximize_col:
+                button_label = "⛶" if not maximized else "❐"
+                button_help = "Maximize chatbot" if not maximized else "Restore chatbot size"
+                if st.button(button_label, key="eusee_copilot_toggle_size", help=button_help):
+                    st.session_state["eusee_copilot_maximized"] = not maximized
+                    st.rerun()
+            st.divider()
             _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
-    else:
-        with st.expander("💬 Ask EU SEE", expanded=False):
-            _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
+
 def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, model: str, base_dir: Path) -> None:
     st.markdown(
         """
