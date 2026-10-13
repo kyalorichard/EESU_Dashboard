@@ -1402,7 +1402,7 @@ def _render_result(result: dict, key: str) -> None:
 
                             font=dict(family="Arial, sans-serif", size=12, color="#344054"),
 
-                            title=dict(font=dict(size=16, color="#23152F"), x=0.02, xanchor="left"),
+                            title=dict(font=dict(size=12, color="#23152F"), x=0.02, xanchor="left"),
 
                             legend=dict(font=dict(size=11), orientation="h", yanchor="bottom", y=1.02, x=0),
 
@@ -1628,7 +1628,7 @@ def render_eusee_ai_copilot(
 
             box-sizing: border-box !important;
 
-            font-size: 14px !important;
+            font-size: 12px !important;
 
             line-height: 1.5 !important;
 
@@ -1664,7 +1664,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopover"] [role="dialog"] label {
 
-            font-size: 14px !important;
+            font-size: 12px !important;
 
             line-height: 1.5 !important;
 
@@ -1674,7 +1674,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopover"] [role="dialog"] h1 {
 
-            font-size: 20px !important;
+            font-size: 12px !important;
 
             line-height: 1.3 !important;
 
@@ -1684,7 +1684,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopover"] [role="dialog"] h2 {
 
-            font-size: 17px !important;
+            font-size: 12px !important;
 
             line-height: 1.35 !important;
 
@@ -1694,7 +1694,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopover"] [role="dialog"] h3 {
 
-            font-size: 15px !important;
+            font-size: 12px !important;
 
             line-height: 1.4 !important;
 
@@ -1766,7 +1766,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopover"] [role="dialog"] textarea {
 
-            font-size: 14px !important;
+            font-size: 12px !important;
 
             line-height: 1.45 !important;
 
@@ -1786,7 +1786,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopover"] [role="dialog"] input {
 
-            font-size: 13px !important;
+            font-size: 12px !important;
 
         }
 
@@ -1870,7 +1870,7 @@ def render_eusee_ai_copilot(
 
             font-weight: 700 !important;
 
-            font-size: 13px !important;
+            font-size: 11px !important;
 
             box-shadow: 0 6px 18px rgba(102, 0, 148, .30) !important;
 
