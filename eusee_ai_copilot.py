@@ -1822,82 +1822,165 @@ def render_eusee_ai_copilot(
 
     )
 
-    popover = None
-
-    try:
-
-        popover = st.popover("💬 Ask EU SEE", use_container_width=False)
-
-    except Exception:
-
-        popover = None
-
-    # Catch only failure to create the popover container. Do not catch errors
-
-    # raised while rendering its body, which could create duplicate widgets.
-
-    if popover is not None:
-
-        with popover:
-
-            _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
-
-    else:
-
-        with st.expander("💬 Ask EU SEE", expanded=False):
-
-            _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
-
-def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, model: str, base_dir: Path) -> None:
-
-    # Accessible chatbot window controls.
+    # Persistent floating launcher and panel. Unlike st.popover, this remains open
+    # across Streamlit reruns caused by Ask, minimize, expand, and close buttons.
+    st.session_state.setdefault("eusee_copilot_open", False)
     st.session_state.setdefault("eusee_copilot_minimized", False)
     st.session_state.setdefault("eusee_copilot_expanded", False)
-    st.markdown("""<style>
-    .eusee-chat-title { color:#23152F; font-weight:750; font-size:13px; padding-top:7px; }
-    [data-testid="stPopoverBody"] [data-testid="stHorizontalBlock"],
-    [data-testid="stPopover"] [role="dialog"] [data-testid="stHorizontalBlock"] {
-      align-items:center !important;
-    }
-    </style>""", unsafe_allow_html=True)
-    title_col, min_col, expand_col, close_col = st.columns([5.2, 1, 1, 1], gap="small")
-    with title_col:
-        st.markdown('<div class="eusee-chat-title">EU SEE AI Copilot</div>', unsafe_allow_html=True)
-    with min_col:
-        if st.button("−", key="eusee_copilot_minimize_btn", help="Minimize chatbot", use_container_width=True):
-            st.session_state["eusee_copilot_minimized"] = True
-            st.session_state["eusee_copilot_expanded"] = False
-            st.rerun()
-    with expand_col:
-        expanded = st.session_state.get("eusee_copilot_expanded", False)
-        if st.button("↙" if expanded else "↗", key="eusee_copilot_expand_btn",
-                     help="Restore compact size" if expanded else "Expand chatbot", use_container_width=True):
-            st.session_state["eusee_copilot_expanded"] = not expanded
-            st.session_state["eusee_copilot_minimized"] = False
-            st.rerun()
-    with close_col:
-        if st.button("×", key="eusee_copilot_close_btn", help="Close chatbot panel", use_container_width=True):
-            st.session_state["eusee_copilot_close_requested"] = True
-            st.session_state["eusee_copilot_minimized"] = False
-            st.session_state["eusee_copilot_expanded"] = False
-            st.rerun()
-    if st.session_state.pop("eusee_copilot_close_requested", False):
-        return
-    if st.session_state.get("eusee_copilot_minimized", False):
-        st.caption("Chatbot minimized.")
-        if st.button("↗ Restore chatbot", key="eusee_copilot_restore_btn", use_container_width=True):
-            st.session_state["eusee_copilot_minimized"] = False
-            st.rerun()
-        return
-    panel_width = "min(720px, calc(100vw - 24px))" if st.session_state.get("eusee_copilot_expanded", False) else "min(410px, calc(100vw - 24px))"
-    panel_height = "min(86vh, 900px)" if st.session_state.get("eusee_copilot_expanded", False) else "min(72vh, 680px)"
-    st.markdown(f"""<style>
-    [data-testid="stPopoverBody"], [data-testid="stPopover"] [role="dialog"],
-    div[data-baseweb="popover"] > div {{
-      width:{panel_width} !important; max-width:calc(100vw - 24px) !important;
-      max-height:{panel_height} !important;
-    }}
-    </style>""", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <style>
+        .st-key-eusee_copilot_launcher {
+            position: fixed !important;
+            right: max(16px, env(safe-area-inset-right)) !important;
+            bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
+            z-index: 100000 !important;
+            width: auto !important;
+        }
+        .st-key-eusee_copilot_launcher button {
+            min-height: 42px !important;
+            padding: 8px 15px !important;
+            border-radius: 999px !important;
+            border: 1px solid #6D28D9 !important;
+            background: linear-gradient(135deg, #7C3AED 0%, #660094 100%) !important;
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+            font-size: 13px !important;
+            box-shadow: 0 6px 18px rgba(102, 0, 148, .30) !important;
+            transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
+            white-space: nowrap !important;
+        }
+        .st-key-eusee_copilot_launcher button:hover {
+            filter: brightness(1.07) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px rgba(102, 0, 148, .36) !important;
+        }
+        .st-key-eusee_copilot_launcher button:focus-visible {
+            outline: 3px solid rgba(124, 58, 237, .35) !important;
+            outline-offset: 2px !important;
+        }
+        .st-key-eusee_copilot_panel {
+            position: fixed !important;
+            right: max(16px, env(safe-area-inset-right)) !important;
+            bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
+            z-index: 99999 !important;
+            width: min(410px, calc(100vw - 24px)) !important;
+            max-height: min(72vh, 680px) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding: 12px !important;
+            border: 1px solid #E4D7F4 !important;
+            border-radius: 16px !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 14px 44px rgba(35, 21, 47, .24) !important;
+            box-sizing: border-box !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stHorizontalBlock"] {
+            align-items: center !important;
+            gap: 6px !important;
+        }
+        .st-key-eusee_copilot_panel button {
+            min-height: 34px !important;
+            border-radius: 9px !important;
+            font-weight: 650 !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stChatMessage"] {
+            padding: 6px 8px !important;
+            min-width: 0 !important;
+            overflow-wrap: anywhere !important;
+        }
+        .st-key-eusee_copilot_panel textarea {
+            font-size: 14px !important;
+            min-height: 78px !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stDataFrame"],
+        .st-key-eusee_copilot_panel [data-testid="stPlotlyChart"],
+        .st-key-eusee_copilot_panel iframe {
+            max-width: 100% !important;
+        }
+        @media (min-width: 601px) {
+            .st-key-eusee_copilot_panel.eusee-expanded {
+                width: min(720px, calc(100vw - 32px)) !important;
+                max-height: min(86vh, 900px) !important;
+            }
+        }
+        @media (max-width: 600px) {
+            .st-key-eusee_copilot_launcher {
+                right: max(8px, env(safe-area-inset-right)) !important;
+                bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px)) !important;
+            }
+            .st-key-eusee_copilot_panel {
+                right: max(8px, env(safe-area-inset-right)) !important;
+                bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px)) !important;
+                width: calc(100vw - 16px) !important;
+                max-height: 70vh !important;
+                padding: 9px !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state["eusee_copilot_open"]:
+        # The keyed container is deliberately stable across reruns.
+        with st.container(key="eusee_copilot_panel"):
+            title_col, minimize_col, expand_col, close_col = st.columns(
+                [5.4, 0.9, 0.9, 0.9], gap="small"
+            )
+            with title_col:
+                st.markdown(
+                    '<div style="font-size:14px;font-weight:800;color:#23152F;padding-top:5px;">'
+                    'EU SEE AI Copilot</div>',
+                    unsafe_allow_html=True,
+                )
+            with minimize_col:
+                if st.button("−", key="eusee_copilot_minimize_btn", help="Minimize chatbot",
+                             use_container_width=True):
+                    st.session_state["eusee_copilot_minimized"] = True
+                    st.session_state["eusee_copilot_expanded"] = False
+                    st.rerun()
+            with expand_col:
+                expanded = st.session_state["eusee_copilot_expanded"]
+                if st.button("↙" if expanded else "↗", key="eusee_copilot_expand_btn",
+                             help="Restore compact size" if expanded else "Expand chatbot",
+                             use_container_width=True):
+                    st.session_state["eusee_copilot_expanded"] = not expanded
+                    st.session_state["eusee_copilot_minimized"] = False
+                    st.rerun()
+            with close_col:
+                if st.button("×", key="eusee_copilot_close_btn", help="Close chatbot",
+                             use_container_width=True):
+                    st.session_state["eusee_copilot_open"] = False
+                    st.session_state["eusee_copilot_minimized"] = False
+                    st.session_state["eusee_copilot_expanded"] = False
+                    st.rerun()
+
+            # Expanded mode class is applied to the stable panel wrapper.
+            if st.session_state["eusee_copilot_expanded"]:
+                st.markdown(
+                    '<style>.st-key-eusee_copilot_panel {width:min(720px,calc(100vw - 32px)) !important;'
+                    'max-height:min(86vh,900px) !important;}</style>',
+                    unsafe_allow_html=True,
+                )
+
+            if st.session_state["eusee_copilot_minimized"]:
+                st.caption("Chatbot minimized")
+                if st.button("↗ Restore chatbot", key="eusee_copilot_restore_btn",
+                             use_container_width=True):
+                    st.session_state["eusee_copilot_minimized"] = False
+                    st.rerun()
+            else:
+                _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
+    else:
+        with st.container(key="eusee_copilot_launcher"):
+            if st.button("💬 Ask EU SEE", key="eusee_copilot_open_btn"):
+                st.session_state["eusee_copilot_open"] = True
+                st.session_state["eusee_copilot_minimized"] = False
+                st.rerun()
+
+def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, model: str, base_dir: Path) -> None:
 
     st.markdown(
 
