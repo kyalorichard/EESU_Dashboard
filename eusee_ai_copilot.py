@@ -1846,7 +1846,7 @@ def render_eusee_ai_copilot(
 
             right: max(16px, env(safe-area-inset-right)) !important;
 
-            bottom: max(72px, calc(env(safe-area-inset-bottom) + 56px)) !important;
+            bottom: max(78px, calc(env(safe-area-inset-bottom) + 56px)) !important;
 
             z-index: 2147483000 !important;
 
@@ -1870,7 +1870,7 @@ def render_eusee_ai_copilot(
 
             font-weight: 700 !important;
 
-            font-size: 11px !important;
+            font-size: 10px !important;
 
             box-shadow: 0 6px 18px rgba(102, 0, 148, .30) !important;
 
