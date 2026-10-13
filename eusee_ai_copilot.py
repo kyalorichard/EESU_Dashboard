@@ -1923,6 +1923,13 @@ def render_eusee_ai_copilot(
         unsafe_allow_html=True,
     )
 
+    with st.container(key="eusee_copilot_launcher"):
+        launcher_label = "💬 Hide EU SEE" if st.session_state.get("eusee_copilot_open", False) else "💬 Ask EU SEE"
+        if st.button(launcher_label, key="eusee_copilot_open_btn"):
+            st.session_state["eusee_copilot_open"] = not st.session_state.get("eusee_copilot_open", False)
+            st.session_state["eusee_copilot_minimized"] = False
+            st.rerun()
+
     if st.session_state["eusee_copilot_open"]:
         # The keyed container is deliberately stable across reruns.
         with st.container(key="eusee_copilot_panel"):
@@ -1973,12 +1980,6 @@ def render_eusee_ai_copilot(
                     st.rerun()
             else:
                 _render_chat_body(dataframe, cfr_dataframe, can_use_ai, api_key, model, base_dir)
-    else:
-        with st.container(key="eusee_copilot_launcher"):
-            if st.button("💬 Ask EU SEE", key="eusee_copilot_open_btn"):
-                st.session_state["eusee_copilot_open"] = True
-                st.session_state["eusee_copilot_minimized"] = False
-                st.rerun()
 
 def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, model: str, base_dir: Path) -> None:
 
