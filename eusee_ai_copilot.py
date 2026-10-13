@@ -1590,7 +1590,7 @@ def render_eusee_ai_copilot(
 
             border-radius: 999px !important;
 
-            font-size: 13px !important;
+            font-size: 12px !important;
 
             font-weight: 650 !important;
 
@@ -1962,7 +1962,7 @@ def render_eusee_ai_copilot(
 
         .st-key-eusee_copilot_panel textarea {
 
-            font-size: 14px !important;
+            font-size: 12px !important;
 
             min-height: 78px !important;
 
