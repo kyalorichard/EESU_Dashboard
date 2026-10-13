@@ -2026,7 +2026,7 @@ def render_eusee_ai_copilot(
 
     with st.container(key="eusee_copilot_launcher"):
 
-        launcher_label = "💬 Hide EU SEE" if st.session_state.get("eusee_copilot_open", False) else "💬 Ask EU SEE"
+        launcher_label = "💬 Hide Chatbot" if st.session_state.get("eusee_copilot_open", False) else "💬 Ask Chatbot"
 
         if st.button(launcher_label, key="eusee_copilot_open_btn"):
 
@@ -2054,7 +2054,7 @@ def render_eusee_ai_copilot(
 
                     '<div style="font-size:14px;font-weight:800;color:#23152F;padding-top:5px;">'
 
-                    'EU SEE AI Copilot</div>',
+                    'AI Chatbot</div>',
 
                     unsafe_allow_html=True,
 
