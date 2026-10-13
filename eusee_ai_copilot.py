@@ -781,18 +781,61 @@ def render_eusee_ai_copilot(
         .st-key-eusee_copilot_launcher {
             position: fixed !important;
             right: max(16px, env(safe-area-inset-right)) !important;
-            bottom: max(16px, env(safe-area-inset-bottom)) !important;
+            /* Sit directly above the dashboard Feedback control. */
+            bottom: max(78px, calc(env(safe-area-inset-bottom) + 70px)) !important;
             z-index: 1000001 !important;
             width: auto !important;
         }
         .st-key-eusee_copilot_launcher button {
-            min-height: 44px !important;
-            padding: 8px 16px !important;
+            min-height: 42px !important;
+            padding: 9px 17px !important;
+            border: 1px solid #7A16A8 !important;
             border-radius: 999px !important;
+            background: #660094 !important;
+            color: #FFFFFF !important;
             font-size: 13px !important;
             font-weight: 700 !important;
+            letter-spacing: .01em !important;
             white-space: nowrap !important;
-            box-shadow: 0 4px 16px rgba(35, 21, 47, .22) !important;
+            box-shadow: 0 4px 14px rgba(102, 0, 148, .24) !important;
+            transition: background .15s ease, box-shadow .15s ease, transform .15s ease !important;
+        }
+        .st-key-eusee_copilot_launcher button:hover {
+            background: #520078 !important;
+            border-color: #520078 !important;
+            box-shadow: 0 6px 18px rgba(102, 0, 148, .30) !important;
+            transform: translateY(-1px) !important;
+        }
+        .st-key-eusee_copilot_launcher button:focus-visible {
+            outline: 3px solid rgba(102, 0, 148, .25) !important;
+            outline-offset: 2px !important;
+        }
+        /* Small, restrained header controls rather than default oversized buttons. */
+        .st-key-eusee_copilot_minimize button,
+        .st-key-eusee_copilot_toggle_size button {
+            min-width: 34px !important;
+            width: 34px !important;
+            min-height: 34px !important;
+            height: 34px !important;
+            padding: 0 !important;
+            border: 1px solid #E4D7EC !important;
+            border-radius: 9px !important;
+            background: #FFFFFF !important;
+            color: #5B2674 !important;
+            font-size: 17px !important;
+            font-weight: 600 !important;
+            line-height: 1 !important;
+            box-shadow: none !important;
+        }
+        .st-key-eusee_copilot_minimize button:hover,
+        .st-key-eusee_copilot_toggle_size button:hover {
+            background: #F7F0FA !important;
+            border-color: #CDA9DF !important;
+            color: #4E006F !important;
+        }
+        .st-key-eusee_copilot_panel_normal > div:first-child,
+        .st-key-eusee_copilot_panel_max > div:first-child {
+            align-items: center !important;
         }
         /* Compact mode: independent scrolling, without changing the dashboard layout. */
         .st-key-eusee_copilot_panel_normal {
@@ -860,7 +903,7 @@ def render_eusee_ai_copilot(
         @media (max-width: 600px) {
             .st-key-eusee_copilot_launcher {
                 right: max(8px, env(safe-area-inset-right)) !important;
-                bottom: max(8px, env(safe-area-inset-bottom)) !important;
+                bottom: max(72px, calc(env(safe-area-inset-bottom) + 64px)) !important;
             }
             .st-key-eusee_copilot_panel_normal {
                 right: 8px !important;
@@ -900,15 +943,18 @@ def render_eusee_ai_copilot(
         with st.container(key=panel_key):
             title_col, minimize_col, maximize_col = st.columns([8, 1, 1], vertical_alignment="center")
             with title_col:
-                st.markdown("**EU SEE AI Copilot**")
+                st.markdown(
+                    "<div style='font-size:15px;font-weight:750;color:#23152F;line-height:1.25;'>EU SEE AI Copilot</div>",
+                    unsafe_allow_html=True,
+                )
             with minimize_col:
                 if st.button("−", key="eusee_copilot_minimize", help="Minimize chatbot"):
                     st.session_state["eusee_copilot_open"] = False
                     st.session_state["eusee_copilot_maximized"] = False
                     st.rerun()
             with maximize_col:
-                button_label = "⛶" if not maximized else "❐"
-                button_help = "Maximize chatbot" if not maximized else "Restore chatbot size"
+                button_label = "⛶" if not maximized else "↙"
+                button_help = "Expand chatbot" if not maximized else "Restore compact size"
                 if st.button(button_label, key="eusee_copilot_toggle_size", help=button_help):
                     st.session_state["eusee_copilot_maximized"] = not maximized
                     st.rerun()
