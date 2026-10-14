@@ -1881,22 +1881,25 @@ def render_eusee_ai_copilot(
 
         .st-key-eusee_copilot_launcher button {
 
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            min-height: 42px;
-            padding: 0 15px;
-            border: 1px solid #660094;
-            border-radius: 999px;
+            min-height: 42px !important;
+
+            padding: 0px 15px !important;
+
+            border-radius: 999px !important;
+
+            border: 1px solid #6D28D9 !important;
+
             background: #660094;
-            color: #FFFFFF;
-            text-decoration: none;
-            font-size: 12px;
-            font-weight: 850;
-            line-height: 1;
+
+            color: #FFFFFF !important;
+
+            font-weight: 850 !important;
+
+            font-size: 10px !important;            
             box-shadow: 0 8px 22px rgba(102,0,148,.24);
-            transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+            transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
+
+            white-space: nowrap !important;
 
         }
 
@@ -1906,7 +1909,7 @@ def render_eusee_ai_copilot(
 
             transform: translateY(-1px);
 
-            box-shadow: 0 8px 22px rgba(102, 0, 148, .24) !important;
+            box-shadow: 0 8px 22px rgba(102, 0, 148, .36) !important;
 
         }
 
