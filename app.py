@@ -62,7 +62,7 @@ warnings.filterwarnings(
 from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 
 
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
 
 # ============================================================
 # EU SEE OFFICIAL TYPOGRAPHY
@@ -253,21 +253,21 @@ configure_eusee_plotly_typography()
 
 init_session()
 
-with st.spinner("Restoring secure session..."):
-    restored = restore_session()
+try:
+    with st.spinner("Restoring secure session..."):
+        restore_session()
+except Exception:
+    # Log the failure without exposing authentication tokens or cookies.
+    logging.exception("EU SEE session restoration failed")
 
-# Authentication restoration must complete before dashboard rendering.
-# A hard browser refresh creates a new Streamlit session, so an existing
-# Firebase-backed browser cookie must be restored before any dashboard content
-# is exposed. If restoration fails, route explicitly to the login UI instead
-# of silently stopping on a blank/guest page.
-if not st.session_state.get("restored", False):
-    # restore_session() should normally set restored=True before returning.
-    # Keep the route deterministic if an unexpected auth exception occurs.
-    st.session_state["auth_view"] = True
+    # Keep the dashboard available while authentication is unresolved.
+    st.session_state["restored"] = True
+    st.session_state["auth_view"] = False
+    st.session_state["_eusee_restore_failed"] = True
+
 
 # ------------------------------------------------------------------
-# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
+# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SHORTCUT
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -276,7 +276,6 @@ st.markdown("""
 footer,
 [data-testid="stDecoration"],
 [data-testid="stDeployButton"],
-[data-testid="stHeaderActionElements"],
 [data-testid="stToolbarActions"] {
     display: none !important;
     visibility: hidden !important;
@@ -300,6 +299,29 @@ button[data-testid="collapsedControl"],
     opacity: 1 !important;
 }
 
+/* Keep select dropdown menus above nearby dashboard content. These rules are
+   deliberately limited to BaseWeb select menus and their options. */
+div[data-baseweb="popover"]:has([data-baseweb="menu"]) {
+    z-index: 1000000 !important;
+}
+div[data-baseweb="popover"]:has([role="listbox"]) {
+    z-index: 1000000 !important;
+}
+div[data-baseweb="menu"],
+div[data-baseweb="menu"] [role="listbox"] {
+    max-height: min(50vh, 360px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+}
+div[data-baseweb="menu"] [role="option"],
+[role="listbox"] [role="option"] {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.35 !important;
+    cursor: pointer !important;
+}
+
 /* Hide GitHub and source links that may still be injected elsewhere. */
 a[href*="github.com"],
 a[href*="source"] {
@@ -312,106 +334,83 @@ a[href*="source"] {
 </style>
 """, unsafe_allow_html=True)
 
-# Add a separate label beside Streamlit's native arrows. The label appears only
-# when the sidebar is collapsed and is removed immediately when it opens.
+# Add an accessible shortcut beside Streamlit's native sidebar control.
+# Important: observe structural changes only. Watching all style/class changes
+# across the full document creates a MutationObserver feedback loop.
 components.html(
     r"""
     <script>
-    (function () {
+    (() => {
         const doc = window.parent.document;
         const win = window.parent;
         const LABEL_ID = "eusee-collapsed-sidebar-label";
         const STYLE_ID = "eusee-collapsed-sidebar-label-style";
+        let scheduled = false;
 
-        function ensureStyle() {
-            if (doc.getElementById(STYLE_ID)) return;
+        const isVisible = (el) => {
+            if (!el) return false;
+            const rect = el.getBoundingClientRect();
+            const css = win.getComputedStyle(el);
+            return rect.width > 0 && rect.height > 0 &&
+                css.display !== "none" && css.visibility !== "hidden" &&
+                css.opacity !== "0";
+        };
 
-            const style = doc.createElement("style");
-            style.id = STYLE_ID;
-            style.textContent = `
-                #${LABEL_ID} {
-                    position: fixed;
-                    z-index: 1000002;
-                    display: inline-flex;
-                    align-items: center;
-                    min-height: 30px;
-                    padding: 0 11px;
-                    border: 1px solid #E7D4F1;
-                    border-radius: 999px;
-                    background: #FFFFFF;
-                    box-shadow: 0 3px 10px rgba(16,24,40,.08);
-                    color: #660094;
-                    font-family: "Anek Devanagari", Arial, sans-serif;
-                    font-size: 12px;
-                    line-height: 1;
-                    font-weight: 800;
-                    white-space: nowrap;
-                    pointer-events: auto;
-                    cursor: pointer;
-                    user-select: none;
-                    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
-                }
-                #${LABEL_ID}:hover {
-                    border-color: #660094;
-                    background: #FBF7FD;
-                    box-shadow: 0 5px 14px rgba(102,0,148,.14);
-                    transform: translateY(-1px);
-                }
-
-                #${LABEL_ID}:focus-visible {
-                    outline: 3px solid rgba(102,0,148,.18);
-                    outline-offset: 2px;
-                }
-
-                @media (max-width: 700px) {
-                    #${LABEL_ID} {
-                        padding: 0 8px;
-                        font-size: 11px;
-                    }
-                }
-            `;
-            doc.head.appendChild(style);
-        }
-
-        function findToggle() {
+        function findCollapsedToggle() {
             const selectors = [
+                'button[data-testid="stSidebarCollapsedControl"]',
                 '[data-testid="stSidebarCollapsedControl"] button',
-                '[data-testid="stSidebarCollapsedControl"]',
                 'button[data-testid="collapsedControl"]',
-                '[data-testid="stSidebarCollapseButton"] button',
-                '[data-testid="stSidebarCollapseButton"]',
-                'button[aria-label*="sidebar" i]',
-                'button[title*="sidebar" i]'
+                '[data-testid="stSidebarCollapsedControl"]',
+                '[data-testid="collapsedControl"]'
             ];
-
             for (const selector of selectors) {
-                const nodes = Array.from(doc.querySelectorAll(selector));
-                const visible = nodes.find((node) => {
-                    const rect = node.getBoundingClientRect();
-                    const css = win.getComputedStyle(node);
-                    return rect.width > 0 && rect.height > 0 &&
-                           css.display !== "none" &&
-                           css.visibility !== "hidden";
-                });
-                if (visible) return visible;
+                for (const el of doc.querySelectorAll(selector)) {
+                    if (isVisible(el)) return el;
+                }
+            }
+            // Accessible-label fallback for Streamlit version differences.
+            for (const el of doc.querySelectorAll('header button, button')) {
+                const label = `${el.getAttribute('aria-label') || ''} ${el.title || ''}`.toLowerCase();
+                if (label.includes('sidebar') && (label.includes('open') || label.includes('expand')) && isVisible(el)) {
+                    return el;
+                }
             }
             return null;
         }
 
-        function sidebarIsCollapsed() {
+        function ensureStyle() {
+            if (doc.getElementById(STYLE_ID)) return;
+            const style = doc.createElement('style');
+            style.id = STYLE_ID;
+            style.textContent = `
+                #${LABEL_ID} {
+                    position: fixed; z-index: 2147483000; display: inline-flex;
+                    align-items: center; justify-content: center; min-height: 36px;
+                    padding: 0 12px; border: 1px solid #E7D4F1; border-radius: 999px;
+                    background: #fff; box-shadow: 0 3px 10px rgba(16,24,40,.12);
+                    color: #660094; font: 800 12px/1.1 "Anek Devanagari", Arial, sans-serif;
+                    white-space: nowrap; cursor: pointer; user-select: none;
+                }
+                #${LABEL_ID}:hover { background: #FBF7FD; border-color: #660094; }
+                #${LABEL_ID}:focus-visible { outline: 3px solid rgba(102,0,148,.25); outline-offset: 2px; }
+                @media (max-width: 700px) {
+                    #${LABEL_ID} { min-height: 34px; padding: 0 9px; font-size: 11px; }
+                }
+                @media (max-width: 420px) {
+                    #${LABEL_ID} { max-width: calc(100vw - 60px); white-space: normal; }
+                }`;
+            doc.head.appendChild(style);
+        }
+
+        function sidebarLooksCollapsed() {
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return true;
-
             const rect = sidebar.getBoundingClientRect();
             const css = win.getComputedStyle(sidebar);
-            const ariaHidden = sidebar.getAttribute("aria-hidden") === "true";
-
-            return ariaHidden ||
-                   css.display === "none" ||
-                   css.visibility === "hidden" ||
-                   rect.width < 40 ||
-                   rect.right <= 5 ||
-                   rect.left < -(rect.width / 2);
+            return sidebar.getAttribute('aria-hidden') === 'true' ||
+                css.visibility === 'hidden' || css.display === 'none' ||
+                rect.width < 40 || rect.right <= 0 || rect.left <= -rect.width * 0.6;
         }
 
         function removeLabel() {
@@ -421,86 +420,75 @@ components.html(
 
         function updateLabel() {
             ensureStyle();
-
-            const toggle = findToggle();
-            if (!toggle || !sidebarIsCollapsed()) {
+            const toggle = findCollapsedToggle();
+            if (!sidebarLooksCollapsed() || !toggle) {
                 removeLabel();
                 return;
             }
 
             let label = doc.getElementById(LABEL_ID);
             if (!label) {
-                label = doc.createElement("div");
+                label = doc.createElement('button');
                 label.id = LABEL_ID;
-                label.textContent = "Login & Global Filters";
-                label.setAttribute("role", "button");
-                label.setAttribute("tabindex", "0");
-                label.setAttribute("aria-label", "Open Login and Global Filters sidebar");
-                label.setAttribute("title", "Open Login and Global Filters");
-
-                const openSidebar = function () {
-                    const activeToggle = findToggle();
-                    if (activeToggle && sidebarIsCollapsed()) {
-                        activeToggle.click();
-                    }
-                };
-
-                label.addEventListener("click", openSidebar);
-                label.addEventListener("keydown", function (event) {
-                    if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openSidebar();
-                    }
+                label.type = 'button';
+                label.textContent = 'Login & Global Filters';
+                label.setAttribute('aria-label', 'Open Login and Global Filters sidebar');
+                label.title = 'Open Login and Global Filters';
+                label.addEventListener('click', () => {
+                    const currentToggle = findCollapsedToggle();
+                    if (currentToggle && sidebarLooksCollapsed()) currentToggle.click();
+                    win.setTimeout(scheduleUpdate, 120);
+                    win.setTimeout(scheduleUpdate, 400);
                 });
-
                 doc.body.appendChild(label);
             }
 
-            const rect = toggle.getBoundingClientRect();
-            const labelHeight = label.getBoundingClientRect().height || 30;
-            label.style.left = `${Math.max(44, rect.right + 8)}px`;
-            label.style.top = `${Math.max(5, rect.top + (rect.height - labelHeight) / 2)}px`;
+            const toggleRect = toggle.getBoundingClientRect();
+            const labelRect = label.getBoundingClientRect();
+            const width = labelRect.width || 170;
+            const height = labelRect.height || 36;
+            const left = Math.max(8, Math.min(toggleRect.right + 8, win.innerWidth - width - 8));
+            const top = Math.max(4, Math.min(toggleRect.top + (toggleRect.height - height) / 2, win.innerHeight - height - 4));
+            // Avoid writing the same styles repeatedly; this also prevents observer loops.
+            if (label.style.left !== `${left}px`) label.style.left = `${left}px`;
+            if (label.style.top !== `${top}px`) label.style.top = `${top}px`;
         }
 
-        // Schedule at most one label refresh per browser frame. Avoid observing
-        // every attribute change in the entire dashboard or polling every 500 ms.
-        let updateScheduled = false;
         function scheduleUpdate() {
-            if (updateScheduled) return;
-            updateScheduled = true;
+            if (scheduled) return;
+            scheduled = true;
             win.requestAnimationFrame(() => {
-                updateScheduled = false;
+                scheduled = false;
                 updateLabel();
             });
         }
 
         updateLabel();
+        // Structural changes catch Streamlit rerenders without observing our own style writes.
+        const bodyObserver = new MutationObserver(scheduleUpdate);
+        bodyObserver.observe(doc.body, { childList: true, subtree: true });
 
-        // Streamlit sidebar state changes are reflected on the sidebar element.
         const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
         if (sidebar) {
             const sidebarObserver = new MutationObserver(scheduleUpdate);
             sidebarObserver.observe(sidebar, {
                 attributes: true,
-                attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
+                attributeFilter: ['class', 'style', 'aria-hidden', 'aria-expanded']
             });
         }
-
-        // Observe only the header for toggle replacement, not the full page DOM.
-        const header = doc.querySelector('header[data-testid="stHeader"]');
-        if (header) {
-            const headerObserver = new MutationObserver(scheduleUpdate);
-            headerObserver.observe(header, { childList: true, subtree: true });
-        }
-
-        const initialToggle = findToggle();
-        if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
-        win.addEventListener("resize", scheduleUpdate, { passive: true });
+        win.addEventListener('resize', scheduleUpdate, { passive: true });
+        win.addEventListener('scroll', scheduleUpdate, { passive: true, capture: true });
+        doc.addEventListener('click', (event) => {
+            if (event.target.closest('[data-testid*="Sidebar"] button, button[data-testid="collapsedControl"]')) {
+                win.setTimeout(scheduleUpdate, 80);
+                win.setTimeout(scheduleUpdate, 300);
+            }
+        }, true);
     })();
     </script>
     """,
-    height=0,
-    width=0,
+    height=1,
+    width=1,
 )
 
 
@@ -897,6 +885,87 @@ div[data-testid="stTabs"]{
         align-items: stretch !important;
         overflow-wrap: anywhere !important;
     }
+}
+
+
+
+/* FINAL RESPONSIVE OVERRIDES — apply consistently to every dashboard component. */
+*, *::before, *::after { box-sizing: border-box !important; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stMainBlockContainer"], .main, .block-container { min-width: 0 !important; }
+.main .block-container { width: 100% !important; max-width: 1500px !important; }
+[data-testid="stHorizontalBlock"], [data-testid="stVerticalBlock"],
+[data-testid="column"], [data-testid="stElementContainer"] { min-width: 0 !important; }
+[data-testid="stWidget"] { min-width: 0 !important; max-width: 100% !important; }
+[data-testid="stWidget"] input, [data-testid="stWidget"] textarea,
+[data-testid="stWidget"] select, [data-testid="stWidget"] button,
+[data-baseweb="select"], [data-baseweb="input"] { max-width: 100% !important; }
+[data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li, label, [data-testid="stWidgetLabel"] {
+    overflow-wrap: anywhere !important; word-break: normal;
+}
+[data-testid="stDataFrame"], [data-testid="stTable"], [data-testid="stTable"] > div {
+    width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+}
+[data-testid="stDataFrame"] { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+[data-testid="stDataFrame"] [role="grid"] { max-width: 100% !important; }
+[data-testid="stPlotlyChart"], [data-testid="stVegaLiteChart"],
+[data-testid="stArrowVegaLiteChart"], .stPlotlyChart, .js-plotly-plot,
+.plot-container, .svg-container { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+[data-testid="stPlotlyChart"] iframe, iframe, img, video, canvas, svg { max-width: 100% !important; }
+[data-testid="stTabs"] [role="tab"] { min-width: max-content; }
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    max-width: 100% !important; overflow-x: auto !important; flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+[data-testid="stExpander"] { min-width: 0 !important; max-width: 100% !important; }
+[data-testid="stAlert"] { overflow-wrap: anywhere !important; }
+.stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button {
+    min-height: 40px; max-width: 100% !important; white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+[data-testid="stMetric"] { min-width: 0 !important; }
+[data-testid="stMetricValue"] { font-size: clamp(1rem, 3.5vw, 2rem) !important; overflow-wrap: anywhere !important; }
+[data-testid="stMetricLabel"] { white-space: normal !important; overflow-wrap: anywhere !important; }
+
+@media (max-width: 1024px) {
+    .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] { min-width: 0 !important; }
+}
+@media (max-width: 768px) {
+    .main .block-container, [data-testid="stMainBlockContainer"] {
+        padding: .65rem .65rem 5.5rem !important; width: 100% !important;
+    }
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: .65rem !important; }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex: 1 1 100% !important; width: 100% !important; max-width: 100% !important;
+    }
+    [data-testid="stPlotlyChart"] { min-height: 250px !important; }
+    [data-testid="stTabs"] [data-baseweb="tab"] { padding-left: .65rem !important; padding-right: .65rem !important; }
+    [data-testid="stSidebar"] { max-width: 92vw !important; }
+    [data-testid="stSidebar"] > div { width: 100% !important; }
+    [data-testid="stDataFrame"] { max-height: 65vh !important; }
+    .data-preview-toolbar, .executive-table-header, .executive-table-status,
+    .last-updated-badge { flex-direction: column !important; align-items: stretch !important; }
+    .data-preview-pill-row { justify-content: flex-start !important; }
+    .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .js-plotly-plot .plotly .modebar { transform: scale(.82); transform-origin: top right; }
+}
+@media (max-width: 480px) {
+    .main .block-container, [data-testid="stMainBlockContainer"] { padding-left: .45rem !important; padding-right: .45rem !important; }
+    h1 { font-size: clamp(1.35rem, 6vw, 1.8rem) !important; }
+    h2 { font-size: clamp(1.15rem, 5vw, 1.5rem) !important; }
+    h3 { font-size: clamp(1rem, 4.5vw, 1.25rem) !important; }
+    [data-testid="stPlotlyChart"] { min-height: 220px !important; }
+    .executive-metric-grid { grid-template-columns: minmax(0, 1fr) !important; }
+    .executive-table-shell { padding: 9px !important; }
+    .data-preview-toolbar { padding: 9px !important; }
+    .stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button { width: 100% !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
 </style>
@@ -9625,17 +9694,11 @@ def inject_final_mobile_responsive_hardening() -> None:
             }
 
             #eusee-collapsed-sidebar-label {
-                font-size: 0 !important;
-                width: 38px !important;
-                min-width: 38px !important;
-                padding: 0 !important;
+                font-size: 11px !important;
+                width: auto !important;
+                min-width: 0 !important;
+                padding: 0 9px !important;
                 justify-content: center !important;
-            }
-
-            #eusee-collapsed-sidebar-label::after {
-                content: "☰";
-                font-size: 17px;
-                line-height: 1;
             }
         }
 
@@ -12221,45 +12284,54 @@ if tab_manual is not None:
 
 from eusee_ai_copilot import render_eusee_ai_copilot
 
-if is_authenticated():
+
+@st.fragment
+def _render_eusee_copilot_fragment() -> None:
+    """Render the copilot in isolation so its controls do not rerun the dashboard."""
     _copilot_cfr_df = pd.DataFrame()
-    try:
-        _copilot_cfr_source = _find_cfr_source()
-        if _copilot_cfr_source is not None:
-            _copilot_metadata_path = EXPORT_DIR / "countries_metadata.json"
-            _copilot_metadata_mtime = (
-                _copilot_metadata_path.stat().st_mtime
-                if _copilot_metadata_path.exists()
-                else None
-            )
-            _copilot_cfr_cache_key = (
-                str(_copilot_cfr_source),
-                _copilot_cfr_source.stat().st_mtime,
-                _copilot_metadata_mtime,
-            )
-            # Retain the loaded frame in this session. Streamlit's data cache
-            # avoids rereading the CSV, while session state avoids repeatedly
-            # copying/deserializing it during unrelated widget reruns.
-            if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
-                st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
+
+    # CFR source discovery and loading now run inside the fragment. This keeps
+    # the data available when the chatbot opens, while avoiding dashboard-wide
+    # reruns when the launcher, minimize, restore, expand, or close controls fire.
+    if st.session_state.get("eusee_copilot_open", False):
+        try:
+            _copilot_cfr_source = _find_cfr_source()
+            if _copilot_cfr_source is not None:
+                _copilot_metadata_path = EXPORT_DIR / "countries_metadata.json"
+                _copilot_metadata_mtime = (
+                    _copilot_metadata_path.stat().st_mtime
+                    if _copilot_metadata_path.exists()
+                    else None
+                )
+                _copilot_cfr_cache_key = (
                     str(_copilot_cfr_source),
-                    _copilot_cfr_cache_key[1],
+                    _copilot_cfr_source.stat().st_mtime,
                     _copilot_metadata_mtime,
                 )
-                st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
-            _copilot_cfr_df = st.session_state.get("_eusee_copilot_cfr_df", pd.DataFrame())
-    except Exception as _copilot_cfr_error:
-        logging.warning("CFR dataset unavailable to AI Copilot: %s", _copilot_cfr_error)
+                if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
+                    st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
+                        str(_copilot_cfr_source),
+                        _copilot_cfr_cache_key[1],
+                        _copilot_metadata_mtime,
+                    )
+                    st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
+                _copilot_cfr_df = st.session_state.get(
+                    "_eusee_copilot_cfr_df", pd.DataFrame()
+                )
+        except Exception as _copilot_cfr_error:
+            logging.warning("CFR dataset unavailable to AI Copilot: %s", _copilot_cfr_error)
 
     render_eusee_ai_copilot(
         dataframe=st.session_state.get("eusee_authoritative_dataset"),
         cfr_dataframe=_copilot_cfr_df,
         can_use_ai=bool(has_permission("use_ai_copilot")),
-        api_key=str(
-            st.secrets.get("openai", {}).get("OPENAI_API_KEY", "")
-        ).strip(),
-        model=str(
-            st.secrets.get("openai", {}).get("OPENAI_MODEL", "gpt-4.1-mini")
-        ).strip() or "gpt-4.1-mini",
+        api_key=str(st.secrets.get("openai", {}).get("OPENAI_API_KEY", "")).strip(),
+        model=str(st.secrets.get("openai", {}).get("OPENAI_MODEL", "gpt-4.1-mini")).strip()
+        or "gpt-4.1-mini",
         base_dir=BASE_DIR,
     )
+
+
+if is_authenticated():
+    # The fragment reruns only this chatbot section after chatbot interactions.
+    _render_eusee_copilot_fragment()
