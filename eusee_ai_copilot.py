@@ -1544,6 +1544,7 @@ def _render_result(result: dict, key: str) -> None:
 
         st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True, height=260)
 
+# The caller wraps this renderer in a Streamlit fragment to isolate UI interactions.
 def render_eusee_ai_copilot(
 
     dataframe,
@@ -2058,7 +2059,7 @@ def render_eusee_ai_copilot(
 
             st.session_state["eusee_copilot_minimized"] = False
 
-            st.rerun()
+            st.rerun(scope="fragment")
 
     if st.session_state["eusee_copilot_open"]:
 
@@ -2094,7 +2095,7 @@ def render_eusee_ai_copilot(
 
                     st.session_state["eusee_copilot_expanded"] = False
 
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             with expand_col:
 
@@ -2110,7 +2111,7 @@ def render_eusee_ai_copilot(
 
                     st.session_state["eusee_copilot_minimized"] = False
 
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             with close_col:
 
@@ -2124,7 +2125,7 @@ def render_eusee_ai_copilot(
 
                     st.session_state["eusee_copilot_expanded"] = False
 
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             # Expanded mode class is applied to the stable panel wrapper.
 
@@ -2150,7 +2151,7 @@ def render_eusee_ai_copilot(
 
                     st.session_state["eusee_copilot_minimized"] = False
 
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             else:
 
@@ -2313,7 +2314,7 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
 
         _save_history(base_dir, messages)
 
-        st.rerun()
+        st.rerun(scope="fragment")
 
     with st.expander("⚙️ Chat settings", expanded=False):
 
@@ -2323,4 +2324,4 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
 
             _save_history(base_dir, [])
 
-            st.rerun()
+            st.rerun(scope="fragment")
