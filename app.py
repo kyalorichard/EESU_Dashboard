@@ -434,150 +434,8 @@ components.html(
          * portal to calculate a negative left offset, so correct only the
          * open menu and leave all closed controls untouched.
          */
-        function positionSidebarDropdown() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return;
-
-            const expandedNodes = Array.from(
-                sidebar.querySelectorAll('[aria-expanded="true"]')
-            );
-
-            let anchorNode = null;
-            let anchor = null;
-
-            for (const node of expandedNodes) {
-                const candidate = node.closest('[data-baseweb="select"]')
-                    || node.closest('[data-testid="stMultiSelect"]')
-                    || node.closest('[data-testid="stSelectbox"]');
-                if (!candidate) continue;
-
-                const r = candidate.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0) {
-                    anchorNode = node;
-                    anchor = candidate;
-                    break;
-                }
-            }
-            if (!anchor || !anchorNode) return;
-
-            const rect = anchor.getBoundingClientRect();
-            if (rect.width < 20 || rect.bottom <= 0 || rect.top >= win.innerHeight) return;
-
-            // Resolve the listbox belonging to this control, not another menu.
-            let listbox = null;
-            const ids = [
-                anchorNode.getAttribute('aria-controls'),
-                anchorNode.getAttribute('aria-owns')
-            ].filter(Boolean).join(' ').split(/\s+/).filter(Boolean);
-
-            for (const id of ids) {
-                const controlled = doc.getElementById(id);
-                if (!controlled) continue;
-                if (controlled.matches('[role="listbox"]')) {
-                    listbox = controlled;
-                    break;
-                }
-                listbox = controlled.querySelector('[role="listbox"]');
-                if (listbox) break;
-            }
-
-            if (!listbox) {
-                const visible = Array.from(doc.querySelectorAll('[role="listbox"]'))
-                    .filter((node) => {
-                        const r = node.getBoundingClientRect();
-                        const css = win.getComputedStyle(node);
-                        return r.width > 0 && r.height > 0 &&
-                            css.display !== 'none' && css.visibility !== 'hidden';
-                    });
-
-                visible.sort((a, b) => {
-                    const ar = a.getBoundingClientRect();
-                    const br = b.getBoundingClientRect();
-                    const dist = (r) =>
-                        Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2)) +
-                        Math.abs(r.top - rect.bottom);
-                    return dist(ar) - dist(br);
-                });
-                listbox = visible[0] || null;
-            }
-            if (!listbox) return;
-
-            // BaseWeb positions its floating wrapper (Popper) separately from
-            // the inner popover. Size and position the outer wrapper; size the
-            // inner menu to 100% so no portal-width remainder is left blank.
-            let floating = listbox.closest('[data-popper-placement]');
-            const basewebPopover = listbox.closest('[data-baseweb="popover"]');
-
-            if (!floating && basewebPopover) {
-                floating = basewebPopover.parentElement;
-            }
-            if (!floating) floating = basewebPopover || listbox.parentElement;
-            if (!floating) return;
-
-            const margin = 8;
-            const gap = 4;
-            const width = Math.min(
-                rect.width,
-                Math.max(160, win.innerWidth - margin * 2)
-            );
-            const left = Math.max(
-                margin,
-                Math.min(rect.left, win.innerWidth - width - margin)
-            );
-
-            // Open below the control, like a standard dropdown. Flip above only
-            // when the viewport has insufficient room below.
-            const maxHeight = Math.min(280, win.innerHeight - margin * 2);
-            const roomBelow = win.innerHeight - rect.bottom - gap - margin;
-            const roomAbove = rect.top - gap - margin;
-            const openAbove = roomBelow < Math.min(180, maxHeight) &&
-                              roomAbove > roomBelow;
-            const menuHeight = Math.max(
-                100,
-                Math.min(maxHeight, openAbove ? roomAbove : roomBelow)
-            );
-            const top = openAbove
-                ? Math.max(margin, rect.top - menuHeight - gap)
-                : Math.min(rect.bottom + gap, win.innerHeight - menuHeight - margin);
-
-            const force = (el, property, value) =>
-                el.style.setProperty(property, value, 'important');
-
-            // The floating wrapper must have exactly the input's width and
-            // left coordinate; remove Popper's translate/width constraints.
-            force(floating, 'position', 'fixed');
-            force(floating, 'left', `${left}px`);
-            force(floating, 'right', 'auto');
-            force(floating, 'top', `${top}px`);
-            force(floating, 'bottom', 'auto');
-            force(floating, 'width', `${width}px`);
-            force(floating, 'min-width', `${width}px`);
-            force(floating, 'max-width', `${width}px`);
-            force(floating, 'margin', '0');
-            force(floating, 'transform', 'none');
-            force(floating, 'inset-inline-start', `${left}px`);
-            force(floating, 'inset-inline-end', 'auto');
-            force(floating, 'z-index', '1000002');
-
-            if (basewebPopover && basewebPopover !== floating) {
-                force(basewebPopover, 'width', '100%');
-                force(basewebPopover, 'min-width', '0');
-                force(basewebPopover, 'max-width', '100%');
-                force(basewebPopover, 'box-sizing', 'border-box');
-            }
-
-            force(listbox, 'width', '100%');
-            force(listbox, 'min-width', '0');
-            force(listbox, 'max-width', '100%');
-            force(listbox, 'max-height', `${menuHeight}px`);
-            force(listbox, 'overflow-y', 'auto');
-            force(listbox, 'overflow-x', 'hidden');
-            force(listbox, 'box-sizing', 'border-box');
-        }
-
         function updateLabel() {
             ensureStyle();
-            positionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
@@ -628,7 +486,6 @@ components.html(
             win.requestAnimationFrame(() => {
                 updateScheduled = false;
                 updateLabel();
-                win.requestAnimationFrame(positionSidebarDropdown);
             });
         }
 
@@ -651,9 +508,9 @@ components.html(
             headerObserver.observe(header, { childList: true, subtree: true });
         }
 
-        // BaseWeb creates dropdown menus in a portal under document.body.
-        // Observe portal creation and select expansion so the menu is re-anchored
-        // immediately, without polling.
+        // Observe DOM changes only to keep the collapsed-sidebar label current.
+        // Dropdown placement is intentionally left to Streamlit/BaseWeb's native
+        // Popper implementation so every sidebar select uses the same behavior.
         const bodyObserver = new MutationObserver(scheduleUpdate);
         bodyObserver.observe(doc.body, {
             childList: true,
