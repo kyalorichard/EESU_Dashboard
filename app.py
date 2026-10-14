@@ -2603,184 +2603,250 @@ def inject_professional_sidebar_filter_css():
     }
 
     /* ---------------- SELECT / MULTISELECT DROPDOWN MENU ---------------- */
-        /*
-           Streamlit/BaseWeb renders dropdown menus in a portal outside the sidebar.
-           Avoid broad listbox rules that let the menu expand across the page.
-           The :has() selector limits this styling to select/multiselect dropdown popovers only.
-        */
-        
+    /*
+       Streamlit/BaseWeb renders dropdown menus in a portal outside the sidebar.
+       Avoid broad listbox rules that let the menu expand across the page.
+       The :has() selector limits this styling to select/multiselect dropdown popovers only.
+    */
     
-        .stMultiSelect label, .stSelectbox label {
-            font-size: 10.8px !important;
-            font-weight: 900 !important;
-            color: #344054 !important;
-            letter-spacing: .01em !important;
-            margin-bottom: 4px !important;
-        }
-    
-        .negative-filter-shell {
-            background: linear-gradient(135deg, #FFFFFF 0%, #FFFCFB 100%);
-            border: 1px solid rgba(180,35,24,.12);
-            border-radius: 16px;
-            padding: 11px 13px;
-            margin: 2px 0 13px 0;
-            box-shadow: 0 8px 22px rgba(16,24,40,.055);
-            font-family: "Anek Devanagari", Arial, sans-serif;
-        }
-    
-        .negative-filter-eyebrow {
-            font-size: 9.5px;
-            font-weight: 900;
-            color: #B42318;
-            letter-spacing: .13em;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-    
-        .negative-filter-title {
-            font-size: 14px;
-            font-weight: 950;
-            color: #23152F;
-            line-height: 1.15;
-        }
-    
-        .negative-filter-note {
-            font-size: 10.7px;
-            color: #667085;
-            line-height: 1.35;
-            margin-top: 5px;
-        }
-    
-        .negative-filter-chip-row {
-            display: flex;
-            gap: 7px;
-            flex-wrap: wrap;
-            margin-top: 9px;
-        }
-    
-        .negative-filter-chip {
-            border-radius: 999px;
-            padding: 5px 9px;
-            font-size: 9.8px;
-            font-weight: 900;
-            background: #FFF4ED;
-            color: #B42318;
-            border: 1px solid rgba(180,35,24,.14);
-        }
-        section[data-testid="stSidebar"] {
-            background:
-                radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
-                linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
-        }
-    
-        section[data-testid="stSidebar"] .block-container,
-        section[data-testid="stSidebar"] > div {
-            padding-left: 0.85rem !important;
-            padding-right: 0.85rem !important;
-        }
-    
-        .sidebar-filter-section {
-            font-family: "Anek Devanagari", Arial, sans-serif;
-            font-size: 10.5px;
-            color: #667085;
-            line-height: 1.35;
-            margin: -2px 0 9px 0;
-        }
-    
-        .sidebar-filter-footer {
-            background: #FFFFFF;
-            border: 1px solid #E6E8EF;
-            border-radius: 14px;
-            padding: 9px 10px;
-            margin: 9px 0 12px 0;
-            box-shadow: 0 6px 16px rgba(16,24,40,.045);
-            font-family: "Anek Devanagari", Arial, sans-serif;
-        }
-    
-        .sidebar-filter-footer-title {
-            font-size: 11px;
-            font-weight: 900;
-            color: #23152F;
-            margin-bottom: 3px;
-        }
-    
-        .sidebar-filter-footer-note {
-            font-size: 10px;
-            color: #667085;
-            line-height: 1.35;
-        }
-    
-        div[data-testid="stExpander"] {
-            margin-bottom: 10px !important;
-            border-radius: 16px !important;
-            border: 1px solid #E6E8EF !important;
-            background: #FFFFFF !important;
-            box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
-            overflow: hidden !important;
-        }
-    
-        div[data-testid="stExpander"] summary {
-            min-height: 42px !important;
-            padding: 10px 13px !important;
-            background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
-            border-bottom: 1px solid #EEF0F4 !important;
-            color: #23152F !important;
-            font-family: "Anek Devanagari", Arial, sans-serif !important;
-            font-size: 12.5px !important;
-            font-weight: 900 !important;
-            letter-spacing: -0.01em !important;
-        }
-    
-        div[data-testid="stExpander"] summary:hover {
-            background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
-        }
-    
-        section[data-testid="stSidebar"] [data-baseweb="select"] > div {
-            min-height: 38px !important;
-            border-radius: 12px !important;
-            border: 1px solid #D0D5DD !important;
-            background: #FFFFFF !important;
-            box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
-        }
-    
-        section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
-            border-color: #B692C8 !important;
-            box-shadow: 0 0 0 3px rgba(102,0,148,.07) !important;
-        }
-    
-        section[data-testid="stSidebar"] [data-baseweb="tag"] {
-            background: #F4EAF8 !important;
-            color: #660094 !important;
-            border: 1px solid #E7D4F1 !important;
-            border-radius: 999px !important;
-            font-size: 10px !important;
-            font-weight: 800 !important;
-        }
-    
-        section[data-testid="stSidebar"] label {
-            font-size: 10.8px !important;
-            font-weight: 900 !important;
-            color: #344054 !important;
-            letter-spacing: .01em !important;
-            margin-bottom: 4px !important;
-        }
-    
-        section[data-testid="stSidebar"] .stButton > button {
-            border-radius: 12px !important;
-            height: 38px !important;
-            font-size: 11.5px !important;
-            font-weight: 900 !important;
-        }
-    
-        section[data-testid="stSidebar"] button[disabled] {
-            opacity: 1 !important;
-            color: #008CAA !important;
-            background: #EFFBFE !important;
-            border-color: rgba(0,140,170,.18) !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
+
+    .stMultiSelect label, .stSelectbox label {
+        font-size: 10.8px !important;
+        font-weight: 900 !important;
+        color: #344054 !important;
+        letter-spacing: .01em !important;
+        margin-bottom: 4px !important;
+    }
+
+    .negative-filter-shell {
+        background: linear-gradient(135deg, #FFFFFF 0%, #FFFCFB 100%);
+        border: 1px solid rgba(180,35,24,.12);
+        border-radius: 16px;
+        padding: 11px 13px;
+        margin: 2px 0 13px 0;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055);
+        font-family: "Anek Devanagari", Arial, sans-serif;
+    }
+
+    .negative-filter-eyebrow {
+        font-size: 9.5px;
+        font-weight: 900;
+        color: #B42318;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .negative-filter-title {
+        font-size: 14px;
+        font-weight: 950;
+        color: #23152F;
+        line-height: 1.15;
+    }
+
+    .negative-filter-note {
+        font-size: 10.7px;
+        color: #667085;
+        line-height: 1.35;
+        margin-top: 5px;
+    }
+
+    .negative-filter-chip-row {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 9px;
+    }
+
+    .negative-filter-chip {
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 9.8px;
+        font-weight: 900;
+        background: #FFF4ED;
+        color: #B42318;
+        border: 1px solid rgba(180,35,24,.14);
+    }
+    section[data-testid="stSidebar"] {
+        background:
+            radial-gradient(circle at 15% 0%, rgba(102,0,148,.055), transparent 30%),
+            linear-gradient(180deg, #FFFFFF 0%, #F7F8FB 100%) !important;
+    }
+
+    section[data-testid="stSidebar"] .block-container,
+    section[data-testid="stSidebar"] > div {
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
+    }
+
+    .sidebar-filter-section {
+        font-family: "Anek Devanagari", Arial, sans-serif;
+        font-size: 10.5px;
+        color: #667085;
+        line-height: 1.35;
+        margin: -2px 0 9px 0;
+    }
+
+    .sidebar-filter-footer {
+        background: #FFFFFF;
+        border: 1px solid #E6E8EF;
+        border-radius: 14px;
+        padding: 9px 10px;
+        margin: 9px 0 12px 0;
+        box-shadow: 0 6px 16px rgba(16,24,40,.045);
+        font-family: "Anek Devanagari", Arial, sans-serif;
+    }
+
+    .sidebar-filter-footer-title {
+        font-size: 11px;
+        font-weight: 900;
+        color: #23152F;
+        margin-bottom: 3px;
+    }
+
+    .sidebar-filter-footer-note {
+        font-size: 10px;
+        color: #667085;
+        line-height: 1.35;
+    }
+
+    .sidebar-latest-update {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 2px 0 4px 0;
+        padding: 9px 10px;
+        border: 1px solid #E4E7EC;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        box-shadow: 0 5px 14px rgba(16,24,40,.045);
+        font-family: "Anek Devanagari", Arial, sans-serif;
+    }
+
+    .sidebar-latest-update-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .sidebar-latest-update-icon {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        background: #F4EAF8;
+        color: #660094;
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .sidebar-latest-update-label {
+        font-size: 9.5px;
+        line-height: 1.15;
+        color: #667085;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: .045em;
+    }
+
+    .sidebar-latest-update-date {
+        margin-top: 2px;
+        color: #23152F;
+        font-size: 11px;
+        line-height: 1.2;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .sidebar-latest-update-badge {
+        flex: 0 0 auto;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #ECFDF3;
+        border: 1px solid #ABEFC6;
+        color: #067647;
+        font-size: 8.5px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: .06em;
+    }
+
+    div[data-testid="stExpander"] {
+        margin-bottom: 10px !important;
+        border-radius: 16px !important;
+        border: 1px solid #E6E8EF !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 8px 22px rgba(16,24,40,.055) !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stExpander"] summary {
+        min-height: 42px !important;
+        padding: 10px 13px !important;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FAF7FC 100%) !important;
+        border-bottom: 1px solid #EEF0F4 !important;
+        color: #23152F !important;
+        font-family: "Anek Devanagari", Arial, sans-serif !important;
+        font-size: 12.5px !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    div[data-testid="stExpander"] summary:hover {
+        background: linear-gradient(90deg, #FFFFFF 0%, #F4EAF8 100%) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+        min-height: 38px !important;
+        border-radius: 12px !important;
+        border: 1px solid #D0D5DD !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,.045) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover {
+        border-color: #B692C8 !important;
+        box-shadow: 0 0 0 3px rgba(102,0,148,.07) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background: #F4EAF8 !important;
+        color: #660094 !important;
+        border: 1px solid #E7D4F1 !important;
+        border-radius: 999px !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+    }
+
+    section[data-testid="stSidebar"] label {
+        font-size: 10.8px !important;
+        font-weight: 900 !important;
+        color: #344054 !important;
+        letter-spacing: .01em !important;
+        margin-bottom: 4px !important;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button {
+        border-radius: 12px !important;
+        height: 38px !important;
+        font-size: 11.5px !important;
+        font-weight: 900 !important;
+    }
+
+    section[data-testid="stSidebar"] button[disabled] {
+        opacity: 1 !important;
+        color: #008CAA !important;
+        background: #EFFBFE !important;
+        border-color: rgba(0,140,170,.18) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # ---------------- GLOBAL FILTERS: PROFESSIONAL COLLAPSIBLE SIDEBAR ----------------
 st.sidebar.image("assets/eu-see-logo.png", width=230)
 
