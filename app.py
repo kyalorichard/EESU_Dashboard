@@ -428,8 +428,81 @@ components.html(
             if (label) label.remove();
         }
 
+        /*
+         * Keep the native Streamlit/BaseWeb option menu anchored to the
+         * active sidebar control. App-wide responsive rules can cause the
+         * portal to calculate a negative left offset, so correct only the
+         * open menu and leave all closed controls untouched.
+         */
+        function positionSidebarDropdown() {
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+            if (!sidebar) return;
+
+            const expanded = Array.from(
+                sidebar.querySelectorAll('[aria-expanded="true"]')
+            );
+            let anchor = null;
+            for (const node of expanded) {
+                const candidate = node.closest(
+                    '[data-testid="stMultiSelect"], [data-testid="stSelectbox"]'
+                ) || node.closest('[data-baseweb="select"]');
+                if (candidate) {
+                    const r = candidate.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) {
+                        anchor = candidate;
+                        break;
+                    }
+                }
+            }
+            if (!anchor) return;
+
+            const rect = anchor.getBoundingClientRect();
+            if (rect.width < 20 || rect.bottom <= 0 || rect.top >= win.innerHeight) return;
+
+            const listbox = Array.from(doc.querySelectorAll('[role="listbox"]')).find((node) => {
+                const r = node.getBoundingClientRect();
+                const css = win.getComputedStyle(node);
+                return r.width > 0 && r.height > 0 &&
+                    css.display !== 'none' && css.visibility !== 'hidden';
+            });
+            if (!listbox) return;
+
+            const popover = listbox.closest('[data-baseweb="popover"]') || listbox.parentElement;
+            if (!popover) return;
+
+            const margin = 8;
+            const gap = 4;
+            const width = Math.min(rect.width, win.innerWidth - margin * 2);
+            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
+            const top = Math.min(rect.bottom + gap, win.innerHeight - margin - 100);
+            const availableHeight = Math.max(100, Math.min(280, win.innerHeight - top - margin));
+            const force = (element, property, value) =>
+                element.style.setProperty(property, value, 'important');
+
+            force(popover, 'position', 'fixed');
+            force(popover, 'left', `${left}px`);
+            force(popover, 'right', 'auto');
+            force(popover, 'top', `${top}px`);
+            force(popover, 'bottom', 'auto');
+            force(popover, 'width', `${width}px`);
+            force(popover, 'min-width', `${width}px`);
+            force(popover, 'max-width', `${width}px`);
+            force(popover, 'margin', '0');
+            force(popover, 'transform', 'none');
+            force(popover, 'z-index', '1000002');
+
+            force(listbox, 'width', '100%');
+            force(listbox, 'min-width', '0');
+            force(listbox, 'max-width', '100%');
+            force(listbox, 'max-height', `${availableHeight}px`);
+            force(listbox, 'overflow-y', 'auto');
+            force(listbox, 'overflow-x', 'hidden');
+            force(listbox, 'box-sizing', 'border-box');
+        }
+
         function updateLabel() {
             ensureStyle();
+            positionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
