@@ -62,7 +62,7 @@ warnings.filterwarnings(
 from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 
 
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 # ============================================================
 # EU SEE OFFICIAL TYPOGRAPHY
@@ -312,8 +312,8 @@ a[href*="source"] {
 </style>
 """, unsafe_allow_html=True)
 
-# Add a separate label beside Streamlit's native sidebar control.
-# The label is present only while the sidebar is collapsed.
+# Add a separate label beside Streamlit's native arrows. The label appears only
+# when the sidebar is collapsed and is removed immediately when it opens.
 components.html(
     r"""
     <script>
@@ -322,74 +322,96 @@ components.html(
         const win = window.parent;
         const LABEL_ID = "eusee-collapsed-sidebar-label";
         const STYLE_ID = "eusee-collapsed-sidebar-label-style";
-        let scheduled = false;
-        let observedSidebar = null;
-        let observedHeader = null;
 
         function ensureStyle() {
             if (doc.getElementById(STYLE_ID)) return;
+
             const style = doc.createElement("style");
             style.id = STYLE_ID;
             style.textContent = `
                 #${LABEL_ID} {
-                    position: fixed; z-index: 1000002; display: inline-flex;
-                    align-items: center; min-height: 32px; max-width: calc(100vw - 64px);
-                    padding: 0 11px; border: 1px solid #E7D4F1; border-radius: 999px;
-                    background: #FFFFFF; box-shadow: 0 3px 10px rgba(16,24,40,.08);
-                    color: #660094; font-family: "Anek Devanagari", Arial, sans-serif;
-                    font-size: 12px; line-height: 1.2; font-weight: 800;
-                    white-space: nowrap; pointer-events: auto; cursor: pointer;
-                    user-select: none; box-sizing: border-box;
+                    position: fixed;
+                    z-index: 1000002;
+                    display: inline-flex;
+                    align-items: center;
+                    min-height: 30px;
+                    padding: 0 11px;
+                    border: 1px solid #E7D4F1;
+                    border-radius: 999px;
+                    background: #FFFFFF;
+                    box-shadow: 0 3px 10px rgba(16,24,40,.08);
+                    color: #660094;
+                    font-family: "Anek Devanagari", Arial, sans-serif;
+                    font-size: 12px;
+                    line-height: 1;
+                    font-weight: 800;
+                    white-space: nowrap;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    user-select: none;
+                    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
                 }
-                #${LABEL_ID}:hover { border-color: #660094; background: #FBF7FD; }
-                #${LABEL_ID}:focus-visible { outline: 3px solid rgba(102,0,148,.18); outline-offset: 2px; }
+                #${LABEL_ID}:hover {
+                    border-color: #660094;
+                    background: #FBF7FD;
+                    box-shadow: 0 5px 14px rgba(102,0,148,.14);
+                    transform: translateY(-1px);
+                }
+
+                #${LABEL_ID}:focus-visible {
+                    outline: 3px solid rgba(102,0,148,.18);
+                    outline-offset: 2px;
+                }
+
                 @media (max-width: 700px) {
-                    #${LABEL_ID} { padding: 0 8px; font-size: 11px; max-width: calc(100vw - 56px); }
+                    #${LABEL_ID} {
+                        padding: 0 8px;
+                        font-size: 11px;
+                    }
                 }
             `;
             doc.head.appendChild(style);
         }
 
-        function isVisible(el) {
-            if (!el) return false;
-            const r = el.getBoundingClientRect();
-            const c = win.getComputedStyle(el);
-            return r.width > 0 && r.height > 0 && c.display !== "none" &&
-                   c.visibility !== "hidden" && Number(c.opacity || 1) > 0;
-        }
+        function findToggle() {
+            const selectors = [
+                '[data-testid="stSidebarCollapsedControl"] button',
+                '[data-testid="stSidebarCollapsedControl"]',
+                'button[data-testid="collapsedControl"]',
+                '[data-testid="stSidebarCollapseButton"] button',
+                '[data-testid="stSidebarCollapseButton"]',
+                'button[aria-label*="sidebar" i]',
+                'button[title*="sidebar" i]'
+            ];
 
-        function sidebarElement() {
-            return doc.querySelector('section[data-testid="stSidebar"]') ||
-                   doc.querySelector('[data-testid="stSidebar"]');
+            for (const selector of selectors) {
+                const nodes = Array.from(doc.querySelectorAll(selector));
+                const visible = nodes.find((node) => {
+                    const rect = node.getBoundingClientRect();
+                    const css = win.getComputedStyle(node);
+                    return rect.width > 0 && rect.height > 0 &&
+                           css.display !== "none" &&
+                           css.visibility !== "hidden";
+                });
+                if (visible) return visible;
+            }
+            return null;
         }
 
         function sidebarIsCollapsed() {
-            const sidebar = sidebarElement();
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return true;
-            const r = sidebar.getBoundingClientRect();
-            const c = win.getComputedStyle(sidebar);
-            // Streamlit keeps the sidebar in the DOM when collapsed; its geometry
-            // (rather than a possibly stale aria attribute) is the primary signal.
-            if (c.display === "none" || c.visibility === "hidden" || r.width < 40) return true;
-            return r.right <= 1 || r.left <= -Math.max(40, r.width * 0.5);
-        }
 
-        function findToggle() {
-            const selectors = [
-                'button[data-testid="collapsedControl"]',
-                '[data-testid="stSidebarCollapsedControl"] button',
-                '[data-testid="stSidebarCollapsedControl"]',
-                '[data-testid="stSidebarCollapseButton"] button',
-                '[data-testid="stSidebarCollapseButton"]',
-                'header button[aria-label*="sidebar" i]',
-                'header button[title*="sidebar" i]'
-            ];
-            for (const selector of selectors) {
-                for (const node of doc.querySelectorAll(selector)) {
-                    if (isVisible(node)) return node;
-                }
-            }
-            return null;
+            const rect = sidebar.getBoundingClientRect();
+            const css = win.getComputedStyle(sidebar);
+            const ariaHidden = sidebar.getAttribute("aria-hidden") === "true";
+
+            return ariaHidden ||
+                   css.display === "none" ||
+                   css.visibility === "hidden" ||
+                   rect.width < 40 ||
+                   rect.right <= 5 ||
+                   rect.left < -(rect.width / 2);
         }
 
         function removeLabel() {
@@ -399,84 +421,88 @@ components.html(
 
         function updateLabel() {
             ensureStyle();
-            const collapsed = sidebarIsCollapsed();
+
             const toggle = findToggle();
-            if (!collapsed || !toggle || !isVisible(toggle)) {
+            if (!toggle || !sidebarIsCollapsed()) {
                 removeLabel();
                 return;
             }
 
             let label = doc.getElementById(LABEL_ID);
             if (!label) {
-                label = doc.createElement("button");
+                label = doc.createElement("div");
                 label.id = LABEL_ID;
-                label.type = "button";
                 label.textContent = "Login & Global Filters";
+                label.setAttribute("role", "button");
+                label.setAttribute("tabindex", "0");
                 label.setAttribute("aria-label", "Open Login and Global Filters sidebar");
-                label.title = "Open Login and Global Filters";
-                label.addEventListener("click", function () {
-                    const currentToggle = findToggle();
-                    if (currentToggle && sidebarIsCollapsed()) currentToggle.click();
-                    removeLabel();
-                    [80, 250, 600, 1000].forEach(ms => win.setTimeout(scheduleUpdate, ms));
+                label.setAttribute("title", "Open Login and Global Filters");
+
+                const openSidebar = function () {
+                    const activeToggle = findToggle();
+                    if (activeToggle && sidebarIsCollapsed()) {
+                        activeToggle.click();
+                    }
+                };
+
+                label.addEventListener("click", openSidebar);
+                label.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openSidebar();
+                    }
                 });
+
                 doc.body.appendChild(label);
             }
 
-            const r = toggle.getBoundingClientRect();
-            const h = label.getBoundingClientRect().height || 32;
-            const desiredLeft = r.right + 8;
-            const maxLeft = Math.max(8, win.innerWidth - label.offsetWidth - 8);
-            label.style.left = Math.min(desiredLeft, maxLeft) + "px";
-            label.style.top = Math.max(5, r.top + (r.height - h) / 2) + "px";
+            const rect = toggle.getBoundingClientRect();
+            const labelHeight = label.getBoundingClientRect().height || 30;
+            label.style.left = `${Math.max(44, rect.right + 8)}px`;
+            label.style.top = `${Math.max(5, rect.top + (rect.height - labelHeight) / 2)}px`;
         }
 
+        // Schedule at most one label refresh per browser frame. Avoid observing
+        // every attribute change in the entire dashboard or polling every 500 ms.
+        let updateScheduled = false;
         function scheduleUpdate() {
-            if (scheduled) return;
-            scheduled = true;
-            win.requestAnimationFrame(function () {
-                scheduled = false;
+            if (updateScheduled) return;
+            updateScheduled = true;
+            win.requestAnimationFrame(() => {
+                updateScheduled = false;
                 updateLabel();
             });
         }
 
-        function attachObservers() {
-            const sidebar = sidebarElement();
-            if (sidebar && sidebar !== observedSidebar) {
-                observedSidebar = sidebar;
-                new MutationObserver(scheduleUpdate).observe(sidebar, {
-                    attributes: true, attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
-                });
-            }
-            const header = doc.querySelector('header[data-testid="stHeader"]');
-            if (header && header !== observedHeader) {
-                observedHeader = header;
-                new MutationObserver(scheduleUpdate).observe(header, {
-                    childList: true, subtree: true, attributes: true,
-                    attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
-                });
-            }
+        updateLabel();
+
+        // Streamlit sidebar state changes are reflected on the sidebar element.
+        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+        if (sidebar) {
+            const sidebarObserver = new MutationObserver(scheduleUpdate);
+            sidebarObserver.observe(sidebar, {
+                attributes: true,
+                attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
+            });
         }
 
-        // Streamlit may mount or replace the sidebar/header after this iframe runs.
-        new MutationObserver(function () { attachObservers(); scheduleUpdate(); }).observe(doc.documentElement, {
-            childList: true, subtree: true
-        });
-        attachObservers();
-        doc.addEventListener("click", function (event) {
-            if (event.target.closest('button[data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebarCollapseButton"]')) {
-                [0, 80, 250, 600].forEach(ms => win.setTimeout(scheduleUpdate, ms));
-            }
-        }, true);
+        // Observe only the header for toggle replacement, not the full page DOM.
+        const header = doc.querySelector('header[data-testid="stHeader"]');
+        if (header) {
+            const headerObserver = new MutationObserver(scheduleUpdate);
+            headerObserver.observe(header, { childList: true, subtree: true });
+        }
+
+        const initialToggle = findToggle();
+        if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
         win.addEventListener("resize", scheduleUpdate, { passive: true });
-        win.addEventListener("orientationchange", scheduleUpdate, { passive: true });
-        [0, 100, 300, 700, 1200].forEach(ms => win.setTimeout(scheduleUpdate, ms));
     })();
     </script>
     """,
     height=0,
     width=0,
 )
+
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
@@ -635,8 +661,7 @@ def inject_classic_dashboard_css():
     
 
     /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
-    html, body { overflow-x: clip !important; }
-    [data-testid="stAppViewContainer"] { overflow-x: visible !important; }
+    html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
     .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
     [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
     div[data-testid="column"] { min-width: 0 !important; }
@@ -756,26 +781,11 @@ div[data-testid="stTabs"]{
 }
 [data-testid="stWidget"] input,
 [data-testid="stWidget"] textarea,
-[data-testid="stWidget"] [data-baseweb="select"] > div,
+[data-testid="stWidget"] [data-baseweb="select"],
 [data-testid="stWidget"] [data-baseweb="input"],
 [data-testid="stWidget"] button {
     max-width: 100% !important;
     box-sizing: border-box !important;
-}
-/* BaseWeb menus are portaled outside the sidebar. Do not impose sidebar widths
-   or positioning on the portal; let Streamlit calculate its anchor placement. */
-[data-baseweb="popover"] {
-    z-index: 1000001 !important;
-    box-sizing: border-box !important;
-}
-[data-baseweb="popover"] [data-baseweb="menu"],
-[data-baseweb="popover"] [role="listbox"] {
-    box-sizing: border-box !important;
-    max-width: min(420px, calc(100vw - 16px)) !important;
-}
-[data-baseweb="popover"] [role="option"] {
-    white-space: normal !important;
-    overflow-wrap: anywhere !important;
 }
 [data-testid="stMetric"] [data-testid="stMetricValue"] {
     overflow-wrap: anywhere !important;
