@@ -12221,10 +12221,15 @@ if tab_manual is not None:
 
 from eusee_ai_copilot import render_eusee_ai_copilot
 
-if is_authenticated():
+
+@st.fragment
+def _render_eusee_copilot_fragment() -> None:
+    """Render the copilot in isolation so its controls do not rerun the dashboard."""
     _copilot_cfr_df = pd.DataFrame()
-    # CFR source discovery and loading are only needed while the copilot is open.
-    # This avoids filesystem checks and metadata work on ordinary dashboard reruns.
+
+    # CFR source discovery and loading now run inside the fragment. This keeps
+    # the data available when the chatbot opens, while avoiding dashboard-wide
+    # reruns when the launcher, minimize, restore, expand, or close controls fire.
     if st.session_state.get("eusee_copilot_open", False):
         try:
             _copilot_cfr_source = _find_cfr_source()
@@ -12247,7 +12252,9 @@ if is_authenticated():
                         _copilot_metadata_mtime,
                     )
                     st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
-                _copilot_cfr_df = st.session_state.get("_eusee_copilot_cfr_df", pd.DataFrame())
+                _copilot_cfr_df = st.session_state.get(
+                    "_eusee_copilot_cfr_df", pd.DataFrame()
+                )
         except Exception as _copilot_cfr_error:
             logging.warning("CFR dataset unavailable to AI Copilot: %s", _copilot_cfr_error)
 
@@ -12255,11 +12262,13 @@ if is_authenticated():
         dataframe=st.session_state.get("eusee_authoritative_dataset"),
         cfr_dataframe=_copilot_cfr_df,
         can_use_ai=bool(has_permission("use_ai_copilot")),
-        api_key=str(
-            st.secrets.get("openai", {}).get("OPENAI_API_KEY", "")
-        ).strip(),
-        model=str(
-            st.secrets.get("openai", {}).get("OPENAI_MODEL", "gpt-4.1-mini")
-        ).strip() or "gpt-4.1-mini",
+        api_key=str(st.secrets.get("openai", {}).get("OPENAI_API_KEY", "")).strip(),
+        model=str(st.secrets.get("openai", {}).get("OPENAI_MODEL", "gpt-4.1-mini")).strip()
+        or "gpt-4.1-mini",
         base_dir=BASE_DIR,
     )
+
+
+if is_authenticated():
+    # The fragment reruns only this chatbot section after chatbot interactions.
+    _render_eusee_copilot_fragment()
