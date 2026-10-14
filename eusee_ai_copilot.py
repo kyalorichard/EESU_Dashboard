@@ -2039,6 +2039,62 @@ def render_eusee_ai_copilot(
 
         }
 
+
+
+        /* Final responsive rules for the floating Copilot on phones and tablets. */
+        .st-key-eusee_copilot_panel,
+        .st-key-eusee_copilot_panel > div,
+        .st-key-eusee_copilot_panel [data-testid="stVerticalBlock"],
+        .st-key-eusee_copilot_panel [data-testid="stElementContainer"] {
+            min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stHorizontalBlock"] {
+            display: flex !important; flex-wrap: nowrap !important; min-width: 0 !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            min-width: 0 !important; flex-shrink: 1 !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stChatMessage"],
+        .st-key-eusee_copilot_panel [data-testid="stMarkdownContainer"],
+        .st-key-eusee_copilot_panel p, .st-key-eusee_copilot_panel li {
+            overflow-wrap: anywhere !important; word-break: normal !important;
+        }
+        .st-key-eusee_copilot_panel [data-testid="stDataFrame"],
+        .st-key-eusee_copilot_panel [data-testid="stTable"],
+        .st-key-eusee_copilot_panel [data-testid="stPlotlyChart"],
+        .st-key-eusee_copilot_panel .js-plotly-plot,
+        .st-key-eusee_copilot_panel iframe { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+        .st-key-eusee_copilot_panel textarea,
+        .st-key-eusee_copilot_panel input { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+        .st-key-eusee_copilot_panel button { overflow-wrap: anywhere !important; white-space: normal !important; }
+        @media (max-width: 600px) {
+            .st-key-eusee_copilot_launcher {
+                right: max(8px, env(safe-area-inset-right)) !important;
+                bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px)) !important;
+                max-width: calc(100vw - 16px) !important;
+            }
+            .st-key-eusee_copilot_launcher button { min-height: 44px !important; padding: 0 12px !important; font-size: 12px !important; }
+            .st-key-eusee_copilot_panel {
+                position: fixed !important;
+                top: max(8px, env(safe-area-inset-top)) !important;
+                right: max(8px, env(safe-area-inset-right)) !important;
+                bottom: max(66px, calc(env(safe-area-inset-bottom) + 58px)) !important;
+                left: max(8px, env(safe-area-inset-left)) !important;
+                width: auto !important; max-width: none !important;
+                max-height: none !important; height: auto !important;
+                padding: 8px !important; border-radius: 14px !important;
+                overflow-y: auto !important; overscroll-behavior: contain !important;
+            }
+            .st-key-eusee_copilot_panel [data-testid="stHorizontalBlock"] { gap: 4px !important; }
+            .st-key-eusee_copilot_panel button { min-height: 38px !important; padding: 4px 6px !important; font-size: 12px !important; }
+            .st-key-eusee_copilot_panel textarea { min-height: 68px !important; font-size: 16px !important; }
+            .st-key-eusee_copilot_panel [data-testid="stPlotlyChart"] { min-height: 210px !important; }
+        }
+        @media (max-width: 380px) {
+            .st-key-eusee_copilot_panel { padding: 6px !important; }
+            .st-key-eusee_copilot_panel [data-testid="stHorizontalBlock"] { gap: 2px !important; }
+            .st-key-eusee_copilot_panel button { padding: 3px 4px !important; font-size: 11px !important; }
+        }
         </style>
 
         """,
