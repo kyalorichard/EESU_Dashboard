@@ -335,44 +335,56 @@ a[href*="source"] {
 """, unsafe_allow_html=True)
 
 # Add an accessible shortcut beside Streamlit's native sidebar control.
-# Important: observe structural changes only. Watching all style/class changes
-# across the full document creates a MutationObserver feedback loop.
+# All styling is scoped to this shortcut; dashboard component CSS is unchanged.
 components.html(
     r"""
     <script>
     (() => {
-        const doc = window.parent.document;
         const win = window.parent;
+        const doc = win.document;
         const LABEL_ID = "eusee-collapsed-sidebar-label";
         const STYLE_ID = "eusee-collapsed-sidebar-label-style";
         let scheduled = false;
 
         const isVisible = (el) => {
-            if (!el) return false;
+            if (!el || !el.isConnected) return false;
             const rect = el.getBoundingClientRect();
             const css = win.getComputedStyle(el);
             return rect.width > 0 && rect.height > 0 &&
-                css.display !== "none" && css.visibility !== "hidden" &&
+                css.display !== "none" &&
+                css.visibility !== "hidden" &&
                 css.opacity !== "0";
         };
 
         function findCollapsedToggle() {
+            // Use only controls intended to OPEN a collapsed sidebar.
             const selectors = [
+                'button[data-testid="collapsedControl"]',
                 'button[data-testid="stSidebarCollapsedControl"]',
                 '[data-testid="stSidebarCollapsedControl"] button',
-                'button[data-testid="collapsedControl"]',
-                '[data-testid="stSidebarCollapsedControl"]',
-                '[data-testid="collapsedControl"]'
+                '[data-testid="collapsedControl"] button'
             ];
+
             for (const selector of selectors) {
                 for (const el of doc.querySelectorAll(selector)) {
                     if (isVisible(el)) return el;
                 }
             }
-            // Accessible-label fallback for Streamlit version differences.
-            for (const el of doc.querySelectorAll('header button, button')) {
-                const label = `${el.getAttribute('aria-label') || ''} ${el.title || ''}`.toLowerCase();
-                if (label.includes('sidebar') && (label.includes('open') || label.includes('expand')) && isVisible(el)) {
+
+            // Fallback for Streamlit versions with different test IDs.
+            for (const el of doc.querySelectorAll(
+                'header[data-testid="stHeader"] button, header button'
+            )) {
+                const label = (
+                    (el.getAttribute("aria-label") || "") + " " +
+                    (el.getAttribute("title") || el.title || "")
+                ).toLowerCase();
+
+                if (
+                    label.includes("sidebar") &&
+                    (label.includes("open") || label.includes("expand")) &&
+                    isVisible(el)
+                ) {
                     return el;
                 }
             }
@@ -381,77 +393,140 @@ components.html(
 
         function ensureStyle() {
             if (doc.getElementById(STYLE_ID)) return;
-            const style = doc.createElement('style');
+
+            const style = doc.createElement("style");
             style.id = STYLE_ID;
             style.textContent = `
                 #${LABEL_ID} {
-                    position: fixed; z-index: 2147483000; display: inline-flex;
-                    align-items: center; justify-content: center; min-height: 36px;
-                    padding: 0 12px; border: 1px solid #E7D4F1; border-radius: 999px;
-                    background: #fff; box-shadow: 0 3px 10px rgba(16,24,40,.12);
-                    color: #660094; font: 800 12px/1.1 "Anek Devanagari", Arial, sans-serif;
-                    white-space: nowrap; cursor: pointer; user-select: none;
+                    position: fixed;
+                    z-index: 2147483000;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 36px;
+                    max-width: calc(100vw - 56px);
+                    padding: 0 12px;
+                    border: 1px solid #E7D4F1;
+                    border-radius: 999px;
+                    background: #fff;
+                    box-shadow: 0 3px 10px rgba(16,24,40,.12);
+                    color: #660094;
+                    font: 800 12px/1.2 "Anek Devanagari", Arial, sans-serif;
+                    white-space: nowrap;
+                    cursor: pointer;
+                    user-select: none;
                 }
-                #${LABEL_ID}:hover { background: #FBF7FD; border-color: #660094; }
-                #${LABEL_ID}:focus-visible { outline: 3px solid rgba(102,0,148,.25); outline-offset: 2px; }
+                #${LABEL_ID}:hover {
+                    background: #FBF7FD;
+                    border-color: #660094;
+                }
+                #${LABEL_ID}:focus-visible {
+                    outline: 3px solid rgba(102,0,148,.25);
+                    outline-offset: 2px;
+                }
                 @media (max-width: 700px) {
-                    #${LABEL_ID} { min-height: 34px; padding: 0 9px; font-size: 11px; }
+                    #${LABEL_ID} {
+                        min-height: 36px;
+                        padding: 0 9px;
+                        font-size: 11px;
+                    }
                 }
                 @media (max-width: 420px) {
-                    #${LABEL_ID} { max-width: calc(100vw - 60px); white-space: normal; }
+                    #${LABEL_ID} {
+                        max-width: calc(100vw - 48px);
+                        white-space: normal;
+                        text-align: center;
+                    }
                 }`;
             doc.head.appendChild(style);
         }
 
-        function sidebarLooksCollapsed() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return true;
+        function sidebarIsCollapsed() {
+            const sidebar = doc.querySelector(
+                'section[data-testid="stSidebar"]'
+            );
+
+            if (!sidebar) {
+                // Do not show the shortcut until the sidebar DOM exists.
+                return false;
+            }
+
+            const expanded = sidebar.getAttribute("aria-expanded");
+            if (expanded === "true") return false;
+            if (expanded === "false") return true;
+            if (sidebar.getAttribute("aria-hidden") === "true") return true;
+
             const rect = sidebar.getBoundingClientRect();
             const css = win.getComputedStyle(sidebar);
-            return sidebar.getAttribute('aria-hidden') === 'true' ||
-                css.visibility === 'hidden' || css.display === 'none' ||
-                rect.width < 40 || rect.right <= 0 || rect.left <= -rect.width * 0.6;
+            return css.display === "none" ||
+                css.visibility === "hidden" ||
+                rect.width < 40 ||
+                rect.right <= 0 ||
+                rect.left <= -Math.max(rect.width, 1) * 0.6;
         }
 
         function removeLabel() {
-            const label = doc.getElementById(LABEL_ID);
-            if (label) label.remove();
+            doc.getElementById(LABEL_ID)?.remove();
         }
 
         function updateLabel() {
             ensureStyle();
+
             const toggle = findCollapsedToggle();
-            if (!sidebarLooksCollapsed() || !toggle) {
+            const collapsed = sidebarIsCollapsed();
+
+            // The shortcut exists only when the sidebar is actually collapsed
+            // and Streamlit's native "open sidebar" control is visible.
+            if (!collapsed || !toggle) {
                 removeLabel();
                 return;
             }
 
             let label = doc.getElementById(LABEL_ID);
             if (!label) {
-                label = doc.createElement('button');
+                label = doc.createElement("button");
                 label.id = LABEL_ID;
-                label.type = 'button';
-                label.textContent = 'Login & Global Filters';
-                label.setAttribute('aria-label', 'Open Login and Global Filters sidebar');
-                label.title = 'Open Login and Global Filters';
-                label.addEventListener('click', () => {
+                label.type = "button";
+                label.textContent = "Login & Global Filters";
+                label.setAttribute(
+                    "aria-label",
+                    "Open Login and Global Filters sidebar"
+                );
+                label.title = "Open Login and Global Filters";
+                label.addEventListener("click", () => {
                     const currentToggle = findCollapsedToggle();
-                    if (currentToggle && sidebarLooksCollapsed()) currentToggle.click();
-                    win.setTimeout(scheduleUpdate, 120);
-                    win.setTimeout(scheduleUpdate, 400);
+                    if (currentToggle && sidebarIsCollapsed()) {
+                        currentToggle.click();
+                    }
+                    win.setTimeout(scheduleUpdate, 80);
+                    win.setTimeout(scheduleUpdate, 250);
+                    win.setTimeout(scheduleUpdate, 600);
                 });
                 doc.body.appendChild(label);
             }
 
             const toggleRect = toggle.getBoundingClientRect();
             const labelRect = label.getBoundingClientRect();
-            const width = labelRect.width || 170;
+            const width = labelRect.width || 180;
             const height = labelRect.height || 36;
-            const left = Math.max(8, Math.min(toggleRect.right + 8, win.innerWidth - width - 8));
-            const top = Math.max(4, Math.min(toggleRect.top + (toggleRect.height - height) / 2, win.innerHeight - height - 4));
-            // Avoid writing the same styles repeatedly; this also prevents observer loops.
-            if (label.style.left !== `${left}px`) label.style.left = `${left}px`;
-            if (label.style.top !== `${top}px`) label.style.top = `${top}px`;
+            const left = Math.max(
+                8,
+                Math.min(toggleRect.right + 8, win.innerWidth - width - 8)
+            );
+            const top = Math.max(
+                4,
+                Math.min(
+                    toggleRect.top + (toggleRect.height - height) / 2,
+                    win.innerHeight - height - 4
+                )
+            );
+
+            if (label.style.left !== `${left}px`) {
+                label.style.left = `${left}px`;
+            }
+            if (label.style.top !== `${top}px`) {
+                label.style.top = `${top}px`;
+            }
         }
 
         function scheduleUpdate() {
@@ -463,27 +538,66 @@ components.html(
             });
         }
 
-        updateLabel();
-        // Structural changes catch Streamlit rerenders without observing our own style writes.
-        const bodyObserver = new MutationObserver(scheduleUpdate);
-        bodyObserver.observe(doc.body, { childList: true, subtree: true });
+        // Watch structural changes plus sidebar/header state changes. Attribute
+        // changes elsewhere in the dashboard are ignored to avoid needless work.
+        const observer = new MutationObserver((records) => {
+            let relevant = false;
 
-        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-        if (sidebar) {
-            const sidebarObserver = new MutationObserver(scheduleUpdate);
-            sidebarObserver.observe(sidebar, {
-                attributes: true,
-                attributeFilter: ['class', 'style', 'aria-hidden', 'aria-expanded']
-            });
-        }
-        win.addEventListener('resize', scheduleUpdate, { passive: true });
-        win.addEventListener('scroll', scheduleUpdate, { passive: true, capture: true });
-        doc.addEventListener('click', (event) => {
-            if (event.target.closest('[data-testid*="Sidebar"] button, button[data-testid="collapsedControl"]')) {
+            for (const record of records) {
+                if (record.type === "childList") {
+                    relevant = true;
+                    break;
+                }
+
+                const target = record.target;
+                if (
+                    target?.id === LABEL_ID ||
+                    target?.id === STYLE_ID ||
+                    target?.closest?.(`#${LABEL_ID}`)
+                ) {
+                    continue;
+                }
+
+                if (
+                    target?.closest?.(
+                        'section[data-testid="stSidebar"], header[data-testid="stHeader"]'
+                    )
+                ) {
+                    relevant = true;
+                    break;
+                }
+            }
+
+            if (relevant) scheduleUpdate();
+        });
+
+        observer.observe(doc.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: [
+                "class", "style", "aria-hidden", "aria-expanded", "data-testid"
+            ]
+        });
+
+        win.addEventListener("resize", scheduleUpdate, { passive: true });
+        win.addEventListener("orientationchange", scheduleUpdate, { passive: true });
+        doc.addEventListener("click", (event) => {
+            if (event.target?.closest?.(
+                '[data-testid*="Sidebar"] button, button[data-testid="collapsedControl"]'
+            )) {
                 win.setTimeout(scheduleUpdate, 80);
-                win.setTimeout(scheduleUpdate, 300);
+                win.setTimeout(scheduleUpdate, 250);
+                win.setTimeout(scheduleUpdate, 600);
             }
         }, true);
+
+        // Recheck after Streamlit finishes its first render and after CSS
+        // transitions, including cases where the sidebar node appears late.
+        updateLabel();
+        win.setTimeout(scheduleUpdate, 100);
+        win.setTimeout(scheduleUpdate, 400);
+        win.setTimeout(scheduleUpdate, 900);
     })();
     </script>
     """,
