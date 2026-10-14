@@ -1893,9 +1893,7 @@ def render_eusee_ai_copilot(
 
             font-size: 10px !important;            
             box-shadow: 0 8px 22px rgba(102,0,148,.24);
-            transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
-
-            white-space: nowrap !important;
+            transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
 
         }
 
