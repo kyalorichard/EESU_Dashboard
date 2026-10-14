@@ -438,10 +438,10 @@ components.html(
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            // Identify the actual open select/multiselect control.
             const expandedNodes = Array.from(
                 sidebar.querySelectorAll('[aria-expanded="true"]')
             );
+
             let anchorNode = null;
             let anchor = null;
 
@@ -463,21 +463,14 @@ components.html(
             const rect = anchor.getBoundingClientRect();
             if (rect.width < 20 || rect.bottom <= 0 || rect.top >= win.innerHeight) return;
 
-            // First use the open control's aria-controls/aria-owns relationship.
-            // This avoids accidentally moving a different listbox elsewhere on
-            // the page when multiple widgets exist.
+            // Resolve the listbox belonging to this control, not another menu.
             let listbox = null;
-            const controlledIds = [
+            const ids = [
                 anchorNode.getAttribute('aria-controls'),
-                anchorNode.getAttribute('aria-owns'),
-                ...Array.from(anchor.querySelectorAll('[aria-controls], [aria-owns]'))
-                    .flatMap((el) => [
-                        el.getAttribute('aria-controls'),
-                        el.getAttribute('aria-owns')
-                    ])
-            ].filter(Boolean).join(' ').split(/\s+/);
+                anchorNode.getAttribute('aria-owns')
+            ].filter(Boolean).join(' ').split(/\s+/).filter(Boolean);
 
-            for (const id of controlledIds) {
+            for (const id of ids) {
                 const controlled = doc.getElementById(id);
                 if (!controlled) continue;
                 if (controlled.matches('[role="listbox"]')) {
@@ -488,92 +481,95 @@ components.html(
                 if (listbox) break;
             }
 
-            // Fallback: choose the visible listbox closest to the active control.
             if (!listbox) {
-                const visibleListboxes = Array.from(
-                    doc.querySelectorAll('[role="listbox"]')
-                ).filter((node) => {
-                    const r = node.getBoundingClientRect();
-                    const css = win.getComputedStyle(node);
-                    return r.width > 0 && r.height > 0 &&
-                        css.display !== 'none' &&
-                        css.visibility !== 'hidden';
-                });
+                const visible = Array.from(doc.querySelectorAll('[role="listbox"]'))
+                    .filter((node) => {
+                        const r = node.getBoundingClientRect();
+                        const css = win.getComputedStyle(node);
+                        return r.width > 0 && r.height > 0 &&
+                            css.display !== 'none' && css.visibility !== 'hidden';
+                    });
 
-                visibleListboxes.sort((a, b) => {
+                visible.sort((a, b) => {
                     const ar = a.getBoundingClientRect();
                     const br = b.getBoundingClientRect();
-                    const distance = (r) =>
+                    const dist = (r) =>
                         Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2)) +
                         Math.abs(r.top - rect.bottom);
-                    return distance(ar) - distance(br);
+                    return dist(ar) - dist(br);
                 });
-                listbox = visibleListboxes[0] || null;
+                listbox = visible[0] || null;
             }
             if (!listbox) return;
 
-            // BaseWeb's positioned node can be a parent of the popover element.
-            // Find the nearest portal wrapper, not an arbitrary page container.
-            let popover = listbox.closest('[data-baseweb="popover"]');
-            if (!popover) {
-                let node = listbox.parentElement;
-                while (node && node !== doc.body) {
-                    if (node.hasAttribute('data-popper-placement') ||
-                        node.getAttribute('role') === 'presentation') {
-                        popover = node;
-                        break;
-                    }
-                    node = node.parentElement;
-                }
+            // BaseWeb positions its floating wrapper (Popper) separately from
+            // the inner popover. Size and position the outer wrapper; size the
+            // inner menu to 100% so no portal-width remainder is left blank.
+            let floating = listbox.closest('[data-popper-placement]');
+            const basewebPopover = listbox.closest('[data-baseweb="popover"]');
+
+            if (!floating && basewebPopover) {
+                floating = basewebPopover.parentElement;
             }
-            if (!popover) popover = listbox.parentElement;
-            if (!popover) return;
+            if (!floating) floating = basewebPopover || listbox.parentElement;
+            if (!floating) return;
 
             const margin = 8;
             const gap = 4;
-            const width = Math.max(
-                160,
-                Math.min(rect.width, win.innerWidth - margin * 2)
+            const width = Math.min(
+                rect.width,
+                Math.max(160, win.innerWidth - margin * 2)
             );
             const left = Math.max(
                 margin,
                 Math.min(rect.left, win.innerWidth - width - margin)
             );
 
-            // Prefer directly below the input (as requested). If there is
-            // insufficient room, place the menu above it instead.
-            const maxMenuHeight = Math.min(280, win.innerHeight - margin * 2);
+            // Open below the control, like a standard dropdown. Flip above only
+            // when the viewport has insufficient room below.
+            const maxHeight = Math.min(280, win.innerHeight - margin * 2);
             const roomBelow = win.innerHeight - rect.bottom - gap - margin;
             const roomAbove = rect.top - gap - margin;
-            const placeAbove = roomBelow < Math.min(180, maxMenuHeight) &&
-                               roomAbove > roomBelow;
-            const availableHeight = Math.max(
+            const openAbove = roomBelow < Math.min(180, maxHeight) &&
+                              roomAbove > roomBelow;
+            const menuHeight = Math.max(
                 100,
-                Math.min(maxMenuHeight, placeAbove ? roomAbove : roomBelow)
+                Math.min(maxHeight, openAbove ? roomAbove : roomBelow)
             );
-            const top = placeAbove
-                ? Math.max(margin, rect.top - availableHeight - gap)
-                : Math.min(rect.bottom + gap, win.innerHeight - availableHeight - margin);
+            const top = openAbove
+                ? Math.max(margin, rect.top - menuHeight - gap)
+                : Math.min(rect.bottom + gap, win.innerHeight - menuHeight - margin);
 
-            const force = (element, property, value) =>
-                element.style.setProperty(property, value, 'important');
+            const force = (el, property, value) =>
+                el.style.setProperty(property, value, 'important');
 
-            force(popover, 'position', 'fixed');
-            force(popover, 'left', `${left}px`);
-            force(popover, 'right', 'auto');
-            force(popover, 'top', `${top}px`);
-            force(popover, 'bottom', 'auto');
-            force(popover, 'width', `${width}px`);
-            force(popover, 'min-width', `${width}px`);
-            force(popover, 'max-width', `${width}px`);
-            force(popover, 'margin', '0');
-            force(popover, 'transform', 'none');
-            force(popover, 'z-index', '1000002');
+            // The floating wrapper must have exactly the input's width and
+            // left coordinate; remove Popper's translate/width constraints.
+            force(floating, 'position', 'fixed');
+            force(floating, 'left', `${left}px`);
+            force(floating, 'right', 'auto');
+            force(floating, 'top', `${top}px`);
+            force(floating, 'bottom', 'auto');
+            force(floating, 'width', `${width}px`);
+            force(floating, 'min-width', `${width}px`);
+            force(floating, 'max-width', `${width}px`);
+            force(floating, 'margin', '0');
+            force(floating, 'transform', 'none');
+            force(floating, 'inset-inline-start', `${left}px`);
+            force(floating, 'inset-inline-end', 'auto');
+            force(floating, 'z-index', '1000002');
+
+            if (basewebPopover && basewebPopover !== floating) {
+                force(basewebPopover, 'width', '100%');
+                force(basewebPopover, 'min-width', '0');
+                force(basewebPopover, 'max-width', '100%');
+                force(basewebPopover, 'box-sizing', 'border-box');
+            }
 
             force(listbox, 'width', '100%');
             force(listbox, 'min-width', '0');
             force(listbox, 'max-width', '100%');
-            force(listbox, 'max-height', `${availableHeight}px`);
+            force(listbox, 'max-height', `${menuHeight}px`);
             force(listbox, 'overflow-y', 'auto');
             force(listbox, 'overflow-x', 'hidden');
             force(listbox, 'box-sizing', 'border-box');
