@@ -2394,6 +2394,7 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     st.session_state[session_key] = cleaned
     return cleaned
 
+
 def inject_professional_sidebar_filter_css():
     """Additional styling for the upgraded grouped sidebar filter experience."""
     st.markdown("""
@@ -2708,72 +2709,6 @@ def inject_professional_sidebar_filter_css():
         font-size: 10px;
         color: #667085;
         line-height: 1.35;
-    }
-
-    .sidebar-latest-update {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin: 2px 0 4px 0;
-        padding: 9px 10px;
-        border: 1px solid #E4E7EC;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-        box-shadow: 0 5px 14px rgba(16,24,40,.045);
-        font-family: "Anek Devanagari", Arial, sans-serif;
-    }
-
-    .sidebar-latest-update-left {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-    }
-
-    .sidebar-latest-update-icon {
-        width: 27px;
-        height: 27px;
-        min-width: 27px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 9px;
-        background: #F4EAF8;
-        color: #660094;
-        font-size: 15px;
-        font-weight: 900;
-    }
-
-    .sidebar-latest-update-label {
-        font-size: 9.5px;
-        line-height: 1.15;
-        color: #667085;
-        font-weight: 750;
-        text-transform: uppercase;
-        letter-spacing: .045em;
-    }
-
-    .sidebar-latest-update-date {
-        margin-top: 2px;
-        color: #23152F;
-        font-size: 11px;
-        line-height: 1.2;
-        font-weight: 900;
-        white-space: nowrap;
-    }
-
-    .sidebar-latest-update-badge {
-        flex: 0 0 auto;
-        padding: 3px 7px;
-        border-radius: 999px;
-        background: #ECFDF3;
-        border: 1px solid #ABEFC6;
-        color: #067647;
-        font-size: 8.5px;
-        line-height: 1;
-        font-weight: 900;
-        letter-spacing: .06em;
     }
 
     div[data-testid="stExpander"] {
