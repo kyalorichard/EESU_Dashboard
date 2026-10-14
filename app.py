@@ -428,116 +428,13 @@ components.html(
             if (label) label.remove();
         }
 
+        // Keep Streamlit/BaseWeb's native dropdown positioning. The previous
+        // custom code forcibly moved the portalled popover with viewport CSS,
+        // which could detach the menu from its sidebar control and push it off-screen.
         function repositionSidebarDropdown() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return;
-
-            // Find the expanded select/multiselect control inside the sidebar.
-            const expanded = Array.from(
-                sidebar.querySelectorAll('[aria-expanded="true"]')
-            );
-            let anchor = null;
-
-            for (const node of expanded) {
-                anchor = node.closest('[data-testid="stMultiSelect"]')
-                    || node.closest('[data-testid="stSelectbox"]')
-                    || node.closest('[data-baseweb="select"]');
-                if (anchor) break;
-            }
-            if (!anchor && doc.activeElement && sidebar.contains(doc.activeElement)) {
-                anchor = doc.activeElement.closest(
-                    '[data-testid="stMultiSelect"], [data-testid="stSelectbox"], [data-baseweb="select"]'
-                );
-            }
-            if (!anchor) return;
-
-            const rect = anchor.getBoundingClientRect();
-            if (rect.width < 20 || rect.bottom <= 0 || rect.top > win.innerHeight) return;
-
-            // Prefer the listbox linked to this control, rather than moving an
-            // unrelated popover elsewhere on the page.
-            let listbox = null;
-            for (const node of expanded) {
-                const id = node.getAttribute('aria-controls');
-                if (!id) continue;
-                const controlled = doc.getElementById(id);
-                if (controlled && controlled.matches('[role="listbox"]')) {
-                    listbox = controlled;
-                    break;
-                }
-                if (controlled) {
-                    listbox = controlled.querySelector('[role="listbox"]');
-                    if (listbox) break;
-                }
-            }
-
-            const visibleListboxes = Array.from(doc.querySelectorAll('[role="listbox"]'))
-                .filter(node => {
-                    const r = node.getBoundingClientRect();
-                    const css = win.getComputedStyle(node);
-                    return r.width > 0 && r.height > 0 &&
-                        css.display !== 'none' && css.visibility !== 'hidden';
-                });
-
-            if (!listbox) {
-                const targetX = rect.left + rect.width / 2;
-                visibleListboxes.sort((a, b) => {
-                    const ar = a.getBoundingClientRect();
-                    const br = b.getBoundingClientRect();
-                    const da = Math.abs((ar.left + ar.width / 2) - targetX) + Math.abs(ar.top - rect.top);
-                    const db = Math.abs((br.left + br.width / 2) - targetX) + Math.abs(br.top - rect.top);
-                    return da - db;
-                });
-                listbox = visibleListboxes[0] || null;
-            }
-            if (!listbox) return;
-
-            const popover = listbox.closest('[data-baseweb="popover"]') || listbox;
-            const margin = 8;
-            const gap = 4;
-            const standardMaxHeight = 280;
-            // Keep the menu aligned to the control's left edge and at least as
-            // wide as a standard readable dropdown, while respecting viewport bounds.
-            const width = Math.min(
-                Math.max(rect.width, 240),
-                win.innerWidth - margin * 2
-            );
-            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const availableAbove = Math.max(0, rect.top - margin - gap);
-            const maxHeight = Math.min(standardMaxHeight, availableAbove);
-
-            // The menu is deliberately placed ABOVE the multiselect. If there is
-            // limited room, the options list scrolls inside the visible menu.
-            Object.assign(popover.style, {
-                position: 'fixed',
-                left: `${left}px`,
-                right: 'auto',
-                top: `${Math.max(margin, rect.top - standardMaxHeight - gap)}px`,
-                bottom: 'auto',
-                width: `${width}px`,
-                minWidth: `${width}px`,
-                maxWidth: `${width}px`,
-                margin: '0',
-                transform: 'none',
-                zIndex: '1000001'
-            });
-
-            Object.assign(listbox.style, {
-                width: '100%',
-                minWidth: '0',
-                maxWidth: '100%',
-                maxHeight: `${Math.max(100, maxHeight)}px`,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                boxSizing: 'border-box'
-            });
-
-            // Re-measure after sizing so the bottom edge sits precisely above
-            // the filter box, rather than leaving a fixed-height blank gap.
-            const menuRect = popover.getBoundingClientRect();
-            const actualHeight = Math.min(menuRect.height || standardMaxHeight, standardMaxHeight, availableAbove);
-            const finalTop = Math.max(margin, rect.top - actualHeight - gap);
-            popover.style.top = `${finalTop}px`;
+            // Intentionally no-op: BaseWeb's own positioning keeps the menu
+            // aligned with the active select/multiselect and handles viewport edges.
+            return;
         }
 
         function updateLabel() {
@@ -9614,12 +9511,15 @@ def inject_final_mobile_responsive_hardening() -> None:
             max-width: 100% !important;
         }
 
-        /* Dropdowns are portalled to document.body; do not constrain them to
-           the width of the main/sidebar layout. JavaScript anchors them to the
-           active sidebar control using viewport coordinates. */
-        [data-baseweb="popover"],
+        /* Preserve native BaseWeb positioning while ensuring dropdown menus
+           render above dashboard panels and remain within their own dimensions. */
+        [data-baseweb="popover"] {
+            box-sizing: border-box !important;
+            z-index: 1000001 !important;
+        }
         [data-baseweb="layer"] [role="listbox"] {
             box-sizing: border-box !important;
+            max-width: min(320px, calc(100vw - 16px)) !important;
         }
 
         .stButton > button,
