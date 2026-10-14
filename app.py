@@ -428,104 +428,8 @@ components.html(
             if (label) label.remove();
         }
 
-        // Re-anchor the active sidebar dropdown. Streamlit renders BaseWeb
-        // menus in a portal under document.body, so sidebar/ancestor overflow
-        // and transforms can otherwise leave the options list detached or clipped.
-        function repositionSidebarDropdown() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return;
-
-            const expanded = Array.from(sidebar.querySelectorAll(
-                '[aria-expanded="true"], [role="combobox"][aria-expanded="true"]'
-            ));
-            let control = null;
-            for (const node of expanded) {
-                control = node.closest('[data-testid="stMultiSelect"]')
-                    || node.closest('[data-testid="stSelectbox"]')
-                    || node.closest('[data-baseweb="select"]');
-                if (control) break;
-            }
-            if (!control) {
-                const active = doc.activeElement;
-                if (active && sidebar.contains(active)) {
-                    control = active.closest(
-                        '[data-testid="stMultiSelect"], [data-testid="stSelectbox"], [data-baseweb="select"]'
-                    );
-                }
-            }
-            if (!control) return;
-
-            const anchor = control.querySelector('[role="combobox"]')
-                || control.querySelector('[data-baseweb="select"]')
-                || control;
-            const rect = anchor.getBoundingClientRect();
-            if (rect.width < 20 || rect.height < 10) return;
-
-            // Prefer the visible listbox explicitly associated with the open control.
-            let listbox = null;
-            for (const node of expanded) {
-                const id = node.getAttribute('aria-controls');
-                if (!id) continue;
-                const target = doc.getElementById(id);
-                if (target && target.matches('[role="listbox"]')) listbox = target;
-                else if (target) listbox = target.querySelector('[role="listbox"]');
-                if (listbox) break;
-            }
-            const visibleListboxes = Array.from(doc.querySelectorAll('[role="listbox"]')).filter(node => {
-                const r = node.getBoundingClientRect();
-                const css = win.getComputedStyle(node);
-                return r.width > 0 && r.height > 0 && css.display !== 'none' && css.visibility !== 'hidden';
-            });
-            if (!listbox || !visibleListboxes.includes(listbox)) {
-                visibleListboxes.sort((a, b) => {
-                    const ar = a.getBoundingClientRect();
-                    const br = b.getBoundingClientRect();
-                    const score = r => Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2))
-                        + Math.abs(r.top - rect.top);
-                    return score(ar) - score(br);
-                });
-                listbox = visibleListboxes[0] || null;
-            }
-            if (!listbox) return;
-
-            const popover = listbox.closest('[data-baseweb="popover"]') || listbox.parentElement;
-            if (!popover) return;
-            const layer = popover.closest('[data-baseweb="layer"]');
-            const viewportMargin = 8;
-            const gap = 4;
-            const menuWidth = Math.max(200, Math.min(rect.width, 320, win.innerWidth - 2 * viewportMargin));
-            const left = Math.max(viewportMargin, Math.min(rect.left, win.innerWidth - menuWidth - viewportMargin));
-            const availableAbove = Math.max(0, rect.top - viewportMargin - gap);
-            const menuMaxHeight = Math.min(280, availableAbove);
-
-            // Keep the list above the active filter; make the options themselves scroll
-            // when the available space is smaller than the standard menu height.
-            if (layer) {
-                Object.assign(layer.style, {
-                    position: 'fixed', inset: '0', width: '100%', height: '100%',
-                    pointerEvents: 'none', zIndex: '1000001'
-                });
-            }
-            Object.assign(popover.style, {
-                position: 'fixed', left: `${left}px`, right: 'auto',
-                top: `${Math.max(viewportMargin, rect.top - Math.max(120, Math.min(280, menuMaxHeight || 280)) - gap)}px`,
-                bottom: 'auto', width: `${menuWidth}px`, minWidth: `${menuWidth}px`,
-                maxWidth: `${menuWidth}px`, margin: '0', transform: 'none',
-                zIndex: '1000002', pointerEvents: 'auto'
-            });
-            Object.assign(listbox.style, {
-                width: '100%', minWidth: '0', maxWidth: '100%',
-                maxHeight: `${Math.max(100, menuMaxHeight)}px`,
-                overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box'
-            });
-            // Recalculate using the rendered menu height for exact alignment.
-            const actualHeight = Math.min(popover.getBoundingClientRect().height || 280, 280, availableAbove);
-            popover.style.top = `${Math.max(viewportMargin, rect.top - actualHeight - gap)}px`;
-        }
-
         function updateLabel() {
             ensureStyle();
-            repositionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
@@ -9597,17 +9501,16 @@ def inject_final_mobile_responsive_hardening() -> None:
             max-width: 100% !important;
         }
 
-        /* Dropdown portal defaults; JavaScript anchors the open menu to its control. */
+        /* Keep native Streamlit/BaseWeb dropdown positioning and sizing.
+           Only raise the portal above dashboard cards; do not set its position,
+           width, transform, or listbox dimensions. Those are calculated by BaseWeb
+           from the active control and changing them detaches the menu from the input. */
         [data-baseweb="layer"] { z-index: 1000001 !important; }
         [data-baseweb="popover"] {
-            box-sizing: border-box !important;
             z-index: 1000002 !important;
-            max-width: calc(100vw - 16px) !important;
         }
         [data-baseweb="layer"] [role="listbox"] {
             box-sizing: border-box !important;
-            width: 100% !important;
-            max-width: 100% !important;
             overflow-x: hidden !important;
         }
 
