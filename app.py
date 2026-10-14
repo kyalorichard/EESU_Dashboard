@@ -434,19 +434,46 @@ components.html(
          * portal to calculate a negative left offset, so correct only the
          * open menu and leave all closed controls untouched.
          */
+        // Remember the actual sidebar widget that received the interaction.
+        // document.activeElement can be the hidden components iframe, so it is
+        // not a reliable way to identify the filter that opened the menu.
+        let lastSidebarSelect = null;
+
+        function sidebarSelectFromTarget(target) {
+            if (!target || !target.closest) return null;
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+            if (!sidebar) return null;
+
+            const select = target.closest('[data-baseweb="select"]');
+            if (select && sidebar.contains(select)) return select;
+
+            const widget = target.closest(
+                '[data-testid="stMultiSelect"], [data-testid="stSelectbox"]'
+            );
+            if (widget && sidebar.contains(widget)) {
+                return widget.querySelector('[data-baseweb="select"]') || widget;
+            }
+            return null;
+        }
+
         function positionSidebarDropdown() {
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            // Find the active sidebar select. The input itself may be focused,
-            // or BaseWeb may place aria-expanded on a nested combobox.
             let anchor = null;
             const active = doc.activeElement;
             if (active && active.closest) {
-                anchor = active.closest('[data-baseweb="select"]');
+                const activeSelect = active.closest('[data-baseweb="select"]');
+                if (activeSelect && sidebar.contains(activeSelect)) {
+                    anchor = activeSelect;
+                }
             }
 
-            if (!anchor || !sidebar.contains(anchor)) {
+            if (!anchor && lastSidebarSelect && sidebar.contains(lastSidebarSelect)) {
+                anchor = lastSidebarSelect;
+            }
+
+            if (!anchor) {
                 const expanded = Array.from(
                     sidebar.querySelectorAll('[aria-expanded="true"]')
                 );
@@ -455,15 +482,19 @@ components.html(
                         || node.closest('[data-testid="stMultiSelect"]')
                         || node.closest('[data-testid="stSelectbox"]');
                     if (!candidate) continue;
-                    const r = candidate.getBoundingClientRect();
+                    const select = candidate.matches('[data-baseweb="select"]')
+                        ? candidate
+                        : candidate.querySelector('[data-baseweb="select"]') || candidate;
+                    const r = select.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0) {
-                        anchor = candidate;
+                        anchor = select;
                         break;
                     }
                 }
             }
 
             if (!anchor || !sidebar.contains(anchor)) return;
+
             const rect = anchor.getBoundingClientRect();
             if (rect.width < 20 || rect.height < 10 ||
                 rect.bottom <= 0 || rect.top >= win.innerHeight) return;
@@ -477,8 +508,9 @@ components.html(
                 });
             if (!visibleListboxes.length) return;
 
-            // A select's menu is rendered in a portal. Match the visible listbox
-            // closest to the currently focused sidebar input.
+            // Pick the visible menu nearest the remembered filter. Do not resize
+            // or reposition every ancestor: that was creating the detached grey
+            // panel and shifting the actual option list to the viewport's left.
             visibleListboxes.sort((a, b) => {
                 const distance = (node) => {
                     const r = node.getBoundingClientRect();
@@ -491,61 +523,62 @@ components.html(
             const listbox = visibleListboxes[0];
             const popover = listbox.closest('[data-baseweb="popover"]')
                 || listbox.parentElement;
-            if (!popover) return;
+            const popper = listbox.closest('[data-popper-placement]') || popover;
+            if (!popover || !popper) return;
 
             const margin = 8;
             const gap = 4;
-            const width = Math.max(120, Math.min(rect.width, win.innerWidth - margin * 2));
+            // Match the menu to the actual input width, with no artificial
+            // minimum width and no oversized portal background.
+            const width = Math.max(80, Math.min(rect.width, win.innerWidth - margin * 2));
             const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const maxHeight = Math.min(280, win.innerHeight - margin * 2);
-            const roomBelow = win.innerHeight - rect.bottom - gap - margin;
-            const roomAbove = rect.top - gap - margin;
-            const openAbove = roomBelow < Math.min(160, maxHeight) && roomAbove > roomBelow;
-            const menuHeight = Math.max(90, Math.min(maxHeight, openAbove ? roomAbove : roomBelow));
+            const roomBelow = Math.max(0, win.innerHeight - rect.bottom - gap - margin);
+            const roomAbove = Math.max(0, rect.top - gap - margin);
+            const openAbove = roomBelow < 180 && roomAbove > roomBelow;
+            const availableHeight = openAbove ? roomAbove : roomBelow;
+            const menuHeight = Math.max(80, Math.min(300, availableHeight || 300));
             const top = openAbove
                 ? Math.max(margin, rect.top - menuHeight - gap)
                 : Math.min(rect.bottom + gap, win.innerHeight - menuHeight - margin);
 
-            const set = (el, prop, value) =>
+            const set = (el, prop, value) => {
                 el.style.setProperty(prop, value, 'important');
+            };
 
-            /*
-             * Fix every wrapper in this one visible portal chain, not just the
-             * inner listbox. This prevents a wide, offset Popper wrapper from
-             * leaving a grey blank strip beside the white options panel.
-             * Stop before body/document roots so the page layout is untouched.
-             */
-            let node = listbox;
-            while (node && node !== doc.body && node !== doc.documentElement) {
-                set(node, 'position', 'fixed');
-                set(node, 'left', `${left}px`);
-                set(node, 'right', 'auto');
-                set(node, 'top', `${top}px`);
-                set(node, 'bottom', 'auto');
-                set(node, 'width', `${width}px`);
-                set(node, 'min-width', '0');
-                set(node, 'max-width', `${width}px`);
-                set(node, 'margin', '0');
-                set(node, 'transform', 'none');
-                set(node, 'box-sizing', 'border-box');
-                set(node, 'z-index', '1000002');
-                node = node.parentElement;
-            }
+            // Correct only the positioned Popper shell. Its parent chain must
+            // retain native layout; fixing every ancestor causes blank panels.
+            set(popper, 'position', 'fixed');
+            set(popper, 'inset', 'auto');
+            set(popper, 'left', `${left}px`);
+            set(popper, 'right', 'auto');
+            set(popper, 'top', `${top}px`);
+            set(popper, 'bottom', 'auto');
+            set(popper, 'width', `${width}px`);
+            set(popper, 'min-width', `${width}px`);
+            set(popper, 'max-width', `${width}px`);
+            set(popper, 'margin', '0');
+            set(popper, 'transform', 'none');
+            set(popper, 'z-index', '1000002');
+            set(popper, 'box-sizing', 'border-box');
+            set(popper, 'background', 'transparent');
 
-            // Ensure the actual option list fills the same width and scrolls.
-            set(listbox, 'width', `${width}px`);
+            // Keep the white menu and scrollable options exactly inside that shell.
+            set(popover, 'width', '100%');
+            set(popover, 'min-width', '0');
+            set(popover, 'max-width', '100%');
+            set(popover, 'margin', '0');
+            set(popover, 'transform', 'none');
+            set(popover, 'background', '#FFFFFF');
+            set(popover, 'box-sizing', 'border-box');
+
+            set(listbox, 'width', '100%');
             set(listbox, 'min-width', '0');
-            set(listbox, 'max-width', `${width}px`);
+            set(listbox, 'max-width', '100%');
             set(listbox, 'max-height', `${menuHeight}px`);
             set(listbox, 'overflow-y', 'auto');
             set(listbox, 'overflow-x', 'hidden');
             set(listbox, 'background', '#FFFFFF');
             set(listbox, 'box-sizing', 'border-box');
-            set(popover, 'width', `${width}px`);
-            set(popover, 'min-width', '0');
-            set(popover, 'max-width', `${width}px`);
-            set(popover, 'background', '#FFFFFF');
-            set(popover, 'box-sizing', 'border-box');
         }
 
         // BaseWeb updates its portal after the initial click/focus. Reapply
@@ -635,10 +668,15 @@ components.html(
             headerObserver.observe(header, { childList: true, subtree: true });
         }
 
-        // Observe DOM changes only to keep the collapsed-sidebar label current.
-        // Dropdown placement is intentionally left to Streamlit/BaseWeb's native
-        // Popper implementation so every sidebar select uses the same behavior.
-        const bodyObserver = new MutationObserver(scheduleUpdate);
+        // Streamlit creates the dropdown portal outside the sidebar. Reposition
+        // it after the portal is mounted, while keeping the sidebar label observer.
+        const bodyObserver = new MutationObserver(() => {
+            scheduleUpdate();
+            if (lastSidebarSelect && sidebar.contains(lastSidebarSelect) &&
+                doc.querySelector('[role="listbox"]')) {
+                scheduleDropdownPosition();
+            }
+        });
         bodyObserver.observe(doc.body, {
             childList: true,
             subtree: true,
@@ -654,10 +692,25 @@ components.html(
         ["pointerdown", "focusin", "click", "keyup"].forEach((eventName) => {
             doc.addEventListener(eventName, (event) => {
                 const target = event.target;
-                if (target && target.closest &&
-                    target.closest('section[data-testid="stSidebar"]')) {
+                const selectedSidebarControl = sidebarSelectFromTarget(target);
+                if (selectedSidebarControl) {
+                    lastSidebarSelect = selectedSidebarControl;
                     scheduleDropdownPosition();
+                    return;
                 }
+
+                // Keyboard navigation can target an option rendered in the
+                // document-level portal rather than inside the sidebar.
+                if (target && target.closest && target.closest('[role="listbox"]')) {
+                    if (lastSidebarSelect && doc.querySelector('[role="listbox"]')) {
+                        scheduleDropdownPosition();
+                    }
+                    return;
+                }
+
+                // Do not apply sidebar coordinates to multiselects in the main
+                // dashboard. Clear the remembered anchor on outside interaction.
+                lastSidebarSelect = null;
             }, true);
         });
 
@@ -2394,7 +2447,6 @@ def safe_multiselect(label, options, session_key, sidebar=True, container=None):
     st.session_state[session_key] = cleaned
     return cleaned
 
-
 def inject_professional_sidebar_filter_css():
     """Additional styling for the upgraded grouped sidebar filter experience."""
     st.markdown("""
@@ -2709,6 +2761,72 @@ def inject_professional_sidebar_filter_css():
         font-size: 10px;
         color: #667085;
         line-height: 1.35;
+    }
+
+    .sidebar-latest-update {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 2px 0 4px 0;
+        padding: 9px 10px;
+        border: 1px solid #E4E7EC;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        box-shadow: 0 5px 14px rgba(16,24,40,.045);
+        font-family: "Anek Devanagari", Arial, sans-serif;
+    }
+
+    .sidebar-latest-update-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .sidebar-latest-update-icon {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        background: #F4EAF8;
+        color: #660094;
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .sidebar-latest-update-label {
+        font-size: 9.5px;
+        line-height: 1.15;
+        color: #667085;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: .045em;
+    }
+
+    .sidebar-latest-update-date {
+        margin-top: 2px;
+        color: #23152F;
+        font-size: 11px;
+        line-height: 1.2;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .sidebar-latest-update-badge {
+        flex: 0 0 auto;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #ECFDF3;
+        border: 1px solid #ABEFC6;
+        color: #067647;
+        font-size: 8.5px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: .06em;
     }
 
     div[data-testid="stExpander"] {
