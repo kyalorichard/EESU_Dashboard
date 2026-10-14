@@ -267,7 +267,7 @@ except Exception:
 
 
 # ------------------------------------------------------------------
-# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SHORTCUT
+# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -276,6 +276,7 @@ st.markdown("""
 footer,
 [data-testid="stDecoration"],
 [data-testid="stDeployButton"],
+[data-testid="stHeaderActionElements"],
 [data-testid="stToolbarActions"] {
     display: none !important;
     visibility: hidden !important;
@@ -299,29 +300,6 @@ button[data-testid="collapsedControl"],
     opacity: 1 !important;
 }
 
-/* Keep select dropdown menus above nearby dashboard content. These rules are
-   deliberately limited to BaseWeb select menus and their options. */
-div[data-baseweb="popover"]:has([data-baseweb="menu"]) {
-    z-index: 1000000 !important;
-}
-div[data-baseweb="popover"]:has([role="listbox"]) {
-    z-index: 1000000 !important;
-}
-div[data-baseweb="menu"],
-div[data-baseweb="menu"] [role="listbox"] {
-    max-height: min(50vh, 360px) !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    overscroll-behavior: contain;
-}
-div[data-baseweb="menu"] [role="option"],
-[role="listbox"] [role="option"] {
-    white-space: normal !important;
-    overflow-wrap: anywhere !important;
-    line-height: 1.35 !important;
-    cursor: pointer !important;
-}
-
 /* Hide GitHub and source links that may still be injected elsewhere. */
 a[href*="github.com"],
 a[href*="source"] {
@@ -334,150 +312,96 @@ a[href*="source"] {
 </style>
 """, unsafe_allow_html=True)
 
-# Add an accessible shortcut beside Streamlit's native sidebar control.
-# All styling is scoped to this shortcut; dashboard component CSS is unchanged.
+# Add a separate label beside Streamlit's native sidebar control.
+# The label is present only while the sidebar is collapsed.
 components.html(
     r"""
     <script>
-    (() => {
+    (function () {
+        const doc = window.parent.document;
         const win = window.parent;
-        const doc = win.document;
         const LABEL_ID = "eusee-collapsed-sidebar-label";
         const STYLE_ID = "eusee-collapsed-sidebar-label-style";
         let scheduled = false;
+        let observedSidebar = null;
+        let observedHeader = null;
 
-        const isVisible = (el) => {
-            if (!el || !el.isConnected) return false;
-            const rect = el.getBoundingClientRect();
-            const css = win.getComputedStyle(el);
-            return rect.width > 0 && rect.height > 0 &&
-                css.display !== "none" &&
-                css.visibility !== "hidden" &&
-                css.opacity !== "0";
-        };
+        function ensureStyle() {
+            if (doc.getElementById(STYLE_ID)) return;
+            const style = doc.createElement("style");
+            style.id = STYLE_ID;
+            style.textContent = `
+                #${LABEL_ID} {
+                    position: fixed; z-index: 1000002; display: inline-flex;
+                    align-items: center; min-height: 32px; max-width: calc(100vw - 64px);
+                    padding: 0 11px; border: 1px solid #E7D4F1; border-radius: 999px;
+                    background: #FFFFFF; box-shadow: 0 3px 10px rgba(16,24,40,.08);
+                    color: #660094; font-family: "Anek Devanagari", Arial, sans-serif;
+                    font-size: 12px; line-height: 1.2; font-weight: 800;
+                    white-space: nowrap; pointer-events: auto; cursor: pointer;
+                    user-select: none; box-sizing: border-box;
+                }
+                #${LABEL_ID}:hover { border-color: #660094; background: #FBF7FD; }
+                #${LABEL_ID}:focus-visible { outline: 3px solid rgba(102,0,148,.18); outline-offset: 2px; }
+                @media (max-width: 700px) {
+                    #${LABEL_ID} { padding: 0 8px; font-size: 11px; max-width: calc(100vw - 56px); }
+                }
+            `;
+            doc.head.appendChild(style);
+        }
 
-        function findCollapsedToggle() {
-            // Use only controls intended to OPEN a collapsed sidebar.
+        function isVisible(el) {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            const c = win.getComputedStyle(el);
+            return r.width > 0 && r.height > 0 && c.display !== "none" &&
+                   c.visibility !== "hidden" && Number(c.opacity || 1) > 0;
+        }
+
+        function sidebarElement() {
+            return doc.querySelector('section[data-testid="stSidebar"]') ||
+                   doc.querySelector('[data-testid="stSidebar"]');
+        }
+
+        function sidebarIsCollapsed() {
+            const sidebar = sidebarElement();
+            if (!sidebar) return true;
+            const r = sidebar.getBoundingClientRect();
+            const c = win.getComputedStyle(sidebar);
+            // Streamlit keeps the sidebar in the DOM when collapsed; its geometry
+            // (rather than a possibly stale aria attribute) is the primary signal.
+            if (c.display === "none" || c.visibility === "hidden" || r.width < 40) return true;
+            return r.right <= 1 || r.left <= -Math.max(40, r.width * 0.5);
+        }
+
+        function findToggle() {
             const selectors = [
                 'button[data-testid="collapsedControl"]',
-                'button[data-testid="stSidebarCollapsedControl"]',
                 '[data-testid="stSidebarCollapsedControl"] button',
-                '[data-testid="collapsedControl"] button'
+                '[data-testid="stSidebarCollapsedControl"]',
+                '[data-testid="stSidebarCollapseButton"] button',
+                '[data-testid="stSidebarCollapseButton"]',
+                'header button[aria-label*="sidebar" i]',
+                'header button[title*="sidebar" i]'
             ];
-
             for (const selector of selectors) {
-                for (const el of doc.querySelectorAll(selector)) {
-                    if (isVisible(el)) return el;
-                }
-            }
-
-            // Fallback for Streamlit versions with different test IDs.
-            for (const el of doc.querySelectorAll(
-                'header[data-testid="stHeader"] button, header button'
-            )) {
-                const label = (
-                    (el.getAttribute("aria-label") || "") + " " +
-                    (el.getAttribute("title") || el.title || "")
-                ).toLowerCase();
-
-                if (
-                    label.includes("sidebar") &&
-                    (label.includes("open") || label.includes("expand")) &&
-                    isVisible(el)
-                ) {
-                    return el;
+                for (const node of doc.querySelectorAll(selector)) {
+                    if (isVisible(node)) return node;
                 }
             }
             return null;
         }
 
-        function ensureStyle() {
-            if (doc.getElementById(STYLE_ID)) return;
-
-            const style = doc.createElement("style");
-            style.id = STYLE_ID;
-            style.textContent = `
-                #${LABEL_ID} {
-                    position: fixed;
-                    z-index: 2147483000;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 36px;
-                    max-width: calc(100vw - 56px);
-                    padding: 0 12px;
-                    border: 1px solid #E7D4F1;
-                    border-radius: 999px;
-                    background: #fff;
-                    box-shadow: 0 3px 10px rgba(16,24,40,.12);
-                    color: #660094;
-                    font: 800 12px/1.2 "Anek Devanagari", Arial, sans-serif;
-                    white-space: nowrap;
-                    cursor: pointer;
-                    user-select: none;
-                }
-                #${LABEL_ID}:hover {
-                    background: #FBF7FD;
-                    border-color: #660094;
-                }
-                #${LABEL_ID}:focus-visible {
-                    outline: 3px solid rgba(102,0,148,.25);
-                    outline-offset: 2px;
-                }
-                @media (max-width: 700px) {
-                    #${LABEL_ID} {
-                        min-height: 36px;
-                        padding: 0 9px;
-                        font-size: 11px;
-                    }
-                }
-                @media (max-width: 420px) {
-                    #${LABEL_ID} {
-                        max-width: calc(100vw - 48px);
-                        white-space: normal;
-                        text-align: center;
-                    }
-                }`;
-            doc.head.appendChild(style);
-        }
-
-        function sidebarIsCollapsed() {
-            const sidebar = doc.querySelector(
-                'section[data-testid="stSidebar"]'
-            );
-
-            if (!sidebar) {
-                // Do not show the shortcut until the sidebar DOM exists.
-                return false;
-            }
-
-            const expanded = sidebar.getAttribute("aria-expanded");
-            if (expanded === "true") return false;
-            if (expanded === "false") return true;
-            if (sidebar.getAttribute("aria-hidden") === "true") return true;
-
-            const rect = sidebar.getBoundingClientRect();
-            const css = win.getComputedStyle(sidebar);
-            return css.display === "none" ||
-                css.visibility === "hidden" ||
-                rect.width < 40 ||
-                rect.right <= 0 ||
-                rect.left <= -Math.max(rect.width, 1) * 0.6;
-        }
-
         function removeLabel() {
-            doc.getElementById(LABEL_ID)?.remove();
+            const label = doc.getElementById(LABEL_ID);
+            if (label) label.remove();
         }
 
         function updateLabel() {
             ensureStyle();
-
-            const toggle = findCollapsedToggle();
             const collapsed = sidebarIsCollapsed();
-
-            // The shortcut exists only when the sidebar is actually collapsed
-            // and Streamlit's native "open sidebar" control is visible.
-            if (!collapsed || !toggle) {
+            const toggle = findToggle();
+            if (!collapsed || !toggle || !isVisible(toggle)) {
                 removeLabel();
                 return;
             }
@@ -488,123 +412,71 @@ components.html(
                 label.id = LABEL_ID;
                 label.type = "button";
                 label.textContent = "Login & Global Filters";
-                label.setAttribute(
-                    "aria-label",
-                    "Open Login and Global Filters sidebar"
-                );
+                label.setAttribute("aria-label", "Open Login and Global Filters sidebar");
                 label.title = "Open Login and Global Filters";
-                label.addEventListener("click", () => {
-                    const currentToggle = findCollapsedToggle();
-                    if (currentToggle && sidebarIsCollapsed()) {
-                        currentToggle.click();
-                    }
-                    win.setTimeout(scheduleUpdate, 80);
-                    win.setTimeout(scheduleUpdate, 250);
-                    win.setTimeout(scheduleUpdate, 600);
+                label.addEventListener("click", function () {
+                    const currentToggle = findToggle();
+                    if (currentToggle && sidebarIsCollapsed()) currentToggle.click();
+                    removeLabel();
+                    [80, 250, 600, 1000].forEach(ms => win.setTimeout(scheduleUpdate, ms));
                 });
                 doc.body.appendChild(label);
             }
 
-            const toggleRect = toggle.getBoundingClientRect();
-            const labelRect = label.getBoundingClientRect();
-            const width = labelRect.width || 180;
-            const height = labelRect.height || 36;
-            const left = Math.max(
-                8,
-                Math.min(toggleRect.right + 8, win.innerWidth - width - 8)
-            );
-            const top = Math.max(
-                4,
-                Math.min(
-                    toggleRect.top + (toggleRect.height - height) / 2,
-                    win.innerHeight - height - 4
-                )
-            );
-
-            if (label.style.left !== `${left}px`) {
-                label.style.left = `${left}px`;
-            }
-            if (label.style.top !== `${top}px`) {
-                label.style.top = `${top}px`;
-            }
+            const r = toggle.getBoundingClientRect();
+            const h = label.getBoundingClientRect().height || 32;
+            const desiredLeft = r.right + 8;
+            const maxLeft = Math.max(8, win.innerWidth - label.offsetWidth - 8);
+            label.style.left = Math.min(desiredLeft, maxLeft) + "px";
+            label.style.top = Math.max(5, r.top + (r.height - h) / 2) + "px";
         }
 
         function scheduleUpdate() {
             if (scheduled) return;
             scheduled = true;
-            win.requestAnimationFrame(() => {
+            win.requestAnimationFrame(function () {
                 scheduled = false;
                 updateLabel();
             });
         }
 
-        // Watch structural changes plus sidebar/header state changes. Attribute
-        // changes elsewhere in the dashboard are ignored to avoid needless work.
-        const observer = new MutationObserver((records) => {
-            let relevant = false;
-
-            for (const record of records) {
-                if (record.type === "childList") {
-                    relevant = true;
-                    break;
-                }
-
-                const target = record.target;
-                if (
-                    target?.id === LABEL_ID ||
-                    target?.id === STYLE_ID ||
-                    target?.closest?.(`#${LABEL_ID}`)
-                ) {
-                    continue;
-                }
-
-                if (
-                    target?.closest?.(
-                        'section[data-testid="stSidebar"], header[data-testid="stHeader"]'
-                    )
-                ) {
-                    relevant = true;
-                    break;
-                }
+        function attachObservers() {
+            const sidebar = sidebarElement();
+            if (sidebar && sidebar !== observedSidebar) {
+                observedSidebar = sidebar;
+                new MutationObserver(scheduleUpdate).observe(sidebar, {
+                    attributes: true, attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
+                });
             }
+            const header = doc.querySelector('header[data-testid="stHeader"]');
+            if (header && header !== observedHeader) {
+                observedHeader = header;
+                new MutationObserver(scheduleUpdate).observe(header, {
+                    childList: true, subtree: true, attributes: true,
+                    attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
+                });
+            }
+        }
 
-            if (relevant) scheduleUpdate();
+        // Streamlit may mount or replace the sidebar/header after this iframe runs.
+        new MutationObserver(function () { attachObservers(); scheduleUpdate(); }).observe(doc.documentElement, {
+            childList: true, subtree: true
         });
-
-        observer.observe(doc.documentElement, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: [
-                "class", "style", "aria-hidden", "aria-expanded", "data-testid"
-            ]
-        });
-
-        win.addEventListener("resize", scheduleUpdate, { passive: true });
-        win.addEventListener("orientationchange", scheduleUpdate, { passive: true });
-        doc.addEventListener("click", (event) => {
-            if (event.target?.closest?.(
-                '[data-testid*="Sidebar"] button, button[data-testid="collapsedControl"]'
-            )) {
-                win.setTimeout(scheduleUpdate, 80);
-                win.setTimeout(scheduleUpdate, 250);
-                win.setTimeout(scheduleUpdate, 600);
+        attachObservers();
+        doc.addEventListener("click", function (event) {
+            if (event.target.closest('button[data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebarCollapseButton"]')) {
+                [0, 80, 250, 600].forEach(ms => win.setTimeout(scheduleUpdate, ms));
             }
         }, true);
-
-        // Recheck after Streamlit finishes its first render and after CSS
-        // transitions, including cases where the sidebar node appears late.
-        updateLabel();
-        win.setTimeout(scheduleUpdate, 100);
-        win.setTimeout(scheduleUpdate, 400);
-        win.setTimeout(scheduleUpdate, 900);
+        win.addEventListener("resize", scheduleUpdate, { passive: true });
+        win.addEventListener("orientationchange", scheduleUpdate, { passive: true });
+        [0, 100, 300, 700, 1200].forEach(ms => win.setTimeout(scheduleUpdate, ms));
     })();
     </script>
     """,
-    height=1,
-    width=1,
+    height=0,
+    width=0,
 )
-
 
 # Optional admin page integration. Firebase/Auth handles login;
 # authz.py resolves guest/viewer/privileged/admin roles.
@@ -763,7 +635,8 @@ def inject_classic_dashboard_css():
     
 
     /* ---------------- DEVICE-WIDE RESPONSIVE STABILIZATION ---------------- */
-    html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden !important; }
+    html, body { overflow-x: clip !important; }
+    [data-testid="stAppViewContainer"] { overflow-x: visible !important; }
     .main .block-container { padding-top: 0.85rem !important; padding-bottom: 7rem !important; }
     [data-testid="stSidebar"] img { max-width: 100% !important; height: auto !important; }
     div[data-testid="column"] { min-width: 0 !important; }
@@ -883,11 +756,26 @@ div[data-testid="stTabs"]{
 }
 [data-testid="stWidget"] input,
 [data-testid="stWidget"] textarea,
-[data-testid="stWidget"] [data-baseweb="select"],
+[data-testid="stWidget"] [data-baseweb="select"] > div,
 [data-testid="stWidget"] [data-baseweb="input"],
 [data-testid="stWidget"] button {
     max-width: 100% !important;
     box-sizing: border-box !important;
+}
+/* BaseWeb menus are portaled outside the sidebar. Do not impose sidebar widths
+   or positioning on the portal; let Streamlit calculate its anchor placement. */
+[data-baseweb="popover"] {
+    z-index: 1000001 !important;
+    box-sizing: border-box !important;
+}
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="popover"] [role="listbox"] {
+    box-sizing: border-box !important;
+    max-width: min(420px, calc(100vw - 16px)) !important;
+}
+[data-baseweb="popover"] [role="option"] {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
 }
 [data-testid="stMetric"] [data-testid="stMetricValue"] {
     overflow-wrap: anywhere !important;
@@ -2533,36 +2421,11 @@ def inject_professional_sidebar_filter_css():
 
     /* ---------------- SELECT / MULTISELECT DROPDOWN MENU ---------------- */
     /*
-       BaseWeb renders dropdown menus in a portal attached near the document root.
-       Keep the popup within the viewport and let BaseWeb calculate its anchor position.
-       Do not override position/left/right/transform: those can detach the menu from
-       its select field and make it appear at the far-left edge of the page.
+       Streamlit/BaseWeb renders dropdown menus in a portal outside the sidebar.
+       Avoid broad listbox rules that let the menu expand across the page.
+       The :has() selector limits this styling to select/multiselect dropdown popovers only.
     */
-    [data-baseweb="popover"]:has([role="listbox"]) {
-        box-sizing: border-box !important;
-        max-width: calc(100vw - 16px) !important;
-        z-index: 1000000 !important;
-    }
-
-    [data-baseweb="popover"]:has([role="listbox"]) [role="listbox"] {
-        box-sizing: border-box !important;
-        width: 100% !important;
-        max-width: calc(100vw - 16px) !important;
-        min-width: 0 !important;
-        overflow-x: hidden !important;
-        overscroll-behavior: contain;
-    }
-
-    [data-baseweb="popover"]:has([role="listbox"]) [role="option"] {
-        box-sizing: border-box !important;
-        max-width: 100% !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    [data-baseweb="popover"]:has([role="listbox"]) > div {
-        max-width: 100% !important;
-    }
+    
 
     .stMultiSelect label, .stSelectbox label {
         font-size: 10.8px !important;
