@@ -1903,13 +1903,13 @@ def render_eusee_ai_copilot(
 
             transform: translateY(-1px);
 
-            box-shadow: 0 8px 22px rgba(102, 0, 148, .36) !important;
+            box-shadow: 0 8px 22px rgba(102, 0, 148, .24) !important;
 
         }
 
         .st-key-eusee_copilot_launcher button:focus-visible {
 
-            outline: 3px solid rgba(124, 58, 237, .35) !important;
+            outline: 3px solid rgba(102, 0, 148, .24) !important;
 
             outline-offset: 2px !important;
 
