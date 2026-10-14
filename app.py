@@ -62,7 +62,7 @@ warnings.filterwarnings(
 from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 
 
-st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="expanded")
 
 # ============================================================
 # EU SEE OFFICIAL TYPOGRAPHY
@@ -267,7 +267,7 @@ except Exception:
 
 
 # ------------------------------------------------------------------
-# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
+# HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SHORTCUT
 # ------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -276,7 +276,6 @@ st.markdown("""
 footer,
 [data-testid="stDecoration"],
 [data-testid="stDeployButton"],
-[data-testid="stHeaderActionElements"],
 [data-testid="stToolbarActions"] {
     display: none !important;
     visibility: hidden !important;
@@ -312,190 +311,134 @@ a[href*="source"] {
 </style>
 """, unsafe_allow_html=True)
 
-# Add a separate label beside Streamlit's native arrows. The label appears only
-# when the sidebar is collapsed and is removed immediately when it opens.
+# Add a reliable, accessible shortcut beside Streamlit's native sidebar control.
+# The native control remains the source of truth for opening/closing the sidebar.
 components.html(
     r"""
     <script>
-    (function () {
+    (() => {
         const doc = window.parent.document;
         const win = window.parent;
         const LABEL_ID = "eusee-collapsed-sidebar-label";
         const STYLE_ID = "eusee-collapsed-sidebar-label-style";
 
-        function ensureStyle() {
-            if (doc.getElementById(STYLE_ID)) return;
-
-            const style = doc.createElement("style");
-            style.id = STYLE_ID;
-            style.textContent = `
-                #${LABEL_ID} {
-                    position: fixed;
-                    z-index: 1000002;
-                    display: inline-flex;
-                    align-items: center;
-                    min-height: 30px;
-                    padding: 0 11px;
-                    border: 1px solid #E7D4F1;
-                    border-radius: 999px;
-                    background: #FFFFFF;
-                    box-shadow: 0 3px 10px rgba(16,24,40,.08);
-                    color: #660094;
-                    font-family: "Anek Devanagari", Arial, sans-serif;
-                    font-size: 12px;
-                    line-height: 1;
-                    font-weight: 800;
-                    white-space: nowrap;
-                    pointer-events: auto;
-                    cursor: pointer;
-                    user-select: none;
-                    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
-                }
-                #${LABEL_ID}:hover {
-                    border-color: #660094;
-                    background: #FBF7FD;
-                    box-shadow: 0 5px 14px rgba(102,0,148,.14);
-                    transform: translateY(-1px);
-                }
-
-                #${LABEL_ID}:focus-visible {
-                    outline: 3px solid rgba(102,0,148,.18);
-                    outline-offset: 2px;
-                }
-
-                @media (max-width: 700px) {
-                    #${LABEL_ID} {
-                        padding: 0 8px;
-                        font-size: 11px;
-                    }
-                }
-            `;
-            doc.head.appendChild(style);
-        }
-
-        function findToggle() {
-            const selectors = [
-                '[data-testid="stSidebarCollapsedControl"] button',
-                '[data-testid="stSidebarCollapsedControl"]',
-                'button[data-testid="collapsedControl"]',
-                '[data-testid="stSidebarCollapseButton"] button',
-                '[data-testid="stSidebarCollapseButton"]',
-                'button[aria-label*="sidebar" i]',
-                'button[title*="sidebar" i]'
-            ];
-
-            for (const selector of selectors) {
-                const nodes = Array.from(doc.querySelectorAll(selector));
-                const visible = nodes.find((node) => {
-                    const rect = node.getBoundingClientRect();
-                    const css = win.getComputedStyle(node);
-                    return rect.width > 0 && rect.height > 0 &&
-                           css.display !== "none" &&
-                           css.visibility !== "hidden";
-                });
-                if (visible) return visible;
-            }
-            return null;
-        }
+        const visible = (el) => {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            const s = win.getComputedStyle(el);
+            return r.width > 0 && r.height > 0 &&
+                   s.display !== "none" && s.visibility !== "hidden" &&
+                   s.pointerEvents !== "none";
+        };
 
         function sidebarIsCollapsed() {
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return true;
+            const r = sidebar.getBoundingClientRect();
+            const s = win.getComputedStyle(sidebar);
+            return sidebar.getAttribute("aria-hidden") === "true" ||
+                   s.display === "none" || s.visibility === "hidden" ||
+                   r.width < 40 || r.right <= 0 || r.left <= -(r.width / 2);
+        }
 
-            const rect = sidebar.getBoundingClientRect();
-            const css = win.getComputedStyle(sidebar);
-            const ariaHidden = sidebar.getAttribute("aria-hidden") === "true";
+        function findToggle() {
+            // Prefer Streamlit's collapsed-state control. Avoid selecting the
+            // expanded sidebar's close button when the sidebar is open.
+            const selectors = [
+                '[data-testid="stSidebarCollapsedControl"] button',
+                'button[data-testid="collapsedControl"]',
+                '[data-testid="stSidebarCollapsedControl"]',
+                '[data-testid="stSidebarCollapseButton"] button',
+                '[data-testid="stSidebarCollapseButton"]',
+                'button[aria-label*="open sidebar" i]',
+                'button[title*="open sidebar" i]'
+            ];
+            for (const selector of selectors) {
+                const el = Array.from(doc.querySelectorAll(selector)).find(visible);
+                if (el) return el;
+            }
+            return null;
+        }
 
-            return ariaHidden ||
-                   css.display === "none" ||
-                   css.visibility === "hidden" ||
-                   rect.width < 40 ||
-                   rect.right <= 5 ||
-                   rect.left < -(rect.width / 2);
+        function ensureStyle() {
+            if (doc.getElementById(STYLE_ID)) return;
+            const style = doc.createElement("style");
+            style.id = STYLE_ID;
+            style.textContent = `
+                #${LABEL_ID} {
+                    position: fixed; z-index: 1000002; display: inline-flex;
+                    align-items: center; justify-content: center; min-height: 34px;
+                    padding: 0 12px; border: 1px solid #E7D4F1; border-radius: 999px;
+                    background: #fff; box-shadow: 0 3px 10px rgba(16,24,40,.10);
+                    color: #660094; font: 800 12px/1.1 "Anek Devanagari", Arial, sans-serif;
+                    white-space: nowrap; cursor: pointer; user-select: none;
+                }
+                #${LABEL_ID}:hover { background: #FBF7FD; border-color: #660094; }
+                #${LABEL_ID}:focus-visible { outline: 3px solid rgba(102,0,148,.25); outline-offset: 2px; }
+                @media (max-width: 700px) {
+                    #${LABEL_ID} { min-height: 32px; padding: 0 9px; font-size: 11px; }
+                }`;
+            doc.head.appendChild(style);
         }
 
         function removeLabel() {
-            const label = doc.getElementById(LABEL_ID);
-            if (label) label.remove();
+            doc.getElementById(LABEL_ID)?.remove();
         }
 
         function updateLabel() {
             ensureStyle();
-
             const toggle = findToggle();
-            if (!toggle || !sidebarIsCollapsed()) {
+            if (!sidebarIsCollapsed() || !toggle) {
                 removeLabel();
                 return;
             }
 
             let label = doc.getElementById(LABEL_ID);
             if (!label) {
-                label = doc.createElement("div");
+                label = doc.createElement("button");
                 label.id = LABEL_ID;
+                label.type = "button";
                 label.textContent = "Login & Global Filters";
-                label.setAttribute("role", "button");
-                label.setAttribute("tabindex", "0");
                 label.setAttribute("aria-label", "Open Login and Global Filters sidebar");
-                label.setAttribute("title", "Open Login and Global Filters");
-
-                const openSidebar = function () {
+                label.title = "Open Login and Global Filters";
+                label.addEventListener("click", () => {
                     const activeToggle = findToggle();
-                    if (activeToggle && sidebarIsCollapsed()) {
-                        activeToggle.click();
-                    }
-                };
-
-                label.addEventListener("click", openSidebar);
-                label.addEventListener("keydown", function (event) {
-                    if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openSidebar();
-                    }
+                    if (activeToggle && sidebarIsCollapsed()) activeToggle.click();
                 });
-
                 doc.body.appendChild(label);
             }
 
-            const rect = toggle.getBoundingClientRect();
-            const labelHeight = label.getBoundingClientRect().height || 30;
-            label.style.left = `${Math.max(44, rect.right + 8)}px`;
-            label.style.top = `${Math.max(5, rect.top + (rect.height - labelHeight) / 2)}px`;
+            const r = toggle.getBoundingClientRect();
+            const h = label.getBoundingClientRect().height || 34;
+            const labelWidth = label.getBoundingClientRect().width || 160;
+            const left = Math.min(Math.max(8, r.right + 8), win.innerWidth - labelWidth - 8);
+            label.style.left = `${left}px`;
+            label.style.top = `${Math.max(4, r.top + (r.height - h) / 2)}px`;
         }
 
-        // Schedule at most one label refresh per browser frame. Avoid observing
-        // every attribute change in the entire dashboard or polling every 500 ms.
-        let updateScheduled = false;
+        let scheduled = false;
         function scheduleUpdate() {
-            if (updateScheduled) return;
-            updateScheduled = true;
+            if (scheduled) return;
+            scheduled = true;
             win.requestAnimationFrame(() => {
-                updateScheduled = false;
+                scheduled = false;
                 updateLabel();
             });
         }
 
+        // Streamlit may replace the header/sidebar controls during reruns.
+        // Observe the document tree so the shortcut is restored when replaced.
         updateLabel();
-
-        // Streamlit sidebar state changes are reflected on the sidebar element.
-        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-        if (sidebar) {
-            const sidebarObserver = new MutationObserver(scheduleUpdate);
-            sidebarObserver.observe(sidebar, {
-                attributes: true,
-                attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
-            });
-        }
-
-        // Observe only the header for toggle replacement, not the full page DOM.
-        const header = doc.querySelector('header[data-testid="stHeader"]');
-        if (header) {
-            const headerObserver = new MutationObserver(scheduleUpdate);
-            headerObserver.observe(header, { childList: true, subtree: true });
-        }
-
-        const initialToggle = findToggle();
-        if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
+        const observer = new MutationObserver(scheduleUpdate);
+        observer.observe(doc.body, { childList: true, subtree: true, attributes: true,
+            attributeFilter: ["class", "style", "aria-hidden", "aria-expanded"] });
         win.addEventListener("resize", scheduleUpdate, { passive: true });
+        win.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
+        doc.addEventListener("click", (event) => {
+            if (event.target.closest(
+                '[data-testid="stSidebarCollapsedControl"], button[data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"]'
+            )) scheduleUpdate();
+        }, true);
     })();
     </script>
     """,
