@@ -2431,11 +2431,36 @@ def inject_professional_sidebar_filter_css():
 
     /* ---------------- SELECT / MULTISELECT DROPDOWN MENU ---------------- */
     /*
-       Streamlit/BaseWeb renders dropdown menus in a portal outside the sidebar.
-       Avoid broad listbox rules that let the menu expand across the page.
-       The :has() selector limits this styling to select/multiselect dropdown popovers only.
+       BaseWeb renders dropdown menus in a portal attached near the document root.
+       Keep the popup within the viewport and let BaseWeb calculate its anchor position.
+       Do not override position/left/right/transform: those can detach the menu from
+       its select field and make it appear at the far-left edge of the page.
     */
-    
+    [data-baseweb="popover"]:has([role="listbox"]) {
+        box-sizing: border-box !important;
+        max-width: calc(100vw - 16px) !important;
+        z-index: 1000000 !important;
+    }
+
+    [data-baseweb="popover"]:has([role="listbox"]) [role="listbox"] {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: calc(100vw - 16px) !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+        overscroll-behavior: contain;
+    }
+
+    [data-baseweb="popover"]:has([role="listbox"]) [role="option"] {
+        box-sizing: border-box !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    [data-baseweb="popover"]:has([role="listbox"]) > div {
+        max-width: 100% !important;
+    }
 
     .stMultiSelect label, .stSelectbox label {
         font-size: 10.8px !important;
