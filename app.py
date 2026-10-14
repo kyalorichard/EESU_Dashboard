@@ -432,52 +432,72 @@ components.html(
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            const activeSelect = sidebar.querySelector(
-                '[data-baseweb="select"] [aria-expanded="true"], ' +
-                '[data-testid="stSelectbox"] [aria-expanded="true"], ' +
-                '[data-testid="stMultiSelect"] [aria-expanded="true"]'
+            // Find the open select/multiselect by its expanded state. Streamlit
+            // versions differ on whether aria-expanded is attached to the input,
+            // the BaseWeb select wrapper, or the widget wrapper.
+            const expanded = Array.from(sidebar.querySelectorAll('[aria-expanded="true"]'));
+            const activeSelect = expanded.find((node) =>
+                node.matches('[data-baseweb="select"], input, [role="combobox"]') ||
+                node.closest('[data-baseweb="select"]')
+            ) || (doc.activeElement && sidebar.contains(doc.activeElement)
+                ? doc.activeElement.closest('[data-baseweb="select"]')
+                : null);
+
+            const anchor = activeSelect && (
+                activeSelect.closest('[data-baseweb="select"]') ||
+                activeSelect.closest('[data-testid="stSelectbox"]') ||
+                activeSelect.closest('[data-testid="stMultiSelect"]')
             );
-            const popovers = Array.from(doc.querySelectorAll(
-                '[data-baseweb="popover"]'
-            )).filter((node) => node.querySelector('[role="listbox"]'));
-
-            if (!activeSelect || !popovers.length) return;
-
-            const anchor = activeSelect.closest('[data-baseweb="select"]') ||
-                           activeSelect.closest('[data-testid="stSelectbox"]') ||
-                           activeSelect.closest('[data-testid="stMultiSelect"]');
             if (!anchor) return;
 
             const rect = anchor.getBoundingClientRect();
             if (rect.width < 20 || rect.bottom < 0 || rect.top > win.innerHeight) return;
 
-            const popover = popovers[popovers.length - 1];
-            const margin = 8;
-            const width = Math.min(rect.width, win.innerWidth - margin * 2);
-            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const top = Math.min(rect.bottom + 4, win.innerHeight - 80);
+            // BaseWeb renders a floating layer/portal outside the sidebar. The
+            // positioned node can be the layer, popover, or both depending on
+            // Streamlit/BaseWeb version. Reposition each relevant ancestor so
+            // stale transforms/left offsets cannot leave the menu at x=0.
+            const candidates = Array.from(doc.querySelectorAll(
+                '[data-baseweb="popover"], [data-baseweb="layer"]'
+            )).filter((node) => node.querySelector('[role="listbox"]'));
+            if (!candidates.length) return;
 
-            // BaseWeb portals can inherit incorrect horizontal placement from
-            // surrounding responsive transforms. Anchor the open menu to the
-            // actual sidebar widget, rather than to the page viewport edge.
-            Object.assign(popover.style, {
-                position: 'fixed',
-                left: `${left}px`,
-                right: 'auto',
-                top: `${top}px`,
-                bottom: 'auto',
-                width: `${width}px`,
-                minWidth: `${width}px`,
-                maxWidth: `${width}px`,
-                transform: 'none',
-                zIndex: '1000001'
-            });
+            const popover = candidates[candidates.length - 1];
             const listbox = popover.querySelector('[role="listbox"]');
+            const margin = 8;
+            const width = Math.max(160, Math.min(rect.width, win.innerWidth - margin * 2));
+            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
+            const availableBelow = win.innerHeight - rect.bottom - margin;
+            const desiredHeight = Math.min(320, Math.max(120, availableBelow));
+            const top = availableBelow >= 150
+                ? Math.min(rect.bottom + 4, win.innerHeight - desiredHeight - margin)
+                : Math.max(margin, rect.top - Math.min(320, rect.top - margin) - 4);
+
+            [popover, popover.closest('[data-baseweb="layer"]')].filter(Boolean).forEach((node) => {
+                Object.assign(node.style, {
+                    position: 'fixed',
+                    left: `${left}px`,
+                    right: 'auto',
+                    top: `${top}px`,
+                    bottom: 'auto',
+                    width: `${width}px`,
+                    minWidth: `${width}px`,
+                    maxWidth: `${width}px`,
+                    margin: '0',
+                    transform: 'none',
+                    zIndex: '1000001'
+                });
+            });
+
             if (listbox) {
-                listbox.style.maxWidth = `${width}px`;
-                listbox.style.width = '100%';
-                listbox.style.maxHeight = `${Math.max(120, win.innerHeight - top - margin)}px`;
-                listbox.style.overflowY = 'auto';
+                Object.assign(listbox.style, {
+                    width: `${width}px`,
+                    minWidth: `${width}px`,
+                    maxWidth: `${width}px`,
+                    maxHeight: `${Math.max(100, Math.min(320, win.innerHeight - top - margin))}px`,
+                    overflowY: 'auto',
+                    boxSizing: 'border-box'
+                });
             }
         }
 
@@ -9551,9 +9571,16 @@ def inject_final_mobile_responsive_hardening() -> None:
 
         [data-baseweb="select"],
         [data-baseweb="input"],
-        [data-baseweb="textarea"],
-        [data-baseweb="popover"] {
+        [data-baseweb="textarea"] {
             max-width: 100% !important;
+        }
+
+        /* Dropdowns are portalled to document.body; do not constrain them to
+           the width of the main/sidebar layout. JavaScript anchors them to the
+           active sidebar control using viewport coordinates. */
+        [data-baseweb="popover"],
+        [data-baseweb="layer"] [role="listbox"] {
+            box-sizing: border-box !important;
         }
 
         .stButton > button,
