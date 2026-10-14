@@ -899,6 +899,87 @@ div[data-testid="stTabs"]{
     }
 }
 
+
+
+/* FINAL RESPONSIVE OVERRIDES — apply consistently to every dashboard component. */
+*, *::before, *::after { box-sizing: border-box !important; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+[data-testid="stMainBlockContainer"], .main, .block-container { min-width: 0 !important; }
+.main .block-container { width: 100% !important; max-width: 1500px !important; }
+[data-testid="stHorizontalBlock"], [data-testid="stVerticalBlock"],
+[data-testid="column"], [data-testid="stElementContainer"] { min-width: 0 !important; }
+[data-testid="stWidget"] { min-width: 0 !important; max-width: 100% !important; }
+[data-testid="stWidget"] input, [data-testid="stWidget"] textarea,
+[data-testid="stWidget"] select, [data-testid="stWidget"] button,
+[data-baseweb="select"], [data-baseweb="input"] { max-width: 100% !important; }
+[data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li, label, [data-testid="stWidgetLabel"] {
+    overflow-wrap: anywhere !important; word-break: normal;
+}
+[data-testid="stDataFrame"], [data-testid="stTable"], [data-testid="stTable"] > div {
+    width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+}
+[data-testid="stDataFrame"] { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+[data-testid="stDataFrame"] [role="grid"] { max-width: 100% !important; }
+[data-testid="stPlotlyChart"], [data-testid="stVegaLiteChart"],
+[data-testid="stArrowVegaLiteChart"], .stPlotlyChart, .js-plotly-plot,
+.plot-container, .svg-container { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+[data-testid="stPlotlyChart"] iframe, iframe, img, video, canvas, svg { max-width: 100% !important; }
+[data-testid="stTabs"] [role="tab"] { min-width: max-content; }
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    max-width: 100% !important; overflow-x: auto !important; flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+[data-testid="stExpander"] { min-width: 0 !important; max-width: 100% !important; }
+[data-testid="stAlert"] { overflow-wrap: anywhere !important; }
+.stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button {
+    min-height: 40px; max-width: 100% !important; white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+[data-testid="stMetric"] { min-width: 0 !important; }
+[data-testid="stMetricValue"] { font-size: clamp(1rem, 3.5vw, 2rem) !important; overflow-wrap: anywhere !important; }
+[data-testid="stMetricLabel"] { white-space: normal !important; overflow-wrap: anywhere !important; }
+
+@media (max-width: 1024px) {
+    .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] { min-width: 0 !important; }
+}
+@media (max-width: 768px) {
+    .main .block-container, [data-testid="stMainBlockContainer"] {
+        padding: .65rem .65rem 5.5rem !important; width: 100% !important;
+    }
+    [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: .65rem !important; }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex: 1 1 100% !important; width: 100% !important; max-width: 100% !important;
+    }
+    [data-testid="stPlotlyChart"] { min-height: 250px !important; }
+    [data-testid="stTabs"] [data-baseweb="tab"] { padding-left: .65rem !important; padding-right: .65rem !important; }
+    [data-testid="stSidebar"] { max-width: 92vw !important; }
+    [data-testid="stSidebar"] > div { width: 100% !important; }
+    [data-testid="stDataFrame"] { max-height: 65vh !important; }
+    .data-preview-toolbar, .executive-table-header, .executive-table-status,
+    .last-updated-badge { flex-direction: column !important; align-items: stretch !important; }
+    .data-preview-pill-row { justify-content: flex-start !important; }
+    .executive-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .js-plotly-plot .plotly .modebar { transform: scale(.82); transform-origin: top right; }
+}
+@media (max-width: 480px) {
+    .main .block-container, [data-testid="stMainBlockContainer"] { padding-left: .45rem !important; padding-right: .45rem !important; }
+    h1 { font-size: clamp(1.35rem, 6vw, 1.8rem) !important; }
+    h2 { font-size: clamp(1.15rem, 5vw, 1.5rem) !important; }
+    h3 { font-size: clamp(1rem, 4.5vw, 1.25rem) !important; }
+    [data-testid="stPlotlyChart"] { min-height: 220px !important; }
+    .executive-metric-grid { grid-template-columns: minmax(0, 1fr) !important; }
+    .executive-table-shell { padding: 9px !important; }
+    .data-preview-toolbar { padding: 9px !important; }
+    .stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button { width: 100% !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
 </style>
     """, unsafe_allow_html=True)
 
