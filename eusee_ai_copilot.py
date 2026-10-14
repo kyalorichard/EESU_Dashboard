@@ -901,20 +901,18 @@ def _run_dataset_query(df: pd.DataFrame, args: dict) -> dict:
 
     return payload
 
+@st.cache_resource(show_spinner=False)
+def _cached_openai_client(api_key: str):
+    """Reuse the API client across Streamlit reruns instead of rebuilding it."""
+    return OpenAI(api_key=api_key, timeout=30.0, max_retries=1)
+
+
 def _get_client(api_key: str):
-
     if OpenAI is None or not api_key:
-
         return None
-
     try:
-
-        # Bound stalled requests and keep retries modest so a transient API issue
-        # does not make the UI appear frozen for an excessive period.
-        return OpenAI(api_key=api_key, timeout=60.0, max_retries=1)
-
+        return _cached_openai_client(api_key)
     except Exception:
-
         return None
 
 def _user_key() -> str:
@@ -938,23 +936,23 @@ def _history_path(base_dir: Path) -> Path:
     return folder / f"{_user_key()}.json"
 
 def _load_history(base_dir: Path) -> list[dict]:
+    """Read a user's chat history once per session unless explicitly refreshed."""
+    cache_key = f"_eusee_copilot_history_{_user_key()}"
+    cached = st.session_state.get(cache_key)
+    if isinstance(cached, list):
+        return [dict(item) for item in cached]
 
     path = _history_path(base_dir)
-
     try:
-
         payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-
         messages = payload.get("messages", [])
-
         if isinstance(messages, list):
-
-            return [m for m in messages if isinstance(m, dict) and m.get("role") in {"user", "assistant"}][-100:]
-
+            result = [m for m in messages if isinstance(m, dict) and m.get("role") in {"user", "assistant"}][-100:]
+            st.session_state[cache_key] = result
+            return [dict(item) for item in result]
     except Exception:
-
         pass
-
+    st.session_state[cache_key] = []
     return []
 
 def _save_history(base_dir: Path, messages: list[dict]) -> None:
@@ -970,10 +968,9 @@ def _save_history(base_dir: Path, messages: list[dict]) -> None:
     }
 
     temp = path.with_suffix(".tmp")
-
     temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-
     temp.replace(path)
+    st.session_state[f"_eusee_copilot_history_{_user_key()}"] = messages[-100:]
 
 def _call_ai(
 

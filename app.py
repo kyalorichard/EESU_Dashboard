@@ -12223,33 +12223,33 @@ from eusee_ai_copilot import render_eusee_ai_copilot
 
 if is_authenticated():
     _copilot_cfr_df = pd.DataFrame()
-    try:
-        _copilot_cfr_source = _find_cfr_source()
-        if _copilot_cfr_source is not None:
-            _copilot_metadata_path = EXPORT_DIR / "countries_metadata.json"
-            _copilot_metadata_mtime = (
-                _copilot_metadata_path.stat().st_mtime
-                if _copilot_metadata_path.exists()
-                else None
-            )
-            _copilot_cfr_cache_key = (
-                str(_copilot_cfr_source),
-                _copilot_cfr_source.stat().st_mtime,
-                _copilot_metadata_mtime,
-            )
-            # Retain the loaded frame in this session. Streamlit's data cache
-            # avoids rereading the CSV, while session state avoids repeatedly
-            # copying/deserializing it during unrelated widget reruns.
-            if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
-                st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
+    # CFR source discovery and loading are only needed while the copilot is open.
+    # This avoids filesystem checks and metadata work on ordinary dashboard reruns.
+    if st.session_state.get("eusee_copilot_open", False):
+        try:
+            _copilot_cfr_source = _find_cfr_source()
+            if _copilot_cfr_source is not None:
+                _copilot_metadata_path = EXPORT_DIR / "countries_metadata.json"
+                _copilot_metadata_mtime = (
+                    _copilot_metadata_path.stat().st_mtime
+                    if _copilot_metadata_path.exists()
+                    else None
+                )
+                _copilot_cfr_cache_key = (
                     str(_copilot_cfr_source),
-                    _copilot_cfr_cache_key[1],
+                    _copilot_cfr_source.stat().st_mtime,
                     _copilot_metadata_mtime,
                 )
-                st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
-            _copilot_cfr_df = st.session_state.get("_eusee_copilot_cfr_df", pd.DataFrame())
-    except Exception as _copilot_cfr_error:
-        logging.warning("CFR dataset unavailable to AI Copilot: %s", _copilot_cfr_error)
+                if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
+                    st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
+                        str(_copilot_cfr_source),
+                        _copilot_cfr_cache_key[1],
+                        _copilot_metadata_mtime,
+                    )
+                    st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
+                _copilot_cfr_df = st.session_state.get("_eusee_copilot_cfr_df", pd.DataFrame())
+        except Exception as _copilot_cfr_error:
+            logging.warning("CFR dataset unavailable to AI Copilot: %s", _copilot_cfr_error)
 
     render_eusee_ai_copilot(
         dataframe=st.session_state.get("eusee_authoritative_dataset"),
