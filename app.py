@@ -432,73 +432,109 @@ components.html(
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            // Find the open select/multiselect by its expanded state. Streamlit
-            // versions differ on whether aria-expanded is attached to the input,
-            // the BaseWeb select wrapper, or the widget wrapper.
-            const expanded = Array.from(sidebar.querySelectorAll('[aria-expanded="true"]'));
-            const activeSelect = expanded.find((node) =>
-                node.matches('[data-baseweb="select"], input, [role="combobox"]') ||
-                node.closest('[data-baseweb="select"]')
-            ) || (doc.activeElement && sidebar.contains(doc.activeElement)
-                ? doc.activeElement.closest('[data-baseweb="select"]')
-                : null);
-
-            const anchor = activeSelect && (
-                activeSelect.closest('[data-baseweb="select"]') ||
-                activeSelect.closest('[data-testid="stSelectbox"]') ||
-                activeSelect.closest('[data-testid="stMultiSelect"]')
+            // Resolve the actual sidebar control that opened the menu. BaseWeb
+            // may put aria-expanded on the input, combobox, or select wrapper.
+            const expanded = Array.from(
+                sidebar.querySelectorAll('[aria-expanded="true"]')
             );
+            let anchor = null;
+
+            for (const node of expanded) {
+                anchor = node.closest('[data-testid="stSelectbox"], [data-testid="stMultiSelect"]')
+                    || node.closest('[data-baseweb="select"]');
+                if (anchor) break;
+            }
+
+            if (!anchor && doc.activeElement && sidebar.contains(doc.activeElement)) {
+                anchor = doc.activeElement.closest(
+                    '[data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-baseweb="select"]'
+                );
+            }
             if (!anchor) return;
 
             const rect = anchor.getBoundingClientRect();
             if (rect.width < 20 || rect.bottom < 0 || rect.top > win.innerHeight) return;
 
-            // BaseWeb renders a floating layer/portal outside the sidebar. The
-            // positioned node can be the layer, popover, or both depending on
-            // Streamlit/BaseWeb version. Reposition each relevant ancestor so
-            // stale transforms/left offsets cannot leave the menu at x=0.
-            const candidates = Array.from(doc.querySelectorAll(
-                '[data-baseweb="popover"], [data-baseweb="layer"]'
-            )).filter((node) => node.querySelector('[role="listbox"]'));
-            if (!candidates.length) return;
+            // Prefer the listbox explicitly associated with the active control.
+            // Otherwise select the visible portal closest to this sidebar widget;
+            // taking the last portal in document order can target an unrelated menu.
+            const controls = expanded
+                .map(node => node.getAttribute('aria-controls'))
+                .filter(Boolean);
+            let listbox = null;
 
-            const popover = candidates[candidates.length - 1];
-            const listbox = popover.querySelector('[role="listbox"]');
+            for (const id of controls) {
+                const controlled = doc.getElementById(id);
+                if (controlled && controlled.matches('[role="listbox"]')) {
+                    listbox = controlled;
+                    break;
+                }
+                if (controlled) {
+                    listbox = controlled.querySelector('[role="listbox"]');
+                    if (listbox) break;
+                }
+            }
+
+            const visibleListboxes = Array.from(doc.querySelectorAll('[role="listbox"]'))
+                .filter(node => {
+                    const r = node.getBoundingClientRect();
+                    const css = win.getComputedStyle(node);
+                    return r.width > 0 && r.height > 0 &&
+                        css.display !== 'none' && css.visibility !== 'hidden';
+                });
+
+            if (!listbox) {
+                const targetX = rect.left + rect.width / 2;
+                const targetY = rect.bottom;
+                visibleListboxes.sort((a, b) => {
+                    const ar = a.getBoundingClientRect();
+                    const br = b.getBoundingClientRect();
+                    const da = Math.abs((ar.left + ar.width / 2) - targetX) +
+                        Math.abs(ar.top - targetY);
+                    const db = Math.abs((br.left + br.width / 2) - targetX) +
+                        Math.abs(br.top - targetY);
+                    return da - db;
+                });
+                listbox = visibleListboxes[0] || null;
+            }
+            if (!listbox) return;
+
+            const popover = listbox.closest('[data-baseweb="popover"]') || listbox;
             const margin = 8;
             const width = Math.max(160, Math.min(rect.width, win.innerWidth - margin * 2));
             const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const availableBelow = win.innerHeight - rect.bottom - margin;
-            const desiredHeight = Math.min(320, Math.max(120, availableBelow));
-            const top = availableBelow >= 150
-                ? Math.min(rect.bottom + 4, win.innerHeight - desiredHeight - margin)
-                : Math.max(margin, rect.top - Math.min(320, rect.top - margin) - 4);
+            const below = win.innerHeight - rect.bottom - margin;
+            const above = rect.top - margin;
+            const openBelow = below >= 150 || below >= above;
+            const maxHeight = Math.max(100, Math.min(320, openBelow ? below : above));
+            const top = openBelow
+                ? Math.min(rect.bottom + 4, win.innerHeight - maxHeight - margin)
+                : Math.max(margin, rect.top - maxHeight - 4);
 
-            [popover, popover.closest('[data-baseweb="layer"]')].filter(Boolean).forEach((node) => {
-                Object.assign(node.style, {
-                    position: 'fixed',
-                    left: `${left}px`,
-                    right: 'auto',
-                    top: `${top}px`,
-                    bottom: 'auto',
-                    width: `${width}px`,
-                    minWidth: `${width}px`,
-                    maxWidth: `${width}px`,
-                    margin: '0',
-                    transform: 'none',
-                    zIndex: '1000001'
-                });
+            // Position the popover itself, not a broad portal ancestor that may
+            // contain other widgets. This prevents menus jumping to the page edge.
+            Object.assign(popover.style, {
+                position: 'fixed',
+                left: `${left}px`,
+                right: 'auto',
+                top: `${top}px`,
+                bottom: 'auto',
+                width: `${width}px`,
+                minWidth: `${width}px`,
+                maxWidth: `${width}px`,
+                margin: '0',
+                transform: 'none',
+                zIndex: '1000001'
             });
 
-            if (listbox) {
-                Object.assign(listbox.style, {
-                    width: `${width}px`,
-                    minWidth: `${width}px`,
-                    maxWidth: `${width}px`,
-                    maxHeight: `${Math.max(100, Math.min(320, win.innerHeight - top - margin))}px`,
-                    overflowY: 'auto',
-                    boxSizing: 'border-box'
-                });
-            }
+            Object.assign(listbox.style, {
+                width: '100%',
+                minWidth: '0',
+                maxWidth: '100%',
+                maxHeight: `${maxHeight}px`,
+                overflowY: 'auto',
+                boxSizing: 'border-box'
+            });
         }
 
         function updateLabel() {
