@@ -1883,17 +1883,17 @@ def render_eusee_ai_copilot(
 
             min-height: 42px !important;
 
-            padding: 8px 15px !important;
+            padding: 0px 15px !important;
 
             border-radius: 999px !important;
 
             border: 1px solid #6D28D9 !important;
 
-            background: linear-gradient(135deg, #7C3AED 0%, #660094 100%) !important;
+            background: #660094;
 
             color: #FFFFFF !important;
 
-            font-weight: 700 !important;
+            font-weight: 850 !important;
 
             font-size: 10px !important;
 
