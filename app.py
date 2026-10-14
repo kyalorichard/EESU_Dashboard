@@ -438,44 +438,123 @@ components.html(
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            const expanded = Array.from(
+            // Identify the actual open select/multiselect control.
+            const expandedNodes = Array.from(
                 sidebar.querySelectorAll('[aria-expanded="true"]')
             );
+            let anchorNode = null;
             let anchor = null;
-            for (const node of expanded) {
-                const candidate = node.closest(
-                    '[data-testid="stMultiSelect"], [data-testid="stSelectbox"]'
-                ) || node.closest('[data-baseweb="select"]');
-                if (candidate) {
-                    const r = candidate.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) {
-                        anchor = candidate;
-                        break;
-                    }
+
+            for (const node of expandedNodes) {
+                const candidate = node.closest('[data-baseweb="select"]')
+                    || node.closest('[data-testid="stMultiSelect"]')
+                    || node.closest('[data-testid="stSelectbox"]');
+                if (!candidate) continue;
+
+                const r = candidate.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) {
+                    anchorNode = node;
+                    anchor = candidate;
+                    break;
                 }
             }
-            if (!anchor) return;
+            if (!anchor || !anchorNode) return;
 
             const rect = anchor.getBoundingClientRect();
             if (rect.width < 20 || rect.bottom <= 0 || rect.top >= win.innerHeight) return;
 
-            const listbox = Array.from(doc.querySelectorAll('[role="listbox"]')).find((node) => {
-                const r = node.getBoundingClientRect();
-                const css = win.getComputedStyle(node);
-                return r.width > 0 && r.height > 0 &&
-                    css.display !== 'none' && css.visibility !== 'hidden';
-            });
+            // First use the open control's aria-controls/aria-owns relationship.
+            // This avoids accidentally moving a different listbox elsewhere on
+            // the page when multiple widgets exist.
+            let listbox = null;
+            const controlledIds = [
+                anchorNode.getAttribute('aria-controls'),
+                anchorNode.getAttribute('aria-owns'),
+                ...Array.from(anchor.querySelectorAll('[aria-controls], [aria-owns]'))
+                    .flatMap((el) => [
+                        el.getAttribute('aria-controls'),
+                        el.getAttribute('aria-owns')
+                    ])
+            ].filter(Boolean).join(' ').split(/\s+/);
+
+            for (const id of controlledIds) {
+                const controlled = doc.getElementById(id);
+                if (!controlled) continue;
+                if (controlled.matches('[role="listbox"]')) {
+                    listbox = controlled;
+                    break;
+                }
+                listbox = controlled.querySelector('[role="listbox"]');
+                if (listbox) break;
+            }
+
+            // Fallback: choose the visible listbox closest to the active control.
+            if (!listbox) {
+                const visibleListboxes = Array.from(
+                    doc.querySelectorAll('[role="listbox"]')
+                ).filter((node) => {
+                    const r = node.getBoundingClientRect();
+                    const css = win.getComputedStyle(node);
+                    return r.width > 0 && r.height > 0 &&
+                        css.display !== 'none' &&
+                        css.visibility !== 'hidden';
+                });
+
+                visibleListboxes.sort((a, b) => {
+                    const ar = a.getBoundingClientRect();
+                    const br = b.getBoundingClientRect();
+                    const distance = (r) =>
+                        Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2)) +
+                        Math.abs(r.top - rect.bottom);
+                    return distance(ar) - distance(br);
+                });
+                listbox = visibleListboxes[0] || null;
+            }
             if (!listbox) return;
 
-            const popover = listbox.closest('[data-baseweb="popover"]') || listbox.parentElement;
+            // BaseWeb's positioned node can be a parent of the popover element.
+            // Find the nearest portal wrapper, not an arbitrary page container.
+            let popover = listbox.closest('[data-baseweb="popover"]');
+            if (!popover) {
+                let node = listbox.parentElement;
+                while (node && node !== doc.body) {
+                    if (node.hasAttribute('data-popper-placement') ||
+                        node.getAttribute('role') === 'presentation') {
+                        popover = node;
+                        break;
+                    }
+                    node = node.parentElement;
+                }
+            }
+            if (!popover) popover = listbox.parentElement;
             if (!popover) return;
 
             const margin = 8;
             const gap = 4;
-            const width = Math.min(rect.width, win.innerWidth - margin * 2);
-            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const top = Math.min(rect.bottom + gap, win.innerHeight - margin - 100);
-            const availableHeight = Math.max(100, Math.min(280, win.innerHeight - top - margin));
+            const width = Math.max(
+                160,
+                Math.min(rect.width, win.innerWidth - margin * 2)
+            );
+            const left = Math.max(
+                margin,
+                Math.min(rect.left, win.innerWidth - width - margin)
+            );
+
+            // Prefer directly below the input (as requested). If there is
+            // insufficient room, place the menu above it instead.
+            const maxMenuHeight = Math.min(280, win.innerHeight - margin * 2);
+            const roomBelow = win.innerHeight - rect.bottom - gap - margin;
+            const roomAbove = rect.top - gap - margin;
+            const placeAbove = roomBelow < Math.min(180, maxMenuHeight) &&
+                               roomAbove > roomBelow;
+            const availableHeight = Math.max(
+                100,
+                Math.min(maxMenuHeight, placeAbove ? roomAbove : roomBelow)
+            );
+            const top = placeAbove
+                ? Math.max(margin, rect.top - availableHeight - gap)
+                : Math.min(rect.bottom + gap, win.innerHeight - availableHeight - margin);
+
             const force = (element, property, value) =>
                 element.style.setProperty(property, value, 'important');
 
@@ -553,6 +632,7 @@ components.html(
             win.requestAnimationFrame(() => {
                 updateScheduled = false;
                 updateLabel();
+                win.requestAnimationFrame(positionSidebarDropdown);
             });
         }
 
