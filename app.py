@@ -434,8 +434,143 @@ components.html(
          * portal to calculate a negative left offset, so correct only the
          * open menu and leave all closed controls untouched.
          */
+        function positionSidebarDropdown() {
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+            if (!sidebar) return;
+
+            // Prefer the focused control, then an explicitly expanded select.
+            const active = doc.activeElement;
+            let anchor = active && active.closest
+                ? active.closest('[data-baseweb="select"]')
+                : null;
+
+            if (!anchor || !sidebar.contains(anchor)) {
+                const expanded = Array.from(
+                    sidebar.querySelectorAll('[aria-expanded="true"]')
+                );
+                for (const node of expanded) {
+                    const candidate = node.closest('[data-baseweb="select"]')
+                        || node.closest('[data-testid="stMultiSelect"]')
+                        || node.closest('[data-testid="stSelectbox"]');
+                    if (candidate) {
+                        const r = candidate.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) {
+                            anchor = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // If focus is on the search input, its closest select is the anchor.
+            if (!anchor || !sidebar.contains(anchor)) {
+                const focusedInput = sidebar.querySelector(
+                    '[data-testid="stMultiSelect"] input:focus, ' +
+                    '[data-testid="stSelectbox"] input:focus'
+                );
+                if (focusedInput) anchor = focusedInput.closest('[data-baseweb="select"]')
+                    || focusedInput.closest('[data-testid="stMultiSelect"]')
+                    || focusedInput.closest('[data-testid="stSelectbox"]');
+            }
+            if (!anchor) return;
+
+            const rect = anchor.getBoundingClientRect();
+            if (rect.width < 20 || rect.height < 10 ||
+                rect.bottom <= 0 || rect.top >= win.innerHeight) return;
+
+            const visibleListboxes = Array.from(doc.querySelectorAll('[role="listbox"]'))
+                .filter((node) => {
+                    const r = node.getBoundingClientRect();
+                    const css = win.getComputedStyle(node);
+                    return r.width > 0 && r.height > 0 &&
+                        css.display !== 'none' && css.visibility !== 'hidden';
+                });
+            if (!visibleListboxes.length) return;
+
+            // Pick the currently open menu nearest to this input.
+            visibleListboxes.sort((a, b) => {
+                const ar = a.getBoundingClientRect();
+                const br = b.getBoundingClientRect();
+                const distance = (r) =>
+                    Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2)) +
+                    Math.abs(r.top - rect.bottom);
+                return distance(ar) - distance(br);
+            });
+            const listbox = visibleListboxes[0];
+            const popover = listbox.closest('[data-baseweb="popover"]')
+                || listbox.parentElement;
+            if (!popover) return;
+
+            // Use BaseWeb's Popper element when available. Do not reposition the
+            // full-screen layer, which is what creates the wide blank grey area.
+            let floating = listbox.closest('[data-popper-placement]');
+            if (!floating) floating = popover;
+
+            const margin = 8;
+            const gap = 4;
+            const width = Math.max(
+                120,
+                Math.min(rect.width, win.innerWidth - margin * 2)
+            );
+            const left = Math.max(
+                margin,
+                Math.min(rect.left, win.innerWidth - width - margin)
+            );
+            const maxHeight = Math.min(280, win.innerHeight - margin * 2);
+            const below = win.innerHeight - rect.bottom - gap - margin;
+            const above = rect.top - gap - margin;
+            const openAbove = below < Math.min(160, maxHeight) && above > below;
+            const menuHeight = Math.max(
+                90,
+                Math.min(maxHeight, openAbove ? above : below)
+            );
+            const top = openAbove
+                ? Math.max(margin, rect.top - menuHeight - gap)
+                : Math.min(rect.bottom + gap, win.innerHeight - menuHeight - margin);
+
+            const set = (el, prop, value) =>
+                el.style.setProperty(prop, value, 'important');
+
+            // Exact same left edge and width as the corresponding input.
+            set(floating, 'position', 'fixed');
+            set(floating, 'left', `${left}px`);
+            set(floating, 'right', 'auto');
+            set(floating, 'top', `${top}px`);
+            set(floating, 'bottom', 'auto');
+            set(floating, 'width', `${width}px`);
+            set(floating, 'min-width', `${width}px`);
+            set(floating, 'max-width', `${width}px`);
+            set(floating, 'margin', '0');
+            set(floating, 'transform', 'none');
+            set(floating, 'z-index', '1000002');
+
+            // Force the visible popover and listbox to fill the positioned
+            // wrapper. This removes the grey right-hand remainder.
+            [popover, listbox].forEach((el) => {
+                set(el, 'width', '100%');
+                set(el, 'min-width', '0');
+                set(el, 'max-width', '100%');
+                set(el, 'box-sizing', 'border-box');
+                set(el, 'background', '#FFFFFF');
+            });
+            set(listbox, 'max-height', `${menuHeight}px`);
+            set(listbox, 'overflow-y', 'auto');
+            set(listbox, 'overflow-x', 'hidden');
+
+            // BaseWeb may put an extra wrapper between the popover and listbox.
+            let child = listbox.parentElement;
+            while (child && child !== popover && child !== floating) {
+                set(child, 'width', '100%');
+                set(child, 'min-width', '0');
+                set(child, 'max-width', '100%');
+                set(child, 'box-sizing', 'border-box');
+                child = child.parentElement;
+            }
+        }
+
         function updateLabel() {
             ensureStyle();
+            positionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
