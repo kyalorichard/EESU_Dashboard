@@ -462,18 +462,40 @@ components.html(
             label.style.top = `${Math.max(5, rect.top + (rect.height - labelHeight) / 2)}px`;
         }
 
+        // Schedule at most one label refresh per browser frame. Avoid observing
+        // every attribute change in the entire dashboard or polling every 500 ms.
+        let updateScheduled = false;
+        function scheduleUpdate() {
+            if (updateScheduled) return;
+            updateScheduled = true;
+            win.requestAnimationFrame(() => {
+                updateScheduled = false;
+                updateLabel();
+            });
+        }
+
         updateLabel();
 
-        const observer = new MutationObserver(updateLabel);
-        observer.observe(doc.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
-        });
+        // Streamlit sidebar state changes are reflected on the sidebar element.
+        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+        if (sidebar) {
+            const sidebarObserver = new MutationObserver(scheduleUpdate);
+            sidebarObserver.observe(sidebar, {
+                attributes: true,
+                attributeFilter: ["class", "style", "aria-expanded", "aria-hidden"]
+            });
+        }
 
-        win.addEventListener("resize", updateLabel);
-        win.setInterval(updateLabel, 500);
+        // Observe only the header for toggle replacement, not the full page DOM.
+        const header = doc.querySelector('header[data-testid="stHeader"]');
+        if (header) {
+            const headerObserver = new MutationObserver(scheduleUpdate);
+            headerObserver.observe(header, { childList: true, subtree: true });
+        }
+
+        const initialToggle = findToggle();
+        if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
+        win.addEventListener("resize", scheduleUpdate, { passive: true });
     })();
     </script>
     """,
@@ -12210,11 +12232,22 @@ if is_authenticated():
                 if _copilot_metadata_path.exists()
                 else None
             )
-            _copilot_cfr_df = load_cfr_data(
+            _copilot_cfr_cache_key = (
                 str(_copilot_cfr_source),
                 _copilot_cfr_source.stat().st_mtime,
                 _copilot_metadata_mtime,
-            ).copy()
+            )
+            # Retain the loaded frame in this session. Streamlit's data cache
+            # avoids rereading the CSV, while session state avoids repeatedly
+            # copying/deserializing it during unrelated widget reruns.
+            if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
+                st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
+                    str(_copilot_cfr_source),
+                    _copilot_cfr_cache_key[1],
+                    _copilot_metadata_mtime,
+                )
+                st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
+            _copilot_cfr_df = st.session_state.get("_eusee_copilot_cfr_df", pd.DataFrame())
     except Exception as _copilot_cfr_error:
         logging.warning("CFR dataset unavailable to AI Copilot: %s", _copilot_cfr_error)
 

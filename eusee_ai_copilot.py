@@ -314,6 +314,29 @@ def _schema_description(df: pd.DataFrame) -> dict:
 
     return result
 
+
+def _cached_schema_description(df: pd.DataFrame, dataset_name: str) -> dict:
+    """Cache dataset schema metadata for the lifetime of a stable dataframe.
+
+    The source frames are treated as read-only. The signature changes when the
+    frame object, shape, column names, or dtypes change, invalidating the entry.
+    """
+    signature = (
+        id(df),
+        int(len(df)),
+        tuple(map(str, df.columns)),
+        tuple(map(str, df.dtypes)),
+    )
+    cache = st.session_state.setdefault("_eusee_copilot_schema_cache", {})
+    cached = cache.get(dataset_name)
+    if cached and cached.get("signature") == signature:
+        return cached["schema"]
+
+    schema = _schema_description(df)
+    cache[dataset_name] = {"signature": signature, "schema": schema}
+    return schema
+
+
 def _as_filter_values(value: str) -> list[str]:
 
     return [part.strip() for part in str(value or "").split(",") if part.strip()]
@@ -360,7 +383,9 @@ def _apply_filters(
 
 ) -> tuple[pd.DataFrame, list[str]]:
 
-    result = df.copy()
+    # Query operations below are read-only; filtered selections create their own
+    # frames as needed. Avoid copying the complete dataset for every question.
+    result = df
 
     notes = []
 
@@ -488,15 +513,15 @@ def _apply_filters(
 
         if text_columns:
 
+            # One compiled OR-pattern per query avoids scanning every text column
+            # once for every individual term. All terms are escaped so user text
+            # remains literal rather than being interpreted as regular expressions.
+            search_pattern = re.compile("|".join(re.escape(term) for term in terms), re.IGNORECASE)
             mask = pd.Series(False, index=result.index)
 
             for col in text_columns:
-
-                values = result[col].astype(str)
-
-                for term in terms:
-
-                    mask |= values.str.contains(re.escape(term), case=False, na=False)
+                values = result[col].astype("string")
+                mask |= values.str.contains(search_pattern, na=False)
 
             result = result.loc[mask]
 
@@ -884,7 +909,9 @@ def _get_client(api_key: str):
 
     try:
 
-        return OpenAI(api_key=api_key)
+        # Bound stalled requests and keep retries modest so a transient API issue
+        # does not make the UI appear frozen for an excessive period.
+        return OpenAI(api_key=api_key, timeout=60.0, max_retries=1)
 
     except Exception:
 
@@ -966,9 +993,9 @@ def _call_ai(
 
     schema = {
 
-        "alerts": _schema_description(alerts_df),
+        "alerts": _cached_schema_description(alerts_df, "alerts"),
 
-        "cfr": _schema_description(cfr_df),
+        "cfr": _cached_schema_description(cfr_df, "cfr"),
 
     }
 
@@ -2244,9 +2271,9 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
 
                     model,
 
-                    dataframe.copy(),
+                    dataframe,
 
-                    cfr_dataframe.copy(),
+                    cfr_dataframe,
 
                     messages[:-1],
 
