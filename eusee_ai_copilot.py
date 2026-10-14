@@ -1881,27 +1881,22 @@ def render_eusee_ai_copilot(
 
         .st-key-eusee_copilot_launcher button {
 
-            min-height: 42px !important;
-
-            padding: 0px 15px !important;
-
-            border-radius: 999px !important;
-
-            border: 1px solid #6D28D9 !important;
-
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            min-height: 42px;
+            padding: 0 15px;
+            border: 1px solid #660094;
+            border-radius: 999px;
             background: #660094;
-
-            color: #FFFFFF !important;
-
-            font-weight: 850 !important;
-
-            font-size: 10px !important;
-
-            box-shadow: 0 6px 18px rgba(102, 0, 148, .30) !important;
-
-            transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
-
-            white-space: nowrap !important;
+            color: #FFFFFF;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 850;
+            line-height: 1;
+            box-shadow: 0 8px 22px rgba(102,0,148,.24);
+            transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
 
         }
 
