@@ -1633,9 +1633,7 @@ def render_eusee_ai_copilot(
 
         [data-testid="stPopoverBody"],
 
-        [data-testid="stPopover"] [role="dialog"],
-
-        div[data-baseweb="popover"] > div {
+        [data-testid="stPopover"] [role="dialog"] {
 
             width: min(410px, calc(100vw - 24px)) !important;
 
@@ -1827,9 +1825,7 @@ def render_eusee_ai_copilot(
 
             [data-testid="stPopoverBody"],
 
-            [data-testid="stPopover"] [role="dialog"],
-
-            div[data-baseweb="popover"] > div {
+            [data-testid="stPopover"] [role="dialog"] {
 
                 width: min(380px, calc(100vw - 16px)) !important;
 

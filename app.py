@@ -428,174 +428,10 @@ components.html(
             if (label) label.remove();
         }
 
-        /*
-         * Keep the native Streamlit/BaseWeb option menu anchored to the
-         * active sidebar control. App-wide responsive rules can cause the
-         * portal to calculate a negative left offset, so correct only the
-         * open menu and leave all closed controls untouched.
-         */
-        // Remember the actual sidebar widget that received the interaction.
-        // document.activeElement can be the hidden components iframe, so it is
-        // not a reliable way to identify the filter that opened the menu.
-        let lastSidebarSelect = null;
-
-        function sidebarSelectFromTarget(target) {
-            if (!target || !target.closest) return null;
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return null;
-
-            const select = target.closest('[data-baseweb="select"]');
-            if (select && sidebar.contains(select)) return select;
-
-            const widget = target.closest(
-                '[data-testid="stMultiSelect"], [data-testid="stSelectbox"]'
-            );
-            if (widget && sidebar.contains(widget)) {
-                return widget.querySelector('[data-baseweb="select"]') || widget;
-            }
-            return null;
-        }
-
-        function positionSidebarDropdown() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return;
-
-            let anchor = null;
-            const active = doc.activeElement;
-            if (active && active.closest) {
-                const activeSelect = active.closest('[data-baseweb="select"]');
-                if (activeSelect && sidebar.contains(activeSelect)) {
-                    anchor = activeSelect;
-                }
-            }
-
-            if (!anchor && lastSidebarSelect && sidebar.contains(lastSidebarSelect)) {
-                anchor = lastSidebarSelect;
-            }
-
-            if (!anchor) {
-                const expanded = Array.from(
-                    sidebar.querySelectorAll('[aria-expanded="true"]')
-                );
-                for (const node of expanded) {
-                    const candidate = node.closest('[data-baseweb="select"]')
-                        || node.closest('[data-testid="stMultiSelect"]')
-                        || node.closest('[data-testid="stSelectbox"]');
-                    if (!candidate) continue;
-                    const select = candidate.matches('[data-baseweb="select"]')
-                        ? candidate
-                        : candidate.querySelector('[data-baseweb="select"]') || candidate;
-                    const r = select.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) {
-                        anchor = select;
-                        break;
-                    }
-                }
-            }
-
-            if (!anchor || !sidebar.contains(anchor)) return;
-
-            const rect = anchor.getBoundingClientRect();
-            if (rect.width < 20 || rect.height < 10 ||
-                rect.bottom <= 0 || rect.top >= win.innerHeight) return;
-
-            const visibleListboxes = Array.from(doc.querySelectorAll('[role="listbox"]'))
-                .filter((node) => {
-                    const r = node.getBoundingClientRect();
-                    const css = win.getComputedStyle(node);
-                    return r.width > 0 && r.height > 0 &&
-                        css.display !== 'none' && css.visibility !== 'hidden';
-                });
-            if (!visibleListboxes.length) return;
-
-            // Pick the visible menu nearest the remembered filter. Do not resize
-            // or reposition every ancestor: that was creating the detached grey
-            // panel and shifting the actual option list to the viewport's left.
-            visibleListboxes.sort((a, b) => {
-                const distance = (node) => {
-                    const r = node.getBoundingClientRect();
-                    return Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2))
-                        + Math.abs(r.top - rect.bottom);
-                };
-                return distance(a) - distance(b);
-            });
-
-            const listbox = visibleListboxes[0];
-            const popover = listbox.closest('[data-baseweb="popover"]')
-                || listbox.parentElement;
-            const popper = listbox.closest('[data-popper-placement]') || popover;
-            if (!popover || !popper) return;
-
-            const margin = 8;
-            const gap = 4;
-            // Match the menu to the actual input width, with no artificial
-            // minimum width and no oversized portal background.
-            const width = Math.max(80, Math.min(rect.width, win.innerWidth - margin * 2));
-            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const roomBelow = Math.max(0, win.innerHeight - rect.bottom - gap - margin);
-            const roomAbove = Math.max(0, rect.top - gap - margin);
-            const openAbove = roomBelow < 180 && roomAbove > roomBelow;
-            const availableHeight = openAbove ? roomAbove : roomBelow;
-            const menuHeight = Math.max(80, Math.min(300, availableHeight || 300));
-            const top = openAbove
-                ? Math.max(margin, rect.top - menuHeight - gap)
-                : Math.min(rect.bottom + gap, win.innerHeight - menuHeight - margin);
-
-            const set = (el, prop, value) => {
-                el.style.setProperty(prop, value, 'important');
-            };
-
-            // Correct only the positioned Popper shell. Its parent chain must
-            // retain native layout; fixing every ancestor causes blank panels.
-            set(popper, 'position', 'fixed');
-            set(popper, 'inset', 'auto');
-            set(popper, 'left', `${left}px`);
-            set(popper, 'right', 'auto');
-            set(popper, 'top', `${top}px`);
-            set(popper, 'bottom', 'auto');
-            set(popper, 'width', `${width}px`);
-            set(popper, 'min-width', `${width}px`);
-            set(popper, 'max-width', `${width}px`);
-            set(popper, 'margin', '0');
-            set(popper, 'transform', 'none');
-            set(popper, 'z-index', '1000002');
-            set(popper, 'box-sizing', 'border-box');
-            set(popper, 'background', 'transparent');
-
-            // Keep the white menu and scrollable options exactly inside that shell.
-            set(popover, 'width', '100%');
-            set(popover, 'min-width', '0');
-            set(popover, 'max-width', '100%');
-            set(popover, 'margin', '0');
-            set(popover, 'transform', 'none');
-            set(popover, 'background', '#FFFFFF');
-            set(popover, 'box-sizing', 'border-box');
-
-            set(listbox, 'width', '100%');
-            set(listbox, 'min-width', '0');
-            set(listbox, 'max-width', '100%');
-            set(listbox, 'max-height', `${menuHeight}px`);
-            set(listbox, 'overflow-y', 'auto');
-            set(listbox, 'overflow-x', 'hidden');
-            set(listbox, 'background', '#FFFFFF');
-            set(listbox, 'box-sizing', 'border-box');
-        }
-
-        // BaseWeb updates its portal after the initial click/focus. Reapply
-        // after its layout pass so its first positioning cannot win the race.
-        let dropdownPositionTimers = [];
-        function scheduleDropdownPosition() {
-            dropdownPositionTimers.forEach((timer) => win.clearTimeout(timer));
-            dropdownPositionTimers = [0, 40, 120, 240].map((delay) =>
-                win.setTimeout(() => {
-                    positionSidebarDropdown();
-                }, delay)
-            );
-        }
-
+        // Sidebar dropdowns are left to Streamlit/BaseWeb's native Popper logic.
+        // This component only maintains the separate collapsed-sidebar label.
         function updateLabel() {
             ensureStyle();
-            positionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
@@ -668,15 +504,9 @@ components.html(
             headerObserver.observe(header, { childList: true, subtree: true });
         }
 
-        // Streamlit creates the dropdown portal outside the sidebar. Reposition
-        // it after the portal is mounted, while keeping the sidebar label observer.
-        const bodyObserver = new MutationObserver(() => {
-            scheduleUpdate();
-            if (lastSidebarSelect && sidebar.contains(lastSidebarSelect) &&
-                doc.querySelector('[role="listbox"]')) {
-                scheduleDropdownPosition();
-            }
-        });
+        // Observe DOM changes only to keep the collapsed-sidebar label current.
+        // Dropdown portal creation is not intercepted or repositioned.
+        const bodyObserver = new MutationObserver(scheduleUpdate);
         bodyObserver.observe(doc.body, {
             childList: true,
             subtree: true,
@@ -687,41 +517,9 @@ components.html(
         const initialToggle = findToggle();
         if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
 
-        // Capture interactions on the parent document; Streamlit/BaseWeb creates
-        // the dropdown portal outside the sidebar subtree.
-        ["pointerdown", "focusin", "click", "keyup"].forEach((eventName) => {
-            doc.addEventListener(eventName, (event) => {
-                const target = event.target;
-                const selectedSidebarControl = sidebarSelectFromTarget(target);
-                if (selectedSidebarControl) {
-                    lastSidebarSelect = selectedSidebarControl;
-                    scheduleDropdownPosition();
-                    return;
-                }
-
-                // Keyboard navigation can target an option rendered in the
-                // document-level portal rather than inside the sidebar.
-                if (target && target.closest && target.closest('[role="listbox"]')) {
-                    if (lastSidebarSelect && doc.querySelector('[role="listbox"]')) {
-                        scheduleDropdownPosition();
-                    }
-                    return;
-                }
-
-                // Do not apply sidebar coordinates to multiselects in the main
-                // dashboard. Clear the remembered anchor on outside interaction.
-                lastSidebarSelect = null;
-            }, true);
-        });
-
-        win.addEventListener("resize", () => {
-            scheduleUpdate();
-            scheduleDropdownPosition();
-        }, { passive: true });
-        win.addEventListener("scroll", () => {
-            scheduleUpdate();
-            scheduleDropdownPosition();
-        }, { passive: true, capture: true });
+        // Keep the floating label aligned with the native sidebar toggle.
+        win.addEventListener("resize", scheduleUpdate, { passive: true });
+        win.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
     })();
     </script>
     """,
