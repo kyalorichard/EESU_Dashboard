@@ -406,12 +406,21 @@ components.html(
             const css = win.getComputedStyle(sidebar);
             const ariaHidden = sidebar.getAttribute("aria-hidden") === "true";
 
+            // Treat the sidebar as expanded only when its panel is actually
+            // on-screen. During Streamlit's slide animation the panel can have
+            // a temporarily negative left coordinate, so do not classify it
+            // as expanded based on left alone.
+            const visiblyOnScreen =
+                css.display !== "none" &&
+                css.visibility !== "hidden" &&
+                rect.width >= 100 &&
+                rect.right > 80 &&
+                rect.left > -(rect.width * 0.25);
+
             return ariaHidden ||
                    css.display === "none" ||
                    css.visibility === "hidden" ||
-                   rect.width < 40 ||
-                   rect.right <= 5 ||
-                   rect.left < -(rect.width / 2);
+                   !visiblyOnScreen;
         }
 
         function removeLabel() {
@@ -419,8 +428,62 @@ components.html(
             if (label) label.remove();
         }
 
+        function repositionSidebarDropdown() {
+            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+            if (!sidebar) return;
+
+            const activeSelect = sidebar.querySelector(
+                '[data-baseweb="select"] [aria-expanded="true"], ' +
+                '[data-testid="stSelectbox"] [aria-expanded="true"], ' +
+                '[data-testid="stMultiSelect"] [aria-expanded="true"]'
+            );
+            const popovers = Array.from(doc.querySelectorAll(
+                '[data-baseweb="popover"]'
+            )).filter((node) => node.querySelector('[role="listbox"]'));
+
+            if (!activeSelect || !popovers.length) return;
+
+            const anchor = activeSelect.closest('[data-baseweb="select"]') ||
+                           activeSelect.closest('[data-testid="stSelectbox"]') ||
+                           activeSelect.closest('[data-testid="stMultiSelect"]');
+            if (!anchor) return;
+
+            const rect = anchor.getBoundingClientRect();
+            if (rect.width < 20 || rect.bottom < 0 || rect.top > win.innerHeight) return;
+
+            const popover = popovers[popovers.length - 1];
+            const margin = 8;
+            const width = Math.min(rect.width, win.innerWidth - margin * 2);
+            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
+            const top = Math.min(rect.bottom + 4, win.innerHeight - 80);
+
+            // BaseWeb portals can inherit incorrect horizontal placement from
+            // surrounding responsive transforms. Anchor the open menu to the
+            // actual sidebar widget, rather than to the page viewport edge.
+            Object.assign(popover.style, {
+                position: 'fixed',
+                left: `${left}px`,
+                right: 'auto',
+                top: `${top}px`,
+                bottom: 'auto',
+                width: `${width}px`,
+                minWidth: `${width}px`,
+                maxWidth: `${width}px`,
+                transform: 'none',
+                zIndex: '1000001'
+            });
+            const listbox = popover.querySelector('[role="listbox"]');
+            if (listbox) {
+                listbox.style.maxWidth = `${width}px`;
+                listbox.style.width = '100%';
+                listbox.style.maxHeight = `${Math.max(120, win.innerHeight - top - margin)}px`;
+                listbox.style.overflowY = 'auto';
+            }
+        }
+
         function updateLabel() {
             ensureStyle();
+            repositionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
@@ -493,9 +556,21 @@ components.html(
             headerObserver.observe(header, { childList: true, subtree: true });
         }
 
+        // BaseWeb creates dropdown menus in a portal under document.body.
+        // Observe portal creation and select expansion so the menu is re-anchored
+        // immediately, without polling.
+        const bodyObserver = new MutationObserver(scheduleUpdate);
+        bodyObserver.observe(doc.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["aria-expanded"]
+        });
+
         const initialToggle = findToggle();
         if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
         win.addEventListener("resize", scheduleUpdate, { passive: true });
+        win.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
     })();
     </script>
     """,
