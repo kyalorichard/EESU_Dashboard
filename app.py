@@ -432,38 +432,34 @@ components.html(
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            // Resolve the actual sidebar control that opened the menu. BaseWeb
-            // may put aria-expanded on the input, combobox, or select wrapper.
+            // Find the expanded select/multiselect control inside the sidebar.
             const expanded = Array.from(
                 sidebar.querySelectorAll('[aria-expanded="true"]')
             );
             let anchor = null;
 
             for (const node of expanded) {
-                anchor = node.closest('[data-testid="stSelectbox"], [data-testid="stMultiSelect"]')
+                anchor = node.closest('[data-testid="stMultiSelect"]')
+                    || node.closest('[data-testid="stSelectbox"]')
                     || node.closest('[data-baseweb="select"]');
                 if (anchor) break;
             }
-
             if (!anchor && doc.activeElement && sidebar.contains(doc.activeElement)) {
                 anchor = doc.activeElement.closest(
-                    '[data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-baseweb="select"]'
+                    '[data-testid="stMultiSelect"], [data-testid="stSelectbox"], [data-baseweb="select"]'
                 );
             }
             if (!anchor) return;
 
             const rect = anchor.getBoundingClientRect();
-            if (rect.width < 20 || rect.bottom < 0 || rect.top > win.innerHeight) return;
+            if (rect.width < 20 || rect.bottom <= 0 || rect.top > win.innerHeight) return;
 
-            // Prefer the listbox explicitly associated with the active control.
-            // Otherwise select the visible portal closest to this sidebar widget;
-            // taking the last portal in document order can target an unrelated menu.
-            const controls = expanded
-                .map(node => node.getAttribute('aria-controls'))
-                .filter(Boolean);
+            // Prefer the listbox linked to this control, rather than moving an
+            // unrelated popover elsewhere on the page.
             let listbox = null;
-
-            for (const id of controls) {
+            for (const node of expanded) {
+                const id = node.getAttribute('aria-controls');
+                if (!id) continue;
                 const controlled = doc.getElementById(id);
                 if (controlled && controlled.matches('[role="listbox"]')) {
                     listbox = controlled;
@@ -485,14 +481,11 @@ components.html(
 
             if (!listbox) {
                 const targetX = rect.left + rect.width / 2;
-                const targetY = rect.bottom;
                 visibleListboxes.sort((a, b) => {
                     const ar = a.getBoundingClientRect();
                     const br = b.getBoundingClientRect();
-                    const da = Math.abs((ar.left + ar.width / 2) - targetX) +
-                        Math.abs(ar.top - targetY);
-                    const db = Math.abs((br.left + br.width / 2) - targetX) +
-                        Math.abs(br.top - targetY);
+                    const da = Math.abs((ar.left + ar.width / 2) - targetX) + Math.abs(ar.top - rect.top);
+                    const db = Math.abs((br.left + br.width / 2) - targetX) + Math.abs(br.top - rect.top);
                     return da - db;
                 });
                 listbox = visibleListboxes[0] || null;
@@ -501,23 +494,25 @@ components.html(
 
             const popover = listbox.closest('[data-baseweb="popover"]') || listbox;
             const margin = 8;
-            const width = Math.max(160, Math.min(rect.width, win.innerWidth - margin * 2));
+            const gap = 4;
+            const standardMaxHeight = 280;
+            // Keep the menu aligned to the control's left edge and at least as
+            // wide as a standard readable dropdown, while respecting viewport bounds.
+            const width = Math.min(
+                Math.max(rect.width, 240),
+                win.innerWidth - margin * 2
+            );
             const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const below = win.innerHeight - rect.bottom - margin;
-            const above = rect.top - margin;
-            const openBelow = below >= 150 || below >= above;
-            const maxHeight = Math.max(100, Math.min(320, openBelow ? below : above));
-            const top = openBelow
-                ? Math.min(rect.bottom + 4, win.innerHeight - maxHeight - margin)
-                : Math.max(margin, rect.top - maxHeight - 4);
+            const availableAbove = Math.max(0, rect.top - margin - gap);
+            const maxHeight = Math.min(standardMaxHeight, availableAbove);
 
-            // Position the popover itself, not a broad portal ancestor that may
-            // contain other widgets. This prevents menus jumping to the page edge.
+            // The menu is deliberately placed ABOVE the multiselect. If there is
+            // limited room, the options list scrolls inside the visible menu.
             Object.assign(popover.style, {
                 position: 'fixed',
                 left: `${left}px`,
                 right: 'auto',
-                top: `${top}px`,
+                top: `${Math.max(margin, rect.top - standardMaxHeight - gap)}px`,
                 bottom: 'auto',
                 width: `${width}px`,
                 minWidth: `${width}px`,
@@ -531,10 +526,18 @@ components.html(
                 width: '100%',
                 minWidth: '0',
                 maxWidth: '100%',
-                maxHeight: `${maxHeight}px`,
+                maxHeight: `${Math.max(100, maxHeight)}px`,
                 overflowY: 'auto',
+                overflowX: 'hidden',
                 boxSizing: 'border-box'
             });
+
+            // Re-measure after sizing so the bottom edge sits precisely above
+            // the filter box, rather than leaving a fixed-height blank gap.
+            const menuRect = popover.getBoundingClientRect();
+            const actualHeight = Math.min(menuRect.height || standardMaxHeight, standardMaxHeight, availableAbove);
+            const finalTop = Math.max(margin, rect.top - actualHeight - gap);
+            popover.style.top = `${finalTop}px`;
         }
 
         function updateLabel() {
