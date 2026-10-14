@@ -438,11 +438,13 @@ components.html(
             const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
             if (!sidebar) return;
 
-            // Prefer the focused control, then an explicitly expanded select.
+            // Find the active sidebar select. The input itself may be focused,
+            // or BaseWeb may place aria-expanded on a nested combobox.
+            let anchor = null;
             const active = doc.activeElement;
-            let anchor = active && active.closest
-                ? active.closest('[data-baseweb="select"]')
-                : null;
+            if (active && active.closest) {
+                anchor = active.closest('[data-baseweb="select"]');
+            }
 
             if (!anchor || !sidebar.contains(anchor)) {
                 const expanded = Array.from(
@@ -452,28 +454,16 @@ components.html(
                     const candidate = node.closest('[data-baseweb="select"]')
                         || node.closest('[data-testid="stMultiSelect"]')
                         || node.closest('[data-testid="stSelectbox"]');
-                    if (candidate) {
-                        const r = candidate.getBoundingClientRect();
-                        if (r.width > 0 && r.height > 0) {
-                            anchor = candidate;
-                            break;
-                        }
+                    if (!candidate) continue;
+                    const r = candidate.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) {
+                        anchor = candidate;
+                        break;
                     }
                 }
             }
 
-            // If focus is on the search input, its closest select is the anchor.
-            if (!anchor || !sidebar.contains(anchor)) {
-                const focusedInput = sidebar.querySelector(
-                    '[data-testid="stMultiSelect"] input:focus, ' +
-                    '[data-testid="stSelectbox"] input:focus'
-                );
-                if (focusedInput) anchor = focusedInput.closest('[data-baseweb="select"]')
-                    || focusedInput.closest('[data-testid="stMultiSelect"]')
-                    || focusedInput.closest('[data-testid="stSelectbox"]');
-            }
-            if (!anchor) return;
-
+            if (!anchor || !sidebar.contains(anchor)) return;
             const rect = anchor.getBoundingClientRect();
             if (rect.width < 20 || rect.height < 10 ||
                 rect.bottom <= 0 || rect.top >= win.innerHeight) return;
@@ -487,43 +477,31 @@ components.html(
                 });
             if (!visibleListboxes.length) return;
 
-            // Pick the currently open menu nearest to this input.
+            // A select's menu is rendered in a portal. Match the visible listbox
+            // closest to the currently focused sidebar input.
             visibleListboxes.sort((a, b) => {
-                const ar = a.getBoundingClientRect();
-                const br = b.getBoundingClientRect();
-                const distance = (r) =>
-                    Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2)) +
-                    Math.abs(r.top - rect.bottom);
-                return distance(ar) - distance(br);
+                const distance = (node) => {
+                    const r = node.getBoundingClientRect();
+                    return Math.abs((r.left + r.width / 2) - (rect.left + rect.width / 2))
+                        + Math.abs(r.top - rect.bottom);
+                };
+                return distance(a) - distance(b);
             });
+
             const listbox = visibleListboxes[0];
             const popover = listbox.closest('[data-baseweb="popover"]')
                 || listbox.parentElement;
             if (!popover) return;
 
-            // Use BaseWeb's Popper element when available. Do not reposition the
-            // full-screen layer, which is what creates the wide blank grey area.
-            let floating = listbox.closest('[data-popper-placement]');
-            if (!floating) floating = popover;
-
             const margin = 8;
             const gap = 4;
-            const width = Math.max(
-                120,
-                Math.min(rect.width, win.innerWidth - margin * 2)
-            );
-            const left = Math.max(
-                margin,
-                Math.min(rect.left, win.innerWidth - width - margin)
-            );
+            const width = Math.max(120, Math.min(rect.width, win.innerWidth - margin * 2));
+            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
             const maxHeight = Math.min(280, win.innerHeight - margin * 2);
-            const below = win.innerHeight - rect.bottom - gap - margin;
-            const above = rect.top - gap - margin;
-            const openAbove = below < Math.min(160, maxHeight) && above > below;
-            const menuHeight = Math.max(
-                90,
-                Math.min(maxHeight, openAbove ? above : below)
-            );
+            const roomBelow = win.innerHeight - rect.bottom - gap - margin;
+            const roomAbove = rect.top - gap - margin;
+            const openAbove = roomBelow < Math.min(160, maxHeight) && roomAbove > roomBelow;
+            const menuHeight = Math.max(90, Math.min(maxHeight, openAbove ? roomAbove : roomBelow));
             const top = openAbove
                 ? Math.max(margin, rect.top - menuHeight - gap)
                 : Math.min(rect.bottom + gap, win.innerHeight - menuHeight - margin);
@@ -531,41 +509,55 @@ components.html(
             const set = (el, prop, value) =>
                 el.style.setProperty(prop, value, 'important');
 
-            // Exact same left edge and width as the corresponding input.
-            set(floating, 'position', 'fixed');
-            set(floating, 'left', `${left}px`);
-            set(floating, 'right', 'auto');
-            set(floating, 'top', `${top}px`);
-            set(floating, 'bottom', 'auto');
-            set(floating, 'width', `${width}px`);
-            set(floating, 'min-width', `${width}px`);
-            set(floating, 'max-width', `${width}px`);
-            set(floating, 'margin', '0');
-            set(floating, 'transform', 'none');
-            set(floating, 'z-index', '1000002');
+            /*
+             * Fix every wrapper in this one visible portal chain, not just the
+             * inner listbox. This prevents a wide, offset Popper wrapper from
+             * leaving a grey blank strip beside the white options panel.
+             * Stop before body/document roots so the page layout is untouched.
+             */
+            let node = listbox;
+            while (node && node !== doc.body && node !== doc.documentElement) {
+                set(node, 'position', 'fixed');
+                set(node, 'left', `${left}px`);
+                set(node, 'right', 'auto');
+                set(node, 'top', `${top}px`);
+                set(node, 'bottom', 'auto');
+                set(node, 'width', `${width}px`);
+                set(node, 'min-width', '0');
+                set(node, 'max-width', `${width}px`);
+                set(node, 'margin', '0');
+                set(node, 'transform', 'none');
+                set(node, 'box-sizing', 'border-box');
+                set(node, 'z-index', '1000002');
+                node = node.parentElement;
+            }
 
-            // Force the visible popover and listbox to fill the positioned
-            // wrapper. This removes the grey right-hand remainder.
-            [popover, listbox].forEach((el) => {
-                set(el, 'width', '100%');
-                set(el, 'min-width', '0');
-                set(el, 'max-width', '100%');
-                set(el, 'box-sizing', 'border-box');
-                set(el, 'background', '#FFFFFF');
-            });
+            // Ensure the actual option list fills the same width and scrolls.
+            set(listbox, 'width', `${width}px`);
+            set(listbox, 'min-width', '0');
+            set(listbox, 'max-width', `${width}px`);
             set(listbox, 'max-height', `${menuHeight}px`);
             set(listbox, 'overflow-y', 'auto');
             set(listbox, 'overflow-x', 'hidden');
+            set(listbox, 'background', '#FFFFFF');
+            set(listbox, 'box-sizing', 'border-box');
+            set(popover, 'width', `${width}px`);
+            set(popover, 'min-width', '0');
+            set(popover, 'max-width', `${width}px`);
+            set(popover, 'background', '#FFFFFF');
+            set(popover, 'box-sizing', 'border-box');
+        }
 
-            // BaseWeb may put an extra wrapper between the popover and listbox.
-            let child = listbox.parentElement;
-            while (child && child !== popover && child !== floating) {
-                set(child, 'width', '100%');
-                set(child, 'min-width', '0');
-                set(child, 'max-width', '100%');
-                set(child, 'box-sizing', 'border-box');
-                child = child.parentElement;
-            }
+        // BaseWeb updates its portal after the initial click/focus. Reapply
+        // after its layout pass so its first positioning cannot win the race.
+        let dropdownPositionTimers = [];
+        function scheduleDropdownPosition() {
+            dropdownPositionTimers.forEach((timer) => win.clearTimeout(timer));
+            dropdownPositionTimers = [0, 40, 120, 240].map((delay) =>
+                win.setTimeout(() => {
+                    positionSidebarDropdown();
+                }, delay)
+            );
         }
 
         function updateLabel() {
@@ -656,8 +648,27 @@ components.html(
 
         const initialToggle = findToggle();
         if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
-        win.addEventListener("resize", scheduleUpdate, { passive: true });
-        win.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
+
+        // Capture interactions on the parent document; Streamlit/BaseWeb creates
+        // the dropdown portal outside the sidebar subtree.
+        ["pointerdown", "focusin", "click", "keyup"].forEach((eventName) => {
+            doc.addEventListener(eventName, (event) => {
+                const target = event.target;
+                if (target && target.closest &&
+                    target.closest('section[data-testid="stSidebar"]')) {
+                    scheduleDropdownPosition();
+                }
+            }, true);
+        });
+
+        win.addEventListener("resize", () => {
+            scheduleUpdate();
+            scheduleDropdownPosition();
+        }, { passive: true });
+        win.addEventListener("scroll", () => {
+            scheduleUpdate();
+            scheduleDropdownPosition();
+        }, { passive: true, capture: true });
     })();
     </script>
     """,
