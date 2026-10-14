@@ -253,18 +253,18 @@ configure_eusee_plotly_typography()
 
 init_session()
 
-with st.spinner("Restoring secure session..."):
-    restored = restore_session()
+try:
+    with st.spinner("Restoring secure session..."):
+        restore_session()
+except Exception:
+    # Log the failure without exposing authentication tokens or cookies.
+    logging.exception("EU SEE session restoration failed")
 
-# Authentication restoration must complete before dashboard rendering.
-# A hard browser refresh creates a new Streamlit session, so an existing
-# Firebase-backed browser cookie must be restored before any dashboard content
-# is exposed. If restoration fails, route explicitly to the login UI instead
-# of silently stopping on a blank/guest page.
-if not st.session_state.get("restored", False):
-    # restore_session() should normally set restored=True before returning.
-    # Keep the route deterministic if an unexpected auth exception occurs.
-    st.session_state["auth_view"] = True
+    # Keep the dashboard available while authentication is unresolved.
+    st.session_state["restored"] = True
+    st.session_state["auth_view"] = False
+    st.session_state["_eusee_restore_failed"] = True
+
 
 # ------------------------------------------------------------------
 # HEADER CLEAN-UP AND COLLAPSED-SIDEBAR SIGNPOST
