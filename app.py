@@ -406,21 +406,12 @@ components.html(
             const css = win.getComputedStyle(sidebar);
             const ariaHidden = sidebar.getAttribute("aria-hidden") === "true";
 
-            // Treat the sidebar as expanded only when its panel is actually
-            // on-screen. During Streamlit's slide animation the panel can have
-            // a temporarily negative left coordinate, so do not classify it
-            // as expanded based on left alone.
-            const visiblyOnScreen =
-                css.display !== "none" &&
-                css.visibility !== "hidden" &&
-                rect.width >= 100 &&
-                rect.right > 80 &&
-                rect.left > -(rect.width * 0.25);
-
             return ariaHidden ||
                    css.display === "none" ||
                    css.visibility === "hidden" ||
-                   !visiblyOnScreen;
+                   rect.width < 40 ||
+                   rect.right <= 5 ||
+                   rect.left < -(rect.width / 2);
         }
 
         function removeLabel() {
@@ -428,121 +419,8 @@ components.html(
             if (label) label.remove();
         }
 
-        function repositionSidebarDropdown() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return;
-
-            // Find the expanded select/multiselect control inside the sidebar.
-            const expanded = Array.from(
-                sidebar.querySelectorAll('[aria-expanded="true"]')
-            );
-            let anchor = null;
-
-            for (const node of expanded) {
-                anchor = node.closest('[data-testid="stMultiSelect"]')
-                    || node.closest('[data-testid="stSelectbox"]')
-                    || node.closest('[data-baseweb="select"]');
-                if (anchor) break;
-            }
-            if (!anchor && doc.activeElement && sidebar.contains(doc.activeElement)) {
-                anchor = doc.activeElement.closest(
-                    '[data-testid="stMultiSelect"], [data-testid="stSelectbox"], [data-baseweb="select"]'
-                );
-            }
-            if (!anchor) return;
-
-            const rect = anchor.getBoundingClientRect();
-            if (rect.width < 20 || rect.bottom <= 0 || rect.top > win.innerHeight) return;
-
-            // Prefer the listbox linked to this control, rather than moving an
-            // unrelated popover elsewhere on the page.
-            let listbox = null;
-            for (const node of expanded) {
-                const id = node.getAttribute('aria-controls');
-                if (!id) continue;
-                const controlled = doc.getElementById(id);
-                if (controlled && controlled.matches('[role="listbox"]')) {
-                    listbox = controlled;
-                    break;
-                }
-                if (controlled) {
-                    listbox = controlled.querySelector('[role="listbox"]');
-                    if (listbox) break;
-                }
-            }
-
-            const visibleListboxes = Array.from(doc.querySelectorAll('[role="listbox"]'))
-                .filter(node => {
-                    const r = node.getBoundingClientRect();
-                    const css = win.getComputedStyle(node);
-                    return r.width > 0 && r.height > 0 &&
-                        css.display !== 'none' && css.visibility !== 'hidden';
-                });
-
-            if (!listbox) {
-                const targetX = rect.left + rect.width / 2;
-                visibleListboxes.sort((a, b) => {
-                    const ar = a.getBoundingClientRect();
-                    const br = b.getBoundingClientRect();
-                    const da = Math.abs((ar.left + ar.width / 2) - targetX) + Math.abs(ar.top - rect.top);
-                    const db = Math.abs((br.left + br.width / 2) - targetX) + Math.abs(br.top - rect.top);
-                    return da - db;
-                });
-                listbox = visibleListboxes[0] || null;
-            }
-            if (!listbox) return;
-
-            const popover = listbox.closest('[data-baseweb="popover"]') || listbox;
-            const margin = 8;
-            const gap = 4;
-            const standardMaxHeight = 280;
-            // Keep the menu aligned to the control's left edge and at least as
-            // wide as a standard readable dropdown, while respecting viewport bounds.
-            const width = Math.min(
-                Math.max(rect.width, 240),
-                win.innerWidth - margin * 2
-            );
-            const left = Math.max(margin, Math.min(rect.left, win.innerWidth - width - margin));
-            const availableAbove = Math.max(0, rect.top - margin - gap);
-            const maxHeight = Math.min(standardMaxHeight, availableAbove);
-
-            // The menu is deliberately placed ABOVE the multiselect. If there is
-            // limited room, the options list scrolls inside the visible menu.
-            Object.assign(popover.style, {
-                position: 'fixed',
-                left: `${left}px`,
-                right: 'auto',
-                top: `${Math.max(margin, rect.top - standardMaxHeight - gap)}px`,
-                bottom: 'auto',
-                width: `${width}px`,
-                minWidth: `${width}px`,
-                maxWidth: `${width}px`,
-                margin: '0',
-                transform: 'none',
-                zIndex: '1000001'
-            });
-
-            Object.assign(listbox.style, {
-                width: '100%',
-                minWidth: '0',
-                maxWidth: '100%',
-                maxHeight: `${Math.max(100, maxHeight)}px`,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                boxSizing: 'border-box'
-            });
-
-            // Re-measure after sizing so the bottom edge sits precisely above
-            // the filter box, rather than leaving a fixed-height blank gap.
-            const menuRect = popover.getBoundingClientRect();
-            const actualHeight = Math.min(menuRect.height || standardMaxHeight, standardMaxHeight, availableAbove);
-            const finalTop = Math.max(margin, rect.top - actualHeight - gap);
-            popover.style.top = `${finalTop}px`;
-        }
-
         function updateLabel() {
             ensureStyle();
-            repositionSidebarDropdown();
 
             const toggle = findToggle();
             if (!toggle || !sidebarIsCollapsed()) {
@@ -615,27 +493,17 @@ components.html(
             headerObserver.observe(header, { childList: true, subtree: true });
         }
 
-        // BaseWeb creates dropdown menus in a portal under document.body.
-        // Observe portal creation and select expansion so the menu is re-anchored
-        // immediately, without polling.
-        const bodyObserver = new MutationObserver(scheduleUpdate);
-        bodyObserver.observe(doc.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ["aria-expanded"]
-        });
-
         const initialToggle = findToggle();
         if (initialToggle) initialToggle.addEventListener("click", scheduleUpdate);
         win.addEventListener("resize", scheduleUpdate, { passive: true });
-        win.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
     })();
     </script>
     """,
     height=0,
     width=0,
 )
+
+
 
 
 # Optional admin page integration. Firebase/Auth handles login;
