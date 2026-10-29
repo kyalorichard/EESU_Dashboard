@@ -2230,7 +2230,8 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
 
         <div style="padding:12px 8px;border-bottom:1px solid #EEF0F4;">
 
-          <div style="font-size:12px;color:#667085;">Ask me about EU SEE Data. </div>
+          <div style="font-size:14px;color:#667085;">Ask me about EU SEE Data.</div>
+          <div style="font-size:10px;color:#667085;">Please refer to the user manual to understand what I can and cannot answer.”</div>
 
         </div>
 
