@@ -2213,7 +2213,7 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
 
         <div style="padding:12px 8px;border-bottom:1px solid #EEF0F4;">
 
-          <div style="font-size:12px;color:#667085;">Ask questions, summarise alerts, compare countries, explore trends, or find records.</div>
+          <div style="font-size:12px;color:#667085;">Ask me about EU SEE Data.</div>
 
         </div>
 
