@@ -5583,8 +5583,14 @@ def _build_cfr_over_time_figure(data):
                 y=annual_scores[principle],
                 mode="lines+markers",
                 name=principle,
-                line=dict(width=2),
-                marker=dict(size=7),
+                line=dict(
+                    color=CFR_PRINCIPLE_COLOURS[principle],
+                    width=2,
+                ),
+                marker=dict(
+                    color=CFR_PRINCIPLE_COLOURS[principle],
+                    size=7,
+                ),
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
                     "Year: %{x}<br>"
@@ -5951,7 +5957,7 @@ def render_cfr_analysis():
                     """
                     <div class="cfr-chart-panel-heading">
                         <div class="cfr-panel-title">
-                            Aggregated CFR Scores by Principle Over Time
+                            Aggregated CFR scores by principle over time
                         </div>
                         <div class="cfr-panel-note">
                             Mean CFR principle scores by reporting year.
