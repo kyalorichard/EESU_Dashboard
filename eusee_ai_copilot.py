@@ -1165,403 +1165,407 @@ def _call_ai(
 
     return {"answer": answer + "\n\n" + FOOTER, "analysis": evidence_by_dataset}
 
+
+def _chart_request(question: str) -> dict:
+    """Infer chart type and formatting preferences from the user's wording."""
+    q = str(question or "").casefold()
+    chart_type = "auto"
+    patterns = [
+        ("scatter_matrix", ("scatter matrix", "scatter-matrix", "scatterplot matrix")),
+        ("heatmap", ("heatmap", "heat map", "correlation matrix")),
+        ("histogram", ("histogram", "frequency distribution")),
+        ("box", ("box plot", "boxplot", "box-and-whisker")),
+        ("violin", ("violin plot",)),
+        ("scatter", ("scatter plot", "scatterplot", "relationship", "correlation", "against", "versus", " vs ")),
+        ("bubble", ("bubble chart", "bubble plot")),
+        ("pie", ("pie chart", "pie graph")),
+        ("donut", ("donut chart", "doughnut chart")),
+        ("treemap", ("treemap", "tree map")),
+        ("sunburst", ("sunburst",)),
+        ("funnel", ("funnel chart",)),
+        ("waterfall", ("waterfall chart",)),
+        ("indicator", ("indicator chart", "kpi", "key performance indicator")),
+        ("area", ("stacked area", "area chart", "area graph")),
+        ("line", ("line chart", "line graph", "time series", "over time", "trend", "timeline")),
+        ("bar", ("bar chart", "bar graph", "column chart", "column graph")),
+    ]
+    for candidate, terms in patterns:
+        if any(term in q for term in terms):
+            chart_type = candidate
+            break
+
+    if "stacked" in q and chart_type in {"auto", "bar", "area"}:
+        chart_type = "stacked_bar" if chart_type != "area" else "stacked_area"
+    elif any(t in q for t in ("grouped bar", "grouped column", "clustered bar", "side-by-side")):
+        chart_type = "grouped_bar"
+
+    return {
+        "type": chart_type,
+        "horizontal": any(t in q for t in ("horizontal", "horizontal bar")),
+        "show_labels": any(t in q for t in ("show labels", "data labels", "label each", "values above", "show values")),
+        "show_percent": any(t in q for t in ("percentage", "percentages", "share", "proportion")),
+        "dark": any(t in q for t in ("dark theme", "dark mode", "dark background")),
+        "title": None,
+    }
+
+
+def _build_plotly_figure(
+    chart_df: pd.DataFrame,
+    group_cols: list[str],
+    dataset_name: str,
+    question: str,
+    chart_options: dict | None = None,
+):
+    """Create a Plotly figure from grouped query results; never fabricate data."""
+    import plotly.express as px
+
+    options = chart_options or {}
+    request = _chart_request(question)
+    chart_type = options.get("type") or request["type"]
+    valid_groups = [c for c in group_cols if c in chart_df.columns]
+    numeric_cols = chart_df.select_dtypes(include="number").columns.tolist()
+    if chart_df.empty or not valid_groups or not numeric_cols:
+        return None, "The query did not return grouped categorical and numeric data suitable for a chart."
+
+    x_col = valid_groups[0]
+    y_col = options.get("y") if options.get("y") in numeric_cols else numeric_cols[-1]
+    color_col = options.get("color") if options.get("color") in chart_df.columns else None
+    title = str(options.get("title") or f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}")
+    template = options.get("template") or ("plotly_dark" if request["dark"] else "plotly_white")
+    height = int(options.get("height") or max(340, min(650, 280 + 28 * len(chart_df))))
+    show_labels = bool(options.get("show_labels", request["show_labels"]))
+
+    # For ordinary one-dimensional grouped results, use the requested numeric metric.
+    if chart_type == "auto":
+        if any(t in question.casefold() for t in ("pie", "share", "proportion", "percentage", "composition")):
+            chart_type = "pie"
+        elif any(t in question.casefold() for t in ("trend", "over time", "time series", "monthly", "yearly", "timeline")):
+            chart_type = "line"
+        elif len(valid_groups) > 1:
+            chart_type = "grouped_bar"
+        else:
+            chart_type = "bar"
+
+    try:
+        if chart_type in {"pie", "donut"}:
+            fig = px.pie(
+                chart_df, names=x_col, values=y_col, title=title,
+                hole=0.48 if chart_type == "donut" else 0,
+                template=template,
+            )
+            fig.update_traces(
+                textposition="inside",
+                textinfo="label+percent" if request["show_percent"] or show_labels else "percent",
+                hovertemplate="%{label}<br>Value: %{value:,.3g}<br>Share: %{percent}<extra></extra>",
+            )
+        elif chart_type in {"line", "area", "stacked_area"}:
+            x_axis = options.get("x") if options.get("x") in chart_df.columns else x_col
+            fig = px.area(
+                chart_df, x=x_axis, y=y_col, color=color_col,
+                title=title, template=template,
+                groupnorm="fraction" if request["show_percent"] else None,
+            ) if chart_type in {"area", "stacked_area"} else px.line(
+                chart_df, x=x_axis, y=y_col, color=color_col, markers=True,
+                title=title, template=template,
+            )
+            if chart_type == "stacked_area":
+                fig.update_layout(hovermode="x unified")
+        elif chart_type in {"scatter", "bubble"}:
+            numeric_x = options.get("x") if options.get("x") in numeric_cols else (numeric_cols[0] if len(numeric_cols) > 1 else None)
+            numeric_y = options.get("y") if options.get("y") in numeric_cols else (numeric_cols[-1] if len(numeric_cols) > 1 else None)
+            if numeric_x is None or numeric_y is None:
+                return None, "A scatter or bubble chart needs at least two numeric variables in the returned data."
+            fig = px.scatter(
+                chart_df, x=numeric_x, y=numeric_y, color=color_col,
+                size=numeric_cols[1] if chart_type == "bubble" and len(numeric_cols) > 2 else None,
+                hover_name=x_col, title=title, template=template,
+            )
+        elif chart_type in {"histogram", "box", "violin"}:
+            if not numeric_cols:
+                return None, "This chart requires numeric values, which were not returned by the query."
+            if chart_type == "histogram":
+                fig = px.histogram(chart_df, x=y_col, color=color_col, title=title, template=template)
+            elif chart_type == "box":
+                fig = px.box(chart_df, x=x_col if x_col in chart_df.columns else None, y=y_col,
+                             color=color_col, points="outliers", title=title, template=template)
+            else:
+                fig = px.violin(chart_df, x=x_col if x_col in chart_df.columns else None, y=y_col,
+                                color=color_col, box=True, points="outliers", title=title, template=template)
+        elif chart_type == "heatmap":
+            numeric_matrix = chart_df.set_index(x_col)[numeric_cols]
+            fig = px.imshow(numeric_matrix, aspect="auto", text_auto=".2f",
+                            title=title, template=template, labels={"color": "Value"})
+        elif chart_type == "scatter_matrix":
+            if len(numeric_cols) < 2:
+                return None, "A scatter matrix requires at least two numeric variables in the returned data."
+            fig = px.scatter_matrix(chart_df, dimensions=numeric_cols, color=color_col,
+                                    title=title, template=template)
+        elif chart_type in {"treemap", "sunburst"}:
+            if len(valid_groups) < 2:
+                return None, f"A {chart_type} chart requires at least two categorical grouping fields."
+            fig = (px.treemap if chart_type == "treemap" else px.sunburst)(
+                chart_df, path=valid_groups, values=y_col, title=title, template=template
+            )
+        elif chart_type == "funnel":
+            fig = px.funnel(chart_df.sort_values(y_col, ascending=False), x=y_col, y=x_col,
+                            title=title, template=template)
+        elif chart_type == "waterfall":
+            fig = px.bar(chart_df, x=x_col, y=y_col, title=title, template=template)
+            fig.update_traces(marker_color="#7C3AED")
+        else:
+            # Bar charts are the safe default for category counts and rankings.
+            horizontal = bool(options.get("horizontal", request["horizontal"]))
+            if chart_type in {"stacked_bar", "grouped_bar"} and len(valid_groups) > 1:
+                x_axis = valid_groups[0]
+                color_axis = valid_groups[1]
+                fig = px.bar(
+                    chart_df, x=y_col if horizontal else x_axis,
+                    y=x_axis if horizontal else y_col,
+                    color=color_axis, barmode="stack" if chart_type == "stacked_bar" else "group",
+                    orientation="h" if horizontal else "v", title=title, template=template,
+                )
+            else:
+                plot_df = chart_df.sort_values(y_col, ascending=not bool(options.get("descending", True)))
+                fig = px.bar(
+                    plot_df, x=y_col if horizontal else x_col,
+                    y=x_col if horizontal else y_col,
+                    orientation="h" if horizontal else "v",
+                    color=color_col, title=title, template=template,
+                    text=y_col if show_labels else None,
+                )
+                if show_labels:
+                    fig.update_traces(texttemplate="%{x:,.3g}" if horizontal else "%{y:,.3g}",
+                                      textposition="outside", cliponaxis=False)
+
+        if options.get("color_sequence"):
+            fig.update_layout(colorway=options["color_sequence"])
+        if options.get("font_size"):
+            fig.update_layout(font=dict(size=int(options["font_size"])))
+        if options.get("font_family"):
+            fig.update_layout(font_family=str(options["font_family"]))
+        if options.get("legend_position") == "bottom":
+            fig.update_layout(legend=dict(orientation="h", yanchor="top", y=-0.22, xanchor="center", x=0.5))
+        elif options.get("legend_position") == "left":
+            fig.update_layout(legend=dict(orientation="v", xanchor="right", x=-0.05, yanchor="top", y=1))
+        elif options.get("legend_position") == "right":
+            fig.update_layout(legend=dict(orientation="v", xanchor="left", x=1.02, yanchor="top", y=1))
+        fig.update_layout(
+            template=template, title=title, height=height, autosize=True,
+            margin=dict(l=22, r=34, t=70, b=72),
+            title_x=0.02, hoverlabel=dict(font_size=12),
+            legend_title_text=color_col or "",
+        )
+        fig.update_xaxes(automargin=True, showgrid=True, zeroline=False)
+        fig.update_yaxes(automargin=True, showgrid=False, zeroline=False)
+        if options.get("x_title"):
+            fig.update_xaxes(title_text=options["x_title"])
+        if options.get("y_title"):
+            fig.update_yaxes(title_text=options["y_title"])
+        if options.get("x_tick_angle") is not None:
+            fig.update_xaxes(tickangle=int(options["x_tick_angle"]))
+        if options.get("y_min") is not None or options.get("y_max") is not None:
+            fig.update_yaxes(range=[options.get("y_min"), options.get("y_max")])
+        if options.get("show_grid") is False:
+            fig.update_xaxes(showgrid=False)
+            fig.update_yaxes(showgrid=False)
+        return fig, None
+    except Exception as exc:
+        return None, f"The selected chart type could not be created from these results: {exc}"
+
+
 def _render_result(result: dict, key: str) -> None:
-
-    """Render the answer, compact tables, and standard Plotly charts on request."""
-
+    """Render grounded answers, result tables, and configurable Plotly charts."""
     answer = str(result.get("answer", "")).strip()
-
     if answer:
-
         st.markdown(answer)
 
     analysis = result.get("analysis")
-
     if not isinstance(analysis, dict):
-
         return
 
-    question = str(result.get("question", "")).casefold()
-
-    chart_terms = ("chart", "plot", "graph", "visuali", "draw", "figure", "histogram", "scatter", "distribution", "breakdown", "trend", "over time", "time series", "by region", "by country", "by alert type", "by enabling principle", "compare", "comparison", "rank", "ranking")
-
-    wants_chart = any(word in question for word in chart_terms)
-
-    # Only explicit user intent triggers chart creation; assistant prose alone does not.
+    question = str(result.get("question", ""))
+    q = question.casefold()
+    chart_terms = (
+        "chart", "plot", "graph", "visuali", "draw", "figure", "histogram",
+        "scatter", "distribution", "breakdown", "trend", "over time",
+        "time series", "by region", "by country", "by alert type",
+        "by enabling principle", "compare", "comparison", "rank", "ranking",
+        "heatmap", "box plot", "violin", "pie", "donut", "treemap", "sunburst",
+        "funnel", "waterfall", "area chart", "bar chart",
+    )
+    wants_chart = any(term in q for term in chart_terms)
 
     def render_dataset_result(dataset_name: str, dataset_result: dict) -> None:
-
         groups = dataset_result.get("groups")
-
         records = dataset_result.get("records") or dataset_result.get("examples")
-
         chart_df = pd.DataFrame(groups) if isinstance(groups, list) and groups else pd.DataFrame()
 
-        # Summary queries expose category counts under \\`distributions\\`; make those
-
-        # available to the same Plotly renderer used for grouped query results.
-
+        # Summary payloads include real category counts; use them only when asked for a chart.
         if chart_df.empty and wants_chart:
-
             distributions = dataset_result.get("distributions")
-
             if isinstance(distributions, dict) and distributions:
-
-                request_text = (question + " " + answer).casefold()
-
                 preferred = None
-
                 for col_name, rows in distributions.items():
-
                     if not isinstance(rows, list) or not rows:
-
                         continue
-
                     normalized_name = str(col_name).casefold().replace("_", " ").replace("-", " ")
-
-                    if normalized_name in request_text or any(part in request_text for part in normalized_name.split() if len(part) > 3):
-
+                    if normalized_name in q or any(part in q for part in normalized_name.split() if len(part) > 3):
                         preferred = (col_name, rows)
-
                         break
-
                 if preferred is None:
-
                     preferred = next(iter(distributions.items()))
-
                 col_name, rows = preferred
-
                 chart_df = pd.DataFrame(rows)
-
                 if not chart_df.empty and {"category", "count"}.issubset(chart_df.columns):
-
                     chart_df = chart_df.rename(columns={"category": str(col_name)})
-
                     dataset_result = dict(dataset_result)
-
                     dataset_result["group_columns"] = [str(col_name)]
 
         if not chart_df.empty:
-
             st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alerts'} · grouped results")
-
-            st.dataframe(
-
-                chart_df,
-
-                use_container_width=True,
-
-                hide_index=True,
-
-                height=min(260, 42 + 35 * min(len(chart_df), 6)),
-
-            )
+            st.dataframe(chart_df, use_container_width=True, hide_index=True,
+                         height=min(300, 42 + 35 * min(len(chart_df), 7)))
 
             if wants_chart:
-
                 try:
-
-                    import plotly.express as px
-
                     group_cols = [
-
                         col for col in (dataset_result.get("group_columns") or [])
-
                         if col in chart_df.columns
-
                     ]
-
-                    numeric = chart_df.select_dtypes(include="number").columns.tolist()
-
-                    if group_cols and numeric:
-
-                        x_col = group_cols[0]
-
-                        y_col = numeric[-1]
-
-                        request = question + " " + answer.casefold()
-
-                        chart_title = (
-
-                            f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {x_col}"
-
+                    # Formatting controls are optional and scoped to each rendered chart.
+                    with st.expander("Chart formatting", expanded=False):
+                        available_types = [
+                            "auto", "bar", "stacked_bar", "grouped_bar", "line", "area",
+                            "stacked_area", "pie", "donut", "scatter", "bubble", "histogram",
+                            "box", "violin", "heatmap", "scatter_matrix", "treemap", "sunburst",
+                            "funnel", "waterfall",
+                        ]
+                        inferred = _chart_request(question)["type"]
+                        default_type = inferred if inferred in available_types else "auto"
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            chart_type = st.selectbox(
+                                "Chart type", available_types,
+                                index=available_types.index(default_type),
+                                key=f"{key}_{dataset_name}_chart_type",
+                            )
+                            chart_title = st.text_input(
+                                "Chart title",
+                                value=f"{'CFR scores' if dataset_name == 'cfr' else 'EU SEE alerts'} by {(group_cols or ['category'])[0]}",
+                                key=f"{key}_{dataset_name}_chart_title",
+                            )
+                            theme = st.selectbox(
+                                "Theme", ["plotly_white", "plotly", "plotly_dark", "ggplot2", "seaborn"],
+                                index=2 if _chart_request(question)["dark"] else 0,
+                                key=f"{key}_{dataset_name}_chart_theme",
+                            )
+                            font_size = st.slider(
+                                "Font size", 9, 22, 12,
+                                key=f"{key}_{dataset_name}_chart_font",
+                            )
+                        with c2:
+                            numeric_cols = chart_df.select_dtypes(include="number").columns.tolist()
+                            metric = st.selectbox(
+                                "Numeric measure", numeric_cols,
+                                index=max(0, len(numeric_cols) - 1) if numeric_cols else 0,
+                                key=f"{key}_{dataset_name}_chart_metric",
+                                disabled=not bool(numeric_cols),
+                            )
+                            legend_position = st.selectbox(
+                                "Legend position", ["top", "bottom", "left", "right"],
+                                index=1, key=f"{key}_{dataset_name}_chart_legend",
+                            )
+                            horizontal = st.checkbox(
+                                "Horizontal bars", value=_chart_request(question)["horizontal"],
+                                key=f"{key}_{dataset_name}_chart_horizontal",
+                            )
+                            show_labels = st.checkbox(
+                                "Show data labels", value=_chart_request(question)["show_labels"],
+                                key=f"{key}_{dataset_name}_chart_labels",
+                            )
+                        x_title = st.text_input("X-axis title", key=f"{key}_{dataset_name}_x_title")
+                        y_title = st.text_input("Y-axis title", key=f"{key}_{dataset_name}_y_title")
+                        color_col_options = ["(automatic)"] + [c for c in chart_df.columns if c != metric]
+                        color_choice = st.selectbox(
+                            "Color by", color_col_options,
+                            key=f"{key}_{dataset_name}_chart_color",
                         )
-
-                        categorical_count_chart = (
-
-                            len(numeric) >= 1
-
-                            and (x_col in chart_df.columns)
-
-                            and (
-
-                                any(term in request for term in (
-
-                                    "region", "country", "principle", "category", "type",
-
-                                    "impact", "distribution", "breakdown", "count", "number",
-
-                                    "compare", "comparison", "rank", "ranking", "top", "bottom",
-
-                                ))
-
-                                or not any(term in request for term in (
-
-                                    "trend", "over time", "time series", "monthly", "yearly",
-
-                                    "timeline", "scatter", "relationship", "correlation",
-
-                                    "against", "versus", " vs ",
-
-                                ))
-
-                            )
-
-                        )
-
-                        if any(term in request for term in ("pie", "share", "proportion", "percentage", "composition")):
-
-                            fig = px.pie(
-
-                                chart_df, names=x_col, values=y_col,
-
-                                title=chart_title, hole=0.42,
-
-                            )
-
-                            fig.update_traces(
-
-                                textposition="inside",
-
-                                texttemplate="%{label}<br>%{percent}",
-
-                                hovertemplate="%{label}<br>Count: %{value:,}<br>Share: %{percent}<extra></extra>",
-
-                            )
-
-                        elif any(term in request for term in ("trend", "over time", "time series", "monthly", "yearly", "timeline")):
-
-                            fig = px.line(
-
-                                chart_df, x=x_col, y=y_col, markers=True,
-
-                                title=f"{'CFR score' if dataset_name == 'cfr' else 'Alert'} trend by {x_col}",
-
-                            )
-
-                            fig.update_traces(
-
-                                line=dict(width=3),
-
-                                marker=dict(size=7),
-
-                                hovertemplate="%{x}<br>%{y:,}<extra></extra>",
-
-                            )
-
-                        elif any(term in request for term in ("scatter", "relationship", "correlation", "against", "versus", " vs ")):
-
-                            numeric_x = numeric[0]
-
-                            numeric_y = numeric[-1]
-
-                            if numeric_x != numeric_y:
-
-                                fig = px.scatter(
-
-                                    chart_df, x=numeric_x, y=numeric_y,
-
-                                    title=f"{numeric_y} vs {numeric_x}",
-
-                                )
-
-                            else:
-
-                                fig = px.bar(chart_df, x=x_col, y=y_col, title=chart_title)
-
-                        elif categorical_count_chart:
-
-                            # Horizontal bars are more readable for long labels such as
-
-                            # "Middle East and North Africa" and prevent text-as-bars output.
-
-                            plot_df = chart_df.sort_values(y_col, ascending=True)
-
-                            fig = px.bar(
-
-                                plot_df, x=y_col, y=x_col, orientation="h",
-
-                                title=chart_title,
-
-                                text=y_col,
-
-                            )
-
-                            fig.update_traces(
-
-                                texttemplate="%{x:,.0f}",
-
-                                textposition="outside",
-
-                                cliponaxis=False,
-
-                                hovertemplate="%{y}<br>Alerts: %{x:,.0f}<extra></extra>",
-
-                            )
-
-                        else:
-
-                            fig = px.bar(
-
-                                chart_df, x=x_col, y=y_col,
-
-                                title=chart_title,
-
-                                text=y_col,
-
-                            )
-
-                            fig.update_traces(
-
-                                texttemplate="%{y:,.2f}" if "cfr" in dataset_name else "%{y:,.0f}",
-
-                                textposition="outside",
-
-                                cliponaxis=False,
-
-                            )
-
-                        fig.update_layout(
-
-                            template="plotly_white",
-
-                            autosize=True,
-
-                            height=max(320, min(500, 260 + 26 * len(chart_df))),
-
-                            margin=dict(l=14, r=32, t=64, b=52),
-
-                            font=dict(family="Arial, sans-serif", size=12, color="#344054"),
-
-                            title=dict(font=dict(size=12, color="#23152F"), x=0.02, xanchor="left"),
-
-                            legend=dict(font=dict(size=11), orientation="h", yanchor="bottom", y=1.02, x=0),
-
-                            plot_bgcolor="white",
-
-                            paper_bgcolor="white",
-
-                            hoverlabel=dict(font_size=12),
-
-                        )
-
-                        fig.update_xaxes(
-
-                            automargin=True,
-
-                            tickfont=dict(size=11),
-
-                            showgrid=True,
-
-                            gridcolor="#EAECF0",
-
-                            zeroline=False,
-
-                            title_font=dict(size=12),
-
-                        )
-
-                        fig.update_yaxes(
-
-                            automargin=True,
-
-                            tickfont=dict(size=11),
-
-                            showgrid=False,
-
-                            zeroline=False,
-
-                            title_font=dict(size=12),
-
-                        )
-
+                        show_grid = st.checkbox("Show gridlines", value=True,
+                                                 key=f"{key}_{dataset_name}_chart_grid")
+                        height = st.slider("Chart height", 300, 800, 430,
+                                           step=25, key=f"{key}_{dataset_name}_chart_height")
+
+                    options = {
+                        "type": chart_type,
+                        "title": chart_title.strip() or None,
+                        "template": theme,
+                        "font_size": font_size,
+                        "legend_position": legend_position,
+                        "horizontal": horizontal,
+                        "show_labels": show_labels,
+                        "x_title": x_title.strip() or None,
+                        "y_title": y_title.strip() or None,
+                        "color": None if color_choice == "(automatic)" else color_choice,
+                        "y": metric if metric else None,
+                        "show_grid": show_grid,
+                        "height": height,
+                        "descending": True,
+                    }
+                    fig, chart_error = _build_plotly_figure(
+                        chart_df, group_cols, dataset_name, question, options
+                    )
+                    if fig is not None:
                         st.plotly_chart(
-
                             fig, use_container_width=True,
-
                             key=f"eusee_copilot_{key}_{dataset_name}",
-
-                            config={"responsive": True, "displaylogo": False, "scrollZoom": False},
-
+                            config={
+                                "responsive": True, "displaylogo": False,
+                                "scrollZoom": True, "toImageButtonOptions": {
+                                    "format": "png", "filename": f"eusee_{dataset_name}_chart",
+                                    "height": height, "width": 1400, "scale": 2,
+                                },
+                            },
                         )
-
+                    else:
+                        st.info(chart_error or "This chart type is not suitable for the returned data.")
                 except Exception as exc:
-
                     st.warning(f"A visual chart could not be rendered for this result. Details: {exc}")
 
-        if wants_chart and chart_df.empty:
-
-            st.info("I could not build a chart because this query did not return grouped numerical data. Try asking for a breakdown by region, country, alert type, enabling principle, or year.")
-
-        if isinstance(records, list) and records:
-
-            frame = pd.DataFrame(records)
-
-            st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alerts'} · matching records")
-
-            link_config = {}
-
-            for col in ("Permalink", "Open alert", "Open CFR report", "Report URL"):
-
-                if col in frame.columns:
-
-                    try:
-
-                        link_config[col] = st.column_config.LinkColumn(label=col, display_text="Open ↗")
-
-                    except Exception:
-
-                        pass
-
-            st.dataframe(
-
-                frame,
-
-                use_container_width=True,
-
-                hide_index=True,
-
-                column_config=link_config,
-
-                height=min(300, 42 + 35 * min(len(frame), 7)),
-
+        elif wants_chart:
+            st.info(
+                "I could not build a chart because this query did not return grouped numerical data. "
+                "Try requesting a breakdown by region, country, alert type, enabling principle, or year."
             )
 
+        if isinstance(records, list) and records:
+            frame = pd.DataFrame(records)
+            st.caption(f"{'CFR scores' if dataset_name == 'cfr' else 'Alerts'} · matching records")
+            link_config = {}
+            for col in ("Permalink", "Open alert", "Open CFR report", "Report URL"):
+                if col in frame.columns:
+                    try:
+                        link_config[col] = st.column_config.LinkColumn(label=col, display_text="Open ↗")
+                    except Exception:
+                        pass
+            st.dataframe(frame, use_container_width=True, hide_index=True,
+                         column_config=link_config,
+                         height=min(300, 42 + 35 * min(len(frame), 7)))
+
     if any(k in analysis for k in ("alerts", "cfr")):
-
         for dataset_name, dataset_result in analysis.items():
-
             if isinstance(dataset_result, dict):
-
                 render_dataset_result(dataset_name, dataset_result)
-
         return
 
-    # Backward-compatible rendering for older single-dataset result objects.
-
     groups = analysis.get("groups")
-
     if isinstance(groups, list) and groups:
-
         st.dataframe(pd.DataFrame(groups), use_container_width=True, hide_index=True, height=220)
-
     records = analysis.get("records") or analysis.get("examples")
-
     if isinstance(records, list) and records:
-
         st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True, height=260)
 
-# The caller wraps this renderer in a Streamlit fragment to isolate UI interactions.
+
+
 def render_eusee_ai_copilot(
 
     dataframe,
