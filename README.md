@@ -1,112 +1,915 @@
-<!doctype html>
-<html lang="en" data-theme="light">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EUSEE Dashboard — Interactive README</title>
-<style>
-:root{--purple:#660094;--purple2:#3b005f;--teal:#008caa;--yellow:#ffdb58;--bg:#f6f7fb;--panel:#fff;--text:#202330;--muted:#667085;--border:#e5e7ef;--code:#15121b;--shadow:0 12px 32px rgba(16,24,40,.08)}
-html[data-theme=dark]{--bg:#111018;--panel:#1a1822;--text:#f3f1f7;--muted:#b6afc1;--border:#302c3a;--code:#0b0910;--shadow:0 14px 36px rgba(0,0,0,.28)}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}a{color:var(--purple);text-decoration:none}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.layout{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh}aside{position:sticky;top:0;height:100vh;overflow:auto;background:var(--panel);border-right:1px solid var(--border);padding:20px}.brand{padding:16px;border-radius:18px;background:linear-gradient(135deg,#fff,#f5eafa);border:1px solid #e5d0ee;color:#22142c}html[data-theme=dark] .brand{background:linear-gradient(135deg,#211c29,#2a1833);color:#fff;border-color:#4a3354}.brand small{font-weight:900;letter-spacing:.14em;color:var(--purple)}.brand h1{font-size:21px;line-height:1.15;margin:6px 0}.brand p{font-size:12px;margin:0;color:var(--muted)}nav{margin-top:18px}nav a{display:block;padding:9px 11px;border-radius:10px;color:var(--muted);font-weight:700;font-size:13px}nav a:hover,nav a.active{background:#f4eafa;color:var(--purple)}html[data-theme=dark] nav a:hover,html[data-theme=dark] nav a.active{background:#2b2032}main{min-width:0}.topbar{position:sticky;top:0;z-index:10;display:flex;gap:10px;align-items:center;padding:12px 24px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}.search{flex:1;max-width:620px;padding:10px 13px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text)}button{border:1px solid var(--border);border-radius:11px;background:var(--panel);color:var(--text);padding:9px 12px;font-weight:800;cursor:pointer}.content{max-width:1220px;margin:auto;padding:32px}section{scroll-margin-top:78px;margin-bottom:42px}.hero{padding:42px;border-radius:26px;background:linear-gradient(135deg,#fff 0%,#f5eafa 72%,#e7f7fa 100%);border:1px solid #e4d8ea;box-shadow:var(--shadow)}html[data-theme=dark] .hero{background:linear-gradient(135deg,#201b28,#2d1838 70%,#163038);border-color:#413548}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-weight:950;font-size:11px;color:var(--purple)}.hero h2{font-size:clamp(34px,5vw,62px);line-height:1.03;margin:10px 0 14px}.hero p{max-width:820px;color:var(--muted);font-size:17px}.badges,.chips{display:flex;gap:8px;flex-wrap:wrap}.badge,.chip{display:inline-flex;padding:6px 9px;border-radius:999px;background:var(--panel);border:1px solid var(--border);font-size:11px;font-weight:850}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}.metric{padding:16px;border-radius:16px;background:var(--panel);border:1px solid var(--border)}.metric strong{display:block;font-size:25px;color:var(--purple)}h2.section-title{font-size:29px;margin:0 0 8px}.lead{color:var(--muted);margin-top:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:0 5px 18px rgba(16,24,40,.04)}.card h3{margin:0 0 6px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:14px}.architecture{display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr;align-items:center;gap:8px}.node{padding:18px;text-align:center;border-radius:17px;background:var(--panel);border:1px solid var(--border);font-weight:850}.arrow{text-align:center;color:var(--purple);font-size:26px}pre{overflow:auto;background:var(--code);color:#f4eef8;border-radius:16px;padding:18px;border:1px solid #30283a;font-size:12px}.callout{padding:16px 18px;border-left:5px solid var(--purple);border-radius:14px;background:var(--panel);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border)}table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:table}th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}th{background:#f4eafa;color:#32123f}html[data-theme=dark] th{background:#2c2033;color:#f3eafa}details{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px 15px;margin:10px 0}summary{cursor:pointer;font-weight:850}.function-list{columns:3;column-gap:28px;max-height:520px;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px 28px}.function-list li{break-inside:avoid;margin:4px 0;font-size:12px}.copy{float:right;font-size:11px}footer{padding:25px 0;color:var(--muted);font-size:12px}.hidden{display:none!important}mark{background:var(--yellow);color:#23152f;padding:0 2px}
-@media(max-width:900px){.layout{display:block}aside{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--border)}nav{display:flex;overflow:auto}nav a{white-space:nowrap}.metrics{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.architecture{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}.content{padding:18px}.hero{padding:26px}.function-list{columns:1}}
-</style>
-</head>
-<body><div class="layout">
-<aside><div class="brand"><small>EUSEE</small><h1>Dashboard README</h1><p>Interactive technical and operational documentation</p></div>
-<nav id="nav"><a href="#overview">Overview</a><a href="#architecture">Architecture</a><a href="#features">Features</a><a href="#setup">Installation</a><a href="#configuration">Configuration</a><a href="#security">Security</a><a href="#data">Data pipeline</a><a href="#operations">Operations</a><a href="#troubleshooting">Troubleshooting</a><a href="#reference">Reference</a></nav></aside>
-<main><div class="topbar"><input id="search" class="search" placeholder="Search this README…"><button id="theme">◐ Theme</button><button id="print">Print</button></div>
-<div class="content">
-<section id="overview" class="hero searchable"><div class="eyebrow">Streamlit analytics platform</div><h2>EUSEE Dashboard</h2><p>A role-aware monitoring and analytical platform for exploring civic-space alerts through summary indicators, interactive charts, relationship analysis, geospatial views, filtered exports, embedded documentation, and an AI copilot.</p><div class="badges"><span class="badge">Python</span><span class="badge">Streamlit</span><span class="badge">Plotly</span><span class="badge">Firebase</span><span class="badge">LangFlow</span><span class="badge">Parquet</span></div><div class="metrics"><div class="metric"><strong>8,398</strong>app.py lines</div><div class="metric"><strong>964</strong>auth.py lines</div><div class="metric"><strong>123</strong>named functions</div><div class="metric"><strong>4</strong>permission-aware tabs</div></div></section>
-<section class="searchable"><h2 class="section-title">Purpose</h2><p class="lead">The application converts a curated alert dataset into an executive and analytical decision-support interface while preserving access control at tab, module, chart, map, table, export, and AI-copilot levels.</p><div class="callout"><strong>Interpretation principle:</strong> dashboard outputs represent reported monitoring evidence. They should not be interpreted as population prevalence estimates without contextual review and partner validation.</div></section>
-<section id="architecture" class="searchable"><h2 class="section-title">System architecture</h2><p class="lead">The dashboard separates presentation, authorization, authentication, data, and external AI services.</p><div class="architecture"><div class="node">Browser<br><small>Streamlit UI + cookies</small></div><div class="arrow">→</div><div class="node">Application layer<br><small>app.py + auth.py + authz.py/admin.py</small></div><div class="arrow">→</div><div class="node">Services & storage<br><small>Parquet, JSON, Firebase, LangFlow, PDFs</small></div></div><pre><button class="copy" onclick="copyCode(this)">Copy</button>Browser
-  └─ Streamlit session + CookieManager
-      ├─ auth.py ........ Firebase login, verification, refresh, logout
-      ├─ authz.py ....... roles, permissions, data scope
-      ├─ admin.py ....... privilege management UI
-      ├─ app.py ......... filters, charts, maps, exports, manuals, copilot
-      ├─ exports/ ....... output_final.parquet + countries_metadata.json
-      ├─ docs/ .......... executive quick start + full user manual
-      └─ LangFlow API ... contextual Q&A and chart generation</pre></section>
-<section id="features" class="searchable"><h2 class="section-title">Core capabilities</h2><div class="grid"><article class="card"><h3>Role-aware tabs</h3><p>Overview, Negative Alerts Analysis, Visualization Map, and User Manual are dynamically exposed through permissions.</p></article><article class="card"><h3>Secure authentication</h3><p>Firebase email authentication, verification, token refresh, browser cookies, and persistent sessions.</p></article><article class="card"><h3>Granular authorization</h3><p>Feature- and chart-level permissions are resolved through the external authorization layer.</p></article><article class="card"><h3>Interactive analytics</h3><p>Plotly bar charts, stacked bars, heatmaps, Sankey flows, maps, summary cards, and responsive chart layouts.</p></article><article class="card"><h3>Advanced filtering</h3><p>Region, country, alert attributes, enabling principles, year/month, and Boolean table search.</p></article><article class="card"><h3>Data exports</h3><p>Filtered records can be exported to Excel; PDF quick-start and full manuals can be downloaded.</p></article><article class="card"><h3>AI copilot</h3><p>LangFlow-backed question answering and plot generation use the active filtered dashboard context.</p></article><article class="card"><h3>User-specific history</h3><p>Copilot history is persisted per verified user and restored after refresh.</p></article><article class="card"><h3>Responsive UX</h3><p>Custom Streamlit CSS supports desktop, tablet, and mobile layouts with compact controls.</p></article><article class="card"><h3>Deployment resilience</h3><p>Cached data/PDF loading, safe fallbacks, error messaging, and Docker-aware export paths.</p></article></div></section>
-<section id="setup" class="searchable"><h2 class="section-title">Installation and local execution</h2><p class="lead">A conventional repository layout is shown below. The uploaded source explicitly references supporting modules and data assets that must be present at runtime.</p><pre><button class="copy" onclick="copyCode(this)">Copy</button>eusee-dashboard/
+# EU SEE Dashboard
+
+**A Streamlit-based data exploration, reporting, and AI-assisted analysis platform for the EU SEE project**
+
+[EU SEE website](https://eusee.hivos.org/)
+
+---
+
+## Table of contents
+
+1. [Overview](#1-overview)
+2. [Key capabilities](#2-key-capabilities)
+3. [Application architecture](#3-application-architecture)
+4. [Repository structure](#4-repository-structure)
+5. [Technology stack](#5-technology-stack)
+6. [Data sources and expected files](#6-data-sources-and-expected-files)
+7. [Installation](#7-installation)
+8. [Configuration and secrets](#8-configuration-and-secrets)
+9. [Running the application](#9-running-the-application)
+10. [Using the dashboard](#10-using-the-dashboard)
+11. [AI Copilot](#11-ai-copilot)
+12. [Authentication and access control](#12-authentication-and-access-control)
+13. [Administration workspace](#13-administration-workspace)
+14. [Data processing and refresh behaviour](#14-data-processing-and-refresh-behaviour)
+15. [Deployment considerations](#15-deployment-considerations)
+16. [Troubleshooting](#16-troubleshooting)
+17. [Security and operational guidance](#17-security-and-operational-guidance)
+18. [Maintenance and contribution guidelines](#18-maintenance-and-contribution-guidelines)
+19. [Known implementation boundaries](#19-known-implementation-boundaries)
+20. [Citation and acknowledgement](#20-citation-and-acknowledgement)
+
+---
+
+## 1. Overview
+
+The **EU SEE Dashboard** is an interactive application for exploring and analysing information about changes in the enabling environment for civil society, as documented by the EU SEE network. The application is implemented in Python using Streamlit and combines structured alert data, country-level Country Focus Report (CFR) scores, interactive visualisations, geospatial presentation, access management, and an AI Copilot.
+
+The dashboard is designed to support evidence-based exploration of the records available in its underlying datasets. Users can filter information by geography, alert characteristics, enabling principles, impact, and time; inspect distributions and relationships; and, where their permissions allow, review or download data.
+
+The AI Copilot is deliberately **dataset-grounded**. It uses a language model to interpret a question and select a structured query, while numerical results are calculated from the dashboard's in-memory pandas dataframes. It is not intended to act as an unrestricted general-purpose research assistant.
+
+> **Interpretation note:** The dashboard documentation highlights that partner reporting practices differ between countries. Direct country comparisons using alert counts should therefore be treated with caution. Some alerts may also relate to more than one enabling environment principle.
+
+## 2. Key capabilities
+
+### 2.1 Alert exploration
+
+- Interactive dashboard views for alert overview and negative-alert analysis.
+- Global filters for region, country, alert type, enabling principle, alert impact, month, and year.
+- Summary cards and distributions that respond to the active filters.
+- Exploration of actors, affected subjects, mechanisms, and event types associated with negative alerts.
+- Searchable data preview and data export controls where enabled by the user's permissions.
+
+### 2.2 Analytical visualisations
+
+The application uses Plotly for interactive charts and includes:
+
+- Bar and stacked-bar charts.
+- Distribution and comparison charts.
+- Heatmaps for relationships between actors, affected subjects, and mechanisms.
+- Sankey and flow visualisations.
+- Top-N controls and analytical detail controls.
+- A geospatial visualisation view, subject to access permissions.
+- Responsive chart layouts and dashboard styling for smaller screens.
+
+Chart percentages and counts should be interpreted in the context of the active filters and the source data. Refer to chart annotations and explanatory notes in the application for the relevant denominator or methodology.
+
+### 2.3 Country Focus Report (CFR) scores
+
+The CFR module presents country-level scores across the six enabling environment principles. The implementation:
+
+- Loads a CFR CSV export.
+- Validates required country, principle-score, and last-modified fields.
+- Uses the source's **1–5 scoring scale**.
+- Provides aggregated principle-score and over-time views.
+- Provides country-level score tables and regional summaries.
+- Uses country metadata to support country enrichment and presentation.
+
+CFR scores are country-level records; they are not individual alert records. The Copilot can query the alert and CFR datasets separately or together when a question explicitly asks to relate them.
+
+### 2.4 AI Copilot
+
+- Conversational questions about the dashboard's alert and CFR data.
+- Summary, count, grouping, trend, comparison, ranking, and record-retrieval workflows.
+- Structured filters and topic searches.
+- Plotly chart generation from returned grouped query results.
+- Per-user conversation history persistence.
+- A configurable OpenAI model.
+
+The Copilot must not be used to infer causes, fill missing data, or answer questions that require information outside the authorized dashboard datasets.
+
+### 2.5 Authentication and administration
+
+- Firebase Authentication integration for account registration, login, password reset, and session handling.
+- Browser-cookie session restoration.
+- Guest, viewer, and privileged access roles, plus configured administrator accounts.
+- Feature-level permissions and optional region, country, and year data scopes.
+- Firestore-backed access configuration.
+- An administrator workspace for managing roles, feature visibility, data scope, users/domains, and system settings.
+
+---
+
+## 3. Application architecture
+
+The application is organised into five principal Python modules:
+
+```text
+                    ┌───────────────────────────┐
+                    │       Streamlit UI        │
+                    │         app.py            │
+                    └─────────────┬─────────────┘
+                                  │
+             ┌────────────────────┼────────────────────┐
+             │                    │                    │
+             ▼                    ▼                    ▼
+    ┌────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+    │ Authentication │  │ Authorization &  │  │ Administration   │
+    │ auth.py        │  │ data scope        │  │ admin_page.py    │
+    │                │  │ authz.py          │  │                  │
+    └────────────────┘  └──────────────────┘  └──────────────────┘
+             │                    │
+             ▼                    ▼
+    ┌────────────────┐  ┌──────────────────┐
+    │ Firebase Auth  │  │ Firestore access │
+    │ and cookies    │  │ configuration    │
+    └────────────────┘  └──────────────────┘
+
+                                  │
+                                  ▼
+                    ┌───────────────────────────┐
+                    │       AI Copilot          │
+                    │   eusee_ai_copilot.py     │
+                    └─────────────┬─────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │                           │
+                    ▼                           ▼
+             OpenAI Responses API        Local pandas query
+             question interpretation     deterministic results
+```
+
+### Module responsibilities
+
+| Module | Responsibility |
+|---|---|
+| `app.py` | Streamlit entry point; application layout, data loading, filters, dashboard tabs, visualisations, CFR module, user manual, and Copilot integration. |
+| `auth.py` | Firebase client/admin initialisation, authentication UI and operations, cookie persistence, session restoration, logout, and per-user chat-history persistence. |
+| `authz.py` | Role resolution, feature permissions, Firestore access configuration, and row-level data-scope filtering. |
+| `admin_page.py` | Administrator interface for role configuration, dashboard visibility, data scopes, user/domain settings, and system diagnostics. |
+| `eusee_ai_copilot.py` | Dataset-grounded AI workflow, query schema, pandas query execution, conversational history, and Copilot chart rendering. |
+
+The dashboard imports the Copilot as a separate module and renders it in a Streamlit fragment to isolate many Copilot interactions from full dashboard reruns.
+
+---
+
+## 4. Repository structure
+
+The following is the recommended layout for the application. The Python modules listed below correspond to the supplied implementation files; supporting data, documentation, and deployment files must also be included in the deployed repository or mounted volumes.
+
+```text
+eusee-dashboard/
 ├── app.py
 ├── auth.py
 ├── authz.py
-├── admin.py                 # or admin_page.py fallback
+├── admin_page.py
+├── eusee_ai_copilot.py
 ├── requirements.txt
-├── .streamlit/
-│   └── secrets.toml
+├── README.md
+│
+├── data/
+│   └── ...                         # Optional source/intermediate data
+│
 ├── exports/
-│   ├── output_final.parquet
-│   └── countries_metadata.json
+│   ├── output_final.parquet        # Main alert dataset (required)
+│   ├── countries_metadata.json     # Country metadata (expected)
+│   └── CFR_Export_YYYY_MM_DD.csv   # CFR export (required for CFR features)
+│
 ├── docs/
 │   ├── EU_SEE_Dashboard_Quick_Start_Executive.pdf
 │   └── EU SEE Dashboard user manual.pdf
-└── .eusee_chat_history/     # created automatically if configured locally</pre><h3>Recommended environment</h3><pre><button class="copy" onclick="copyCode(this)">Copy</button>python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# Linux/macOS
-source .venv/bin/activate
+│
+└── .streamlit/
+    └── secrets.toml                # Local secrets; do not commit
+```
 
-pip install -r requirements.txt
-streamlit run app.py</pre><h3>Indicative requirements</h3><pre><button class="copy" onclick="copyCode(this)">Copy</button>streamlit
+**Important:** The application uses `/exports` when that directory exists; otherwise it uses the repository's `exports/` directory. In container deployments, `/exports` can therefore be mounted as a persistent data volume.
+
+The README describes the runtime expectations visible in the supplied application modules. It does not imply that every supporting file was included with the five Python source files.
+
+---
+
+## 5. Technology stack
+
+| Component | Role in the application |
+|---|---|
+| Python | Application language and data-processing runtime. |
+| Streamlit | Interactive web application framework and session/UI state. |
+| pandas | Tabular data loading, filtering, aggregation, and deterministic Copilot queries. |
+| NumPy | Numerical and data-processing support. |
+| Plotly | Interactive charts and analytical visualisations. |
+| PyArrow | Parquet support for the primary alert dataset (install a compatible Parquet engine). |
+| Firebase Authentication / Pyrebase | User authentication and token operations. |
+| Firebase Admin SDK | Administrative Firebase integration and Firestore access. |
+| Cloud Firestore | Persistent role and feature-access configuration. |
+| `extra-streamlit-components` | Browser cookie manager used for persistent authentication sessions. |
+| OpenAI Python SDK | Copilot question interpretation and response generation through the Responses API. |
+| Requests | HTTP requests used by authentication/token workflows. |
+
+The main dashboard source also imports Paramiko. Confirm the deployed dependency set against the complete application and the environment in which it runs. Pin tested package versions in `requirements.txt`; the supplied Python files do not establish a definitive version lock.
+
+### Suggested dependency baseline
+
+Create a `requirements.txt` containing compatible, tested versions of the packages used by the application. A starting package list is:
+
+```text
+streamlit
 pandas
 numpy
 plotly
 pyarrow
-openpyxl
+openai
 requests
 paramiko
 pyrebase4
 firebase-admin
 extra-streamlit-components
-streamlit-plotly-events</pre></section>
-<section id="configuration" class="searchable"><h2 class="section-title">Configuration</h2><p class="lead">Store credentials only in <code>.streamlit/secrets.toml</code> or the deployment platform’s secret manager.</p><pre><button class="copy" onclick="copyCode(this)">Copy</button>[firebase]
-apiKey = "..."
-authDomain = "..."
-projectId = "..."
-storageBucket = "..."
-messagingSenderId = "..."
-appId = "..."
+```
+
+This is a **package checklist, not a tested lockfile**. Resolve and pin versions in the target deployment environment, then validate imports and application behaviour before release.
+
+---
+
+## 6. Data sources and expected files
+
+### 6.1 Main alerts dataset
+
+The main dashboard expects:
+
+```text
+exports/output_final.parquet
+```
+
+The application reads this file with `pandas.read_parquet()` and caches the result for up to one hour. It expects alert-related fields including:
+
+- `alert-country`
+- `alert-impact`
+- `alert-type`
+- `Actor of repression`
+- `Subject of repression`
+- `Mechanism of repression`
+- `Type of event`
+
+Other fields used by the dashboard and Copilot include region, enabling principle, year, and month. The exact available fields depend on the supplied Parquet export.
+
+If a number of required alert fields are absent, the main loader may add empty columns for selected fields so the application can continue. This does not restore missing source information; charts and queries may consequently have limited results.
+
+### 6.2 Country metadata
+
+The application expects:
+
+```text
+exports/countries_metadata.json
+```
+
+This metadata is used in country enrichment and geospatial presentation. Ensure it is consistent with the country labels in the alert and CFR exports.
+
+### 6.3 CFR export
+
+The CFR loader searches for a dated CSV export matching:
+
+```text
+CFR_Export_YYYY_MM_DD.csv
+```
+
+Selection priority:
+
+1. A valid path configured through the `EUSEE_CFR_CSV` environment variable.
+2. The newest matching dated CFR export in the active export directory.
+
+The date is derived from the filename for selecting the newest export. The CFR loader validates the presence of `Country`, the six principle score columns, and `Last Modified`. The exact principle column names are defined in `app.py`; new exports should preserve the expected schema or the loader will report missing columns.
+
+The configured score range is 1–5. Values outside that range trigger a warning; the application does not silently rewrite the source scores.
+
+### 6.4 Documentation PDFs
+
+The application references these files:
+
+```text
+docs/EU_SEE_Dashboard_Quick_Start_Executive.pdf
+docs/EU SEE Dashboard user manual.pdf
+```
+
+They are used by the dashboard's PDF download helpers. Include the files in the deployed `docs/` directory if those download links are expected to work.
+
+---
+
+## 7. Installation
+
+### 7.1 Prerequisites
+
+- A supported Python runtime compatible with the pinned Streamlit and Firebase dependencies.
+- Access to the dashboard repository.
+- The main alert Parquet export.
+- Country metadata and CFR export if those modules are required.
+- Firebase project credentials for authentication and administrative access.
+- An OpenAI API key if the AI Copilot is to be enabled.
+- Access to the target deployment environment and its persistent storage.
+
+### 7.2 Clone or prepare the repository
+
+```bash
+git clone <repository-url>
+cd eusee-dashboard
+```
+
+If the source files are being deployed manually, place the five application modules in the repository root using the filenames shown in the repository structure.
+
+### 7.3 Create a virtual environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it:
+
+**Linux/macOS**
+
+```bash
+source .venv/bin/activate
+```
+
+**Windows PowerShell**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### 7.4 Install dependencies
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+If you do not yet have a requirements file, create one from the package checklist in [Technology stack](#5-technology-stack), resolve compatible versions, and pin them before production deployment.
+
+### 7.5 Add the data and documentation files
+
+Ensure the expected directories and files exist:
+
+```text
+exports/output_final.parquet
+exports/countries_metadata.json
+exports/CFR_Export_YYYY_MM_DD.csv
+docs/EU_SEE_Dashboard_Quick_Start_Executive.pdf
+docs/EU SEE Dashboard user manual.pdf
+```
+
+The CFR CSV and documentation PDFs are needed only for the corresponding features. The main alert Parquet file is required for the primary dashboard.
+
+---
+
+## 8. Configuration and secrets
+
+The application reads sensitive configuration from Streamlit secrets and selected environment variables. Do not hard-code credentials in Python files or commit secrets to source control.
+
+Create `.streamlit/secrets.toml` for local development. Configure the values for your own Firebase project and deployment; the example below is a **template only**.
+
+```toml
+[openai]
+OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
+OPENAI_MODEL = "gpt-4.1-mini"
+
+[firebase]
+apiKey = "YOUR_FIREBASE_WEB_API_KEY"
+authDomain = "YOUR_FIREBASE_AUTH_DOMAIN"
+projectId = "YOUR_FIREBASE_PROJECT_ID"
+storageBucket = "YOUR_FIREBASE_STORAGE_BUCKET"
+messagingSenderId = "YOUR_FIREBASE_MESSAGING_SENDER_ID"
+appId = "YOUR_FIREBASE_APP_ID"
 databaseURL = ""
 
 [firebase_admin]
 type = "service_account"
-project_id = "..."
-private_key_id = "..."
-private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-client_email = "..."
-client_id = "..."
+project_id = "YOUR_FIREBASE_PROJECT_ID"
+private_key_id = "YOUR_PRIVATE_KEY_ID"
+private_key = "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
+client_email = "YOUR_SERVICE_ACCOUNT_EMAIL"
+client_id = "YOUR_SERVICE_ACCOUNT_CLIENT_ID"
 auth_uri = "https://accounts.google.com/o/oauth2/auth"
 token_uri = "https://oauth2.googleapis.com/token"
 auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "..."
+client_x509_cert_url = "YOUR_CLIENT_CERTIFICATE_URL"
+
+[auth]
+admin_emails = ["admin@example.org"]
 
 [access]
 privileged_domains = ["example.org"]
 
+[access_control]
+firestore_collection = "dashboard_settings"
+firestore_document = "access_control"
+
+[temporary_shared_account]
+enabled = false
+email = ""
+role = "viewer"
+bypass_email_verification = false
+
 [chatbot]
 history_dir = ".eusee_chat_history"
+```
 
-[langflow]
-LANGFLOW_API_URL = "..."
-LANGFLOW_API_KEY = "..."
+### 8.1 Configuration reference
 
-[debug]
-enabled = false</pre><table><tr><th>Setting</th><th>Purpose</th><th>Operational note</th></tr><tr><td><code>firebase</code></td><td>Client-side email authentication</td><td>All required Firebase web-app keys must be present.</td></tr><tr><td><code>firebase_admin</code></td><td>Server-side verification and administration</td><td>Preserve escaped newlines in the private key.</td></tr><tr><td><code>access.privileged_domains</code></td><td>Domain-based privilege defaults</td><td>Final authorization should remain controlled by <code>authz.py</code>.</td></tr><tr><td><code>chatbot.history_dir</code></td><td>Per-user copilot history storage</td><td>Use a persistent mounted volume in containers.</td></tr><tr><td><code>langflow</code></td><td>Copilot endpoint and key</td><td>Keep API keys server-side.</td></tr></table></section>
-<section id="security" class="searchable"><h2 class="section-title">Authentication and security model</h2><ul><li>Firebase provides registration, login, password reset, email verification, ID tokens, and refresh tokens.</li><li>The browser-specific cookie is named <code>eusee_auth_session</code> and is configured for a 30-day lifetime.</li><li>Token restoration occurs before the dashboard renders; invalid cookie payloads are deleted.</li><li>Chat histories are separated by a SHA-256-derived user key and capped at 80 messages.</li><li>Authorization is distinct from authentication: <code>authz.py</code> is expected to determine roles, permissions, and row-level data scope.</li><li>Streamlit source/deploy controls and GitHub links are hidden in the interface, but this is a UX measure—not a security boundary.</li></ul><div class="callout"><strong>Production hardening:</strong> use HTTPS, restrict secret-file permissions, place persistent histories on protected storage, rotate Firebase/LangFlow credentials, and avoid storing raw refresh tokens in logs or analytics.</div></section>
-<section id="data" class="searchable"><h2 class="section-title">Data loading and transformation</h2><ol><li>Resolve <code>/exports</code when mounted; otherwise use the repository’s <code>exports/</code> folder.</li><li>Read <code>output_final.parquet</code> with a one-hour Streamlit data cache.</li><li>Validate required alert columns and create safe empty fallbacks where necessary.</li><li>Read <code>countries_metadata.json</code>, normalize country names, map ISO-3 codes and continents, then derive dashboard regions.</li><li>Remove non-alert event rows and invalid impact/country records.</li><li>Parse <code>creation_date</code>, derive year/month fields, and expose the latest dataset date.</li><li>Apply role-specific row-level scope through <code>apply_data_scope()</code>.</li></ol><h3>Primary runtime assets</h3><table><tr><th>Asset</th><th>Role</th><th>Failure behavior</th></tr><tr><td><code>exports/output_final.parquet</code></td><td>Main analytical dataset</td><td>Dashboard displays an error and returns an empty frame.</td></tr><tr><td><code>exports/countries_metadata.json</code></td><td>Country-to-ISO/continent mapping</td><td>Warnings are shown and mappings may remain unknown.</td></tr><tr><td><code>docs/*.pdf</code></td><td>Embedded user guidance</td><td>Download card shows a non-fatal warning.</td></tr><tr><td>Chat-history directory</td><td>Copilot continuity per account</td><td>History persistence fails gracefully when unwritable.</td></tr></table></section>
-<section id="operations" class="searchable"><h2 class="section-title">Deployment and operations</h2><details open><summary>Docker considerations</summary><p>Mount the current export bundle at <code>/exports</code> and mount the configured chat-history directory to persistent storage. Ensure the Streamlit process can read PDFs and metadata and write histories.</p><pre><button class="copy" onclick="copyCode(this)">Copy</button>docker run --rm -p 8501:8501 \
-  -v /host/exports:/exports:ro \
-  -v /host/chat-history:/app/.eusee_chat_history \
-  --env-file .env \
-  eusee-dashboard:latest</pre></details><details><summary>Health checks</summary><p>Monitor the Streamlit endpoint, container restart count, Parquet modification date, Firebase token-refresh failures, LangFlow response codes, and write access to the history volume.</p></details><details><summary>Cache behavior</summary><p>Dataset and PDF bytes are cached for one hour. Clear Streamlit cache or restart the process when an urgent data/document update must become immediately visible.</p></details><details><summary>Release checklist</summary><ul><li>Validate the Parquet schema and date coverage.</li><li>Verify country metadata completeness and inspect missing ISO warnings.</li><li>Test guest, viewer, privileged, and admin roles in separate browsers.</li><li>Test refresh persistence, logout, email verification, password reset, and token renewal.</li><li>Confirm each permission hides or reveals the correct tab/module/chart.</li><li>Validate mobile layout, Excel exports, manuals, map, Sankey, and copilot.</li></ul></details></section>
-<section id="troubleshooting" class="searchable"><h2 class="section-title">Troubleshooting</h2><details><summary>Login state is shared between users or devices</summary><p>Do not store identity in process-global variables, cached functions, or server-wide singleton payloads. The CookieManager object may be singleton, but the cookie value must come from each browser. Confirm that role/email resolution is session-based and that no authenticated state is decorated with <code>@st.cache_data</code> or <code>@st.cache_resource</code>.</p></details><details><summary>User is logged out after browser refresh</summary><p>Check that the cookie is actually committed before rerun, the refresh token is included, Firebase’s secure-token endpoint is reachable, and <code>restore_session()</code> executes before gated rendering. Verify browser cookie policies and HTTPS/SameSite behavior in the hosting environment.</p></details><details><summary>Duplicate Streamlit component key</summary><p>Create only one CookieManager instance with the fixed key <code>eusee_cookie_manager_main</code>. Avoid constructing it inside repeatedly called or cached functions.</p></details><details><summary>Dashboard stops at “Restoring secure session…”</summary><p>Ensure <code>st.session_state.restored</code> is set on every normal exit path, including logged-out browsers and temporary token-refresh failures.</p></details><details><summary>Parquet file not found</summary><p>Confirm the file is named exactly <code>output_final.parquet</code> and is located in <code>/exports</code> for Docker deployments or <code>exports/</code> for local execution.</p></details><details><summary>Missing ISO codes</summary><p>Add or correct entries in <code>countries_metadata.json</code>, or extend the country-name normalization dictionary. Review spelling, accents, Congo variants, and legacy country labels.</p></details><details><summary>Copilot returns 400/403/413 errors</summary><p>Verify the LangFlow URL/key, request schema, endpoint authorization, and payload size. Reduce dashboard context or top-N lookup content for 413 responses.</p></details></section>
-<section id="reference" class="searchable"><h2 class="section-title">Source reference</h2><p class="lead">Discovered imports and named functions from the supplied application and authentication sources.</p><h3>Technology imports</h3><div class="chips"><span class="chip">__future__ annotations</span><span class="chip">auth auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout</span><span class="chip">datetime datetime</span><span class="chip">datetime datetime, timedelta</span><span class="chip">io BytesIO</span><span class="chip">pathlib Path</span><span class="chip">streamlit.elements.lib.policies CachedWidgetWarning</span><span class="chip">base64</span><span class="chip">hashlib</span><span class="chip">json</span><span class="chip">logging</span><span class="chip">math</span><span class="chip">numpy as np</span><span class="chip">os</span><span class="chip">pandas as pd</span><span class="chip">paramiko</span><span class="chip">plotly.express as px</span><span class="chip">plotly.graph_objects as go</span><span class="chip">plotly.io as pio</span><span class="chip">re</span><span class="chip">requests</span><span class="chip">streamlit as st</span><span class="chip">streamlit.components.v1 as components</span><span class="chip">tempfile</span><span class="chip">textwrap</span><span class="chip">time</span><span class="chip">uuid</span><span class="chip">warnings</span></div><h3>Function index</h3><ul class="function-list"><li><code>inject_classic_dashboard_css()</code></li><li><code>render_classic_filter_header()</code></li><li><code>_build_fast_table_search_mask()</code></li><li><code>render_professional_data_preview()</code></li><li><code>can_view_monitored_countries_value()</code></li><li><code>monitored_countries_display_value()</code></li><li><code>_read_pdf_bytes_cached()</code></li><li><code>_safe_pdf_download_button()</code></li><li><code>load_data()</code></li><li><code>safe_multiselect()</code></li><li><code>inject_professional_sidebar_filter_css()</code></li><li><code>render_sidebar_access_settings_profile()</code></li><li><code>contains_any()</code></li><li><code>render_top_feedback_bar()</code></li><li><code>wrap_label_by_words()</code></li><li><code>info_tooltip()</code></li><li><code>render_summary_cards()</code></li><li><code>_top_split_item_for_negative_card()</code></li><li><code>_compact_text_for_card()</code></li><li><code>render_negative_alerts_intelligence_cards()</code></li><li><code>normalize_label()</code></li><li><code>wrap_label_by_words()</code></li><li><code>safe_wrap_label()</code></li><li><code>apply_classic_chart_theme()</code></li><li><code>render_chart_shell()</code></li><li><code>_nice_percent_axis_max()</code></li><li><code>_standard_chart_height()</code></li><li><code>create_bar_chart()</code></li><li><code>readable_stacked_bar_label_color()</code></li><li><code>create_h_stacked_bar()</code></li><li><code>filter_top_n()</code></li><li><code>_safe_chart_label()</code></li><li><code>render_analytics_module_header()</code></li><li><code>create_heatmap()</code></li><li><code>get_top_n_items()</code></li><li><code>render_heatmaps()</code></li><li><code>render_sankey()</code></li><li><code>render_analytical_flow_panel()</code></li><li><code>top_n_bar()</code></li><li><code>explode_multi_valued_columns()</code></li><li><code>inject_access_state_card_css()</code></li><li><code>_safe_current_role()</code></li><li><code>_access_icon_for_permission()</code></li><li><code>_required_role_for_permission()</code></li><li><code>_html_escape()</code></li><li><code>render_access_locked()</code></li><li><code>can_render_feature()</code></li><li><code>render_permission_locked_card()</code></li><li><code>render_if_permitted()</code></li><li><code>add_source_line()</code></li><li><code>_strip_plotly_html()</code></li><li><code>_estimate_badge_x_from_title()</code></li><li><code>_wrap_chart_tooltip_text()</code></li><li><code>_figure_has_chart_info_badge()</code></li><li><code>_escape_plotly_title_attr()</code></li><li><code>_build_plotly_title_with_info()</code></li><li><code>add_chart_info_badge()</code></li><li><code>build_default_chart_tooltip()</code></li><li><code>apply_title_adjacent_tooltip()</code></li><li><code>render_chart_floating_tip()</code></li><li><code>inject_full_tab_responsive_css()</code></li><li><code>apply_responsive_plotly_layout()</code></li><li><code>inject_compact_tabs_and_legend_ux()</code></li><li><code>inject_final_responsive_tab_text_ux()</code></li><li><code>inject_final_top_tab_spacing_override()</code></li><li><code>inject_plotly_legend_color_spacing_fix()</code></li><li><code>render_dashboard_plotly_chart()</code></li><li><code>_current_chat_user_key()</code></li><li><code>_chat_history_path()</code></li><li><code>_normalise_chat_messages()</code></li><li><code>load_user_chat_history()</code></li><li><code>save_user_chat_history()</code></li><li><code>append_user_chat_message()</code></li><li><code>clear_user_chat_history()</code></li><li><code>_clean_df()</code></li><li><code>_find_col()</code></li><li><code>_counts()</code></li><li><code>_direct_top()</code></li><li><code>build_filter_summary()</code></li><li><code>build_lookup_context()</code></li><li><code>build_dashboard_context()</code></li><li><code>extract_langflow_text()</code></li><li><code>ask_langflow()</code></li><li><code>_append_eusee_website_redirect()</code></li><li><code>render_langflow_output()</code></li><li><code>inject_eusee_ai_popover_css()</code></li><li><code>_render_eusee_ai_copilot_body()</code></li><li><code>render_eusee_ai_copilot_popover()</code></li><li><code>get_cookie_manager()</code></li><li><code>init_firebase_admin()</code></li><li><code>init_firebase_client()</code></li><li><code>get_domain()</code></li><li><code>_safe_user_key()</code></li><li><code>_chat_history_path()</code></li><li><code>_normalise_chat_message()</code></li><li><code>_normalise_chat_history()</code></li><li><code>_get_current_session_chat_history()</code></li><li><code>_sync_chat_history_aliases()</code></li><li><code>load_user_chat_history()</code></li><li><code>save_user_chat_history()</code></li><li><code>append_user_chat_message()</code></li><li><code>clear_user_chat_history()</code></li><li><code>ensure_user_chat_history_loaded()</code></li><li><code>init_session()</code></li><li><code>_session_payload()</code></li><li><code>_write_cookie()</code></li><li><code>_read_cookie()</code></li><li><code>_delete_cookie()</code></li><li><code>refresh_firebase_token()</code></li><li><code>_apply_authenticated_state()</code></li><li><code>restore_session()</code></li><li><code>is_authenticated()</code></li><li><code>is_privileged()</code></li><li><code>logout()</code></li><li><code>parse_error()</code></li><li><code>_set_auth_mode()</code></li><li><code>_back_to_dashboard()</code></li><li><code>_auth_page_css()</code></li><li><code>_login_form()</code></li><li><code>_register_form()</code></li><li><code>_reset_form()</code></li><li><code>_render_premium_auth_page()</code></li><li><code>auth_ui()</code></li></ul></section>
-<footer>Generated from the supplied EUSEE Streamlit application and authentication source files on 2026-07-20. Review deployment-specific modules and secrets before production use.</footer>
-</div></main></div>
-<script>
-const root=document.documentElement; document.getElementById('theme').onclick=()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';localStorage.setItem('readme-theme',root.dataset.theme)};root.dataset.theme=localStorage.getItem('readme-theme')||'light';document.getElementById('print').onclick=()=>window.print();
-function copyCode(btn){const pre=btn.parentElement;const text=pre.innerText.replace('Copy','').trim();navigator.clipboard.writeText(text);btn.textContent='Copied';setTimeout(()=>btn.textContent='Copy',1200)}
-const search=document.getElementById('search');search.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();document.querySelectorAll('.searchable').forEach(s=>{s.classList.toggle('hidden',q&&!s.innerText.toLowerCase().includes(q))})});
-const links=[...document.querySelectorAll('nav a')], sections=links.map(a=>document.querySelector(a.getAttribute('href')));addEventListener('scroll',()=>{let current=0;sections.forEach((s,i)=>{if(s&&s.getBoundingClientRect().top<130)current=i});links.forEach((a,i)=>a.classList.toggle('active',i===current))});
-</script></body></html>
+| Setting | Purpose |
+|---|---|
+| `[openai].OPENAI_API_KEY` | API key used by the AI Copilot. |
+| `[openai].OPENAI_MODEL` | Model name passed to the Copilot. The code defaults to `gpt-4.1-mini` when no model is supplied. |
+| `[firebase]` | Firebase client configuration used by the authentication module. |
+| `[firebase_admin]` | Firebase service-account configuration used for administrative Firebase operations. |
+| `[auth].admin_emails` | Explicit administrator email addresses. |
+| `[access].privileged_domains` | Email domains used by the role-resolution logic for privileged access. |
+| `[access_control]` | Firestore collection/document location for access configuration. |
+| `[temporary_shared_account]` | Optional explicitly configured shared account, including role and verification-bypass setting. Keep disabled unless there is a documented operational need. |
+| `[chatbot].history_dir` | Server-side directory used by `auth.py` to persist per-user chat history. |
+
+The access-control module can also use Firebase service-account credentials from the supported Firebase secrets structure. Keep the credential format consistent across `auth.py` and `authz.py`.
+
+### 8.2 Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `EUSEE_CFR_CSV` | Optional explicit path to the CFR CSV file. If valid, it takes precedence over automatic dated-file discovery. |
+
+### 8.3 Firebase setup checklist
+
+1. Create or select the Firebase project used by the deployment.
+2. Enable the Firebase Authentication methods required by the login and registration flows.
+3. Register the application and populate the `[firebase]` client settings.
+4. Create a service account with the minimum permissions required for Firestore access.
+5. Populate `[firebase_admin]` with the service-account credentials.
+6. Confirm that the Firestore database is available.
+7. Confirm the configured access-control collection and document.
+8. Add administrator email addresses and approved partner domains.
+9. Test registration, login, password reset, session restoration, and logout using non-production test accounts.
+
+The dashboard should not be exposed with production credentials until authentication and Firestore permissions have been tested.
+
+---
+
+## 9. Running the application
+
+From the repository root, run:
+
+```bash
+streamlit run app.py
+```
+
+Streamlit will print the local application URL in the terminal. Open that URL in a browser.
+
+For a non-default port:
+
+```bash
+streamlit run app.py --server.port 8502
+```
+
+For a deployment, configure the process manager or platform to run the same Streamlit entry point and make the data, documentation, and secrets available to the application process.
+
+---
+
+## 10. Using the dashboard
+
+### 10.1 Global filters
+
+The global filters are used to refine the active alert dataframe. The implemented filter dimensions include:
+
+| Filter | Description |
+|---|---|
+| Region | Regional grouping used by the dashboard. |
+| Country | Country associated with the alert record. |
+| Alert type | Type/category of alert. |
+| Enabling principle | One or more enabling environment principles associated with the alert. |
+| Alert impact | Impact classification, including positive and negative. |
+| Month | Month associated with the alert date. |
+| Year | Year associated with the alert date. |
+
+Selecting or changing filters updates the dashboard's active filtered dataset and the views built from it. A result shown under a restricted data scope is further constrained by the user's configured access.
+
+### 10.2 Alert Overview
+
+The Alert Overview presents high-level distributions across the filtered records, including alert type, enabling principles, region, and country. Summary cards and charts should be interpreted using the currently selected filters.
+
+### 10.3 Country Focus Report (CFR) Scores
+
+The CFR view provides a country-level perspective across the six enabling environment principles. It includes aggregated principle scores, scores over time, and country-level tables. The CFR score scale is 1–5.
+
+### 10.4 Negative Alerts Analysis
+
+The Negative Alerts Analysis focuses on records whose `alert-impact` is classified as `Negative`. It supports analysis of:
+
+- Actors of repression.
+- Subjects/actors affected.
+- Mechanisms of repression.
+- Types of events.
+- Alert types.
+- Enabling principles.
+- Relationships between these dimensions through heatmaps and flow visualisations.
+
+Some analytical panels include Top-N and detail-level controls. These controls affect the presentation of the selected records and should not be interpreted as changing the underlying source dataset.
+
+### 10.5 Visualization Map
+
+The Visualization Map presents geographic information for records where the necessary country/geospatial metadata is available. Access to the map is permission-controlled. A missing country code or incomplete country metadata can limit the records that can be mapped.
+
+### 10.6 Data preview and downloads
+
+The application contains a searchable data preview and download helpers. Availability is controlled by feature permissions. Exported data should be handled according to the project's data governance requirements and any restrictions associated with the user's role or data scope.
+
+### 10.7 User Manual and feedback
+
+The dashboard includes an in-app user guide and references PDF documentation in the `docs/` directory. A feedback link is also provided in the interface for questions, suggestions, and issue reports.
+
+---
+
+## 11. AI Copilot
+
+### 11.1 Design principle
+
+The Copilot separates language interpretation from data computation:
+
+1. The user asks a question in natural language.
+2. The model receives the available dataset schemas and recent conversation context.
+3. The model selects a dataset and constructs a structured `query_dataset` request.
+4. The application applies the request to the authorized pandas dataframe.
+5. Numerical summaries and grouped results are calculated by pandas.
+6. The model explains the returned evidence.
+7. If a chart is requested and the result is suitable, the application renders a Plotly visualisation from the query output.
+
+The language model does not directly calculate authoritative dashboard totals from unverified narrative assumptions. The application supplies the computed result for explanation.
+
+### 11.2 Supported datasets
+
+| Dataset selector | Contents |
+|---|---|
+| `alerts` | Alert-level records from the main dashboard dataset. |
+| `cfr` | Country-level CFR scores. |
+| `both` | Both datasets, when the user asks to relate or compare them. |
+
+For questions about CFR scores, country scores, the six principles, Overall CFR, or CFR report years, the Copilot is instructed to use the CFR dataset. CFR data must not be described as individual alert records.
+
+### 11.3 Supported query operations
+
+| Operation | Purpose |
+|---|---|
+| `summary` | Summarise the filtered records and key fields. |
+| `count` | Count records matching the query. |
+| `group` | Aggregate records by one or more fields. |
+| `trend` | Group data for time-oriented analysis. |
+| `records` | Retrieve matching records, subject to the configured result limit. |
+
+The query schema also supports metrics such as count, unique count, mean, and sum, where a suitable column exists.
+
+### 11.4 Filtering and topic search
+
+Structured filters support equality, inequality, containment, inclusion/exclusion, numeric comparisons, and ranges. The Copilot resolves common aliases such as country, region, impact, alert type, principle, actor, event type, date, year, and month to available dataframe columns.
+
+For topic searches, the model is instructed to generate relevant spelling variants, synonyms, abbreviations, alternate names, and specific related concepts. It should avoid overly broad terms that could create false positives.
+
+### 11.5 Charts
+
+The Copilot can infer chart preferences from a question and create Plotly figures from grouped query results. Supported chart requests include, among others:
+
+- Bar and grouped/stacked bar charts.
+- Line and area charts.
+- Pie and donut charts.
+- Scatter and bubble charts.
+- Histograms.
+- Box and violin plots.
+- Heatmaps and scatter-matrix views.
+- Treemaps, sunbursts, funnels, and waterfall charts.
+
+A chart is only produced when the query result contains suitable grouped categorical and numeric data. The application must not fabricate missing values to force a chart.
+
+### 11.6 Scope and evidence rules
+
+The Copilot is restricted to information in the authorized alerts and CFR datasets. It must:
+
+- Query the dataset before giving factual answers.
+- Use computed values returned by the query engine.
+- Mention the number of records covered by a summary.
+- State when required fields or records are unavailable.
+- Distinguish a zero-result search from proof that the dataset contains no relevant information.
+- Avoid inventing totals, percentages, trends, causes, countries, or categories.
+- Decline questions outside the dashboard's data scope using the configured scope message.
+- Append the EU SEE website footer to its answers.
+
+**Recommended user practice:** Ask focused questions, specify a country or time period where relevant, and request a table or chart when a comparison would be clearer. Verify the selected filters and record counts before using results in a report.
+
+### 11.7 Conversation history
+
+The Copilot module maintains its own conversation history. The authentication module also provides server-side per-user chat-history persistence, storing messages under a user-specific key derived from the authenticated email. The authentication history helper retains up to 80 messages. The Copilot module's own local history helper retains up to 100 messages. These are distinct persistence mechanisms in the supplied implementation; deployment maintainers should confirm which history path is active for their user experience and avoid assuming the two stores are automatically identical.
+
+---
+
+## 12. Authentication and access control
+
+### 12.1 Authentication flow
+
+The authentication module integrates Firebase Authentication and a browser cookie manager. The application is designed to render the public-facing dashboard without forcing every visitor into a login page. Sign-in and registration are initiated through the dashboard's user privilege interface when a protected feature requires authentication.
+
+The authentication module includes:
+
+- Login.
+- Registration.
+- Password-reset workflow.
+- Email verification handling.
+- Firebase token refresh.
+- Persistent browser session cookie.
+- Session restoration after a browser refresh.
+- Explicit logout and cookie deletion.
+
+The authentication cookie is named `eusee_auth_session` and is configured for a 30-day lifetime in the supplied code. Actual browser persistence also depends on HTTPS, browser policy, and the deployment environment.
+
+### 12.2 Roles
+
+The authorization module defines these standard roles:
+
+| Role | Intended access |
+|---|---|
+| Guest | Limited public/dashboard access according to the guest feature preset. |
+| Viewer | Authenticated viewing access, including the AI Copilot in the supplied role preset. |
+| Privileged | Broad dashboard and analytical access, subject to administrator-only restrictions. |
+| Admin | Explicitly configured administrator email; administrator checks grant full feature access and permit the administration workspace. |
+
+The role returned by the authorization logic is determined from administrator email configuration, temporary shared-account configuration, and privileged email domains. Users who do not match administrator or privileged-domain rules resolve to the viewer role when authenticated.
+
+### 12.3 Feature-level permissions
+
+The feature registry controls access to dashboard sections and individual visualisations. Examples include:
+
+- Dashboard and overview access.
+- Summary cards and monitored-country values.
+- Negative-alert analysis and filters.
+- Analytical flow panels and their individual charts.
+- Map and geospatial visualisations.
+- Data preview and downloads.
+- AI Copilot and Copilot plots.
+- User manual.
+- Administration page.
+
+The administrator interface can configure feature visibility by role. Some permissions are locked for particular roles in the authorization logic. Administrator-only capabilities include the administration page and the Negative Alerts filter panel.
+
+### 12.4 Data scopes
+
+The authorization module supports role-specific restrictions for:
+
+- Regions.
+- Countries.
+- Years.
+
+The `apply_data_scope()` function applies the configured scope to a dataframe for non-admin users. Administrators bypass this row-scope filtering. Configure and test data scopes carefully because they affect the records available to dashboard views and analysis.
+
+### 12.5 Important shared-account warning
+
+The code supports an optional temporary shared account. Shared accounts reduce individual accountability and should not be enabled by default. If a shared account is operationally necessary:
+
+- Use a dedicated account rather than a staff member's personal account.
+- Assign the minimum required role.
+- Set a review/expiry date outside the application if required by policy.
+- Do not enable email-verification bypass unless explicitly approved.
+- Rotate credentials and disable the account when the access period ends.
+
+---
+
+## 13. Administration workspace
+
+The administration workspace is restricted to configured administrator emails.
+
+It contains six areas:
+
+| Area | Main purpose |
+|---|---|
+| Overview | Summary of the current access configuration. |
+| Roles | Configure role-level access. |
+| Dashboard visibility | Enable or disable dashboard features and visualisations by role. |
+| Data scope | Configure permitted regions, countries, and years. |
+| Users | Manage privileged domains and related access settings exposed by the admin interface. |
+| System | Review system/access diagnostics and reset the access configuration when necessary. |
+
+Access settings are stored in Firestore using the configured access-control collection and document. If Firestore is unavailable, the authorization module can fall back to default access configuration for loading; however, saving configuration requires Firestore and should be verified after each administrative change.
+
+### Administrative change procedure
+
+1. Sign in using an explicitly configured administrator account.
+2. Open the Admin workspace.
+3. Review the current configuration before editing.
+4. Change one role or scope at a time.
+5. Save the configuration.
+6. Test the affected permission using a separate test account with the target role.
+7. Confirm that both allowed and restricted views behave as expected.
+8. Record material permission changes according to the project's governance process.
+
+Use the reset-access-config function only when the current permission configuration is corrupted or when a deliberate reset to role defaults is required.
+
+---
+
+## 14. Data processing and refresh behaviour
+
+### 14.1 Main alert data
+
+The main alert dataframe is loaded from Parquet and cached with a one-hour time-to-live. The application performs basic validation and normalisation, including required-column checks and country-label cleaning. The dashboard then creates an authoritative dataframe and applies user data-scope restrictions before presenting the filtered dashboard views.
+
+### 14.2 Global filtering
+
+The active dashboard filters are applied to the alert dataframe. The resulting filtered dataframe is stored in Streamlit session state for downstream visualisations and related UI components.
+
+The global filter dimensions are applied as selections against the corresponding alert fields. Enabling-principle values may be multi-valued and are handled accordingly.
+
+### 14.3 CFR data
+
+The CFR loader caches data based on the source path and file modification metadata. The source is resolved from the environment variable or the newest dated export in the export directory. Country metadata is also used in the CFR load/enrichment process.
+
+### 14.4 Cache invalidation
+
+When replacing a dataset, ensure the running application sees the updated file and refreshes the relevant Streamlit cache. The dashboard uses Streamlit data/resource caching in several places. For an operational refresh, use the deployment's approved restart or cache-clear procedure if a new file is not reflected after the expected cache lifetime.
+
+### 14.5 Data quality checks before publication
+
+Before publishing a new export, verify:
+
+- The Parquet file opens successfully.
+- Required alert columns are present.
+- Country labels are valid and consistent.
+- Region, month, and year fields are populated as expected.
+- Enabling-principle values use the expected labels and delimiters.
+- Alert impact labels are consistent.
+- The country metadata JSON is valid and aligned with the dataset.
+- The CFR export includes all required fields and uses the 1–5 scale.
+- The latest CFR filename follows the expected date pattern.
+
+---
+
+## 15. Deployment considerations
+
+The application can be deployed in any environment that supports the required Python packages, Streamlit, persistent data files, and secure secret injection.
+
+### 15.1 Runtime requirements
+
+- Start the application with `streamlit run app.py`.
+- Expose the configured Streamlit port through the hosting platform or reverse proxy.
+- Configure HTTPS for production use, particularly for persistent authentication cookies.
+- Provide the required secrets securely through the platform's secret manager.
+- Mount or deploy the `exports/` directory and ensure the application process can read it.
+- Include the `docs/` directory if the PDF downloads are required.
+- Ensure the chatbot history directory is writable and persistent if history must survive container restarts.
+
+### 15.2 Container and volume note
+
+The application selects `/exports` when that path exists, otherwise it uses the local `exports/` directory. A container deployment should mount the persistent export volume at `/exports` or package the data under the repository's `exports/` directory.
+
+For example, a conceptual Docker volume mapping could be:
+
+```yaml
+volumes:
+  - ./exports:/exports
+```
+
+The actual Compose/Docker configuration must also define the application image, working directory, port, environment, secrets, and restart policy for the chosen hosting environment.
+
+### 15.3 Persistent storage
+
+Do not assume that a container's writable filesystem is durable. Persist at least:
+
+- The main and CFR data exports if they are not supplied by an external data pipeline.
+- Per-user chat-history files if history persistence is required.
+- Any other operational artefacts explicitly written by the application.
+
+### 15.4 Production release checklist
+
+- [ ] All five Python modules are present and import correctly.
+- [ ] Dependencies are pinned and installed.
+- [ ] Main Parquet file is available and readable.
+- [ ] Country metadata is present and valid.
+- [ ] CFR export is available if CFR features are required.
+- [ ] User manual and executive brief PDFs are present if downloads are enabled.
+- [ ] Firebase client and service-account secrets are configured.
+- [ ] Firestore access-control collection/document is configured.
+- [ ] Administrator email addresses and privileged domains are correct.
+- [ ] OpenAI API key and model are configured if Copilot is enabled.
+- [ ] HTTPS and cookie behaviour are verified.
+- [ ] Export and chat-history storage are persistent where required.
+- [ ] Guest, viewer, privileged, and admin access have been tested.
+- [ ] Dashboard filters, visualisations, map, CFR, downloads, and Copilot have been smoke-tested.
+- [ ] Logs and error reporting do not expose secrets or tokens.
+
+---
+
+## 16. Troubleshooting
+
+| Symptom | Likely area to inspect | Recommended checks |
+|---|---|---|
+| Dashboard reports that `output_final.parquet` is missing | Export path or volume mount | Confirm `/exports/output_final.parquet` or `<repository>/exports/output_final.parquet` exists and is readable by the application process. |
+| Parquet loading fails | File integrity or Parquet engine | Validate the file independently and confirm a compatible `pyarrow` or other pandas Parquet engine is installed. |
+| Country names or map locations are missing | Country metadata / ISO mapping | Validate `countries_metadata.json`, country labels, and the expected metadata keys. |
+| CFR tab reports no data | CFR export discovery | Confirm a valid `CFR_Export_YYYY_MM_DD.csv` exists, or set `EUSEE_CFR_CSV` to a valid file path. |
+| CFR loader reports missing columns | CFR export schema | Compare the CSV headers with the required fields and six principle columns defined in `app.py`. |
+| CFR score warning appears | Source score values | Check that scores are within the expected 1–5 range; correct the source export rather than silently altering values. |
+| Firebase initialisation fails | Firebase secrets or dependencies | Verify the `[firebase]` client settings, service-account credentials, enabled authentication methods, and installed Firebase packages. |
+| Login works but refresh loses the session | Cookie/session configuration | Check HTTPS, browser cookie policy, CookieManager installation, and Firebase refresh-token validity. |
+| User sees the wrong access level | Role configuration | Check administrator emails, privileged domains, temporary shared-account settings, and Firestore access configuration. |
+| Admin changes do not persist | Firestore configuration | Verify the service account, Firestore database, collection/document settings, and write permissions. |
+| AI Copilot reports missing OpenAI configuration | OpenAI secrets | Confirm `[openai].OPENAI_API_KEY` is configured and visible to the Streamlit process. |
+| Copilot returns no matching records | Query scope or search terms | Review the topic wording, active dataset, available columns, and search specificity. A zero-row result is not proof that no relevant information exists. |
+| Copilot cannot create a chart | Query result shape | Request a grouping with a categorical field and a numeric metric; a chart cannot be built from unsuitable or empty results. |
+| User history is not retained | History directory | Check the configured history directory, filesystem write permissions, persistent storage, and authenticated user identity. |
+| PDF download is unavailable | Documentation files | Confirm the expected PDF filename and `docs/` path. |
+| Changes to a data file are not visible | Streamlit cache | Allow the configured cache TTL to expire or use the deployment's approved cache-clear/restart process. |
+
+When troubleshooting authentication or API failures, inspect server logs without printing API keys, Firebase tokens, refresh tokens, private keys, or cookie values.
+
+---
+
+## 17. Security and operational guidance
+
+1. **Protect secrets.** Keep `.streamlit/secrets.toml`, service-account JSON/private keys, API keys, and tokens out of Git.
+2. **Use least privilege.** Give service accounts only the Firebase/Firestore permissions they require.
+3. **Use individual accounts.** Avoid shared accounts where individual authentication is possible.
+4. **Review privileged domains.** A privileged-domain rule can grant broad access to every matching authenticated user. Keep the domain list narrow and current.
+5. **Restrict administrator accounts.** Explicitly configure trusted administrator emails and protect those accounts with the strongest available authentication controls.
+6. **Use HTTPS.** Persistent browser authentication depends on secure cookie handling and should be tested behind the production proxy.
+7. **Protect exported data.** Data download permissions should align with the project's data governance and partner agreements.
+8. **Protect chat history.** The authentication module stores per-user chat history in server-side JSON files. Restrict filesystem access and define a retention/deletion policy.
+9. **Validate uploaded/source data.** Treat Parquet and CSV exports as data inputs; validate schema and content before publishing.
+10. **Avoid sensitive logs.** Do not log credentials, tokens, private keys, or full authentication cookies.
+11. **Review access changes.** Test role and row-scope changes with representative accounts before production release.
+12. **Back up configuration and data.** Maintain controlled backups of source exports and Firestore access configuration.
+
+---
+
+## 18. Maintenance and contribution guidelines
+
+### 18.1 General principles
+
+- Keep data loading, query logic, authorization, and UI rendering separated.
+- Preserve permission checks when adding new dashboard features.
+- Use unique Streamlit widget keys, especially inside repeated components and fragments.
+- Keep visualisations responsive and use the shared Plotly styling helpers.
+- Do not bypass `authz.py` when exposing protected features or data.
+- Do not make the Copilot answer from model knowledge when the question requires dashboard evidence.
+- Keep the expected data schema and documentation aligned with the deployed application.
+
+### 18.2 Adding a dashboard feature
+
+1. Define the feature and the data fields it requires.
+2. Add a permission key to `FEATURE_REGISTRY` in `authz.py`.
+3. Set appropriate defaults in `ROLE_PRESETS` and role restrictions in `LOCKED_FALSE`.
+4. Add the feature to the relevant UI section in `app.py`.
+5. Wrap protected rendering in the corresponding permission check.
+6. If necessary, expose the permission in the admin feature registry and confirm the admin page groups it correctly.
+7. Test the feature for each applicable role.
+8. Test behaviour with restricted region/country/year scopes.
+9. Update this README and the user manual when the user-facing workflow changes.
+
+### 18.3 Changing the Copilot
+
+When changing the Copilot:
+
+- Update the structured tool schema and query executor together.
+- Confirm column resolution works for both alert and CFR schemas.
+- Keep numerical calculations in pandas.
+- Preserve the scope-control rules and zero-result handling.
+- Validate chart generation against empty, categorical-only, and numeric query results.
+- Test summaries, counts, groupings, trends, record retrieval, and cross-dataset questions.
+- Ensure user history is not mixed across authenticated users.
+
+### 18.4 Release validation
+
+Run the application locally or in a staging environment with representative data and accounts before production deployment. At minimum, test the release checklist in [Deployment considerations](#15-deployment-considerations).
+
+---
+
+## 19. Known implementation boundaries
+
+The following boundaries are important when interpreting or maintaining the supplied implementation:
+
+- The dashboard's alert data is dependent on the contents and quality of the supplied Parquet export.
+- CFR analysis is dependent on a correctly formatted dated CSV export and country metadata.
+- Country-level CFR scores and alert-level records are different data units and should not be conflated.
+- Country comparisons based on alert counts may be affected by differences in partner reporting practices.
+- An alert can be associated with multiple enabling principles; principle-level totals may therefore not behave like mutually exclusive categories.
+- The Copilot is limited to the available authorized alert and CFR data. It cannot reliably answer questions about external events or context not represented in those datasets.
+- A failed or overly narrow topic search can return zero records even when related information exists under other wording.
+- Map coverage depends on the availability and quality of geographic metadata.
+- Authentication and role assignment depend on Firebase configuration, the configured email/domain rules, and Firestore availability.
+- Access-configuration loading can fall back to defaults when Firestore is unavailable; saving administrative changes requires a working Firestore connection.
+- The supplied source files do not include a dependency lockfile, automated test suite, CI/CD configuration, Dockerfile, or data-ingestion pipeline specification. These should be maintained separately if required by the deployment.
+- The exact production infrastructure, hosting provider, scheduled data refresh process, and operational backup policy are not established by the five supplied Python modules and should be documented by the deployment owner.
+
+---
+
+## 20. Citation and acknowledgement
+
+When using dashboard data, charts, or findings in a report or presentation, cite the EU SEE Dashboard and identify the relevant visualisation and date of access.
+
+**Suggested citation format:**
+
+> EU SEE Dashboard, “[Name of visualisation]”, accessed [DD Month YYYY].
+
+For project information and related source research, visit the [EU SEE website](https://eusee.hivos.org/).
+
+---
+
+*README prepared from the supplied EU SEE Dashboard application modules. Update this document whenever application features, data schemas, access rules, configuration, or deployment procedures change.*
