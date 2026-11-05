@@ -62,6 +62,110 @@ warnings.filterwarnings(
 from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 
 
+# ============================================================
+# CENTRALIZED CLASSIFICATION CATEGORY PARSING
+# ============================================================
+# These labels contain commas that are part of the category name, not
+# delimiters between multiple categories. Keep this list in one place so
+# filters, cards, charts, heatmaps, Sankey diagrams and exports agree.
+PROTECTED_CLASSIFICATION_LABELS = (
+    "Journalists, media and influencers",
+    "Arrests, Detentions & Judicial Harassment",
+    "CSO Registration, Suspension & Dissolution",
+)
+
+
+def split_category_values(value, protected_labels=None):
+    """Split a comma-separated classification cell without splitting commas
+    that belong to known category labels.
+
+    Returns a list of clean category labels. Missing/empty values return [].
+    Matching of protected labels is case-insensitive and returns the canonical
+    spelling defined in PROTECTED_CLASSIFICATION_LABELS.
+    """
+    if value is None:
+        return []
+    try:
+        if pd.isna(value):
+            return []
+    except (TypeError, ValueError):
+        pass
+
+    text_value = str(value).strip()
+    if not text_value or text_value.lower() in {"nan", "none", "null"}:
+        return []
+
+    # Normalize the known actor abbreviation before tokenization.
+    text_value = re.sub(
+        r"\bVNSAs\b",
+        "Violent non-state actors",
+        text_value,
+        flags=re.IGNORECASE,
+    )
+
+    labels = tuple(protected_labels or PROTECTED_CLASSIFICATION_LABELS)
+    # Longest-first prevents a shorter label from interfering with a longer one.
+    labels = sorted(labels, key=len, reverse=True)
+    placeholders = {}
+
+    for index, canonical_label in enumerate(labels):
+        token = f"__EUSEE_PROTECTED_CATEGORY_{index}__"
+        pattern = re.compile(re.escape(canonical_label), flags=re.IGNORECASE)
+        if pattern.search(text_value):
+            text_value = pattern.sub(lambda _match, t=token: t, text_value)
+            placeholders[token] = canonical_label
+
+    parts = []
+    for raw_part in text_value.split(","):
+        part = re.sub(r"\s+", " ", raw_part).strip()
+        if not part:
+            continue
+        for token, canonical_label in placeholders.items():
+            if token in part:
+                part = part.replace(token, canonical_label)
+        if part and part.lower() not in {"nan", "none", "null"}:
+            parts.append(part)
+
+    return parts
+
+
+def canonicalize_classification_value(value, column=None):
+    """Canonicalize a multi-value classification cell while preserving labels."""
+    parts = split_category_values(value)
+    canonical_parts = []
+
+    for part in parts:
+        part = re.sub(r"\s+", " ", str(part)).strip()
+        if not part:
+            continue
+
+        # Keep protected labels in their exact canonical display form.
+        protected_match = next(
+            (label for label in PROTECTED_CLASSIFICATION_LABELS
+             if part.casefold() == label.casefold()),
+            None,
+        )
+        if protected_match:
+            canonical_parts.append(protected_match)
+            continue
+
+        if column == "Actor of repression":
+            part = re.sub(
+                r"\bVNSAs\b",
+                "Violent non-state actors",
+                part,
+                flags=re.IGNORECASE,
+            )
+
+        part = part.lower()
+        part = part[:1].upper() + part[1:] if part else part
+        canonical_parts.append(part)
+
+    # The source schema stores multiple categories in one comma-separated cell.
+    # Downstream splitting must therefore always use split_category_values().
+    return ", ".join(canonical_parts)
+
+
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 # ============================================================
@@ -2000,65 +2104,12 @@ def load_data():
         "Type of event",
     ]
 
-    protected_subject = "Journalists, media and influencers"
-    protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
-
-    def canonicalize_classification(value, column):
-        if pd.isna(value):
-            return value
-
-        value = str(value).strip()
-
-        if not value:
-            return value
-
-        # Actor-specific canonical replacement.
-        if column == "Actor of repression":
-            value = re.sub(
-                r"\bVNSAs\b",
-                "Violent non-state actors",
-                value,
-                flags=re.IGNORECASE,
-            )
-
-        # Protect the special Subject category before splitting.
-        if column == "Subject of repression":
-            value = re.sub(
-                re.escape(protected_subject),
-                protected_token,
-                value,
-                flags=re.IGNORECASE,
-            )
-
-        cleaned_parts = []
-
-        for part in value.split(","):
-            part = re.sub(r"\s+", " ", part).strip()
-
-            if not part:
-                continue
-
-            # The protected subject is one complete category.
-            if part == protected_token:
-                cleaned_parts.append(protected_subject)
-                continue
-
-            # Canonical case:
-            # first character uppercase, remainder lowercase.
-            # This is what merges case variants before groupby().
-            part = part.lower()
-            part = part[0].upper() + part[1:]
-
-            cleaned_parts.append(part)
-
-        return ", ".join(cleaned_parts)
-
     for column in classification_columns:
         if column in df.columns:
             df[column] = df[column].apply(
-                lambda value, c=column:
-                    canonicalize_classification(value, c)
+                lambda value, c=column: canonicalize_classification_value(value, c)
             )
+
 
     return df
 
@@ -3294,7 +3345,7 @@ def contains_any(cell_value, selected_values):
     selected_norm = {str(v).strip().lower() for v in selected_values if str(v).strip()}
     cell_terms = {
         part.strip().lower()
-        for part in str(cell_value).split(",")
+        for part in split_category_values(cell_value)
         if part.strip()
     }
 
@@ -6747,69 +6798,19 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
         """, unsafe_allow_html=True)
 
 
-def _top_split_item_for_negative_card(
-    df,
-    col,
-    protected_labels=None
-):
-    """Return the most frequent comma-separated item for a negative-alert intelligence card."""
-
+def _top_split_item_for_negative_card(df, col):
+    """Return the most frequent category, respecting protected comma labels."""
     if df is None or df.empty or col not in df.columns:
         return "Not available", 0
 
-    if protected_labels is None:
-        protected_labels = [
-            "Journalists, media and influencers",
-            "Arrests, detentions & judicial harassment",
-            "CSO registration, suspension & dissolution"
-        ]
+    values = df[col].dropna().apply(split_category_values).explode()
+    values = values.dropna().astype(str).str.strip()
+    values = values[values.ne("") & ~values.str.lower().isin(["nan", "none", "null"])]
 
-    s = df[col].dropna().astype(str).str.strip()
-
-    # Standardise abbreviations
-    s = s.str.replace(
-        r"\bVNSAs\b",
-        "Violent non-state actors",
-        regex=True
-    )
-
-    # Protect category labels containing commas
-    placeholders = {
-        label: f"__PROTECTED_LABEL_{i}__"
-        for i, label in enumerate(protected_labels)
-    }
-
-    for label, placeholder in placeholders.items():
-        s = s.str.replace(label, placeholder, regex=False)
-
-    # Split comma-separated values
-    exploded = (
-        s.str.split(",")
-         .explode()
-         .astype(str)
-         .str.strip()
-    )
-
-    # Restore original category labels
-    for label, placeholder in placeholders.items():
-        exploded = exploded.str.replace(
-            placeholder,
-            label,
-            regex=False
-        )
-
-    # Remove empty and invalid entries
-    exploded = exploded[
-        (exploded != "") &
-        (exploded.str.lower() != "nan") &
-        (exploded.str.lower() != "none")
-    ]
-
-    if exploded.empty:
+    if values.empty:
         return "Not available", 0
 
-    counts = exploded.value_counts()
-
+    counts = values.value_counts()
     return str(counts.index[0]), int(counts.iloc[0])
 
 
@@ -7972,18 +7973,7 @@ def render_heatmaps(df, top_n=5):
         st.warning("No data available for heatmaps.")
         return
 
-    protected_label = "Journalists, media and influencers"
-    placeholder = "Journalists__MEDIA__and__influencers"
-
-    def safe_split(x):
-        if pd.isna(x):
-            return []
-        x = str(x).strip()
-        if not x:
-            return []
-        x = x.replace(protected_label, placeholder)
-        parts = [i.strip() for i in x.split(",") if str(i).strip()]
-        return [p.replace(placeholder, protected_label) for p in parts]
+    safe_split = split_category_values
 
     df_exploded = df.copy()
     explode_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression"]
@@ -8047,15 +8037,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
         fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
         return fig
 
-    protected_label = "Journalists, media and influencers"
-    placeholder = "Journalists__MEDIA__and__influencers"
-
-    def split_values(x):
-        if pd.isna(x):
-            return []
-        x = str(x).strip().replace(protected_label, placeholder)
-        parts = [i.strip() for i in x.split(",") if i.strip()]
-        return [p.replace(placeholder, protected_label) for p in parts]
+    split_values = split_category_values
 
     flow_df = df.copy()
     for col in ["Actor of repression", "Mechanism of repression", "Subject of repression"]:
@@ -8374,7 +8356,7 @@ def explode_multi_valued_columns(df, cols):
     df_exploded = df.copy()
     for col in cols:
         if col in df_exploded.columns:
-            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
+            df_exploded[col] = df_exploded[col].apply(split_category_values)
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
@@ -10562,25 +10544,7 @@ if tab_negative is not None:
                 # ---------------- SUMMARY CARDS ----------------
                 # Show totals BEFORE exploding multi-valued columns
 
-                protected_label = "Journalists, media and influencers"
-                placeholder = "Journalists__MEDIA__and__influencers"
-    
-                def safe_split(x):
-                    if pd.isna(x):
-                        return []
-
-                    x = x.strip()
-
-                    # Temporarily replace protected label
-                    x = x.replace(protected_label, placeholder)
-
-                    # Split normally
-                    parts = [i.strip() for i in x.split(",")]
-
-                    # Restore protected label
-                    parts = [p.replace(placeholder, protected_label) for p in parts]
-
-                    return parts
+                safe_split = split_category_values
 
         
                 # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
@@ -10714,21 +10678,15 @@ if tab_negative is not None:
                     if not value:
                         return ""
 
-                    protected_subject = "Journalists, media and influencers"
-                    protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
-
-                    if column == "Subject of repression":
-                        value = re.sub(
-                            re.escape(protected_subject),
-                            protected_token,
-                            value,
-                            flags=re.IGNORECASE,
-                        )
-
-                    if value == protected_token:
-                        return protected_subject
-
                     value = re.sub(r"\s+", " ", value).strip()
+
+                    protected_match = next(
+                        (label for label in PROTECTED_CLASSIFICATION_LABELS
+                         if value.casefold() == label.casefold()),
+                        None,
+                    )
+                    if protected_match:
+                        return protected_match
 
                     if not value:
                         return ""
