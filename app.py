@@ -6746,26 +6746,72 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
         """, unsafe_allow_html=True)
 
-def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
+
+def _top_split_item_for_negative_card(
+    df,
+    col,
+    protected_labels=None
+):
     """Return the most frequent comma-separated item for a negative-alert intelligence card."""
+
     if df is None or df.empty or col not in df.columns:
         return "Not available", 0
-    placeholder = "Journalists__MEDIA__and__influencers"
+
+    if protected_labels is None:
+        protected_labels = [
+            "Journalists, media and influencers",
+            "Arrests, detentions & judicial harassment",
+            "CSO registration, suspension & dissolution"
+        ]
+
     s = df[col].dropna().astype(str).str.strip()
-    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-    s = s.str.replace(protected_label, placeholder, regex=False)
+
+    # Standardise abbreviations
+    s = s.str.replace(
+        r"\bVNSAs\b",
+        "Violent non-state actors",
+        regex=True
+    )
+
+    # Protect category labels containing commas
+    placeholders = {
+        label: f"__PROTECTED_LABEL_{i}__"
+        for i, label in enumerate(protected_labels)
+    }
+
+    for label, placeholder in placeholders.items():
+        s = s.str.replace(label, placeholder, regex=False)
+
+    # Split comma-separated values
     exploded = (
         s.str.split(",")
-        .explode()
-        .astype(str)
-        .str.strip()
-        .str.replace(placeholder, protected_label, regex=False)
+         .explode()
+         .astype(str)
+         .str.strip()
     )
-    exploded = exploded[(exploded != "") & (exploded.str.lower() != "nan") & (exploded.str.lower() != "none")]
+
+    # Restore original category labels
+    for label, placeholder in placeholders.items():
+        exploded = exploded.str.replace(
+            placeholder,
+            label,
+            regex=False
+        )
+
+    # Remove empty and invalid entries
+    exploded = exploded[
+        (exploded != "") &
+        (exploded.str.lower() != "nan") &
+        (exploded.str.lower() != "none")
+    ]
+
     if exploded.empty:
         return "Not available", 0
+
     counts = exploded.value_counts()
+
     return str(counts.index[0]), int(counts.iloc[0])
+
 
 def _compact_text_for_card(value, max_len=42):
     value = str(value or "Not available").strip()
