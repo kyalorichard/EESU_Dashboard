@@ -2415,9 +2415,7 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
                 }
 
         result["question"] = question
-
         messages.append({"role": "assistant", "content": json.dumps(result, ensure_ascii=False, default=str), "created_at": datetime.utcnow().isoformat()})
-
         _save_history(base_dir, messages)
 
         st.rerun(scope="fragment")
