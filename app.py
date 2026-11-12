@@ -62,6 +62,110 @@ warnings.filterwarnings(
 from auth import auth_ui, is_privileged, is_authenticated, init_session, restore_session, logout
 
 
+# ============================================================
+# CENTRALIZED CLASSIFICATION CATEGORY PARSING
+# ============================================================
+# These labels contain commas that are part of the category name, not
+# delimiters between multiple categories. Keep this list in one place so
+# filters, cards, charts, heatmaps, Sankey diagrams and exports agree.
+PROTECTED_CLASSIFICATION_LABELS = (
+    "Journalists, media and influencers",
+    "Arrests, Detentions & Judicial Harassment",
+    "CSO Registration, Suspension & Dissolution",
+)
+
+
+def split_category_values(value, protected_labels=None):
+    """Split a comma-separated classification cell without splitting commas
+    that belong to known category labels.
+
+    Returns a list of clean category labels. Missing/empty values return [].
+    Matching of protected labels is case-insensitive and returns the canonical
+    spelling defined in PROTECTED_CLASSIFICATION_LABELS.
+    """
+    if value is None:
+        return []
+    try:
+        if pd.isna(value):
+            return []
+    except (TypeError, ValueError):
+        pass
+
+    text_value = str(value).strip()
+    if not text_value or text_value.lower() in {"nan", "none", "null"}:
+        return []
+
+    # Normalize the known actor abbreviation before tokenization.
+    text_value = re.sub(
+        r"\bVNSAs\b",
+        "Violent non-state actors",
+        text_value,
+        flags=re.IGNORECASE,
+    )
+
+    labels = tuple(protected_labels or PROTECTED_CLASSIFICATION_LABELS)
+    # Longest-first prevents a shorter label from interfering with a longer one.
+    labels = sorted(labels, key=len, reverse=True)
+    placeholders = {}
+
+    for index, canonical_label in enumerate(labels):
+        token = f"__EUSEE_PROTECTED_CATEGORY_{index}__"
+        pattern = re.compile(re.escape(canonical_label), flags=re.IGNORECASE)
+        if pattern.search(text_value):
+            text_value = pattern.sub(lambda _match, t=token: t, text_value)
+            placeholders[token] = canonical_label
+
+    parts = []
+    for raw_part in text_value.split(","):
+        part = re.sub(r"\s+", " ", raw_part).strip()
+        if not part:
+            continue
+        for token, canonical_label in placeholders.items():
+            if token in part:
+                part = part.replace(token, canonical_label)
+        if part and part.lower() not in {"nan", "none", "null"}:
+            parts.append(part)
+
+    return parts
+
+
+def canonicalize_classification_value(value, column=None):
+    """Canonicalize a multi-value classification cell while preserving labels."""
+    parts = split_category_values(value)
+    canonical_parts = []
+
+    for part in parts:
+        part = re.sub(r"\s+", " ", str(part)).strip()
+        if not part:
+            continue
+
+        # Keep protected labels in their exact canonical display form.
+        protected_match = next(
+            (label for label in PROTECTED_CLASSIFICATION_LABELS
+             if part.casefold() == label.casefold()),
+            None,
+        )
+        if protected_match:
+            canonical_parts.append(protected_match)
+            continue
+
+        if column == "Actor of repression":
+            part = re.sub(
+                r"\bVNSAs\b",
+                "Violent non-state actors",
+                part,
+                flags=re.IGNORECASE,
+            )
+
+        part = part.lower()
+        part = part[:1].upper() + part[1:] if part else part
+        canonical_parts.append(part)
+
+    # The source schema stores multiple categories in one comma-separated cell.
+    # Downstream splitting must therefore always use split_category_values().
+    return ", ".join(canonical_parts)
+
+
 st.set_page_config(page_title="EUSEE Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 # ============================================================
@@ -2000,65 +2104,12 @@ def load_data():
         "Type of event",
     ]
 
-    protected_subject = "Journalists, media and influencers"
-    protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
-
-    def canonicalize_classification(value, column):
-        if pd.isna(value):
-            return value
-
-        value = str(value).strip()
-
-        if not value:
-            return value
-
-        # Actor-specific canonical replacement.
-        if column == "Actor of repression":
-            value = re.sub(
-                r"\bVNSAs\b",
-                "Violent non-state actors",
-                value,
-                flags=re.IGNORECASE,
-            )
-
-        # Protect the special Subject category before splitting.
-        if column == "Subject of repression":
-            value = re.sub(
-                re.escape(protected_subject),
-                protected_token,
-                value,
-                flags=re.IGNORECASE,
-            )
-
-        cleaned_parts = []
-
-        for part in value.split(","):
-            part = re.sub(r"\s+", " ", part).strip()
-
-            if not part:
-                continue
-
-            # The protected subject is one complete category.
-            if part == protected_token:
-                cleaned_parts.append(protected_subject)
-                continue
-
-            # Canonical case:
-            # first character uppercase, remainder lowercase.
-            # This is what merges case variants before groupby().
-            part = part.lower()
-            part = part[0].upper() + part[1:]
-
-            cleaned_parts.append(part)
-
-        return ", ".join(cleaned_parts)
-
     for column in classification_columns:
         if column in df.columns:
             df[column] = df[column].apply(
-                lambda value, c=column:
-                    canonicalize_classification(value, c)
+                lambda value, c=column: canonicalize_classification_value(value, c)
             )
+
 
     return df
 
@@ -3294,7 +3345,7 @@ def contains_any(cell_value, selected_values):
     selected_norm = {str(v).strip().lower() for v in selected_values if str(v).strip()}
     cell_terms = {
         part.strip().lower()
-        for part in str(cell_value).split(",")
+        for part in split_category_values(cell_value)
         if part.strip()
     }
 
@@ -5642,6 +5693,7 @@ def _build_cfr_over_time_figure(data):
 def render_cfr_matrix_zoom_controls():
     """Add accessible zoom controls for the aggregated CFR principle matrix."""
     components.html(
+        
         r"""
         <script>
         (function () {
@@ -5871,8 +5923,7 @@ def render_cfr_analysis():
 
             aggregated_tab, over_time_tab = st.tabs(
                 [
-                    "Aggregated CFR scores by principle",
-                    "Principles over time",
+                    "Aggregated CFR scores over time",
                 ]
             )
 
@@ -6746,26 +6797,22 @@ def render_summary_cards(df, base_bar_height=25, show_breakdown=True, card_key="
 
         """, unsafe_allow_html=True)
 
-def _top_split_item_for_negative_card(df, col, protected_label="Journalists, media and influencers"):
-    """Return the most frequent comma-separated item for a negative-alert intelligence card."""
+
+def _top_split_item_for_negative_card(df, col):
+    """Return the most frequent category, respecting protected comma labels."""
     if df is None or df.empty or col not in df.columns:
         return "Not available", 0
-    placeholder = "Journalists__MEDIA__and__influencers"
-    s = df[col].dropna().astype(str).str.strip()
-    s = s.str.replace(r"\bVNSAs\b", "Violent non-state actors", regex=True)
-    s = s.str.replace(protected_label, placeholder, regex=False)
-    exploded = (
-        s.str.split(",")
-        .explode()
-        .astype(str)
-        .str.strip()
-        .str.replace(placeholder, protected_label, regex=False)
-    )
-    exploded = exploded[(exploded != "") & (exploded.str.lower() != "nan") & (exploded.str.lower() != "none")]
-    if exploded.empty:
+
+    values = df[col].dropna().apply(split_category_values).explode()
+    values = values.dropna().astype(str).str.strip()
+    values = values[values.ne("") & ~values.str.lower().isin(["nan", "none", "null"])]
+
+    if values.empty:
         return "Not available", 0
-    counts = exploded.value_counts()
+
+    counts = values.value_counts()
     return str(counts.index[0]), int(counts.iloc[0])
+
 
 def _compact_text_for_card(value, max_len=42):
     value = str(value or "Not available").strip()
@@ -7926,18 +7973,7 @@ def render_heatmaps(df, top_n=5):
         st.warning("No data available for heatmaps.")
         return
 
-    protected_label = "Journalists, media and influencers"
-    placeholder = "Journalists__MEDIA__and__influencers"
-
-    def safe_split(x):
-        if pd.isna(x):
-            return []
-        x = str(x).strip()
-        if not x:
-            return []
-        x = x.replace(protected_label, placeholder)
-        parts = [i.strip() for i in x.split(",") if str(i).strip()]
-        return [p.replace(placeholder, protected_label) for p in parts]
+    safe_split = split_category_values
 
     df_exploded = df.copy()
     explode_cols = ["Actor of repression", "Subject of repression", "Mechanism of repression"]
@@ -8001,15 +8037,7 @@ def render_sankey(df, top_n=None, width=900, wrap_width=22):
         fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
         return fig
 
-    protected_label = "Journalists, media and influencers"
-    placeholder = "Journalists__MEDIA__and__influencers"
-
-    def split_values(x):
-        if pd.isna(x):
-            return []
-        x = str(x).strip().replace(protected_label, placeholder)
-        parts = [i.strip() for i in x.split(",") if i.strip()]
-        return [p.replace(placeholder, protected_label) for p in parts]
+    split_values = split_category_values
 
     flow_df = df.copy()
     for col in ["Actor of repression", "Mechanism of repression", "Subject of repression"]:
@@ -8328,7 +8356,7 @@ def explode_multi_valued_columns(df, cols):
     df_exploded = df.copy()
     for col in cols:
         if col in df_exploded.columns:
-            df_exploded[col] = df_exploded[col].fillna("").astype(str).str.split(",")
+            df_exploded[col] = df_exploded[col].apply(split_category_values)
             df_exploded = df_exploded.explode(col)
             df_exploded[col] = df_exploded[col].str.strip()
     return df_exploded
@@ -10516,25 +10544,7 @@ if tab_negative is not None:
                 # ---------------- SUMMARY CARDS ----------------
                 # Show totals BEFORE exploding multi-valued columns
 
-                protected_label = "Journalists, media and influencers"
-                placeholder = "Journalists__MEDIA__and__influencers"
-    
-                def safe_split(x):
-                    if pd.isna(x):
-                        return []
-
-                    x = x.strip()
-
-                    # Temporarily replace protected label
-                    x = x.replace(protected_label, placeholder)
-
-                    # Split normally
-                    parts = [i.strip() for i in x.split(",")]
-
-                    # Restore protected label
-                    parts = [p.replace(placeholder, protected_label) for p in parts]
-
-                    return parts
+                safe_split = split_category_values
 
         
                 # ---------------- EXPLODE MULTI-VALUED COLUMNS ----------------
@@ -10668,21 +10678,15 @@ if tab_negative is not None:
                     if not value:
                         return ""
 
-                    protected_subject = "Journalists, media and influencers"
-                    protected_token = "__PROTECTED_JOURNALISTS_MEDIA_INFLUENCERS__"
-
-                    if column == "Subject of repression":
-                        value = re.sub(
-                            re.escape(protected_subject),
-                            protected_token,
-                            value,
-                            flags=re.IGNORECASE,
-                        )
-
-                    if value == protected_token:
-                        return protected_subject
-
                     value = re.sub(r"\s+", " ", value).strip()
+
+                    protected_match = next(
+                        (label for label in PROTECTED_CLASSIFICATION_LABELS
+                         if value.casefold() == label.casefold()),
+                        None,
+                    )
+                    if protected_match:
+                        return protected_match
 
                     if not value:
                         return ""
@@ -10829,7 +10833,7 @@ if tab_negative is not None:
                 render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count", title="Types of restrictive actors", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
                 render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count", title="Types of civil society actors affected", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
                 render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count", title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
-                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
+                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events", horizontal=False, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count", title="Distribution of negative alert types", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False, percentage_denominator=len(reactive_df_updated)),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
              
