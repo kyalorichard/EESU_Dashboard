@@ -17,7 +17,7 @@ import json
 import re
 
 import uuid
-
+a
 from datetime import datetime
 
 from pathlib import Path
@@ -940,7 +940,11 @@ def _save_history(base_dir: Path, messages: list[dict]) -> None:
 
 def _sanitize_assistant_answer(answer: str) -> str:
     """Remove leaked execution traces and unfinished progress narration."""
-    text = str(answer or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    text = str(answer or "")
+    # Decode literal escaped line breaks returned by the model/API so they
+    # render as normal Markdown paragraphs rather than visible \n characters.
+    text = text.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+    text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
     trace_patterns = (
         r"(?im)^.*(?:to=multi_tool_use\.parallel|multi_tool_use\.parallel|"
         r"functions\.query_dataset|query_dataset\s+code|function_call_output|"
