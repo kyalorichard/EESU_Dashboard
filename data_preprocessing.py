@@ -46,12 +46,14 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 
+
+
 # --- LOCAL PATHS ---
 OUTPUT_FOLDER = BASE_DIR / "exports"
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
 INPUT_CSV = OUTPUT_FOLDER / "output_final.csv"
-THEMES_FILE = OUTPUT_FOLDER / "themes.json"
+THEMES_FILE = OUTPUT_FOLDER / "themes_updated.json" 
 OUTPUT_CSV = OUTPUT_FOLDER / "output_final.csv"
 OUTPUT_PARQUET = OUTPUT_FOLDER / "output_final.parquet"
 PERMANENTLY_FAILED_FILE = OUTPUT_FOLDER / "permanently_failed_batches.json"
@@ -247,7 +249,7 @@ def fetch_required_input_files() -> None:
         raise RuntimeError("SFTP is required because remote files are the source of truth.")
 
     download_file_from_sftp("output_final.csv", INPUT_CSV, required=True)
-    download_file_from_sftp("themes.json", THEMES_FILE, required=True)
+    download_file_from_sftp("themes_updated.json", THEMES_FILE, required=True)
     download_file_from_sftp("output_final.parquet", OUTPUT_PARQUET, required=False)
 
 
@@ -491,18 +493,32 @@ def load_themes(themes_path: Path) -> dict:
         return json.load(f)
 
 
-def load_input_dataframe(input_csv: Path, test_rows: int | None = None) -> pd.DataFrame:
+def load_input_dataframe(
+    input_csv: Path,
+    test_rows: int | None = None
+) -> pd.DataFrame:
+
     if not input_csv.exists():
-        raise FileNotFoundError(f"Input CSV not found: {input_csv}")
+        raise FileNotFoundError(
+            f"Input CSV not found: {input_csv}"
+        )
 
     df = pd.read_csv(input_csv)
 
     if test_rows:
         df = df.head(test_rows).copy()
 
+    # Ensure all classification fields exist
     for col in FIELDS:
         if col not in df.columns:
-            df[col] = ""
+            df[col] = pd.Series(
+                pd.NA,
+                index=df.index,
+                dtype="string"
+            )
+        else:
+            # Convert numeric/float columns to string
+            df[col] = df[col].astype("string")
 
     return df
 
@@ -989,8 +1005,14 @@ async def process_all(
 
     for col in FIELDS:
         if col not in df_out.columns:
-            df_out[col] = ""
-
+            df_out[col] = pd.Series(
+                pd.NA,
+                index=df_out.index,
+                dtype="string"
+            )
+        else:
+            df_out[col] = df_out[col].astype("string")
+        
     permanently_failed = []
     semaphore = asyncio.Semaphore(CONCURRENT_BATCHES)
 
