@@ -5654,11 +5654,17 @@ def _build_cfr_over_time_figure(data):
     # ---------------------------------------------------------
     # AXIS / LAYOUT
     # ---------------------------------------------------------
+    # Show only years represented in the annual dataset.
+    available_years = sorted(
+        annual_scores["CFR Year"].dropna().unique().tolist()
+    )
+
     fig.update_xaxes(
         title_text="Year",
         type="linear",
-        tickmode="linear",
-        dtick=1,
+        tickmode="array",
+        tickvals=available_years,
+        ticktext=[str(int(year)) for year in available_years],
         showgrid=True,
         zeroline=False,
     )
@@ -5674,7 +5680,8 @@ def _build_cfr_over_time_figure(data):
     fig.update_layout(
         height=390,
         margin=dict(l=55, r=20, t=20, b=55),
-        hovermode="x unified",
+        # Hover only the individual trace/point under the cursor.
+        hovermode="closest",
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -6012,7 +6019,7 @@ def render_cfr_analysis():
                             Aggregated CFR scores by principle over time
                         </div>
                         <div class="cfr-panel-note">
-                            Mean score over time.
+                            Mean score over time (Scores may overlap. Hover for details).
                         </div>
                     </div>
                     """,
