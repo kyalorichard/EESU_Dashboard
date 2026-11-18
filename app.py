@@ -5286,7 +5286,7 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-title">Scoring scale</div>'
         '<div class="cfr-kpi-value">1–5</div>'
         '<div class="cfr-kpi-note">'
-        'Most restricted to most enabling'
+        'Fully disabling to fully enabling'
         '</div>'
         '</div>'
         '</div>'
@@ -11897,7 +11897,7 @@ if tab_cfr is not None:
                 <div class="cfr-page-subtitle">
                     Explore score patterns across the six EU SEE enabling
                     environment principles.<br>
-                    Scores range from 1 (most restricted) to 5 (most enabling).
+                    Scores range from 1 (fully disabling) to 5 (fully enabling).
                 </div>
                 {cfr_last_updated_html}
             </div>
