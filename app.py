@@ -35,7 +35,7 @@ import tempfile
 import textwrap
 import uuid
 import warnings
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 from pathlib import Path
 import numpy as np
@@ -3223,40 +3223,42 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         for p in selected_principle_display
     ]
 
-    selected_years = safe_multiselect(
-        "Year",
-        sorted(data["year"].dropna().unique())
-        if not data.empty and "year" in data.columns
-        else [],
-        "selected_years",
-        container=sidebar_filter_box,
-    )
-
+    # ---------------------------------------------------------
+    # GLOBAL DATE-RANGE FILTER
+    # ---------------------------------------------------------
+    # Use the original creation_date timestamp rather than separate year
+    # and month fields. This supports exact ranges across calendar years.
     if (
         not data.empty
-        and "year" in data.columns
-        and "month_name" in data.columns
-        and selected_years
+        and "creation_date" in data.columns
     ):
-        available_months_source = data[data["year"].isin(selected_years)]["month_name"].dropna().unique()
-    elif not data.empty and "month_name" in data.columns:
-        available_months_source = data["month_name"].dropna().unique()
+        _date_values = pd.to_datetime(
+            data["creation_date"],
+            errors="coerce",
+        ).dropna()
+
+        if not _date_values.empty:
+            _available_min_date = _date_values.min().date()
+            _available_max_date = _date_values.max().date()
+
+            selected_date_range = st.date_input(
+                "Date range",
+                value=(_available_min_date, _available_max_date),
+                min_value=_available_min_date,
+                max_value=_available_max_date,
+                format="DD/MM/YYYY",
+                key="global_date_range",
+                help=(
+                    "Select the start and end dates. Both dates are included. "
+                    "The default selection covers the full available dataset."
+                ),
+            )
+        else:
+            selected_date_range = None
+            st.caption("Date range unavailable: the dataset has no valid dates.")
     else:
-        available_months_source = []
-
-    available_months = sorted(
-        available_months_source,
-        key=lambda m: pd.to_datetime(m, format="%B", errors="coerce").month
-        if pd.notna(pd.to_datetime(m, format="%B", errors="coerce"))
-        else 13,
-    )
-
-    selected_months = safe_multiselect(
-        "Month",
-        available_months,
-        "selected_months",
-        container=sidebar_filter_box,
-    )
+        selected_date_range = None
+        st.caption("Date range unavailable: creation_date is not present.")
 
     reset_col1, reset_col2 = st.columns([1, 1])
 
@@ -3282,8 +3284,6 @@ if reset_filters:
         "selected_alert_types",
         "selected_enabling_principle",
         "selected_alert_impacts",
-        "selected_months",
-        "selected_years",
         "selected_actor_types",
         "selected_subject_types",
         "selected_mechanism_types",
@@ -3292,6 +3292,10 @@ if reset_filters:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
         st.session_state.pop(f"{key}_options_signature", None)
+
+    # Reset the native date-range widget to the full available dataset period.
+    st.session_state.pop("global_date_range", None)
+
     # Clear table searches too, so reset returns the Overview Data Preview to
     # the full active dataset immediately.
     for table_key in ["overview_summary_data_preview", "negative_summary_data_preview"]:
@@ -3403,13 +3407,35 @@ if not _filter_is_unrestricted("selected_enabling_principle"):
 if not _filter_is_unrestricted("selected_alert_impacts"):
     filter_mask &= data["alert-impact"].isin(selected_alert_impacts)
 
-# ---------------- MONTH ----------------
-if not _filter_is_unrestricted("selected_months"):
-    filter_mask &= data["month_name"].isin(selected_months)
+# ---------------- DATE RANGE ----------------
+# The selected range is inclusive of both the start and end dates.
+# A one-date selection (while the user is completing the range) is treated
+# as that single calendar day. An empty/unavailable selection leaves all
+# dates included.
+if (
+    selected_date_range is not None
+    and "creation_date" in data.columns
+):
+    if isinstance(selected_date_range, (tuple, list)):
+        if len(selected_date_range) >= 2:
+            _range_start, _range_end = selected_date_range[0], selected_date_range[1]
+        elif len(selected_date_range) == 1:
+            _range_start = _range_end = selected_date_range[0]
+        else:
+            _range_start = _range_end = None
+    else:
+        _range_start = _range_end = selected_date_range
 
-# ---------------- YEAR ----------------
-if not _filter_is_unrestricted("selected_years"):
-    filter_mask &= data["year"].isin(selected_years)
+    if _range_start is not None and _range_end is not None:
+        _creation_dates = pd.to_datetime(
+            data["creation_date"],
+            errors="coerce",
+        ).dt.date
+
+        filter_mask &= (
+            _creation_dates.ge(_range_start)
+            & _creation_dates.le(_range_end)
+        )
 
 # ---------------- FINAL FILTERED DATA ----------------
 filtered_global = data.loc[filter_mask].copy()
@@ -10841,7 +10867,7 @@ if tab_negative is not None:
                 render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count", title="Types of restrictive actors", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
                 render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count", title="Types of civil society actors affected", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
                 render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count", title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
-                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events <span style='display:inline-block; background-color:#F5F0FF; border:1px solid #D8C4F7; border-radius:5px; padding:3px 10px; color:#6B21A8; font-size:12px; font-weight:700; letter-spacing:0.4px; vertical-align:middle'>BETA</span>", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
+                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events <span style='display:inline-block; background-color:#F5F0FF; border:1px solid #D8C4F7 !important; border-radius:5px; padding:3px 10px; color:#6B21A8; font-size:12px; font-weight:700; letter-spacing:0.4px; vertical-align:middle'>BETA</span>", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count", title="Distribution of negative alert types", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False, percentage_denominator=len(reactive_df_updated)),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
              
