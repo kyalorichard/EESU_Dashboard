@@ -10166,10 +10166,6 @@ def render_dashboard_plotly_chart(
             ),
             margin=dict(t=94),
         )
-    else:
-        # A chart with an externally rendered HTML heading does not need
-        # the reserved top margin used by Plotly-native chart titles.
-        fig.update_layout(title=None, margin=dict(t=28))
 
     # Percentage methodology: show a small Plotly-native information icon.
     # The disclaimer appears only while the mouse is over the icon and
@@ -10845,67 +10841,7 @@ if tab_negative is not None:
                 render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count", title="Types of restrictive actors", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
                 render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count", title="Types of civil society actors affected", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
                 render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count", title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
-                # Render the heading and BETA badge as HTML rather than inside
-                # the Plotly SVG title. This preserves the reference background
-                # and visible lavender border consistently across browsers.
-                r2c1.markdown(
-                    """
-                    <div style="
-                        display: flex;
-                        align-items: center;
-                        flex-wrap: nowrap;
-                        gap: 12px;
-                        margin: 0 0 8px 0;
-                        font-family: 'Anek Devanagari', Arial, sans-serif;
-                    ">
-                        <span style="
-                            color: #16002B;
-                            font-size: 23px;
-                            font-weight: 800;
-                            line-height: 1.2;
-                            white-space: nowrap;
-                        ">Types of negative events</span>
-                        <span style="
-                            display: inline-flex;
-                            align-items: center;
-                            justify-content: center;
-                            background-color: #F5F0FF;
-                            border: 1px solid #D8C4F7;
-                            border-radius: 5px;
-                            padding: 3px 10px;
-                            color: #6B21A8;
-                            font-size: 12px;
-                            font-weight: 700;
-                            letter-spacing: 0.4px;
-                            line-height: 1.4;
-                            white-space: nowrap;
-                            box-sizing: border-box;
-                        ">BETA</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                fig_negative_event_types = create_bar_chart(
-                    m4,
-                    "Type of event",
-                    "count",
-                    title=None,
-                    horizontal=True,
-                    normalize_labels=True,
-                    percentage_denominator=len(reactive_df_updated),
-                )
-                render_dashboard_plotly_chart(
-                    fig_negative_event_types,
-                    plot_df=m4,
-                    visual_type="bar chart",
-                    x_col="Type of event",
-                    group_col="alert-impact",
-                    dashboard_df=reactive_df_updated,
-                    key="tab2_chart4",
-                    container=r2c1,
-                    permission_key="view_chart_negative_event_types",
-                    permission_label="Negative event types chart",
-                )
+                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events <span style='display:inline-block; background-color:#F5F0FF; border:1px solid #D8C4F7; border-radius:5px; padding:3px 10px; color:#6B21A8; font-size:12px; font-weight:700; letter-spacing:0.4px; vertical-align:middle'>BETA</span>", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count", title="Distribution of negative alert types", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False, percentage_denominator=len(reactive_df_updated)),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
              
