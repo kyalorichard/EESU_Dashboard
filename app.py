@@ -3224,14 +3224,20 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
     ]
 
     # ---------------------------------------------------------
-    # GLOBAL DATE-RANGE FILTER
+    # GLOBAL DATE FILTER: DATE RANGE OR MONTH/YEAR
     # ---------------------------------------------------------
-    # Use the original creation_date timestamp rather than separate year
-    # and month fields. This supports exact ranges across calendar years.
-    if (
-        not data.empty
-        and "creation_date" in data.columns
-    ):
+    date_filter_mode = st.selectbox(
+        "Date filter mode",
+        options=["Date range", "Month and year"],
+        key="date_filter_mode",
+        help="Choose an exact date range or filter by calendar month and year.",
+    )
+
+    selected_date_range = None
+    selected_years = []
+    selected_months = []
+
+    if not data.empty and "creation_date" in data.columns:
         _date_values = pd.to_datetime(
             data["creation_date"],
             errors="coerce",
@@ -3241,24 +3247,50 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
             _available_min_date = _date_values.min().date()
             _available_max_date = _date_values.max().date()
 
-            selected_date_range = st.date_input(
-                "Date range",
-                value=(_available_min_date, _available_max_date),
-                min_value=_available_min_date,
-                max_value=_available_max_date,
-                format="DD/MM/YYYY",
-                key="global_date_range",
-                help=(
-                    "Select the start and end dates. Both dates are included. "
-                    "The default selection covers the full available dataset."
-                ),
-            )
+            if date_filter_mode == "Date range":
+                selected_date_range = st.date_input(
+                    "Date range",
+                    value=(_available_min_date, _available_max_date),
+                    min_value=_available_min_date,
+                    max_value=_available_max_date,
+                    format="DD/MM/YYYY",
+                    key="global_date_range",
+                    help=(
+                        "Select the start and end dates. Both dates are included. "
+                        "The default selection covers the full available dataset."
+                    ),
+                )
+            else:
+                _available_years = sorted(
+                    _date_values.dt.year.dropna().astype(int).unique().tolist()
+                )
+                _month_order = [
+                    "January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December",
+                ]
+                _available_months = [
+                    month for month in _month_order
+                    if month in _date_values.dt.strftime("%B").dropna().unique()
+                ]
+
+                selected_years = st.multiselect(
+                    "Year",
+                    options=_available_years,
+                    default=[],
+                    key="global_filter_years",
+                    help="Select one or more years. Leave empty to include all years.",
+                )
+                selected_months = st.multiselect(
+                    "Month",
+                    options=_available_months,
+                    default=[],
+                    key="global_filter_months",
+                    help="Select one or more months. Leave empty to include all months.",
+                )
         else:
-            selected_date_range = None
-            st.caption("Date range unavailable: the dataset has no valid dates.")
+            st.caption("Date filters unavailable: the dataset has no valid dates.")
     else:
-        selected_date_range = None
-        st.caption("Date range unavailable: creation_date is not present.")
+        st.caption("Date filters unavailable: creation_date is not present.")
 
     reset_col1, reset_col2 = st.columns([1, 1])
 
@@ -3293,8 +3325,14 @@ if reset_filters:
         st.session_state.pop(f"{key}_widget", None)
         st.session_state.pop(f"{key}_options_signature", None)
 
-    # Reset the native date-range widget to the full available dataset period.
-    st.session_state.pop("global_date_range", None)
+    # Reset all date-filter widgets and restore the full dataset period.
+    for date_key in [
+        "global_date_range",
+        "date_filter_mode",
+        "global_filter_years",
+        "global_filter_months",
+    ]:
+        st.session_state.pop(date_key, None)
 
     # Clear table searches too, so reset returns the Overview Data Preview to
     # the full active dataset immediately.
@@ -3407,35 +3445,39 @@ if not _filter_is_unrestricted("selected_enabling_principle"):
 if not _filter_is_unrestricted("selected_alert_impacts"):
     filter_mask &= data["alert-impact"].isin(selected_alert_impacts)
 
-# ---------------- DATE RANGE ----------------
-# The selected range is inclusive of both the start and end dates.
-# A one-date selection (while the user is completing the range) is treated
-# as that single calendar day. An empty/unavailable selection leaves all
-# dates included.
-if (
-    selected_date_range is not None
-    and "creation_date" in data.columns
-):
-    if isinstance(selected_date_range, (tuple, list)):
-        if len(selected_date_range) >= 2:
-            _range_start, _range_end = selected_date_range[0], selected_date_range[1]
-        elif len(selected_date_range) == 1:
-            _range_start = _range_end = selected_date_range[0]
+# ---------------- DATE FILTER ----------------
+if "creation_date" in data.columns:
+    _creation_dates_dt = pd.to_datetime(
+        data["creation_date"],
+        errors="coerce",
+    )
+
+    if date_filter_mode == "Date range" and selected_date_range is not None:
+        # The selected range is inclusive of both the start and end dates.
+        # A one-date selection is treated as that single calendar day.
+        if isinstance(selected_date_range, (tuple, list)):
+            if len(selected_date_range) >= 2:
+                _range_start, _range_end = selected_date_range[0], selected_date_range[1]
+            elif len(selected_date_range) == 1:
+                _range_start = _range_end = selected_date_range[0]
+            else:
+                _range_start = _range_end = None
         else:
-            _range_start = _range_end = None
-    else:
-        _range_start = _range_end = selected_date_range
+            _range_start = _range_end = selected_date_range
 
-    if _range_start is not None and _range_end is not None:
-        _creation_dates = pd.to_datetime(
-            data["creation_date"],
-            errors="coerce",
-        ).dt.date
+        if _range_start is not None and _range_end is not None:
+            _creation_dates = _creation_dates_dt.dt.date
+            filter_mask &= (
+                _creation_dates.ge(_range_start)
+                & _creation_dates.le(_range_end)
+            )
 
-        filter_mask &= (
-            _creation_dates.ge(_range_start)
-            & _creation_dates.le(_range_end)
-        )
+    elif date_filter_mode == "Month and year":
+        # Empty year/month selections mean all values for that dimension.
+        if selected_years:
+            filter_mask &= _creation_dates_dt.dt.year.isin(selected_years)
+        if selected_months:
+            filter_mask &= _creation_dates_dt.dt.strftime("%B").isin(selected_months)
 
 # ---------------- FINAL FILTERED DATA ----------------
 filtered_global = data.loc[filter_mask].copy()
