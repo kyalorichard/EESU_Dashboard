@@ -5776,8 +5776,9 @@ def _build_cfr_over_time_figure(data):
 
     fig.update_yaxes(
         title_text="Mean CFR score",
-        range=[CFR_SCORE_MIN, CFR_SCORE_MAX],
+        range=[0, CFR_SCORE_MAX],
         dtick=1,
+        rangemode="tozero",
         showgrid=True,
         zeroline=False,
     )
