@@ -5651,7 +5651,7 @@ def _build_aggregated_cfr_figure(chart_data):
 
 
 def _build_cfr_over_time_figure(data):
-    """Build annual CFR principle trends using year only — no monthly axis."""
+    """Build annual CFR principle trends with shared-score hover details."""
 
     import plotly.graph_objects as go
 
@@ -5665,13 +5665,12 @@ def _build_cfr_over_time_figure(data):
 
     principle_columns = list(CFR_PRINCIPLES.values())
 
-    # Ensure year is numeric
+    # Ensure year is numeric.
     trend_data = data.copy()
     trend_data["CFR Year"] = pd.to_numeric(
         trend_data["CFR Year"],
         errors="coerce",
     )
-
     trend_data = trend_data.dropna(subset=["CFR Year"])
 
     if trend_data.empty:
@@ -5682,9 +5681,7 @@ def _build_cfr_over_time_figure(data):
         )
         return fig
 
-    # ---------------------------------------------------------
-    # ANNUAL AGGREGATION ONLY
-    # ---------------------------------------------------------
+    # Annual mean score for each principle.
     annual_scores = (
         trend_data
         .groupby("CFR Year")[principle_columns]
@@ -5693,9 +5690,42 @@ def _build_cfr_over_time_figure(data):
         .sort_values("CFR Year")
     )
 
+    # Build hover details using the displayed score (2 decimal places).
+    # Thus, principles whose values round to the same displayed score are
+    # listed together for that year, even if their unrounded means differ
+    # slightly.
+    shared_score_labels = {}
+    for _, row in annual_scores.iterrows():
+        year = row["CFR Year"]
+        score_groups = {}
+
+        for principle in principle_columns:
+            score = row[principle]
+            if pd.isna(score):
+                continue
+            displayed_score = f"{float(score):.2f}"
+            score_groups.setdefault(displayed_score, []).append(principle)
+
+        for displayed_score, principles in score_groups.items():
+            shared_score_labels[(year, displayed_score)] = ", ".join(principles)
+
     fig = go.Figure()
 
     for principle in principle_columns:
+        hover_principles = []
+        for _, row in annual_scores.iterrows():
+            score = row[principle]
+            if pd.isna(score):
+                hover_principles.append("Not available")
+                continue
+
+            displayed_score = f"{float(score):.2f}"
+            matching = shared_score_labels.get(
+                (row["CFR Year"], displayed_score),
+                principle,
+            )
+            hover_principles.append(matching)
+
         fig.add_trace(
             go.Scatter(
                 x=annual_scores["CFR Year"],
@@ -5710,18 +5740,17 @@ def _build_cfr_over_time_figure(data):
                     color=CFR_PRINCIPLE_COLOURS[principle],
                     size=7,
                 ),
+                customdata=hover_principles,
                 hovertemplate=(
-                    "<b>%{fullData.name}</b><br>"
                     "Year: %{x}<br>"
-                    "Mean score: %{y:.2f}"
+                    "Mean score: %{y:.2f}<br>"
+                    "<b>Principles sharing this displayed score:</b><br>"
+                    "%{customdata}"
                     "<extra></extra>"
                 ),
             )
         )
 
-    # ---------------------------------------------------------
-    # AXIS / LAYOUT
-    # ---------------------------------------------------------
     # Show only years represented in the annual dataset.
     available_years = sorted(
         annual_scores["CFR Year"].dropna().unique().tolist()
@@ -5748,7 +5777,6 @@ def _build_cfr_over_time_figure(data):
     fig.update_layout(
         height=390,
         margin=dict(l=55, r=20, t=20, b=55),
-        # Hover only the individual trace/point under the cursor.
         hovermode="closest",
         legend=dict(
             orientation="h",
@@ -5761,6 +5789,7 @@ def _build_cfr_over_time_figure(data):
     )
 
     return fig
+
 # ------------------------------------------------------------
 # CFR PAGE
 # ------------------------------------------------------------
