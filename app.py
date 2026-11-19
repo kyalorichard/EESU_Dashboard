@@ -6037,7 +6037,7 @@ def render_cfr_analysis():
             aggregated_tab, over_time_tab = st.tabs(
                 [
                     "Aggregated CFR scores by principle",
-                    "Aggregated CFR scores over time.",
+                    "Aggregated CFR scores over time",
                 ]
             )
 
