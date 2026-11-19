@@ -5720,11 +5720,19 @@ def _build_cfr_over_time_figure(data):
                 continue
 
             displayed_score = f"{float(score):.2f}"
-            matching = shared_score_labels.get(
+            matching_principles = shared_score_labels.get(
                 (row["CFR Year"], displayed_score),
                 principle,
-            )
-            hover_principles.append(matching)
+            ).split(", ")
+
+            if len(matching_principles) == 1:
+                hover_label = matching_principles[0]
+            else:
+                hover_label = "<br>".join(
+                    f"• {name}" for name in matching_principles
+                )
+
+            hover_principles.append(hover_label)
 
         fig.add_trace(
             go.Scatter(
@@ -5744,7 +5752,7 @@ def _build_cfr_over_time_figure(data):
                 hovertemplate=(
                     "Year: %{x}<br>"
                     "Mean score: %{y:.2f}<br>"
-                    "<b>Principles sharing this displayed score:</b><br>"
+                    "<b>Principle(s):</b><br>"
                     "%{customdata}"
                     "<extra></extra>"
                 ),
