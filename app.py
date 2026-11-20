@@ -3245,11 +3245,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
                 max_value=_available_max_date,
                 format="DD/MM/YYYY",
                 key="global_date_range",
-                help=(
-                    "Optionally select a start and end date. Both dates are included. "
-                    "Leave the calendar empty to include all dates. To filter by a "
-                    "calendar month or year, select its first and last day."
-                ),
+                
             )
         else:
             st.caption("Date filter unavailable: the dataset has no valid dates.")
