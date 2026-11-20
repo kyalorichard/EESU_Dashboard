@@ -3245,7 +3245,11 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
                 max_value=_available_max_date,
                 format="DD/MM/YYYY",
                 key="global_date_range",
-                
+                help=(
+                    "Optionally select a start and end date. Both dates are included. "
+                    "Leave the calendar empty to include all dates. To filter by a "
+                    "calendar month or year, select its first and last day."
+                ),
             )
         else:
             st.caption("Date filter unavailable: the dataset has no valid dates.")
@@ -3622,117 +3626,74 @@ CFR_COUNTRY_FIXES = {
 # ------------------------------------------------------------
 # DATA LOADING
 # ------------------------------------------------------------
-def _find_cfr_source():
+def _find_cfr_sources():
+    """Return every available dated CFR export in chronological order.
+
+    All files matching CFR_Export_YYYY_MM_DD.csv are included. If
+    EUSEE_CFR_CSV points to an additional valid CSV, it is included too.
+    Sorting from oldest to newest ensures that, when the same country/date
+    occurs in multiple exports, the newest export is retained during
+    de-duplication.
     """
-    Resolve the CFR CSV automatically.
-
-    Priority:
-    1. EUSEE_CFR_CSV environment variable, when configured and valid.
-    2. The newest CFR_Export_YYYY_MM_DD.csv file in EXPORT_DIR.
-
-    The date used for selection comes from the filename, not the file's
-    operating-system modification time.
-
-    Examples:
-        CFR_Export_2026_07_22.csv
-        CFR_Export_2026_08_15.csv
-        CFR_Export_2026_09_24.csv
-
-    The function will select CFR_Export_2026_09_24.csv in the example above.
-    """
-
-    # ------------------------------------------------------------
-    # 1. Explicit environment-variable override
-    # ------------------------------------------------------------
-    configured = os.getenv("EUSEE_CFR_CSV")
-
-    if configured:
-        configured_path = Path(configured).expanduser()
-
-        if configured_path.exists() and configured_path.is_file():
-            return configured_path
-
-        logging.warning(
-            "EUSEE_CFR_CSV is configured but the file does not exist: %s",
-            configured_path,
-        )
-
-    # ------------------------------------------------------------
-    # 2. Automatically discover dated CFR exports
-    # ------------------------------------------------------------
-    if not EXPORT_DIR.exists():
-        logging.warning(
-            "CFR export directory does not exist: %s",
-            EXPORT_DIR,
-        )
-        return None
-
-    # Strictly match the expected CFR export naming convention.
-    # Date format: YYYY_MM_DD
     filename_pattern = re.compile(
         r"^CFR_Export_(\d{4})_(\d{2})_(\d{2})\.csv$",
         re.IGNORECASE,
     )
 
-    candidates = []
+    candidates = {}
 
-    for path in EXPORT_DIR.glob("CFR_Export_*.csv"):
-        if not path.is_file():
-            continue
-
-        match = filename_pattern.match(path.name)
-
-        if not match:
-            logging.debug(
-                "Ignoring CFR file with unsupported filename format: %s",
-                path.name,
-            )
-            continue
-
+    def add_candidate(path):
+        path = Path(path).expanduser()
+        if not path.exists() or not path.is_file():
+            return
         try:
-            file_date = datetime(
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-        except ValueError:
-            # Ignore impossible dates such as 2026_02_31.
-            logging.warning(
-                "Ignoring CFR file with invalid date in filename: %s",
-                path.name,
-            )
-            continue
+            match = filename_pattern.match(path.name)
+            if match:
+                export_date = datetime(
+                    int(match.group(1)),
+                    int(match.group(2)),
+                    int(match.group(3)),
+                )
+            else:
+                # A configured CSV may use a different filename. Use its
+                # modification time only as a deterministic fallback order.
+                export_date = datetime.fromtimestamp(path.stat().st_mtime)
+            candidates[str(path.resolve())] = (export_date, path)
+        except (OSError, ValueError):
+            logging.warning("Ignoring CFR export with invalid date or path: %s", path)
 
-        candidates.append((file_date, path))
+    configured = os.getenv("EUSEE_CFR_CSV")
+    if configured:
+        add_candidate(configured)
 
-    # ------------------------------------------------------------
-    # 3. Select the newest date embedded in the filename
-    # ------------------------------------------------------------
-    if candidates:
-        candidates.sort(
-            key=lambda item: (item[0], item[1].name),
-            reverse=True,
-        )
+    if EXPORT_DIR.exists():
+        for path in EXPORT_DIR.glob("CFR_Export_*.csv"):
+            if not path.is_file():
+                continue
+            if not filename_pattern.match(path.name):
+                logging.debug("Ignoring CFR file with unsupported filename format: %s", path.name)
+                continue
+            add_candidate(path)
+    else:
+        logging.warning("CFR export directory does not exist: %s", EXPORT_DIR)
 
-        latest_date, latest_path = candidates[0]
-
-        logging.info(
-            "Using latest CFR export: %s (filename date: %s)",
-            latest_path,
-            latest_date.strftime("%Y-%m-%d"),
-        )
-
-        return latest_path
-
-    # ------------------------------------------------------------
-    # 4. No valid dated CFR export found
-    # ------------------------------------------------------------
-    logging.warning(
-        "No CFR export matching CFR_Export_YYYY_MM_DD.csv was found in %s",
-        EXPORT_DIR,
+    ordered = sorted(
+        candidates.values(),
+        key=lambda item: (item[0], item[1].name.lower()),
     )
+    paths = [path for _, path in ordered]
 
-    return None
+    logging.info("Discovered %s CFR export file(s).", len(paths))
+    for export_date, path in ordered:
+        logging.info("CFR export included: %s (export date: %s)", path, export_date.date())
+
+    return paths
+
+
+def _find_cfr_source():
+    """Return the newest available CFR export (used for the update badge)."""
+    sources = _find_cfr_sources()
+    return sources[-1] if sources else None
 
 
 def _load_country_metadata():
@@ -3767,20 +3728,27 @@ def _load_country_metadata():
 
 @st.cache_data(show_spinner=False)
 def load_cfr_data(
-    source_path: str,
+    source_path,
     source_mtime=None,
     metadata_mtime=None,
 ):
-    """
-    Load, validate and enrich CFR data.
+    """Load every available CFR export, combine, de-duplicate and enrich.
 
-    The modification-time arguments are intentionally included in the
-    function signature so Streamlit invalidates the cache when either
-    input file changes.
+    ``source_path`` accepts one path or a list/tuple of paths. The mtime
+    arguments are cache keys so Streamlit refreshes when any source or the
+    country metadata changes.
     """
     del source_mtime, metadata_mtime
 
-    cfr = pd.read_csv(source_path)
+    source_paths = (
+        list(source_path)
+        if isinstance(source_path, (list, tuple))
+        else [source_path]
+    )
+    source_paths = [Path(path) for path in source_paths if path]
+
+    if not source_paths:
+        raise FileNotFoundError("No CFR export files were found.")
 
     required_columns = [
         "Country",
@@ -3788,16 +3756,35 @@ def load_cfr_data(
         "Last Modified",
     ]
 
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in cfr.columns
-    ]
+    frames = []
+    filename_pattern = re.compile(
+        r"^CFR_Export_(\d{4})_(\d{2})_(\d{2})\.csv$",
+        re.IGNORECASE,
+    )
+    for source_order, path in enumerate(source_paths):
+        frame = pd.read_csv(path)
+        missing_columns = [column for column in required_columns if column not in frame.columns]
+        if missing_columns:
+            raise ValueError(
+                f"Missing CFR columns in {path.name}: " + ", ".join(missing_columns)
+            )
 
-    if missing_columns:
-        raise ValueError(
-            "Missing CFR columns: " + ", ".join(missing_columns)
-        )
+        match = filename_pattern.match(path.name)
+        if match:
+            export_date = datetime(
+                int(match.group(1)), int(match.group(2)), int(match.group(3))
+            )
+        else:
+            export_date = datetime.fromtimestamp(path.stat().st_mtime)
+
+        frame = frame.copy()
+        frame["_CFR_EXPORT_DATE"] = export_date
+        frame["_CFR_EXPORT_ORDER"] = source_order
+        frame["_CFR_SOURCE_FILE"] = path.name
+        frames.append(frame)
+
+    # Concatenate all snapshots before applying the country/date key.
+    cfr = pd.concat(frames, ignore_index=True, sort=False)
 
     cfr = cfr.copy()
 
@@ -3825,10 +3812,30 @@ def load_cfr_data(
     # Parse the modification date and derive the CFR reporting year.
     # The current export does not contain a separate Year field, so the
     # reporting year is taken from Last Modified.
-    cfr["Last Modified"] = pd.to_datetime(
-        cfr["Last Modified"],
-        errors="coerce",
+    cfr["Last Modified"] = (
+        pd.to_datetime(
+            cfr["Last Modified"],
+            errors="coerce",
+            utc=True,
+        )
+        .dt.tz_convert(None)
+        .dt.normalize()
     )
+    # Use a case-insensitive comparison key so minor country-label casing
+    # differences cannot create duplicate country/date observations.
+    cfr["_CFR_COUNTRY_KEY"] = (
+        cfr["Country"].astype("string").str.strip().str.casefold()
+    )
+
+    # A record without a valid country or date cannot participate in the
+    # required Country + date uniqueness key, so exclude it explicitly.
+    missing_date_count = int(cfr["Last Modified"].isna().sum())
+    if missing_date_count:
+        logging.warning(
+            "Excluding %s CFR row(s) with missing/invalid Last Modified dates.",
+            missing_date_count,
+        )
+    cfr = cfr[cfr["Last Modified"].notna()].copy()
     cfr["CFR Year"] = cfr["Last Modified"].dt.year.astype("Int64")
 
     # Permalink remains optional in the new simplified table.
@@ -3870,26 +3877,43 @@ def load_cfr_data(
         skipna=True,
     )
 
-    # Retain historical CFR rounds. If the same country has multiple export
-    # rows within one reporting year, keep only the most recently modified
-    # row for that country-year. This preserves first- and second-round CFRs
-    # when they belong to different years.
+    # Enforce one observation per country and calendar date across all
+    # snapshots. When a country/date appears in several exports, retain the
+    # row from the most recently dated export (latest export wins).
+    before_deduplication = len(cfr)
     cfr = (
         cfr.sort_values(
-            ["Country", "CFR Year", "Last Modified"],
+            ["Last Modified", "_CFR_EXPORT_DATE", "_CFR_EXPORT_ORDER"],
             ascending=[True, True, True],
-            na_position="first",
+            kind="stable",
         )
         .drop_duplicates(
-            subset=["Country", "CFR Year"],
+            subset=["_CFR_COUNTRY_KEY", "Last Modified"],
             keep="last",
         )
         .sort_values(
-            ["Country", "CFR Year"],
+            ["Country", "Last Modified"],
             ascending=[True, True],
-            na_position="last",
+            kind="stable",
         )
         .reset_index(drop=True)
+    )
+    duplicate_count = before_deduplication - len(cfr)
+    logging.info(
+        "Combined %s CFR source file(s): %s rows before de-duplication, "
+        "%s duplicate country-date row(s) removed, %s unique records retained.",
+        len(source_paths), before_deduplication, duplicate_count, len(cfr),
+    )
+
+    # Remove ingestion-only fields from the dataframe exposed to the dashboard.
+    cfr = cfr.drop(
+        columns=[
+            "_CFR_EXPORT_DATE",
+            "_CFR_EXPORT_ORDER",
+            "_CFR_SOURCE_FILE",
+            "_CFR_COUNTRY_KEY",
+        ],
+        errors="ignore",
     )
 
     cfr.attrs["metadata_error"] = metadata_error
@@ -5895,28 +5919,24 @@ def _extract_cfr_filename_date(source_path):
 def render_cfr_analysis():
     _inject_cfr_dashboard_css()
 
-    source = _find_cfr_source()
+    sources = _find_cfr_sources()
 
-    if source is None:
+    if not sources:
         st.warning(
-            "CFR data file not found. Add a file matching "
+            "No CFR export files were found. Add files matching "
             "`CFR_Export_YYYY_MM_DD.csv` to the exports folder, "
-            "or define the EUSEE_CFR_CSV environment variable."
+            "or configure `EUSEE_CFR_CSV`."
         )
         return
 
-   
     metadata_path = EXPORT_DIR / "countries_metadata.json"
-    metadata_mtime = (
-        metadata_path.stat().st_mtime
-        if metadata_path.exists()
-        else None
-    )
+    metadata_mtime = metadata_path.stat().st_mtime if metadata_path.exists() else None
+    source_mtimes = tuple((str(path), path.stat().st_mtime) for path in sources)
 
     try:
         cfr = load_cfr_data(
-            str(source),
-            source.stat().st_mtime,
+            [str(path) for path in sources],
+            source_mtimes,
             metadata_mtime,
         )
     except Exception as exc:
@@ -12438,8 +12458,8 @@ def _render_eusee_copilot_fragment() -> None:
     # reruns when the launcher, minimize, restore, expand, or close controls fire.
     if st.session_state.get("eusee_copilot_open", False):
         try:
-            _copilot_cfr_source = _find_cfr_source()
-            if _copilot_cfr_source is not None:
+            _copilot_cfr_sources = _find_cfr_sources()
+            if _copilot_cfr_sources:
                 _copilot_metadata_path = EXPORT_DIR / "countries_metadata.json"
                 _copilot_metadata_mtime = (
                     _copilot_metadata_path.stat().st_mtime
@@ -12447,14 +12467,13 @@ def _render_eusee_copilot_fragment() -> None:
                     else None
                 )
                 _copilot_cfr_cache_key = (
-                    str(_copilot_cfr_source),
-                    _copilot_cfr_source.stat().st_mtime,
+                    tuple((str(path), path.stat().st_mtime) for path in _copilot_cfr_sources),
                     _copilot_metadata_mtime,
                 )
                 if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
                     st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
-                        str(_copilot_cfr_source),
-                        _copilot_cfr_cache_key[1],
+                        [str(path) for path in _copilot_cfr_sources],
+                        _copilot_cfr_cache_key[0],
                         _copilot_metadata_mtime,
                     )
                     st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
