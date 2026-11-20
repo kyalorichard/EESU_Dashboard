@@ -12444,39 +12444,45 @@ if tab_manual is not None:
                                     </div>
                                 </div>
                             </section>
-                # ============================================================
-                            # COMPLETE USER MANUAL — DOWNLOAD ONLY
-                            # Displayed immediately below the Need help? panel.
-                            # ============================================================
-                            pdf_bytes, pdf_error = _read_pdf_bytes_cached(
-                                str(USER_MANUAL_PATH)
-                            )
 
-                            if pdf_error:
-                                st.warning(
-                                    "The PDF user manual is currently unavailable. "
-                                    "Please contact the dashboard administrator."
-                                )
-                                logging.warning("User manual PDF unavailable: %s", pdf_error)
-                            else:
-                                st.download_button(
-                                    label="⬇ Download User Manual (PDF)",
-                                    data=pdf_bytes,
-                                    file_name=USER_MANUAL_PATH.name,
-                                    mime="application/pdf",
-                                    key="download_user_manual_pdf",
-                                    use_container_width=True,
-                                )
-                            <section class="user-guide-card brand-card">
-                                {logo_html}
-                            </section>
                         </aside>
                     </div>
                 </div>
                 """)
             )
 
-           
+            # ============================================================
+            # COMPLETE USER MANUAL — DOWNLOAD ONLY
+            # Displayed below the Need help? panel and above the logo.
+            # ============================================================
+            pdf_bytes, pdf_error = _read_pdf_bytes_cached(
+                str(USER_MANUAL_PATH)
+            )
+
+            if pdf_error:
+                st.warning(
+                    "The PDF user manual is currently unavailable. "
+                    "Please contact the dashboard administrator."
+                )
+                logging.warning("User manual PDF unavailable: %s", pdf_error)
+            else:
+                st.download_button(
+                    label="⬇ Download User Manual (PDF)",
+                    data=pdf_bytes,
+                    file_name=USER_MANUAL_PATH.name,
+                    mime="application/pdf",
+                    key="download_user_manual_pdf",
+                    use_container_width=True,
+                )
+
+            # Partner logos follow the PDF download control.
+            st.html(
+                textwrap.dedent(f"""
+                <section class="user-guide-card brand-card">
+                    {logo_html}
+                </section>
+                """)
+            )
         else:
             render_access_locked("User Manual", "guest or higher")
 
