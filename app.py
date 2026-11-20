@@ -12445,6 +12445,9 @@ if tab_manual is not None:
                                 </div>
                             </section>
 
+                            <section class="user-guide-card brand-card">
+                                {logo_html}
+                            </section>
                         </aside>
                     </div>
                 </div>
@@ -12453,7 +12456,7 @@ if tab_manual is not None:
 
             # ============================================================
             # COMPLETE USER MANUAL — DOWNLOAD ONLY
-            # Displayed below the Need help? panel and above the logo.
+            # Displayed immediately below the Need help? panel.
             # ============================================================
             pdf_bytes, pdf_error = _read_pdf_bytes_cached(
                 str(USER_MANUAL_PATH)
@@ -12474,15 +12477,6 @@ if tab_manual is not None:
                     key="download_user_manual_pdf",
                     use_container_width=True,
                 )
-
-            # Partner logos follow the PDF download control.
-            st.html(
-                textwrap.dedent(f"""
-                <section class="user-guide-card brand-card">
-                    {logo_html}
-                </section>
-                """)
-            )
         else:
             render_access_locked("User Manual", "guest or higher")
 
