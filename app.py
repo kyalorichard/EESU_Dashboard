@@ -3224,18 +3224,9 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
     ]
 
     # ---------------------------------------------------------
-    # GLOBAL DATE FILTER: DATE RANGE OR MONTH/YEAR
+    # GLOBAL DATE FILTER: SINGLE OPTIONAL CALENDAR RANGE
     # ---------------------------------------------------------
-    date_filter_mode = st.selectbox(
-        "Date filter mode",
-        options=["Date range", "Month and year"],
-        key="date_filter_mode",
-        help="Choose an exact date range or filter by calendar month and year.",
-    )
-
     selected_date_range = None
-    selected_years = []
-    selected_months = []
 
     if not data.empty and "creation_date" in data.columns:
         _date_values = pd.to_datetime(
@@ -3247,50 +3238,23 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
             _available_min_date = _date_values.min().date()
             _available_max_date = _date_values.max().date()
 
-            if date_filter_mode == "Date range":
-                selected_date_range = st.date_input(
-                    "Date range",
-                    value=(_available_min_date, _available_max_date),
-                    min_value=_available_min_date,
-                    max_value=_available_max_date,
-                    format="DD/MM/YYYY",
-                    key="global_date_range",
-                    help=(
-                        "Select the start and end dates. Both dates are included. "
-                        "The default selection covers the full available dataset."
-                    ),
-                )
-            else:
-                _available_years = sorted(
-                    _date_values.dt.year.dropna().astype(int).unique().tolist()
-                )
-                _month_order = [
-                    "January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December",
-                ]
-                _available_months = [
-                    month for month in _month_order
-                    if month in _date_values.dt.strftime("%B").dropna().unique()
-                ]
-
-                selected_years = st.multiselect(
-                    "Year",
-                    options=_available_years,
-                    default=[],
-                    key="global_filter_years",
-                    help="Select one or more years. Leave empty to include all years.",
-                )
-                selected_months = st.multiselect(
-                    "Month",
-                    options=_available_months,
-                    default=[],
-                    key="global_filter_months",
-                    help="Select one or more months. Leave empty to include all months.",
-                )
+            selected_date_range = st.date_input(
+                "Date range",
+                value=(),  # Start with no dates selected on initial load/reset.
+                min_value=_available_min_date,
+                max_value=_available_max_date,
+                format="DD/MM/YYYY",
+                key="global_date_range",
+                help=(
+                    "Optionally select a start and end date. Both dates are included. "
+                    "Leave the calendar empty to include all dates. To filter by a "
+                    "calendar month or year, select its first and last day."
+                ),
+            )
         else:
-            st.caption("Date filters unavailable: the dataset has no valid dates.")
+            st.caption("Date filter unavailable: the dataset has no valid dates.")
     else:
-        st.caption("Date filters unavailable: creation_date is not present.")
+        st.caption("Date filter unavailable: creation_date is not present.")
 
     reset_col1, reset_col2 = st.columns([1, 1])
 
@@ -3325,14 +3289,8 @@ if reset_filters:
         st.session_state.pop(f"{key}_widget", None)
         st.session_state.pop(f"{key}_options_signature", None)
 
-    # Reset all date-filter widgets and restore the full dataset period.
-    for date_key in [
-        "global_date_range",
-        "date_filter_mode",
-        "global_filter_years",
-        "global_filter_months",
-    ]:
-        st.session_state.pop(date_key, None)
+    # Clear the optional date range so reset restores the unfiltered dataset.
+    st.session_state.pop("global_date_range", None)
 
     # Clear table searches too, so reset returns the Overview Data Preview to
     # the full active dataset immediately.
@@ -3452,18 +3410,10 @@ if "creation_date" in data.columns:
         errors="coerce",
     )
 
-    if date_filter_mode == "Date range" and selected_date_range is not None:
-        # The selected range is inclusive of both the start and end dates.
-        # A one-date selection is treated as that single calendar day.
-        if isinstance(selected_date_range, (tuple, list)):
-            if len(selected_date_range) >= 2:
-                _range_start, _range_end = selected_date_range[0], selected_date_range[1]
-            elif len(selected_date_range) == 1:
-                _range_start = _range_end = selected_date_range[0]
-            else:
-                _range_start = _range_end = None
-        else:
-            _range_start = _range_end = selected_date_range
+    # Apply the filter only after both endpoints have been selected.
+    # An empty or partially selected range leaves all dates included.
+    if isinstance(selected_date_range, (tuple, list)) and len(selected_date_range) == 2:
+        _range_start, _range_end = selected_date_range
 
         if _range_start is not None and _range_end is not None:
             _creation_dates = _creation_dates_dt.dt.date
@@ -3471,13 +3421,6 @@ if "creation_date" in data.columns:
                 _creation_dates.ge(_range_start)
                 & _creation_dates.le(_range_end)
             )
-
-    elif date_filter_mode == "Month and year":
-        # Empty year/month selections mean all values for that dimension.
-        if selected_years:
-            filter_mask &= _creation_dates_dt.dt.year.isin(selected_years)
-        if selected_months:
-            filter_mask &= _creation_dates_dt.dt.strftime("%B").isin(selected_months)
 
 # ---------------- FINAL FILTERED DATA ----------------
 filtered_global = data.loc[filter_mask].copy()
