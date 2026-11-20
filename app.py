@@ -1666,7 +1666,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
-USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
+USER_MANUAL_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_User_Manual.pdf"
 
 
 # ---------------- USER MANUAL PDF HELPERS ----------------
@@ -12342,6 +12342,75 @@ if tab_manual is not None:
                 if footer_b64
                 else '<div class="brand-fallback">EU SEE<br>Partner Network</div>'
             )
+
+            # ============================================================
+            # COMPLETE USER MANUAL — PDF VIEWER AND DOWNLOAD
+            # The PDF is served from the repository's docs/ directory.
+            # ============================================================
+            pdf_bytes, pdf_error = _read_pdf_bytes_cached(
+                str(USER_MANUAL_PATH)
+            )
+
+            st.markdown("### Complete User Manual")
+            st.caption(
+                "View the full EU SEE Dashboard User Manual in the dashboard "
+                "or download a copy in PDF format."
+            )
+
+            if pdf_error:
+                st.warning(
+                    "The PDF user manual is currently unavailable. "
+                    "Please contact the dashboard administrator."
+                )
+                logging.warning("User manual PDF unavailable: %s", pdf_error)
+            else:
+                st.session_state.setdefault("show_user_manual_pdf", False)
+
+                view_col, download_col = st.columns(2)
+
+                with view_col:
+                    view_label = (
+                        "Hide PDF Manual"
+                        if st.session_state["show_user_manual_pdf"]
+                        else "View User Manual (PDF)"
+                    )
+                    if st.button(
+                        f"📖 {view_label}",
+                        key="view_user_manual_pdf",
+                        use_container_width=True,
+                    ):
+                        st.session_state["show_user_manual_pdf"] = not st.session_state[
+                            "show_user_manual_pdf"
+                        ]
+                        st.rerun()
+
+                with download_col:
+                    st.download_button(
+                        label="⬇ Download User Manual (PDF)",
+                        data=pdf_bytes,
+                        file_name=USER_MANUAL_PATH.name,
+                        mime="application/pdf",
+                        key="download_user_manual_pdf",
+                        use_container_width=True,
+                    )
+
+                if st.session_state["show_user_manual_pdf"]:
+                    st.markdown("#### EU SEE Dashboard – User Manual")
+                    pdf_base64 = base64.b64encode(pdf_bytes).decode("ascii")
+                    pdf_iframe = (
+                        '<iframe '
+                        f'src="data:application/pdf;base64,{pdf_base64}" '
+                        'width="100%" height="900" '
+                        'style="border:1px solid #E6E8EF; border-radius:12px; background:#FFFFFF;" '
+                        'title="EU SEE Dashboard User Manual"></iframe>'
+                    )
+                    components.html(
+                        pdf_iframe,
+                        height=920,
+                        scrolling=True,
+                    )
+
+            st.divider()
 
             st.html(
                 textwrap.dedent(f"""
