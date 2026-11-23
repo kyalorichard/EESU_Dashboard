@@ -6140,55 +6140,8 @@ def render_cfr_analysis():
         return
 
     refresh_stats = cfr.attrs.get("master_refresh_stats", {})
-    if cfr.attrs.get("master_refreshed", False):
-        st.success(
-            "CFR master dataset refreshed: "
-            f"{len(cfr):,} unique country-date records from "
-            f"{len(sources):,} source export(s)."
-        )
-        if refresh_stats:
-            st.caption(
-                f"Rows consolidated: {refresh_stats.get('rows_before_deduplication', len(cfr)):,} · "
-                f"Duplicate country-date rows removed: "
-                f"{refresh_stats.get('duplicate_country_date_rows_removed', 0):,} · "
-                f"Master CSV: {CFR_MASTER_CSV}"
-            )
-    else:
-        st.caption(
-            f"Master dataset last rebuilt: "
-            f"{cfr.attrs.get('master_last_refreshed', 'Not available')} · "
-            f"{len(cfr):,} unique country-date records"
-        )
-
-    if cfr.empty:
-        st.info("No CFR records are currently available.")
-        return
-
-    # Provide direct downloads of the current consolidated master files.
-    download_csv_col, download_xlsx_col = st.columns(2)
-    with download_csv_col:
-        if CFR_MASTER_CSV.exists():
-            st.download_button(
-                "Download master dataset (CSV)",
-                data=CFR_MASTER_CSV.read_bytes(),
-                file_name=CFR_MASTER_CSV.name,
-                mime="text/csv",
-                key="download_cfr_master_csv",
-                use_container_width=True,
-            )
-    with download_xlsx_col:
-        if CFR_MASTER_XLSX.exists():
-            st.download_button(
-                "Download master dataset (Excel)",
-                data=CFR_MASTER_XLSX.read_bytes(),
-                file_name=CFR_MASTER_XLSX.name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="download_cfr_master_xlsx",
-                use_container_width=True,
-            )
-        else:
-            st.caption("Excel export unavailable. Install `openpyxl` to enable it.")
-
+  
+  
     metadata_error = cfr.attrs.get("metadata_error", "")
     if metadata_error:
         st.warning(metadata_error)
