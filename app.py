@@ -35,7 +35,7 @@ import tempfile
 import textwrap
 import uuid
 import warnings
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 from pathlib import Path
 import numpy as np
@@ -1666,7 +1666,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 EXEC_BRIEF_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_Quick_Start_Executive.pdf"
-USER_MANUAL_PATH = BASE_DIR / "docs" / "EU SEE Dashboard user manual.pdf"
+USER_MANUAL_PATH = BASE_DIR / "docs" / "EU_SEE_Dashboard_User_Manual.pdf"
 
 
 # ---------------- USER MANUAL PDF HELPERS ----------------
@@ -3223,40 +3223,38 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
         for p in selected_principle_display
     ]
 
-    selected_years = safe_multiselect(
-        "Year",
-        sorted(data["year"].dropna().unique())
-        if not data.empty and "year" in data.columns
-        else [],
-        "selected_years",
-        container=sidebar_filter_box,
-    )
+    # ---------------------------------------------------------
+    # GLOBAL DATE FILTER: SINGLE OPTIONAL CALENDAR RANGE
+    # ---------------------------------------------------------
+    selected_date_range = None
 
-    if (
-        not data.empty
-        and "year" in data.columns
-        and "month_name" in data.columns
-        and selected_years
-    ):
-        available_months_source = data[data["year"].isin(selected_years)]["month_name"].dropna().unique()
-    elif not data.empty and "month_name" in data.columns:
-        available_months_source = data["month_name"].dropna().unique()
+    if not data.empty and "creation_date" in data.columns:
+        _date_values = pd.to_datetime(
+            data["creation_date"],
+            errors="coerce",
+        ).dropna()
+
+        if not _date_values.empty:
+            _available_min_date = _date_values.min().date()
+            _available_max_date = _date_values.max().date()
+
+            selected_date_range = st.date_input(
+                "Date range",
+                value=(),  # Start with no dates selected on initial load/reset.
+                min_value=_available_min_date,
+                max_value=_available_max_date,
+                format="DD/MM/YYYY",
+                key="global_date_range",
+                help=(
+                    "Optionally select a start and end date. Both dates are included. "
+                    "Leave the calendar empty to include all dates. To filter by a "
+                    "calendar month or year, select its first and last day."
+                ),
+            )
+        else:
+            st.caption("Date filter unavailable: the dataset has no valid dates.")
     else:
-        available_months_source = []
-
-    available_months = sorted(
-        available_months_source,
-        key=lambda m: pd.to_datetime(m, format="%B", errors="coerce").month
-        if pd.notna(pd.to_datetime(m, format="%B", errors="coerce"))
-        else 13,
-    )
-
-    selected_months = safe_multiselect(
-        "Month",
-        available_months,
-        "selected_months",
-        container=sidebar_filter_box,
-    )
+        st.caption("Date filter unavailable: creation_date is not present.")
 
     reset_col1, reset_col2 = st.columns([1, 1])
 
@@ -3282,8 +3280,6 @@ if reset_filters:
         "selected_alert_types",
         "selected_enabling_principle",
         "selected_alert_impacts",
-        "selected_months",
-        "selected_years",
         "selected_actor_types",
         "selected_subject_types",
         "selected_mechanism_types",
@@ -3292,6 +3288,10 @@ if reset_filters:
         st.session_state.pop(key, None)
         st.session_state.pop(f"{key}_widget", None)
         st.session_state.pop(f"{key}_options_signature", None)
+
+    # Clear the optional date range so reset restores the unfiltered dataset.
+    st.session_state.pop("global_date_range", None)
+
     # Clear table searches too, so reset returns the Overview Data Preview to
     # the full active dataset immediately.
     for table_key in ["overview_summary_data_preview", "negative_summary_data_preview"]:
@@ -3403,13 +3403,24 @@ if not _filter_is_unrestricted("selected_enabling_principle"):
 if not _filter_is_unrestricted("selected_alert_impacts"):
     filter_mask &= data["alert-impact"].isin(selected_alert_impacts)
 
-# ---------------- MONTH ----------------
-if not _filter_is_unrestricted("selected_months"):
-    filter_mask &= data["month_name"].isin(selected_months)
+# ---------------- DATE FILTER ----------------
+if "creation_date" in data.columns:
+    _creation_dates_dt = pd.to_datetime(
+        data["creation_date"],
+        errors="coerce",
+    )
 
-# ---------------- YEAR ----------------
-if not _filter_is_unrestricted("selected_years"):
-    filter_mask &= data["year"].isin(selected_years)
+    # Apply the filter only after both endpoints have been selected.
+    # An empty or partially selected range leaves all dates included.
+    if isinstance(selected_date_range, (tuple, list)) and len(selected_date_range) == 2:
+        _range_start, _range_end = selected_date_range
+
+        if _range_start is not None and _range_end is not None:
+            _creation_dates = _creation_dates_dt.dt.date
+            filter_mask &= (
+                _creation_dates.ge(_range_start)
+                & _creation_dates.le(_range_end)
+            )
 
 # ---------------- FINAL FILTERED DATA ----------------
 filtered_global = data.loc[filter_mask].copy()
@@ -3537,6 +3548,13 @@ CFR_SOURCE_FILENAME = "CFR_Export_2026_07_22.csv"
 CFR_SCORE_MIN = 1.0
 CFR_SCORE_MAX = 5.0
 
+# Consolidated CFR outputs. Original CFR_Export_*.csv files remain untouched.
+CFR_MASTER_DIR = EXPORT_DIR / "master"
+CFR_MASTER_CSV = CFR_MASTER_DIR / "CFR_Master_Dataset.csv"
+CFR_MASTER_XLSX = CFR_MASTER_DIR / "CFR_Master_Dataset.xlsx"
+CFR_MASTER_MANIFEST = CFR_MASTER_DIR / "CFR_Master_Metadata.json"
+CFR_MASTER_SHEET_NAME = "CFR Master"
+
 # Full source-column name -> compact dashboard name.
 CFR_PRINCIPLES = {
     "Respect and protection of fundamental freedoms": "P1",
@@ -3615,117 +3633,74 @@ CFR_COUNTRY_FIXES = {
 # ------------------------------------------------------------
 # DATA LOADING
 # ------------------------------------------------------------
-def _find_cfr_source():
+def _find_cfr_sources():
+    """Return every available dated CFR export in chronological order.
+
+    All files matching CFR_Export_YYYY_MM_DD.csv are included. If
+    EUSEE_CFR_CSV points to an additional valid CSV, it is included too.
+    Sorting from oldest to newest ensures that, when the same country/date
+    occurs in multiple exports, the newest export is retained during
+    de-duplication.
     """
-    Resolve the CFR CSV automatically.
-
-    Priority:
-    1. EUSEE_CFR_CSV environment variable, when configured and valid.
-    2. The newest CFR_Export_YYYY_MM_DD.csv file in EXPORT_DIR.
-
-    The date used for selection comes from the filename, not the file's
-    operating-system modification time.
-
-    Examples:
-        CFR_Export_2026_07_22.csv
-        CFR_Export_2026_08_15.csv
-        CFR_Export_2026_09_24.csv
-
-    The function will select CFR_Export_2026_09_24.csv in the example above.
-    """
-
-    # ------------------------------------------------------------
-    # 1. Explicit environment-variable override
-    # ------------------------------------------------------------
-    configured = os.getenv("EUSEE_CFR_CSV")
-
-    if configured:
-        configured_path = Path(configured).expanduser()
-
-        if configured_path.exists() and configured_path.is_file():
-            return configured_path
-
-        logging.warning(
-            "EUSEE_CFR_CSV is configured but the file does not exist: %s",
-            configured_path,
-        )
-
-    # ------------------------------------------------------------
-    # 2. Automatically discover dated CFR exports
-    # ------------------------------------------------------------
-    if not EXPORT_DIR.exists():
-        logging.warning(
-            "CFR export directory does not exist: %s",
-            EXPORT_DIR,
-        )
-        return None
-
-    # Strictly match the expected CFR export naming convention.
-    # Date format: YYYY_MM_DD
     filename_pattern = re.compile(
         r"^CFR_Export_(\d{4})_(\d{2})_(\d{2})\.csv$",
         re.IGNORECASE,
     )
 
-    candidates = []
+    candidates = {}
 
-    for path in EXPORT_DIR.glob("CFR_Export_*.csv"):
-        if not path.is_file():
-            continue
-
-        match = filename_pattern.match(path.name)
-
-        if not match:
-            logging.debug(
-                "Ignoring CFR file with unsupported filename format: %s",
-                path.name,
-            )
-            continue
-
+    def add_candidate(path):
+        path = Path(path).expanduser()
+        if not path.exists() or not path.is_file():
+            return
         try:
-            file_date = datetime(
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            )
-        except ValueError:
-            # Ignore impossible dates such as 2026_02_31.
-            logging.warning(
-                "Ignoring CFR file with invalid date in filename: %s",
-                path.name,
-            )
-            continue
+            match = filename_pattern.match(path.name)
+            if match:
+                export_date = datetime(
+                    int(match.group(1)),
+                    int(match.group(2)),
+                    int(match.group(3)),
+                )
+            else:
+                # A configured CSV may use a different filename. Use its
+                # modification time only as a deterministic fallback order.
+                export_date = datetime.fromtimestamp(path.stat().st_mtime)
+            candidates[str(path.resolve())] = (export_date, path)
+        except (OSError, ValueError):
+            logging.warning("Ignoring CFR export with invalid date or path: %s", path)
 
-        candidates.append((file_date, path))
+    configured = os.getenv("EUSEE_CFR_CSV")
+    if configured:
+        add_candidate(configured)
 
-    # ------------------------------------------------------------
-    # 3. Select the newest date embedded in the filename
-    # ------------------------------------------------------------
-    if candidates:
-        candidates.sort(
-            key=lambda item: (item[0], item[1].name),
-            reverse=True,
-        )
+    if EXPORT_DIR.exists():
+        for path in EXPORT_DIR.glob("CFR_Export_*.csv"):
+            if not path.is_file():
+                continue
+            if not filename_pattern.match(path.name):
+                logging.debug("Ignoring CFR file with unsupported filename format: %s", path.name)
+                continue
+            add_candidate(path)
+    else:
+        logging.warning("CFR export directory does not exist: %s", EXPORT_DIR)
 
-        latest_date, latest_path = candidates[0]
-
-        logging.info(
-            "Using latest CFR export: %s (filename date: %s)",
-            latest_path,
-            latest_date.strftime("%Y-%m-%d"),
-        )
-
-        return latest_path
-
-    # ------------------------------------------------------------
-    # 4. No valid dated CFR export found
-    # ------------------------------------------------------------
-    logging.warning(
-        "No CFR export matching CFR_Export_YYYY_MM_DD.csv was found in %s",
-        EXPORT_DIR,
+    ordered = sorted(
+        candidates.values(),
+        key=lambda item: (item[0], item[1].name.lower()),
     )
+    paths = [path for _, path in ordered]
 
-    return None
+    logging.info("Discovered %s CFR export file(s).", len(paths))
+    for export_date, path in ordered:
+        logging.info("CFR export included: %s (export date: %s)", path, export_date.date())
+
+    return paths
+
+
+def _find_cfr_source():
+    """Return the newest available CFR export (used for the update badge)."""
+    sources = _find_cfr_sources()
+    return sources[-1] if sources else None
 
 
 def _load_country_metadata():
@@ -3760,20 +3735,27 @@ def _load_country_metadata():
 
 @st.cache_data(show_spinner=False)
 def load_cfr_data(
-    source_path: str,
+    source_path,
     source_mtime=None,
     metadata_mtime=None,
 ):
-    """
-    Load, validate and enrich CFR data.
+    """Load every available CFR export, combine, de-duplicate and enrich.
 
-    The modification-time arguments are intentionally included in the
-    function signature so Streamlit invalidates the cache when either
-    input file changes.
+    ``source_path`` accepts one path or a list/tuple of paths. The mtime
+    arguments are cache keys so Streamlit refreshes when any source or the
+    country metadata changes.
     """
     del source_mtime, metadata_mtime
 
-    cfr = pd.read_csv(source_path)
+    source_paths = (
+        list(source_path)
+        if isinstance(source_path, (list, tuple))
+        else [source_path]
+    )
+    source_paths = [Path(path) for path in source_paths if path]
+
+    if not source_paths:
+        raise FileNotFoundError("No CFR export files were found.")
 
     required_columns = [
         "Country",
@@ -3781,16 +3763,35 @@ def load_cfr_data(
         "Last Modified",
     ]
 
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in cfr.columns
-    ]
+    frames = []
+    filename_pattern = re.compile(
+        r"^CFR_Export_(\d{4})_(\d{2})_(\d{2})\.csv$",
+        re.IGNORECASE,
+    )
+    for source_order, path in enumerate(source_paths):
+        frame = pd.read_csv(path)
+        missing_columns = [column for column in required_columns if column not in frame.columns]
+        if missing_columns:
+            raise ValueError(
+                f"Missing CFR columns in {path.name}: " + ", ".join(missing_columns)
+            )
 
-    if missing_columns:
-        raise ValueError(
-            "Missing CFR columns: " + ", ".join(missing_columns)
-        )
+        match = filename_pattern.match(path.name)
+        if match:
+            export_date = datetime(
+                int(match.group(1)), int(match.group(2)), int(match.group(3))
+            )
+        else:
+            export_date = datetime.fromtimestamp(path.stat().st_mtime)
+
+        frame = frame.copy()
+        frame["_CFR_EXPORT_DATE"] = export_date
+        frame["_CFR_EXPORT_ORDER"] = source_order
+        frame["_CFR_SOURCE_FILE"] = path.name
+        frames.append(frame)
+
+    # Concatenate all snapshots before applying the country/date key.
+    cfr = pd.concat(frames, ignore_index=True, sort=False)
 
     cfr = cfr.copy()
 
@@ -3818,10 +3819,54 @@ def load_cfr_data(
     # Parse the modification date and derive the CFR reporting year.
     # The current export does not contain a separate Year field, so the
     # reporting year is taken from Last Modified.
-    cfr["Last Modified"] = pd.to_datetime(
-        cfr["Last Modified"],
+    raw_last_modified = cfr["Last Modified"].astype("string").str.strip()
+
+    # Preserve the calendar date written in ISO timestamps. In particular,
+    # do not convert an offset-aware local timestamp to UTC before extracting
+    # its date, because that can move a record to the previous/next day.
+    iso_calendar_dates = raw_last_modified.str.extract(
+        r"^(\d{4}-\d{2}-\d{2})",
+        expand=False,
+    )
+    parsed_last_modified = pd.to_datetime(
+        iso_calendar_dates,
         errors="coerce",
     )
+
+    # Fall back to pandas parsing for non-ISO date formats while retaining
+    # the calendar date represented by each individual source value.
+    fallback_mask = parsed_last_modified.isna() & raw_last_modified.notna()
+    if fallback_mask.any():
+        fallback_dates = []
+        for raw_value in raw_last_modified.loc[fallback_mask]:
+            parsed_value = pd.to_datetime(raw_value, errors="coerce")
+            fallback_dates.append(
+                pd.NaT if pd.isna(parsed_value) else pd.Timestamp(parsed_value).date()
+            )
+        parsed_last_modified.loc[fallback_mask] = pd.to_datetime(
+            fallback_dates,
+            errors="coerce",
+        )
+
+    cfr["Last Modified"] = pd.to_datetime(
+        parsed_last_modified,
+        errors="coerce",
+    ).dt.normalize()
+    # Use a case-insensitive comparison key so minor country-label casing
+    # differences cannot create duplicate country/date observations.
+    cfr["_CFR_COUNTRY_KEY"] = (
+        cfr["Country"].astype("string").str.strip().str.casefold()
+    )
+
+    # A record without a valid country or date cannot participate in the
+    # required Country + date uniqueness key, so exclude it explicitly.
+    missing_date_count = int(cfr["Last Modified"].isna().sum())
+    if missing_date_count:
+        logging.warning(
+            "Excluding %s CFR row(s) with missing/invalid Last Modified dates.",
+            missing_date_count,
+        )
+    cfr = cfr[cfr["Last Modified"].notna()].copy()
     cfr["CFR Year"] = cfr["Last Modified"].dt.year.astype("Int64")
 
     # Permalink remains optional in the new simplified table.
@@ -3863,30 +3908,211 @@ def load_cfr_data(
         skipna=True,
     )
 
-    # Retain historical CFR rounds. If the same country has multiple export
-    # rows within one reporting year, keep only the most recently modified
-    # row for that country-year. This preserves first- and second-round CFRs
-    # when they belong to different years.
+    # Enforce one observation per country and calendar date across all
+    # snapshots. When a country/date appears in several exports, retain the
+    # row from the most recently dated export (latest export wins).
+    before_deduplication = len(cfr)
     cfr = (
         cfr.sort_values(
-            ["Country", "CFR Year", "Last Modified"],
+            ["Last Modified", "_CFR_EXPORT_DATE", "_CFR_EXPORT_ORDER"],
             ascending=[True, True, True],
-            na_position="first",
+            kind="stable",
         )
         .drop_duplicates(
-            subset=["Country", "CFR Year"],
+            subset=["_CFR_COUNTRY_KEY", "Last Modified"],
             keep="last",
         )
         .sort_values(
-            ["Country", "CFR Year"],
+            ["Country", "Last Modified"],
             ascending=[True, True],
-            na_position="last",
+            kind="stable",
         )
         .reset_index(drop=True)
     )
+    duplicate_count = before_deduplication - len(cfr)
+    logging.info(
+        "Combined %s CFR source file(s): %s rows before de-duplication, "
+        "%s duplicate country-date row(s) removed, %s unique records retained.",
+        len(source_paths), before_deduplication, duplicate_count, len(cfr),
+    )
+
+    # Remove ingestion-only fields from the dataframe exposed to the dashboard.
+    cfr = cfr.drop(
+        columns=[
+            "_CFR_EXPORT_DATE",
+            "_CFR_EXPORT_ORDER",
+            "_CFR_SOURCE_FILE",
+            "_CFR_COUNTRY_KEY",
+        ],
+        errors="ignore",
+    )
 
     cfr.attrs["metadata_error"] = metadata_error
+    cfr.attrs["source_file_count"] = len(source_paths)
+    cfr.attrs["rows_before_deduplication"] = before_deduplication
+    cfr.attrs["duplicate_country_date_rows_removed"] = duplicate_count
+    cfr.attrs["unique_country_date_rows"] = len(cfr)
 
+    return cfr
+
+
+def _cfr_source_signature(source_paths):
+    """Build a cache-safe signature that changes when any export changes."""
+    signature = []
+    for source in source_paths:
+        path = Path(source)
+        stat = path.stat()
+        signature.append((str(path.resolve()), int(stat.st_size), int(stat.st_mtime_ns)))
+
+    metadata_path = EXPORT_DIR / "countries_metadata.json"
+    if metadata_path.exists():
+        metadata_stat = metadata_path.stat()
+        metadata_signature = (
+            str(metadata_path.resolve()),
+            int(metadata_stat.st_size),
+            int(metadata_stat.st_mtime_ns),
+        )
+    else:
+        metadata_signature = None
+
+    return tuple(signature), metadata_signature
+
+
+def _write_cfr_master_outputs(dataframe):
+    """Atomically write the consolidated CSV and its one-sheet Excel copy."""
+    CFR_MASTER_DIR.mkdir(parents=True, exist_ok=True)
+
+    csv_tmp = CFR_MASTER_CSV.with_name(CFR_MASTER_CSV.name + ".tmp")
+    dataframe.to_csv(csv_tmp, index=False, encoding="utf-8-sig")
+    os.replace(csv_tmp, CFR_MASTER_CSV)
+
+    # Excel is a companion inspection copy; the CSV remains authoritative.
+    xlsx_tmp = CFR_MASTER_XLSX.with_name("CFR_Master_Dataset.tmp.xlsx")
+    try:
+        with pd.ExcelWriter(xlsx_tmp, engine="openpyxl") as writer:
+            dataframe.to_excel(
+                writer,
+                sheet_name=CFR_MASTER_SHEET_NAME,
+                index=False,
+            )
+            worksheet = writer.sheets[CFR_MASTER_SHEET_NAME]
+            worksheet.freeze_panes = "A2"
+            worksheet.auto_filter.ref = worksheet.dimensions
+            worksheet.sheet_view.showGridLines = False
+        os.replace(xlsx_tmp, CFR_MASTER_XLSX)
+    except ImportError:
+        if xlsx_tmp.exists():
+            xlsx_tmp.unlink()
+        logging.warning(
+            "openpyxl is not installed; the CFR master CSV was saved, "
+            "but the Excel companion workbook could not be generated."
+        )
+    except Exception:
+        if xlsx_tmp.exists():
+            xlsx_tmp.unlink()
+        raise
+
+
+def _load_cfr_master_dataset(source_paths, force_refresh=False):
+    """Refresh the master files when source exports change, then load the CSV.
+
+    The master CSV is the authoritative dashboard dataset. A persistent
+    metadata manifest records source-file signatures so new or modified
+    exports are detected across dashboard sessions and on subsequent reruns.
+    """
+    if not source_paths:
+        raise FileNotFoundError("No CFR export files were found.")
+
+    CFR_MASTER_DIR.mkdir(parents=True, exist_ok=True)
+    source_signature, metadata_signature = _cfr_source_signature(source_paths)
+    combined_signature = (source_signature, metadata_signature)
+    signature_token = json.dumps(
+        combined_signature,
+        default=str,
+        separators=(",", ":"),
+    )
+    manifest = {}
+    if CFR_MASTER_MANIFEST.exists():
+        try:
+            with CFR_MASTER_MANIFEST.open("r", encoding="utf-8") as manifest_file:
+                manifest = json.load(manifest_file)
+        except Exception:
+            logging.warning("Could not read CFR master metadata; rebuilding the master dataset.")
+
+    should_refresh = (
+        force_refresh
+        or not CFR_MASTER_CSV.exists()
+        or manifest.get("source_signature") != signature_token
+    )
+
+    refreshed = False
+    refresh_stats = {}
+
+    if should_refresh:
+        # Pass the signatures as cache keys and clear the old cached result
+        # when an administrator explicitly requests a refresh.
+        if force_refresh:
+            load_cfr_data.clear()
+
+        metadata_mtime = (
+            (EXPORT_DIR / "countries_metadata.json").stat().st_mtime
+            if (EXPORT_DIR / "countries_metadata.json").exists()
+            else None
+        )
+        cfr = load_cfr_data(
+            [str(path) for path in source_paths],
+            (source_signature, metadata_signature),
+            metadata_mtime,
+        )
+        _write_cfr_master_outputs(cfr)
+        refreshed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        refreshed = True
+        refresh_stats = {
+            "source_file_count": cfr.attrs.get("source_file_count", len(source_paths)),
+            "rows_before_deduplication": cfr.attrs.get("rows_before_deduplication", len(cfr)),
+            "duplicate_country_date_rows_removed": cfr.attrs.get(
+                "duplicate_country_date_rows_removed", 0
+            ),
+            "unique_country_date_rows": cfr.attrs.get("unique_country_date_rows", len(cfr)),
+            "metadata_error": cfr.attrs.get("metadata_error", ""),
+        }
+        manifest_payload = {
+            "source_signature": signature_token,
+            "last_refreshed": refreshed_at,
+            "refresh_stats": refresh_stats,
+            "master_csv": CFR_MASTER_CSV.name,
+            "master_excel": CFR_MASTER_XLSX.name,
+        }
+        manifest_tmp = CFR_MASTER_MANIFEST.with_name(
+            CFR_MASTER_MANIFEST.name + ".tmp"
+        )
+        with manifest_tmp.open("w", encoding="utf-8") as manifest_file:
+            json.dump(manifest_payload, manifest_file, indent=2, default=str)
+        os.replace(manifest_tmp, CFR_MASTER_MANIFEST)
+    else:
+        cfr = pd.read_csv(CFR_MASTER_CSV, low_memory=False)
+        if "Last Modified" in cfr.columns:
+            cfr["Last Modified"] = pd.to_datetime(
+                cfr["Last Modified"], errors="coerce"
+            ).dt.normalize()
+        if "CFR Year" not in cfr.columns and "Last Modified" in cfr.columns:
+            cfr["CFR Year"] = cfr["Last Modified"].dt.year.astype("Int64")
+        elif "CFR Year" in cfr.columns:
+            cfr["CFR Year"] = pd.to_numeric(
+                cfr["CFR Year"], errors="coerce"
+            ).astype("Int64")
+        _, metadata_error = _load_country_metadata()
+        cfr.attrs["metadata_error"] = metadata_error
+
+    cfr.attrs["master_csv_path"] = str(CFR_MASTER_CSV)
+    cfr.attrs["master_xlsx_path"] = str(CFR_MASTER_XLSX)
+    cfr.attrs["master_refreshed"] = refreshed
+    cfr.attrs["master_refresh_stats"] = refresh_stats
+    cfr.attrs["master_last_refreshed"] = (
+        refreshed_at if refreshed else manifest.get("last_refreshed", "Not available")
+    )
+    if not refreshed:
+        cfr.attrs["master_refresh_stats"] = manifest.get("refresh_stats", {})
     return cfr
 
 # ------------------------------------------------------------
@@ -5286,7 +5512,7 @@ def _render_cfr_kpis(country_count):
         '<div class="cfr-kpi-title">Scoring scale</div>'
         '<div class="cfr-kpi-value">1–5</div>'
         '<div class="cfr-kpi-note">'
-        'Most restricted to most enabling'
+        'Fully disabling to fully enabling'
         '</div>'
         '</div>'
         '</div>'
@@ -5583,7 +5809,7 @@ def _build_aggregated_cfr_figure(chart_data):
 
 
 def _build_cfr_over_time_figure(data):
-    """Build annual CFR principle trends using year only — no monthly axis."""
+    """Build annual CFR principle trends with shared-score hover details."""
 
     import plotly.graph_objects as go
 
@@ -5597,13 +5823,12 @@ def _build_cfr_over_time_figure(data):
 
     principle_columns = list(CFR_PRINCIPLES.values())
 
-    # Ensure year is numeric
+    # Ensure year is numeric.
     trend_data = data.copy()
     trend_data["CFR Year"] = pd.to_numeric(
         trend_data["CFR Year"],
         errors="coerce",
     )
-
     trend_data = trend_data.dropna(subset=["CFR Year"])
 
     if trend_data.empty:
@@ -5614,9 +5839,7 @@ def _build_cfr_over_time_figure(data):
         )
         return fig
 
-    # ---------------------------------------------------------
-    # ANNUAL AGGREGATION ONLY
-    # ---------------------------------------------------------
+    # Annual mean score for each principle.
     annual_scores = (
         trend_data
         .groupby("CFR Year")[principle_columns]
@@ -5625,9 +5848,50 @@ def _build_cfr_over_time_figure(data):
         .sort_values("CFR Year")
     )
 
+    # Build hover details using the displayed score (2 decimal places).
+    # Thus, principles whose values round to the same displayed score are
+    # listed together for that year, even if their unrounded means differ
+    # slightly.
+    shared_score_labels = {}
+    for _, row in annual_scores.iterrows():
+        year = row["CFR Year"]
+        score_groups = {}
+
+        for principle in principle_columns:
+            score = row[principle]
+            if pd.isna(score):
+                continue
+            displayed_score = f"{float(score):.2f}"
+            score_groups.setdefault(displayed_score, []).append(principle)
+
+        for displayed_score, principles in score_groups.items():
+            shared_score_labels[(year, displayed_score)] = ", ".join(principles)
+
     fig = go.Figure()
 
     for principle in principle_columns:
+        hover_principles = []
+        for _, row in annual_scores.iterrows():
+            score = row[principle]
+            if pd.isna(score):
+                hover_principles.append("Not available")
+                continue
+
+            displayed_score = f"{float(score):.2f}"
+            matching_principles = shared_score_labels.get(
+                (row["CFR Year"], displayed_score),
+                principle,
+            ).split(", ")
+
+            if len(matching_principles) == 1:
+                hover_label = matching_principles[0]
+            else:
+                hover_label = "<br>".join(
+                    f"• {name}" for name in matching_principles
+                )
+
+            hover_principles.append(hover_label)
+
         fig.add_trace(
             go.Scatter(
                 x=annual_scores["CFR Year"],
@@ -5642,31 +5906,37 @@ def _build_cfr_over_time_figure(data):
                     color=CFR_PRINCIPLE_COLOURS[principle],
                     size=7,
                 ),
+                customdata=hover_principles,
                 hovertemplate=(
-                    "<b>%{fullData.name}</b><br>"
                     "Year: %{x}<br>"
-                    "Mean score: %{y:.2f}"
+                    "Mean score: %{y:.2f}<br>"
+                    "<b>Principle(s):</b><br>"
+                    "%{customdata}"
                     "<extra></extra>"
                 ),
             )
         )
 
-    # ---------------------------------------------------------
-    # AXIS / LAYOUT
-    # ---------------------------------------------------------
+    # Show only years represented in the annual dataset.
+    available_years = sorted(
+        annual_scores["CFR Year"].dropna().unique().tolist()
+    )
+
     fig.update_xaxes(
         title_text="Year",
         type="linear",
-        tickmode="linear",
-        dtick=1,
+        tickmode="array",
+        tickvals=available_years,
+        ticktext=[str(int(year)) for year in available_years],
         showgrid=True,
         zeroline=False,
     )
 
     fig.update_yaxes(
         title_text="Mean CFR score",
-        range=[CFR_SCORE_MIN, CFR_SCORE_MAX],
+        range=[0, CFR_SCORE_MAX],
         dtick=1,
+        rangemode="tozero",
         showgrid=True,
         zeroline=False,
     )
@@ -5674,7 +5944,7 @@ def _build_cfr_over_time_figure(data):
     fig.update_layout(
         height=390,
         margin=dict(l=55, r=20, t=20, b=55),
-        hovermode="x unified",
+        hovermode="closest",
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -5686,6 +5956,7 @@ def _build_cfr_over_time_figure(data):
     )
 
     return fig
+
 # ------------------------------------------------------------
 # CFR PAGE
 # ------------------------------------------------------------
@@ -5843,38 +6114,34 @@ def _extract_cfr_filename_date(source_path):
 def render_cfr_analysis():
     _inject_cfr_dashboard_css()
 
-    source = _find_cfr_source()
+    sources = _find_cfr_sources()
 
-    if source is None:
+    if not sources:
         st.warning(
-            "CFR data file not found. Add a file matching "
+            "No CFR export files were found. Add files matching "
             "`CFR_Export_YYYY_MM_DD.csv` to the exports folder, "
-            "or define the EUSEE_CFR_CSV environment variable."
+            "or configure `EUSEE_CFR_CSV`."
         )
         return
 
-   
-    metadata_path = EXPORT_DIR / "countries_metadata.json"
-    metadata_mtime = (
-        metadata_path.stat().st_mtime
-        if metadata_path.exists()
-        else None
+    # The master dataset is refreshed automatically whenever a source export
+    # is added, removed, or modified. No manual refresh control is required.
+    st.caption(
+        f"Master file: `{CFR_MASTER_CSV.name}` · "
+        f"Source exports detected: {len(sources)} · "
+        "Automatic source checking enabled"
     )
 
     try:
-        cfr = load_cfr_data(
-            str(source),
-            source.stat().st_mtime,
-            metadata_mtime,
-        )
+        with st.spinner("Checking CFR exports and updating the master dataset if needed..."):
+            cfr = _load_cfr_master_dataset(sources)
     except Exception as exc:
-        st.error(f"Could not load CFR data: {exc}")
+        st.error(f"Could not build or load the CFR master dataset: {exc}")
         return
 
-    if cfr.empty:
-        st.info("No CFR records are currently available.")
-        return
-
+    refresh_stats = cfr.attrs.get("master_refresh_stats", {})
+  
+  
     metadata_error = cfr.attrs.get("metadata_error", "")
     if metadata_error:
         st.warning(metadata_error)
@@ -5924,7 +6191,7 @@ def render_cfr_analysis():
             aggregated_tab, over_time_tab = st.tabs(
                 [
                     "Aggregated CFR scores by principle",
-                    "Aggregated CFR scores over time.",
+                    "Aggregated CFR scores over time",
                 ]
             )
 
@@ -6012,7 +6279,7 @@ def render_cfr_analysis():
                             Aggregated CFR scores by principle over time
                         </div>
                         <div class="cfr-panel-note">
-                            Mean score over time.
+                            Mean score over time (Scores may overlap. Hover for details).
                         </div>
                     </div>
                     """,
@@ -6150,18 +6417,13 @@ def render_cfr_analysis():
             )
 
     # --------------------------------------------------------
-    # BOTTOM: COUNTRY TABLE
+    # BOTTOM: COUNTRY-DATE TABLE
     # --------------------------------------------------------
-    # Keep the existing country table as a latest-record snapshot so the
-    # new historical rows do not duplicate countries in this table.
+    # Preserve the historical time series: one row per country per calendar
+    # date. Do not de-duplicate on Country alone, because that would discard
+    # valid observations from other dates.
     country_table = (
-        cfr.sort_values(
-            ["Country", "Last Modified"],
-            ascending=[True, True],
-            na_position="first",
-        )
-        .drop_duplicates(subset=["Country"], keep="last")
-        [
+        cfr[
             [
                 "Country",
                 *principle_columns,
@@ -6169,7 +6431,12 @@ def render_cfr_analysis():
                 "Permalink",
             ]
         ]
-        .sort_values("Country", ascending=True)
+        .sort_values(
+            ["Country", "Last Modified"],
+            ascending=[True, True],
+            na_position="last",
+            kind="stable",
+        )
         .reset_index(drop=True)
     )
 
@@ -6177,11 +6444,12 @@ def render_cfr_analysis():
         f"""
         <div class="cfr-panel cfr-country-table-panel">
             <div class="cfr-panel-title">
-                CFR scores per country
+                CFR scores by country and date
             </div>
             <div class="cfr-panel-note">
-                Country-level scores across the six enabling environment
-                principles.
+                Historical country-level scores across the six enabling
+                environment principles, with one observation per country
+                per calendar date.
             </div>
             {_build_country_table_html(country_table)}
         </div>
@@ -10834,7 +11102,7 @@ if tab_negative is not None:
                 render_dashboard_plotly_chart(create_bar_chart(m1, "Actor of repression", "count", title="Types of restrictive actors", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m1, visual_type="bar chart", x_col="Actor of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart1", container=r1c1, permission_key="view_chart_negative_restrictive_actors", permission_label="Restrictive actors chart")
                 render_dashboard_plotly_chart(create_bar_chart(m2, "Subject of repression", "count", title="Types of civil society actors affected", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m2, visual_type="bar chart", x_col="Subject of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart2", container=r1c2, permission_key="view_chart_negative_affected_actors", permission_label="Civil society actors affected chart")
                 render_dashboard_plotly_chart(create_bar_chart(m3, "Mechanism of repression", "count", title="Types of restrictive mechanisms", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m3, visual_type="bar chart", x_col="Mechanism of repression", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart3", container=r1c3, permission_key="view_chart_negative_restrictive_mechanisms", permission_label="Restrictive mechanisms chart")
-                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
+                render_dashboard_plotly_chart(create_bar_chart(m4, "Type of event", "count", title="Types of negative events <span style='display:inline-block; background-color:#F5F0FF; border:1px solid #D8C4F7 !important; border-radius:5px; padding:3px 10px; color:#6B21A8; font-size:12px; font-weight:700; letter-spacing:0.4px; vertical-align:middle'>BETA</span>", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m4, visual_type="bar chart", x_col="Type of event", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart4", container=r2c1, permission_key="view_chart_negative_event_types", permission_label="Negative event types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m5, "alert-type", "count", title="Distribution of negative alert types", horizontal=True, normalize_labels=True, percentage_denominator=len(reactive_df_updated)), plot_df=m5, visual_type="bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=reactive_df_updated, key="tab2_chart5", container=r2c2, permission_key="view_chart_negative_alert_types", permission_label="Negative alert types chart")
                 render_dashboard_plotly_chart(create_bar_chart(m6, "enabling-principle", "count", title="Negative alert distribution across enabling principles", horizontal=True, normalize_labels=False, percentage_denominator=len(reactive_df_updated)),plot_df=m6,visual_type="bar chart",x_col="enabling-principle",group_col="alert-impact",dashboard_df=reactive_df_updated,key="tab2_chart6",container=r2c3, permission_key="view_chart_negative_enabling_principles",permission_label="Negative enabling-principle distribution")
              
@@ -11867,14 +12135,35 @@ if tab_map is not None:
 # ---------------- CFR ANALYSIS TAB ----------------
 if tab_cfr is not None:
     with tab_cfr:
-        # Resolve the same CFR source used by render_cfr_analysis() so the
-        # badge always reflects the date embedded in the selected filename.
-        cfr_tab_source = _find_cfr_source()
-        cfr_tab_date = (
-            _extract_cfr_filename_date(cfr_tab_source)
-            if cfr_tab_source is not None
-            else None
-        )
+        # Refresh/load the consolidated master dataset first, then derive the
+        # badge date from its latest reporting date (not from an export filename).
+        cfr_tab_date = None
+        try:
+            cfr_tab_sources = _find_cfr_sources()
+            if cfr_tab_sources:
+                cfr_tab_master = _load_cfr_master_dataset(cfr_tab_sources)
+            elif CFR_MASTER_CSV.exists():
+                cfr_tab_master = pd.read_csv(CFR_MASTER_CSV, low_memory=False)
+            else:
+                cfr_tab_master = pd.DataFrame()
+
+            if (
+                not cfr_tab_master.empty
+                and "Last Modified" in cfr_tab_master.columns
+            ):
+                # Read the calendar-date portion to avoid timezone shifts.
+                cfr_tab_dates = pd.to_datetime(
+                    cfr_tab_master["Last Modified"].astype("string").str.slice(0, 10),
+                    format="%Y-%m-%d",
+                    errors="coerce",
+                )
+                if cfr_tab_dates.notna().any():
+                    cfr_tab_date = cfr_tab_dates.max().to_pydatetime()
+        except Exception as exc:
+            logging.warning(
+                "Could not determine the CFR tab's latest date from the master dataset: %s",
+                exc,
+            )
 
         if cfr_tab_date is not None:
             cfr_tab_display_date = cfr_tab_date.strftime("%d %B %Y")
@@ -11897,7 +12186,7 @@ if tab_cfr is not None:
                 <div class="cfr-page-subtitle">
                     Explore score patterns across the six EU SEE enabling
                     environment principles.<br>
-                    Scores range from 1 (most restricted) to 5 (most enabling).
+                    Scores range from 1 (fully disabling) to 5 (fully enabling).
                 </div>
                 {cfr_last_updated_html}
             </div>
@@ -12230,6 +12519,8 @@ if tab_manual is not None:
                 else '<div class="brand-fallback">EU SEE<br>Partner Network</div>'
             )
 
+            st.divider()
+
             st.html(
                 textwrap.dedent(f"""
                 <div class="user-guide-shell">
@@ -12338,6 +12629,30 @@ if tab_manual is not None:
                 </div>
                 """)
             )
+
+            # ============================================================
+            # COMPLETE USER MANUAL — DOWNLOAD ONLY
+            # Displayed immediately below the Need help? panel.
+            # ============================================================
+            pdf_bytes, pdf_error = _read_pdf_bytes_cached(
+                str(USER_MANUAL_PATH)
+            )
+
+            if pdf_error:
+                st.warning(
+                    "The PDF user manual is currently unavailable. "
+                    "Please contact the dashboard administrator."
+                )
+                logging.warning("User manual PDF unavailable: %s", pdf_error)
+            else:
+                st.download_button(
+                    label="⬇ Download User Manual (PDF)",
+                    data=pdf_bytes,
+                    file_name=USER_MANUAL_PATH.name,
+                    mime="application/pdf",
+                    key="download_user_manual_pdf",
+                    use_container_width=True,
+                )
         else:
             render_access_locked("User Manual", "guest or higher")
 
@@ -12360,24 +12675,25 @@ def _render_eusee_copilot_fragment() -> None:
     # reruns when the launcher, minimize, restore, expand, or close controls fire.
     if st.session_state.get("eusee_copilot_open", False):
         try:
-            _copilot_cfr_source = _find_cfr_source()
-            if _copilot_cfr_source is not None:
+            _copilot_cfr_sources = _find_cfr_sources()
+            if _copilot_cfr_sources:
                 _copilot_metadata_path = EXPORT_DIR / "countries_metadata.json"
                 _copilot_metadata_mtime = (
                     _copilot_metadata_path.stat().st_mtime
                     if _copilot_metadata_path.exists()
                     else None
                 )
+                _copilot_source_signature, _copilot_metadata_signature = _cfr_source_signature(
+                    _copilot_cfr_sources
+                )
                 _copilot_cfr_cache_key = (
-                    str(_copilot_cfr_source),
-                    _copilot_cfr_source.stat().st_mtime,
-                    _copilot_metadata_mtime,
+                    _copilot_source_signature,
+                    _copilot_metadata_signature,
                 )
                 if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
-                    st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
-                        str(_copilot_cfr_source),
-                        _copilot_cfr_cache_key[1],
-                        _copilot_metadata_mtime,
+                    st.session_state["_eusee_copilot_cfr_df"] = _load_cfr_master_dataset(
+                        _copilot_cfr_sources,
+                        force_refresh=False,
                     )
                     st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
                 _copilot_cfr_df = st.session_state.get(
