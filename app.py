@@ -3245,7 +3245,11 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
                 max_value=_available_max_date,
                 format="DD/MM/YYYY",
                 key="global_date_range",
-                
+                help=(
+                    "Optionally select a start and end date. Both dates are included. "
+                    "Leave the calendar empty to include all dates. To filter by a "
+                    "calendar month or year, select its first and last day."
+                ),
             )
         else:
             st.caption("Date filter unavailable: the dataset has no valid dates.")
@@ -3544,6 +3548,13 @@ CFR_SOURCE_FILENAME = "CFR_Export_2026_07_22.csv"
 CFR_SCORE_MIN = 1.0
 CFR_SCORE_MAX = 5.0
 
+# Consolidated CFR outputs. Original CFR_Export_*.csv files remain untouched.
+CFR_MASTER_DIR = EXPORT_DIR / "master"
+CFR_MASTER_CSV = CFR_MASTER_DIR / "CFR_Master_Dataset.csv"
+CFR_MASTER_XLSX = CFR_MASTER_DIR / "CFR_Master_Dataset.xlsx"
+CFR_MASTER_MANIFEST = CFR_MASTER_DIR / "CFR_Master_Metadata.json"
+CFR_MASTER_SHEET_NAME = "CFR Master"
+
 # Full source-column name -> compact dashboard name.
 CFR_PRINCIPLES = {
     "Respect and protection of fundamental freedoms": "P1",
@@ -3808,15 +3819,39 @@ def load_cfr_data(
     # Parse the modification date and derive the CFR reporting year.
     # The current export does not contain a separate Year field, so the
     # reporting year is taken from Last Modified.
-    cfr["Last Modified"] = (
-        pd.to_datetime(
-            cfr["Last Modified"],
-            errors="coerce",
-            utc=True,
-        )
-        .dt.tz_convert(None)
-        .dt.normalize()
+    raw_last_modified = cfr["Last Modified"].astype("string").str.strip()
+
+    # Preserve the calendar date written in ISO timestamps. In particular,
+    # do not convert an offset-aware local timestamp to UTC before extracting
+    # its date, because that can move a record to the previous/next day.
+    iso_calendar_dates = raw_last_modified.str.extract(
+        r"^(\d{4}-\d{2}-\d{2})",
+        expand=False,
     )
+    parsed_last_modified = pd.to_datetime(
+        iso_calendar_dates,
+        errors="coerce",
+    )
+
+    # Fall back to pandas parsing for non-ISO date formats while retaining
+    # the calendar date represented by each individual source value.
+    fallback_mask = parsed_last_modified.isna() & raw_last_modified.notna()
+    if fallback_mask.any():
+        fallback_dates = []
+        for raw_value in raw_last_modified.loc[fallback_mask]:
+            parsed_value = pd.to_datetime(raw_value, errors="coerce")
+            fallback_dates.append(
+                pd.NaT if pd.isna(parsed_value) else pd.Timestamp(parsed_value).date()
+            )
+        parsed_last_modified.loc[fallback_mask] = pd.to_datetime(
+            fallback_dates,
+            errors="coerce",
+        )
+
+    cfr["Last Modified"] = pd.to_datetime(
+        parsed_last_modified,
+        errors="coerce",
+    ).dt.normalize()
     # Use a case-insensitive comparison key so minor country-label casing
     # differences cannot create duplicate country/date observations.
     cfr["_CFR_COUNTRY_KEY"] = (
@@ -3913,7 +3948,171 @@ def load_cfr_data(
     )
 
     cfr.attrs["metadata_error"] = metadata_error
+    cfr.attrs["source_file_count"] = len(source_paths)
+    cfr.attrs["rows_before_deduplication"] = before_deduplication
+    cfr.attrs["duplicate_country_date_rows_removed"] = duplicate_count
+    cfr.attrs["unique_country_date_rows"] = len(cfr)
 
+    return cfr
+
+
+def _cfr_source_signature(source_paths):
+    """Build a cache-safe signature that changes when any export changes."""
+    signature = []
+    for source in source_paths:
+        path = Path(source)
+        stat = path.stat()
+        signature.append((str(path.resolve()), int(stat.st_size), int(stat.st_mtime_ns)))
+
+    metadata_path = EXPORT_DIR / "countries_metadata.json"
+    if metadata_path.exists():
+        metadata_stat = metadata_path.stat()
+        metadata_signature = (
+            str(metadata_path.resolve()),
+            int(metadata_stat.st_size),
+            int(metadata_stat.st_mtime_ns),
+        )
+    else:
+        metadata_signature = None
+
+    return tuple(signature), metadata_signature
+
+
+def _write_cfr_master_outputs(dataframe):
+    """Atomically write the consolidated CSV and its one-sheet Excel copy."""
+    CFR_MASTER_DIR.mkdir(parents=True, exist_ok=True)
+
+    csv_tmp = CFR_MASTER_CSV.with_name(CFR_MASTER_CSV.name + ".tmp")
+    dataframe.to_csv(csv_tmp, index=False, encoding="utf-8-sig")
+    os.replace(csv_tmp, CFR_MASTER_CSV)
+
+    # Excel is a companion inspection copy; the CSV remains authoritative.
+    xlsx_tmp = CFR_MASTER_XLSX.with_name("CFR_Master_Dataset.tmp.xlsx")
+    try:
+        with pd.ExcelWriter(xlsx_tmp, engine="openpyxl") as writer:
+            dataframe.to_excel(
+                writer,
+                sheet_name=CFR_MASTER_SHEET_NAME,
+                index=False,
+            )
+            worksheet = writer.sheets[CFR_MASTER_SHEET_NAME]
+            worksheet.freeze_panes = "A2"
+            worksheet.auto_filter.ref = worksheet.dimensions
+            worksheet.sheet_view.showGridLines = False
+        os.replace(xlsx_tmp, CFR_MASTER_XLSX)
+    except ImportError:
+        if xlsx_tmp.exists():
+            xlsx_tmp.unlink()
+        logging.warning(
+            "openpyxl is not installed; the CFR master CSV was saved, "
+            "but the Excel companion workbook could not be generated."
+        )
+    except Exception:
+        if xlsx_tmp.exists():
+            xlsx_tmp.unlink()
+        raise
+
+
+def _load_cfr_master_dataset(source_paths, force_refresh=False):
+    """Refresh the master files when source exports change, then load the CSV.
+
+    The master CSV is the authoritative dashboard dataset. A persistent
+    metadata manifest records source-file signatures so new or modified
+    exports are detected across dashboard sessions and on subsequent reruns.
+    """
+    if not source_paths:
+        raise FileNotFoundError("No CFR export files were found.")
+
+    CFR_MASTER_DIR.mkdir(parents=True, exist_ok=True)
+    source_signature, metadata_signature = _cfr_source_signature(source_paths)
+    combined_signature = (source_signature, metadata_signature)
+    signature_token = json.dumps(
+        combined_signature,
+        default=str,
+        separators=(",", ":"),
+    )
+    manifest = {}
+    if CFR_MASTER_MANIFEST.exists():
+        try:
+            with CFR_MASTER_MANIFEST.open("r", encoding="utf-8") as manifest_file:
+                manifest = json.load(manifest_file)
+        except Exception:
+            logging.warning("Could not read CFR master metadata; rebuilding the master dataset.")
+
+    should_refresh = (
+        force_refresh
+        or not CFR_MASTER_CSV.exists()
+        or manifest.get("source_signature") != signature_token
+    )
+
+    refreshed = False
+    refresh_stats = {}
+
+    if should_refresh:
+        # Pass the signatures as cache keys and clear the old cached result
+        # when an administrator explicitly requests a refresh.
+        if force_refresh:
+            load_cfr_data.clear()
+
+        metadata_mtime = (
+            (EXPORT_DIR / "countries_metadata.json").stat().st_mtime
+            if (EXPORT_DIR / "countries_metadata.json").exists()
+            else None
+        )
+        cfr = load_cfr_data(
+            [str(path) for path in source_paths],
+            (source_signature, metadata_signature),
+            metadata_mtime,
+        )
+        _write_cfr_master_outputs(cfr)
+        refreshed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        refreshed = True
+        refresh_stats = {
+            "source_file_count": cfr.attrs.get("source_file_count", len(source_paths)),
+            "rows_before_deduplication": cfr.attrs.get("rows_before_deduplication", len(cfr)),
+            "duplicate_country_date_rows_removed": cfr.attrs.get(
+                "duplicate_country_date_rows_removed", 0
+            ),
+            "unique_country_date_rows": cfr.attrs.get("unique_country_date_rows", len(cfr)),
+            "metadata_error": cfr.attrs.get("metadata_error", ""),
+        }
+        manifest_payload = {
+            "source_signature": signature_token,
+            "last_refreshed": refreshed_at,
+            "refresh_stats": refresh_stats,
+            "master_csv": CFR_MASTER_CSV.name,
+            "master_excel": CFR_MASTER_XLSX.name,
+        }
+        manifest_tmp = CFR_MASTER_MANIFEST.with_name(
+            CFR_MASTER_MANIFEST.name + ".tmp"
+        )
+        with manifest_tmp.open("w", encoding="utf-8") as manifest_file:
+            json.dump(manifest_payload, manifest_file, indent=2, default=str)
+        os.replace(manifest_tmp, CFR_MASTER_MANIFEST)
+    else:
+        cfr = pd.read_csv(CFR_MASTER_CSV, low_memory=False)
+        if "Last Modified" in cfr.columns:
+            cfr["Last Modified"] = pd.to_datetime(
+                cfr["Last Modified"], errors="coerce"
+            ).dt.normalize()
+        if "CFR Year" not in cfr.columns and "Last Modified" in cfr.columns:
+            cfr["CFR Year"] = cfr["Last Modified"].dt.year.astype("Int64")
+        elif "CFR Year" in cfr.columns:
+            cfr["CFR Year"] = pd.to_numeric(
+                cfr["CFR Year"], errors="coerce"
+            ).astype("Int64")
+        _, metadata_error = _load_country_metadata()
+        cfr.attrs["metadata_error"] = metadata_error
+
+    cfr.attrs["master_csv_path"] = str(CFR_MASTER_CSV)
+    cfr.attrs["master_xlsx_path"] = str(CFR_MASTER_XLSX)
+    cfr.attrs["master_refreshed"] = refreshed
+    cfr.attrs["master_refresh_stats"] = refresh_stats
+    cfr.attrs["master_last_refreshed"] = (
+        refreshed_at if refreshed else manifest.get("last_refreshed", "Not available")
+    )
+    if not refreshed:
+        cfr.attrs["master_refresh_stats"] = manifest.get("refresh_stats", {})
     return cfr
 
 # ------------------------------------------------------------
@@ -5925,23 +6124,70 @@ def render_cfr_analysis():
         )
         return
 
-    metadata_path = EXPORT_DIR / "countries_metadata.json"
-    metadata_mtime = metadata_path.stat().st_mtime if metadata_path.exists() else None
-    source_mtimes = tuple((str(path), path.stat().st_mtime) for path in sources)
+    # The master dataset is refreshed automatically whenever a source export
+    # is added, removed, or modified. No manual refresh control is required.
+    st.caption(
+        f"Master file: `{CFR_MASTER_CSV.name}` · "
+        f"Source exports detected: {len(sources)} · "
+        "Automatic source checking enabled"
+    )
 
     try:
-        cfr = load_cfr_data(
-            [str(path) for path in sources],
-            source_mtimes,
-            metadata_mtime,
-        )
+        with st.spinner("Checking CFR exports and updating the master dataset if needed..."):
+            cfr = _load_cfr_master_dataset(sources)
     except Exception as exc:
-        st.error(f"Could not load CFR data: {exc}")
+        st.error(f"Could not build or load the CFR master dataset: {exc}")
         return
+
+    refresh_stats = cfr.attrs.get("master_refresh_stats", {})
+    if cfr.attrs.get("master_refreshed", False):
+        st.success(
+            "CFR master dataset refreshed: "
+            f"{len(cfr):,} unique country-date records from "
+            f"{len(sources):,} source export(s)."
+        )
+        if refresh_stats:
+            st.caption(
+                f"Rows consolidated: {refresh_stats.get('rows_before_deduplication', len(cfr)):,} · "
+                f"Duplicate country-date rows removed: "
+                f"{refresh_stats.get('duplicate_country_date_rows_removed', 0):,} · "
+                f"Master CSV: {CFR_MASTER_CSV}"
+            )
+    else:
+        st.caption(
+            f"Master dataset last rebuilt: "
+            f"{cfr.attrs.get('master_last_refreshed', 'Not available')} · "
+            f"{len(cfr):,} unique country-date records"
+        )
 
     if cfr.empty:
         st.info("No CFR records are currently available.")
         return
+
+    # Provide direct downloads of the current consolidated master files.
+    download_csv_col, download_xlsx_col = st.columns(2)
+    with download_csv_col:
+        if CFR_MASTER_CSV.exists():
+            st.download_button(
+                "Download master dataset (CSV)",
+                data=CFR_MASTER_CSV.read_bytes(),
+                file_name=CFR_MASTER_CSV.name,
+                mime="text/csv",
+                key="download_cfr_master_csv",
+                use_container_width=True,
+            )
+    with download_xlsx_col:
+        if CFR_MASTER_XLSX.exists():
+            st.download_button(
+                "Download master dataset (Excel)",
+                data=CFR_MASTER_XLSX.read_bytes(),
+                file_name=CFR_MASTER_XLSX.name,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_cfr_master_xlsx",
+                use_container_width=True,
+            )
+        else:
+            st.caption("Excel export unavailable. Install `openpyxl` to enable it.")
 
     metadata_error = cfr.attrs.get("metadata_error", "")
     if metadata_error:
@@ -6218,18 +6464,13 @@ def render_cfr_analysis():
             )
 
     # --------------------------------------------------------
-    # BOTTOM: COUNTRY TABLE
+    # BOTTOM: COUNTRY-DATE TABLE
     # --------------------------------------------------------
-    # Keep the existing country table as a latest-record snapshot so the
-    # new historical rows do not duplicate countries in this table.
+    # Preserve the historical time series: one row per country per calendar
+    # date. Do not de-duplicate on Country alone, because that would discard
+    # valid observations from other dates.
     country_table = (
-        cfr.sort_values(
-            ["Country", "Last Modified"],
-            ascending=[True, True],
-            na_position="first",
-        )
-        .drop_duplicates(subset=["Country"], keep="last")
-        [
+        cfr[
             [
                 "Country",
                 *principle_columns,
@@ -6237,7 +6478,12 @@ def render_cfr_analysis():
                 "Permalink",
             ]
         ]
-        .sort_values("Country", ascending=True)
+        .sort_values(
+            ["Country", "Last Modified"],
+            ascending=[True, True],
+            na_position="last",
+            kind="stable",
+        )
         .reset_index(drop=True)
     )
 
@@ -6245,11 +6491,12 @@ def render_cfr_analysis():
         f"""
         <div class="cfr-panel cfr-country-table-panel">
             <div class="cfr-panel-title">
-                CFR scores per country
+                CFR scores by country and date
             </div>
             <div class="cfr-panel-note">
-                Country-level scores across the six enabling environment
-                principles.
+                Historical country-level scores across the six enabling
+                environment principles, with one observation per country
+                per calendar date.
             </div>
             {_build_country_table_html(country_table)}
         </div>
@@ -12462,15 +12709,17 @@ def _render_eusee_copilot_fragment() -> None:
                     if _copilot_metadata_path.exists()
                     else None
                 )
+                _copilot_source_signature, _copilot_metadata_signature = _cfr_source_signature(
+                    _copilot_cfr_sources
+                )
                 _copilot_cfr_cache_key = (
-                    tuple((str(path), path.stat().st_mtime) for path in _copilot_cfr_sources),
-                    _copilot_metadata_mtime,
+                    _copilot_source_signature,
+                    _copilot_metadata_signature,
                 )
                 if st.session_state.get("_eusee_copilot_cfr_cache_key") != _copilot_cfr_cache_key:
-                    st.session_state["_eusee_copilot_cfr_df"] = load_cfr_data(
-                        [str(path) for path in _copilot_cfr_sources],
-                        _copilot_cfr_cache_key[0],
-                        _copilot_metadata_mtime,
+                    st.session_state["_eusee_copilot_cfr_df"] = _load_cfr_master_dataset(
+                        _copilot_cfr_sources,
+                        force_refresh=False,
                     )
                     st.session_state["_eusee_copilot_cfr_cache_key"] = _copilot_cfr_cache_key
                 _copilot_cfr_df = st.session_state.get(
