@@ -9,23 +9,14 @@ the model only explains the returned evidence.
 """
 
 from __future__ import annotations
-
 import hashlib
-
 import json
-
 import re
-
 import uuid
-
 from datetime import datetime
-
 from pathlib import Path
-
 from typing import Any
-
 import pandas as pd
--
 import streamlit as st
 
 try:
@@ -2415,9 +2406,7 @@ def _render_chat_body(dataframe, cfr_dataframe, can_use_ai: bool, api_key: str, 
                 }
 
         result["question"] = question
-
         messages.append({"role": "assistant", "content": json.dumps(result, ensure_ascii=False, default=str), "created_at": datetime.utcnow().isoformat()})
-
         _save_history(base_dir, messages)
 
         st.rerun(scope="fragment")

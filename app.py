@@ -3245,11 +3245,7 @@ with st.sidebar.expander("🌍 Dashboard filters", expanded=True) as sidebar_fil
                 max_value=_available_max_date,
                 format="DD/MM/YYYY",
                 key="global_date_range",
-                help=(
-                    "Optionally select a start and end date. Both dates are included. "
-                    "Leave the calendar empty to include all dates. To filter by a "
-                    "calendar month or year, select its first and last day."
-                ),
+              
             )
         else:
             st.caption("Date filter unavailable: the dataset has no valid dates.")
@@ -6126,12 +6122,7 @@ def render_cfr_analysis():
 
     # The master dataset is refreshed automatically whenever a source export
     # is added, removed, or modified. No manual refresh control is required.
-    st.caption(
-        f"Master file: `{CFR_MASTER_CSV.name}` · "
-        f"Source exports detected: {len(sources)} · "
-        "Automatic source checking enabled"
-    )
-
+  
     try:
         with st.spinner("Checking CFR exports and updating the master dataset if needed..."):
             cfr = _load_cfr_master_dataset(sources)
