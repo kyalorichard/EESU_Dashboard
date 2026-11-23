@@ -6126,12 +6126,7 @@ def render_cfr_analysis():
 
     # The master dataset is refreshed automatically whenever a source export
     # is added, removed, or modified. No manual refresh control is required.
-    st.caption(
-        f"Master file: `{CFR_MASTER_CSV.name}` · "
-        f"Source exports detected: {len(sources)} · "
-        "Automatic source checking enabled"
-    )
-
+  
     try:
         with st.spinner("Checking CFR exports and updating the master dataset if needed..."):
             cfr = _load_cfr_master_dataset(sources)
