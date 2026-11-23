@@ -12182,14 +12182,35 @@ if tab_map is not None:
 # ---------------- CFR ANALYSIS TAB ----------------
 if tab_cfr is not None:
     with tab_cfr:
-        # Resolve the same CFR source used by render_cfr_analysis() so the
-        # badge always reflects the date embedded in the selected filename.
-        cfr_tab_source = _find_cfr_source()
-        cfr_tab_date = (
-            _extract_cfr_filename_date(cfr_tab_source)
-            if cfr_tab_source is not None
-            else None
-        )
+        # Refresh/load the consolidated master dataset first, then derive the
+        # badge date from its latest reporting date (not from an export filename).
+        cfr_tab_date = None
+        try:
+            cfr_tab_sources = _find_cfr_sources()
+            if cfr_tab_sources:
+                cfr_tab_master = _load_cfr_master_dataset(cfr_tab_sources)
+            elif CFR_MASTER_CSV.exists():
+                cfr_tab_master = pd.read_csv(CFR_MASTER_CSV, low_memory=False)
+            else:
+                cfr_tab_master = pd.DataFrame()
+
+            if (
+                not cfr_tab_master.empty
+                and "Last Modified" in cfr_tab_master.columns
+            ):
+                # Read the calendar-date portion to avoid timezone shifts.
+                cfr_tab_dates = pd.to_datetime(
+                    cfr_tab_master["Last Modified"].astype("string").str.slice(0, 10),
+                    format="%Y-%m-%d",
+                    errors="coerce",
+                )
+                if cfr_tab_dates.notna().any():
+                    cfr_tab_date = cfr_tab_dates.max().to_pydatetime()
+        except Exception as exc:
+            logging.warning(
+                "Could not determine the CFR tab's latest date from the master dataset: %s",
+                exc,
+            )
 
         if cfr_tab_date is not None:
             cfr_tab_display_date = cfr_tab_date.strftime("%d %B %Y")
