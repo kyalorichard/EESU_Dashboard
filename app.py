@@ -2205,7 +2205,7 @@ st.session_state["eusee_dataset_signature"] = {
 ENABLING_PRINCIPLE_ORDER = [          
     "6. Access to a secure digital environment",
     "5. Supportive public culture and discourses on civil society",
-    "4. Open and responsive State",
+    "4. Open and responsive state",
     "3. Accessible and sustainable resources",
     "2. Supportive legal and regulatory framework",
     "1. Respect and protection of fundamental freedoms"
@@ -2215,7 +2215,7 @@ ENABLING_PRINCIPLE_LABEL_MAP = {
     "Respect and protection of fundamental freedoms":"1. Respect and protection of fundamental freedoms",
     "Supportive legal and regulatory framework":"2. Supportive legal and regulatory framework",
     "Accessible and sustainable resources":"3. Accessible and sustainable resources",
-    "State openness and responsiveness to civil society":"4. Open and responsive State",
+    "State openness and responsiveness to civil society":"4. Open and responsive state",
     "Civic Culture and Public Discourses on Civil Society":"5. Supportive public culture and discourses on civil society",
     "Digital Environment Integrity and Security":"6. Access to a secure digital environment"
 }
