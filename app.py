@@ -3904,9 +3904,9 @@ def load_cfr_data(
         skipna=True,
     )
 
-    # Enforce one observation per country and calendar date across all
-    # snapshots. When a country/date appears in several exports, retain the
-    # row from the most recently dated export (latest export wins).
+    # Retain exactly one observation per country per reporting year.
+    # The latest Last Modified date wins; if that date occurs in multiple
+    # exports, the most recently dated export (then latest source order) wins.
     before_deduplication = len(cfr)
     cfr = (
         cfr.sort_values(
@@ -3915,11 +3915,11 @@ def load_cfr_data(
             kind="stable",
         )
         .drop_duplicates(
-            subset=["_CFR_COUNTRY_KEY", "Last Modified"],
+            subset=["_CFR_COUNTRY_KEY", "CFR Year"],
             keep="last",
         )
         .sort_values(
-            ["Country", "Last Modified"],
+            ["Country", "CFR Year"],
             ascending=[True, True],
             kind="stable",
         )
@@ -3928,7 +3928,7 @@ def load_cfr_data(
     duplicate_count = before_deduplication - len(cfr)
     logging.info(
         "Combined %s CFR source file(s): %s rows before de-duplication, "
-        "%s duplicate country-date row(s) removed, %s unique records retained.",
+        "%s superseded country-year row(s) removed, %s latest country-year records retained.",
         len(source_paths), before_deduplication, duplicate_count, len(cfr),
     )
 
@@ -4039,6 +4039,7 @@ def _load_cfr_master_dataset(source_paths, force_refresh=False):
         force_refresh
         or not CFR_MASTER_CSV.exists()
         or manifest.get("source_signature") != signature_token
+        or manifest.get("processing_version") != 2
     )
 
     refreshed = False
@@ -4073,6 +4074,7 @@ def _load_cfr_master_dataset(source_paths, force_refresh=False):
             "metadata_error": cfr.attrs.get("metadata_error", ""),
         }
         manifest_payload = {
+            "processing_version": 2,
             "source_signature": signature_token,
             "last_refreshed": refreshed_at,
             "refresh_stats": refresh_stats,
@@ -5411,6 +5413,7 @@ def _build_country_table_html(country_scores):
 
     header_cells = [
         '<th class="cfr-left">Country</th>',
+        "<th>Year</th>",
         *[
             f"<th>{_principle_header_html(principle)}</th>"
             for principle in principle_columns
@@ -5422,40 +5425,61 @@ def _build_country_table_html(country_scores):
     body_rows = []
 
     for _, row in country_scores.iterrows():
-        last_modified = (
-            row["Last Modified"].strftime("%b %Y")
-            if pd.notna(row["Last Modified"])
-            else "—"
-        )
+        is_coming_soon = row.get("_CFR_STATUS", "") == "coming_soon"
 
-        report_url = _normalise_cfr_permalink(
-            row.get("Permalink", "")
-        )
-
-        if report_url:
+        if is_coming_soon:
+            last_modified = "Coming soon"
+            year_display = str(int(row["CFR Year"]))
             report_html = (
-                '<a class="cfr-report-link" '
-                f'href="{report_url}" '
-                'target="_blank" '
-                'rel="noopener noreferrer">'
-                'Open report ↗'
-                '</a>'
+                '<span class="cfr-report-unavailable">Coming soon</span>'
             )
         else:
-            report_html = (
-                '<span class="cfr-report-unavailable">'
-                'Not available'
-                '</span>'
+            last_modified = (
+                row["Last Modified"].strftime("%b %Y")
+                if pd.notna(row["Last Modified"])
+                else "—"
+            )
+            year_display = (
+                str(int(row["CFR Year"]))
+                if pd.notna(row.get("CFR Year"))
+                else "—"
             )
 
+            report_url = _normalise_cfr_permalink(
+                row.get("Permalink", "")
+            )
+
+            if report_url:
+                report_html = (
+                    '<a class="cfr-report-link" '
+                    f'href="{report_url}" '
+                    'target="_blank" '
+                    'rel="noopener noreferrer">'
+                    'Open report ↗'
+                    '</a>'
+                )
+            else:
+                report_html = (
+                    '<span class="cfr-report-unavailable">'
+                    'Not available'
+                    '</span>'
+                )
+
         cells = [
-            f'<td class="cfr-left">{_safe_text(row["Country"])}</td>'
+            f'<td class="cfr-left">{_safe_text(row["Country"])}</td>',
+            f"<td>{_safe_text(year_display)}</td>",
         ]
 
-        cells.extend(
-            f"<td>{_format_score(row[principle])}</td>"
-            for principle in principle_columns
-        )
+        if is_coming_soon:
+            cells.extend(
+                '<td><span class="cfr-report-unavailable">Coming soon</span></td>'
+                for _ in principle_columns
+            )
+        else:
+            cells.extend(
+                f"<td>{_format_score(row[principle])}</td>"
+                for principle in principle_columns
+            )
 
         cells.append(
             f'<td class="cfr-date-cell">{_safe_text(last_modified)}</td>'
@@ -6412,20 +6436,55 @@ def render_cfr_analysis():
     # --------------------------------------------------------
     # BOTTOM: COUNTRY-DATE TABLE
     # --------------------------------------------------------
-    # Preserve the historical time series: one row per country per calendar
-    # date. Do not de-duplicate on Country alone, because that would discard
-    # valid observations from other dates.
-    country_table = (
-        cfr[
-            [
-                "Country",
-                *principle_columns,
-                "Last Modified",
-                "Permalink",
-            ]
+    # Show the latest available observation for each country and calendar year.
+    # Add a presentation-only 2026 placeholder for countries without a 2026
+    # record; placeholders are never added to the analytical CFR dataframe.
+    country_table = cfr[
+        [
+            "Country",
+            "CFR Year",
+            *principle_columns,
+            "Last Modified",
+            "Permalink",
         ]
+    ].copy()
+    country_table["_CFR_STATUS"] = "available"
+
+    display_year = datetime.now().year
+    countries_with_current_year = set(
+        country_table.loc[
+            pd.to_numeric(country_table["CFR Year"], errors="coerce").eq(display_year),
+            "Country",
+        ].dropna().astype(str)
+    )
+    missing_current_year = sorted(
+        set(country_table["Country"].dropna().astype(str))
+        - countries_with_current_year
+    )
+
+    if missing_current_year:
+        coming_soon_rows = []
+        for country in missing_current_year:
+            placeholder = {
+                "Country": country,
+                "CFR Year": display_year,
+                "Last Modified": pd.NaT,
+                "Permalink": "",
+                "_CFR_STATUS": "coming_soon",
+            }
+            placeholder.update({principle: pd.NA for principle in principle_columns})
+            coming_soon_rows.append(placeholder)
+
+        country_table = pd.concat(
+            [country_table, pd.DataFrame(coming_soon_rows)],
+            ignore_index=True,
+            sort=False,
+        )
+
+    country_table = (
+        country_table
         .sort_values(
-            ["Country", "Last Modified"],
+            ["Country", "CFR Year"],
             ascending=[True, True],
             na_position="last",
             kind="stable",
@@ -6437,12 +6496,12 @@ def render_cfr_analysis():
         f"""
         <div class="cfr-panel cfr-country-table-panel">
             <div class="cfr-panel-title">
-                CFR scores by country and date
+                CFR scores by country and year
             </div>
             <div class="cfr-panel-note">
-                Historical country-level scores across the six enabling
-                environment principles, with one observation per country
-                per calendar date.
+                One latest observation per country and calendar year.
+                Countries without a {display_year} CFR are marked
+                “Coming soon”.
             </div>
             {_build_country_table_html(country_table)}
         </div>
