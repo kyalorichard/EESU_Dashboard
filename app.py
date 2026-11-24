@@ -5425,61 +5425,46 @@ def _build_country_table_html(country_scores):
     body_rows = []
 
     for _, row in country_scores.iterrows():
-        is_coming_soon = row.get("_CFR_STATUS", "") == "coming_soon"
+        last_modified = (
+            row["Last Modified"].strftime("%b %Y")
+            if pd.notna(row["Last Modified"])
+            else "—"
+        )
+        year_display = (
+            str(int(row["CFR Year"]))
+            if pd.notna(row.get("CFR Year"))
+            else "—"
+        )
 
-        if is_coming_soon:
-            last_modified = "Coming soon"
-            year_display = str(int(row["CFR Year"]))
+        report_url = _normalise_cfr_permalink(
+            row.get("Permalink", "")
+        )
+
+        if report_url:
             report_html = (
-                '<span class="cfr-report-unavailable">Coming soon</span>'
+                '<a class="cfr-report-link" '
+                f'href="{report_url}" '
+                'target="_blank" '
+                'rel="noopener noreferrer">'
+                'Open report ↗'
+                '</a>'
             )
         else:
-            last_modified = (
-                row["Last Modified"].strftime("%b %Y")
-                if pd.notna(row["Last Modified"])
-                else "—"
+            report_html = (
+                '<span class="cfr-report-unavailable">'
+                'Not available'
+                '</span>'
             )
-            year_display = (
-                str(int(row["CFR Year"]))
-                if pd.notna(row.get("CFR Year"))
-                else "—"
-            )
-
-            report_url = _normalise_cfr_permalink(
-                row.get("Permalink", "")
-            )
-
-            if report_url:
-                report_html = (
-                    '<a class="cfr-report-link" '
-                    f'href="{report_url}" '
-                    'target="_blank" '
-                    'rel="noopener noreferrer">'
-                    'Open report ↗'
-                    '</a>'
-                )
-            else:
-                report_html = (
-                    '<span class="cfr-report-unavailable">'
-                    'Not available'
-                    '</span>'
-                )
 
         cells = [
             f'<td class="cfr-left">{_safe_text(row["Country"])}</td>',
             f"<td>{_safe_text(year_display)}</td>",
         ]
 
-        if is_coming_soon:
-            cells.extend(
-                '<td><span class="cfr-report-unavailable">Coming soon</span></td>'
-                for _ in principle_columns
-            )
-        else:
-            cells.extend(
-                f"<td>{_format_score(row[principle])}</td>"
-                for principle in principle_columns
-            )
+        cells.extend(
+            f"<td>{_format_score(row[principle])}</td>"
+            for principle in principle_columns
+        )
 
         cells.append(
             f'<td class="cfr-date-cell">{_safe_text(last_modified)}</td>'
@@ -6434,56 +6419,23 @@ def render_cfr_analysis():
             )
 
     # --------------------------------------------------------
-    # BOTTOM: COUNTRY-DATE TABLE
+    # BOTTOM: COUNTRY-YEAR TABLE
     # --------------------------------------------------------
-    # Show the latest available observation for each country and calendar year.
-    # Add a presentation-only placeholder for the current calendar year
-    # where a country has no record; never add placeholders to the analytical
-    # CFR dataframe. The year is resolved dynamically at runtime.
-    country_table = cfr[
-        [
-            "Country",
-            "CFR Year",
-            *principle_columns,
-            "Last Modified",
-            "Permalink",
-        ]
-    ].copy()
-    country_table["_CFR_STATUS"] = "available"
-
-    display_year = datetime.now().year
-    countries_with_current_year = set(
-        country_table.loc[
-            pd.to_numeric(country_table["CFR Year"], errors="coerce").eq(display_year),
-            "Country",
-        ].dropna().astype(str)
-    )
-    missing_current_year = sorted(
-        set(country_table["Country"].dropna().astype(str))
-        - countries_with_current_year
-    )
-
-    if missing_current_year:
-        coming_soon_rows = []
-        for country in missing_current_year:
-            placeholder = {
-                "Country": country,
-                "CFR Year": display_year,
-                "Last Modified": pd.NaT,
-                "Permalink": "",
-                "_CFR_STATUS": "coming_soon",
-            }
-            placeholder.update({principle: pd.NA for principle in principle_columns})
-            coming_soon_rows.append(placeholder)
-
-        country_table = pd.concat(
-            [country_table, pd.DataFrame(coming_soon_rows)],
-            ignore_index=True,
-            sort=False,
-        )
-
+    # Display only published CFR records. Because the source dataframe
+    # retains the latest observation per country and calendar year, countries
+    # with two published years show two rows; countries with one published
+    # year show only that one row. No placeholder rows are generated.
     country_table = (
-        country_table
+        cfr[
+            [
+                "Country",
+                "CFR Year",
+                *principle_columns,
+                "Last Modified",
+                "Permalink",
+            ]
+        ]
+        .copy()
         .sort_values(
             ["Country", "CFR Year"],
             ascending=[True, True],
@@ -6500,9 +6452,8 @@ def render_cfr_analysis():
                 CFR scores by country and year
             </div>
             <div class="cfr-panel-note">
-                One latest observation per country and calendar year.
-                Countries without a {display_year} CFR are marked
-                “Coming soon”.
+                Displays published CFRs only, retaining the latest
+                observation for each country and calendar year.
             </div>
             {_build_country_table_html(country_table)}
         </div>
