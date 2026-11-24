@@ -6437,8 +6437,9 @@ def render_cfr_analysis():
     # BOTTOM: COUNTRY-DATE TABLE
     # --------------------------------------------------------
     # Show the latest available observation for each country and calendar year.
-    # Add a presentation-only 2026 placeholder for countries without a 2026
-    # record; placeholders are never added to the analytical CFR dataframe.
+    # Add a presentation-only placeholder for the current calendar year
+    # where a country has no record; never add placeholders to the analytical
+    # CFR dataframe. The year is resolved dynamically at runtime.
     country_table = cfr[
         [
             "Country",
