@@ -10555,10 +10555,74 @@ if tab_overview is not None:
             if has_permission("view_coverage_monitored_countries"):
                 render_summary_cards(filtered_global, card_key="overview_summary")
             a1 = filtered_global.groupby(["alert-type","alert-impact"]).size().reset_index(name='count')
-            df_clean = filtered_global.assign(**{"enabling-principle": filtered_global["enabling-principle"].str.split(",")}).explode("enabling-principle")
-            df_clean["enabling-principle"] = df_clean["enabling-principle"].str.strip().map(ENABLING_PRINCIPLE_LABEL_MAP)
-            df_clean["enabling-principle"] = pd.Categorical(df_clean["enabling-principle"],categories=ENABLING_PRINCIPLE_ORDER,ordered=True)
-            a2 = df_clean.groupby(["enabling-principle","alert-impact"]).size().reset_index(name='count').sort_values("enabling-principle",ascending=False)
+            # Build the enabling-principle distribution from the already-filtered
+            # dataframe. Use the shared category parser rather than str.split(",")
+            # so category labels are not accidentally broken at embedded commas.
+            df_clean = filtered_global.copy()
+
+            if "enabling-principle" in df_clean.columns:
+                df_clean["enabling-principle"] = df_clean[
+                    "enabling-principle"
+                ].apply(split_category_values)
+                df_clean = df_clean.explode("enabling-principle")
+                df_clean["enabling-principle"] = (
+                    df_clean["enabling-principle"]
+                    .astype("string")
+                    .str.strip()
+                )
+
+                # Match source labels case-insensitively and tolerate whitespace
+                # differences in records returned by the date filter.
+                _principle_map_normalized = {
+                    str(source).strip().casefold(): display
+                    for source, display in ENABLING_PRINCIPLE_LABEL_MAP.items()
+                }
+                df_clean["enabling-principle"] = (
+                    df_clean["enabling-principle"]
+                    .map(
+                        lambda value: _principle_map_normalized.get(
+                            str(value).strip().casefold(),
+                            str(value).strip() if pd.notna(value) else None,
+                        )
+                    )
+                )
+
+                # Retain valid principle records and aggregate only observed
+                # categories. This avoids empty categorical combinations
+                # suppressing the chart after a narrow date selection.
+                df_clean = df_clean[
+                    df_clean["enabling-principle"].notna()
+                    & df_clean["enabling-principle"].ne("")
+                ].copy()
+
+                a2 = (
+                    df_clean.groupby(
+                        ["enabling-principle", "alert-impact"],
+                        observed=True,
+                        dropna=False,
+                    )
+                    .size()
+                    .reset_index(name="count")
+                )
+
+                _principle_rank = {
+                    label: index
+                    for index, label in enumerate(ENABLING_PRINCIPLE_ORDER)
+                }
+                a2["_sort_order"] = a2["enabling-principle"].map(
+                    lambda value: _principle_rank.get(value, len(_principle_rank))
+                )
+                a2 = (
+                    a2.sort_values(
+                        ["_sort_order", "enabling-principle", "alert-impact"],
+                        ascending=[False, True, True],
+                    )
+                    .drop(columns="_sort_order")
+                )
+            else:
+                a2 = pd.DataFrame(
+                    columns=["enabling-principle", "alert-impact", "count"]
+                )
             a3 = filtered_global.groupby(["region","alert-impact"]).size().reset_index(name='count')
             #a4 = filtered_global.groupby(["alert-country","alert-impact"]).size().reset_index(name='count').sort_values(by='count', ascending=False)
             # Top 15 countries by total alert count
@@ -10616,36 +10680,38 @@ if tab_overview is not None:
 
             render_dashboard_plotly_chart(create_h_stacked_bar(a1,y="alert-type",x="count",color_col="alert-impact",title="Alert type distribution", horizontal=True, normalize_labels=True, show_percentage_disclaimer=False), plot_df=a1, visual_type="stacked bar chart", x_col="alert-type", group_col="alert-impact", dashboard_df=filtered_global, key="tab1_chart1", container=r1c1, permission_key="view_chart_overview_alert_type", permission_label="Overview alert type distribution")
 
-            fig12 = create_h_stacked_bar(
-                a2,
-                y="enabling-principle",
-                x="count",
-                color_col="alert-impact",
-                title="Alert distribution across enabling principles", 
-                horizontal=True,
-                normalize_labels=False,
-                show_percentage_disclaimer=False,
-            )
+            if a2.empty:
+                with r1c2:
+                    st.info(
+                        "No enabling-principle records are available for the "
+                        "selected date range and other active filters."
+                    )
+            else:
+                fig12 = create_h_stacked_bar(
+                    a2,
+                    y="enabling-principle",
+                    x="count",
+                    color_col="alert-impact",
+                    title="Alert distribution across enabling principles",
+                    horizontal=True,
+                    normalize_labels=False,
+                    show_percentage_disclaimer=False,
+                )
 
-         
+                # Render chart in Streamlit with the info tooltip directly beside the title.
+                render_dashboard_plotly_chart(
+                    fig12,
+                    plot_df=a2,
+                    visual_type="stacked bar chart",
+                    x_col="enabling-principle",
+                    group_col="alert-impact",
+                    dashboard_df=filtered_global,
+                    key="tab1_chart2",
+                    container=r1c2,
+                    permission_key="view_chart_overview_enabling_principles",
+                    permission_label="Overview enabling-principle distribution",
+                )
 
-            # Add source line if needed
-            #fig12 = add_source_line(fig12)
-
-            # Render chart in Streamlit with the info tooltip directly beside the title.
-            render_dashboard_plotly_chart(
-                fig12,
-                plot_df=a2,
-                visual_type="stacked bar chart",
-                x_col="enabling-principle",
-                group_col="alert-impact",
-                dashboard_df=filtered_global,
-                key="tab1_chart2",
-                container=r1c2,
-                permission_key="view_chart_overview_enabling_principles",
-                permission_label="Overview enabling-principle distribution",
-            )
-  
             #r1c2.plotly_chart(create_h_stacked_bar(a2,y="enabling-principle",x="count",color_col="alert-impact",title="Alert distribution across enabling principles", horizontal=True),use_container_width=True,  key="tab1_chart2")
 
             #if is_privileged():
