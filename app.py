@@ -4141,7 +4141,8 @@ def _inject_cfr_dashboard_css():
             justify-content: space-between;
             gap: 18px;
             width: 100%;
-            margin: 8px 0 10px 0;
+            /* Keep the score-scale note close to the summary cards below. */
+            margin: 8px 0 0 0;
         }
 
         .cfr-page-subtitle {
@@ -4194,7 +4195,8 @@ def _inject_cfr_dashboard_css():
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 18px;
-            margin: 20px 0 18px 0;
+            /* Remove excess top whitespace between the subtitle and KPI cards. */
+            margin: 0 0 18px 0;
         }
 
         .cfr-kpi-card {
@@ -5238,7 +5240,7 @@ def _inject_cfr_dashboard_css():
             }
 
             .cfr-page-subtitle {
-                margin-bottom: 16px;
+                margin-bottom: 0;
                 font-size: 11.5px;
             }
 
