@@ -709,7 +709,46 @@ def inject_classic_dashboard_css():
         --eusee-border: #E6E8EF;
         --eusee-text: #232633;
         --eusee-muted: #667085;
+
+        /* Keep Streamlit's theme tokens in light mode regardless of the
+           visitor's operating-system or browser appearance preference. */
+        color-scheme: light;
+        --background-color: #FFFFFF;
+        --secondary-background-color: #F8F5FA;
+        --text-color: #24132F;
+        --primary-color: #7200A8;
     }
+
+    /* Explicitly paint the full application canvas. Previously the app
+       styled cards and sidebar but left the main Streamlit canvas to inherit
+       the active Streamlit/browser theme. */
+    html,
+    body,
+    .stApp,
+    [data-testid="stApp"],
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    [data-testid="stMainBlockContainer"],
+    section.main,
+    .main,
+    .main .block-container {
+        background-color: #FFFFFF !important;
+        color: #24132F !important;
+        color-scheme: light !important;
+    }
+
+    /* Keep standard Markdown headings and paragraphs readable on the
+       enforced white canvas without overriding custom chart/card colours. */
+    [data-testid="stMain"] [data-testid="stMarkdownContainer"],
+    [data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMain"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMain"] h1,
+    [data-testid="stMain"] h2,
+    [data-testid="stMain"] h3,
+    [data-testid="stMain"] h4 {
+        color: #24132F;
+    }
+
     .main .block-container { padding-top: 0.25rem !important; padding-bottom: 1.4rem; max-width: 1500px; }
     header[data-testid="stHeader"] {
         height: 48px !important;
