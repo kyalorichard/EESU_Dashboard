@@ -12915,3 +12915,104 @@ def inject_eusee_dual_theme_css() -> None:
 
 # Apply after all other global styling so theme-specific rules win the cascade.
 inject_eusee_dual_theme_css()
+
+
+# ============================================================
+# FINAL DARK-MODE CONTRAST FIX
+# Runs after all existing dashboard CSS. It specifically fixes
+# the subtitle and Streamlit tab labels seen in the dark-mode
+# screenshot, while preserving white cards and chart panels.
+# ============================================================
+st.markdown(
+    """
+    <style>
+    /* Detect Streamlit's selected dark theme and browser/OS dark mode. */
+    :root[data-theme="dark"] .animated-subtitle,
+    body[data-theme="dark"] .animated-subtitle {
+        color: #F4EDF8 !important;
+        opacity: 1 !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) .animated-subtitle,
+        body:not([data-theme="light"]) .animated-subtitle {
+            color: #F4EDF8 !important;
+            opacity: 1 !important;
+        }
+    }
+
+    /* Introductory copy and other plain markdown text on the dark canvas. */
+    :root[data-theme="dark"] [data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+    :root[data-theme="dark"] [data-testid="stMain"] [data-testid="stMarkdownContainer"] li,
+    body[data-theme="dark"] [data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+    body[data-theme="dark"] [data-testid="stMain"] [data-testid="stMarkdownContainer"] li {
+        color: #F4EDF8 !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) [data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+        :root:not([data-theme="light"]) [data-testid="stMain"] [data-testid="stMarkdownContainer"] li,
+        body:not([data-theme="light"]) [data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+        body:not([data-theme="light"]) [data-testid="stMain"] [data-testid="stMarkdownContainer"] li {
+            color: #F4EDF8 !important;
+        }
+    }
+
+    /* Tabs: inactive tabs are white, so use dark text; active tab is purple. */
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        color: #34223E !important;
+        -webkit-text-fill-color: #34223E !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"] *,
+    [data-testid="stTabs"] [role="tab"] * {
+        color: inherit !important;
+        -webkit-text-fill-color: inherit !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        background: #7600A8 !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] * {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+    }
+
+    /* Keep the intended white/light dashboard surfaces readable in dark mode. */
+    .classic-filter-header,
+    .classic-filter-status,
+    .data-preview-toolbar,
+    .executive-table-shell,
+    .executive-mini-kpi,
+    .executive-table-status,
+    .eusee-data-preview-note {
+        color: #232633 !important;
+    }
+    .classic-filter-header *,
+    .classic-filter-status *,
+    .data-preview-toolbar *,
+    .executive-table-shell *,
+    .executive-mini-kpi *,
+    .executive-table-status *,
+    .eusee-data-preview-note * {
+        color: inherit;
+    }
+
+    /* Preserve contrast for white cards and chart containers. */
+    [data-testid="stVerticalBlockBorderWrapper"],
+    [data-testid="stMetric"],
+    [data-testid="stDataFrame"],
+    [data-testid="stTable"] {
+        color: #232633;
+    }
+
+    /* Keep the header consistent with the existing light sidebar. */
+    header[data-testid="stHeader"] {
+        background: rgba(247,248,251,0.96) !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
